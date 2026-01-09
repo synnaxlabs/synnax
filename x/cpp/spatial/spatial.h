@@ -29,7 +29,7 @@ struct XY {
         return {{"x", this->x}, {"y", this->y}};
     }
 
-    void to_proto(x::v1::x::spatial::PBXY *pb) const {
+    void to_proto(x::v1::spatial::PBXY *pb) const {
         pb->set_x(this->x);
         pb->set_y(this->y);
     }

@@ -409,7 +409,7 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	data.imports.add(importPath)
 
 	// Use fully qualified name with package prefix
-	pkg := deriveLayerPrefix(targetOutputPath) + "." + resolved.Namespace
+	pkg := deriveLayerPrefix(targetOutputPath) + "." + resolved.Namespace + ".pb"
 	return fmt.Sprintf("%s.%s", pkg, resolved.Name)
 }
 

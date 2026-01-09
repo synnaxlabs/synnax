@@ -50,7 +50,7 @@ TEST(ChannelsTest, ParseAIAccelChan) {
     EXPECT_EQ(accel_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(accel_chan->excitation_config.val, 0);
     EXPECT_EQ(accel_chan->units, DAQmx_Val_g);
-    accel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    accel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(accel_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -83,7 +83,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
     EXPECT_EQ(bridge_chan->min_val, 0);
     EXPECT_EQ(bridge_chan->max_val, 1);
     EXPECT_EQ(bridge_chan->bridge_config.nominal_bridge_resistance, 1);
-    bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -116,7 +116,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
     EXPECT_EQ(current_chan->max_val, 1);
     EXPECT_EQ(current_chan->shunt_resistor_loc, DAQmx_Val_Default);
     EXPECT_EQ(current_chan->ext_shunt_resistor_val, 1);
-    current_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    current_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(current_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -162,7 +162,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
     EXPECT_EQ(force_bridge_chan->bridge_config.voltage_excit_val, 0);
     EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[0], 1);
     EXPECT_EQ(force_bridge_chan->table_config.electrical_vals[1], 2);
-    force_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    force_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -207,7 +207,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
     EXPECT_EQ(force_bridge_chan->two_point_lin_config.second_electrical_val, 1);
     EXPECT_EQ(force_bridge_chan->two_point_lin_config.first_physical_val, 0);
     EXPECT_EQ(force_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    force_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    force_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(force_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -243,7 +243,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
     EXPECT_EQ(force_iepe_chan->sensitivity, 0);
     EXPECT_EQ(force_iepe_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(force_iepe_chan->excitation_config.val, 0);
-    force_iepe_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    force_iepe_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(force_iepe_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -276,7 +276,7 @@ TEST(ChannelsTest, ParseAIMicrophoneChan) {
     EXPECT_EQ(mic_chan->excitation_config.val, 0);
     EXPECT_EQ(mic_chan->mic_sensitivity, 0);
     EXPECT_EQ(mic_chan->max_snd_press_level, 0);
-    mic_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    mic_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(mic_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -323,7 +323,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         DAQmx_Val_Internal
     );
     EXPECT_EQ(pressure_bridge_chan->bridge_config.voltage_excit_val, 0);
-    pressure_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    pressure_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -372,7 +372,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
     EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.second_electrical_val, 1);
     EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.first_physical_val, 0);
     EXPECT_EQ(pressure_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    pressure_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    pressure_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(pressure_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -408,7 +408,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
     EXPECT_EQ(rtd_chan->r0, 0);
     EXPECT_EQ(rtd_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(rtd_chan->excitation_config.val, 0);
-    rtd_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    rtd_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(rtd_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -451,7 +451,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
     EXPECT_EQ(strain_chan->lead_wire_resistance, 0);
     EXPECT_EQ(strain_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(strain_chan->excitation_config.val, 0);
-    strain_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    strain_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(strain_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -474,7 +474,7 @@ TEST(ChannelsTest, ParseAITempBuiltInChan) {
     const auto temp_chan = dynamic_cast<channel::AITempBuiltIn *>(chan.get());
     ASSERT_NE(temp_chan, nullptr);
     EXPECT_EQ(temp_chan->units, DAQmx_Val_DegC);
-    temp_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    temp_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(temp_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -510,7 +510,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
     EXPECT_EQ(thermo_chan->cjc_port, "channels_1");
     EXPECT_EQ(thermo_chan->min_val, 0);
     EXPECT_EQ(thermo_chan->max_val, 1);
-    thermo_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    thermo_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(thermo_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -554,7 +554,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         DAQmx_Val_Internal
     );
     EXPECT_EQ(torque_bridge_chan->bridge_config.voltage_excit_val, 0);
-    torque_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    torque_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -599,7 +599,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
     EXPECT_EQ(torque_bridge_chan->two_point_lin_config.second_electrical_val, 1);
     EXPECT_EQ(torque_bridge_chan->two_point_lin_config.first_physical_val, 0);
     EXPECT_EQ(torque_bridge_chan->two_point_lin_config.second_physical_val, 1);
-    torque_bridge_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    torque_bridge_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(torque_bridge_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -635,7 +635,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
     EXPECT_EQ(velocity_chan->sensitivity, 0);
     EXPECT_EQ(velocity_chan->excitation_config.source, DAQmx_Val_Internal);
     EXPECT_EQ(velocity_chan->excitation_config.val, 0);
-    velocity_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    velocity_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(velocity_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -664,7 +664,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
     EXPECT_EQ(voltage_chan->terminal_config, DAQmx_Val_Cfg_Default);
     EXPECT_EQ(voltage_chan->min_val, 0);
     EXPECT_EQ(voltage_chan->max_val, 1);
-    voltage_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    voltage_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ai0");
 }
 
@@ -691,7 +691,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
     ASSERT_NE(voltage_chan, nullptr);
     EXPECT_EQ(voltage_chan->min_val, 0);
     EXPECT_EQ(voltage_chan->max_val, 1);
-    voltage_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    voltage_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(voltage_chan->loc(), "cDAQ1Mod2/ao0");
 }
 
@@ -719,7 +719,7 @@ TEST(ChannelsTest, ParseAOFuncGenChan) {
     EXPECT_EQ(func_gen_chan->frequency, 0);
     EXPECT_EQ(func_gen_chan->amplitude, 0);
     EXPECT_EQ(func_gen_chan->offset, 0);
-    func_gen_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    func_gen_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(func_gen_chan->loc(), "cDAQ1Mod2/ao1");
 }
 
@@ -743,7 +743,7 @@ TEST(ChannelsTest, ParseDIChan) {
     EXPECT_EQ(di_chan->port, 0);
     EXPECT_EQ(di_chan->line, 1);
     EXPECT_EQ(di_chan->enabled, true);
-    di_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    di_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(di_chan->loc(), "cDAQ1Mod2/port0/line1");
 }
 
@@ -768,7 +768,7 @@ TEST(ChannelsTest, ParseDOChan) {
     EXPECT_EQ(do_chan->port, 0);
     EXPECT_EQ(do_chan->line, 1);
     EXPECT_EQ(do_chan->enabled, true);
-    do_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod2");
+    do_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
     EXPECT_EQ(do_chan->loc(), "cDAQ1Mod2/port0/line1");
 }
 
@@ -808,7 +808,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
     EXPECT_DOUBLE_EQ(ci_freq_chan->meas_time, 0.001);
     EXPECT_EQ(ci_freq_chan->divisor, 4);
     EXPECT_EQ(ci_freq_chan->terminal, "");
-    ci_freq_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_freq_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_freq_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -848,7 +848,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
     EXPECT_DOUBLE_EQ(ci_freq_chan->meas_time, 0.01);
     EXPECT_EQ(ci_freq_chan->divisor, 1);
     EXPECT_EQ(ci_freq_chan->terminal, "PFI0");
-    ci_freq_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_freq_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_freq_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
@@ -879,7 +879,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanRising) {
     EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountUp);
     EXPECT_EQ(ci_edge_count_chan->initial_count, 0);
     EXPECT_EQ(ci_edge_count_chan->terminal, "");
-    ci_edge_count_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_edge_count_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -910,7 +910,7 @@ TEST(ChannelsTest, ParseCIEdgeCountChanFalling) {
     EXPECT_EQ(ci_edge_count_chan->count_direction, DAQmx_Val_CountDown);
     EXPECT_EQ(ci_edge_count_chan->initial_count, 100);
     EXPECT_EQ(ci_edge_count_chan->terminal, "PFI11");
-    ci_edge_count_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_edge_count_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_edge_count_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
@@ -945,7 +945,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
     EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_DynAvg);
     EXPECT_EQ(ci_period_chan->terminal, "");
-    ci_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -980,7 +980,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
     EXPECT_EQ(ci_period_chan->edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_period_chan->meas_method, DAQmx_Val_LowFreq1Ctr);
     EXPECT_EQ(ci_period_chan->terminal, "PFI5");
-    ci_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_period_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
@@ -1011,7 +1011,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
     EXPECT_EQ(ci_pulse_width_chan->port, 0);
     EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_pulse_width_chan->terminal, "");
-    ci_pulse_width_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_pulse_width_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1042,7 +1042,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
     EXPECT_EQ(ci_pulse_width_chan->port, 1);
     EXPECT_EQ(ci_pulse_width_chan->edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_pulse_width_chan->terminal, "PFI9");
-    ci_pulse_width_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_pulse_width_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_pulse_width_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
@@ -1069,7 +1069,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
     ASSERT_NE(ci_semi_period_chan, nullptr);
     EXPECT_EQ(ci_semi_period_chan->enabled, true);
     EXPECT_EQ(ci_semi_period_chan->port, 0);
-    ci_semi_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_semi_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1096,7 +1096,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
     ASSERT_NE(ci_semi_period_chan, nullptr);
     EXPECT_EQ(ci_semi_period_chan->enabled, true);
     EXPECT_EQ(ci_semi_period_chan->port, 1);
-    ci_semi_period_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_semi_period_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_semi_period_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
@@ -1127,7 +1127,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
     EXPECT_EQ(ci_two_edge_sep_chan->port, 0);
     EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Falling);
-    ci_two_edge_sep_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_two_edge_sep_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1158,7 +1158,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
     EXPECT_EQ(ci_two_edge_sep_chan->port, 1);
     EXPECT_EQ(ci_two_edge_sep_chan->first_edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_two_edge_sep_chan->second_edge, DAQmx_Val_Rising);
-    ci_two_edge_sep_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_two_edge_sep_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_two_edge_sep_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
@@ -1196,7 +1196,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
     EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.001);
     EXPECT_EQ(ci_lin_vel_chan->terminal_a, "PFI0");
     EXPECT_EQ(ci_lin_vel_chan->terminal_b, "PFI1");
-    ci_lin_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1234,7 +1234,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
     EXPECT_DOUBLE_EQ(ci_lin_vel_chan->dist_per_pulse, 0.01);
     EXPECT_EQ(ci_lin_vel_chan->terminal_a, "");
     EXPECT_EQ(ci_lin_vel_chan->terminal_b, "");
-    ci_lin_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_vel_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
@@ -1272,7 +1272,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
     EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 24);
     EXPECT_EQ(ci_ang_vel_chan->terminal_a, "PFI2");
     EXPECT_EQ(ci_ang_vel_chan->terminal_b, "PFI3");
-    ci_ang_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1310,7 +1310,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
     EXPECT_EQ(ci_ang_vel_chan->pulses_per_rev, 100);
     EXPECT_EQ(ci_ang_vel_chan->terminal_a, "");
     EXPECT_EQ(ci_ang_vel_chan->terminal_b, "");
-    ci_ang_vel_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_vel_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_vel_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
@@ -1358,7 +1358,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
     EXPECT_EQ(ci_lin_pos_chan->terminal_a, "PFI0");
     EXPECT_EQ(ci_lin_pos_chan->terminal_b, "PFI1");
     EXPECT_EQ(ci_lin_pos_chan->terminal_z, "PFI2");
-    ci_lin_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1406,7 +1406,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
     EXPECT_EQ(ci_lin_pos_chan->terminal_a, "");
     EXPECT_EQ(ci_lin_pos_chan->terminal_b, "");
     EXPECT_EQ(ci_lin_pos_chan->terminal_z, "");
-    ci_lin_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_lin_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_lin_pos_chan->loc(), "cDAQ1Mod3/ctr1");
 }
 
@@ -1454,7 +1454,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
     EXPECT_EQ(ci_ang_pos_chan->terminal_a, "PFI10");
     EXPECT_EQ(ci_ang_pos_chan->terminal_b, "PFI12");
     EXPECT_EQ(ci_ang_pos_chan->terminal_z, "PFI11");
-    ci_ang_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1502,7 +1502,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
     EXPECT_EQ(ci_ang_pos_chan->terminal_a, "");
     EXPECT_EQ(ci_ang_pos_chan->terminal_b, "");
     EXPECT_EQ(ci_ang_pos_chan->terminal_z, "");
-    ci_ang_pos_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_ang_pos_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_ang_pos_chan->loc(), "cDAQ1Mod3/ctr2");
 }
 
@@ -1534,7 +1534,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
     EXPECT_EQ(ci_duty_cycle_chan->max_val, 10000);
     EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Rising);
     EXPECT_EQ(ci_duty_cycle_chan->terminal, "PFI0");
-    ci_duty_cycle_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_duty_cycle_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr0");
 }
 
@@ -1566,6 +1566,6 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     EXPECT_EQ(ci_duty_cycle_chan->max_val, 5000);
     EXPECT_EQ(ci_duty_cycle_chan->edge, DAQmx_Val_Falling);
     EXPECT_EQ(ci_duty_cycle_chan->terminal, "");
-    ci_duty_cycle_chan->bind_remote_info(synnax::Channel(), "cDAQ1Mod3");
+    ci_duty_cycle_chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod3");
     EXPECT_EQ(ci_duty_cycle_chan->loc(), "cDAQ1Mod3/ctr1");
 }

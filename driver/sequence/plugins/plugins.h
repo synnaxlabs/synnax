@@ -112,7 +112,7 @@ public:
 
     /// @brief sets the authority of the channels being written to.
     virtual x::errors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
+        const std::vector<synnax::channel::Key> &keys,
         const std::vector<x::telem::Authority> &authorities
     ) = 0;
 
@@ -139,7 +139,7 @@ public:
     x::errors::Error write(const x::telem::Frame &frame) override;
 
     x::errors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
+        const std::vector<synnax::channel::Key> &keys,
         const std::vector<x::telem::Authority> &authorities
     ) override;
 
@@ -156,17 +156,17 @@ class ChannelWrite final : public Plugin {
     /// writer.
     std::shared_ptr<FrameSink> sink;
     /// @brief a map of channel names to info on the channel.
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
     /// @brief a map that allows the user to resolve a channel by its name.
-    std::unordered_map<std::string, synnax::ChannelKey> names_to_keys;
+    std::unordered_map<std::string, synnax::channel::Key> names_to_keys;
 
 public:
     ChannelWrite(
         std::shared_ptr<FrameSink> sink,
-        const std::vector<synnax::Channel> &channels
+        const std::vector<synnax::channel::Channel> &channels
     );
 
-    std::pair<synnax::Channel, bool> resolve(const std::string &name);
+    std::pair<synnax::channel::Channel, bool> resolve(const std::string &name);
 
     x::errors::Error before_all(lua_State *L) override;
 
@@ -191,10 +191,10 @@ class ChannelReceive final : public Plugin {
     /// @brief the pipeline used to manage the lifecycle of the receiver.
     driver::pipeline::Control pipe;
     /// @brief keeps all the latest sample values for the channels.
-    std::unordered_map<synnax::ChannelKey, LatestValue> latest_values;
+    std::unordered_map<synnax::channel::Key, LatestValue> latest_values;
     /// @brief maps channel keys to channels in order to bind variable names
     /// appropriately.
-    std::unordered_map<synnax::ChannelKey, synnax::Channel> channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
 
     class Sink final : public driver::pipeline::Sink {
         ChannelReceive &receiver;
@@ -208,14 +208,14 @@ class ChannelReceive final : public Plugin {
 public:
     explicit ChannelReceive(
         const std::shared_ptr<synnax::Synnax> &client,
-        const std::vector<synnax::Channel> &read_from
+        const std::vector<synnax::channel::Channel> &read_from
     );
 
     /// @brief alternative constructor that can be used to stub Synnax for test
     /// cases.
     explicit ChannelReceive(
         const std::shared_ptr<driver::pipeline::StreamerFactory> &factory,
-        const std::vector<synnax::Channel> &read_from
+        const std::vector<synnax::channel::Channel> &read_from
     );
 
     x::errors::Error before_all(lua_State *L) override;

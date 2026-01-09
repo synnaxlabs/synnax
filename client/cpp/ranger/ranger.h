@@ -41,7 +41,7 @@ public:
     Key key;
     std::string name;
     x::telem::TimeRange time_range{};
-    kv::Client kv = kv::Client("", nullptr, nullptr, nullptr);
+    kv::Client kv = kv::Client();
 
     /// @brief constructs the range. Note that this does not mean the range has been
     /// persisted to the cluster. To persist the range, call create, at which

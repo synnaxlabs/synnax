@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -336,11 +336,11 @@ var File_core_pkg_api_grpc_device_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_device_device_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/grpc/device/device.proto\x12\vgrpc.device\x1a'core/pkg/service/device/pb/device.proto\x1a\x1bgoogle/protobuf/empty.proto\"A\n" +
-	"\rCreateRequest\x120\n" +
-	"\adevices\x18\x01 \x03(\v2\x16.service.device.DeviceR\adevices\"B\n" +
-	"\x0eCreateResponse\x120\n" +
-	"\adevices\x18\x01 \x03(\v2\x16.service.device.DeviceR\adevices\"\xb4\x02\n" +
+	"%core/pkg/api/grpc/device/device.proto\x12\vgrpc.device\x1a'core/pkg/service/device/pb/device.proto\x1a\x1bgoogle/protobuf/empty.proto\"D\n" +
+	"\rCreateRequest\x123\n" +
+	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"E\n" +
+	"\x0eCreateResponse\x123\n" +
+	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"\xb4\x02\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12\x14\n" +
@@ -353,9 +353,9 @@ const file_core_pkg_api_grpc_device_device_proto_rawDesc = "" +
 	"\x06offset\x18\t \x01(\rR\x06offset\x12(\n" +
 	"\x10ignore_not_found\x18\n" +
 	" \x01(\bR\x0eignoreNotFound\x12%\n" +
-	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\"D\n" +
-	"\x10RetrieveResponse\x120\n" +
-	"\adevices\x18\x01 \x03(\v2\x16.service.device.DeviceR\adevices\"#\n" +
+	"\x0einclude_status\x18\v \x01(\bR\rincludeStatus\"G\n" +
+	"\x10RetrieveResponse\x123\n" +
+	"\adevices\x18\x01 \x03(\v2\x19.service.device.pb.DeviceR\adevices\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys2V\n" +
 	"\x13DeviceCreateService\x12?\n" +
@@ -385,13 +385,13 @@ var file_core_pkg_api_grpc_device_device_proto_goTypes = []any{
 	(*RetrieveRequest)(nil),  // 2: grpc.device.RetrieveRequest
 	(*RetrieveResponse)(nil), // 3: grpc.device.RetrieveResponse
 	(*DeleteRequest)(nil),    // 4: grpc.device.DeleteRequest
-	(*pb.Device)(nil),        // 5: service.device.Device
+	(*pb.Device)(nil),        // 5: service.device.pb.Device
 	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_device_device_proto_depIdxs = []int32{
-	5, // 0: grpc.device.CreateRequest.devices:type_name -> service.device.Device
-	5, // 1: grpc.device.CreateResponse.devices:type_name -> service.device.Device
-	5, // 2: grpc.device.RetrieveResponse.devices:type_name -> service.device.Device
+	5, // 0: grpc.device.CreateRequest.devices:type_name -> service.device.pb.Device
+	5, // 1: grpc.device.CreateResponse.devices:type_name -> service.device.pb.Device
+	5, // 2: grpc.device.RetrieveResponse.devices:type_name -> service.device.pb.Device
 	0, // 3: grpc.device.DeviceCreateService.Exec:input_type -> grpc.device.CreateRequest
 	2, // 4: grpc.device.DeviceRetrieveService.Exec:input_type -> grpc.device.RetrieveRequest
 	4, // 5: grpc.device.DeviceDeleteService.Exec:input_type -> grpc.device.DeleteRequest

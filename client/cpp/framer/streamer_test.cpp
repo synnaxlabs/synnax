@@ -15,6 +15,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
+namespace synnax::framer {
 void test_downsample(
     const std::vector<int> &raw_data,
     std::vector<int> expected,
@@ -29,12 +30,10 @@ TEST(StreamerTests, testStreamBasic) {
 
     std::vector channels = {data.key};
     auto [streamer, sErr] = client.telem.open_streamer(
-        synnax::StreamerConfig{
-            channels,
-        }
+        StreamerConfig{channels}
     );
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             channels,
             now,
             {x::telem::AUTH_ABSOLUTE},
@@ -62,7 +61,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     auto now = x::telem::TimeStamp::now();
 
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
-        synnax::StreamerConfig{
+        StreamerConfig{
             {},
         }
     ));
@@ -70,7 +69,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     auto set_err = streamer.set_channels({data.key});
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             {data.key},
             now,
             {x::telem::AUTH_ABSOLUTE},
@@ -138,7 +137,7 @@ TEST(StreamerTests, TestStreamDownsample) {
 TEST(StreamerTests, TestStreamDownsampleNegative) {
     auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
-        client.telem.open_streamer(synnax::StreamerConfig{.downsample_factor = -1}),
+        client.telem.open_streamer(StreamerConfig{.downsample_factor = -1}),
         x::errors::VALIDATION
     );
 }
@@ -154,13 +153,13 @@ TEST(StreamerTests, TestStreamVariableChannel) {
     auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
-        synnax::StreamerConfig{
+        StreamerConfig{
             .channels = {data.key},
         }
     ));
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             channels,
             now,
             std::vector{x::telem::AUTH_ABSOLUTE},
@@ -189,7 +188,7 @@ void test_downsample(
     auto now = x::telem::TimeStamp::now();
     std::vector channels = {data.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             channels,
             now,
             std::vector{x::telem::AUTH_ABSOLUTE},
@@ -198,7 +197,7 @@ void test_downsample(
     ));
 
     auto [streamer, sErr] = client.telem.open_streamer(
-        synnax::StreamerConfig{channels, downsample_factor}
+        StreamerConfig{channels, downsample_factor}
     );
 
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
@@ -223,7 +222,7 @@ void test_downsample_string(
 ) {
     auto client = new_test_client();
 
-    synnax::Channel virtual_channel(
+    channel::Channel virtual_channel(
         make_unique_channel_name("virtual_string_channel"),
         x::telem::STRING_T,
         true
@@ -233,7 +232,7 @@ void test_downsample_string(
     auto now = x::telem::TimeStamp::now();
     std::vector channels = {virtual_channel.key};
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             channels,
             now,
             std::vector{x::telem::AUTH_ABSOLUTE},
@@ -242,7 +241,7 @@ void test_downsample_string(
     ));
 
     auto streamer = ASSERT_NIL_P(
-        client.telem.open_streamer(synnax::StreamerConfig{channels, downsample_factor})
+        client.telem.open_streamer(StreamerConfig{channels, downsample_factor})
     );
 
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
@@ -267,7 +266,8 @@ void test_downsample_string(
 /// @brief it should correctly downsample string series data.
 TEST(StreamerTests, TestStreamDownsampleString) {
     const std::vector<std::string> data =
-        {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
+    {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
     const std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
     test_downsample_string(data, expected, 2);
+}
 }

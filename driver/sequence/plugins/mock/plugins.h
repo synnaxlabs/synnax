@@ -20,7 +20,7 @@ namespace plugins::mock {
 class FrameSink final : public plugins::FrameSink, public driver::pipeline::mock::Sink {
 public:
     std::vector<
-        std::pair<std::vector<synnax::ChannelKey>, std::vector<x::telem::Authority>>>
+        std::pair<std::vector<synnax::channel::Key>, std::vector<x::telem::Authority>>>
         authority_calls;
 
     x::errors::Error write(const x::telem::Frame &frame) override {
@@ -28,7 +28,7 @@ public:
     }
 
     x::errors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
+        const std::vector<synnax::channel::Key> &keys,
         const std::vector<x::telem::Authority> &authorities
     ) override {
         this->authority_calls.emplace_back(keys, authorities);

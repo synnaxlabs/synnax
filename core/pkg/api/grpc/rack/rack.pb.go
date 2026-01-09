@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -264,16 +264,16 @@ var File_core_pkg_api_grpc_rack_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_rack_rack_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/rack/rack.proto\x12\tgrpc.rack\x1a#core/pkg/service/rack/pb/rack.proto\x1a\x1bgoogle/protobuf/empty.proto\"9\n" +
-	"\rCreateRequest\x12(\n" +
-	"\x05racks\x18\x01 \x03(\v2\x12.service.rack.RackR\x05racks\":\n" +
-	"\x0eCreateResponse\x12(\n" +
-	"\x05racks\x18\x01 \x03(\v2\x12.service.rack.RackR\x05racks\";\n" +
+	"!core/pkg/api/grpc/rack/rack.proto\x12\tgrpc.rack\x1a#core/pkg/service/rack/pb/rack.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
+	"\rCreateRequest\x12+\n" +
+	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"=\n" +
+	"\x0eCreateResponse\x12+\n" +
+	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\";\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\"<\n" +
-	"\x10RetrieveResponse\x12(\n" +
-	"\x05racks\x18\x01 \x03(\v2\x12.service.rack.RackR\x05racks\"#\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\"?\n" +
+	"\x10RetrieveResponse\x12+\n" +
+	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys2P\n" +
 	"\x11RackCreateService\x12;\n" +
@@ -304,13 +304,13 @@ var file_core_pkg_api_grpc_rack_rack_proto_goTypes = []any{
 	(*RetrieveRequest)(nil),  // 2: grpc.rack.RetrieveRequest
 	(*RetrieveResponse)(nil), // 3: grpc.rack.RetrieveResponse
 	(*DeleteRequest)(nil),    // 4: grpc.rack.DeleteRequest
-	(*pb.Rack)(nil),          // 5: service.rack.Rack
+	(*pb.Rack)(nil),          // 5: service.rack.pb.Rack
 	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_rack_rack_proto_depIdxs = []int32{
-	5, // 0: grpc.rack.CreateRequest.racks:type_name -> service.rack.Rack
-	5, // 1: grpc.rack.CreateResponse.racks:type_name -> service.rack.Rack
-	5, // 2: grpc.rack.RetrieveResponse.racks:type_name -> service.rack.Rack
+	5, // 0: grpc.rack.CreateRequest.racks:type_name -> service.rack.pb.Rack
+	5, // 1: grpc.rack.CreateResponse.racks:type_name -> service.rack.pb.Rack
+	5, // 2: grpc.rack.RetrieveResponse.racks:type_name -> service.rack.pb.Rack
 	0, // 3: grpc.rack.RackCreateService.Exec:input_type -> grpc.rack.CreateRequest
 	2, // 4: grpc.rack.RackRetrieveService.Exec:input_type -> grpc.rack.RetrieveRequest
 	4, // 5: grpc.rack.RackDeleteService.Exec:input_type -> grpc.rack.DeleteRequest

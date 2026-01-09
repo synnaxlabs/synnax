@@ -27,7 +27,7 @@ protected:
         channels.clear();
         sink = std::make_shared<plugins::mock::FrameSink>();
 
-        synnax::Channel ch;
+        synnax::channel::Channel ch;
         ch.name = "my_channel";
         ch.data_type = std::move(data_type);
         ch.key = 1;
@@ -66,7 +66,7 @@ protected:
     }
 
     std::shared_ptr<plugins::mock::FrameSink> sink;
-    std::vector<synnax::Channel> channels;
+    std::vector<synnax::channel::Channel> channels;
     std::unique_ptr<plugins::ChannelWrite> op;
     lua_State *L{};
 };
@@ -194,7 +194,7 @@ protected:
         sink = std::make_shared<plugins::mock::FrameSink>();
 
         // Add index channel
-        synnax::Channel index_ch;
+        synnax::channel::Channel index_ch;
         index_ch.name = "index";
         index_ch.data_type = x::telem::INT64_T;
         index_ch.key = 1;
@@ -202,7 +202,7 @@ protected:
         channels.push_back(index_ch);
 
         // Add value channel
-        synnax::Channel value_ch;
+        synnax::channel::Channel value_ch;
         value_ch.name = "value";
         value_ch.data_type = std::move(data_type);
         value_ch.key = 2;
@@ -235,7 +235,7 @@ protected:
     }
 
     std::shared_ptr<plugins::mock::FrameSink> sink;
-    std::vector<synnax::Channel> channels;
+    std::vector<synnax::channel::Channel> channels;
     std::unique_ptr<plugins::ChannelWrite> op;
     lua_State *L{};
 };
@@ -263,17 +263,17 @@ protected:
     void SetUp() override {
         sink = std::make_shared<plugins::mock::FrameSink>();
         // Add three test channels
-        synnax::Channel ch1;
+        synnax::channel::Channel ch1;
         ch1.name = "channel1";
         ch1.key = 1;
         channels.push_back(ch1);
 
-        synnax::Channel ch2;
+        synnax::channel::Channel ch2;
         ch2.name = "channel2";
         ch2.key = 2;
         channels.push_back(ch2);
 
-        synnax::Channel ch3;
+        synnax::channel::Channel ch3;
         ch3.name = "channel3";
         ch3.key = 3;
         channels.push_back(ch3);
@@ -290,7 +290,7 @@ protected:
     }
 
     std::shared_ptr<plugins::mock::FrameSink> sink;
-    std::vector<synnax::Channel> channels;
+    std::vector<synnax::channel::Channel> channels;
     std::unique_ptr<plugins::ChannelWrite> op;
     lua_State *L{};
 };
@@ -344,7 +344,7 @@ TEST_F(SetAuthorityTest, MultipleChannelsDifferentAuth) {
     ASSERT_EQ(keys.size(), 3);
 
     // Create a map of channel keys to their authorities for easier verification
-    std::map<synnax::ChannelKey, x::telem::Authority> auth_map;
+    std::map<synnax::channel::Key, x::telem::Authority> auth_map;
     for (size_t i = 0; i < keys.size(); i++)
         auth_map[keys[i]] = auths[i];
     EXPECT_EQ(auth_map[1], 42); // channel1
@@ -369,7 +369,7 @@ TEST_F(SetAuthorityTest, InvalidArguments) {
 /// @brief it should safely handle stop being called before start.
 TEST(ChannelWriteLifecycle, StopBeforeStart) {
     auto sink = std::make_shared<plugins::mock::FrameSink>();
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = x::telem::FLOAT64_T;
@@ -386,7 +386,7 @@ TEST(ChannelWriteLifecycle, StopBeforeStart) {
 /// @brief it should safely handle being started twice.
 TEST(ChannelWriteLifecycle, DoubleStart) {
     const auto sink = std::make_shared<plugins::mock::FrameSink>();
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = x::telem::FLOAT64_T;
@@ -405,7 +405,7 @@ TEST(ChannelWriteLifecycle, DoubleStart) {
 /// @brief it should safely handle being stopped twice.
 TEST(ChannelWriteLifecycle, DoubleStop) {
     const auto sink = std::make_shared<plugins::mock::FrameSink>();
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = x::telem::FLOAT64_T;

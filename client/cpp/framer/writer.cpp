@@ -12,6 +12,9 @@
 
 #include "client/cpp/framer/framer.h"
 
+
+
+namespace synnax::framer {
 /// @brief enumeration of possible writer commands.
 enum WriterCommand : uint32_t {
     OPEN = 0,
@@ -20,9 +23,8 @@ enum WriterCommand : uint32_t {
     SET_AUTHORITY = 3,
 };
 
-namespace synnax {
 std::pair<Writer, x::errors::Error>
-FrameClient::open_writer(const WriterConfig &cfg) const {
+Client::open_writer(const WriterConfig &cfg) const {
     Codec codec;
     if (cfg.enable_experimental_codec) {
         codec = Codec(this->channel_client);
@@ -73,12 +75,12 @@ x::errors::Error Writer::set_authority(const x::telem::Authority &auth) {
 }
 
 x::errors::Error
-Writer::set_authority(const ChannelKey &key, const x::telem::Authority &authority) {
+Writer::set_authority(const channel::Key &key, const x::telem::Authority &authority) {
     return this->set_authority(std::vector{key}, std::vector{authority});
 }
 
 x::errors::Error Writer::set_authority(
-    const std::vector<ChannelKey> &keys,
+    const std::vector<channel::Key> &keys,
     const std::vector<x::telem::Authority> &authorities
 ) {
     if (this->close_err) return this->close_err;
@@ -121,9 +123,9 @@ x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
     return x::errors::NIL;
 }
 
-x::errors::Error Writer::close(const x::errors::Error &close_err) {
+x::errors::Error Writer::close(const x::errors::Error &err) {
     if (this->close_err) return this->close_err.skip(WRITER_CLOSED);
-    this->close_err = close_err;
+    this->close_err = err;
     stream->close_send();
     while (true) {
         if (this->close_err) return this->close_err.skip(WRITER_CLOSED);

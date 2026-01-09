@@ -16,6 +16,7 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
+namespace synnax::framer {
 x::telem::Frame create_test_frame() {
     auto frame = x::telem::Frame(3);
     auto s1 = x::telem::Series(std::vector{1.0f, 2.0f, 3.0f});
@@ -166,7 +167,7 @@ x::telem::Frame create_large_equal_frame() {
 
 /// @brief it should correctly encode and decode codec flags.
 TEST(CodecTests, FlagsEncodingDecoding) {
-    synnax::CodecFlags flags;
+    CodecFlags flags;
     flags.equal_lens = true;
     flags.equal_time_ranges = false;
     flags.time_ranges_zero = false;
@@ -175,7 +176,7 @@ TEST(CodecTests, FlagsEncodingDecoding) {
     flags.zero_alignments = false;
 
     const uint8_t encoded = flags.encode();
-    const synnax::CodecFlags decoded = synnax::CodecFlags::decode(encoded);
+    const CodecFlags decoded = CodecFlags::decode(encoded);
 
     ASSERT_EQ(decoded.equal_lens, flags.equal_lens);
     ASSERT_EQ(decoded.equal_time_ranges, flags.equal_time_ranges);
@@ -193,8 +194,8 @@ TEST(CodecTests, EncodeDecodeVariedFrame) {
         x::telem::FLOAT64_T,
         x::telem::INT32_T
     };
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(channels, data_types);
+    const std::vector<channel::Key> channels = {65537, 65538, 65539};
+    Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
@@ -203,7 +204,7 @@ TEST(CodecTests, EncodeDecodeVariedFrame) {
 
 /// @brief it should correctly decode and encode a frame with only one channel present.
 TEST(CodecTests, OnlyOneChannelPresent) {
-    const std::vector<synnax::ChannelKey> channels = {1, 2, 3, 4, 5};
+    const std::vector<channel::Key> channels = {1, 2, 3, 4, 5};
     const std::vector data_types = {
         x::telem::UINT8_T,
         x::telem::UINT8_T,
@@ -216,7 +217,7 @@ TEST(CodecTests, OnlyOneChannelPresent) {
         x::telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5})
     );
     std::vector<uint8_t> encoded;
-    synnax::Codec codec(channels, data_types);
+    Codec codec(channels, data_types);
     codec.encode(frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
     assert_frames_equal(frame, decoded_frame);
@@ -230,8 +231,8 @@ TEST(CodecTests, EncodeDecodeEqualPropertiesFrame) {
         x::telem::FLOAT32_T,
         x::telem::FLOAT32_T
     };
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(channels, data_types);
+    const std::vector<channel::Key> channels = {65537, 65538, 65539};
+    Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
@@ -247,8 +248,8 @@ TEST(CodecTests, EncodeDecodeZeroPropertiesFrame) {
         x::telem::FLOAT32_T,
         x::telem::FLOAT32_T
     };
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(channels, data_types);
+    const std::vector<channel::Key> channels = {65537, 65538, 65539};
+    Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
@@ -263,8 +264,8 @@ TEST(CodecTests, EncodeDecodeDifferentLengthsFrame) {
         x::telem::FLOAT32_T,
         x::telem::FLOAT32_T
     };
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(channels, data_types);
+    const std::vector<channel::Key> channels = {65537, 65538, 65539};
+    Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
@@ -280,8 +281,8 @@ TEST(CodecTests, EncodeDecodeChannelSubset) {
         x::telem::INT32_T,
         x::telem::FLOAT32_T
     };
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539, 65540};
-    synnax::Codec codec(channels, data_types);
+    const std::vector<channel::Key> channels = {65537, 65538, 65539, 65540};
+    Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(original_frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
@@ -297,8 +298,8 @@ TEST(CodecTests, LargeFrame) {
     large_series.alignment = x::telem::Alignment(42);
     frame.emplace(65537, std::move(large_series));
     const std::vector data_types = {x::telem::FLOAT32_T};
-    std::vector<synnax::ChannelKey> channels = {65537};
-    synnax::Codec codec(channels, data_types);
+    std::vector<channel::Key> channels = {65537};
+    Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
     codec.encode(frame, encoded);
     const x::telem::Frame decoded_frame = ASSERT_NIL_P(codec.decode(encoded));
@@ -310,7 +311,7 @@ TEST(CodecTests, DynamicCodecUpdate) {
     auto client = new_test_client();
 
     auto [idx_ch, data_ch] = create_indexed_pair(client);
-    synnax::Codec codec(client.channels);
+    Codec codec(client.channels);
 
     codec.update(std::vector{idx_ch.key});
 
@@ -334,7 +335,7 @@ TEST(CodecTests, DynamicCodecUpdate) {
 /// @brief it should correctly encode/decode values when the codec are out of sync
 TEST(CodecTests, UninitializedCodec) {
     auto client = new_test_client();
-    synnax::Codec codec(client.channels);
+    Codec codec(client.channels);
 
     auto [idx_ch, _] = create_indexed_pair(client);
     auto frame = x::telem::Frame(
@@ -352,8 +353,8 @@ TEST(CodecTests, OutOfSyncCodecs) {
     auto client = new_test_client();
     auto [idx_ch, data_ch] = create_indexed_pair(client);
 
-    synnax::Codec encoder(client.channels);
-    synnax::Codec decoder(client.channels);
+    Codec encoder(client.channels);
+    Codec decoder(client.channels);
 
     // Initial state - both in sync
     ASSERT_NIL(encoder.update(std::vector{idx_ch.key}));
@@ -394,8 +395,8 @@ TEST(CodecTests, EncodeMismatchedDataType) {
         x::telem::FLOAT64_T,
         x::telem::INT32_T
     };
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
-    synnax::Codec codec(channels, data_types);
+    const std::vector<channel::Key> channels = {65537, 65538, 65539};
+    Codec codec(channels, data_types);
 
     // Create a frame with mismatched data types
     auto frame = x::telem::Frame(1);
@@ -415,8 +416,8 @@ TEST(CodecTests, EncodeMismatchedDataType) {
 /// provided to the codec.
 TEST(CodecTests, EncodeFrameUnknownKey) {
     const std::vector data_types = {x::telem::FLOAT32_T, x::telem::FLOAT64_T};
-    const std::vector<synnax::ChannelKey> channels = {65537, 65538};
-    synnax::Codec codec(channels, data_types);
+    const std::vector<channel::Key> channels = {65537, 65538};
+    Codec codec(channels, data_types);
 
     // Create a frame with an unknown key
     auto frame = x::telem::Frame(1);
@@ -431,4 +432,5 @@ TEST(CodecTests, EncodeFrameUnknownKey) {
 
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_TRUE(err.message().find("extra key") != std::string::npos);
+}
 }

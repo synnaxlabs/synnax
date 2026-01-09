@@ -36,7 +36,7 @@ struct Reader {
     ) = 0;
 
     /// @brief return the list of Synnax channels that this reader is responsible for.
-    [[nodiscard]] virtual std::vector<synnax::Channel> sy_channels() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::channel::Channel> sy_channels() const = 0;
 };
 
 /// @brief base reader class for all reader types.
@@ -46,8 +46,8 @@ struct BaseReader : Reader {
 
     explicit BaseReader(const std::vector<Channel> &channels): channels(channels) {}
 
-    [[nodiscard]] std::vector<synnax::Channel> sy_channels() const override {
-        std::vector<synnax::Channel> result;
+    [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const override {
+        std::vector<synnax::channel::Channel> result;
         result.reserve(channels.size());
         for (const auto &channel: channels)
             result.push_back(channel.ch);
@@ -154,7 +154,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// @brief the key of the device to read from.
     std::string device_key;
     /// @brief the indexes of all data channels in the task.
-    std::set<synnax::ChannelKey> indexes;
+    std::set<synnax::channel::Key> indexes;
     /// @brief the list of readers to use for reading data from the device.
     std::vector<std::unique_ptr<Reader>> readers;
     /// @brief the connection configuration for the device.
@@ -223,7 +223,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         channel::sort_by_address(coils);
         channel::sort_by_address(discrete_inputs);
 
-        std::vector<synnax::ChannelKey> keys;
+        std::vector<synnax::channel::Key> keys;
         for (const auto &ch: holding_registers)
             keys.push_back(ch.synnax_key);
         for (const auto &ch: input_registers)
@@ -293,8 +293,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     }
 
     /// @brief all synnax channels that the task will write to, excluding indexes.
-    [[nodiscard]] std::vector<synnax::Channel> data_channels() const {
-        std::vector<synnax::Channel> result;
+    [[nodiscard]] std::vector<synnax::channel::Channel> data_channels() const {
+        std::vector<synnax::channel::Channel> result;
         result.reserve(this->data_channel_count);
         for (const auto &op: this->readers)
             for (const auto &ch: op->sy_channels())
@@ -304,7 +304,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
 
     /// @brief configuration for opening a synnax writer for the task.
     [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::ChannelKey> keys;
+        std::vector<synnax::channel::Key> keys;
         const auto data_channels = this->data_channels();
         keys.reserve(data_channels.size() + this->indexes.size());
         for (const auto &ch: data_channels)
@@ -364,7 +364,7 @@ public:
         return this->config.writer_config();
     }
 
-    [[nodiscard]] std::vector<synnax::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->config.data_channels();
     }
 };

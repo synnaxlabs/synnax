@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -238,9 +238,9 @@ const file_core_pkg_distribution_channel_pb_services_proto_rawDesc = "" +
 	"/core/pkg/distribution/channel/pb/services.proto\x12\x14distribution.channel\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x7f\n" +
 	"\rCreateOptions\x125\n" +
 	"\x17retrieve_if_name_exists\x18\x01 \x01(\bR\x14retrieveIfNameExists\x127\n" +
-	"\x18overwrite_if_name_exists\x18\x02 \x01(\bR\x15overwriteIfNameExists\"\x83\x01\n" +
-	"\rCreateMessage\x129\n" +
-	"\bchannels\x18\x01 \x03(\v2\x1d.distribution.channel.ChannelR\bchannels\x127\n" +
+	"\x18overwrite_if_name_exists\x18\x02 \x01(\bR\x15overwriteIfNameExists\"\x86\x01\n" +
+	"\rCreateMessage\x12<\n" +
+	"\bchannels\x18\x01 \x03(\v2 .distribution.channel.pb.ChannelR\bchannels\x127\n" +
 	"\x04opts\x18\x02 \x01(\v2#.distribution.channel.CreateOptionsR\x04opts\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\"9\n" +
@@ -273,11 +273,11 @@ var file_core_pkg_distribution_channel_pb_services_proto_goTypes = []any{
 	(*CreateMessage)(nil), // 1: distribution.channel.CreateMessage
 	(*DeleteRequest)(nil), // 2: distribution.channel.DeleteRequest
 	(*RenameRequest)(nil), // 3: distribution.channel.RenameRequest
-	(*Channel)(nil),       // 4: distribution.channel.Channel
+	(*Channel)(nil),       // 4: distribution.channel.pb.Channel
 	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
 }
 var file_core_pkg_distribution_channel_pb_services_proto_depIdxs = []int32{
-	4, // 0: distribution.channel.CreateMessage.channels:type_name -> distribution.channel.Channel
+	4, // 0: distribution.channel.CreateMessage.channels:type_name -> distribution.channel.pb.Channel
 	0, // 1: distribution.channel.CreateMessage.opts:type_name -> distribution.channel.CreateOptions
 	1, // 2: distribution.channel.ChannelCreateService.Exec:input_type -> distribution.channel.CreateMessage
 	2, // 3: distribution.channel.ChannelDeleteService.Exec:input_type -> distribution.channel.DeleteRequest

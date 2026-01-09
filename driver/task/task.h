@@ -232,9 +232,9 @@ private:
 
     /// @brief information on channels we need to work with tasks.
     struct {
-        synnax::Channel task_set;
-        synnax::Channel task_delete;
-        synnax::Channel task_cmd;
+        synnax::channel::Channel task_set;
+        synnax::channel::Channel task_delete;
+        synnax::channel::Channel task_cmd;
     } channels;
 
     [[nodiscard]] bool skip_foreign_rack(const synnax::task::Key &task_key) const;

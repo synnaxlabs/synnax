@@ -32,16 +32,16 @@ protected:
     std::shared_ptr<driver::opc::connection::Pool> conn_pool;
 
     // Command channels for different data types
-    synnax::Channel bool_cmd_channel;
-    synnax::Channel uint16_cmd_channel;
-    synnax::Channel uint32_cmd_channel;
-    synnax::Channel uint64_cmd_channel;
-    synnax::Channel int8_cmd_channel;
-    synnax::Channel int16_cmd_channel;
-    synnax::Channel int32_cmd_channel;
-    synnax::Channel int64_cmd_channel;
-    synnax::Channel float_cmd_channel;
-    synnax::Channel double_cmd_channel;
+    synnax::channel::Channel bool_cmd_channel;
+    synnax::channel::Channel uint16_cmd_channel;
+    synnax::channel::Channel uint32_cmd_channel;
+    synnax::channel::Channel uint64_cmd_channel;
+    synnax::channel::Channel int8_cmd_channel;
+    synnax::channel::Channel int16_cmd_channel;
+    synnax::channel::Channel int32_cmd_channel;
+    synnax::channel::Channel int64_cmd_channel;
+    synnax::channel::Channel float_cmd_channel;
+    synnax::channel::Channel double_cmd_channel;
 
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());

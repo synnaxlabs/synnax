@@ -52,7 +52,7 @@ inline ontology::ID ontology_id(const Key key) {
 /// @brief Converts a vector of task keys to a vector of ontology IDs.
 /// @param keys The task keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> task_ontology_ids(const std::vector<Key> &keys) {
+inline std::vector<ontology::ID> ontology_ids(const std::vector<Key> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
@@ -82,17 +82,8 @@ inline std::uint32_t local_task_key(const Key key) {
     return key & 0xFFFFFFFF;
 }
 
-/// @brief Alias for task status details (uses generated type).
-using TaskStatusDetails = StatusDetails;
-
-/// @brief Status information for a task.
-using TaskStatus = x::status::Status<json>;
-
-/// @brief Alias for the generated task payload type.
-using TaskPayload = Payload;
-
 /// @brief Options for retrieving tasks.
-struct TaskRetrieveOptions {
+struct RetrieveOptions {
     /// @brief Whether to include status information in the retrieved tasks.
     bool include_status = false;
 };
@@ -181,18 +172,17 @@ public:
 /// @brief Client for managing tasks on a specific rack.
 class Client {
 public:
+    Client() = default;
     /// @brief Constructs a new task client for the given rack.
     /// @param rack The rack key that this client operates on.
     /// @param task_create_client Client for creating tasks.
     /// @param task_retrieve_client Client for retrieving tasks.
     /// @param task_delete_client Client for deleting tasks.
     Client(
-        const RackKey rack,
         std::shared_ptr<CreateClient> task_create_client,
         std::shared_ptr<RetrieveClient> task_retrieve_client,
         std::shared_ptr<DeleteClient> task_delete_client
     ):
-        rack(rack),
         task_create_client(std::move(task_create_client)),
         task_retrieve_client(std::move(task_retrieve_client)),
         task_delete_client(std::move(task_delete_client)) {}
@@ -215,7 +205,7 @@ public:
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
     std::pair<Task, x::errors::Error>
-    retrieve(Key key, const TaskRetrieveOptions &options) const;
+    retrieve(Key key, const RetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its type.
     /// @param type The type of the task to retrieve.
@@ -229,7 +219,7 @@ public:
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
     std::pair<Task, x::errors::Error>
-    retrieve_by_type(const std::string &type, const TaskRetrieveOptions &options) const;
+    retrieve_by_type(const std::string &type, const RetrieveOptions &options) const;
 
     /// @brief Retrieves a task by its name.
     /// @param name The name of the task to retrieve.
@@ -243,7 +233,7 @@ public:
     /// @returns A pair containing the retrieved task and an error if one occurred.
     [[nodiscard]]
     std::pair<Task, x::errors::Error>
-    retrieve(const std::string &name, const TaskRetrieveOptions &options) const;
+    retrieve(const std::string &name, const RetrieveOptions &options) const;
 
     /// @brief Retrieves multiple tasks by their names.
     /// @param names The names of the tasks to retrieve.
@@ -259,7 +249,7 @@ public:
     [[nodiscard]]
     std::pair<std::vector<Task>, x::errors::Error> retrieve(
         const std::vector<std::string> &names,
-        const TaskRetrieveOptions &options
+        const RetrieveOptions &options
     ) const;
 
     /// @brief Retrieves multiple tasks by their types.
@@ -276,7 +266,7 @@ public:
     [[nodiscard]]
     std::pair<std::vector<Task>, x::errors::Error> retrieve_by_type(
         const std::vector<std::string> &types,
-        const TaskRetrieveOptions &options
+        const RetrieveOptions &options
     ) const;
 
     /// @brief Deletes a task by its key.
@@ -295,7 +285,7 @@ public:
     /// @returns A pair containing the list of tasks and an error if one occurred.
     [[nodiscard]]
     std::pair<std::vector<Task>, x::errors::Error>
-    list(const TaskRetrieveOptions &options) const;
+    list(const RetrieveOptions &options) const;
 
 private:
     /// @brief Key of rack that this client belongs to.

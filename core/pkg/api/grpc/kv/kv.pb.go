@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -240,13 +240,13 @@ const file_core_pkg_api_grpc_kv_kv_proto_rawDesc = "" +
 	"\n" +
 	"GetRequest\x12\x14\n" +
 	"\x05range\x18\x01 \x01(\tR\x05range\x12\x12\n" +
-	"\x04keys\x18\x02 \x03(\tR\x04keys\"5\n" +
-	"\vGetResponse\x12&\n" +
-	"\x05pairs\x18\x01 \x03(\v2\x10.service.kv.PairR\x05pairs\"J\n" +
+	"\x04keys\x18\x02 \x03(\tR\x04keys\"8\n" +
+	"\vGetResponse\x12)\n" +
+	"\x05pairs\x18\x01 \x03(\v2\x13.service.kv.pb.PairR\x05pairs\"M\n" +
 	"\n" +
 	"SetRequest\x12\x14\n" +
-	"\x05range\x18\x01 \x01(\tR\x05range\x12&\n" +
-	"\x05pairs\x18\x02 \x03(\v2\x10.service.kv.PairR\x05pairs\"9\n" +
+	"\x05range\x18\x01 \x01(\tR\x05range\x12)\n" +
+	"\x05pairs\x18\x02 \x03(\v2\x13.service.kv.pb.PairR\x05pairs\"9\n" +
 	"\rDeleteRequest\x12\x14\n" +
 	"\x05range\x18\x01 \x01(\tR\x05range\x12\x12\n" +
 	"\x04keys\x18\x02 \x03(\tR\x04keys2C\n" +
@@ -276,12 +276,12 @@ var file_core_pkg_api_grpc_kv_kv_proto_goTypes = []any{
 	(*GetResponse)(nil),   // 1: grpc.kv.GetResponse
 	(*SetRequest)(nil),    // 2: grpc.kv.SetRequest
 	(*DeleteRequest)(nil), // 3: grpc.kv.DeleteRequest
-	(*pb.Pair)(nil),       // 4: service.kv.Pair
+	(*pb.Pair)(nil),       // 4: service.kv.pb.Pair
 	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_kv_kv_proto_depIdxs = []int32{
-	4, // 0: grpc.kv.GetResponse.pairs:type_name -> service.kv.Pair
-	4, // 1: grpc.kv.SetRequest.pairs:type_name -> service.kv.Pair
+	4, // 0: grpc.kv.GetResponse.pairs:type_name -> service.kv.pb.Pair
+	4, // 1: grpc.kv.SetRequest.pairs:type_name -> service.kv.pb.Pair
 	0, // 2: grpc.kv.KVGetService.Exec:input_type -> grpc.kv.GetRequest
 	2, // 3: grpc.kv.KVSetService.Exec:input_type -> grpc.kv.SetRequest
 	3, // 4: grpc.kv.KVDeleteService.Exec:input_type -> grpc.kv.DeleteRequest

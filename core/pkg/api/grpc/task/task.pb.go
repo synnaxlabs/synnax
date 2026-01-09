@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -392,27 +392,27 @@ var File_core_pkg_api_grpc_task_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_task_task_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/task/task.proto\x12\tgrpc.task\x1a#core/pkg/service/task/pb/task.proto\x1a\x1bgoogle/protobuf/empty.proto\"9\n" +
-	"\rCreateRequest\x12(\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x12.service.task.TaskR\x05tasks\":\n" +
-	"\x0eCreateResponse\x12(\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x12.service.task.TaskR\x05tasks\"\x8c\x01\n" +
+	"!core/pkg/api/grpc/task/task.proto\x12\tgrpc.task\x1a#core/pkg/service/task/pb/task.proto\x1a\x1bgoogle/protobuf/empty.proto\"<\n" +
+	"\rCreateRequest\x12+\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"=\n" +
+	"\x0eCreateResponse\x12+\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"\x8c\x01\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x12\n" +
 	"\x04keys\x18\x02 \x03(\x04R\x04keys\x12\x14\n" +
 	"\x05names\x18\x03 \x03(\tR\x05names\x12\x14\n" +
 	"\x05types\x18\x04 \x03(\tR\x05types\x12%\n" +
-	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\"<\n" +
-	"\x10RetrieveResponse\x12(\n" +
-	"\x05tasks\x18\x01 \x03(\v2\x12.service.task.TaskR\x05tasks\"#\n" +
+	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\"?\n" +
+	"\x10RetrieveResponse\x12+\n" +
+	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\x04R\x04keys\"O\n" +
 	"\vCopyRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x04R\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\"6\n" +
-	"\fCopyResponse\x12&\n" +
-	"\x04task\x18\x01 \x01(\v2\x12.service.task.TaskR\x04task2P\n" +
+	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\"9\n" +
+	"\fCopyResponse\x12)\n" +
+	"\x04task\x18\x01 \x01(\v2\x15.service.task.pb.TaskR\x04task2P\n" +
 	"\x11TaskCreateService\x12;\n" +
 	"\x04Exec\x12\x18.grpc.task.CreateRequest\x1a\x19.grpc.task.CreateResponse2V\n" +
 	"\x13TaskRetrieveService\x12?\n" +
@@ -445,14 +445,14 @@ var file_core_pkg_api_grpc_task_task_proto_goTypes = []any{
 	(*DeleteRequest)(nil),    // 4: grpc.task.DeleteRequest
 	(*CopyRequest)(nil),      // 5: grpc.task.CopyRequest
 	(*CopyResponse)(nil),     // 6: grpc.task.CopyResponse
-	(*pb.Task)(nil),          // 7: service.task.Task
+	(*pb.Task)(nil),          // 7: service.task.pb.Task
 	(*emptypb.Empty)(nil),    // 8: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_task_task_proto_depIdxs = []int32{
-	7, // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.Task
-	7, // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.Task
-	7, // 2: grpc.task.RetrieveResponse.tasks:type_name -> service.task.Task
-	7, // 3: grpc.task.CopyResponse.task:type_name -> service.task.Task
+	7, // 0: grpc.task.CreateRequest.tasks:type_name -> service.task.pb.Task
+	7, // 1: grpc.task.CreateResponse.tasks:type_name -> service.task.pb.Task
+	7, // 2: grpc.task.RetrieveResponse.tasks:type_name -> service.task.pb.Task
+	7, // 3: grpc.task.CopyResponse.task:type_name -> service.task.pb.Task
 	0, // 4: grpc.task.TaskCreateService.Exec:input_type -> grpc.task.CreateRequest
 	2, // 5: grpc.task.TaskRetrieveService.Exec:input_type -> grpc.task.RetrieveRequest
 	4, // 6: grpc.task.TaskDeleteService.Exec:input_type -> grpc.task.DeleteRequest

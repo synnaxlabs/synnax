@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -304,19 +304,19 @@ var File_core_pkg_api_grpc_channel_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_channel_channel_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/api/grpc/channel/channel.proto\x12\fgrpc.channel\x1a%core/pkg/api/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"x\n" +
-	"\rCreateRequest\x120\n" +
-	"\bchannels\x18\x01 \x03(\v2\x14.api.channel.ChannelR\bchannels\x125\n" +
-	"\x17retrieve_if_name_exists\x18\x02 \x01(\bR\x14retrieveIfNameExists\"B\n" +
-	"\x0eCreateResponse\x120\n" +
-	"\bchannels\x18\x01 \x03(\v2\x14.api.channel.ChannelR\bchannels\"n\n" +
+	"'core/pkg/api/grpc/channel/channel.proto\x12\fgrpc.channel\x1a%core/pkg/api/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"{\n" +
+	"\rCreateRequest\x123\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\x125\n" +
+	"\x17retrieve_if_name_exists\x18\x02 \x01(\bR\x14retrieveIfNameExists\"E\n" +
+	"\x0eCreateResponse\x123\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\"n\n" +
 	"\x0fRetrieveRequest\x12\x19\n" +
 	"\bnode_key\x18\x01 \x01(\rR\anodeKey\x12\x12\n" +
 	"\x04keys\x18\x02 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x03 \x03(\tR\x05names\x12\x16\n" +
-	"\x06search\x18\x04 \x01(\tR\x06search\"D\n" +
-	"\x10RetrieveResponse\x120\n" +
-	"\bchannels\x18\x01 \x03(\v2\x14.api.channel.ChannelR\bchannels\"`\n" +
+	"\x06search\x18\x04 \x01(\tR\x06search\"G\n" +
+	"\x10RetrieveResponse\x123\n" +
+	"\bchannels\x18\x01 \x03(\v2\x17.api.channel.pb.ChannelR\bchannels\"`\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12%\n" +
@@ -348,13 +348,13 @@ var file_core_pkg_api_grpc_channel_channel_proto_goTypes = []any{
 	(*RetrieveRequest)(nil),  // 2: grpc.channel.RetrieveRequest
 	(*RetrieveResponse)(nil), // 3: grpc.channel.RetrieveResponse
 	(*DeleteRequest)(nil),    // 4: grpc.channel.DeleteRequest
-	(*pb.Channel)(nil),       // 5: api.channel.Channel
+	(*pb.Channel)(nil),       // 5: api.channel.pb.Channel
 	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_channel_channel_proto_depIdxs = []int32{
-	5, // 0: grpc.channel.CreateRequest.channels:type_name -> api.channel.Channel
-	5, // 1: grpc.channel.CreateResponse.channels:type_name -> api.channel.Channel
-	5, // 2: grpc.channel.RetrieveResponse.channels:type_name -> api.channel.Channel
+	5, // 0: grpc.channel.CreateRequest.channels:type_name -> api.channel.pb.Channel
+	5, // 1: grpc.channel.CreateResponse.channels:type_name -> api.channel.pb.Channel
+	5, // 2: grpc.channel.RetrieveResponse.channels:type_name -> api.channel.pb.Channel
 	0, // 3: grpc.channel.ChannelCreateService.Exec:input_type -> grpc.channel.CreateRequest
 	2, // 4: grpc.channel.ChannelRetrieveService.Exec:input_type -> grpc.channel.RetrieveRequest
 	4, // 5: grpc.channel.ChannelDeleteService.Exec:input_type -> grpc.channel.DeleteRequest

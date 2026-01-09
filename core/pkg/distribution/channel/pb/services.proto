@@ -34,7 +34,7 @@ message CreateOptions {
 }
 
 message CreateMessage {
-  repeated Channel channels = 1;
+  repeated pb.Channel channels = 1;
   CreateOptions opts = 2;
 }
 

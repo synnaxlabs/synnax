@@ -15,7 +15,7 @@
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<driver::pipeline::StreamerFactory> &factory,
-    const std::vector<synnax::Channel> &read_from
+    const std::vector<synnax::channel::Channel> &read_from
 ):
     pipe(
         factory,
@@ -28,7 +28,7 @@ plugins::ChannelReceive::ChannelReceive(
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<synnax::Synnax> &client,
-    const std::vector<synnax::Channel> &read_from
+    const std::vector<synnax::channel::Channel> &read_from
 ):
     ChannelReceive(
         std::make_shared<driver::pipeline::SynnaxStreamerFactory>(client),

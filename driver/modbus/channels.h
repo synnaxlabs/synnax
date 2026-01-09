@@ -33,15 +33,15 @@ struct Channel {
 /// @brief base class for input channels (reading from Modbus)
 struct Input : virtual Channel {
     /// @brief The key of the synnax channel to write data to
-    synnax::ChannelKey synnax_key;
+    synnax::channel::Key synnax_key;
     /// @brief The synnax channel object
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
 
     explicit Input(x::json::Parser &parser):
-        Channel(parser), synnax_key(parser.field<synnax::ChannelKey>("channel")) {}
+        Channel(parser), synnax_key(parser.field<synnax::channel::Key>("channel")) {}
 
     /// @brief Binds remote channel information
-    void bind_remote_info(const synnax::Channel &remote_ch) { this->ch = remote_ch; }
+    void bind_remote_info(const synnax::channel::Channel &remote_ch) { this->ch = remote_ch; }
 };
 
 /// @brief configuration to read from a discrete input.
@@ -72,16 +72,16 @@ struct InputRegister final : Input {
 /// @brief Output channel for writing to coils
 struct OutputCoil final : Channel {
     /// @brief The key of the channel to write to the coil
-    synnax::ChannelKey channel;
+    synnax::channel::Key channel;
 
     explicit OutputCoil(x::json::Parser &parser):
-        Channel(parser), channel(parser.field<synnax::ChannelKey>("channel")) {}
+        Channel(parser), channel(parser.field<synnax::channel::Key>("channel")) {}
 };
 
 /// @brief Output channel for writing to holding registers
 struct OutputHoldingRegister final : Channel {
     /// @brief The key of the channel to write to the register
-    synnax::ChannelKey channel;
+    synnax::channel::Key channel;
     /// @brief The data type to interpret the register(s) as
     x::telem::DataType value_type;
     /// @brief The byte order for multi-register values
@@ -91,7 +91,7 @@ struct OutputHoldingRegister final : Channel {
 
     explicit OutputHoldingRegister(x::json::Parser &parser):
         Channel(parser),
-        channel(parser.field<synnax::ChannelKey>("channel")),
+        channel(parser.field<synnax::channel::Key>("channel")),
         value_type(x::telem::DataType(parser.field<std::string>("data_type"))),
         swap_bytes(parser.field<bool>("swap_bytes", false)),
         swap_words(parser.field<bool>("swap_words", false)) {}

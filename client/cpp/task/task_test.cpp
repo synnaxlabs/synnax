@@ -24,8 +24,8 @@ TEST(TaskTests, testCreateTask) {
     auto m = Task(r.key, "test_module", "mock", "config", false, true);
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(m.key), r.key);
-    ASSERT_NE(synnax::local_task_key(m.key), 0);
+    ASSERT_EQ(rack_key_from_task_key(m.key), r.key);
+    ASSERT_NE(local_task_key(m.key), 0);
 }
 
 /// @brief it should correctly retrieve a module from the rack.
@@ -37,8 +37,8 @@ TEST(TaskTests, testRetrieveTask) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
-    ASSERT_EQ(synnax::local_task_key(t2.key), synnax::local_task_key(t.key));
+    ASSERT_EQ(rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(local_task_key(t2.key), local_task_key(t.key));
     ASSERT_TRUE(t2.snapshot);
 }
 
@@ -52,7 +52,7 @@ TEST(TaskTests, testRetrieveTaskByName) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
     ASSERT_EQ(t2.name, rand_name);
-    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(rack_key_from_task_key(t.key), r.key);
 }
 
 /// @brief it should retrieve a task by its type
@@ -65,7 +65,7 @@ TEST(TaskTests, testRetrieveTaskByType) {
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
     ASSERT_EQ(t2.name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(rack_key_from_task_key(t.key), r.key);
 }
 
 /// @brief it should correctly list the tasks on a rack.
@@ -78,8 +78,8 @@ TEST(TaskTests, testListTasks) {
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
-    ASSERT_EQ(synnax::rack_key_from_task_key(tasks[0].key), r.key);
-    ASSERT_NE(synnax::local_task_key(tasks[0].key), 0);
+    ASSERT_EQ(rack_key_from_task_key(tasks[0].key), r.key);
+    ASSERT_NE(local_task_key(tasks[0].key), 0);
 }
 
 /// @brief it should correctly delete a task from the rack.
@@ -95,16 +95,16 @@ TEST(TaskTests, testDeleteTask) {
 
 /// @brief it should convert a task key to an ontology ID
 TEST(TaskTests, testTaskOntologyId) {
-    constexpr synnax::task::Key key = 12345678901234;
-    const auto id = synnax::task_ontology_id(key);
+    constexpr Key key = 12345678901234;
+    const auto id = ontology_id(key);
     ASSERT_EQ(id.type, "task");
     ASSERT_EQ(id.key, "12345678901234");
 }
 
 /// @brief it should convert multiple task keys to ontology IDs
 TEST(TaskTests, testTaskOntologyIds) {
-    const std::vector<synnax::task::Key> keys = {100, 200, 300};
-    const auto ids = synnax::task_ontology_ids(keys);
+    const std::vector<Key> keys = {100, 200, 300};
+    const auto ids = ontology_ids(keys);
     ASSERT_EQ(ids.size(), 3);
     ASSERT_EQ(ids[0].type, "task");
     ASSERT_EQ(ids[0].key, "100");
@@ -116,8 +116,8 @@ TEST(TaskTests, testTaskOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(TaskTests, testTaskOntologyIdsEmpty) {
-    const std::vector<synnax::task::Key> keys;
-    const auto ids = synnax::task_ontology_ids(keys);
+    const std::vector<Key> keys;
+    const auto ids = ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }
 
@@ -127,9 +127,9 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_task_with_status", "mock", "config");
-    t.status = TaskStatus{};
+    t.status = Status{};
     t.status->key = "task-status-key";
-    t.status->variant = synnax::status::variant_success;
+    t.status->variant = x::status::VARIANT_SUCCESS;
     t.status->message = "Task is running";
     t.status->time = x::telem::TimeStamp::now();
     t.status->details.task = 0;
@@ -139,7 +139,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, {.include_status = true}));
     ASSERT_EQ(t2.name, "test_task_with_status");
     ASSERT_TRUE(t2.status.has_value());
-    ASSERT_EQ(t2.status->variant, synnax::status::variant_success);
+    ASSERT_EQ(t2.status->variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(t2.status->message, "Task is running");
     ASSERT_EQ(t2.status->details.running, true);
     ASSERT_EQ(t2.status->details.cmd, "start");
@@ -152,16 +152,16 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     ASSERT_NIL(client.racks.create(r));
     const auto rand_name = std::to_string(gen_rand_task());
     auto t = Task(r.key, rand_name, "mock", "config");
-    t.status = TaskStatus{};
+    t.status = Status{};
     t.status->key = "task-status-by-name";
-    t.status->variant = synnax::status::variant_warning;
+    t.status->variant = x::status::VARIANT_WARNING;
     t.status->message = "Task warning";
     t.status->time = x::telem::TimeStamp::now();
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, {.include_status = true}));
     ASSERT_EQ(t2.name, rand_name);
     ASSERT_TRUE(t2.status.has_value());
-    ASSERT_EQ(t2.status->variant, synnax::status::variant_warning);
+    ASSERT_EQ(t2.status->variant, x::status::VARIANT_WARNING);
     ASSERT_EQ(t2.status->message, "Task warning");
 }
 
@@ -171,16 +171,16 @@ TEST(TaskTests, testListTasksWithStatus) {
     auto r = rack::Rack("test_rack");
     ASSERT_NIL(client.racks.create(r));
     auto t = Task(r.key, "test_task_list_status", "mock", "config");
-    t.status = TaskStatus{};
+    t.status = Status{};
     t.status->key = "task-list-status";
-    t.status->variant = synnax::status::variant_info;
+    t.status->variant = x::status::VARIANT_INFO;
     t.status->message = "Task info";
     t.status->time = x::telem::TimeStamp::now();
     ASSERT_NIL(r.tasks.create(t));
     const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_TRUE(tasks[0].status.has_value());
-    ASSERT_EQ(tasks[0].status->variant, synnax::status::variant_info);
+    ASSERT_EQ(tasks[0].status->variant, x::status::VARIANT_INFO);
     ASSERT_EQ(tasks[0].status->message, "Task info");
 }
 /// @brief it should retrieve multiple tasks by their names.

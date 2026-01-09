@@ -73,7 +73,7 @@ public:
     std::shared_ptr<std::vector<synnax::Device>> created;
     std::vector<std::vector<synnax::DeviceStatus>> propagated_statuses;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> streamer_factory;
-    std::vector<synnax::Channel> signal_channels;
+    std::vector<synnax::channel::Channel> signal_channels;
 
     MockClusterAPI(
         const std::shared_ptr<std::vector<synnax::Device>> &remote_,
@@ -114,7 +114,7 @@ public:
         return {nullptr, x::errors::NIL};
     }
 
-    std::pair<std::vector<synnax::Channel>, x::errors::Error>
+    std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) override {
         return {signal_channels, x::errors::NIL};
     }
@@ -531,11 +531,11 @@ public:
 
 /// @brief it should add devices to context when device set signal arrives.
 TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
-    synnax::Channel device_set_ch;
+    synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
-    synnax::Channel device_delete_ch;
+    synnax::channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
     device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
@@ -601,11 +601,11 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
 
 /// @brief it should remove devices from context when device delete signal arrives.
 TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
-    synnax::Channel device_set_ch;
+    synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
-    synnax::Channel device_delete_ch;
+    synnax::channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
     device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
@@ -672,11 +672,11 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
 
 /// @brief it should filter devices by make and not add mismatched devices.
 TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
-    synnax::Channel device_set_ch;
+    synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
-    synnax::Channel device_delete_ch;
+    synnax::channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
     device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 

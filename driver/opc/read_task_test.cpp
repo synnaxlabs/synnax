@@ -26,17 +26,17 @@ protected:
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
     std::shared_ptr<driver::opc::connection::Pool> conn_pool;
-    synnax::Channel index_channel;
-    synnax::Channel bool_channel;
-    synnax::Channel uint16_channel;
-    synnax::Channel uint32_channel;
-    synnax::Channel uint64_channel;
-    synnax::Channel int8_channel;
-    synnax::Channel int16_channel;
-    synnax::Channel int32_channel;
-    synnax::Channel int64_channel;
-    synnax::Channel float_channel;
-    synnax::Channel double_channel;
+    synnax::channel::Channel index_channel;
+    synnax::channel::Channel bool_channel;
+    synnax::channel::Channel uint16_channel;
+    synnax::channel::Channel uint32_channel;
+    synnax::channel::Channel uint64_channel;
+    synnax::channel::Channel int8_channel;
+    synnax::channel::Channel int16_channel;
+    synnax::channel::Channel int32_channel;
+    synnax::channel::Channel int64_channel;
+    synnax::channel::Channel float_channel;
+    synnax::channel::Channel double_channel;
 
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());

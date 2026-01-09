@@ -11,7 +11,7 @@
 
 #include "client/cpp/framer/framer.h"
 
-namespace synnax {
+namespace synnax::framer {
 void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
@@ -19,7 +19,7 @@ void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
 }
 
 std::pair<Streamer, x::errors::Error>
-FrameClient::open_streamer(const StreamerConfig &config) const {
+Client::open_streamer(const StreamerConfig &config) const {
     auto [net_stream, err] = streamer_client->stream("/frame/stream");
     if (err) return {Streamer(), err};
     grpc::framer::StreamerRequest req;
@@ -59,7 +59,7 @@ x::errors::Error Streamer::close() const {
     return err.skip(freighter::ERR_EOF);
 }
 
-x::errors::Error Streamer::set_channels(const std::vector<ChannelKey> &channels) {
+x::errors::Error Streamer::set_channels(const std::vector<channel::Key> &channels) {
     this->assert_open();
     if (const auto err = this->codec.update(channels)) return err;
     this->cfg.channels = channels;

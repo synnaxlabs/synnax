@@ -63,7 +63,7 @@ template<typename ChannelContainer>
 void initialize_frame(
     x::telem::Frame &fr,
     const ChannelContainer &channels,
-    const std::set<synnax::ChannelKey> &index_keys,
+    const std::set<synnax::channel::Key> &index_keys,
     const size_t samples_per_chan
 ) {
     if (fr.size() == channels.size() + index_keys.size()) return;
@@ -84,7 +84,7 @@ struct Source {
     /// @brief the configuration used to open a writer for the source.
     [[nodiscard]] virtual synnax::WriterConfig writer_config() const = 0;
 
-    [[nodiscard]] virtual std::vector<synnax::Channel> channels() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::channel::Channel> channels() const = 0;
 
     /// @brief an optional function called to start the source.
     /// @returns an error if the source fails to start, at which point the task

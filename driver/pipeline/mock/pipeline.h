@@ -109,7 +109,7 @@ public:
 };
 
 inline std::shared_ptr<driver::pipeline::mock::StreamerFactory> simple_streamer_factory(
-    const std::vector<synnax::ChannelKey> &keys,
+    const std::vector<synnax::channel::Key> &keys,
     const std::shared_ptr<std::vector<x::telem::Frame>> &reads
 ) {
     const auto cfg = synnax::StreamerConfig{.channels = keys};

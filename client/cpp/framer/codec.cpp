@@ -12,9 +12,10 @@
 #include <sstream>
 #include <vector>
 
+#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/framer/framer.h"
 
-namespace synnax {
+namespace synnax::framer {
 uint8_t CodecFlags::encode() const {
     uint8_t b = 0;
     b = x::binary::set_bit(b, FlagPosition::EqualLengths, equal_lens);
@@ -37,7 +38,7 @@ CodecFlags CodecFlags::decode(const uint8_t b) {
     return f;
 }
 
-x::errors::Error Codec::update(const std::vector<ChannelKey> &keys) {
+x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
     this->seq_num++;
     auto [channels, err] = this->channel_client.retrieve(keys);
     if (err) return err;
@@ -56,7 +57,7 @@ void Codec::throw_if_uninitialized() const {
 }
 
 Codec::Codec(
-    const std::vector<ChannelKey> &channels,
+    const std::vector<channel::Key> &channels,
     const std::vector<x::telem::DataType> &data_types
 ):
     seq_num(1), channel_client(nullptr, nullptr) {
@@ -111,7 +112,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
             );
         this->sorting_indices[i] = {k, i};
     }
-    std::sort(sorting_indices.begin(), sorting_indices.end());
+    std::ranges::sort(sorting_indices);
 
     flags.equal_lens = !state.has_variable_data_types;
     size_t cur_data_size = 0;
@@ -119,7 +120,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     x::telem::TimeRange ref_tr = {};
     x::telem::Alignment ref_alignment;
 
-    for (const auto &[key, idx]: sorting_indices) {
+    for (const auto &idx: sorting_indices | std::views::values) {
         const x::telem::Series &series = frame.series->at(idx);
         byte_array_size += series.byte_size();
         if (first_series) {
@@ -261,10 +262,10 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     uint32_t data_len = 0;
     x::telem::TimeRange ref_tr = {};
     x::telem::Alignment ref_alignment;
-    auto flags = CodecFlags::decode(reader.uint8());
+    const auto flags = CodecFlags::decode(reader.uint8());
 
-    auto seq_num = reader.uint32();
-    auto state = this->states.at(seq_num);
+    const auto seq_n = reader.uint32();
+    auto state = this->states.at(seq_n);
 
     if (flags.equal_lens) data_len = reader.uint32();
 
@@ -277,7 +278,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
     if (flags.equal_alignments && !flags.zero_alignments)
         ref_alignment = x::telem::Alignment(reader.uint64());
 
-    auto decode_series = [&](const ChannelKey key) {
+    auto decode_series = [&](const channel::Key key) {
         // when the series is a variable data type, we use its byte capacity instead
         // of its length.
         uint32_t local_data_len_or_byte_cap = data_len;
@@ -301,7 +302,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
         if (!flags.equal_alignments) s.alignment = x::telem::Alignment(reader.uint64());
 
         if (frame.channels == nullptr) {
-            frame.channels = std::make_unique<std::vector<ChannelKey>>();
+            frame.channels = std::make_unique<std::vector<channel::Key>>();
             frame.series = std::make_unique<std::vector<x::telem::Series>>();
         }
 

@@ -4,6 +4,8 @@ cc_library(
     name = "rack",
     srcs = ["rack.cpp"],
     hdrs = [
+        "json.gen.h",
+        "proto.gen.h",
         "rack.h",
         "types.gen.h",
     ],

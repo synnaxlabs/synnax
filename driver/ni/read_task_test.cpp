@@ -221,13 +221,13 @@ protected:
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel index_channel = synnax::Channel(
+    synnax::channel::Channel index_channel = synnax::channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::Channel data_channel = synnax::Channel(
+    synnax::channel::Channel data_channel = synnax::channel::Channel(
         make_unique_channel_name("data_channel"),
         x::telem::FLOAT64_T,
         index_channel.key,
@@ -514,13 +514,13 @@ protected:
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel index_channel = synnax::Channel(
+    synnax::channel::Channel index_channel = synnax::channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::Channel data_channel = synnax::Channel(
+    synnax::channel::Channel data_channel = synnax::channel::Channel(
         make_unique_channel_name("digital_channel"),
         x::telem::UINT8_T, // Digital data is typically boolean/uint8
         index_channel.key,
@@ -672,13 +672,13 @@ protected:
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel index_channel = synnax::Channel(
+    synnax::channel::Channel index_channel = synnax::channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::Channel data_channel = synnax::Channel(
+    synnax::channel::Channel data_channel = synnax::channel::Channel(
         make_unique_channel_name("counter_channel"),
         x::telem::FLOAT64_T, // Counter frequency data
         index_channel.key,

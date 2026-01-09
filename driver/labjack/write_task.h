@@ -27,11 +27,11 @@ struct OutputChan {
     /// @brief whether the channel is enabled.
     const bool enabled;
     /// @brief the key of the synnax channel to receive commands from.
-    const synnax::ChannelKey cmd_ch_key;
+    const synnax::channel::Key cmd_ch_key;
     //// @brief the key fo the synnax channel to propagate state changes to.
-    const synnax::ChannelKey state_ch_key;
+    const synnax::channel::Key state_ch_key;
     /// @brief the synnax channel object for the state channel.
-    synnax::Channel state_ch;
+    synnax::channel::Channel state_ch;
 
     explicit OutputChan(x::json::Parser &parser):
         port(parser.field<std::string>("port", "")),
@@ -45,7 +45,7 @@ struct OutputChan {
 
     /// @brief binds cluster information about the channel after it has been
     /// externally fetched.
-    void bind_remote_info(const synnax::Channel &state_ch) {
+    void bind_remote_info(const synnax::channel::Channel &state_ch) {
         this->state_ch = state_ch;
     }
 };
@@ -59,9 +59,9 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     /// @brief the model of the device.
     std::string dev_model;
     /// @brief configurations for the enabled channels on the device.
-    std::map<synnax::ChannelKey, std::unique_ptr<OutputChan>> channels;
+    std::map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
     /// @brief the set of index channel keys for the state channels.
-    std::set<synnax::ChannelKey> state_index_keys;
+    std::set<synnax::channel::Key> state_index_keys;
 
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         driver::task::common::BaseWriteTaskConfig(std::move(other)),
@@ -82,7 +82,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
         driver::task::common::BaseWriteTaskConfig(parser),
         state_rate(x::telem::Rate(parser.field<int>("state_rate", 1))),
         conn_method(parser.field<std::string>("connection_type", "")) {
-        std::unordered_map<synnax::ChannelKey, synnax::ChannelKey> state_to_cmd;
+        std::unordered_map<synnax::channel::Key, synnax::channel::Key> state_to_cmd;
         parser.iter("channels", [this, &state_to_cmd](x::json::Parser &p) {
             auto ch = std::make_unique<OutputChan>(p);
             if (!ch->enabled) return;
@@ -99,7 +99,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
             return;
         }
         this->dev_model = dev.model;
-        std::vector<synnax::ChannelKey> state_channels;
+        std::vector<synnax::channel::Key> state_channels;
         state_channels.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels)
             state_channels.push_back(ch->state_ch_key);
@@ -128,8 +128,8 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     }
 
     /// @brief returns the list of state channels used in the task.
-    [[nodiscard]] std::vector<synnax::Channel> state_channels() const {
-        std::vector<synnax::Channel> state_channels;
+    [[nodiscard]] std::vector<synnax::channel::Channel> state_channels() const {
+        std::vector<synnax::channel::Channel> state_channels;
         state_channels.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels)
             state_channels.push_back(ch->state_ch);
@@ -137,8 +137,8 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     }
 
     /// @brief returns the list of command channel keys used in the task.
-    [[nodiscard]] std::vector<synnax::ChannelKey> cmd_channels() const {
-        std::vector<synnax::ChannelKey> keys;
+    [[nodiscard]] std::vector<synnax::channel::Key> cmd_channels() const {
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels)
             keys.push_back(ch->cmd_ch_key);

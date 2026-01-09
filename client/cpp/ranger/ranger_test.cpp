@@ -172,7 +172,7 @@ TEST(RangerTests, testKVDelete) {
 /// @brief it should convert a range key to an ontology ID
 TEST(RangerTests, testRangeOntologyId) {
     const std::string key = "748d31e2-5732-4cb5-8bc9-64d4ad51efe8";
-    const auto id = synnax::range_ontology_id(key);
+    const auto id = synnax::range::ontology_id(key);
     ASSERT_EQ(id.type, "range");
     ASSERT_EQ(id.key, key);
 }
@@ -180,7 +180,7 @@ TEST(RangerTests, testRangeOntologyId) {
 /// @brief it should convert multiple range keys to ontology IDs
 TEST(RangerTests, testRangeOntologyIds) {
     const std::vector<std::string> keys = {"key1", "key2", "key3"};
-    const auto ids = synnax::range_ontology_ids(keys);
+    const auto ids = synnax::range::ontology_ids(keys);
     ASSERT_EQ(ids.size(), 3);
     ASSERT_EQ(ids[0].type, "range");
     ASSERT_EQ(ids[0].key, "key1");
@@ -193,6 +193,6 @@ TEST(RangerTests, testRangeOntologyIds) {
 /// @brief it should return empty vector for empty input
 TEST(RangerTests, testRangeOntologyIdsEmpty) {
     const std::vector<std::string> keys;
-    const auto ids = synnax::range_ontology_ids(keys);
+    const auto ids = synnax::range::ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }

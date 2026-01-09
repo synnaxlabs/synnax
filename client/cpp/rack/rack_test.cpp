@@ -15,7 +15,7 @@
 
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 
-namespace synnax {
+namespace synnax::rack {
 /// @brief it should correctly create a rack in the cluster.
 TEST(RackTests, testCreateRack) {
     const auto client = new_test_client();
@@ -59,7 +59,7 @@ TEST(RackTests, testCreateRackWithStatus) {
     const auto client = new_test_client();
     auto r = Rack("test_rack_with_status");
     r.status.key = "rack-status-key";
-    r.status.variant = ::status::variant::SUCCESS;
+    r.status.variant = x::status::VARIANT_SUCCESS;
     r.status.message = "Rack is healthy";
     r.status.time = x::telem::TimeStamp::now();
     r.status.details.rack = 123;
@@ -70,31 +70,5 @@ TEST(RackTests, testCreateRackWithStatus) {
     ASSERT_EQ(r2.status.key, "rack-status-key");
     ASSERT_EQ(r2.status.variant, ::status::variant::SUCCESS);
     ASSERT_EQ(r2.status.message, "Rack is healthy");
-}
-
-/// @brief it should correctly parse RackStatusDetails from JSON.
-TEST(RackStatusDetailsTests, testParseFromJSON) {
-    json j = {{"rack", 54321}};
-    const x::json::Parser parser(j);
-    const auto details = RackStatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(details.rack, 54321);
-}
-
-/// @brief it should correctly serialize RackStatusDetails to JSON.
-TEST(RackStatusDetailsTests, testToJSON) {
-    constexpr RackStatusDetails details{.rack = 98765};
-    const auto j = details.to_json();
-    ASSERT_EQ(j["rack"], 98765);
-}
-
-/// @brief it should round-trip RackStatusDetails through JSON.
-TEST(RackStatusDetailsTests, testRoundTrip) {
-    constexpr RackStatusDetails original{.rack = 11223};
-    const auto j = original.to_json();
-    const x::json::Parser parser(j);
-    const auto recovered = RackStatusDetails::parse(parser);
-    ASSERT_NIL(parser.error());
-    ASSERT_EQ(recovered.rack, original.rack);
 }
 }

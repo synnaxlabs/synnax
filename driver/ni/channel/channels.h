@@ -296,17 +296,17 @@ struct Base {
 /// @brief base class for an input channel (AI, DI)
 struct Input : virtual Base {
     /// @brief the key of the synnax channel that we'll write acquired data to.
-    const synnax::ChannelKey synnax_key;
+    const synnax::channel::Key synnax_key;
     /// @brief the properties of the synnax channel that we'll write acquired data
     /// to. This field is bound by the caller after fetching all the synnax channels
     /// for the task.
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
 
     explicit Input(x::json::Parser &cfg):
-        Base(cfg), synnax_key(cfg.field<synnax::ChannelKey>("channel")) {}
+        Base(cfg), synnax_key(cfg.field<synnax::channel::Key>("channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
-    void bind_remote_info(const synnax::Channel &ch, const std::string &dev_loc) {
+    void bind_remote_info(const synnax::channel::Channel &ch, const std::string &dev_loc) {
         this->ch = ch;
         this->dev_loc = dev_loc;
     }
@@ -315,22 +315,22 @@ struct Input : virtual Base {
 /// @brief base class for an output channel (AO, DO)
 struct Output : virtual Base {
     /// @brief the key of the command channel that we'll receive commands from.
-    const synnax::ChannelKey cmd_ch_key;
+    const synnax::channel::Key cmd_ch_key;
     /// @brief the key of the state channel that we'll write the state of the
     /// command channel to.
-    const synnax::ChannelKey state_ch_key;
+    const synnax::channel::Key state_ch_key;
     /// @brief the properties of the command channel that we'll receive commands
     /// from. This field is bound by the caller after fetching all the synnax
     /// channels for the task.
-    synnax::Channel state_ch;
+    synnax::channel::Channel state_ch;
 
     explicit Output(x::json::Parser &cfg):
         Base(cfg),
-        cmd_ch_key(cfg.field<synnax::ChannelKey>("cmd_channel")),
-        state_ch_key(cfg.field<synnax::ChannelKey>("state_channel")) {}
+        cmd_ch_key(cfg.field<synnax::channel::Key>("cmd_channel")),
+        state_ch_key(cfg.field<synnax::channel::Key>("state_channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
-    void bind_remote_info(const synnax::Channel &state_ch, const std::string &dev_loc) {
+    void bind_remote_info(const synnax::channel::Channel &state_ch, const std::string &dev_loc) {
         this->state_ch = state_ch;
         this->dev_loc = dev_loc;
     }

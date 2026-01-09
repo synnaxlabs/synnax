@@ -378,7 +378,7 @@ public:
     [[nodiscard]] x::errors::Error close();
 
 private:
-    [[nodiscard]] x::errors::Error close(const x::errors::Error &close_err);
+    [[nodiscard]] x::errors::Error close(const x::errors::Error &err);
 
     /// @brief the error accumulated if the writer has closed with an error.
     x::errors::Error close_err = x::errors::NIL;

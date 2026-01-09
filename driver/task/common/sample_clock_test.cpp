@@ -427,7 +427,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
     fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, x::telem::Series(x::telem::TIMESTAMP_T, 3)); // Index channel
 
-    const std::set<synnax::ChannelKey> index_keys = {2};
+    const std::set<synnax::channel::Key> index_keys = {2};
     const auto start = x::telem::TimeStamp(1000);
     const auto end = x::telem::TimeStamp(4000);
     constexpr size_t n_read = 3;
@@ -449,7 +449,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
     fr.emplace(2, x::telem::Series(x::telem::TIMESTAMP_T, 3));
     fr.emplace(3, x::telem::Series(x::telem::TIMESTAMP_T, 3));
 
-    const std::set<synnax::ChannelKey> index_keys = {2, 3};
+    const std::set<synnax::channel::Key> index_keys = {2, 3};
     const auto start = x::telem::TimeStamp(1000);
     const auto end = x::telem::TimeStamp(4000);
     constexpr size_t n_read = 3;
@@ -470,7 +470,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
     fr.reserve(1);
     fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3));
 
-    const std::set<synnax::ChannelKey> index_keys;
+    const std::set<synnax::channel::Key> index_keys;
     const auto start = x::telem::TimeStamp(1000);
     const auto end = x::telem::TimeStamp(4000);
     constexpr size_t n_read = 3;
@@ -487,7 +487,7 @@ TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
     fr.emplace(1, x::telem::Series(x::telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, x::telem::Series(x::telem::TIMESTAMP_T, 3)); // Index channel
 
-    const std::set<synnax::ChannelKey> index_keys = {2};
+    const std::set<synnax::channel::Key> index_keys = {2};
     const auto start = x::telem::TimeStamp(1000);
     const auto end = x::telem::TimeStamp(3000);
     constexpr size_t n_read = 3;

@@ -18,9 +18,9 @@ class MockSink final : public driver::task::common::Sink, public driver::pipelin
 public:
     MockSink(
         const x::telem::Rate state_rate,
-        const std::set<synnax::ChannelKey> &state_indexes,
-        const std::vector<synnax::Channel> &state_channels,
-        const std::vector<synnax::ChannelKey> &cmd_channels,
+        const std::set<synnax::channel::Key> &state_indexes,
+        const std::vector<synnax::channel::Channel> &state_channels,
+        const std::vector<synnax::channel::Key> &cmd_channels,
         const bool data_saving,
         const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
@@ -48,20 +48,20 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
     cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
     auto mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
-        std::vector<synnax::ChannelKey>{1},
+        std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
-    synnax::Channel cmd_channel;
+    synnax::channel::Channel cmd_channel;
     cmd_channel.key = 1;
     cmd_channel.data_type = x::telem::UINT8_T;
     cmd_channel.is_virtual = true;
 
-    synnax::Channel state_index;
+    synnax::channel::Channel state_index;
     state_index.key = 2;
     state_index.data_type = x::telem::TIMESTAMP_T;
     state_index.index = 2;
 
-    synnax::Channel state;
+    synnax::channel::Channel state;
     state.key = 3;
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
@@ -71,9 +71,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
-        std::set<synnax::ChannelKey>{2},
+        std::set<synnax::channel::Key>{2},
         std::vector{state},
-        std::vector<synnax::ChannelKey>{1},
+        std::vector<synnax::channel::Key>{1},
         false,
         writes,
         errors

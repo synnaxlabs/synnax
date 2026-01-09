@@ -49,10 +49,10 @@ struct TaskConfig {
     std::string script;
     /// @brief read is the list of channels that the task will need to read from in
     /// real-time.
-    std::vector<synnax::ChannelKey> read;
+    std::vector<synnax::channel::Key> read;
     /// @brief write_to is the channels that the task will need write access to for
     /// control.
-    std::vector<synnax::ChannelKey> write;
+    std::vector<synnax::channel::Key> write;
     /// @brief globals is a JSON object whose keys are global variables that will be
     /// available within the Lua script.
     json globals;
@@ -63,8 +63,8 @@ struct TaskConfig {
         // this comment keeps the formatter happy
         rate(x::telem::Rate(parser.field<float>("rate"))),
         script(parser.field<std::string>("script")),
-        read(parser.field<std::vector<synnax::ChannelKey>>("read")),
-        write(parser.field<std::vector<synnax::ChannelKey>>("write")),
+        read(parser.field<std::vector<synnax::channel::Key>>("read")),
+        write(parser.field<std::vector<synnax::channel::Key>>("write")),
         globals(parser.field<json>("globals", json::object())),
         authority(parser.field<x::telem::Authority>("authority", 150)) {}
 };

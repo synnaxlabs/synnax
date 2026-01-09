@@ -60,11 +60,11 @@ Task(
 }
 
 std::pair<Task, x::errors::Error> Client::retrieve(const Key key) const {
-    return retrieve(key, TaskRetrieveOptions{});
+    return retrieve(key, RetrieveOptions{});
 }
 
 std::pair<Task, x::errors::Error>
-Client::retrieve(const Key key, const TaskRetrieveOptions &options) const {
+Client::retrieve(const Key key, const RetrieveOptions &options) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
     req.add_keys(key);
@@ -80,11 +80,11 @@ Client::retrieve(const Key key, const TaskRetrieveOptions &options) const {
 }
 
 std::pair<Task, x::errors::Error> Client::retrieve(const std::string &name) const {
-    return retrieve(name, TaskRetrieveOptions{});
+    return retrieve(name, RetrieveOptions{});
 }
 
 std::pair<Task, x::errors::Error>
-Client::retrieve(const std::string &name, const TaskRetrieveOptions &options) const {
+Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
     req.add_names(name);
@@ -100,12 +100,12 @@ Client::retrieve(const std::string &name, const TaskRetrieveOptions &options) co
 
 std::pair<std::vector<Task>, x::errors::Error>
 Client::retrieve(const std::vector<std::string> &names) const {
-    return retrieve(names, TaskRetrieveOptions{});
+    return retrieve(names, RetrieveOptions{});
 }
 
 std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &names,
-    const TaskRetrieveOptions &options
+    const RetrieveOptions &options
 ) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
@@ -125,12 +125,12 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve(
 
 std::pair<Task, x::errors::Error>
 Client::retrieve_by_type(const std::string &type) const {
-    return retrieve_by_type(type, TaskRetrieveOptions{});
+    return retrieve_by_type(type, RetrieveOptions{});
 }
 
 std::pair<Task, x::errors::Error> Client::retrieve_by_type(
     const std::string &type,
-    const TaskRetrieveOptions &options
+    const RetrieveOptions &options
 ) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
@@ -147,12 +147,12 @@ std::pair<Task, x::errors::Error> Client::retrieve_by_type(
 
 std::pair<std::vector<Task>, x::errors::Error>
 Client::retrieve_by_type(const std::vector<std::string> &types) const {
-    return retrieve_by_type(types, TaskRetrieveOptions{});
+    return retrieve_by_type(types, RetrieveOptions{});
 }
 
 std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
     const std::vector<std::string> &types,
-    const TaskRetrieveOptions &options
+    const RetrieveOptions &options
 ) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
@@ -189,11 +189,11 @@ x::errors::Error Client::del(const Key key) const {
 }
 
 std::pair<std::vector<Task>, x::errors::Error> Client::list() const {
-    return list(TaskRetrieveOptions{});
+    return list(RetrieveOptions{});
 }
 
 std::pair<std::vector<Task>, x::errors::Error>
-Client::list(const TaskRetrieveOptions &options) const {
+Client::list(const RetrieveOptions &options) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
     req.set_include_status(options.include_status);

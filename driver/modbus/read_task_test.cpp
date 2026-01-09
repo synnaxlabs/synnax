@@ -26,7 +26,7 @@ protected:
     synnax::Task task;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::Channel index_channel;
+    synnax::channel::Channel index_channel;
     synnax::Device device;
     synnax::Rack rack;
 
@@ -34,7 +34,7 @@ protected:
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
-        index_channel = synnax::Channel(
+        index_channel = synnax::channel::Channel(
             make_unique_channel_name("time_channel"),
             x::telem::TIMESTAMP_T,
             0,
@@ -76,7 +76,7 @@ protected:
 
     static json create_channel_config(
         const std::string &type,
-        const synnax::Channel &channel,
+        const synnax::channel::Channel &channel,
         uint16_t address,
         bool enabled = true
     ) {
@@ -113,7 +113,7 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
 /// @brief it should return validation error for non-existent channel.
 TEST_F(ModbusReadTest, testInvalidChannelConfig) {
     auto cfg = create_base_config();
-    synnax::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 12345;
     cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
     auto p = x::json::Parser(cfg);
@@ -190,14 +190,14 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto index_channel = synnax::Channel(
+    auto index_channel = synnax::channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
 
-    auto data_channel = synnax::Channel(
+    auto data_channel = synnax::channel::Channel(
         make_unique_channel_name("data_channel"),
         x::telem::UINT8_T,
         index_channel.key,

@@ -89,7 +89,7 @@ protected:
     std::unique_ptr<driver::task::Manager> task_manager;
     synnax::Rack rack;
     std::thread task_thread;
-    synnax::Channel status_chan;
+    synnax::channel::Channel status_chan;
     synnax::Streamer status_streamer;
 
     void SetUp() override {

@@ -25,7 +25,7 @@ class MockSource final : public driver::task::common::Source {
         return synnax::WriterConfig();
     }
 
-    std::vector<synnax::Channel> channels() const override { return {}; }
+    std::vector<synnax::channel::Channel> channels() const override { return {}; }
 
 public:
     explicit MockSource(

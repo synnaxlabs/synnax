@@ -28,30 +28,30 @@ protected:
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_writer_factory;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_streamer_factory;
-    synnax::Channel state_idx_ch = synnax::Channel(
+    synnax::channel::Channel state_idx_ch = synnax::channel::Channel(
         make_unique_channel_name("state_idx_ch"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::Channel state_ch_1 = synnax::Channel(
+    synnax::channel::Channel state_ch_1 = synnax::channel::Channel(
         make_unique_channel_name("state_ch_1"),
         x::telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::Channel cmd_ch_1 = synnax::Channel(
+    synnax::channel::Channel cmd_ch_1 = synnax::channel::Channel(
         make_unique_channel_name("cmd_ch_1"),
         x::telem::FLOAT64_T,
         true
     );
-    synnax::Channel state_ch_2 = synnax::Channel(
+    synnax::channel::Channel state_ch_2 = synnax::channel::Channel(
         make_unique_channel_name("state_ch_2"),
         x::telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::Channel cmd_ch_2 = synnax::Channel(
+    synnax::channel::Channel cmd_ch_2 = synnax::channel::Channel(
         make_unique_channel_name("cmd_ch_2"),
         x::telem::FLOAT64_T,
         true

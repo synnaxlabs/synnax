@@ -25,8 +25,8 @@ protected:
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_streamer_factory;
     std::shared_ptr<driver::modbus::device::Manager> devs;
-    synnax::Channel coil_ch;
-    synnax::Channel reg_ch;
+    synnax::channel::Channel coil_ch;
+    synnax::channel::Channel reg_ch;
 
     void setup_task_config() {
         this->client = std::make_shared<synnax::Synnax>(new_test_client());

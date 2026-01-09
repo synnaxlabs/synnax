@@ -106,13 +106,13 @@ struct ClusterAPI {
     virtual std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::StreamerConfig config) = 0;
 
-    virtual std::pair<std::vector<synnax::Channel>, x::errors::Error>
+    virtual std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) = 0;
 };
 
 struct SynnaxClusterAPI final : ClusterAPI {
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Channel state_channel;
+    synnax::channel::Channel state_channel;
     std::unique_ptr<synnax::Writer> state_writer;
 
     explicit SynnaxClusterAPI(const std::shared_ptr<synnax::Synnax> &client):
@@ -155,7 +155,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
         return {std::make_unique<driver::pipeline::SynnaxStreamer>(std::move(s)), x::errors::NIL};
     }
 
-    std::pair<std::vector<synnax::Channel>, x::errors::Error>
+    std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) override {
         return this->client->channels.retrieve(names);
     }
@@ -173,8 +173,8 @@ class ScanTask final : public driver::task::Task, public driver::pipeline::Base 
     std::string log_prefix;
 
     // Signal monitoring infrastructure
-    synnax::Channel device_set_channel;
-    synnax::Channel device_delete_channel;
+    synnax::channel::Channel device_set_channel;
+    synnax::channel::Channel device_delete_channel;
     std::unique_ptr<driver::pipeline::Streamer> signal_streamer;
     std::thread signal_thread;
     std::mutex mu;

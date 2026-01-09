@@ -82,11 +82,11 @@ struct Channel {
     Channel(std::string name, x::telem::DataType data_type, bool is_virtual);
 
     /// @brief constructs the channel from its protobuf type.
-    explicit Channel(const api::channel::Channel &ch);
+    explicit Channel(const api::channel::pb::Channel &ch);
 
 private:
     /// @brief binds the channel's fields to the protobuf type.
-    void to_proto(api::channel::Channel *ch) const;
+    void to_proto(api::channel::pb::Channel *ch) const;
 
     friend class Client;
 };

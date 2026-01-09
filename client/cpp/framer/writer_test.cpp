@@ -15,14 +15,15 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
+namespace synnax::framer {
 /// @brief it should correctly write a frame of telemetry to the DB.
 TEST(WriterTests, testWriteBasic) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
     auto now = x::telem::TimeStamp::now();
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
-            synnax::keys_from_channels(time, data),
+        WriterConfig{
+            keys_from_channels(time, data),
             now,
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
             x::telem::ControlSubject{"test_writer"},
@@ -64,8 +65,8 @@ TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
     const auto now = x::telem::TimeStamp::now();
     ASSERT_OCCURRED_AS_P(
         client.telem.open_writer(
-            synnax::WriterConfig{
-                std::vector<synnax::ChannelKey>{time.key, 1000},
+            WriterConfig{
+                std::vector<channel::Key>{time.key, 1000},
                 now,
                 std::vector{x::telem::AUTH_ABSOLUTE},
                 x::telem::ControlSubject{"test_writer"},
@@ -81,7 +82,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
     auto client = new_test_client();
     auto [time, _] = create_indexed_pair(client);
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             std::vector{time.key},
             x::telem::TimeStamp::now(),
             std::vector{x::telem::AUTH_ABSOLUTE},
@@ -101,7 +102,7 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             std::vector{time.key, data.key},
             x::telem::TimeStamp::now(),
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
@@ -133,7 +134,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
         false
     ));
     auto w1 = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             .channels = std::vector{time.key, data.key},
             .start = x::telem::TimeStamp::now(),
             .authorities = std::
@@ -143,7 +144,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
         }
     ));
     auto [w2, err] = client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             .channels = std::vector{time.key, data.key},
             .start = x::telem::TimeStamp::now(),
             .authorities = std::
@@ -179,7 +180,7 @@ TEST(WriterTests, testSetAuthority) {
     ));
 
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             .channels = std::vector{time.key, data1.key, data2.key},
             .start = x::telem::TimeStamp::now(),
             .authorities =
@@ -215,8 +216,8 @@ TEST(WriterTests, testCloseIdempotency) {
     auto [time, data] = create_indexed_pair(client);
     auto now = x::telem::TimeStamp::now();
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
-            synnax::keys_from_channels(time, data),
+        WriterConfig{
+            keys_from_channels(time, data),
             now,
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
             x::telem::ControlSubject{"test_writer"},
@@ -244,7 +245,7 @@ TEST(WriterTests, testErrorCommunication) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
-        synnax::WriterConfig{
+        WriterConfig{
             std::vector{time.key, data.key},
             x::telem::TimeStamp::now(),
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
@@ -266,4 +267,5 @@ TEST(WriterTests, testErrorCommunication) {
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS(writer.write(frame), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
+}
 }

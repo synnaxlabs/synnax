@@ -21,7 +21,6 @@
 #include "client/cpp/task/task.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/status.h"
 
 #include "core/pkg/api/grpc/rack/rack.pb.h"
 #include "core/pkg/service/rack/pb/rack.pb.h"
@@ -70,11 +69,11 @@ inline std::uint16_t rack_key_node(const Key key) {
 
 /// @brief A Rack represents a physical or logical grouping of hardware devices.
 /// Racks contain tasks that can be used to interact with hardware.
-class Rack: public Payload {
+class Rack : public Payload {
 public:
     /// @brief Client for managing tasks on this rack.
     /// Note: This will be initialized after construction by RackClient.
-    task::Client tasks = task::Client(0, nullptr, nullptr, nullptr);
+    task::Client tasks = task::Client();
 
     /// @brief Constructs a new rack with the given key and name.
     /// @param key The unique identifier for the rack.
@@ -88,22 +87,12 @@ public:
     /// @brief Default constructor for an empty rack.
     Rack() = default;
 
-    /// @brief Constructs a rack from its protobuf representation.
-    /// @param rack The protobuf representation of the rack.
-    /// @returns A pair containing the rack and an error if one occurred.
-    static std::pair<Rack, x::errors::Error>
-    from_proto(const service::rack::pb::Rack &rack);
-
     /// @brief Equality operator for racks.
     /// @param rack The rack to compare with.
     /// @returns True if the racks have the same key.
     bool operator==(const Rack &rack) const { return rack.key == key; }
 
 private:
-    /// @brief Converts the rack to its protobuf representation.
-    /// @param rack The protobuf object to populate.
-    void to_proto(service::rack::pb::Rack *rack) const;
-
     friend class Client;
 };
 
