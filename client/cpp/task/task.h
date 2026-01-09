@@ -16,15 +16,15 @@
 #include <vector>
 
 #include "client/cpp/ontology/id.h"
-#include "client/cpp/task/types.gen.h"
 #include "client/cpp/task/proto.gen.h"
+#include "client/cpp/task/types.gen.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/status/status.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/status.h"
 
-#include "core/pkg/service/task/pb/task.pb.h"
 #include "core/pkg/api/grpc/task/task.pb.h"
+#include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
 // Forward declaration for RackKey (needed for task key utilities)
@@ -45,7 +45,7 @@ using DeleteClient = freighter::
 /// @brief Converts a task key to an ontology ID.
 /// @param key The task key.
 /// @returns An ontology ID with type "task" and the given key.
-inline ontology::ID ontology_id(const Key key){
+inline ontology::ID ontology_id(const Key key) {
     return ontology::ID("task", std::to_string(key));
 }
 
@@ -111,11 +111,11 @@ public:
 
     /// @brief Converting constructor from generated Payload type.
     /// @param payload The generated payload to convert from.
-    Task(Payload &&payload) : Payload(std::move(payload)) {}
+    Task(Payload &&payload): Payload(std::move(payload)) {}
 
     /// @brief Converting constructor from generated Payload type (const ref).
     /// @param payload The generated payload to convert from.
-    Task(const Payload &payload) : Payload(payload) {}
+    Task(const Payload &payload): Payload(payload) {}
 
     /// @brief Constructs a new task with the given properties.
     /// @param name A human-readable name for the task.
@@ -173,9 +173,7 @@ public:
     }
 
     /// @brief Returns the rack key that this task belongs to.
-    [[nodiscard]] RackKey rack() const {
-        return rack_key_from_task_key(this->key);
-    }
+    [[nodiscard]] RackKey rack() const { return rack_key_from_task_key(this->key); }
 
     friend class Client;
 };

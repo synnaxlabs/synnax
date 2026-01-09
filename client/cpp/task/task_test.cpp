@@ -282,10 +282,9 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
 
 // /// @brief it should handle empty cmd field correctly.
 // TEST(TaskStatusDetailsTests, testEmptyCmd) {
-//     json j = {{"task", 111}, {"cmd", ""}, {"running", true}, {"data", json::object()}};
-//     x::json::Parser parser(j);
-//     auto details = TaskStatusDetails::parse(parser);
-//     ASSERT_NIL(parser.error());
+//     json j = {{"task", 111}, {"cmd", ""}, {"running", true}, {"data",
+//     json::object()}}; x::json::Parser parser(j); auto details =
+//     TaskStatusDetails::parse(parser); ASSERT_NIL(parser.error());
 //     ASSERT_EQ(details.task, 111);
 //     ASSERT_EQ(details.cmd, "");
 //     ASSERT_EQ(details.running, true);

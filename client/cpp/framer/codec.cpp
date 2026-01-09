@@ -79,7 +79,8 @@ constexpr std::size_t FLAGS_SIZE = 1;
 constexpr std::size_t SEQ_NUM_SIZE = 4;
 constexpr std::size_t TIME_RANGE_SIZE = 16;
 
-x::errors::Error Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
+x::errors::Error
+Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     this->throw_if_uninitialized();
     CodecFlags flags;
     size_t byte_array_size = FLAGS_SIZE + SEQ_NUM_SIZE;
@@ -163,11 +164,17 @@ x::errors::Error Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t
     if (buf.uint8(flags.encode()) != 1)
         return x::errors::Error(x::errors::UNEXPECTED, "failed to write flags");
     if (buf.uint32(this->seq_num) != 4)
-        return x::errors::Error(x::errors::UNEXPECTED, "failed to write sequence number");
+        return x::errors::Error(
+            x::errors::UNEXPECTED,
+            "failed to write sequence number"
+        );
 
     if (flags.equal_lens) {
         if (buf.uint32(static_cast<uint32_t>(cur_data_size)) != 4)
-            return x::errors::Error(x::errors::UNEXPECTED, "failed to write data length");
+            return x::errors::Error(
+                x::errors::UNEXPECTED,
+                "failed to write data length"
+            );
     }
 
     if (flags.equal_time_ranges && !flags.time_ranges_zero) {

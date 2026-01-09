@@ -10,11 +10,9 @@
 #include <string>
 #include <utility>
 
-#include "x/cpp/errors/errors.h"
 #include "client/cpp/errors/errors.h"
-
-
 #include "client/cpp/kv/kv.h"
+#include "x/cpp/errors/errors.h"
 
 namespace synnax::kv {
 std::pair<std::string, x::errors::Error> Client::get(const std::string &key) const {

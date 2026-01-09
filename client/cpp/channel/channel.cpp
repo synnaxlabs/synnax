@@ -99,7 +99,8 @@ x::errors::Error ChannelClient::create(std::vector<Channel> &channels) const {
     return exc;
 }
 
-std::pair<Channel, x::errors::Error> ChannelClient::retrieve(const ChannelKey key) const {
+std::pair<Channel, x::errors::Error>
+ChannelClient::retrieve(const ChannelKey key) const {
     auto req = grpc::channel::RetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);

@@ -35,8 +35,12 @@ TEST(TestChannel, testCreate) {
 TEST(TestChannel, testCreateValidation) {
     const auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
-        client.channels
-            .create(make_unique_channel_name("validation"), x::telem::FLOAT64_T, 0, true),
+        client.channels.create(
+            make_unique_channel_name("validation"),
+            x::telem::FLOAT64_T,
+            0,
+            true
+        ),
         x::errors::VALIDATION
     );
 }
@@ -122,7 +126,9 @@ TEST(TestChannel, testRetrieveNotFound) {
 TEST(TestChannel, testRetrieveByName) {
     auto client = new_test_client();
     const auto name = make_unique_channel_name("retrieve_by_name_test");
-    auto channel = ASSERT_NIL_P(client.channels.create(name, x::telem::FLOAT64_T, true));
+    auto channel = ASSERT_NIL_P(
+        client.channels.create(name, x::telem::FLOAT64_T, true)
+    );
     auto retrieved = ASSERT_NIL_P(client.channels.retrieve(name));
     ASSERT_EQ(channel.name, retrieved.name);
     ASSERT_EQ(channel.key, retrieved.key);

@@ -9,19 +9,20 @@
 
 #include "client/cpp/device/device.h"
 #include "client/cpp/errors/errors.h"
+#include "client/cpp/rack/rack.h"
 #include "x/cpp/errors/errors.h"
 
-namespace synnax {
-DeviceClient::DeviceClient(
-    std::unique_ptr<DeviceCreateClient> device_create_client,
-    std::unique_ptr<DeviceRetrieveClient> device_retrieve_client,
-    std::unique_ptr<DeviceDeleteClient> device_delete_client
+namespace synnax::device {
+Client::Client(
+    std::unique_ptr<CreateClient> device_create_client,
+    std::unique_ptr<RetrieveClient> device_retrieve_client,
+    std::unique_ptr<DeleteClient> device_delete_client
 ):
     device_create_client(std::move(device_create_client)),
     device_retrieve_client(std::move(device_retrieve_client)),
     device_delete_client(std::move(device_delete_client)) {}
 
-std::pair<Device, x::errors::Error> DeviceClient::retrieve(const std::string &key) const {
+std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) const {
     auto req = grpc::device::RetrieveRequest();
     req.add_keys(key);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", req);
@@ -31,10 +32,8 @@ std::pair<Device, x::errors::Error> DeviceClient::retrieve(const std::string &ke
     return Device::from_proto(res.devices(0));
 }
 
-std::pair<Device, x::errors::Error> DeviceClient::retrieve(
-    const std::string &key,
-    const DeviceRetrieveOptions &options
-) const {
+std::pair<Device, x::errors::Error>
+Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
     auto req = grpc::device::RetrieveRequest();
     req.add_keys(key);
     req.set_include_status(options.include_status);
@@ -46,25 +45,25 @@ std::pair<Device, x::errors::Error> DeviceClient::retrieve(
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
-DeviceClient::retrieve(const std::vector<std::string> &keys) const {
+Client::retrieve(const std::vector<std::string> &keys) const {
     if (keys.empty()) return {std::vector<Device>(), x::errors::NIL};
-    DeviceRetrieveRequest req;
+    RetrieveRequest req;
     req.keys = keys;
     return retrieve(req);
 }
 
-std::pair<std::vector<Device>, x::errors::Error> DeviceClient::retrieve(
+std::pair<std::vector<Device>, x::errors::Error> Client::retrieve(
     const std::vector<std::string> &keys,
-    const DeviceRetrieveOptions &options
+    const RetrieveOptions &options
 ) const {
-    DeviceRetrieveRequest req;
+    RetrieveRequest req;
     req.keys = keys;
     req.include_status = options.include_status;
     return retrieve(req);
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
-DeviceClient::retrieve(DeviceRetrieveRequest &req) const {
+Client::retrieve(RetrieveRequest &req) const {
     auto api_req = grpc::device::RetrieveRequest();
     req.to_proto(api_req);
     auto [res, err] = device_retrieve_client->send("/device/retrieve", api_req);
@@ -79,7 +78,7 @@ DeviceClient::retrieve(DeviceRetrieveRequest &req) const {
     return {devices, x::errors::NIL};
 }
 
-x::errors::Error DeviceClient::create(Device &device) const {
+x::errors::Error Client::create(Device &device) const {
     auto req = grpc::device::CreateRequest();
     device.to_proto(req.add_devices());
     auto [res, err] = device_create_client->send("/device/create", req);
@@ -89,7 +88,7 @@ x::errors::Error DeviceClient::create(Device &device) const {
     return err;
 }
 
-x::errors::Error DeviceClient::create(const std::vector<Device> &devs) const {
+x::errors::Error Client::create(const std::vector<Device> &devs) const {
     auto req = grpc::device::CreateRequest();
     req.mutable_devices()->Reserve(static_cast<int>(devs.size()));
     for (auto &device: devs)
@@ -98,21 +97,22 @@ x::errors::Error DeviceClient::create(const std::vector<Device> &devs) const {
     return err;
 }
 
-x::errors::Error DeviceClient::del(const std::string &key) const {
+x::errors::Error Client::del(const std::string &key) const {
     auto req = grpc::device::DeleteRequest();
     req.add_keys(key);
     auto [res, err] = device_delete_client->send("/device/delete", req);
     return err;
 }
 
-x::errors::Error DeviceClient::del(const std::vector<std::string> &keys) const {
+x::errors::Error Client::del(const std::vector<std::string> &keys) const {
     auto req = grpc::device::DeleteRequest();
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, err] = device_delete_client->send("/device/delete", req);
     return err;
 }
 
-std::pair<Device, x::errors::Error> Device::from_proto(const service::device::Device &device) {
+std::pair<Device, x::errors::Error>
+Device::from_proto(const service::device::pb::Device &device) {
     Device d;
     d.key = device.key();
     d.name = device.name();
@@ -133,7 +133,7 @@ std::pair<Device, x::errors::Error> Device::from_proto(const service::device::De
 Device::Device(
     std::string key,
     std::string name,
-    RackKey rack,
+    Key rack,
     std::string location,
     std::string make,
     std::string model,
@@ -147,7 +147,7 @@ Device::Device(
     model(std::move(model)),
     properties(std::move(properties)) {}
 
-void Device::to_proto(service::device::Device *device) const {
+void Device::to_proto(service::device::pb::Device *device) const {
     device->set_key(key);
     device->set_name(name);
     device->set_rack(rack);
@@ -163,7 +163,7 @@ Device Device::parse(x::json::Parser &parser) {
     Device d;
     d.key = parser.field<std::string>("key", "");
     d.name = parser.field<std::string>("name", "");
-    d.rack = parser.field<RackKey>("rack", 0);
+    d.rack = parser.field<rack::Key>("rack", 0);
     d.location = parser.field<std::string>("location", "");
     d.make = parser.field<std::string>("make", "");
     d.model = parser.field<std::string>("model", "");

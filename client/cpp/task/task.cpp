@@ -83,10 +83,8 @@ std::pair<Task, x::errors::Error> Client::retrieve(const std::string &name) cons
     return retrieve(name, TaskRetrieveOptions{});
 }
 
-std::pair<Task, x::errors::Error> Client::retrieve(
-    const std::string &name,
-    const TaskRetrieveOptions &options
-) const {
+std::pair<Task, x::errors::Error>
+Client::retrieve(const std::string &name, const TaskRetrieveOptions &options) const {
     auto req = grpc::task::RetrieveRequest();
     req.set_rack(rack);
     req.add_names(name);

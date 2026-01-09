@@ -45,7 +45,10 @@ TEST(WriterTests, testWriteBasic) {
             }
         )
     );
-    frame.emplace(data.key, x::telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9}));
+    frame.emplace(
+        data.key,
+        x::telem::Series(std::vector<float>{2, 3, 4, 5, 6, 7, 8, 9})
+    );
 
     ASSERT_NIL(writer.write(frame));
     auto end = ASSERT_NIL_P(writer.commit());
@@ -133,7 +136,8 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
         synnax::WriterConfig{
             .channels = std::vector{time.key, data.key},
             .start = x::telem::TimeStamp::now(),
-            .authorities = std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
+            .authorities = std::
+                vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
             .subject = x::telem::ControlSubject{"test_writer_1"},
             .err_on_unauthorized = true
         }
@@ -142,7 +146,8 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
         synnax::WriterConfig{
             .channels = std::vector{time.key, data.key},
             .start = x::telem::TimeStamp::now(),
-            .authorities = std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
+            .authorities = std::
+                vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
             .subject = x::telem::ControlSubject{"test_writer_2"},
             .err_on_unauthorized = true
         }

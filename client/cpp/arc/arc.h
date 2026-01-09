@@ -146,7 +146,8 @@ public:
     /// @param name Human-readable name for the Arc program.
     /// @returns A pair containing the created Arc program and an error.
     /// In case of error, the returned Arc will be invalid.
-    [[nodiscard]] std::pair<Arc, x::errors::Error> create(const std::string &name) const;
+    [[nodiscard]] std::pair<Arc, x::errors::Error>
+    create(const std::string &name) const;
 
     /// @brief Retrieves an Arc program by its name.
     /// @param name The name of the Arc program to retrieve.
@@ -196,7 +197,8 @@ public:
     /// @brief Deletes multiple Arc programs by their keys.
     /// @param keys Vector of keys of Arc programs to delete.
     /// @returns An error if the Arc programs could not be deleted.
-    [[nodiscard]] x::errors::Error delete_arc(const std::vector<std::string> &keys) const;
+    [[nodiscard]] x::errors::Error
+    delete_arc(const std::vector<std::string> &keys) const;
 
 private:
     /// @brief Client for retrieving Arc programs.

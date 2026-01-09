@@ -101,8 +101,7 @@ std::vector<Key> keys_from_channels(const Channels &...channels) {
 }
 
 /// @brief creates a vector of channel keys from a vector of channels.
-inline std::vector<Key>
-keys_from_channels(const std::vector<Channel> &channels) {
+inline std::vector<Key> keys_from_channels(const std::vector<Channel> &channels) {
     std::vector<Key> keys;
     keys.reserve(channels.size());
     for (const auto &channel: channels)
@@ -208,7 +207,8 @@ public:
     /// false if the channel could not be retrieved. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, x::errors::Error> retrieve(std::uint32_t key) const;
+    [[nodiscard]] std::pair<Channel, x::errors::Error>
+    retrieve(std::uint32_t key) const;
 
     /// @brief retrieves channels with the given names.
     /// @param names the names of the channels to retrieve.

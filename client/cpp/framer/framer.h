@@ -187,7 +187,8 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with
     /// close(), but it is safe to call concurrently with read().
-    [[nodiscard]] x::errors::Error set_channels(const std::vector<channel::Key> &channels);
+    [[nodiscard]] x::errors::Error
+    set_channels(const std::vector<channel::Key> &channels);
 
     /// @brief closes the streamer and releases any resources associated with it. If
     /// any errors occurred during the stream, they will be returned. A streamer

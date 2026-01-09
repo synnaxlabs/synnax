@@ -159,7 +159,10 @@ TEST(RangerTests, testKVDelete) {
     const auto client = new_test_client();
     const auto range = ASSERT_NIL_P(client.ranges.create(
         "test",
-        x::telem::TimeRange(x::telem::TimeStamp(30), x::telem::TimeStamp(10 * x::telem::SECOND))
+        x::telem::TimeRange(
+            x::telem::TimeStamp(30),
+            x::telem::TimeStamp(10 * x::telem::SECOND)
+        )
     ));
     ASSERT_NIL(range.kv.set("test", "test"));
     ASSERT_NIL(range.kv.del("test"));

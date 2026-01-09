@@ -133,24 +133,30 @@ struct Config {
 class Synnax {
 public:
     /// @brief Client for creating and retrieving channels in a cluster.
-    channel::Client channels = channel::Client(nullptr, nullptr);
+    channel::Client channels;
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
-    RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr);
+    range::Client ranges;
     /// @brief Client for reading and writing telemetry to a cluster.
-    framer::Client telem = framer::Client(nullptr, nullptr, channel::Client());
+    framer::Client telem;
     /// @brief Client for managing racks.
-    rack::Client racks = rack::Client(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    rack::Client racks;
     /// @brief Client for managing devices.
-    device::Client devices = device::Client(nullptr, nullptr, nullptr);
+    device::Client devices;
     /// @brief Client for managing statuses.
-    status::Client statuses = status::Client();
+    status::Client statuses;
     /// @brief Client for managing Arc automation programs.
     arc::Client arcs = arc::Client(nullptr, nullptr, nullptr);
     std::shared_ptr<AuthMiddleware> auth = nullptr;
 
+    Transport t;
+
     /// @brief constructs the Synnax client from the provided configuration.
-    explicit Synnax(const Config &cfg) {
+    explicit Synnax(const Config &cfg): t(
+        Transport::configure(
+
+        )
+    ){
         auto t = Transport::configure(
             cfg.port,
             cfg.host,
@@ -167,12 +173,12 @@ public:
         );
         t.use(this->auth);
         this->channels = channel::Client(t.chan_retrieve, t.chan_create);
-        this->ranges = RangeClient(
+        this->ranges = range::Client(
             std::move(t.range_retrieve),
             std::move(t.range_create),
-            t.range_kv_get,
-            t.range_kv_set,
-            t.range_kv_delete
+            t.kv_get,
+            t.kv_set,
+            t.kv_delete
         );
         this->telem = framer::Client(
             std::move(t.frame_stream),
@@ -192,7 +198,11 @@ public:
             std::move(t.device_retrieve),
             std::move(t.device_delete)
         );
-        this->statuses = status::Client(t.status_retrieve, t.status_set, t.status_delete);
+        this->statuses = status::Client(
+            t.status_retrieve,
+            t.status_set,
+            t.status_delete
+        );
         this->arcs = arc::Client(t.arc_retrieve, t.arc_create, t.arc_delete);
     }
 };

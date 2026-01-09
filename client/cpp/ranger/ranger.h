@@ -13,14 +13,13 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/kv/kv.h"
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/ranger/pb/range.pb.h"
 #include "core/pkg/api/grpc/ranger/ranger.pb.h"
-
-#include "client/cpp/kv/kv.h"
+#include "core/pkg/api/ranger/pb/range.pb.h"
 
 namespace synnax::range {
 using Key = std::string;
@@ -63,35 +62,34 @@ private:
     /// @brief constructs an empty, invalid range.
     Range() = default;
 
-    friend class RangeClient;
+    friend class Client;
 };
 
 /// @brief Converts a range key to an ontology ID.
 /// @param key The range key.
 /// @returns An ontology ID with type "range" and the given key.
-inline ontology::ID range_ontology_id(const std::string &key) {
+inline ontology::ID ontology_id(const std::string &key) {
     return ontology::ID("range", key);
 }
 
 /// @brief Converts a vector of range keys to a vector of ontology IDs.
 /// @param keys The range keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID>
-range_ontology_ids(const std::vector<std::string> &keys) {
+inline std::vector<ontology::ID> ontology_ids(const std::vector<std::string> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
-        ids.push_back(range_ontology_id(key));
+        ids.push_back(ontology_id(key));
     return ids;
 }
 
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
-class RangeClient {
+class Client {
 public:
-    RangeClient(
+    Client(
         std::unique_ptr<RetrieveClient> retrieve_client,
         std::unique_ptr<CreateClient> create_client,
-        kv::Client kv_client
+        const kv::Client &kv_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),

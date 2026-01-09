@@ -9,12 +9,12 @@
 
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/ranger.h"
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/ranger/pb/range.pb.h"
-#include "core/pkg/api/grpc/ranger/ranger.pb.h"
 #include "core/pkg/api/grpc/kv/kv.pb.h"
+#include "core/pkg/api/grpc/ranger/ranger.pb.h"
+#include "core/pkg/api/ranger/pb/range.pb.h"
 #include "x/go/telem/telem.pb.h"
 
 namespace synnax::range {
@@ -35,7 +35,7 @@ void Range::to_proto(api::range::pb::Range *rng) const {
 }
 
 std::pair<Range, x::errors::Error>
-RangeClient::retrieve_by_key(const std::string &key) const {
+Client::retrieve_by_key(const std::string &key) const {
     auto req = grpc::ranger::RetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
@@ -48,7 +48,7 @@ RangeClient::retrieve_by_key(const std::string &key) const {
 }
 
 std::pair<Range, x::errors::Error>
-RangeClient::retrieve_by_name(const std::string &name) const {
+Client::retrieve_by_name(const std::string &name) const {
     auto req = grpc::ranger::RetrieveRequest();
     req.add_names(name);
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
@@ -63,7 +63,7 @@ RangeClient::retrieve_by_name(const std::string &name) const {
 }
 
 std::pair<std::vector<Range>, x::errors::Error>
-RangeClient::retrieve_many(grpc::ranger::RetrieveRequest &req) const {
+Client::retrieve_many(grpc::ranger::RetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {std::vector<Range>(), err};
     std::vector<Range> ranges = {res.ranges().begin(), res.ranges().end()};
@@ -73,7 +73,7 @@ RangeClient::retrieve_many(grpc::ranger::RetrieveRequest &req) const {
 }
 
 std::pair<std::vector<Range>, x::errors::Error>
-RangeClient::retrieve_by_name(const std::vector<std::string> &names) const {
+Client::retrieve_by_name(const std::vector<std::string> &names) const {
     auto req = grpc::ranger::RetrieveRequest();
     for (auto &name: names)
         req.add_names(name);
@@ -81,14 +81,14 @@ RangeClient::retrieve_by_name(const std::vector<std::string> &names) const {
 }
 
 std::pair<std::vector<Range>, x::errors::Error>
-RangeClient::retrieve_by_key(const std::vector<std::string> &keys) const {
+Client::retrieve_by_key(const std::vector<std::string> &keys) const {
     auto req = grpc::ranger::RetrieveRequest();
     for (auto &key: keys)
         req.add_keys(key);
     return retrieve_many(req);
 }
 
-x::errors::Error RangeClient::create(std::vector<Range> &ranges) const {
+x::errors::Error Client::create(std::vector<Range> &ranges) const {
     auto req = grpc::ranger::CreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());
     for (const auto &range: ranges)
@@ -107,7 +107,7 @@ x::errors::Error RangeClient::create(std::vector<Range> &ranges) const {
     return x::errors::NIL;
 }
 
-x::errors::Error RangeClient::create(Range &range) const {
+x::errors::Error Client::create(Range &range) const {
     auto req = grpc::ranger::CreateRequest();
     range.to_proto(req.add_ranges());
     auto [res, err] = create_client->send("/range/create", req);
@@ -120,11 +120,10 @@ x::errors::Error RangeClient::create(Range &range) const {
 }
 
 std::pair<Range, x::errors::Error>
-RangeClient::create(const std::string &name, x::telem::TimeRange time_range) const {
+Client::create(const std::string &name, x::telem::TimeRange time_range) const {
     auto rng = Range(name, time_range);
     auto err = create(rng);
     return {rng, err};
 }
-
 
 }

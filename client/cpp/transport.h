@@ -18,9 +18,9 @@
 #include "client/cpp/ranger/ranger.h"
 #include "client/cpp/status/status.h"
 
-namespace synnax {
+namespace synnax::details {
 struct Transport {
-    static Transport configure(
+    Transport(
         uint16_t port,
         const std::string &ip,
         const std::string &ca_cert_file,
@@ -35,17 +35,17 @@ struct Transport {
     std::unique_ptr<framer::WriterClient> frame_write;
     std::shared_ptr<channel::CreateClient> chan_create;
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
-    std::unique_ptr<RetrieveClient> range_retrieve;
-    std::unique_ptr<CreateClient> range_create;
-    std::shared_ptr<RangeKVDeleteClient> range_kv_delete;
-    std::shared_ptr<RangeKVGetClient> range_kv_get;
-    std::shared_ptr<RangeKVSetClient> range_kv_set;
+    std::unique_ptr<range::RetrieveClient> range_retrieve;
+    std::unique_ptr<range::CreateClient> range_create;
+    std::shared_ptr<kv::DeleteClient> kv_delete;
+    std::shared_ptr<kv::GetClient> kv_get;
+    std::shared_ptr<kv::SetClient> kv_set;
     std::unique_ptr<rack::CreateClient> rack_create_client;
     std::unique_ptr<rack::RetrieveClient> rack_retrieve;
     std::unique_ptr<rack::DeleteClient> rack_delete;
-    std::shared_ptr<task::CreateClient> module_create;
-    std::shared_ptr<task::RetrieveClient> module_retrieve;
-    std::shared_ptr<task::DeleteClient> module_delete;
+    std::shared_ptr<task::CreateClient> task_create;
+    std::shared_ptr<task::RetrieveClient> task_retrieve;
+    std::shared_ptr<task::DeleteClient> task_delete;
     std::unique_ptr<device::CreateClient> device_create;
     std::unique_ptr<device::RetrieveClient> device_retrieve;
     std::unique_ptr<device::DeleteClient> device_delete;

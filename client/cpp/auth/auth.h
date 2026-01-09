@@ -16,10 +16,10 @@
 #include "glog/logging.h"
 
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/telem/clock_skew.h"
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/os/os.h"
+#include "x/cpp/telem/clock_skew.h"
+#include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/grpc/auth/auth.pb.h"
 

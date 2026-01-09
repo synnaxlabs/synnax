@@ -20,18 +20,20 @@ const std::string ARC_CREATE_ENDPOINT = "/api/v1/arc/create";
 const std::string ARC_RETRIEVE_ENDPOINT = "/api/v1/arc/retrieve";
 const std::string ARC_DELETE_ENDPOINT = "/api/v1/arc/delete";
 
-Arc(std::string name): name(std::move(name)) {}
+Arc::Arc(std::string name): name(std::move(name)) {}
 
-Arc(const grpc::arc::Arc &pb):
+Arc::Arc(const grpc::arc::Arc &pb):
     key(pb.key()),
     name(pb.name()),
     graph(pb.has_graph() ? ::arc::graph::Graph(pb.graph()) : ::arc::graph::Graph()),
     text(pb.has_text() ? ::arc::text::Text(pb.text()) : ::arc::text::Text()),
-    module(pb.has_module() ? ::arc::module::Module(pb.module()) : ::arc::module::Module()),
+    module(
+        pb.has_module() ? ::arc::module::Module(pb.module()) : ::arc::module::Module()
+    ),
     deploy(pb.deploy()),
     version(pb.version()) {}
 
-void ::arc::to_proto(grpc::arc::Arc *pb) const {
+void Arc::to_proto(grpc::arc::Arc *pb) const {
     // Only set key if it's not empty (server generates UUID for new Arcs)
     if (!key.empty()) pb->set_key(key);
     pb->set_name(name);
@@ -115,10 +117,8 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
     return {Arc(res.arcs(0)), x::errors::NIL};
 }
 
-std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
-    const std::string &key,
-    const RetrieveOptions &options
-) const {
+std::pair<Arc, x::errors::Error>
+Client::retrieve_by_key(const std::string &key, const RetrieveOptions &options) const {
     auto req = grpc::arc::RetrieveRequest();
     req.add_keys(key);
     options.apply(req);

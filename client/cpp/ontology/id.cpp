@@ -22,7 +22,10 @@ std::pair<ID, x::errors::Error> ID::parse(const std::string &s) {
     if (s.empty())
         return {
             ID{},
-            x::errors::Error(x::errors::VALIDATION, "[ontology] - cannot parse empty id")
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "[ontology] - cannot parse empty id"
+            )
         };
     const auto colon_pos = s.find(':');
     if (colon_pos == std::string::npos)

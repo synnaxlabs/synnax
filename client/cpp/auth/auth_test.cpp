@@ -89,7 +89,8 @@ TEST(TestAuth, testLoginRetry) {
 class TestAuthRetry : public ::testing::Test {
 protected:
     grpc::auth::LoginResponse res;
-    std::unique_ptr<MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>
+    std::unique_ptr<
+        MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>
         mock_login_client;
     std::shared_ptr<AuthMiddleware> mw;
     MockUnaryClient<int, int> mock_client;

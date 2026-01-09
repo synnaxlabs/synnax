@@ -109,7 +109,10 @@ x::telem::Frame create_diff_lengths_frame() {
 }
 
 // Helper function to verify that two frames are equal
-void assert_frames_equal(const x::telem::Frame &expected, const x::telem::Frame &actual) {
+void assert_frames_equal(
+    const x::telem::Frame &expected,
+    const x::telem::Frame &actual
+) {
     ASSERT_EQ(expected.size(), actual.size());
 
     for (size_t i = 0; i < expected.channels->size(); i++) {
@@ -148,7 +151,10 @@ void assert_frames_equal(const x::telem::Frame &expected, const x::telem::Frame 
 x::telem::Frame create_large_equal_frame() {
     constexpr size_t NUM_CHANNELS = 500;
     auto frame = x::telem::Frame(NUM_CHANNELS);
-    const auto tr = x::telem::TimeRange{x::telem::TimeStamp(1000), x::telem::TimeStamp(2000)};
+    const auto tr = x::telem::TimeRange{
+        x::telem::TimeStamp(1000),
+        x::telem::TimeStamp(2000)
+    };
     for (size_t i = 0; i < NUM_CHANNELS; i++) {
         auto series = x::telem::Series(std::vector{1.0f, 2.0f, 3.0f});
         series.alignment = x::telem::Alignment(10);
@@ -182,7 +188,11 @@ TEST(CodecTests, FlagsEncodingDecoding) {
 /// @brief it should encode and decode a frame with various data types and properties.
 TEST(CodecTests, EncodeDecodeVariedFrame) {
     const auto original_frame = create_test_frame();
-    const std::vector data_types = {x::telem::FLOAT32_T, x::telem::FLOAT64_T, x::telem::INT32_T};
+    const std::vector data_types = {
+        x::telem::FLOAT32_T,
+        x::telem::FLOAT64_T,
+        x::telem::INT32_T
+    };
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
@@ -201,7 +211,10 @@ TEST(CodecTests, OnlyOneChannelPresent) {
         x::telem::UINT8_T,
         x::telem::UINT8_T
     };
-    auto frame = x::telem::Frame(3, x::telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5}));
+    auto frame = x::telem::Frame(
+        3,
+        x::telem::Series(std::vector<uint8_t>{1, 2, 3, 4, 5})
+    );
     std::vector<uint8_t> encoded;
     synnax::Codec codec(channels, data_types);
     codec.encode(frame, encoded);
@@ -261,8 +274,12 @@ TEST(CodecTests, EncodeDecodeDifferentLengthsFrame) {
 /// @brief it should encode and decode a frame with a subset of channels.
 TEST(CodecTests, EncodeDecodeChannelSubset) {
     const auto original_frame = create_test_frame();
-    const std::vector data_types =
-        {x::telem::FLOAT32_T, x::telem::FLOAT64_T, x::telem::INT32_T, x::telem::FLOAT32_T};
+    const std::vector data_types = {
+        x::telem::FLOAT32_T,
+        x::telem::FLOAT64_T,
+        x::telem::INT32_T,
+        x::telem::FLOAT32_T
+    };
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539, 65540};
     synnax::Codec codec(channels, data_types);
     std::vector<uint8_t> encoded;
@@ -372,7 +389,11 @@ TEST(CodecTests, OutOfSyncCodecs) {
 /// @brief it should return a validation error when the data type of a series does not
 /// match that of the channel.
 TEST(CodecTests, EncodeMismatchedDataType) {
-    const std::vector data_types = {x::telem::FLOAT32_T, x::telem::FLOAT64_T, x::telem::INT32_T};
+    const std::vector data_types = {
+        x::telem::FLOAT32_T,
+        x::telem::FLOAT64_T,
+        x::telem::INT32_T
+    };
     const std::vector<synnax::ChannelKey> channels = {65537, 65538, 65539};
     synnax::Codec codec(channels, data_types);
 

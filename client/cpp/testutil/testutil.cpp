@@ -32,8 +32,10 @@ std::string make_unique_channel_name(const std::string &base_name) {
     return base_name + "_" + std::to_string(dis(gen));
 }
 
-synnax::Channel
-create_virtual_channel(const synnax::Synnax &client, const x::telem::DataType &data_type) {
+synnax::Channel create_virtual_channel(
+    const synnax::Synnax &client,
+    const x::telem::DataType &data_type
+) {
     return ASSERT_NIL_P(
         client.channels.create(make_unique_channel_name("virtual"), data_type, true)
     );
@@ -45,9 +47,11 @@ create_indexed_pair(synnax::Synnax &client) {
         client.channels
             .create(make_unique_channel_name("index"), x::telem::TIMESTAMP_T, 0, true)
     );
-    auto data = ASSERT_NIL_P(
-        client.channels
-            .create(make_unique_channel_name("data"), x::telem::FLOAT32_T, idx.key, false)
-    );
+    auto data = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("data"),
+        x::telem::FLOAT32_T,
+        idx.key,
+        false
+    ));
     return {idx, data};
 }

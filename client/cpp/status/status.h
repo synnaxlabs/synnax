@@ -15,9 +15,9 @@
 
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/status/status.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/errors/errors.h"
 
 #include "core/pkg/api/grpc/status/status.pb.h"
 
@@ -111,7 +111,10 @@ public:
         auto [statuses, err] = this->retrieve<Details>(std::vector{key});
         if (err) return {x::status::Status<Details>{}, err};
         if (statuses.empty()) {
-            return {x::status::Status<Details>(), not_found_error("status", "key " + key)};
+            return {
+                x::status::Status<Details>(),
+                not_found_error("status", "key " + key)
+            };
         }
         return {statuses[0], x::errors::NIL};
     }
@@ -132,8 +135,11 @@ public:
         std::vector<x::status::Status<Details>> statuses;
         statuses.reserve(res.statuses_size());
         for (const auto &pb_status: res.statuses()) {
-            auto [decoded, decode_err] = x::status::Status<Details>::from_proto(pb_status);
-            if (decode_err) return {std::vector<x::status::Status<Details>>(), decode_err};
+            auto [decoded, decode_err] = x::status::Status<Details>::from_proto(
+                pb_status
+            );
+            if (decode_err)
+                return {std::vector<x::status::Status<Details>>(), decode_err};
             statuses.push_back(decoded);
         }
         return {statuses, x::errors::NIL};

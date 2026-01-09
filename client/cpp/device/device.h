@@ -20,12 +20,12 @@
 
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
-#include "x/cpp/status/status.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/status.h"
 
-#include "core/pkg/service/device/pb/device.pb.h"
 #include "core/pkg/api/grpc/device/device.pb.h"
+#include "core/pkg/service/device/pb/device.pb.h"
 
 namespace synnax::device {
 const std::string DEVICE_SET_CHANNEL = "sy_device_set";
@@ -56,8 +56,7 @@ inline ontology::ID ontology_id(const std::string &key) {
 /// @brief Converts a vector of device keys to a vector of ontology IDs.
 /// @param keys The device keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID>
-ontology_ids(const std::vector<std::string> &keys) {
+inline std::vector<ontology::ID> ontology_ids(const std::vector<std::string> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
@@ -142,7 +141,8 @@ struct Device {
     /// @brief Constructs a device from its protobuf representation.
     /// @param device The protobuf representation of the device.
     /// @returns A pair containing the device and an error if one occurred.
-    static std::pair<Device, x::errors::Error> from_proto(const service::device::Device &device);
+    static std::pair<Device, x::errors::Error>
+    from_proto(const service::device::pb::Device &device);
 
     /// @brief Parses a device from a JSON parser.
     /// @param parser The JSON parser containing device data.
@@ -150,7 +150,7 @@ struct Device {
     static Device parse(x::json::Parser &parser);
 
 private:
-    void to_proto(service::device::Device *device) const;
+    void to_proto(service::device::pb::Device *device) const;
 
     friend class Client;
 };

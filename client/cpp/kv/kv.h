@@ -11,16 +11,12 @@
 
 #include <string>
 
-#include "core/pkg/api/grpc/core/pkg/api/grpc/kv/kv.pb.h"
-
-#include "freighter/cpp/freighter.h"
-
-#include "core/pkg/api/grpc/kv/kv.pb.h"
-
 #include "google/protobuf/empty.pb.h"
 
-#include "client/cpp/ontology/id.h"
+#include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
+
+#include "core/pkg/api/grpc/kv/kv.pb.h"
 
 namespace synnax::kv {
 using Key = std::string;
@@ -29,8 +25,7 @@ using Key = std::string;
 using GetClient = freighter::UnaryClient<grpc::kv::GetRequest, grpc::kv::GetResponse>;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
-using SetClient = freighter::
-    UnaryClient<grpc::kv::SetRequest, google::protobuf::Empty>;
+using SetClient = freighter::UnaryClient<grpc::kv::SetRequest, google::protobuf::Empty>;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
 using DeleteClient = freighter::
@@ -45,6 +40,8 @@ class Client {
     std::shared_ptr<DeleteClient> kv_delete_client;
 
 public:
+    Client() = default;
+
     Client(
         std::string range_key,
         std::shared_ptr<GetClient> kv_get_client,
