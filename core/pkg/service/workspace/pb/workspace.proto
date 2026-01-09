@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package service.workspace;
+package service.workspace.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/pb";
 

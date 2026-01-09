@@ -1,8 +1,9 @@
 cc_library(
     name = "status",
-    srcs = ["status.h"],
     hdrs = [
+        "json.gen.h",
         "proto.gen.h",
+        "status.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],

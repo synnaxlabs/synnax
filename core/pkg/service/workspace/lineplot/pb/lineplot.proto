@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package service.lineplot;
+package service.lineplot.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot/pb";
 

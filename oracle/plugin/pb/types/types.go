@@ -186,7 +186,7 @@ func derivePackageName(outputPath string, structs []resolution.Type) string {
 		}
 	}
 	prefix := deriveLayerPrefix(outputPath)
-	return prefix + "." + namespace
+	return prefix + "." + namespace + ".pb"
 }
 
 func deriveLayerPrefix(outputPath string) string {

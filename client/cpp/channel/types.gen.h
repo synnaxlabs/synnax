@@ -19,6 +19,8 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
+#include "core/pkg/distribution/channel/pb/channel.pb.h"
+
 namespace synnax::channel {
 using ChannelKey = std::uint32_t;
 
@@ -34,25 +36,11 @@ struct Operation {
     ChannelKey reset_channel;
     x::telem::TimeSpan duration;
 
-    static Operation parse(x::json::Parser parser) {
-        return Operation{
-            .type = parser.field<std::string>("type"),
-            .reset_channel = parser.field<ChannelKey>("reset_channel"),
-            .duration = telem::TimeSpan(parser.field<std::int64_t>("duration")),
-        };
-    }
+    static Operation parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["type"] = this->type;
-        j["reset_channel"] = this->reset_channel;
-        j["duration"] = this->duration.nanoseconds();
-        return j;
-    }
-
-    using proto_type = distribution::channel::Operation;
-    [[nodiscard]] distribution::channel::Operation to_proto() const;
-    static std::pair<Operation, x::errors::Error>
-    from_proto(const distribution::channel::Operation &pb);
+    using proto_type = pb::Operation;
+    [[nodiscard]] pb::Operation to_proto() const;
+    static std::pair<Operation, x::errors::Error> from_proto(const pb::Operation &pb);
 };
 }

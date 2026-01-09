@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package service.kv;
+package service.kv.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/pb";
 

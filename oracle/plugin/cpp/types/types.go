@@ -540,13 +540,11 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	aliasForm, isAlias := entry.Form.(resolution.AliasForm)
 
 	sd := structData{
-		Name:           name,
-		Doc:            doc.Get(entry.Domains),
-		Fields:         make([]fieldData, 0, len(form.Fields)),
-		IsGeneric:      form.IsGeneric(),
-		IsAlias:        isAlias,
-		GenerateParse:  true,
-		GenerateToJson: true,
+		Name:      name,
+		Doc:       doc.Get(entry.Domains),
+		Fields:    make([]fieldData, 0, len(form.Fields)),
+		IsGeneric: form.IsGeneric(),
+		IsAlias:   isAlias,
 	}
 
 	for _, tp := range form.TypeParams {
@@ -562,7 +560,8 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		sd.Fields = append(sd.Fields, p.processField(field, entry, data))
 	}
 
-	if sd.GenerateParse {
+	// Structs with fields need json.h for parse/to_json methods
+	if len(sd.Fields) > 0 {
 		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
@@ -575,13 +574,15 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		pbOutputPath := output.GetPBPath(entry)
 		if pbOutputPath != "" {
 			pbName := getPBName(entry)
-			pbNamespace := deriveProtoNamespace(pbOutputPath)
 			sd.HasProto = true
-			sd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
-			sd.ProtoNamespace = pbNamespace
+			sd.ProtoType = fmt.Sprintf("pb::%s", pbName)
+			sd.ProtoNamespace = "pb"
 			sd.ProtoClass = pbName
 			data.includes.addSystem("utility")
 			data.includes.addInternal("x/cpp/errors/errors.h")
+			// Include the protobuf header
+			protoInclude := fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace)
+			data.includes.addInternal(protoInclude)
 		}
 	}
 
@@ -597,43 +598,16 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 
-	// Check if this is a generic type parameter field
-	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil
-	typeParamName := ""
-	if isGenericField {
-		typeParamName = field.Type.TypeParam.Name
-	}
-
 	// Apply optional wrappers based on field flags
 	if field.IsHardOptional {
 		data.includes.addSystem("optional")
 		cppType = fmt.Sprintf("std::optional<%s>", cppType)
 	}
 
-	// Generate JSON expressions
-	parseExpr := p.parseExprForField(field, cppType, data)
-	toJsonExpr := p.toJsonExprForField(field, data)
-
-	// For generic fields, generate separate expressions for JSON vs struct
-	var jsonParseExpr, structParseExpr string
-	if isGenericField {
-		jsonParseExpr, structParseExpr = p.genericParseExprsForField(field, data)
-	}
-
 	return fieldData{
-		Name:            field.Name,
-		CppType:         cppType,
-		Doc:             doc.Get(field.Domains),
-		JsonName:        field.Name,
-		ParseExpr:       parseExpr,
-		ToJsonExpr:      toJsonExpr,
-		HasDefault:      field.IsOptional,
-		DefaultValue:    p.defaultValueForType(field.Type, field.IsHardOptional, data),
-		IsGenericField:  isGenericField,
-		TypeParamName:   typeParamName,
-		IsHardOptional:  field.IsHardOptional,
-		JsonParseExpr:   jsonParseExpr,
-		StructParseExpr: structParseExpr,
+		Name:    field.Name,
+		CppType: cppType,
+		Doc:     doc.Get(field.Domains),
 	}
 }
 
@@ -907,8 +881,6 @@ type structData struct {
 	IsGeneric      bool
 	IsAlias        bool
 	AliasOf        string
-	GenerateParse  bool
-	GenerateToJson bool
 	HasProto       bool
 	ProtoType      string
 	ProtoNamespace string
@@ -920,20 +892,9 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name           string
-	CppType        string
-	Doc            string
-	JsonName       string
-	ParseExpr      string
-	ToJsonExpr     string
-	HasDefault     bool
-	DefaultValue   string
-	IsGenericField bool
-	TypeParamName  string
-	IsHardOptional bool
-	// For generic fields, we need separate expressions for JSON vs struct type params
-	JsonParseExpr   string
-	StructParseExpr string
+	Name       string
+	CppType    string
+	Doc        string
 }
 
 type enumData struct {
@@ -946,351 +907,6 @@ type enumValueData struct {
 	Name     string
 	Value    string
 	IntValue int64
-}
-
-func defaultValueForPrimitive(primitive string) string {
-	switch primitive {
-	case "string", "uuid":
-		return `""`
-	case "bool":
-		return "false"
-	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64":
-		return "0"
-	case "float32", "float64":
-		return "0.0"
-	case "timestamp":
-		return "x::telem::TimeStamp(0)"
-	case "timespan":
-		return "x::telem::TimeSpan(0)"
-	case "time_range", "time_range_bounded":
-		return "x::telem::TimeRange{}"
-	case "json":
-		return "x::json::json{}"
-	case "bytes":
-		return "{}"
-	default:
-		return "{}"
-	}
-}
-
-func (p *Plugin) defaultValueForType(typeRef resolution.TypeRef, isHardOptional bool, data *templateData) string {
-	// Check for Array
-	if typeRef.Name == "Array" {
-		return "{}"
-	}
-	if isHardOptional {
-		return "std::nullopt"
-	}
-	// Check if it's a primitive
-	if resolution.IsPrimitive(typeRef.Name) {
-		return defaultValueForPrimitive(typeRef.Name)
-	}
-	// Try to resolve the type
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return "{}"
-	}
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		return "{}"
-	case resolution.EnumForm:
-		if form.IsIntEnum {
-			return "static_cast<" + resolved.Name + ">(0)"
-		}
-		return `""`
-	case resolution.DistinctForm, resolution.AliasForm:
-		return "{}"
-	default:
-		return "{}"
-	}
-}
-
-func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data *templateData) string {
-	typeRef := field.Type
-	jsonName := field.Name
-	hasDefault := field.IsOptional
-
-	// Handle hard optional
-	if field.IsHardOptional {
-		// Hard optional uses std::optional, check if field exists
-		innerType := p.typeRefToCpp(typeRef, data)
-		innerExpr := p.parseExprForTypeRef(typeRef, innerType, jsonName, false, data)
-		return fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s) : std::nullopt`, jsonName, innerExpr)
-	}
-
-	// Handle type parameters - call their parse method since they're assumed to be structs
-	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		if hasDefault {
-			return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, typeRef.TypeParam.Name, jsonName)
-		}
-		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeRef.TypeParam.Name, jsonName)
-	}
-
-	// Handle arrays
-	if typeRef.Name == "Array" {
-		if hasDefault {
-			return fmt.Sprintf(`parser.field<%s>("%s", {})`, cppType, jsonName)
-		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	}
-
-	// Check if primitive
-	if resolution.IsPrimitive(typeRef.Name) {
-		// Handle time types that need special parsing (parse as int64, construct from that)
-		switch typeRef.Name {
-		case "timestamp":
-			if hasDefault {
-				return fmt.Sprintf(`telem::TimeStamp(parser.field<std::int64_t>("%s", 0))`, jsonName)
-			}
-			return fmt.Sprintf(`telem::TimeStamp(parser.field<std::int64_t>("%s"))`, jsonName)
-		case "timespan":
-			if hasDefault {
-				return fmt.Sprintf(`telem::TimeSpan(parser.field<std::int64_t>("%s", 0))`, jsonName)
-			}
-			return fmt.Sprintf(`telem::TimeSpan(parser.field<std::int64_t>("%s"))`, jsonName)
-		default:
-			if hasDefault {
-				defaultVal := p.defaultValueForType(typeRef, false, data)
-				return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
-			}
-			return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-		}
-	}
-
-	// Try to resolve the type
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		if hasDefault {
-			return fmt.Sprintf(`parser.field<%s>("%s", {})`, cppType, jsonName)
-		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		// Nested structs call their parse method via optional_child
-		structType := p.resolveStructType(resolved, typeRef.TypeArgs, data)
-		if hasDefault {
-			return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, structType, jsonName)
-		}
-		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
-
-	case resolution.EnumForm:
-		// Enums need special handling based on int vs string
-		if form.IsIntEnum {
-			if hasDefault {
-				return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s", 0))`, resolved.Name, jsonName)
-			}
-			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, resolved.Name, jsonName)
-		}
-		// String enum - parse as string
-		if hasDefault {
-			return fmt.Sprintf(`parser.field<std::string>("%s", "")`, jsonName)
-		}
-		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
-
-	case resolution.AliasForm:
-		// Follow through to the underlying type
-		if targetResolved, ok := form.Target.Resolve(data.table); ok {
-			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-				// Alias to struct - call parse on the alias type
-				if hasDefault {
-					return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, cppType, jsonName)
-				}
-				return fmt.Sprintf(`%s::parse(parser.child("%s"))`, cppType, jsonName)
-			}
-		}
-		if hasDefault {
-			defaultVal := p.defaultValueForType(typeRef, false, data)
-			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
-		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-
-	default:
-		if hasDefault {
-			defaultVal := p.defaultValueForType(typeRef, false, data)
-			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
-		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	}
-}
-
-func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonName string, hasDefault bool, data *templateData) string {
-	// Handle type parameters
-	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeRef.TypeParam.Name, jsonName)
-	}
-
-	// Check if primitive
-	if resolution.IsPrimitive(typeRef.Name) {
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	}
-
-	// Try to resolve the type
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		structType := p.resolveStructType(resolved, typeRef.TypeArgs, data)
-		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
-	case resolution.EnumForm:
-		if form.IsIntEnum {
-			return fmt.Sprintf(`static_cast<%s>(parser.field<int>("%s"))`, resolved.Name, jsonName)
-		}
-		return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
-	case resolution.AliasForm:
-		// Follow through to the underlying type
-		if targetResolved, ok := form.Target.Resolve(data.table); ok {
-			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-				return fmt.Sprintf(`%s::parse(parser.child("%s"))`, cppType, jsonName)
-			}
-		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	default:
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	}
-}
-
-// genericParseExprsForField generates separate parse expressions for JSON vs struct type parameters.
-// Returns (jsonParseExpr, structParseExpr) for use in if constexpr blocks.
-func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templateData) (jsonParseExpr, structParseExpr string) {
-	jsonName := field.Name
-	typeParamName := field.Type.TypeParam.Name
-
-	if field.IsHardOptional {
-		// Hard optional with type parameter
-		jsonParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<x::json::json>("%s")) : std::nullopt`, jsonName, jsonName)
-		structParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s::parse(parser.child("%s"))) : std::nullopt`, jsonName, typeParamName, jsonName)
-	} else if field.IsOptional {
-		// Soft optional with type parameter (has default)
-		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json>("%s", x::json::json{})`, jsonName)
-		structParseExpr = fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, typeParamName, jsonName)
-	} else {
-		// Required with type parameter
-		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json>("%s")`, jsonName)
-		structParseExpr = fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeParamName, jsonName)
-	}
-
-	return jsonParseExpr, structParseExpr
-}
-
-func (p *Plugin) toJsonExprForField(field resolution.Field, data *templateData) string {
-	typeRef := field.Type
-	jsonName := field.Name
-	fieldName := field.Name
-
-	// Handle hard optional
-	if field.IsHardOptional {
-		innerExpr := p.toJsonValueExpr(typeRef, fieldName, data)
-		return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = %s;`, fieldName, jsonName, innerExpr)
-	}
-
-	// Handle type parameters - call to_json() on them since they're assumed to be structs
-	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
-	}
-
-	// Handle arrays of structs
-	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
-		elementType := typeRef.TypeArgs[0]
-		if !resolution.IsPrimitive(elementType.Name) {
-			if resolved, ok := elementType.Resolve(data.table); ok {
-				if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-					return p.toJsonArrayOfStructsExpr(jsonName, fieldName)
-				}
-			}
-		}
-		// Array of primitives or enums - direct assignment
-		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
-	}
-
-	// Check if primitive
-	if resolution.IsPrimitive(typeRef.Name) {
-		// Handle time types that need .nanoseconds() conversion
-		switch typeRef.Name {
-		case "timestamp", "timespan":
-			return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
-		default:
-			return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
-		}
-	}
-
-	// Try to resolve the type
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
-	case resolution.EnumForm:
-		if form.IsIntEnum {
-			return fmt.Sprintf(`j["%s"] = static_cast<int>(this->%s);`, jsonName, fieldName)
-		}
-		// String enum - serialize as string directly
-		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
-	case resolution.AliasForm:
-		// Follow through to the underlying type
-		if targetResolved, ok := form.Target.Resolve(data.table); ok {
-			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
-			}
-		}
-		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
-	default:
-		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
-	}
-}
-
-func (p *Plugin) toJsonValueExpr(typeRef resolution.TypeRef, fieldName string, data *templateData) string {
-	// Handle type parameters
-	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		return fmt.Sprintf("this->%s->to_json()", fieldName)
-	}
-
-	// Check if primitive
-	if resolution.IsPrimitive(typeRef.Name) {
-		return fmt.Sprintf("*this->%s", fieldName)
-	}
-
-	// Try to resolve the type
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return fmt.Sprintf("*this->%s", fieldName)
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		return fmt.Sprintf("this->%s->to_json()", fieldName)
-	case resolution.EnumForm:
-		if form.IsIntEnum {
-			return fmt.Sprintf("static_cast<int>(*this->%s)", fieldName)
-		}
-		return fmt.Sprintf("*this->%s", fieldName)
-	case resolution.AliasForm:
-		// Follow through to the underlying type
-		if targetResolved, ok := form.Target.Resolve(data.table); ok {
-			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-				return fmt.Sprintf("this->%s->to_json()", fieldName)
-			}
-		}
-		return fmt.Sprintf("*this->%s", fieldName)
-	default:
-		return fmt.Sprintf("*this->%s", fieldName)
-	}
-}
-
-func (p *Plugin) toJsonArrayOfStructsExpr(jsonName, fieldName string) string {
-	// For arrays of structs, we need to transform each element
-	return fmt.Sprintf(`{
-        auto arr = x::json::json::array();
-        for (const auto& item : this->%s) arr.push_back(item.to_json());
-        j["%s"] = arr;
-    }`, fieldName, jsonName)
 }
 
 func hasPBFlag(t resolution.Type) bool {
@@ -1307,27 +923,6 @@ func getPBName(s resolution.Type) string {
 		}
 	}
 	return s.Name
-}
-
-func deriveProtoNamespace(pbOutputPath string) string {
-	if pbOutputPath == "" {
-		return ""
-	}
-	parts := strings.Split(pbOutputPath, "/")
-	for i, part := range parts {
-		switch part {
-		case "distribution", "api", "service":
-			if i+1 < len(parts) && parts[i+1] != "pb" {
-				return fmt.Sprintf("%s::%s", part, parts[i+1])
-			}
-			return part
-		case "x":
-			if i+2 < len(parts) && parts[i+2] != "pb" {
-				return fmt.Sprintf("x::%s", parts[i+2])
-			}
-		}
-	}
-	return ""
 }
 
 var templateFuncs = template.FuncMap{
@@ -1398,64 +993,9 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- end}}
     {{.CppType}} {{.Name}};
 {{- end}}
-{{- if $s.GenerateParse}}
 
-    static {{$s.Name}} parse(x::json::Parser parser) {
-        return {{$s.Name}}{
-{{- range $j, $f := $s.Fields}}
-{{- if $f.IsGenericField}}
-{{- if $f.IsHardOptional}}
-            .{{$f.Name}} = [&]() -> std::optional<{{$f.TypeParamName}}> {
-                if constexpr (std::is_same_v<{{$f.TypeParamName}}, x::json::json>) {
-                    return {{$f.JsonParseExpr}};
-                } else {
-                    return {{$f.StructParseExpr}};
-                }
-            }(),
-{{- else}}
-            .{{$f.Name}} = [&]() -> {{$f.TypeParamName}} {
-                if constexpr (std::is_same_v<{{$f.TypeParamName}}, x::json::json>) {
-                    return {{$f.JsonParseExpr}};
-                } else {
-                    return {{$f.StructParseExpr}};
-                }
-            }(),
-{{- end}}
-{{- else}}
-            .{{$f.Name}} = {{$f.ParseExpr}},
-{{- end}}
-{{- end}}
-        };
-    }
-{{- end}}
-{{- if $s.GenerateToJson}}
-
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-{{- range $s.Fields}}
-{{- if .IsGenericField}}
-{{- if .IsHardOptional}}
-        if (this->{{.Name}}.has_value()) {
-            if constexpr (std::is_same_v<{{.TypeParamName}}, x::json::json>) {
-                j["{{.JsonName}}"] = *this->{{.Name}};
-            } else {
-                j["{{.JsonName}}"] = this->{{.Name}}->to_json();
-            }
-        }
-{{- else}}
-        if constexpr (std::is_same_v<{{.TypeParamName}}, x::json::json>) {
-            j["{{.JsonName}}"] = this->{{.Name}};
-        } else {
-            j["{{.JsonName}}"] = this->{{.Name}}.to_json();
-        }
-{{- end}}
-{{- else}}
-        {{.ToJsonExpr}}
-{{- end}}
-{{- end}}
-        return j;
-    }
-{{- end}}
+    static {{$s.Name}} parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 {{- if $s.HasProto}}
 
     using proto_type = {{$s.ProtoType}};

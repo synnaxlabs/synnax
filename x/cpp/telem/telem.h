@@ -20,6 +20,8 @@
 #include <variant>
 #include <vector>
 
+#include "x/cpp/json/json.h"
+
 namespace x::telem {
 // private namespace for internal constants
 namespace details {
@@ -271,6 +273,10 @@ public:
 
     /// @brief a zero nanosecond timespan.
     static TimeSpan ZERO() { return TimeSpan(0); }
+
+    static TimeSpan parse(x::json::Parser parser) {
+        return TimeSpan(parser.field<std::int64_t>());
+    }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -382,6 +388,10 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const TimeStamp &ts) {
         os << ts.value;
         return os;
+    }
+
+    static TimeStamp parse(x::json::Parser parser) {
+        return TimeStamp(parser.field<std::int64_t>());
     }
 };
 

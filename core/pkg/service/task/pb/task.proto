@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package service.task;
+package service.task.pb;
 
 import "google/protobuf/struct.proto";
 import "x/go/status/pb/status.proto";
@@ -23,7 +23,7 @@ message Task {
   bool internal = 4;
   bool snapshot = 5;
   string config = 6;
-  optional x.status.Status status = 7;
+  optional x.status.pb.Status status = 7;
 }
 
 message Command {

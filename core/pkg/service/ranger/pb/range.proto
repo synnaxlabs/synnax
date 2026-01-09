@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package service.range;
+package service.range.pb;
 
 import "x/go/telem/telem.proto";
 

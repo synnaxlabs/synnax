@@ -21,15 +21,15 @@
 
 namespace x::label {
 
-inline x::label::Label Label::to_proto() const {
-    x::label::Label pb;
+inline pb::Label Label::to_proto() const {
+    pb::Label pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
     pb.set_color(this->color);
     return pb;
 }
 
-inline std::pair<Label, x::errors::Error> Label::from_proto(const x::label::Label &pb) {
+inline std::pair<Label, x::errors::Error> Label::from_proto(const pb::Label &pb) {
     Label cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();

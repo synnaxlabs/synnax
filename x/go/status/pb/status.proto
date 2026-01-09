@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package x.status;
+package x.status.pb;
 
 import "google/protobuf/any.proto";
 import "x/go/label/pb/label.proto";
@@ -26,6 +26,6 @@ message Status {
   string description = 4;
   int64 time = 5;
   google.protobuf.Any details = 6;
-  repeated x.label.Label labels = 7;
+  repeated x.label.pb.Label labels = 7;
   Variant variant = 8;
 }

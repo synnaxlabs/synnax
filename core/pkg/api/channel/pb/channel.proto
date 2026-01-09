@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package api.channel;
+package api.channel.pb;
 
 import "core/pkg/distribution/channel/pb/channel.proto";
 import "x/go/control/pb/control.proto";
@@ -28,6 +28,6 @@ message Channel {
   bool virtual = 8;
   bool internal = 9;
   string expression = 10;
-  repeated distribution.channel.Operation operations = 11;
+  repeated distribution.channel.pb.Operation operations = 11;
   x.control.Concurrency concurrency = 12;
 }

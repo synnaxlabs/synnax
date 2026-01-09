@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package service.device;
+package service.device.pb;
 
 import "x/go/status/pb/status.proto";
 
@@ -21,6 +21,6 @@ message Device {
   string model = 5;
   string name = 6;
   bool configured = 7;
-  optional x.status.Status status = 8;
+  optional x.status.pb.Status status = 8;
   string properties = 9;
 }

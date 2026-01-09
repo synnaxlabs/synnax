@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package distribution.channel;
+package distribution.channel.pb;
 
 import "x/go/control/pb/control.proto";
 

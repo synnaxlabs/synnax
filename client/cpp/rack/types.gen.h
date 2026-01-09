@@ -20,28 +20,21 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
 
+#include "core/pkg/service/rack/pb/rack.pb.h"
+
 namespace synnax::rack {
 using Key = std::uint32_t;
 
 struct StatusDetails {
     Key rack;
 
-    static StatusDetails parse(x::json::Parser parser) {
-        return StatusDetails{
-            .rack = parser.field<Key>("rack"),
-        };
-    }
+    static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["rack"] = this->rack;
-        return j;
-    }
-
-    using proto_type = service::rack::StatusDetails;
-    [[nodiscard]] service::rack::StatusDetails to_proto() const;
+    using proto_type = pb::StatusDetails;
+    [[nodiscard]] pb::StatusDetails to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const service::rack::StatusDetails &pb);
+    from_proto(const pb::StatusDetails &pb);
 };
 
 using Status = x::status::Status<StatusDetails>;
@@ -53,31 +46,11 @@ struct Payload {
     bool embedded;
     std::optional<Status> status;
 
-    static Payload parse(x::json::Parser parser) {
-        return Payload{
-            .key = parser.field<Key>("key"),
-            .name = parser.field<std::string>("name"),
-            .task_counter = parser.field<std::uint32_t>("task_counter", 0),
-            .embedded = parser.field<bool>("embedded", false),
-            .status = parser.has("status")
-                        ? std::make_optional(Status::parse(parser.child("status")))
-                        : std::nullopt,
-        };
-    }
+    static Payload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["key"] = this->key;
-        j["name"] = this->name;
-        j["task_counter"] = this->task_counter;
-        j["embedded"] = this->embedded;
-        if (this->status.has_value()) j["status"] = this->status->to_json();
-        return j;
-    }
-
-    using proto_type = service::rack::Rack;
-    [[nodiscard]] service::rack::Rack to_proto() const;
-    static std::pair<Payload, x::errors::Error>
-    from_proto(const service::rack::Rack &pb);
+    using proto_type = pb::Rack;
+    [[nodiscard]] pb::Rack to_proto() const;
+    static std::pair<Payload, x::errors::Error> from_proto(const pb::Rack &pb);
 };
 }

@@ -469,17 +469,16 @@ T Parser::parse_value(const std::string &path, const json &j) {
         }
         return values;
     } else if constexpr (is_parseable_v<T>) {
-        if (!j.is_object() && !j.is_array()) {
-            field_err(path, "expected an object or array");
-            return T();
-        }
         const auto child_prefix = path.empty() ? path_prefix : path_prefix + path + ".";
         Parser child_parser(j, errors, child_prefix);
         if constexpr (is_parser_constructible_v<T>) {
+            if (!j.is_object() && !j.is_array()) {
+                field_err(path, "expected an object or array");
+                return T();
+            }
             return T(child_parser);
-        } else {
+        } else
             return T::parse(child_parser);
-        }
     } else {
         try {
             if constexpr (std::is_arithmetic_v<T>) {

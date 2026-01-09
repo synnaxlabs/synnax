@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package api.range;
+package api.range.pb;
 
 import "x/go/telem/telem.proto";
 import "x/go/label/pb/label.proto";
@@ -14,6 +14,6 @@ message Range {
   string name = 2;
   telem.PBTimeRange time_range = 3;
   string color = 4;
-  repeated x.label.Label labels = 5;
+  repeated x.label.pb.Label labels = 5;
   optional Range parent = 6;
 }

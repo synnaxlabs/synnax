@@ -259,8 +259,6 @@ func (p *Plugin) processStructForTranslation(
 	cppName := domain.GetName(s, "cpp")
 
 	pbName := getPBName(s)
-	pbOutputPath := output.GetPBPath(s)
-	pbNamespace := deriveProtoNamespace(pbOutputPath, s.Namespace)
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
@@ -272,7 +270,7 @@ func (p *Plugin) processStructForTranslation(
 	translator := &translatorData{
 		CppName:        cppName,
 		PBName:         pbName,
-		PBNamespace:    pbNamespace,
+		PBNamespace:    "pb",
 		Fields:         make([]fieldTranslatorData, 0),
 		IsGeneric:      form.IsGeneric(),
 		TypeParams:     typeParams,
@@ -542,9 +540,7 @@ func (p *Plugin) generateEnumConversion(
 	enumName := resolved.Name
 
 	if form.IsIntEnum {
-		pbOutputPath := output.GetPBPath(resolved)
-		pbNamespace := deriveProtoNamespace(pbOutputPath, resolved.Namespace)
-		forward = fmt.Sprintf("%s(static_cast<%s::%s>(this->%s))", pbSetter, pbNamespace, enumName, fieldName)
+		forward = fmt.Sprintf("%s(static_cast<pb::%s>(this->%s))", pbSetter, enumName, fieldName)
 		backward = fmt.Sprintf("cpp.%s = static_cast<%s>(pb.%s());", fieldName, enumName, fieldName)
 	} else {
 		forward = fmt.Sprintf("%s(%sToPB(this->%s))", pbSetter, enumName, fieldName)
@@ -681,9 +677,6 @@ func (p *Plugin) processEnumForTranslation(
 		return nil
 	}
 
-	pbOutputPath := output.GetPBPath(e)
-	pbNamespace := deriveProtoNamespace(pbOutputPath, e.Namespace)
-
 	values := make([]enumValueTranslatorData, 0, len(form.Values))
 	for _, v := range form.Values {
 		cppValueName := fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(v.Name))
@@ -697,7 +690,7 @@ func (p *Plugin) processEnumForTranslation(
 
 	return &enumTranslatorData{
 		Name:        e.Name,
-		PBNamespace: pbNamespace,
+		PBNamespace: "pb",
 		Values:      values,
 		PBDefault:   fmt.Sprintf("%s_UNSPECIFIED", toScreamingSnake(e.Name)),
 		CppDefault:  fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name)),
@@ -732,29 +725,6 @@ func deriveProtoInclude(pbOutputPath, namespace string) string {
 		return ""
 	}
 	return fmt.Sprintf("%s/%s.pb.h", pbOutputPath, namespace)
-}
-
-func deriveProtoNamespace(pbOutputPath, namespace string) string {
-	prefix := deriveLayerPrefix(pbOutputPath)
-	if prefix == "" {
-		return namespace
-	}
-	return fmt.Sprintf("%s::%s", prefix, namespace)
-}
-
-func deriveLayerPrefix(pbOutputPath string) string {
-	parts := strings.Split(pbOutputPath, "/")
-	for i, part := range parts {
-		switch part {
-		case "distribution", "api", "service":
-			return part
-		case "x":
-			if i+2 < len(parts) {
-				return "x"
-			}
-		}
-	}
-	return ""
 }
 
 func getPBName(s resolution.Type) string {

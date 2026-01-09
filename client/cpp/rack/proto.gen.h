@@ -21,21 +21,21 @@
 
 namespace synnax::rack {
 
-inline service::rack::StatusDetails StatusDetails::to_proto() const {
-    service::rack::StatusDetails pb;
+inline pb::StatusDetails StatusDetails::to_proto() const {
+    pb::StatusDetails pb;
     pb.set_rack(static_cast<uint32_t>(this->rack));
     return pb;
 }
 
 inline std::pair<StatusDetails, x::errors::Error>
-StatusDetails::from_proto(const service::rack::StatusDetails &pb) {
+StatusDetails::from_proto(const pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = Key(pb.rack());
     return {cpp, x::errors::NIL};
 }
 
-inline service::rack::Rack Payload::to_proto() const {
-    service::rack::Rack pb;
+inline pb::Rack Payload::to_proto() const {
+    pb::Rack pb;
     pb.set_key(static_cast<uint32_t>(this->key));
     pb.set_name(this->name);
     pb.set_task_counter(this->task_counter);
@@ -44,8 +44,7 @@ inline service::rack::Rack Payload::to_proto() const {
     return pb;
 }
 
-inline std::pair<Payload, x::errors::Error>
-Payload::from_proto(const service::rack::Rack &pb) {
+inline std::pair<Payload, x::errors::Error> Payload::from_proto(const pb::Rack &pb) {
     Payload cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();

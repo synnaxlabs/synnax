@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-package service.alias;
+package service.alias.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/pb";
 

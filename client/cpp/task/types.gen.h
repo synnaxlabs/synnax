@@ -20,6 +20,8 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
 
+#include "core/pkg/service/task/pb/task.pb.h"
+
 namespace synnax::task {
 using Key = std::uint64_t;
 
@@ -29,30 +31,13 @@ struct StatusDetails {
     std::string cmd;
     std::optional<x::json::json> data;
 
-    static StatusDetails parse(x::json::Parser parser) {
-        return StatusDetails{
-            .task = parser.field<Key>("task", {}),
-            .running = parser.field<bool>("running", false),
-            .cmd = parser.field<std::string>("cmd", ""),
-            .data = parser.has("data")
-                      ? std::make_optional(parser.field<x::json::json>("data"))
-                      : std::nullopt,
-        };
-    }
+    static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["task"] = this->task;
-        j["running"] = this->running;
-        j["cmd"] = this->cmd;
-        if (this->data.has_value()) j["data"] = *this->data;
-        return j;
-    }
-
-    using proto_type = service::task::StatusDetails;
-    [[nodiscard]] service::task::StatusDetails to_proto() const;
+    using proto_type = pb::StatusDetails;
+    [[nodiscard]] pb::StatusDetails to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const service::task::StatusDetails &pb);
+    from_proto(const pb::StatusDetails &pb);
 };
 
 struct Command {
@@ -61,28 +46,12 @@ struct Command {
     std::string key;
     x::json::json args;
 
-    static Command parse(x::json::Parser parser) {
-        return Command{
-            .task = parser.field<Key>("task"),
-            .type = parser.field<std::string>("type"),
-            .key = parser.field<std::string>("key"),
-            .args = parser.field<x::json::json>("args", x::json::json{}),
-        };
-    }
+    static Command parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["task"] = this->task;
-        j["type"] = this->type;
-        j["key"] = this->key;
-        j["args"] = this->args;
-        return j;
-    }
-
-    using proto_type = service::task::Command;
-    [[nodiscard]] service::task::Command to_proto() const;
-    static std::pair<Command, x::errors::Error>
-    from_proto(const service::task::Command &pb);
+    using proto_type = pb::Command;
+    [[nodiscard]] pb::Command to_proto() const;
+    static std::pair<Command, x::errors::Error> from_proto(const pb::Command &pb);
 };
 
 using Status = x::status::Status<StatusDetails>;
@@ -96,35 +65,11 @@ struct Payload {
     std::string config;
     std::optional<Status> status;
 
-    static Payload parse(x::json::Parser parser) {
-        return Payload{
-            .key = parser.field<Key>("key"),
-            .name = parser.field<std::string>("name"),
-            .type = parser.field<std::string>("type"),
-            .internal = parser.field<bool>("internal", false),
-            .snapshot = parser.field<bool>("snapshot", false),
-            .config = parser.field<std::string>("config"),
-            .status = parser.has("status")
-                        ? std::make_optional(Status::parse(parser.child("status")))
-                        : std::nullopt,
-        };
-    }
+    static Payload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["key"] = this->key;
-        j["name"] = this->name;
-        j["type"] = this->type;
-        j["internal"] = this->internal;
-        j["snapshot"] = this->snapshot;
-        j["config"] = this->config;
-        if (this->status.has_value()) j["status"] = this->status->to_json();
-        return j;
-    }
-
-    using proto_type = service::task::Task;
-    [[nodiscard]] service::task::Task to_proto() const;
-    static std::pair<Payload, x::errors::Error>
-    from_proto(const service::task::Task &pb);
+    using proto_type = pb::Task;
+    [[nodiscard]] pb::Task to_proto() const;
+    static std::pair<Payload, x::errors::Error> from_proto(const pb::Task &pb);
 };
 }

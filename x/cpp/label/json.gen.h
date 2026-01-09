@@ -12,26 +12,26 @@
 #pragma once
 
 #include <string>
-#include <utility>
 
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-
-#include "x/go/label/pb/label.pb.h"
+#include "x/cpp/label/types.gen.h"
 
 namespace x::label {
-using Key = std::string;
 
-struct Label {
-    std::string key;
-    std::string name;
-    std::string color;
+inline Label Label::parse(x::json::Parser parser) {
+    return Label{
+        .key = parser.field<std::string>("key"),
+        .name = parser.field<std::string>("name"),
+        .color = parser.field<std::string>("color"),
+    };
+}
 
-    static Label parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
+inline x::json::json Label::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["color"] = this->color;
+    return j;
+}
 
-    using proto_type = pb::Label;
-    [[nodiscard]] pb::Label to_proto() const;
-    static std::pair<Label, x::errors::Error> from_proto(const pb::Label &pb);
-};
 }

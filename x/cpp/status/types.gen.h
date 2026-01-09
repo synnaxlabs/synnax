@@ -21,6 +21,8 @@
 #include "x/cpp/label/types.gen.h"
 #include "x/cpp/telem/telem.h"
 
+#include "x/go/status/pb/status.pb.h"
+
 namespace x::status {
 
 constexpr const char *VARIANT_SUCCESS = "success";
@@ -41,49 +43,11 @@ struct Status {
     std::vector<x::label::Label> labels;
     std::string variant;
 
-    static Status parse(x::json::Parser parser) {
-        return Status{
-            .key = parser.field<std::string>("key"),
-            .name = parser.field<std::string>("name"),
-            .message = parser.field<std::string>("message"),
-            .description = parser.field<std::string>("description", ""),
-            .time = telem::TimeStamp(parser.field<std::int64_t>("time")),
-            .details = [&]() -> Details {
-                if constexpr (std::is_same_v<Details, x::json::json>) {
-                    return parser.field<x::json::json>("details", x::json::json{});
-                } else {
-                    return Details::parse(parser.optional_child("details"));
-                }
-            }(),
-            .labels = parser.field<std::vector<x::label::Label>>("labels", {}),
-            .variant = parser.field<std::string>("variant"),
-        };
-    }
+    static Status parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j;
-        j["key"] = this->key;
-        j["name"] = this->name;
-        j["message"] = this->message;
-        j["description"] = this->description;
-        j["time"] = this->time.nanoseconds();
-        if constexpr (std::is_same_v<Details, x::json::json>) {
-            j["details"] = this->details;
-        } else {
-            j["details"] = this->details.to_json();
-        }
-        {
-            auto arr = x::json::json::array();
-            for (const auto &item: this->labels)
-                arr.push_back(item.to_json());
-            j["labels"] = arr;
-        }
-        j["variant"] = this->variant;
-        return j;
-    }
-
-    using proto_type = x::status::Status;
-    [[nodiscard]] x::status::Status to_proto() const;
-    static std::pair<Status, x::errors::Error> from_proto(const x::status::Status &pb);
+    using proto_type = pb::Status;
+    [[nodiscard]] pb::Status to_proto() const;
+    static std::pair<Status, x::errors::Error> from_proto(const pb::Status &pb);
 };
 }

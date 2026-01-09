@@ -23,7 +23,7 @@ struct XY {
 
     explicit XY(x::json::Parser p): x(p.field<float>("x")), y(p.field<float>("y")) {}
 
-    explicit XY(const x::v1::x::spatial::PBXY &pb): x(pb.x()), y(pb.y()) {}
+    explicit XY(const x::spatial::pb::XY &pb): x(pb.x()), y(pb.y()) {}
 
     [[nodiscard]] nlohmann::json to_json() const {
         return {{"x", this->x}, {"y", this->y}};
