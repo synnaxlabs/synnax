@@ -66,21 +66,21 @@ type Body struct {
 }
 
 type Function struct {
-	Key      string          `json:"key" msgpack:"key"`
-	Body     Body            `json:"body" msgpack:"body"`
-	Config   types.Params    `json:"config" msgpack:"config"`
-	Inputs   types.Params    `json:"inputs" msgpack:"inputs"`
-	Outputs  types.Params    `json:"outputs" msgpack:"outputs"`
-	Channels symbol.Channels `json:"channels" msgpack:"channels"`
+	Key      string         `json:"key" msgpack:"key"`
+	Body     Body           `json:"body" msgpack:"body"`
+	Config   types.Params   `json:"config" msgpack:"config"`
+	Inputs   types.Params   `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params   `json:"outputs" msgpack:"outputs"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 type Node struct {
-	Key      string          `json:"key" msgpack:"key"`
-	Type     string          `json:"type" msgpack:"type"`
-	Config   types.Params    `json:"config" msgpack:"config"`
-	Inputs   types.Params    `json:"inputs" msgpack:"inputs"`
-	Outputs  types.Params    `json:"outputs" msgpack:"outputs"`
-	Channels symbol.Channels `json:"channels" msgpack:"channels"`
+	Key      string         `json:"key" msgpack:"key"`
+	Type     string         `json:"type" msgpack:"type"`
+	Config   types.Params   `json:"config" msgpack:"config"`
+	Inputs   types.Params   `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params   `json:"outputs" msgpack:"outputs"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 type IR struct {

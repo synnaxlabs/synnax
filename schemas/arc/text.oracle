@@ -1,0 +1,19 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output  "client/ts/src/arc/text"
+@go output  "arc/go/text"
+@cpp output "arc/cpp/text"
+
+Text struct {
+    raw string
+
+    @go fields  "AST parser.IProgramContext `json:\"-\"`"
+    @go imports "github.com/synnaxlabs/arc/parser"
+}

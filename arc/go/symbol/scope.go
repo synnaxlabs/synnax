@@ -11,7 +11,6 @@ package symbol
 
 import (
 	"context"
-	"maps"
 	"strconv"
 	"strings"
 
@@ -33,22 +32,6 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 		Symbol:         Symbol{Kind: KindBlock},
 		Counter:        new(int),
 	}
-}
-
-// Copy returns a deep copy of the Channels.
-func (c Channels) Copy() Channels {
-	if c.Read == nil {
-		c.Read = make(map[uint32]string)
-	}
-	if c.Write == nil {
-		c.Write = make(map[uint32]string)
-	}
-	return Channels{Read: maps.Clone(c.Read), Write: maps.Clone(c.Write)}
-}
-
-// NewChannels creates a new Channels with empty read and write sets.
-func NewChannels() Channels {
-	return Channels{Read: make(map[uint32]string), Write: make(map[uint32]string)}
 }
 
 // Scope represents a symbol scope in the hierarchical scope tree.
@@ -79,7 +62,7 @@ type Scope struct {
 	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
 	OnResolve func(ctx context.Context, s *Scope) error
 	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
-	Channels Channels
+	Channels types.Channels
 }
 
 // GetChildByParserRule finds a direct child scope with the given AST parser rule.
@@ -318,7 +301,7 @@ func (s *Scope) stringWithIndent(indent string) string {
 // in the Channels.Read map. This is used by functions and expressions
 // to track their channel dependencies.
 func (s *Scope) AccumulateReadChannels() {
-	s.Channels = NewChannels()
+	s.Channels = types.NewChannels()
 	s.OnResolve = func(_ context.Context, resolved *Scope) error {
 		if resolved.Kind == KindChannel || resolved.Type.Kind == types.KindChan {
 			s.Channels.Read[uint32(resolved.ID)] = resolved.Name

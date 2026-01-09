@@ -1,0 +1,91 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/arc/types"
+
+@ts output  "client/ts/src/arc/ir"
+@go output  "arc/go/ir"
+@cpp output "arc/cpp/ir"
+
+Handle struct {
+    node  string
+    param string
+}
+
+EdgeKind enum {
+    continuous = 1
+    one_shot   = 2
+}
+
+Edge struct {
+    source Handle
+    target Handle
+    kind   EdgeKind?
+}
+
+Edges Edge[]
+
+Stage struct {
+    key    string
+    nodes  string[]
+    strata Strata
+}
+
+Stages Stage[]
+
+Sequence struct {
+    key    string
+    stages Stage[]
+}
+
+Sequences Sequence[]
+
+Body struct {
+    raw string
+
+    @go fields  "AST antlr.ParserRuleContext `json:\"-\"`"
+    @go imports "github.com/antlr4-go/antlr/v4"
+}
+
+Function struct {
+    key      string
+    body     Body?
+    config   types.Params?
+    inputs   types.Params?
+    outputs  types.Params?
+    channels types.Channels?
+}
+
+Functions Function[]
+
+Stratum = string[]
+
+Strata Stratum[]
+
+Node struct {
+    key      string
+    type     string
+    config   types.Params?
+    inputs   types.Params?
+    outputs  types.Params?
+    channels types.Channels?
+}
+
+Nodes Node[]
+
+IR struct {
+    functions Functions?
+    nodes     Nodes?
+    edges     Edges?
+    strata    Strata?
+    sequences Sequences?
+
+    @go fields  "Symbols *symbol.Scope `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
+    @go imports "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"
+}

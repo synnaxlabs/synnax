@@ -313,16 +313,16 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	return fieldTranslatorData{
-		CppName:         fieldName,
-		PBName:          pbFieldName,
-		ForwardExpr:     forwardExpr,
-		BackwardExpr:    backwardExpr,
-		ForwardJsonExpr: forwardJsonExpr,
+		CppName:          fieldName,
+		PBName:           pbFieldName,
+		ForwardExpr:      forwardExpr,
+		BackwardExpr:     backwardExpr,
+		ForwardJsonExpr:  forwardJsonExpr,
 		BackwardJsonExpr: backwardJsonExpr,
-		IsOptional:      field.IsHardOptional,
-		IsArray:         field.Type.Name == "Array",
-		IsGenericField:  isGenericField,
-		TypeParamName:   typeParamName,
+		IsOptional:       field.IsHardOptional,
+		IsArray:          field.Type.Name == "Array",
+		IsGenericField:   isGenericField,
+		TypeParamName:    typeParamName,
 	}
 }
 

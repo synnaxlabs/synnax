@@ -167,7 +167,7 @@ func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nod
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -181,7 +181,7 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -261,7 +261,7 @@ func analyzeExpression(
 		n := ir.Node{
 			Key:      key,
 			Type:     "constant",
-			Channels: symbol.NewChannels(),
+			Channels: types.NewChannels(),
 			Config:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
 			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		}
@@ -708,7 +708,7 @@ func analyzeStage(
 	entryNode := ir.Node{
 		Key:      entryKey,
 		Type:     "stage_entry",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Inputs: types.Params{
 			{Name: "activate", Type: types.U8()},
 		},

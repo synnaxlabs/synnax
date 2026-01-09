@@ -9,220 +9,14 @@
 
 import "schemas/spatial"
 import "schemas/status"
+import "schemas/arc/graph"
+import "schemas/arc/text"
+import "schemas/arc/ir"
+import "schemas/arc/compiler"
+import "schemas/arc/module"
 
 @ts output "client/ts/src/arc"
-@go output "arc/go/types"
-
-Kind enum {
-    invalid          = 0
-    u8               = 1
-    u16              = 2
-    u32              = 3
-    u64              = 4
-    i8               = 5
-    i16              = 6
-    i32              = 7
-    i64              = 8
-    f32              = 9
-    f64              = 10
-    string           = 11
-    chan             = 14
-    series           = 15
-    variable         = 16
-    numeric_constant = 17
-    integer_constant = 18
-    float_constant   = 19
-    function         = 20
-    sequence         = 21
-    stage            = 22
-}
-
-FunctionProperties struct {
-    inputs  Params?
-    outputs Params?
-    config  Params?
-}
-
-Type struct extends FunctionProperties {
-    kind       Kind
-    elem       Type??
-    name       string
-    unit       Unit??
-    constraint Type??
-}
-
-Param struct {
-    name  string
-    type  Type
-    value any?
-}
-
-Params Param[]
-
-Handle struct {
-    node  string
-    param string
-
-    @go output "arc/go/ir"
-}
-
-EdgeKind enum {
-    continuous = 1
-    one_shot   = 2
-
-    @go output "arc/go/ir"
-}
-
-Edge struct {
-    source Handle
-    target Handle
-    kind   EdgeKind?
-
-    @go output "arc/go/ir"
-}
-
-Edges Edge[] {
-    @go output "arc/go/ir"
-}
-
-Stage struct {
-    key    string
-    nodes  string[]
-    strata Strata
-
-    @go output "arc/go/ir"
-}
-
-Stages Stage[] {
-    @go output "arc/go/ir"
-}
-
-Sequence struct {
-    key    string
-    stages Stage[]
-
-    @go output "arc/go/ir"
-}
-
-Sequences Sequence[] {
-    @go output "arc/go/ir"
-}
-
-Body struct {
-    raw string
-
-    @go output  "arc/go/ir"
-    @go fields  "AST antlr.ParserRuleContext `json:\"-\"`"
-    @go imports "github.com/antlr4-go/antlr/v4"
-}
-
-Channels struct {
-    read  map<uint32, string>
-    write map<uint32, string>
-
-    @go output "arc/go/symbol"
-}
-
-Function struct {
-    key      string
-    body     Body?
-    config   Params?
-    inputs   Params?
-    outputs  Params?
-    channels Channels?
-
-    @go output "arc/go/ir"
-}
-
-Functions Function[] {
-    @go output "arc/go/ir"
-}
-
-Stratum = string[] {
-    @go output "arc/go/ir"
-}
-
-Strata Stratum[] {
-    @go output "arc/go/ir"
-}
-
-Node struct {
-    key      string
-    type     string
-    config   Params?
-    inputs   Params?
-    outputs  Params?
-    channels Channels?
-
-    @go output "arc/go/ir"
-}
-
-Nodes Node[] {
-    @go output "arc/go/ir"
-}
-
-IR struct {
-    functions Functions?
-    nodes     Nodes?
-    edges     Edges?
-    strata    Strata?
-    sequences Sequences?
-
-    @go output  "arc/go/ir"
-    @go fields  "Symbols *symbol.Scope `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
-    @go imports "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"
-}
-
-CompilerOutput struct {
-    WASM              bytes
-    OutputMemoryBases map<string, uint32>
-
-    @go output "arc/go/compiler"
-    @go name   "Output"
-}
-
-Module struct extends IR, CompilerOutput {
-    @go output "arc/go/module"
-}
-
-GraphNode struct {
-    key      string
-    type     string
-    config   json
-    position spatial.XY
-
-    @go output "arc/go/graph"
-    @go name   "Node"
-}
-
-GraphNodes GraphNode[] {
-    @go output "arc/go/graph"
-    @go name   "Nodes"
-}
-
-Viewport struct {
-    position spatial.XY
-    zoom     float64
-
-    @go output "arc/go/graph"
-}
-
-Graph struct {
-    viewport  Viewport?
-    functions Functions?
-    edges     Edges?
-    nodes     GraphNodes?
-
-    @go output "arc/go/graph"
-}
-
-Text struct {
-    raw string
-
-    @go output  "arc/go/text"
-    @go fields  "AST parser.IProgramContext `json:\"-\"`"
-    @go imports "github.com/synnaxlabs/arc/parser"
-}
+@go output "core/pkg/service/arc"
 
 StatusDetails struct {
     running bool
@@ -233,43 +27,25 @@ Status = status.GoStatus<StatusDetails>
 Key = uuid
 
 Arc struct {
-    key     Key      @key
+    key     Key         @key
     name    string
-    graph   Graph
-    text    Text
+    graph   graph.Graph
+    text    text.Text
     deploy  bool
     version string
     status  Status??
 
     @ontology type "arc"
-    @go omit
 }
 
 New struct {
     key     Key?
     name    string
-    graph   Graph
-    text    Text
+    graph   graph.Graph
+    text    text.Text
     deploy  bool
     version string
 
     @ts use_input
     @go omit
-}
-
-Dimensions struct {
-    length      int8
-    mass        int8
-    time        int8
-    current     int8
-    temperature int8
-    angle       int8
-    count       int8
-    data        int8
-}
-
-Unit struct {
-    dimensions Dimensions
-    scale      float64
-    name       string
 }

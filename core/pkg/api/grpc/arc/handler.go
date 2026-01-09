@@ -646,8 +646,8 @@ func translateDimensionsFromPB(pb *arctypes.PBDimensions) arctypes.Dimensions {
 	}
 }
 
-// translateChannelsToPB converts symbol.Channels to *arcsymbol.PBChannels
-func translateChannelsToPB(c arcsymbol.Channels) *arcsymbol.PBChannels {
+// translateChannelsToPB converts types.Channels to *arcsymbol.PBChannels
+func translateChannelsToPB(c arctypes.Channels) *arcsymbol.PBChannels {
 	readMap := make(map[uint32]string)
 	for k, v := range c.Read {
 		readMap[k] = v
@@ -662,12 +662,12 @@ func translateChannelsToPB(c arcsymbol.Channels) *arcsymbol.PBChannels {
 	}
 }
 
-// translateChannelsFromPB converts *arcsymbol.PBChannels to symbol.Channels
-func translateChannelsFromPB(pb *arcsymbol.PBChannels) arcsymbol.Channels {
+// translateChannelsFromPB converts *arcsymbol.PBChannels to types.Channels
+func translateChannelsFromPB(pb *arcsymbol.PBChannels) arctypes.Channels {
 	if pb == nil {
-		return arcsymbol.NewChannels()
+		return arctypes.NewChannels()
 	}
-	c := arcsymbol.NewChannels()
+	c := arctypes.NewChannels()
 	for k, v := range pb.Read {
 		c.Read[k] = v
 	}

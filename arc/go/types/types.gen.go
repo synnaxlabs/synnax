@@ -11,16 +11,7 @@
 
 package types
 
-import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/status"
-)
-
 type Params []Param
-
-type Status = status.Status[StatusDetails]
-
-type Key = uuid.UUID
 
 type Kind uint8
 
@@ -69,8 +60,9 @@ type Param struct {
 	Value any    `json:"value" msgpack:"value"`
 }
 
-type StatusDetails struct {
-	Running bool `json:"running" msgpack:"running"`
+type Channels struct {
+	Read  map[uint32]string `json:"read" msgpack:"read"`
+	Write map[uint32]string `json:"write" msgpack:"write"`
 }
 
 type Dimensions struct {

@@ -1386,8 +1386,8 @@ var _ = Describe("Go Types Plugin", func() {
 						"type IR struct {",
 						"Functions []string",
 						"Nodes []string",
-						`Symbols *symbol.Scope ` + "`" + `json:"-"` + "`",
-						`TypeMap map[string]any ` + "`" + `json:"-"` + "`",
+						`Symbols *symbol.Scope `+"`"+`json:"-"`+"`",
+						`TypeMap map[string]any `+"`"+`json:"-"`+"`",
 						`"github.com/synnaxlabs/arc/symbol"`,
 					)
 			})

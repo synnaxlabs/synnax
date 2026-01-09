@@ -926,9 +926,9 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name       string
-	CppType    string
-	Doc        string
+	Name    string
+	CppType string
+	Doc     string
 }
 
 type enumData struct {

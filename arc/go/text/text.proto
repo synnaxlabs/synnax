@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package x.arc.text;
-
-option go_package = "github.com/synnaxlabs/arc/text";
-
-message PBText {
-  string raw = 1;
-}

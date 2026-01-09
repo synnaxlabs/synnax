@@ -1,0 +1,79 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/arc/types"
+@go output "arc/go/types"
+
+Kind enum {
+    invalid          = 0
+    u8               = 1
+    u16              = 2
+    u32              = 3
+    u64              = 4
+    i8               = 5
+    i16              = 6
+    i32              = 7
+    i64              = 8
+    f32              = 9
+    f64              = 10
+    string           = 11
+    chan             = 14
+    series           = 15
+    variable         = 16
+    numeric_constant = 17
+    integer_constant = 18
+    float_constant   = 19
+    function         = 20
+    sequence         = 21
+    stage            = 22
+}
+
+FunctionProperties struct {
+    inputs  Params?
+    outputs Params?
+    config  Params?
+}
+
+Type struct extends FunctionProperties {
+    kind       Kind
+    elem       Type??
+    name       string
+    unit       Unit??
+    constraint Type??
+}
+
+Param struct {
+    name  string
+    type  Type
+    value any?
+}
+
+Params Param[]
+
+Channels struct {
+    read  map<uint32, string>
+    write map<uint32, string>
+}
+
+Dimensions struct {
+    length      int8
+    mass        int8
+    time        int8
+    current     int8
+    temperature int8
+    angle       int8
+    count       int8
+    data        int8
+}
+
+Unit struct {
+    dimensions Dimensions
+    scale      float64
+    name       string
+}

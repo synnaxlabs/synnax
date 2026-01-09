@@ -107,12 +107,12 @@ func (p *Plugin) generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		OutputPath: outputPath,
-		Namespace:  deriveNamespace(outputPath),
+		OutputPath:  outputPath,
+		Namespace:   deriveNamespace(outputPath),
 		Serializers: make([]serializerData, 0, len(structs)),
-		includes:   newIncludeManager(),
-		table:      req.Resolutions,
-		rawNs:      namespace,
+		includes:    newIncludeManager(),
+		table:       req.Resolutions,
+		rawNs:       namespace,
 	}
 
 	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
@@ -200,15 +200,15 @@ func (p *Plugin) processField(field resolution.Field, data *templateData) fieldD
 	}
 
 	return fieldData{
-		Name:           field.Name,
-		CppType:        cppType,
-		JsonName:       jsonName,
-		ParseExpr:      parseExpr,
-		ToJsonExpr:     toJsonExpr,
-		IsGenericField: isGenericField,
-		TypeParamName:  typeParamName,
-		IsHardOptional: field.IsHardOptional,
-		JsonParseExpr:  jsonParseExpr,
+		Name:            field.Name,
+		CppType:         cppType,
+		JsonName:        jsonName,
+		ParseExpr:       parseExpr,
+		ToJsonExpr:      toJsonExpr,
+		IsGenericField:  isGenericField,
+		TypeParamName:   typeParamName,
+		IsHardOptional:  field.IsHardOptional,
+		JsonParseExpr:   jsonParseExpr,
 		StructParseExpr: structParseExpr,
 	}
 }
@@ -513,12 +513,12 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	OutputPath      string
-	Namespace       string
-	Serializers     []serializerData
-	includes        *includeManager
-	table           *resolution.Table
-	rawNs           string
+	OutputPath  string
+	Namespace   string
+	Serializers []serializerData
+	includes    *includeManager
+	table       *resolution.Table
+	rawNs       string
 }
 
 func (d *templateData) HasIncludes() bool {
