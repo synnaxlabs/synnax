@@ -64,7 +64,7 @@ class Scheduler {
     void mark_changed(const std::string &param) {
         for (const auto &edge: this->current_state->output_edges) {
             if (edge.source.param != param) continue;
-            if (edge.kind == ir::EdgeKind::OneShot) {
+            if (edge.kind == ir::EdgeKind::EdgeKindOneShot) {
                 if (!this->current_state->node->is_output_truthy(edge.source.param))
                     continue;
                 std::string seq_name;
@@ -130,7 +130,7 @@ class Scheduler {
             auto node_it = this->nodes.find(node_key);
             if (node_it == this->nodes.end()) continue;
             for (const auto &edge: node_it->second.output_edges) {
-                if (edge.kind != ir::EdgeKind::OneShot) continue;
+                if (edge.kind != ir::EdgeKind::EdgeKindOneShot) continue;
                 if (fired_set == nullptr || !fired_set->contains(edge)) return true;
             }
         }

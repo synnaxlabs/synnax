@@ -93,7 +93,7 @@ public:
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
-        kv_client(kv_client) {}
+        kv(kv_client) {}
 
     /// @brief retrieves the range with the given key.
     /// @param key - the key of the range to retrieve.
@@ -156,7 +156,7 @@ private:
     /// @brief create retrieval transport.
     std::unique_ptr<CreateClient> create_client;
     /// @brief range kv get transport.
-    kv::Client kv_client;
+    kv::Client kv;
 
     /// @brief retrieves multiple ranges.
     std::pair<std::vector<Range>, x::errors::Error>

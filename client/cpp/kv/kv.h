@@ -34,6 +34,7 @@ using DeleteClient = freighter::
 /// @brief a range-scoped key-value store for storing metadata and configuration
 /// about a range.
 class Client {
+    std::string range_key;
     std::shared_ptr<GetClient> kv_get_client;
     std::shared_ptr<SetClient> kv_set_client;
     std::shared_ptr<DeleteClient> kv_delete_client;
@@ -76,5 +77,11 @@ public:
     /// @note this operation is idempotent, an will not error if the key does not
     /// exist.
     [[nodiscard]] x::errors::Error del(const std::string &key) const;
+
+    Client scope_to_range(const std::string &range_key_) const {
+        auto c = *this;
+        c.range_key = range_key_;
+        return c;
+    }
 };
 }

@@ -876,7 +876,7 @@ var _ = Describe("Text", func() {
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(edge.Target.Node).To(Equal("entry_main_run"))
 				Expect(edge.Target.Param).To(Equal("activate"))
-				Expect(edge.Kind).To(Equal(ir.OneShot))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
 			})
 
 			It("Should handle continuous flow to sequence", func() {
@@ -903,7 +903,7 @@ var _ = Describe("Text", func() {
 				// Verify edge kind is Continuous for -> operator
 				Expect(inter.Edges).To(HaveLen(1))
 				edge := inter.Edges[0]
-				Expect(edge.Kind).To(Equal(ir.Continuous))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 				Expect(edge.Target.Node).To(Equal("entry_main_run"))
 				Expect(edge.Target.Param).To(Equal("activate"))
 			})

@@ -3,6 +3,7 @@ cc_library(
     srcs = ["channel.cpp"],
     hdrs = [
         "channel.h",
+        "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
     ],
@@ -19,13 +20,6 @@ cc_library(
         "//x/cpp/telem",
         "@grpc//:grpc++",
     ],
-)
-
-cc_library(
-    name = "translator",
-    hdrs = ["proto.gen.h"],
-    visibility = ["//visibility:public"],
-    deps = [":channel"],
 )
 
 cc_test(

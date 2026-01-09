@@ -74,6 +74,35 @@ func GetStringsFromField(f resolution.Field, domainName, exprName string) []stri
 	return GetStrings(FieldHolder{f}, domainName, exprName)
 }
 
+// GetAllStrings collects string values from ALL expressions with the given name.
+// Unlike GetStrings which only finds the first matching expression, this function
+// finds all expressions with the name and collects all their string values.
+// This is useful for directives that can appear multiple times like @go field.
+func GetAllStrings(h Holder, domainName, exprName string) []string {
+	domain, ok := h.GetDomains()[domainName]
+	if !ok {
+		return nil
+	}
+	var result []string
+	for _, expr := range domain.Expressions {
+		if expr.Name != exprName {
+			continue
+		}
+		for _, v := range expr.Values {
+			if v.StringValue != "" {
+				result = append(result, v.StringValue)
+			} else if v.IdentValue != "" {
+				result = append(result, v.IdentValue)
+			}
+		}
+	}
+	return result
+}
+
+func GetAllStringsFromType(t resolution.Type, domainName, exprName string) []string {
+	return GetAllStrings(TypeHolder{t}, domainName, exprName)
+}
+
 func GetInt(h Holder, domainName, exprName string) int64 {
 	domain, ok := h.GetDomains()[domainName]
 	if !ok {

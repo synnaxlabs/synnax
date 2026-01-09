@@ -11,91 +11,134 @@ import "schemas/spatial"
 import "schemas/status"
 
 @ts output "client/ts/src/arc"
+@go output "arc/go/types"
 
 Kind enum {
-    u8        = 1
-    u16       = 2
-    u32       = 3
-    u64       = 4
-    i8        = 5
-    i16       = 6
-    i32       = 7
-    i64       = 8
-    f32       = 9
-    f64       = 10
-    string    = 11
-    timestamp = 12
-    timespan  = 13
-    chan      = 14
-    series    = 15
+    invalid          = 0
+    u8               = 1
+    u16              = 2
+    u32              = 3
+    u64              = 4
+    i8               = 5
+    i16              = 6
+    i32              = 7
+    i64              = 8
+    f32              = 9
+    f64              = 10
+    string           = 11
+    time_stamp       = 12
+    time_span        = 13
+    chan             = 14
+    series           = 15
+    variable         = 16
+    numeric_constant = 17
+    integer_constant = 18
+    float_constant   = 19
+    function         = 20
+    sequence         = 21
+    stage            = 22
 }
 
-Type struct {
-    kind Kind
-    elem Type?
+FunctionProperties struct {
+    inputs  Params?
+    outputs Params?
+    config  Params?
+}
+
+Type struct extends FunctionProperties {
+    kind       Kind
+    elem       Type??
+    name       string
+    constraint Type??
 }
 
 Param struct {
     name  string
     type  Type
-    value json?
+    value any?
+}
+
+Params Param[] {
+    @go output "arc/go/ir"
 }
 
 Handle struct {
     node  string
     param string
+
+    @go output "arc/go/ir"
 }
 
 EdgeKind enum {
     continuous = 1
     one_shot   = 2
+
+    @go output "arc/go/ir"
 }
 
 Edge struct {
     source Handle
     target Handle
     kind   EdgeKind?
+
+    @go output "arc/go/ir"
 }
 
 Stage struct {
     key   string
     nodes string[]
+
+    @go output "arc/go/ir"
 }
 
 Sequence struct {
     key    string
     stages Stage[]
+
+    @go output "arc/go/ir"
 }
 
 Body struct {
     raw string
+
+    @go output  "arc/go/ir"
+    @go fields  "AST antlr.ParserRuleContext `json:\"-\"`"
+    @go imports "github.com/antlr4-go/antlr/v4"
 }
 
 Channels struct {
     read  map<uint32, string>
     write map<uint32, string>
+
+    @go output "arc/go/ir"
 }
 
 Function struct {
     key      string
     body     Body?
-    config   Param[]?
-    inputs   Param[]?
-    outputs  Param[]?
+    config   Params?
+    inputs   Params?
+    outputs  Params?
     channels Channels?
+
+    @go output "arc/go/ir"
 }
 
 Stratum struct {
     nodes string[]
+
+    @go output "arc/go/ir"
 }
 
 Node struct {
     key      string
     type     string
-    config   Param[]?
-    inputs   Param[]?
-    outputs  Param[]?
+    config   Params?
+    inputs   Params?
+    outputs  Params?
     channels Channels?
+
+    @go output "arc/go/ir"
 }
 
 IR struct {
@@ -104,12 +147,18 @@ IR struct {
     edges     Edge[]?
     strata    Stratum[]?
     sequences Sequence[]?
+
+    @go output  "arc/go/ir"
+    @go fields  "Symbols *symbol.Scope `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
+    @go imports "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"
 }
 
 Module struct {
     ir                  IR
     wasm                bytes
     output_memory_bases map<string, uint32>
+
+    @go output "arc/go/module"
 }
 
 GraphNode struct {
@@ -117,11 +166,16 @@ GraphNode struct {
     type     string
     config   json
     position spatial.XY
+
+    @go output "arc/go/graph"
+    @go name   "Node"
 }
 
 Viewport struct {
     position spatial.XY
     zoom     float64
+
+    @go output "arc/go/graph"
 }
 
 Graph struct {
@@ -129,10 +183,14 @@ Graph struct {
     functions Function[]?
     edges     Edge[]?
     nodes     GraphNode[]?
+
+    @go output "arc/go/graph"
 }
 
 Text struct {
     raw string
+
+    @go output "arc/go/text"
 }
 
 StatusDetails struct {

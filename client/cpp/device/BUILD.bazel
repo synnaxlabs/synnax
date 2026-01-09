@@ -8,6 +8,7 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
+        "//client/cpp/rack",
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",

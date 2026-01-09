@@ -30,7 +30,7 @@ constexpr std::string default_input_param = "input";
 constexpr std::string lhs_input_param = "lhs_input";
 constexpr std::string rhs_input_param = "rhs_input";
 
-enum class EdgeKind { Unspecified = 0, Continuous = 1, OneShot = 2 };
+enum class EdgeKind { Unspecified = 0, Continuous = 1, EdgeKindOneShot = 2 };
 
 struct Handle {
     std::string node, param;
@@ -104,8 +104,8 @@ struct Edge {
 
     /// @brief Returns the string representation of the edge.
     [[nodiscard]] std::string to_string() const {
-        const std::string arrow = (kind == EdgeKind::OneShot) ? " => " : " -> ";
-        const std::string kind_str = (kind == EdgeKind::OneShot) ? "oneshot"
+        const std::string arrow = (kind == EdgeKind::EdgeKindOneShot) ? " => " : " -> ";
+        const std::string kind_str = (kind == EdgeKind::EdgeKindOneShot) ? "EdgeKindOneShot"
                                                                  : "continuous";
         return source.to_string() + arrow + target.to_string() + " (" + kind_str + ")";
     }

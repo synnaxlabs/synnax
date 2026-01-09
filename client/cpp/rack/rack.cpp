@@ -35,7 +35,7 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
     if (err) return {Rack(), err};
     if (res.racks_size() == 0)
         return {Rack(), not_found_error("Rack", "key " + std::to_string(key))};
-    auto [rack, proto_err] = Rack::from_proto(res.racks(0));
+    auto [pld, proto_err] = Rack::from_proto(res.racks(0));
     if (proto_err) return {Rack(), proto_err};
     rack.tasks = this->tasks;
     return {rack, x::errors::NIL};

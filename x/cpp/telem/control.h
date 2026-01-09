@@ -21,7 +21,7 @@ struct ControlSubject {
     std::string name;
     std::string key;
 
-    void to_proto(x::control::pb::Subject *s) const {
+    void to_proto(::control::ControlSubject *s) const {
         s->set_name(name);
         s->set_key(key);
     }

@@ -13,7 +13,11 @@ import { array, spatial, status, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
+
+export const paramsZ = z.array(paramZ);
+export type Params = z.infer<typeof paramsZ>;
 export enum Kind {
+  invalid = 0,
   u8 = 1,
   u16 = 2,
   u32 = 3,
@@ -25,10 +29,17 @@ export enum Kind {
   f32 = 9,
   f64 = 10,
   string = 11,
-  timestamp = 12,
-  timespan = 13,
+  time_stamp = 12,
+  time_span = 13,
   chan = 14,
   series = 15,
+  variable = 16,
+  numeric_constant = 17,
+  integer_constant = 18,
+  float_constant = 19,
+  function = 20,
+  sequence = 21,
+  stage = 22,
 }
 export const kindZ = z.enum(Kind);
 export enum EdgeKind {
@@ -40,13 +51,12 @@ export const edgeKindZ = z.enum(EdgeKind);
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const typeZ = z.object({
-  kind: kindZ,
-  get elem() {
-    return typeZ.optional();
-  },
+export const functionPropertiesZ = z.object({
+  inputs: paramsZ.optional(),
+  outputs: paramsZ.optional(),
+  config: paramsZ.optional(),
 });
-export interface Type extends z.infer<typeof typeZ> {}
+export interface FunctionProperties extends z.infer<typeof functionPropertiesZ> {}
 
 export const handleZ = z.object({
   node: z.string(),
@@ -100,12 +110,17 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-export const paramZ = z.object({
+export const typeZ = functionPropertiesZ.extend({
+  kind: kindZ,
+  get elem() {
+    return typeZ.optional();
+  },
   name: z.string(),
-  type: typeZ,
-  value: zod.stringifiedJSON().optional(),
+  get constraint() {
+    return typeZ.optional();
+  },
 });
-export interface Param extends z.infer<typeof paramZ> {}
+export interface Type extends z.infer<typeof typeZ> {}
 
 export const edgeZ = z.object({
   source: handleZ,
@@ -120,15 +135,12 @@ export const sequenceZ = z.object({
 });
 export interface Sequence extends z.infer<typeof sequenceZ> {}
 
-export const statusZ = status.goStatusZ(statusDetailsZ);
-export type Status = z.infer<typeof statusZ>;
-
 export const functionZ = z.object({
   key: z.string(),
   body: bodyZ.optional(),
-  config: array.nullToUndefined(paramZ),
-  inputs: array.nullToUndefined(paramZ),
-  outputs: array.nullToUndefined(paramZ),
+  config: paramsZ.optional(),
+  inputs: paramsZ.optional(),
+  outputs: paramsZ.optional(),
   channels: channelsZ.optional(),
 });
 export interface Function extends z.infer<typeof functionZ> {}
@@ -136,12 +148,22 @@ export interface Function extends z.infer<typeof functionZ> {}
 export const nodeZ = z.object({
   key: z.string(),
   type: z.string(),
-  config: array.nullToUndefined(paramZ),
-  inputs: array.nullToUndefined(paramZ),
-  outputs: array.nullToUndefined(paramZ),
+  config: paramsZ.optional(),
+  inputs: paramsZ.optional(),
+  outputs: paramsZ.optional(),
   channels: channelsZ.optional(),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
+
+export const statusZ = status.goStatusZ(statusDetailsZ);
+export type Status = z.infer<typeof statusZ>;
+
+export const paramZ = z.object({
+  name: z.string(),
+  type: typeZ,
+  value: z.unknown().optional(),
+});
+export interface Param extends z.infer<typeof paramZ> {}
 
 export const graphZ = z.object({
   viewport: viewportZ.optional(),

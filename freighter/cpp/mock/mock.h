@@ -15,22 +15,22 @@
 
 namespace freighter::mock {
 template<typename RQ, typename RS>
-class MockUnaryClient final : public UnaryClient<RQ, RS>,
+class UnaryClient final : public freighter::UnaryClient<RQ, RS>,
                               Finalizer<RQ, RS> {
 public:
     std::vector<RQ> requests{};
     std::vector<RS> responses{};
     std::vector<x::errors::Error> response_errors{};
 
-    MockUnaryClient() = default;
+    UnaryClient() = default;
 
-    MockUnaryClient(
+    UnaryClient(
         std::vector<RS> responses,
         std::vector<x::errors::Error> response_errors
     ):
         responses(responses), response_errors(std::move(response_errors)) {}
 
-    MockUnaryClient(RS response, const x::errors::Error &response_error):
+    UnaryClient(RS response, const x::errors::Error &response_error):
         responses({response}), response_errors({response_error}) {}
 
     void use(std::shared_ptr<Middleware> middleware) override {

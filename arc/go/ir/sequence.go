@@ -16,28 +16,6 @@ import (
 	"github.com/samber/lo"
 )
 
-// Stage represents a state within a sequence. Nodes listed in the stage are
-// active only when this stage is active. The runtime determines which nodes
-// to execute based on the active stage.
-type Stage struct {
-	// Key is the unique identifier for this stage within its sequence.
-	Key string `json:"key"`
-	// Nodes contains the keys of nodes that belong to this stage.
-	// These nodes are active only when this stage is active.
-	Nodes []string `json:"nodes"`
-}
-
-// Sequence represents a state machine containing ordered stages. A sequence defines
-// the structure of a sequential automation workflow. The entry point is always
-// Stages[0], and the order of stages in the slice determines `next` resolution.
-type Sequence struct {
-	// Key is the unique identifier for this sequence (the sequence name).
-	Key string `json:"key"`
-	// Stages contains the stages in definition order. This order determines
-	// what `next` resolves to for each stage. Entry point is always Stages[0].
-	Stages []Stage `json:"stages"`
-}
-
 // Entry returns the entry stage of the sequence (always Stages[0]).
 // Panics if the sequence has no stages.
 func (s Sequence) Entry() Stage {

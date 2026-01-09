@@ -22,7 +22,7 @@ TEST(TestAuth, testLoginHappyPath) {
     auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
     auto mock_login_client = std::make_unique<
-        MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
+        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
         res,
         x::errors::NIL
     );
@@ -32,7 +32,7 @@ TEST(TestAuth, testLoginHappyPath) {
         "seldon",
         5 * x::telem::SECOND
     );
-    auto mock_client = MockUnaryClient<int, int>{1, x::errors::NIL};
+    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     const auto r = ASSERT_NIL_P(mock_client.send("", v));
@@ -44,7 +44,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
     auto mock_login_client = std::make_unique<
-        MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
+        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
         res,
         ERR_INVALID_CREDENTIALS
     );
@@ -54,7 +54,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
         "seldon",
         5 * x::telem::SECOND
     );
-    auto mock_client = MockUnaryClient<int, int>{1, x::errors::NIL};
+    auto mock_client = freighter::mock::UnaryClient<int, int>{1, x::errors::NIL};
     mock_client.use(mw);
     auto v = 1;
     auto [r, err] = mock_client.send("", v);
@@ -66,7 +66,7 @@ TEST(TestAuth, testLoginRetry) {
     auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
     auto mock_login_client = std::make_unique<
-        MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
+        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
         std::vector<grpc::auth::LoginResponse>{res, res},
         std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
@@ -76,7 +76,7 @@ TEST(TestAuth, testLoginRetry) {
         "seldon",
         5 * x::telem::SECOND
     );
-    auto mock_client = MockUnaryClient<int, int>{
+    auto mock_client = freighter::mock::UnaryClient<int, int>{
         {1, 1},
         {x::errors::Error(ERR_INVALID_TOKEN, ""), x::errors::NIL}
     };
@@ -90,16 +90,16 @@ class TestAuthRetry : public ::testing::Test {
 protected:
     grpc::auth::LoginResponse res;
     std::unique_ptr<
-        MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>
+        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>
         mock_login_client;
     std::shared_ptr<AuthMiddleware> mw;
-    MockUnaryClient<int, int> mock_client;
+    freighter::mock::UnaryClient<int, int> mock_client;
 
     void SetUp() override { res.set_token("abc"); }
 
     void setupTest(x::errors::Error first_error) {
         mock_login_client = std::make_unique<
-            MockUnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
+            freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
             std::vector<grpc::auth::LoginResponse>{res, res},
             std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
         );
@@ -109,7 +109,7 @@ protected:
             "seldon",
             5 * x::telem::SECOND
         );
-        mock_client = MockUnaryClient<int, int>{{1, 1}, {first_error, x::errors::NIL}};
+        mock_client = freighter::mock::UnaryClient<int, int>{{1, 1}, {first_error, x::errors::NIL}};
         mock_client.use(mw);
     }
 };

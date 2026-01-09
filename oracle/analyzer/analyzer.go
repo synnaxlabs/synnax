@@ -457,9 +457,15 @@ func collectDomainContent(entry *resolution.Domain, content parser.IDomainConten
 func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 	if s := v.STRING_LIT(); s != nil {
 		t := s.GetText()
+		// Use strconv.Unquote to properly handle escape sequences like \" and \\
+		unquoted, err := strconv.Unquote(t)
+		if err != nil {
+			// Fallback to simple quote stripping if unquote fails
+			unquoted = t[1 : len(t)-1]
+		}
 		return resolution.ExpressionValue{
 			Kind:        resolution.ValueKindString,
-			StringValue: t[1 : len(t)-1],
+			StringValue: unquoted,
 		}
 	}
 	if i := v.INT_LIT(); i != nil {
@@ -521,7 +527,12 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 				ev.Value = n
 			} else if s := v.STRING_LIT(); s != nil {
 				t := s.GetText()
-				ev.Value = t[1 : len(t)-1]
+				// Use strconv.Unquote to properly handle escape sequences
+				unquoted, err := strconv.Unquote(t)
+				if err != nil {
+					unquoted = t[1 : len(t)-1]
+				}
+				ev.Value = unquoted
 			}
 			form.Values = append(form.Values, ev)
 		}
@@ -556,7 +567,16 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 
 	// Collect type params first so they're available when parsing the base type.
 	typeParams := collectTypeParams(def.TypeParams())
-	base := collectTypeRef(def.TypeRef(), typeParams)
+	tr := def.TypeRef()
+	base := collectTypeRef(tr, typeParams)
+
+	// Handle array types (e.g., "Params Param[]")
+	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok && normalCtx.LBRACKET() != nil {
+		base = resolution.TypeRef{
+			Name:     "Array",
+			TypeArgs: []resolution.TypeRef{base},
+		}
+	}
 
 	domains := make(map[string]resolution.Domain)
 	for k, v := range c.fileDomains {

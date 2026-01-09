@@ -920,6 +920,26 @@ var _ = Describe("Analyzer", func() {
 			Expect(ok).To(BeTrue())
 			Expect(form.Target.Name).To(Equal("geo.Position"))
 		})
+
+		It("Should analyze an array type definition", func() {
+			source := `
+				Param struct {
+					name string
+					value json?
+				}
+
+				Params Param[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			paramsType := table.MustGet("ir.Params")
+			form, ok := paramsType.Form.(resolution.DistinctForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.Base.Name).To(Equal("Array"))
+			Expect(form.Base.TypeArgs).To(HaveLen(1))
+			Expect(form.Base.TypeArgs[0].Name).To(Equal("ir.Param"))
+		})
 	})
 
 	Describe("Generics", func() {

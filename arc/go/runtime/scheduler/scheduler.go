@@ -78,10 +78,10 @@ type Scheduler struct {
 	stagedNodes set.Set[string]
 	// nodeToStage maps node keys to their (sequence, stage) pair for reverse lookup.
 	nodeToStage map[string]stageRef
-	// firedOneShots tracks which one-shot edges have fired, keyed by sequence.
+	// firedEdgeKindOneShots tracks which one-shot edges have fired, keyed by sequence.
 	// Each sequence has its own set of fired edges, cleared when that sequence's stage changes.
 	// Edge keys are strings like "nodeA.output=>nodeB.input".
-	firedOneShots map[string]set.Set[string]
+	firedEdgeKindOneShots map[string]set.Set[string]
 }
 
 // stageRef identifies a stage within a sequence.
@@ -113,15 +113,15 @@ func New(
 	nodes map[string]node.Node,
 ) *Scheduler {
 	s := &Scheduler{
-		nodes:         make(map[string]*nodeState, len(prog.Nodes)),
-		strata:        prog.Strata,
-		changed:       make(set.Set[string], len(prog.Nodes)),
-		sequences:     prog.Sequences,
-		activeStages:  make(map[string]string),
-		stageToNodes:  make(map[string][]string),
-		stagedNodes:   make(set.Set[string]),
-		nodeToStage:   make(map[string]stageRef),
-		firedOneShots: make(map[string]set.Set[string]),
+		nodes:                 make(map[string]*nodeState, len(prog.Nodes)),
+		strata:                prog.Strata,
+		changed:               make(set.Set[string], len(prog.Nodes)),
+		sequences:             prog.Sequences,
+		activeStages:          make(map[string]string),
+		stageToNodes:          make(map[string][]string),
+		stagedNodes:           make(set.Set[string]),
+		nodeToStage:           make(map[string]stageRef),
+		firedEdgeKindOneShots: make(map[string]set.Set[string]),
 	}
 	s.nodeCtx = node.Context{
 		MarkChanged:   s.markChanged,
@@ -184,7 +184,7 @@ func (s *Scheduler) markChanged(param string) {
 			continue
 		}
 		// For one-shot edges, only propagate if output is truthy and not already fired
-		if edge.Kind == ir.OneShot {
+		if edge.Kind == ir.EdgeKindOneShot {
 			// Check truthiness before marking as fired - falsy values don't fire
 			if !s.currState.node.IsOutputTruthy(edge.Source.Param) {
 				continue
@@ -197,10 +197,10 @@ func (s *Scheduler) markChanged(param string) {
 				seqName = ref.sequence
 			}
 			// Get or create the sequence's fired set
-			firedSet, ok := s.firedOneShots[seqName]
+			firedSet, ok := s.firedEdgeKindOneShots[seqName]
 			if !ok {
 				firedSet = make(set.Set[string])
-				s.firedOneShots[seqName] = firedSet
+				s.firedEdgeKindOneShots[seqName] = firedSet
 			}
 			if firedSet.Contains(edgeKey) {
 				continue // already fired this stage activation
@@ -283,7 +283,7 @@ func (s *Scheduler) checkTerminalStages() {
 		}
 
 		// Stage is terminal - check if all one-shot edges have fired
-		if s.stageHasUnfiredOneShots(seqName, stageName) {
+		if s.stageHasUnfiredEdgeKindOneShots(seqName, stageName) {
 			continue // Still has unfired one-shots, don't deactivate yet
 		}
 
@@ -292,15 +292,15 @@ func (s *Scheduler) checkTerminalStages() {
 	}
 }
 
-// stageHasUnfiredOneShots returns true if any node in the stage has unfired one-shot edges.
-func (s *Scheduler) stageHasUnfiredOneShots(seqName, stageName string) bool {
+// stageHasUnfiredEdgeKindOneShots returns true if any node in the stage has unfired one-shot edges.
+func (s *Scheduler) stageHasUnfiredEdgeKindOneShots(seqName, stageName string) bool {
 	key := stageKey(seqName, stageName)
 	nodes, ok := s.stageToNodes[key]
 	if !ok {
 		return false
 	}
 
-	firedSet := s.firedOneShots[seqName]
+	firedSet := s.firedEdgeKindOneShots[seqName]
 
 	for _, nodeKey := range nodes {
 		state, ok := s.nodes[nodeKey]
@@ -309,7 +309,7 @@ func (s *Scheduler) stageHasUnfiredOneShots(seqName, stageName string) bool {
 		}
 		// Check if this node has any one-shot outgoing edges that haven't fired
 		for _, edge := range state.outgoing {
-			if edge.Kind != ir.OneShot {
+			if edge.Kind != ir.EdgeKindOneShot {
 				continue
 			}
 			edgeKey := edge.Source.String() + "=>" + edge.Target.String()
@@ -371,7 +371,7 @@ func (s *Scheduler) ActivateStage(seqName, stageName string) {
 // This is called when a sequence reaches a terminal stage or is explicitly stopped.
 func (s *Scheduler) DeactivateSequence(seqName string) {
 	delete(s.activeStages, seqName)
-	delete(s.firedOneShots, seqName)
+	delete(s.firedEdgeKindOneShots, seqName)
 }
 
 // resetStageNodes resets all nodes in the given stage and clears one-shot tracking
@@ -379,7 +379,7 @@ func (s *Scheduler) DeactivateSequence(seqName string) {
 // other stateful nodes, and allow one-shot edges to fire again.
 func (s *Scheduler) resetStageNodes(seqName, stageName string) {
 	// Clear one-shot tracking for this sequence so edges can fire again
-	delete(s.firedOneShots, seqName)
+	delete(s.firedEdgeKindOneShots, seqName)
 
 	key := stageKey(seqName, stageName)
 	nodes, ok := s.stageToNodes[key]

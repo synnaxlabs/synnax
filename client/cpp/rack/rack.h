@@ -73,7 +73,7 @@ class Rack : public Payload {
 public:
     /// @brief Client for managing tasks on this rack.
     /// Note: This will be initialized after construction by RackClient.
-    task::Client tasks = task::Client();
+    task::Client tasks;
 
     /// @brief Constructs a new rack with the given key and name.
     /// @param key The unique identifier for the rack.

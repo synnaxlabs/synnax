@@ -196,15 +196,15 @@ func Compile(
 func getFlowOperatorKind(ctx acontext.Context[parser.IFlowStatementContext], operatorIndex int) ir.EdgeKind {
 	children := ctx.AST.GetChildren()
 	if operatorIndex < 0 || operatorIndex >= len(children) {
-		return ir.Continuous // Safe default
+		return ir.EdgeKindContinuous // Safe default
 	}
 
 	if opCtx, ok := children[operatorIndex].(parser.IFlowOperatorContext); ok {
 		if opCtx.TRANSITION() != nil {
-			return ir.OneShot
+			return ir.EdgeKindOneShot
 		}
 	}
-	return ir.Continuous
+	return ir.EdgeKindContinuous
 }
 
 func analyzeFlow(
@@ -717,14 +717,14 @@ func analyzeOutputRoutingTable(
 				edges = append(edges, ir.Edge{
 					Source: ir.Handle{Node: sourceNode.Key, Param: outputName},
 					Target: inputHandle,
-					Kind:   ir.Continuous,
+					Kind:   ir.EdgeKindContinuous,
 				})
 			} else {
 				// Chain subsequent nodes
 				edges = append(edges, ir.Edge{
 					Source: prevOutputHandle,
 					Target: inputHandle,
-					Kind:   ir.Continuous,
+					Kind:   ir.EdgeKindContinuous,
 				})
 			}
 

@@ -12,7 +12,7 @@
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::task {
-Task(
+Task::Task(
     Key key,
     std::string name,
     std::string type,
@@ -28,7 +28,7 @@ Task(
     this->snapshot = snapshot;
 }
 
-Task(
+Task::Task(
     std::string name,
     std::string type,
     std::string config,
@@ -43,7 +43,7 @@ Task(
     this->snapshot = snapshot;
 }
 
-Task(
+Task::Task(
     RackKey rack,
     std::string name,
     std::string type,

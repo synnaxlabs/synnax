@@ -1082,5 +1082,53 @@ var _ = Describe("Go Types Plugin", func() {
 			})
 
 		})
+
+		Context("extra fields and imports", func() {
+			It("Should add extra fields from @go fields directive", func() {
+				source := `
+					@go output "arc/go/ir"
+
+					IR struct {
+						functions string[]
+						nodes     string[]
+
+						@go fields "Symbols *symbol.Scope ` + "`" + `json:\"-\"` + "`" + `" "TypeMap map[string]any ` + "`" + `json:\"-\"` + "`" + `"
+						@go imports "github.com/synnaxlabs/arc/symbol"
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, goPlugin)
+				Expect(resp.Files).To(HaveLen(1))
+
+				testutil.ExpectContent(resp, "types.gen.go").
+					ToContain(
+						"package ir",
+						"type IR struct {",
+						"Functions []string",
+						"Nodes []string",
+						`Symbols *symbol.Scope ` + "`" + `json:"-"` + "`",
+						`TypeMap map[string]any ` + "`" + `json:"-"` + "`",
+						`"github.com/synnaxlabs/arc/symbol"`,
+					)
+			})
+
+			It("Should add multiple extra imports from @go imports directive", func() {
+				source := `
+					@go output "arc/go/ir"
+
+					Node struct {
+						key string
+
+						@go fields "AST antlr.ParserRuleContext ` + "`" + `json:\"-\"` + "`" + `"
+						@go imports "github.com/antlr4-go/antlr/v4" "github.com/custom/package"
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, goPlugin)
+				Expect(resp.Files).To(HaveLen(1))
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`"github.com/antlr4-go/antlr/v4"`))
+				Expect(content).To(ContainSubstring(`"github.com/custom/package"`))
+			})
+		})
 	})
 })

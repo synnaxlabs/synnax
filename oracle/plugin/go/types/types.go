@@ -287,6 +287,11 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 				for _, field := range resolution.UnifiedFields(entry, data.table) {
 					sd.Fields = append(sd.Fields, processField(field, data))
 				}
+				// Process @go field and @go imports directives
+				sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
+				for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
+					data.imports.AddExternal(imp)
+				}
 				return sd
 			}
 
@@ -298,6 +303,11 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			for _, field := range form.Fields {
 				sd.Fields = append(sd.Fields, processField(field, data))
 			}
+			// Process @go field and @go imports directives
+			sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
+			for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
+				data.imports.AddExternal(imp)
+			}
 			return sd
 		}
 	}
@@ -306,6 +316,15 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		sd.Fields = append(sd.Fields, processField(field, data))
 	}
+
+	// Process @go field directives for extra fields
+	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
+
+	// Process @go imports directives for extra imports
+	for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
+		data.imports.AddExternal(imp)
+	}
+
 	return sd
 }
 
@@ -424,6 +443,8 @@ type structData struct {
 	// Extension support
 	HasExtends  bool
 	ExtendsType string // Parent type (may be qualified: "parent.Parent")
+	// Extra fields from @go field directives (raw Go field declarations)
+	ExtraFields []string
 }
 
 type typeParamData struct {
@@ -539,6 +560,9 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- end}}
 	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
 {{- end}}
+{{- range .ExtraFields}}
+	{{.}}
+{{- end}}
 }
 {{else -}}
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} struct {
@@ -547,6 +571,9 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 	// {{.Doc}}
 {{- end}}
 	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+{{- end}}
+{{- range .ExtraFields}}
+	{{.}}
 {{- end}}
 }
 {{end -}}
