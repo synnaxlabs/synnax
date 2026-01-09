@@ -31,9 +31,6 @@ const (
 	RHSInputParam = "b"
 )
 
-// Edges is a collection of dataflow edges.
-type Edges []Edge
-
 // Predicate constructors for edge queries.
 func sourceEquals(handle Handle) func(Edge) bool {
 	return func(e Edge) bool { return e.Source == handle }

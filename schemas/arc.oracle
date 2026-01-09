@@ -26,8 +26,6 @@ Kind enum {
     f32              = 9
     f64              = 10
     string           = 11
-    time_stamp       = 12
-    time_span        = 13
     chan             = 14
     series           = 15
     variable         = 16
@@ -49,6 +47,7 @@ Type struct extends FunctionProperties {
     kind       Kind
     elem       Type??
     name       string
+    unit       Unit??
     constraint Type??
 }
 
@@ -58,9 +57,7 @@ Param struct {
     value any?
 }
 
-Params Param[] {
-    @go output "arc/go/ir"
-}
+Params Param[]
 
 Handle struct {
     node  string
@@ -84,10 +81,19 @@ Edge struct {
     @go output "arc/go/ir"
 }
 
-Stage struct {
-    key   string
-    nodes string[]
+Edges Edge[] {
+    @go output "arc/go/ir"
+}
 
+Stage struct {
+    key    string
+    nodes  string[]
+    strata Strata
+
+    @go output "arc/go/ir"
+}
+
+Stages Stage[] {
     @go output "arc/go/ir"
 }
 
@@ -95,6 +101,10 @@ Sequence struct {
     key    string
     stages Stage[]
 
+    @go output "arc/go/ir"
+}
+
+Sequences Sequence[] {
     @go output "arc/go/ir"
 }
 
@@ -124,9 +134,15 @@ Function struct {
     @go output "arc/go/ir"
 }
 
-Stratum struct {
-    nodes string[]
+Functions Function[] {
+    @go output "arc/go/ir"
+}
 
+Stratum string[] {
+    @go output "arc/go/ir"
+}
+
+Strata Stratum[] {
     @go output "arc/go/ir"
 }
 
@@ -141,12 +157,16 @@ Node struct {
     @go output "arc/go/ir"
 }
 
+Nodes Node[] {
+    @go output "arc/go/ir"
+}
+
 IR struct {
-    functions Function[]?
-    nodes     Node[]?
-    edges     Edge[]?
-    strata    Stratum[]?
-    sequences Sequence[]?
+    functions Functions?
+    nodes     Nodes?
+    edges     Edges?
+    strata    Strata?
+    sequences Sequences?
 
     @go output  "arc/go/ir"
     @go fields  "Symbols *symbol.Scope `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
@@ -171,6 +191,11 @@ GraphNode struct {
     @go name   "Node"
 }
 
+GraphNodes GraphNode[] {
+    @go output "arc/go/graph"
+    @go name   "Nodes"
+}
+
 Viewport struct {
     position spatial.XY
     zoom     float64
@@ -180,9 +205,9 @@ Viewport struct {
 
 Graph struct {
     viewport  Viewport?
-    functions Function[]?
-    edges     Edge[]?
-    nodes     GraphNode[]?
+    functions Functions?
+    edges     Edges?
+    nodes     GraphNodes?
 
     @go output "arc/go/graph"
 }
@@ -190,7 +215,9 @@ Graph struct {
 Text struct {
     raw string
 
-    @go output "arc/go/text"
+    @go output  "arc/go/text"
+    @go fields  "AST parser.IProgramContext `json:\"-\"`"
+    @go imports "github.com/synnaxlabs/arc/parser"
 }
 
 StatusDetails struct {
@@ -211,6 +238,7 @@ Arc struct {
     status  Status??
 
     @ontology type "arc"
+    @go omit
 }
 
 New struct {
@@ -222,4 +250,22 @@ New struct {
     version string
 
     @ts use_input
+    @go omit
+}
+
+Dimensions struct {
+    length      int8
+    mass        int8
+    time        int8
+    current     int8
+    temperature int8
+    angle       int8
+    count       int8
+    data        int8
+}
+
+Unit struct {
+    dimensions Dimensions
+    scale      float64
+    name       string
 }

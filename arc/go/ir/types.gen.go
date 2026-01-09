@@ -17,7 +17,19 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-type Params []types.Param
+type Edges []Edge
+
+type Stages []Stage
+
+type Sequences []Sequence
+
+type Functions []Function
+
+type Stratum []string
+
+type Strata []Stratum
+
+type Nodes []Node
 
 type EdgeKind uint8
 
@@ -38,8 +50,9 @@ type Edge struct {
 }
 
 type Stage struct {
-	Key   string   `json:"key" msgpack:"key"`
-	Nodes []string `json:"nodes" msgpack:"nodes"`
+	Key    string   `json:"key" msgpack:"key"`
+	Nodes  []string `json:"nodes" msgpack:"nodes"`
+	Strata Strata   `json:"strata" msgpack:"strata"`
 }
 
 type Sequence struct {
@@ -58,33 +71,29 @@ type Channels struct {
 }
 
 type Function struct {
-	Key      string   `json:"key" msgpack:"key"`
-	Body     Body     `json:"body" msgpack:"body"`
-	Config   Params   `json:"config" msgpack:"config"`
-	Inputs   Params   `json:"inputs" msgpack:"inputs"`
-	Outputs  Params   `json:"outputs" msgpack:"outputs"`
-	Channels Channels `json:"channels" msgpack:"channels"`
-}
-
-type Stratum struct {
-	Nodes []string `json:"nodes" msgpack:"nodes"`
+	Key      string       `json:"key" msgpack:"key"`
+	Body     Body         `json:"body" msgpack:"body"`
+	Config   types.Params `json:"config" msgpack:"config"`
+	Inputs   types.Params `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params `json:"outputs" msgpack:"outputs"`
+	Channels Channels     `json:"channels" msgpack:"channels"`
 }
 
 type Node struct {
-	Key      string   `json:"key" msgpack:"key"`
-	Type     string   `json:"type" msgpack:"type"`
-	Config   Params   `json:"config" msgpack:"config"`
-	Inputs   Params   `json:"inputs" msgpack:"inputs"`
-	Outputs  Params   `json:"outputs" msgpack:"outputs"`
-	Channels Channels `json:"channels" msgpack:"channels"`
+	Key      string       `json:"key" msgpack:"key"`
+	Type     string       `json:"type" msgpack:"type"`
+	Config   types.Params `json:"config" msgpack:"config"`
+	Inputs   types.Params `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params `json:"outputs" msgpack:"outputs"`
+	Channels Channels     `json:"channels" msgpack:"channels"`
 }
 
 type IR struct {
-	Functions []Function                             `json:"functions" msgpack:"functions"`
-	Nodes     []Node                                 `json:"nodes" msgpack:"nodes"`
-	Edges     []Edge                                 `json:"edges" msgpack:"edges"`
-	Strata    []Stratum                              `json:"strata" msgpack:"strata"`
-	Sequences []Sequence                             `json:"sequences" msgpack:"sequences"`
+	Functions Functions                              `json:"functions" msgpack:"functions"`
+	Nodes     Nodes                                  `json:"nodes" msgpack:"nodes"`
+	Edges     Edges                                  `json:"edges" msgpack:"edges"`
+	Strata    Strata                                 `json:"strata" msgpack:"strata"`
+	Sequences Sequences                              `json:"sequences" msgpack:"sequences"`
 	Symbols   *symbol.Scope                          `json:"-"`
 	TypeMap   map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

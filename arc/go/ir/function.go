@@ -12,9 +12,7 @@ package ir
 import (
 	"strings"
 
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -26,9 +24,6 @@ func (f Function) Type() types.Type {
 		Outputs: f.Outputs,
 	})
 }
-
-// Functions is a collection of function definitions.
-type Functions []Function
 
 // Get returns the function with the given key. Panics if not found.
 func (f Functions) Get(key string) Function {

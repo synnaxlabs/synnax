@@ -75,68 +75,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Kind represents the different categories of types in the Arc type system.
-// It is used as a discriminator in the Type tagged union.
-type Kind int
-
-//go:generate stringer -type=Kind
-const (
-	// KindInvalid represents an invalid or uninitialized type.
-	KindInvalid Kind = iota
-
-	// KindU8 is an 8-bit unsigned integer type.
-	KindU8
-	// KindU16 is a 16-bit unsigned integer type.
-	KindU16
-	// KindU32 is a 32-bit unsigned integer type.
-	KindU32
-	// KindU64 is a 64-bit unsigned integer type.
-	KindU64
-
-	// KindI8 is an 8-bit signed integer type.
-	KindI8
-	// KindI16 is a 16-bit signed integer type.
-	KindI16
-	// KindI32 is a 32-bit signed integer type.
-	KindI32
-	// KindI64 is a 64-bit signed integer type.
-	KindI64
-
-	// KindF32 is a 32-bit floating-point type.
-	KindF32
-	// KindF64 is a 64-bit floating-point type.
-	KindF64
-
-	// KindString is a UTF-8 string type.
-	KindString
-
-	// KindChan is a channel type (requires Elem).
-	KindChan
-	// KindSeries is a series/array type (requires Elem).
-	KindSeries
-
-	// KindVariable is a generic type variable (requires Name, optional Constraint).
-	KindVariable
-
-	// KindNumericConstant is a constraint for any numeric type (integers or floats).
-	KindNumericConstant
-	// KindIntegerConstant is a constraint for any integer type (signed or unsigned).
-	KindIntegerConstant
-	// KindFloatConstant is a constraint for any floating-point type.
-	KindFloatConstant
-
-	// KindFunction is a function type (requires Inputs, Outputs, optional Config).
-	KindFunction
-
-	// KindSequence represents a sequence (state machine) declaration.
-	KindSequence
-	// KindStage represents a stage within a sequence.
-	KindStage
-)
-
 // Params are named, ordered parameters for a function.
-type Params []Param
-
 var _ json.Marshaler = (Params)(nil)
 
 // MarshalJSON implements the json.Marshal interface.
@@ -190,40 +129,6 @@ func (p Params) RequiredCount() int {
 		}
 	}
 	return count
-}
-
-type Param struct {
-	Name  string `json:"name"`
-	Type  Type   `json:"type"`
-	Value any    `json:"value,omitempty"`
-}
-
-// FunctionProperties holds the inputs, outputs, and configuration parameters for function
-// types.
-type FunctionProperties struct {
-	// Inputs are the input parameters for the function.
-	Inputs Params `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
-	// Outputs are the output/return values for the function.
-	Outputs Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
-	// Config are the configuration parameters for the function.
-	Config Params `json:"config,omitempty" msgpack:"config,omitempty"`
-}
-
-// Type represents a type in the Arc type system using a tagged union.
-type Type struct {
-	// Kind is the discriminator that determines which type this represents.
-	Kind Kind `json:"kind" msgpack:"kind"`
-	// Elem is the element type for compound types (chan, series).
-	Elem *Type `json:"elem,omitempty" msgpack:"elem"`
-	// Name is the identifier for type variables.
-	Name string `json:"name,omitempty" msgpack:"name"`
-	// Constraint is the optional constraint for type variables.
-	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint"`
-	// Unit holds optional unit metadata for numeric types.
-	// When non-nil, this type represents a quantity with physical dimensions.
-	Unit *Unit `json:"unit,omitempty" msgpack:"unit"`
-	// FunctionProperties contains inputs, outputs, and config for function types.
-	FunctionProperties
 }
 
 // IntegerMaxValue returns the maximum value representable by this integer type.

@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
+type Nodes []Node
+
 type Node struct {
 	Key      string         `json:"key" msgpack:"key"`
 	Type     string         `json:"type" msgpack:"type"`
@@ -29,8 +31,8 @@ type Viewport struct {
 }
 
 type Graph struct {
-	Viewport  Viewport      `json:"viewport" msgpack:"viewport"`
-	Functions []ir.Function `json:"functions" msgpack:"functions"`
-	Edges     []ir.Edge     `json:"edges" msgpack:"edges"`
-	Nodes     []Node        `json:"nodes" msgpack:"nodes"`
+	Viewport  Viewport     `json:"viewport" msgpack:"viewport"`
+	Functions ir.Functions `json:"functions" msgpack:"functions"`
+	Edges     ir.Edges     `json:"edges" msgpack:"edges"`
+	Nodes     Nodes        `json:"nodes" msgpack:"nodes"`
 }

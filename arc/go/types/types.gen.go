@@ -13,11 +13,10 @@ package types
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/status"
 )
+
+type Params []Param
 
 type Status = status.Status[StatusDetails]
 
@@ -38,8 +37,6 @@ const (
 	KindF32
 	KindF64
 	KindString
-	KindTimeStamp
-	KindTimeSpan
 	KindChan
 	KindSeries
 	KindVariable
@@ -52,9 +49,9 @@ const (
 )
 
 type FunctionProperties struct {
-	Inputs  ir.Params `json:"inputs" msgpack:"inputs"`
-	Outputs ir.Params `json:"outputs" msgpack:"outputs"`
-	Config  ir.Params `json:"config" msgpack:"config"`
+	Inputs  Params `json:"inputs" msgpack:"inputs"`
+	Outputs Params `json:"outputs" msgpack:"outputs"`
+	Config  Params `json:"config" msgpack:"config"`
 }
 
 type Type struct {
@@ -62,6 +59,7 @@ type Type struct {
 	Kind       Kind   `json:"kind" msgpack:"kind"`
 	Elem       *Type  `json:"elem,omitempty" msgpack:"elem,omitempty"`
 	Name       string `json:"name" msgpack:"name"`
+	Unit       *Unit  `json:"unit,omitempty" msgpack:"unit,omitempty"`
 	Constraint *Type  `json:"constraint,omitempty" msgpack:"constraint,omitempty"`
 }
 
@@ -75,21 +73,19 @@ type StatusDetails struct {
 	Running bool `json:"running" msgpack:"running"`
 }
 
-type Arc struct {
-	Key     Key         `json:"key" msgpack:"key"`
-	Name    string      `json:"name" msgpack:"name"`
-	Graph   graph.Graph `json:"graph" msgpack:"graph"`
-	Text    text.Text   `json:"text" msgpack:"text"`
-	Deploy  bool        `json:"deploy" msgpack:"deploy"`
-	Version string      `json:"version" msgpack:"version"`
-	Status  *Status     `json:"status,omitempty" msgpack:"status,omitempty"`
+type Dimensions struct {
+	Length      int8 `json:"length" msgpack:"length"`
+	Mass        int8 `json:"mass" msgpack:"mass"`
+	Time        int8 `json:"time" msgpack:"time"`
+	Current     int8 `json:"current" msgpack:"current"`
+	Temperature int8 `json:"temperature" msgpack:"temperature"`
+	Angle       int8 `json:"angle" msgpack:"angle"`
+	Count       int8 `json:"count" msgpack:"count"`
+	Data        int8 `json:"data" msgpack:"data"`
 }
 
-type New struct {
-	Key     Key         `json:"key" msgpack:"key"`
-	Name    string      `json:"name" msgpack:"name"`
-	Graph   graph.Graph `json:"graph" msgpack:"graph"`
-	Text    text.Text   `json:"text" msgpack:"text"`
-	Deploy  bool        `json:"deploy" msgpack:"deploy"`
-	Version string      `json:"version" msgpack:"version"`
+type Unit struct {
+	Dimensions Dimensions `json:"dimensions" msgpack:"dimensions"`
+	Scale      float64    `json:"scale" msgpack:"scale"`
+	Name       string     `json:"name" msgpack:"name"`
 }

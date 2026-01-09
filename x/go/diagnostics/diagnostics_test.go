@@ -179,6 +179,24 @@ var _ = Describe("Diagnostics", func() {
 			})
 		})
 
+		Describe("Warnings", func() {
+			It("Should return only warning-level diagnostics", func() {
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Message: "err"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn1"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn2"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Info, Message: "info"})
+
+				warns := d.Warnings()
+				Expect(warns).To(HaveLen(2))
+				Expect(warns[0].Message).To(Equal("warn1"))
+				Expect(warns[1].Message).To(Equal("warn2"))
+			})
+			It("Should return empty collection when no warnings", func() {
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Message: "err"})
+				Expect(d.Warnings()).To(BeEmpty())
+			})
+		})
+
 		Describe("String", func() {
 			It("Should return success message for empty collection", func() {
 				Expect(d.String()).To(Equal("analysis successful"))

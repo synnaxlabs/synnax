@@ -16,6 +16,30 @@ import { ontology } from "@/ontology";
 
 export const paramsZ = z.array(paramZ);
 export type Params = z.infer<typeof paramsZ>;
+
+export const edgesZ = z.array(edgeZ);
+export type Edges = z.infer<typeof edgesZ>;
+
+export const stagesZ = z.array(stageZ);
+export type Stages = z.infer<typeof stagesZ>;
+
+export const sequencesZ = z.array(sequenceZ);
+export type Sequences = z.infer<typeof sequencesZ>;
+
+export const functionsZ = z.array(functionZ);
+export type Functions = z.infer<typeof functionsZ>;
+
+export const stratumZ = z.array(z.string());
+export type Stratum = z.infer<typeof stratumZ>;
+
+export const strataZ = z.array(stratumZ);
+export type Strata = z.infer<typeof strataZ>;
+
+export const nodesZ = z.array(nodeZ);
+export type Nodes = z.infer<typeof nodesZ>;
+
+export const graphNodesZ = z.array(graphNodeZ);
+export type GraphNodes = z.infer<typeof graphNodesZ>;
 export enum Kind {
   invalid = 0,
   u8 = 1,
@@ -29,8 +53,6 @@ export enum Kind {
   f32 = 9,
   f64 = 10,
   string = 11,
-  time_stamp = 12,
-  time_span = 13,
   chan = 14,
   series = 15,
   variable = 16,
@@ -67,6 +89,7 @@ export interface Handle extends z.infer<typeof handleZ> {}
 export const stageZ = z.object({
   key: z.string(),
   nodes: array.nullishToEmpty(z.string()),
+  strata: strataZ,
 });
 export interface Stage extends z.infer<typeof stageZ> {}
 
@@ -81,10 +104,14 @@ export const channelsZ = z.object({
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
 
-export const stratumZ = z.object({
-  nodes: array.nullishToEmpty(z.string()),
+export const irZ = z.object({
+  functions: functionsZ.optional(),
+  nodes: nodesZ.optional(),
+  edges: edgesZ.optional(),
+  strata: strataZ.optional(),
+  sequences: sequencesZ.optional(),
 });
-export interface Stratum extends z.infer<typeof stratumZ> {}
+export interface IR extends z.infer<typeof irZ> {}
 
 export const graphNodeZ = z.object({
   key: z.string(),
@@ -110,17 +137,17 @@ export const statusDetailsZ = z.object({
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 
-export const typeZ = functionPropertiesZ.extend({
-  kind: kindZ,
-  get elem() {
-    return typeZ.optional();
-  },
-  name: z.string(),
-  get constraint() {
-    return typeZ.optional();
-  },
+export const dimensionsZ = z.object({
+  length: zod.int8Z,
+  mass: zod.int8Z,
+  time: zod.int8Z,
+  current: zod.int8Z,
+  temperature: zod.int8Z,
+  angle: zod.int8Z,
+  count: zod.int8Z,
+  data: zod.int8Z,
 });
-export interface Type extends z.infer<typeof typeZ> {}
+export interface Dimensions extends z.infer<typeof dimensionsZ> {}
 
 export const edgeZ = z.object({
   source: handleZ,
@@ -155,32 +182,40 @@ export const nodeZ = z.object({
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
-export const statusZ = status.goStatusZ(statusDetailsZ);
-export type Status = z.infer<typeof statusZ>;
-
-export const paramZ = z.object({
-  name: z.string(),
-  type: typeZ,
-  value: z.unknown().optional(),
+export const moduleZ = z.object({
+  ir: irZ,
+  wasm: z.instanceof(Uint8Array),
+  outputMemoryBases: z.record(z.string(), z.uint32()),
 });
-export interface Param extends z.infer<typeof paramZ> {}
+export interface Module extends z.infer<typeof moduleZ> {}
 
 export const graphZ = z.object({
   viewport: viewportZ.optional(),
-  functions: array.nullToUndefined(functionZ),
-  edges: array.nullToUndefined(edgeZ),
-  nodes: array.nullToUndefined(graphNodeZ),
+  functions: functionsZ.optional(),
+  edges: edgesZ.optional(),
+  nodes: graphNodesZ.optional(),
 });
 export interface Graph extends z.infer<typeof graphZ> {}
 
-export const irZ = z.object({
-  functions: array.nullToUndefined(functionZ),
-  nodes: array.nullToUndefined(nodeZ),
-  edges: array.nullToUndefined(edgeZ),
-  strata: array.nullToUndefined(stratumZ),
-  sequences: array.nullToUndefined(sequenceZ),
+export const statusZ = status.goStatusZ(statusDetailsZ);
+export type Status = z.infer<typeof statusZ>;
+
+export const unitZ = z.object({
+  dimensions: dimensionsZ,
+  scale: z.number(),
+  name: z.string(),
 });
-export interface IR extends z.infer<typeof irZ> {}
+export interface Unit extends z.infer<typeof unitZ> {}
+
+export const newZ = z.object({
+  key: keyZ.optional(),
+  name: z.string(),
+  graph: graphZ,
+  text: textZ,
+  deploy: z.boolean(),
+  version: z.string(),
+});
+export interface New extends z.input<typeof newZ> {}
 
 export const arcZ = z.object({
   key: keyZ,
@@ -193,22 +228,25 @@ export const arcZ = z.object({
 });
 export interface Arc extends z.infer<typeof arcZ> {}
 
-export const newZ = z.object({
-  key: keyZ.optional(),
+export const typeZ = functionPropertiesZ.extend({
+  kind: kindZ,
+  get elem() {
+    return typeZ.optional();
+  },
   name: z.string(),
-  graph: graphZ,
-  text: textZ,
-  deploy: z.boolean(),
-  version: z.string(),
+  unit: unitZ.optional(),
+  get constraint() {
+    return typeZ.optional();
+  },
 });
-export interface New extends z.input<typeof newZ> {}
+export interface Type extends z.infer<typeof typeZ> {}
 
-export const moduleZ = z.object({
-  ir: irZ,
-  wasm: z.instanceof(Uint8Array),
-  outputMemoryBases: z.record(z.string(), z.uint32()),
+export const paramZ = z.object({
+  name: z.string(),
+  type: typeZ,
+  value: z.unknown().optional(),
 });
-export interface Module extends z.infer<typeof moduleZ> {}
+export interface Param extends z.infer<typeof paramZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("arc");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

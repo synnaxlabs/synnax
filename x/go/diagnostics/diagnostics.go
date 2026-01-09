@@ -20,6 +20,7 @@ import (
 // Severity represents the importance level of a diagnostic message.
 type Severity int
 
+//go:generate stringer -type=Severity
 const (
 	// Error indicates a critical issue that prevents compilation/code generation.
 	Error Severity = iota
@@ -198,6 +199,17 @@ func (d Diagnostics) Errors() Diagnostics {
 		}
 	}
 	return errors
+}
+
+// Warnings returns only the warning-level diagnostics.
+func (d Diagnostics) Warnings() Diagnostics {
+	var warnings Diagnostics
+	for _, diag := range d {
+		if diag.Severity == Warning {
+			warnings = append(warnings, diag)
+		}
+	}
+	return warnings
 }
 
 // FromError creates a Diagnostics with a single error from an error value.

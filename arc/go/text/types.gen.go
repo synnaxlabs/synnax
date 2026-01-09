@@ -11,6 +11,11 @@
 
 package text
 
+import (
+	"github.com/synnaxlabs/arc/parser"
+)
+
 type Text struct {
-	Raw string `json:"raw" msgpack:"raw"`
+	Raw string                 `json:"raw" msgpack:"raw"`
+	AST parser.IProgramContext `json:"-"`
 }
