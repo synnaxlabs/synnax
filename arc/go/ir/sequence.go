@@ -16,6 +16,33 @@ import (
 	"github.com/samber/lo"
 )
 
+// Stage represents a state within a sequence. Nodes listed in the stage are
+// active only when this stage is active. The runtime determines which nodes
+// to execute based on the active stage.
+type Stage struct {
+	// Key is the unique identifier for this stage within its sequence.
+	Key string `json:"key"`
+	// Nodes contains the keys of nodes that belong to this stage.
+	// These nodes are active only when this stage is active.
+	Nodes []string `json:"nodes"`
+	// Strata contains the per-stage execution stratification. Stage-local source
+	// nodes (constants, channel reads) are at stratum 0, and downstream nodes
+	// are in higher strata. This enables independent execution ordering within
+	// each stage without implicit dependencies on entry nodes.
+	Strata Strata `json:"strata,omitempty"`
+}
+
+// Sequence represents a state machine containing ordered stages. A sequence defines
+// the structure of a sequential automation workflow. The entry point is always
+// Stages[0], and the order of stages in the slice determines `next` resolution.
+type Sequence struct {
+	// Key is the unique identifier for this sequence (the sequence name).
+	Key string `json:"key"`
+	// Stages contains the stages in definition order. This order determines
+	// what `next` resolves to for each stage. Entry point is always Stages[0].
+	Stages []Stage `json:"stages"`
+}
+
 // Entry returns the entry stage of the sequence (always Stages[0]).
 // Panics if the sequence has no stages.
 func (s Sequence) Entry() Stage {
@@ -73,7 +100,17 @@ func (s Sequences) FindStage(stageKey string) (Stage, Sequence, bool) {
 // String returns the string representation of the stage.
 // Format: "key: [node1, node2, ...]"
 func (s Stage) String() string {
-	return fmt.Sprintf("%s: [%s]", s.Key, strings.Join(s.Nodes, ", "))
+	return s.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (s Stage) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+	lo.Must(fmt.Fprintf(&b, "%s: [%s]", s.Key, strings.Join(s.Nodes, ", ")))
+	if len(s.Strata) > 0 {
+		lo.Must(fmt.Fprintf(&b, "\n%s", s.Strata.stringWithPrefix(prefix)))
+	}
+	return b.String()
 }
 
 // String returns the string representation of the sequence.
@@ -90,8 +127,11 @@ func (s Sequence) stringWithPrefix(prefix string) string {
 		isLast := i == len(s.Stages)-1
 		b.WriteString(prefix)
 		b.WriteString(treePrefix(isLast))
-		b.WriteString(stage.String())
-		b.WriteString("\n")
+		stageChildPrefix := prefix + treeIndent(isLast)
+		b.WriteString(stage.stringWithPrefix(stageChildPrefix))
+		if len(stage.Strata) == 0 {
+			b.WriteString("\n")
+		}
 	}
 	return b.String()
 }

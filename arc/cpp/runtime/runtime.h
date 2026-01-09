@@ -14,9 +14,11 @@
 #include <set>
 #include <utility>
 
+#include "glog/logging.h"
+
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/thread/thread.h"
+#include "x/cpp/xthread/xthread.h"
 
 #include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -33,70 +35,77 @@
 namespace arc::runtime {
 struct Config {
     module::Module mod;
-    x::breaker::Config breaker;
-    std::function<std::pair<std::vector<state::ChannelDigest>, x::errors::Error>(
+    breaker::Config breaker;
+    std::function<std::pair<std::vector<state::ChannelDigest>, xerrors::Error>(
         const std::vector<types::ChannelKey> &
     )>
         retrieve_channels;
 };
 
 class Runtime {
-    x::breaker::Breaker breaker;
+    breaker::Breaker breaker;
     std::thread run_thread;
 
     std::shared_ptr<wasm::Module> mod;
-    std::unique_ptr<wasm::Bindings> bindings_runtime;
+    std::unique_ptr<wasm::Bindings> bindings;
     std::unique_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
-    std::unique_ptr<x::loop::Loop> loop;
-    std::unique_ptr<x::queue::SPSC<x::telem::Frame>> inputs;
-    std::unique_ptr<x::queue::SPSC<x::telem::Frame>> outputs;
-    x::telem::TimeStamp start_time = x::telem::TimeStamp(0);
+    std::unique_ptr<loop::Loop> loop;
+    std::unique_ptr<queue::SPSC<telem::Frame>> inputs;
+    std::unique_ptr<queue::SPSC<telem::Frame>> outputs;
+    telem::TimeStamp start_time = telem::TimeStamp(0);
 
 public:
     std::vector<types::ChannelKey> read_channels;
     std::vector<types::ChannelKey> write_channels;
     Runtime(
-        const x::breaker::Config &breaker_cfg,
+        const breaker::Config &breaker_cfg,
         std::shared_ptr<wasm::Module> mod,
         std::unique_ptr<wasm::Bindings> bindings_runtime,
         std::unique_ptr<state::State> state,
         std::unique_ptr<scheduler::Scheduler> scheduler,
-        std::unique_ptr<x::loop::Loop> loop,
+        std::unique_ptr<loop::Loop> loop,
         const std::vector<types::ChannelKey> &read_channels,
         std::vector<types::ChannelKey> write_channels
     ):
         breaker(breaker_cfg),
         mod(std::move(mod)),
-        bindings_runtime(std::move(bindings_runtime)),
+        bindings(std::move(bindings_runtime)),
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
-        inputs(std::make_unique<x::queue::SPSC<x::telem::Frame>>()),
-        outputs(std::make_unique<x::queue::SPSC<x::telem::Frame>>()),
+        inputs(std::make_unique<queue::SPSC<telem::Frame>>()),
+        outputs(std::make_unique<queue::SPSC<telem::Frame>>()),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
-    std::vector<x::telem::TimeSpan> run() {
-        this->start_time = x::telem::TimeStamp::now();
-        x::thread::set_name("runtime");
+    std::vector<telem::TimeSpan> run() {
+        this->start_time = telem::TimeStamp::now();
+        xthread::set_name("runtime");
+        LOG(INFO) << "[arc] runtime started";
         this->loop->start();
-        std::vector<x::telem::TimeSpan> results;
+        std::vector<telem::TimeSpan> results;
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
-            x::telem::Frame frame;
+            telem::Frame frame;
             while (this->inputs->try_pop(frame)) {
                 this->state->ingest(frame);
-                const auto elapsed = x::telem::TimeStamp::now() - this->start_time;
+                const auto elapsed = telem::TimeStamp::now() - this->start_time;
                 this->scheduler->next(elapsed);
+                LOG(INFO) << "[arc] cycle t=" << elapsed.nanoseconds() / 1000000
+                          << "ms";
                 this->state->clear_reads();
                 results.push_back(elapsed);
                 if (auto writes = this->state->flush_writes(); !writes.empty()) {
-                    x::telem::Frame out_frame(writes.size());
+                    telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
-                        out_frame.emplace(key, std::move(*series));
+                        out_frame.emplace(key, series->deep_copy());
+                    LOG(INFO) << "[arc] wrote " << out_frame.size() << " channels";
                     this->outputs->push(std::move(out_frame));
                 }
+                // Clear transient handles at end of cycle to prevent memory growth.
+                // Stateful variables persist across cycles.
+                this->bindings->clear_transient_handles();
             }
         }
         return results;
@@ -122,17 +131,17 @@ public:
         return true;
     }
 
-    x::errors::Error write(x::telem::Frame frame) const {
+    xerrors::Error write(telem::Frame frame) const {
         if (!this->inputs->push(std::move(frame)))
-            return x::errors::Error("runtime closed");
+            return xerrors::Error("runtime closed");
         this->loop->notify_data();
-        return x::errors::NIL;
+        return xerrors::NIL;
     }
 
-    bool read(x::telem::Frame &frame) const { return this->outputs->pop(frame); }
+    bool read(telem::Frame &frame) const { return this->outputs->pop(frame); }
 };
 
-inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &cfg) {
+inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
 
     // Step 1: Initialize state
     std::set<types::ChannelKey> reads;
@@ -188,12 +197,7 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &
     for (const auto &n: cfg.mod.nodes) {
         auto [node_state, node_state_err] = state->node(n.key);
         if (node_state_err) return {nullptr, node_state_err};
-        auto [node, err] = fact.create(
-            node::Config{
-                .node = n,
-                .state = node_state,
-            }
-        );
+        auto [node, err] = fact.create(node::Config(n, std::move(node_state)));
         if (err) return {nullptr, err};
         nodes[n.key] = std::move(node);
     }
@@ -209,11 +213,11 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &
     const bool has_intervals = timing_interval.nanoseconds() !=
                                std::numeric_limits<int64_t>::max();
 
-    auto [loop, err] = x::loop::create(
-        x::loop::Config{
-            .mode = has_intervals ? x::loop::ExecutionMode::HIGH_RATE
-                                  : x::loop::ExecutionMode::EVENT_DRIVEN,
-            .interval = has_intervals ? timing_interval : x::telem::TimeSpan(0),
+    auto [loop, err] = loop::create(
+        loop::Config{
+            .mode = has_intervals ? loop::ExecutionMode::HIGH_RATE
+                                  : loop::ExecutionMode::EVENT_DRIVEN,
+            .interval = has_intervals ? timing_interval : telem::TimeSpan(0),
             .rt_priority = 47,
             .cpu_affinity = -1,
         }
@@ -232,7 +236,7 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &
             std::vector(reads.begin(), reads.end()),
             std::vector(writes.begin(), writes.end())
         ),
-        x::errors::NIL
+        xerrors::NIL
     };
 }
 

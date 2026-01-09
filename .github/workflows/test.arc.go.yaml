@@ -1,0 +1,99 @@
+name: Test - Arc (Go)
+
+on:
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.arc.yaml
+      - arc/**
+      - alamos/go/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check_clang_format.sh
+      - scripts/check_gofmt.sh
+      - scripts/sanitizers/**
+      - vendor/**
+      - x/cpp/**
+      - x/go/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .clang-format
+      - .clang-format-ignore
+      - .github/workflows/test.arc.yaml
+      - arc/**
+      - alamos/go/**
+      - go.work
+      - go.work.sum
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - scripts/check_clang_format.sh
+      - scripts/check_gofmt.sh
+      - scripts/sanitizers/**
+      - vendor/**
+      - x/cpp/**
+      - x/go/**
+  workflow_dispatch:
+
+env:
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
+jobs:
+  test-go:
+    name: Test Go (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+        exclude:
+          - os:
+              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+              'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
+          - os:
+              ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
+              'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.work
+          cache-dependency-path: |
+            go.work.sum
+            **/go.sum
+
+      - name: Check Formatting
+        if: matrix.lint
+        run: scripts/check_gofmt.sh arc
+
+      - name: Validate WASM Bindings
+        if: matrix.lint
+        run: ./arc/scripts/validate_bindings.sh
+
+      - name: Lint
+        if: matrix.lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          working-directory: arc/go
+
+      - name: Test
+        run:
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
+          --trace --github-output
+        working-directory: arc/go

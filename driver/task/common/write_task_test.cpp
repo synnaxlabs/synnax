@@ -34,7 +34,7 @@ public:
         ),
         driver::pipeline::mock::Sink(writes, errors) {}
 
-    x::errors::Error write(const x::telem::Frame &frame) override {
+    x::errors::Error write(x::telem::Frame &frame) override {
         auto err = driver::pipeline::mock::Sink::write(frame);
         this->set_state(frame);
         return err;

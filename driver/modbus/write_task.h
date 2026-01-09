@@ -209,7 +209,7 @@ public:
     WriteTaskSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()), config(std::move(cfg)), dev(dev) {}
 
-    x::errors::Error write(const x::telem::Frame &frame) override {
+    x::errors::Error write(x::telem::Frame &frame) override {
         for (const auto &writer: config.writers)
             if (auto err = writer->write(dev, frame)) return err;
         return x::errors::NIL;

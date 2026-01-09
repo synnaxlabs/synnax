@@ -22,3 +22,11 @@ type Binary = func(a, b telem.Series, output *telem.Series)
 type Unary = func(input telem.Series, output *telem.Series)
 
 type Reduction = func(input telem.Series, prevCount int64, output *telem.Series) int64
+
+// ScalarArith is the signature for scalar arithmetic operations (series op scalar -> same type).
+// Note: Actual generated functions are type-specific, e.g., AddScalarF64(series, scalar float64, output).
+type ScalarArith[T any] func(series telem.Series, scalar T, output *telem.Series)
+
+// ScalarComp is the signature for scalar comparison operations (series op scalar -> uint8).
+// Note: Actual generated functions are type-specific, e.g., GreaterThanScalarF64(series, scalar float64, output).
+type ScalarComp[T any] func(series telem.Series, scalar T, output *telem.Series)

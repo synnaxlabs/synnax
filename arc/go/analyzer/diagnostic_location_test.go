@@ -20,293 +20,259 @@ import (
 )
 
 var _ = Describe("Diagnostic Locations", func() {
+	type diagnosticCase struct {
+		source         string
+		expectedMsg    string
+		expectedLine   int
+		expectedColumn int // -1 means don't check
+		expectedSev    diagnostics.Severity
+	}
 
-	Describe("Undefined Symbol Errors", func() {
-		It("Should report correct location for undefined variable in assignment", func() {
-			prog := MustSucceed(parser.Parse(`
+	runDiagnosticTest := func(tc diagnosticCase) {
+		prog := MustSucceed(parser.Parse(tc.source))
+		ctx := context.CreateRoot(bCtx, prog, nil)
+		Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+		Expect(*ctx.Diagnostics).To(HaveLen(1))
+
+		diag := (*ctx.Diagnostics)[0]
+		Expect(diag.Message).To(ContainSubstring(tc.expectedMsg))
+		if tc.expectedLine >= 0 {
+			Expect(diag.Line).To(Equal(tc.expectedLine))
+		}
+		if tc.expectedColumn >= 0 {
+			Expect(diag.Column).To(Equal(tc.expectedColumn))
+		}
+		if tc.expectedSev != 0 {
+			Expect(diag.Severity).To(Equal(tc.expectedSev))
+		}
+	}
+
+	DescribeTable("Undefined Symbol Errors",
+		runDiagnosticTest,
+		Entry("undefined variable in assignment",
+			diagnosticCase{
+				source: `
 func test() {
 	x := undefined_var
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined_var"))
-			Expect(diag.Line).To(Equal(3))
-			Expect(diag.Column).To(Equal(6))
-			Expect(diag.Severity).To(Equal(diagnostics.Error))
-		})
-
-		It("Should report correct location for undefined variable on left side of assignment", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "undefined symbol: undefined_var",
+				expectedLine:   3,
+				expectedColumn: 6,
+				expectedSev:    diagnostics.Error,
+			}),
+		Entry("undefined variable on left side of assignment",
+			diagnosticCase{
+				source: `
 func test() {
 	x i32 := 1
 	undefined_target = x
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined_target"))
-			Expect(diag.Line).To(Equal(4))
-			Expect(diag.Column).To(Equal(1))
-		})
-
-		It("Should report correct location for undefined function call", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "undefined symbol: undefined_target",
+				expectedLine:   4,
+				expectedColumn: 1,
+				expectedSev:    0,
+			}),
+		Entry("undefined function call",
+			diagnosticCase{
+				source: `
 func test() {
 	result := unknownFunc(1, 2)
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+}`,
+				expectedMsg:    "undefined symbol: unknownFunc",
+				expectedLine:   3,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+	)
 
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("undefined symbol: unknownFunc"))
-			Expect(diag.Line).To(Equal(3))
-		})
-	})
-
-	Describe("Type Mismatch Errors", func() {
-		It("Should report correct location for type mismatch in variable declaration", func() {
-			prog := MustSucceed(parser.Parse(`
+	DescribeTable("Type Mismatch Errors",
+		runDiagnosticTest,
+		Entry("type mismatch in variable declaration",
+			diagnosticCase{
+				source: `
 func test() {
 	x i32 := "hello"
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("type mismatch"))
-			Expect(diag.Line).To(Equal(3))
-			Expect(diag.Severity).To(Equal(diagnostics.Error))
-		})
-
-		It("Should report correct location for type mismatch in assignment", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "type mismatch",
+				expectedLine:   3,
+				expectedColumn: -1,
+				expectedSev:    diagnostics.Error,
+			}),
+		Entry("type mismatch in assignment",
+			diagnosticCase{
+				source: `
 func test() {
 	x i32 := 10
 	x = "hello"
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("type mismatch"))
-			Expect(diag.Line).To(Equal(4))
-		})
-
-		It("Should report correct location for type mismatch in binary expression", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "type mismatch",
+				expectedLine:   4,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+		Entry("type mismatch in binary expression",
+			diagnosticCase{
+				source: `
 func test() {
 	x i32 := 10
 	y f32 := 20.5
 	z := x + y
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+}`,
+				expectedMsg:    "type mismatch",
+				expectedLine:   5,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+	)
 
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("type mismatch"))
-			Expect(diag.Line).To(Equal(5))
-		})
-	})
-
-	Describe("Duplicate Declaration Errors", func() {
-		It("Should report correct location for duplicate variable declaration", func() {
-			prog := MustSucceed(parser.Parse(`
+	DescribeTable("Duplicate Declaration Errors",
+		runDiagnosticTest,
+		Entry("duplicate variable declaration",
+			diagnosticCase{
+				source: `
 func test() {
 	x := 1
 	x := 2
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("name x conflicts"))
-			Expect(diag.Line).To(Equal(4))
-			Expect(diag.Column).To(Equal(1))
-		})
-
-		It("Should report correct location for duplicate function declaration", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "name x conflicts",
+				expectedLine:   4,
+				expectedColumn: 1,
+				expectedSev:    0,
+			}),
+		Entry("duplicate function declaration",
+			diagnosticCase{
+				source: `
 func myFunc() {
 }
 
 func myFunc() {
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("name myFunc conflicts"))
-			Expect(diag.Line).To(Equal(5))
-		})
-
-		It("Should report correct location for duplicate parameter name", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "name myFunc conflicts",
+				expectedLine:   5,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+		Entry("duplicate parameter name",
+			diagnosticCase{
+				source: `
 func test(x i32, x i32) {
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+}`,
+				expectedMsg:    "name x conflicts",
+				expectedLine:   2,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+	)
 
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("name x conflicts"))
-			Expect(diag.Line).To(Equal(2))
-		})
-	})
-
-	Describe("Return Statement Errors", func() {
-		It("Should report correct location for missing return", func() {
-			prog := MustSucceed(parser.Parse(`
+	DescribeTable("Return Statement Errors",
+		runDiagnosticTest,
+		Entry("missing return value",
+			diagnosticCase{
+				source: `
 func test() i64 {
 	x := 42
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("must return a value"))
-		})
-
-		It("Should report correct location for unexpected return value", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "must return a value",
+				expectedLine:   -1,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+		Entry("unexpected return value",
+			diagnosticCase{
+				source: `
 func test() {
 	return 42
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+}`,
+				expectedMsg:    "unexpected return value",
+				expectedLine:   3,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+	)
 
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("unexpected return value"))
-			Expect(diag.Line).To(Equal(3))
-		})
-	})
-
-	Describe("Operator Errors", func() {
-		It("Should report correct location for invalid arithmetic on strings", func() {
-			prog := MustSucceed(parser.Parse(`
+	DescribeTable("Operator Errors",
+		runDiagnosticTest,
+		Entry("invalid arithmetic on strings",
+			diagnosticCase{
+				source: `
 func test() {
-	x := "hello" + "world"
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("cannot use str in + operation"))
-			Expect(diag.Line).To(Equal(3))
-		})
-
-		It("Should report correct location for invalid unary operator", func() {
-			prog := MustSucceed(parser.Parse(`
+	x := "hello" + 12
+}`,
+				expectedMsg:    "+ operands must be compatible",
+				expectedLine:   2,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+		Entry("invalid unary operator",
+			diagnosticCase{
+				source: `
 func test() {
 	x := "hello"
 	y := -x
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("operator - not supported"))
-			Expect(diag.Line).To(Equal(4))
-		})
-
-		It("Should report correct location for invalid logical operation", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "operator - not supported",
+				expectedLine:   4,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+		Entry("invalid logical operation",
+			diagnosticCase{
+				source: `
 func test() {
 	x i32 := 10
 	y i32 := 20
 	z := x and y
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+}`,
+				expectedMsg:    "cannot use i32 in and operation",
+				expectedLine:   5,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+	)
 
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("cannot use i32 in and operation"))
-			Expect(diag.Line).To(Equal(5))
-		})
-	})
-
-	Describe("Nested Scope Errors", func() {
-		It("Should report correct location for error in nested if block", func() {
-			prog := MustSucceed(parser.Parse(`
+	DescribeTable("Nested Scope Errors",
+		runDiagnosticTest,
+		Entry("error in nested if block",
+			diagnosticCase{
+				source: `
 func test() {
 	if 1 {
 		if 1 {
 			x := undefined
 		}
 	}
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined"))
-			Expect(diag.Line).To(Equal(5))
-		})
-
-		It("Should report correct location for error in else block", func() {
-			prog := MustSucceed(parser.Parse(`
+}`,
+				expectedMsg:    "undefined symbol: undefined",
+				expectedLine:   5,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+		Entry("error in else block",
+			diagnosticCase{
+				source: `
 func test() {
 	if 1 {
 		x := 1
 	} else {
 		y := undefined
 	}
-}
-`))
-			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined"))
-			Expect(diag.Line).To(Equal(6))
-		})
-	})
+}`,
+				expectedMsg:    "undefined symbol: undefined",
+				expectedLine:   6,
+				expectedColumn: -1,
+				expectedSev:    0,
+			}),
+	)
 
 	Describe("Error Recovery", func() {
-		// Note: The analyzer currently stops analysis after encountering the first error
-		// in a statement, but may report errors across independent statements.
 		It("Should report first error with correct location", func() {
 			prog := MustSucceed(parser.Parse(`
 func test() {
 	a := undefined1
 	b := undefined2
-}
-`))
+}`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			// Analyzer stops after first error
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 
 			diag := (*ctx.Diagnostics)[0]

@@ -46,10 +46,11 @@ SeriesType ::= 'series' PrimitiveType
 SeriesLiteral ::= '[' ExpressionList? ']'
 ```
 
-**Series are immutable** homogeneous arrays with elementwise operations:
+**Series** are homogeneous arrays with elementwise operations:
 
 ```arc
 data := [1.0, 2.0, 3.0]
+data[0] = 5.0                    // element assignment
 length := len(data)              // i64
 first := data[0]                 // indexing
 subset := data[1:3]              // slicing [2.0, 3.0]
@@ -121,7 +122,10 @@ Explicit casting between numeric types:
 
 ```
 TypeCast ::= Type '(' Expression ')'
+```
+
 **Rules**:
+
 - Widening (e.g., `i16(i8_val)`) is safe (sign/zero extend)
 - Narrowing (e.g., `i8(i64_val)`) truncates
 - Signed ↔ Unsigned saturates at bounds
@@ -130,7 +134,8 @@ TypeCast ::= Type '(' Expression ')'
 
 ## Channel Operations
 
-Channel operations differ between **reactive context** (flow/stages) and **imperative context** (function bodies).
+Channel operations differ between **reactive context** (flow/stages) and **imperative
+context** (function bodies).
 
 ### Reactive Context (Flow/Sequence Layer)
 
@@ -140,7 +145,7 @@ FlowStatement ::= ChannelRead '=>' Identifier // Blocking read triggering state
 transition | ChannelWrite '->' Identifier // Write to channel in reactive flow |
 Identifier '->' FunctionCall // Connect channel to function
 
-````
+```
 
 ```arc
 stage monitor {
@@ -148,7 +153,7 @@ stage monitor {
     process{} -> output,             // Connect function output to channel
     interval{100ms} -> tick_handler, // Trigger on interval
 }
-````
+```
 
 ### Imperative Context (Function Bodies)
 
@@ -172,11 +177,11 @@ func process() bool {
 **Channel write** (`channel = value`) enqueues value to channel.
 
 ```arc
-func initialize() true {
+func initialize() u8 {
     tpc_cmd = 0                // Enqueue value to channel
     mpv_cmd = 0
     vent_cmd = 1
-    return true
+    return 1
 }
 ```
 

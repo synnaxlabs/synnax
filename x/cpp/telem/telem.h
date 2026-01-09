@@ -22,6 +22,8 @@
 
 #include "x/cpp/json/json.h"
 
+#include <google/protobuf/struct.pb.h>
+
 namespace x::telem {
 // private namespace for internal constants
 namespace details {
@@ -645,6 +647,44 @@ template<typename T>
 [[nodiscard]] inline std::string to_string(const SampleValue &value) {
     return cast<std::string>(value);
 }
+
+/// @brief Converts a google::protobuf::Value to telem::SampleValue.
+/// @param v The protobuf Value to convert.
+/// @returns The SampleValue representation.
+/// @note Struct and list values are not supported and will return a default double(0).
+[[nodiscard]] inline SampleValue from_proto(const google::protobuf::Value &v) {
+    switch (v.kind_case()) {
+        case google::protobuf::Value::kNumberValue:
+            return v.number_value();
+        case google::protobuf::Value::kStringValue:
+            return v.string_value();
+        case google::protobuf::Value::kBoolValue:
+            return v.bool_value() ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0);
+        case google::protobuf::Value::kNullValue:
+        case google::protobuf::Value::kStructValue:
+        case google::protobuf::Value::kListValue:
+        default:
+            return 0.0;
+    }
+}
+
+/// @brief Converts a telem::SampleValue to google::protobuf::Value.
+/// @param sv The SampleValue to convert.
+/// @param v Pointer to the protobuf Value to populate.
+inline void to_proto(const SampleValue &sv, google::protobuf::Value *v) {
+    std::visit(
+        [v]<typename T>(const T &val) {
+            if constexpr (std::is_same_v<T, std::string>)
+                v->set_string_value(val);
+            else if constexpr (std::is_same_v<T, TimeStamp>)
+                v->set_number_value(static_cast<double>(val.nanoseconds()));
+            else
+                v->set_number_value(static_cast<double>(val));
+        },
+        sv
+    );
+}
+
 using NowFunc = std::function<TimeStamp()>;
 
 namespace details {

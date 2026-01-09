@@ -9,26 +9,31 @@
 
 #pragma once
 
+#include <atomic>
+#include <condition_variable>
 #include <future>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <thread>
 #include <utility>
+#include <vector>
 
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/json/json.h"
+#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xlog/xlog.h"
 
 using json = nlohmann::json;
 
-namespace driver::task {
+namespace task {
 /// @brief A command that can be executed on a task in order to change its state.
 struct Command {
     /// @brief the key of the task to be commanded.
-    synnax::task::Key task = 0;
+    synnax::TaskKey task = 0;
     /// @brief the type of the command to execute.
     std::string type;
     /// @brief an optional key to assign to the command. This is useful for tracking
@@ -40,18 +45,23 @@ struct Command {
     Command() = default;
 
     /// @brief constructs the command from the provided configuration parser.
-    explicit Command(x::json::Parser parser):
-        task(parser.field<synnax::task::Key>("task")),
+    explicit Command(xjson::Parser parser):
+        task(parser.field<synnax::TaskKey>("task")),
         type(parser.field<std::string>("type")),
         key(parser.field<std::string>("key", "")),
         args(parser.field<json>("args", json{})) {}
 
     /// @brief Construct a new Task Command object
-    Command(const synnax::task::Key task, std::string type, json args):
+    Command(const synnax::TaskKey task, std::string type, json args):
         task(task), type(std::move(type)), args(std::move(args)) {}
 
     [[nodiscard]] json to_json() const {
         return {{"task", task}, {"type", type}, {"key", key}, {"args", args}};
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Command &cmd) {
+        os << cmd.type << " (key=" << cmd.key << ",task=" << cmd.task << ")";
+        return os;
     }
 };
 
@@ -60,7 +70,7 @@ struct Command {
 class Task {
 public:
     /// @brief the key of the task
-    synnax::task::Key key = 0;
+    synnax::TaskKey key = 0;
 
     [[nodiscard]] virtual std::string name() const { return ""; }
 
@@ -118,7 +128,7 @@ public:
         Context(client) {}
 
     void set_status(synnax::TaskStatus &status) override {
-        if (status.time == 0) status.time = x::telem::TimeStamp::now();
+        if (status.time == 0) status.time = telem::TimeStamp::now();
         if (const auto err = this->client->statuses.set<synnax::TaskStatusDetails>(
                 status
             );
@@ -181,6 +191,59 @@ public:
     }
 };
 
+/// @brief configuration for the task manager.
+struct ManagerConfig {
+    /// @brief duration before reporting stuck operations.
+    telem::TimeSpan op_timeout = 60 * telem::SECOND;
+    /// @brief interval between timeout checks.
+    telem::TimeSpan poll_interval = 1 * telem::SECOND;
+    /// @brief max time to wait for workers during shutdown before detaching.
+    telem::TimeSpan shutdown_timeout = 30 * telem::SECOND;
+    /// @brief number of worker threads for task operations.
+    size_t worker_count = 4;
+
+    template<typename Parser>
+    void override(Parser &p) {
+        const auto op_timeout_s = p.field(
+            "op_timeout",
+            static_cast<double>(this->op_timeout.seconds())
+        );
+        this->op_timeout = telem::TimeSpan(static_cast<int64_t>(op_timeout_s * 1e9));
+        const auto poll_interval_s = p.field(
+            "poll_interval",
+            static_cast<double>(this->poll_interval.seconds())
+        );
+        this->poll_interval = telem::TimeSpan(
+            static_cast<int64_t>(poll_interval_s * 1e9)
+        );
+        const auto shutdown_timeout_s = p.field(
+            "shutdown_timeout",
+            static_cast<double>(this->shutdown_timeout.seconds())
+        );
+        this->shutdown_timeout = telem::TimeSpan(
+            static_cast<int64_t>(shutdown_timeout_s * 1e9)
+        );
+        this->worker_count = p.field(
+            "worker_count",
+            static_cast<int>(this->worker_count)
+        );
+        if (this->worker_count < 1) this->worker_count = 1;
+        if (this->worker_count > 64) this->worker_count = 64;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const ManagerConfig &cfg) {
+        os << "  " << xlog::SHALE() << "op timeout" << xlog::RESET() << ": "
+           << cfg.op_timeout.seconds() << "s\n"
+           << "  " << xlog::SHALE() << "poll interval" << xlog::RESET() << ": "
+           << cfg.poll_interval.seconds() << "s\n"
+           << "  " << xlog::SHALE() << "shutdown timeout" << xlog::RESET() << ": "
+           << cfg.shutdown_timeout.seconds() << "s\n"
+           << "  " << xlog::SHALE() << "worker count" << xlog::RESET() << ": "
+           << cfg.worker_count;
+        return os;
+    }
+};
+
 /// @brief TaskManager is responsible for configuring, executing, and commanding
 /// data acquisition and control tasks.
 class Manager {
@@ -188,76 +251,114 @@ public:
     Manager(
         synnax::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
-        std::unique_ptr<driver::task::Factory> factory
+        std::unique_ptr<task::Factory> factory,
+        const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),
         ctx(std::make_shared<SynnaxContext>(client)),
         factory(std::move(factory)),
-        channels({}) {}
+        op_timeout(cfg.op_timeout),
+        poll_interval(cfg.poll_interval),
+        shutdown_timeout(cfg.shutdown_timeout),
+        worker_count(cfg.worker_count) {}
 
-    /// @brief runs the main task manager loop, booting up initial tasks retrieved
-    /// from the cluster, and processing task modifications (set, delete, and
-    /// command) requests through streamed channel values. Note that this function
-    /// does not for a thread to run in, and blocks until stop() is called.
-    ///
-    /// This function NOT be called concurrently with any other calls
-    /// to run(). It is safe to call run() concurrently with stop().
-    ///
-    /// @param on_started an optional callback that will be called when the manager
-    /// has started successfully.
-    x::errors::Error run(std::function<void()> on_started = nullptr);
+    /// @brief runs the main task manager loop, blocking until stop() is called.
+    /// Safe to call stop() from another thread.
+    xerrors::Error run(std::function<void()> on_started = nullptr);
 
-    /// @brief stops the task manager, halting all tasks and freeing all resources.
-    /// Once the manager has shut down, the run() function will return with any
-    /// errors encountered during operation.
+    /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
 
 private:
-    /// @brief the rack that this task manager belongs to.
+    /// @brief the rack this manager belongs to.
     synnax::Rack rack;
-    /// @brief a common context object passed to all tasks.
-    std::shared_ptr<driver::task::Context> ctx;
-    /// @brief the factory used to create tasks.
-    std::unique_ptr<driver::task::Factory> factory;
-    /// @brief a map of tasks that have been configured on the rack.
-    std::unordered_map<synnax::task::Key, std::unique_ptr<driver::task::Task>> tasks{};
+    /// @brief shared context passed to all tasks.
+    std::shared_ptr<Context> ctx;
+    /// @brief creates device-specific tasks.
+    std::unique_ptr<Factory> factory;
+    /// @brief duration before reporting stuck operations.
+    telem::TimeSpan op_timeout;
+    /// @brief interval between timeout checks.
+    telem::TimeSpan poll_interval;
+    /// @brief max time to wait for workers during shutdown before detaching.
+    telem::TimeSpan shutdown_timeout;
+    /// @brief number of worker threads for task operations.
+    size_t worker_count;
 
-    /// @brief the streamer variable is read from in both the run() and stop()
-    /// functions, so we need to lock its assignment.
+    /// @brief an operation to be executed by a worker.
+    struct Op {
+        /// @brief types of operations that can be queued.
+        enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE };
+        Type type;
+        synnax::TaskKey task_key;
+        synnax::Task task;
+        Command cmd;
+    };
+
+    /// @brief per-task state tracked by the manager.
+    struct Entry {
+        std::unique_ptr<Task> task;
+        /// @brief true while a worker is processing an operation for this task.
+        std::atomic<bool> processing{false};
+        /// @brief when the current operation started (0 if idle).
+        std::atomic<telem::TimeStamp> op_started{telem::TimeStamp(0)};
+    };
+
+    /// @brief maps task keys to their state. Uses shared_ptr for stable references.
+    std::unordered_map<synnax::TaskKey, std::shared_ptr<Entry>> entries;
+    /// @brief pending operations to be processed by workers.
+    std::list<Op> op_queue;
+    /// @brief notified when ops are queued or workers should wake.
+    std::condition_variable cv;
+    /// @brief a worker thread and its completion flag.
+    struct Worker {
+        std::thread thread;
+        std::shared_ptr<std::atomic<bool>> done;
+    };
+    /// @brief worker threads that execute operations.
+    std::vector<Worker> workers;
+    /// @brief thread that checks for stuck operations.
+    std::thread monitor_thread;
+    /// @brief controls worker and monitor thread lifecycle.
+    breaker::Breaker breaker{breaker::Config{.name = "task.manager"}};
+
+    /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
-    /// @brief receives streamed values from the Synnax server to change tasks in
-    /// the manager.
+    /// @brief receives task set/delete/cmd events from the cluster.
     std::unique_ptr<synnax::Streamer> streamer;
-    std::atomic<bool> exit_early = false;
+    /// @brief signals early shutdown before streamer is opened.
+    std::atomic<bool> exit_early{false};
 
-    /// @brief information on channels we need to work with tasks.
+    /// @brief channels used to receive task events.
     struct {
-        synnax::channel::Channel task_set;
-        synnax::channel::Channel task_delete;
-        synnax::channel::Channel task_cmd;
+        synnax::Channel task_set;
+        synnax::Channel task_delete;
+        synnax::Channel task_cmd;
     } channels;
 
-    [[nodiscard]] bool skip_foreign_rack(const synnax::task::Key &task_key) const;
-
-    /// @brief opens the streamer for the task manager, which is used to listen for
-    /// incoming task set, delete, and command requests.
-    x::errors::Error open_streamer();
-
-    /// @brief retrieves and configures all initial tasks for the rack from the
-    /// server.
-    x::errors::Error configure_initial_tasks();
-
-    /// @brief stops all tasks.
+    /// @brief returns true if the task belongs to a different rack.
+    [[nodiscard]] bool skip_foreign_rack(const synnax::TaskKey &task_key) const;
+    /// @brief opens the streamer for task set/delete/cmd channels.
+    xerrors::Error open_streamer();
+    /// @brief loads and queues all existing tasks from the cluster.
+    xerrors::Error configure_initial_tasks();
+    /// @brief stops all running tasks.
     void stop_all_tasks();
-
-    /// @brief processes when a new task is created or an existing task needs to be
-    /// reconfigured.
-    void process_task_set(const x::telem::Series &series);
-
-    /// @brief processes when a task is deleted.
-    void process_task_delete(const x::telem::Series &series);
-
-    /// @brief processes when a command needs to be executed on a configured task.
-    void process_task_cmd(const x::telem::Series &series);
+    /// @brief handles task create/update events.
+    void process_task_set(const telem::Series &series);
+    /// @brief handles task deletion events.
+    void process_task_delete(const telem::Series &series);
+    /// @brief handles task command events.
+    void process_task_cmd(const telem::Series &series);
+    /// @brief starts the worker pool and monitor thread.
+    void start_workers();
+    /// @brief stops workers and waits for them to finish.
+    void stop_workers();
+    /// @brief main loop for worker threads - pops and executes operations.
+    void worker_loop();
+    /// @brief checks for operations that have exceeded op_timeout.
+    void monitor_loop();
+    /// @brief executes a single operation on an entry.
+    void execute_op(const Op &op, const std::shared_ptr<Entry> &entry) const;
 };
 }

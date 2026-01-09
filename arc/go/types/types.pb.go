@@ -46,10 +46,10 @@ const (
 	PBKind_PB_KIND_F32         PBKind = 9
 	PBKind_PB_KIND_F64         PBKind = 10
 	PBKind_PB_KIND_STRING      PBKind = 11
-	PBKind_PB_KIND_TIMESTAMP   PBKind = 12
-	PBKind_PB_KIND_TIMESPAN    PBKind = 13
-	PBKind_PB_KIND_CHAN        PBKind = 14
-	PBKind_PB_KIND_SERIES      PBKind = 15
+	// 12 and 13 were PB_KIND_TIMESTAMP and PB_KIND_TIMESPAN, now removed.
+	// Timestamps and timespans are represented as i64 with time unit metadata.
+	PBKind_PB_KIND_CHAN   PBKind = 14
+	PBKind_PB_KIND_SERIES PBKind = 15
 )
 
 // Enum value maps for PBKind.
@@ -67,8 +67,6 @@ var (
 		9:  "PB_KIND_F32",
 		10: "PB_KIND_F64",
 		11: "PB_KIND_STRING",
-		12: "PB_KIND_TIMESTAMP",
-		13: "PB_KIND_TIMESPAN",
 		14: "PB_KIND_CHAN",
 		15: "PB_KIND_SERIES",
 	}
@@ -85,8 +83,6 @@ var (
 		"PB_KIND_F32":         9,
 		"PB_KIND_F64":         10,
 		"PB_KIND_STRING":      11,
-		"PB_KIND_TIMESTAMP":   12,
-		"PB_KIND_TIMESPAN":    13,
 		"PB_KIND_CHAN":        14,
 		"PB_KIND_SERIES":      15,
 	}
@@ -119,17 +115,181 @@ func (PBKind) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_types_types_proto_rawDescGZIP(), []int{0}
 }
 
+// PBDimensions represents dimension exponents for dimensional analysis.
+// Uses SI base dimensions plus pragmatic extensions for hardware telemetry.
+type PBDimensions struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Length        int32                  `protobuf:"varint,1,opt,name=length,proto3" json:"length,omitempty"`           // meters (m)
+	Mass          int32                  `protobuf:"varint,2,opt,name=mass,proto3" json:"mass,omitempty"`               // kilograms (kg)
+	Time          int32                  `protobuf:"varint,3,opt,name=time,proto3" json:"time,omitempty"`               // seconds (s)
+	Current       int32                  `protobuf:"varint,4,opt,name=current,proto3" json:"current,omitempty"`         // amperes (A)
+	Temperature   int32                  `protobuf:"varint,5,opt,name=temperature,proto3" json:"temperature,omitempty"` // kelvin (K)
+	Angle         int32                  `protobuf:"varint,6,opt,name=angle,proto3" json:"angle,omitempty"`             // radians/degrees
+	Count         int32                  `protobuf:"varint,7,opt,name=count,proto3" json:"count,omitempty"`             // samples, items, cycles
+	Data          int32                  `protobuf:"varint,8,opt,name=data,proto3" json:"data,omitempty"`               // bits, bytes
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PBDimensions) Reset() {
+	*x = PBDimensions{}
+	mi := &file_arc_go_types_types_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PBDimensions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PBDimensions) ProtoMessage() {}
+
+func (x *PBDimensions) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_types_types_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PBDimensions.ProtoReflect.Descriptor instead.
+func (*PBDimensions) Descriptor() ([]byte, []int) {
+	return file_arc_go_types_types_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *PBDimensions) GetLength() int32 {
+	if x != nil {
+		return x.Length
+	}
+	return 0
+}
+
+func (x *PBDimensions) GetMass() int32 {
+	if x != nil {
+		return x.Mass
+	}
+	return 0
+}
+
+func (x *PBDimensions) GetTime() int32 {
+	if x != nil {
+		return x.Time
+	}
+	return 0
+}
+
+func (x *PBDimensions) GetCurrent() int32 {
+	if x != nil {
+		return x.Current
+	}
+	return 0
+}
+
+func (x *PBDimensions) GetTemperature() int32 {
+	if x != nil {
+		return x.Temperature
+	}
+	return 0
+}
+
+func (x *PBDimensions) GetAngle() int32 {
+	if x != nil {
+		return x.Angle
+	}
+	return 0
+}
+
+func (x *PBDimensions) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *PBDimensions) GetData() int32 {
+	if x != nil {
+		return x.Data
+	}
+	return 0
+}
+
+// PBUnit holds unit metadata for numeric types.
+type PBUnit struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Dimensions    *PBDimensions          `protobuf:"bytes,1,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	Scale         float64                `protobuf:"fixed64,2,opt,name=scale,proto3" json:"scale,omitempty"` // Factor to convert to SI base units
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`     // Display name (e.g., "psi", "km", "ms")
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PBUnit) Reset() {
+	*x = PBUnit{}
+	mi := &file_arc_go_types_types_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PBUnit) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PBUnit) ProtoMessage() {}
+
+func (x *PBUnit) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_types_types_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PBUnit.ProtoReflect.Descriptor instead.
+func (*PBUnit) Descriptor() ([]byte, []int) {
+	return file_arc_go_types_types_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *PBUnit) GetDimensions() *PBDimensions {
+	if x != nil {
+		return x.Dimensions
+	}
+	return nil
+}
+
+func (x *PBUnit) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+func (x *PBUnit) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
 type PBType struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Kind          PBKind                 `protobuf:"varint,1,opt,name=kind,proto3,enum=x.arc.types.PBKind" json:"kind,omitempty"`
+	Kind          PBKind                 `protobuf:"varint,1,opt,name=kind,proto3,enum=arc.v1.types.PBKind" json:"kind,omitempty"`
 	Elem          *PBType                `protobuf:"bytes,2,opt,name=elem,proto3" json:"elem,omitempty"`
+	Unit          *PBUnit                `protobuf:"bytes,3,opt,name=unit,proto3" json:"unit,omitempty"` // Optional unit metadata for numeric types
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *PBType) Reset() {
 	*x = PBType{}
-	mi := &file_arc_go_types_types_proto_msgTypes[0]
+	mi := &file_arc_go_types_types_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -141,7 +301,7 @@ func (x *PBType) String() string {
 func (*PBType) ProtoMessage() {}
 
 func (x *PBType) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_types_types_proto_msgTypes[0]
+	mi := &file_arc_go_types_types_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -154,7 +314,7 @@ func (x *PBType) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBType.ProtoReflect.Descriptor instead.
 func (*PBType) Descriptor() ([]byte, []int) {
-	return file_arc_go_types_types_proto_rawDescGZIP(), []int{0}
+	return file_arc_go_types_types_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *PBType) GetKind() PBKind {
@@ -171,6 +331,13 @@ func (x *PBType) GetElem() *PBType {
 	return nil
 }
 
+func (x *PBType) GetUnit() *PBUnit {
+	if x != nil {
+		return x.Unit
+	}
+	return nil
+}
+
 type PBParam struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -182,7 +349,7 @@ type PBParam struct {
 
 func (x *PBParam) Reset() {
 	*x = PBParam{}
-	mi := &file_arc_go_types_types_proto_msgTypes[1]
+	mi := &file_arc_go_types_types_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -194,7 +361,7 @@ func (x *PBParam) String() string {
 func (*PBParam) ProtoMessage() {}
 
 func (x *PBParam) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_types_types_proto_msgTypes[1]
+	mi := &file_arc_go_types_types_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -207,7 +374,7 @@ func (x *PBParam) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PBParam.ProtoReflect.Descriptor instead.
 func (*PBParam) Descriptor() ([]byte, []int) {
-	return file_arc_go_types_types_proto_rawDescGZIP(), []int{1}
+	return file_arc_go_types_types_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *PBParam) GetName() string {
@@ -235,14 +402,30 @@ var File_arc_go_types_types_proto protoreflect.FileDescriptor
 
 const file_arc_go_types_types_proto_rawDesc = "" +
 	"\n" +
-	"\x18arc/go/types/types.proto\x12\vx.arc.types\x1a\x1cgoogle/protobuf/struct.proto\"Z\n" +
-	"\x06PBType\x12'\n" +
-	"\x04kind\x18\x01 \x01(\x0e2\x13.x.arc.types.PBKindR\x04kind\x12'\n" +
-	"\x04elem\x18\x02 \x01(\v2\x13.x.arc.types.PBTypeR\x04elem\"t\n" +
+	"\x18arc/go/types/types.proto\x12\farc.v1.types\x1a\x1cgoogle/protobuf/struct.proto\"\xca\x01\n" +
+	"\fPBDimensions\x12\x16\n" +
+	"\x06length\x18\x01 \x01(\x05R\x06length\x12\x12\n" +
+	"\x04mass\x18\x02 \x01(\x05R\x04mass\x12\x12\n" +
+	"\x04time\x18\x03 \x01(\x05R\x04time\x12\x18\n" +
+	"\acurrent\x18\x04 \x01(\x05R\acurrent\x12 \n" +
+	"\vtemperature\x18\x05 \x01(\x05R\vtemperature\x12\x14\n" +
+	"\x05angle\x18\x06 \x01(\x05R\x05angle\x12\x14\n" +
+	"\x05count\x18\a \x01(\x05R\x05count\x12\x12\n" +
+	"\x04data\x18\b \x01(\x05R\x04data\"n\n" +
+	"\x06PBUnit\x12:\n" +
+	"\n" +
+	"dimensions\x18\x01 \x01(\v2\x1a.arc.v1.types.PBDimensionsR\n" +
+	"dimensions\x12\x14\n" +
+	"\x05scale\x18\x02 \x01(\x01R\x05scale\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\"\x86\x01\n" +
+	"\x06PBType\x12(\n" +
+	"\x04kind\x18\x01 \x01(\x0e2\x14.arc.v1.types.PBKindR\x04kind\x12(\n" +
+	"\x04elem\x18\x02 \x01(\v2\x14.arc.v1.types.PBTypeR\x04elem\x12(\n" +
+	"\x04unit\x18\x03 \x01(\v2\x14.arc.v1.types.PBUnitR\x04unit\"u\n" +
 	"\aPBParam\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12'\n" +
-	"\x04type\x18\x02 \x01(\v2\x13.x.arc.types.PBTypeR\x04type\x12,\n" +
-	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value*\xb0\x02\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12(\n" +
+	"\x04type\x18\x02 \x01(\v2\x14.arc.v1.types.PBTypeR\x04type\x12,\n" +
+	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value*\x83\x02\n" +
 	"\x06PBKind\x12\x17\n" +
 	"\x13PB_KIND_UNSPECIFIED\x10\x00\x12\x0e\n" +
 	"\n" +
@@ -258,13 +441,11 @@ const file_arc_go_types_types_proto_rawDesc = "" +
 	"\vPB_KIND_F32\x10\t\x12\x0f\n" +
 	"\vPB_KIND_F64\x10\n" +
 	"\x12\x12\n" +
-	"\x0ePB_KIND_STRING\x10\v\x12\x15\n" +
-	"\x11PB_KIND_TIMESTAMP\x10\f\x12\x14\n" +
-	"\x10PB_KIND_TIMESPAN\x10\r\x12\x10\n" +
+	"\x0ePB_KIND_STRING\x10\v\x12\x10\n" +
 	"\fPB_KIND_CHAN\x10\x0e\x12\x12\n" +
-	"\x0ePB_KIND_SERIES\x10\x0fB\x8c\x01\n" +
-	"\x0fcom.x.arc.typesB\n" +
-	"TypesProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/types\xa2\x02\x03XAT\xaa\x02\vX.Arc.Types\xca\x02\vX\\Arc\\Types\xe2\x02\x17X\\Arc\\Types\\GPBMetadata\xea\x02\rX::Arc::Typesb\x06proto3"
+	"\x0ePB_KIND_SERIES\x10\x0fB\x91\x01\n" +
+	"\x10com.arc.v1.typesB\n" +
+	"TypesProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/types\xa2\x02\x03AVT\xaa\x02\fArc.V1.Types\xca\x02\fArc\\V1\\Types\xe2\x02\x18Arc\\V1\\Types\\GPBMetadata\xea\x02\x0eArc::V1::Typesb\x06proto3"
 
 var (
 	file_arc_go_types_types_proto_rawDescOnce sync.Once
@@ -279,23 +460,27 @@ func file_arc_go_types_types_proto_rawDescGZIP() []byte {
 }
 
 var file_arc_go_types_types_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_arc_go_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_arc_go_types_types_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_arc_go_types_types_proto_goTypes = []any{
-	(PBKind)(0),            // 0: x.arc.types.PBKind
-	(*PBType)(nil),         // 1: x.arc.types.PBType
-	(*PBParam)(nil),        // 2: x.arc.types.PBParam
-	(*structpb.Value)(nil), // 3: google.protobuf.Value
+	(PBKind)(0),            // 0: arc.v1.types.PBKind
+	(*PBDimensions)(nil),   // 1: arc.v1.types.PBDimensions
+	(*PBUnit)(nil),         // 2: arc.v1.types.PBUnit
+	(*PBType)(nil),         // 3: arc.v1.types.PBType
+	(*PBParam)(nil),        // 4: arc.v1.types.PBParam
+	(*structpb.Value)(nil), // 5: google.protobuf.Value
 }
 var file_arc_go_types_types_proto_depIdxs = []int32{
-	0, // 0: x.arc.types.PBType.kind:type_name -> x.arc.types.PBKind
-	1, // 1: x.arc.types.PBType.elem:type_name -> x.arc.types.PBType
-	1, // 2: x.arc.types.PBParam.type:type_name -> x.arc.types.PBType
-	3, // 3: x.arc.types.PBParam.value:type_name -> google.protobuf.Value
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	1, // 0: arc.v1.types.PBUnit.dimensions:type_name -> arc.v1.types.PBDimensions
+	0, // 1: arc.v1.types.PBType.kind:type_name -> arc.v1.types.PBKind
+	3, // 2: arc.v1.types.PBType.elem:type_name -> arc.v1.types.PBType
+	2, // 3: arc.v1.types.PBType.unit:type_name -> arc.v1.types.PBUnit
+	3, // 4: arc.v1.types.PBParam.type:type_name -> arc.v1.types.PBType
+	5, // 5: arc.v1.types.PBParam.value:type_name -> google.protobuf.Value
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_types_types_proto_init() }
@@ -309,7 +494,7 @@ func file_arc_go_types_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_types_types_proto_rawDesc), len(file_arc_go_types_types_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

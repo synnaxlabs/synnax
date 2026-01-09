@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/telem/frame.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/modbus/mock/slave.h"

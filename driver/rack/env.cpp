@@ -17,6 +17,7 @@ x::errors::Error driver::rack::Config::load_env() {
     x::env::Parser p(ENV_PREFIX);
     this->connection.override(p);
     this->timing.override(p);
+    this->manager.override(p);
     this->remote_info.override(p);
     return x::errors::NIL;
 }

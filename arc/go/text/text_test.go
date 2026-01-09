@@ -19,6 +19,57 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// findNodeByKey finds a node by key and asserts it exists
+func findNodeByKey(nodes ir.Nodes, key string) ir.Node {
+	node, found := nodes.Find(key)
+	ExpectWithOffset(1, found).To(BeTrue(), "expected node '%s' to exist", key)
+	return node
+}
+
+// findNodeByType finds the first node by type and asserts it exists
+func findNodeByType(nodes ir.Nodes, nodeType string) ir.Node {
+	for _, n := range nodes {
+		if n.Type == nodeType {
+			return n
+		}
+	}
+	Fail("expected node with type '" + nodeType + "' to exist")
+	return ir.Node{}
+}
+
+// findEdgeBySourceParam finds an edge by source parameter name
+func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
+	for _, e := range edges {
+		if e.Source.Param == param {
+			return e
+		}
+	}
+	Fail("expected edge with source param '" + param + "' to exist")
+	return ir.Edge{}
+}
+
+// findEdgeByTarget finds an edge by target node key
+func findEdgeByTarget(edges []ir.Edge, targetNode string) ir.Edge {
+	for _, e := range edges {
+		if e.Target.Node == targetNode {
+			return e
+		}
+	}
+	Fail("expected edge with target node '" + targetNode + "' to exist")
+	return ir.Edge{}
+}
+
+// countNodesByType counts nodes of a specific type
+func countNodesByType(nodes ir.Nodes, nodeType string) int {
+	count := 0
+	for _, n := range nodes {
+		if n.Type == nodeType {
+			count++
+		}
+	}
+	return count
+}
+
 var _ = Describe("Text", func() {
 	Describe("Parse", func() {
 		It("Should correctly parse a text-based arc program", func() {
@@ -77,8 +128,7 @@ var _ = Describe("Text", func() {
 			Expect(s.Inputs[0].Type).To(Equal(types.I64()))
 			Expect(s.Inputs[1].Type).To(Equal(types.I64()))
 
-			n1 := inter.Nodes[0]
-			Expect(n1.Key).To(Equal("adder_0"))
+			n1 := findNodeByKey(inter.Nodes, "adder_0")
 			Expect(n1.Type).To(Equal("adder"))
 			Expect(n1.Config).To(HaveLen(0))
 			Expect(n1.Channels.Read).ToNot(BeNil())
@@ -87,17 +137,11 @@ var _ = Describe("Text", func() {
 			Expect(n1.Channels.Write).To(BeEmpty())
 		})
 
-		Describe("Channel Flow Analysis", func() {
+		Context("Channel Flow Analysis", func() {
 			It("Should analyze flow with channel identifier", func() {
-				resolver := symbol.MapResolver(map[string]symbol.Symbol{
-					"sensor": {
-						Name: "sensor",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   42,
-					},
-				})
-
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 42},
+				}
 				source := `
 				func print{} () {
 				}
@@ -111,20 +155,16 @@ var _ = Describe("Text", func() {
 				Expect(inter.Nodes).To(HaveLen(2))
 				Expect(inter.Edges).To(HaveLen(1))
 
-				// First node should be "on" node for channel
-				channelNode := inter.Nodes[0]
-				Expect(channelNode.Key).To(Equal("on_sensor_0"))
+				channelNode := findNodeByKey(inter.Nodes, "on_sensor_0")
 				Expect(channelNode.Type).To(Equal("on"))
 				Expect(channelNode.Config).To(HaveLen(1))
 				Expect(channelNode.Config[0].Name).To(Equal("channel"))
 				Expect(channelNode.Config[0].Type).To(Equal(types.Chan(types.I32())))
 				Expect(channelNode.Channels.Read.Contains(42)).To(BeTrue())
 
-				// Second node should be print function
-				printNode := inter.Nodes[1]
+				printNode := findNodeByKey(inter.Nodes, "print_0")
 				Expect(printNode.Type).To(Equal("print"))
 
-				// Edge should connect channel to print
 				edge := inter.Edges[0]
 				Expect(edge.Source.Node).To(Equal("on_sensor_0"))
 				Expect(edge.Target.Node).To(Equal(printNode.Key))
@@ -140,10 +180,11 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring("unknown_channel"))
 			})
 		})
 
-		Describe("Expression Flow Analysis", func() {
+		Context("Expression Flow Analysis", func() {
 			It("Should analyze flow with expression nodes", func() {
 				source := `
 				func add(a i64, b i64) i64 {
@@ -162,81 +203,53 @@ var _ = Describe("Text", func() {
 				Expect(inter.Nodes).To(HaveLen(2))
 				Expect(inter.Edges).To(HaveLen(1))
 
-				// First node should be the expression
 				exprNode := inter.Nodes[0]
 				Expect(exprNode.Key).ToNot(BeEmpty())
 				Expect(exprNode.Type).ToNot(BeEmpty())
 
-				// Second node should be print
-				printNode := inter.Nodes[1]
+				printNode := findNodeByKey(inter.Nodes, "print_0")
 				Expect(printNode.Type).To(Equal("print"))
 
-				// Edge should connect expression to print
 				edge := inter.Edges[0]
 				Expect(edge.Target.Node).To(Equal(printNode.Key))
 			})
 
-			It("Should generate constant node for integer literal", func() {
-				resolver := symbol.MapResolver{
-					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
-				}
-				source := `1 -> output`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			DescribeTable("Literal constant generation",
+				func(source string, resolver symbol.MapResolver, expectConstant bool, expectedType types.Type) {
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Find the constant node
-				var constantNode *ir.Node
-				for i := range inter.Nodes {
-					if inter.Nodes[i].Type == "constant" {
-						constantNode = &inter.Nodes[i]
-						break
+					constantCount := countNodesByType(inter.Nodes, "constant")
+					if expectConstant {
+						Expect(constantCount).To(Equal(1), "expected exactly one constant node")
+						constantNode := findNodeByType(inter.Nodes, "constant")
+						Expect(constantNode.Config).To(HaveLen(1))
+						Expect(constantNode.Config[0].Name).To(Equal("value"))
+						Expect(constantNode.Config[0].Type).To(Equal(expectedType))
+					} else {
+						Expect(constantCount).To(Equal(0), "expected no constant nodes for complex expressions")
 					}
-				}
-				Expect(constantNode).ToNot(BeNil(), "expected constant node")
-				Expect(constantNode.Type).To(Equal("constant"))
-				Expect(constantNode.Config).To(HaveLen(1))
-				Expect(constantNode.Config[0].Name).To(Equal("value"))
-				Expect(constantNode.Config[0].Type).To(Equal(types.F32()))
-			})
-
-			It("Should generate constant node for float literal", func() {
-				resolver := symbol.MapResolver{
-					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
-				}
-				source := `3.14 -> output`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				var constantNode *ir.Node
-				for i := range inter.Nodes {
-					if inter.Nodes[i].Type == "constant" {
-						constantNode = &inter.Nodes[i]
-						break
-					}
-				}
-				Expect(constantNode).ToNot(BeNil())
-				Expect(constantNode.Config[0].Type).To(Equal(types.F64()))
-			})
-
-			It("Should generate expr node for complex expression, not constant", func() {
-				resolver := symbol.MapResolver{
-					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
-				}
-				source := `1 + 2 -> output`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				// Should NOT have a constant node
-				for _, node := range inter.Nodes {
-					Expect(node.Type).ToNot(Equal("constant"), "complex expressions should use expression_ not constant")
-				}
-			})
+				},
+				Entry("integer literal",
+					`1 -> output`,
+					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1}},
+					true, types.F32(),
+				),
+				Entry("float literal",
+					`3.14 -> output`,
+					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1}},
+					true, types.F64(),
+				),
+				Entry("complex expression (should not generate constant)",
+					`1 + 2 -> output`,
+					symbol.MapResolver{"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1}},
+					false, types.Type{}, // Type ignored when expectConstant is false
+				),
+			)
 		})
 
-		Describe("Config Values", func() {
+		Context("Config Values", func() {
 			It("Should extract named config values", func() {
 				source := `
 				func processor{
@@ -256,15 +269,15 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				Expect(inter.Nodes).To(HaveLen(2))
-				node := inter.Nodes[0]
+				node := findNodeByKey(inter.Nodes, "processor_0")
 				Expect(node.Type).To(Equal("processor"))
-				Expect(len(node.Config)).To(Equal(2))
+				Expect(node.Config).To(HaveLen(2))
 				Expect(node.Config[0].Name).To(Equal("threshold"))
 				Expect(node.Config[0].Type).To(Equal(types.I64()))
-				Expect(node.Config[0].Value).To(Equal("100"))
+				Expect(node.Config[0].Value).To(Equal(int64(100)))
 				Expect(node.Config[1].Name).To(Equal("scale"))
 				Expect(node.Config[1].Type).To(Equal(types.F64()))
-				Expect(node.Config[1].Value).To(Equal("2.5"))
+				Expect(node.Config[1].Value).To(Equal(2.5))
 			})
 
 			It("Should handle simple config with multiple values", func() {
@@ -286,32 +299,25 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				node := inter.Nodes[0]
+				node := findNodeByKey(inter.Nodes, "calculator_0")
 				Expect(node.Type).To(Equal("calculator"))
-				Expect(len(node.Config)).To(Equal(3))
-				Expect(node.Config[0].Name).To(Equal("a"))
-				Expect(node.Config[0].Type).To(Equal(types.I64()))
-				Expect(node.Config[0].Value).To(Equal("10"))
-				Expect(node.Config[1].Name).To(Equal("b"))
-				Expect(node.Config[1].Type).To(Equal(types.I64()))
-				Expect(node.Config[1].Value).To(Equal("20"))
-				Expect(node.Config[2].Name).To(Equal("c"))
-				Expect(node.Config[2].Type).To(Equal(types.I64()))
-				Expect(node.Config[2].Value).To(Equal("30"))
+				Expect(node.Config).To(HaveLen(3))
+
+				configValues := map[string]int64{
+					"a": 10, "b": 20, "c": 30,
+				}
+				for i, cfg := range node.Config {
+					Expect(cfg.Type).To(Equal(types.I64()))
+					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
+				}
 			})
 		})
 
-		Describe("Edge Parameter Validation", func() {
+		Context("Edge Parameter Validation", func() {
 			It("Should create edges with parameters that exist in node definitions", func() {
-				resolver := symbol.MapResolver(map[string]symbol.Symbol{
-					"sensor": {
-						Name: "sensor",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I64()),
-						ID:   1,
-					},
-				})
-
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				}
 				source := `
 				func filter{} (data i64) i64 {
 					return data
@@ -332,37 +338,29 @@ var _ = Describe("Text", func() {
 
 				// Verify Edge 0: sensor -> filter
 				edge0 := inter.Edges[0]
-				srcNode0, _ := inter.Nodes.Find(edge0.Source.Node)
-				tgtNode0, _ := inter.Nodes.Find(edge0.Target.Node)
+				srcNode0 := findNodeByKey(inter.Nodes, edge0.Source.Node)
+				tgtNode0 := findNodeByKey(inter.Nodes, edge0.Target.Node)
 
 				Expect(srcNode0.Key).To(Equal("on_sensor_0"))
 				Expect(edge0.Source.Param).To(Equal("output"))
-				Expect(srcNode0.Outputs.Has(edge0.Source.Param)).To(BeTrue(),
-					"Source param '%s' should exist in node '%s' outputs %v",
-					edge0.Source.Param, srcNode0.Key, srcNode0.Outputs)
+				Expect(srcNode0.Outputs.Has(edge0.Source.Param)).To(BeTrue())
 
 				Expect(tgtNode0.Key).To(Equal("filter_0"))
-				Expect(edge0.Target.Param).To(Equal("data")) // Should match actual input name
-				Expect(tgtNode0.Inputs.Has(edge0.Target.Param)).To(BeTrue(),
-					"Target param '%s' should exist in node '%s' inputs %v",
-					edge0.Target.Param, tgtNode0.Key, tgtNode0.Inputs)
+				Expect(edge0.Target.Param).To(Equal("data"))
+				Expect(tgtNode0.Inputs.Has(edge0.Target.Param)).To(BeTrue())
 
 				// Verify Edge 1: filter -> transform
 				edge1 := inter.Edges[1]
-				srcNode1, _ := inter.Nodes.Find(edge1.Source.Node)
-				tgtNode1, _ := inter.Nodes.Find(edge1.Target.Node)
+				srcNode1 := findNodeByKey(inter.Nodes, edge1.Source.Node)
+				tgtNode1 := findNodeByKey(inter.Nodes, edge1.Target.Node)
 
 				Expect(srcNode1.Key).To(Equal("filter_0"))
-				Expect(edge1.Source.Param).To(Equal("output")) // filter returns i64 (default output name)
-				Expect(srcNode1.Outputs.Has(edge1.Source.Param)).To(BeTrue(),
-					"Source param '%s' should exist in node '%s' outputs %v",
-					edge1.Source.Param, srcNode1.Key, srcNode1.Outputs)
+				Expect(edge1.Source.Param).To(Equal("output"))
+				Expect(srcNode1.Outputs.Has(edge1.Source.Param)).To(BeTrue())
 
 				Expect(tgtNode1.Key).To(Equal("transform_0"))
-				Expect(edge1.Target.Param).To(Equal("value")) // Should match actual input name
-				Expect(tgtNode1.Inputs.Has(edge1.Target.Param)).To(BeTrue(),
-					"Target param '%s' should exist in node '%s' inputs %v",
-					edge1.Target.Param, tgtNode1.Key, tgtNode1.Inputs)
+				Expect(edge1.Target.Param).To(Equal("value"))
+				Expect(tgtNode1.Inputs.Has(edge1.Target.Param)).To(BeTrue())
 			})
 
 			It("Should handle functions with custom input parameter names", func() {
@@ -383,28 +381,20 @@ var _ = Describe("Text", func() {
 
 				Expect(inter.Edges).To(HaveLen(1))
 				edge := inter.Edges[0]
-				srcNode, _ := inter.Nodes.Find(edge.Source.Node)
-				tgtNode, _ := inter.Nodes.Find(edge.Target.Node)
+				srcNode := findNodeByKey(inter.Nodes, edge.Source.Node)
+				tgtNode := findNodeByKey(inter.Nodes, edge.Target.Node)
 
-				// Source should use default output "output"
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(srcNode.Outputs.Has("output")).To(BeTrue())
 
-				// Target should reference the actual input name "inputValue"
 				Expect(edge.Target.Param).To(Equal("inputValue"))
 				Expect(tgtNode.Inputs.Has("inputValue")).To(BeTrue())
 			})
 
 			It("Should verify channel node outputs are defined", func() {
-				resolver := symbol.MapResolver(map[string]symbol.Symbol{
-					"temp": {
-						Name: "temp",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F64()),
-						ID:   42,
-					},
-				})
-
+				resolver := symbol.MapResolver{
+					"temp": {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 42},
+				}
 				source := `
 				func display{} (value f64) {
 				}
@@ -415,16 +405,11 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Find channel node
-				channelNode, found := inter.Nodes.Find("on_temp_0")
-				Expect(found).To(BeTrue())
-
-				// Verify channel node has outputs defined
+				channelNode := findNodeByKey(inter.Nodes, "on_temp_0")
 				Expect(channelNode.Outputs).To(HaveLen(1))
 				Expect(channelNode.Outputs[0].Name).To(Equal("output"))
 				Expect(channelNode.Outputs[0].Type).To(Equal(types.F64()))
 
-				// Verify edge uses the defined output parameter
 				edge := inter.Edges[0]
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(channelNode.Outputs.Has(edge.Source.Param)).To(BeTrue())
@@ -446,25 +431,22 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				edge := inter.Edges[0]
-				srcNode, _ := inter.Nodes.Find(edge.Source.Node)
-				tgtNode, _ := inter.Nodes.Find(edge.Target.Node)
+				srcNode := findNodeByKey(inter.Nodes, edge.Source.Node)
+				tgtNode := findNodeByKey(inter.Nodes, edge.Target.Node)
 
-				// Source should use default output (add returns i64)
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(srcNode.Outputs.Has(edge.Source.Param)).To(BeTrue())
 
-				// Target should use first input name "value"
 				Expect(edge.Target.Param).To(Equal("value"))
 				Expect(tgtNode.Inputs.Has(edge.Target.Param)).To(BeTrue())
 
-				// Verify add node has both inputs defined
 				Expect(srcNode.Inputs).To(HaveLen(2))
 				Expect(srcNode.Inputs.Has("a")).To(BeTrue())
 				Expect(srcNode.Inputs.Has("b")).To(BeTrue())
 			})
 		})
 
-		Describe("Output Routing Tables", func() {
+		Context("Output Routing Tables", func() {
 			It("Should analyze simple output routing with multiple targets", func() {
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
@@ -490,47 +472,26 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have: demux, alarm, logger
 				Expect(inter.Nodes).To(HaveLen(3))
-
-				// Should have 2 edges: demux.high -> alarm, demux.low -> logger
 				Expect(inter.Edges).To(HaveLen(2))
 
-				// Find nodes (each function type has its own counter)
-				demuxNode, _ := inter.Nodes.Find("demux_0")
-				alarmNode, _ := inter.Nodes.Find("alarm_0")
-				loggerNode, _ := inter.Nodes.Find("logger_0")
+				demuxNode := findNodeByKey(inter.Nodes, "demux_0")
+				alarmNode := findNodeByKey(inter.Nodes, "alarm_0")
+				loggerNode := findNodeByKey(inter.Nodes, "logger_0")
 
-				// Verify demux has both outputs
 				Expect(demuxNode.Outputs).To(HaveLen(2))
 				Expect(demuxNode.Outputs.Has("high")).To(BeTrue())
 				Expect(demuxNode.Outputs.Has("low")).To(BeTrue())
 
-				// Find edges by source parameter
-				var highEdge, lowEdge = -1, -1
-				for i := range inter.Edges {
-					switch inter.Edges[i].Source.Param {
-					case "high":
-						highEdge = i
-					case "low":
-						lowEdge = i
-					}
-				}
+				highEdge := findEdgeBySourceParam(inter.Edges, "high")
+				Expect(highEdge.Source.Node).To(Equal("demux_0"))
+				Expect(highEdge.Target.Node).To(Equal(alarmNode.Key))
+				Expect(highEdge.Target.Param).To(Equal("value"))
 
-				Expect(highEdge).ToNot(Equal(-1))
-				Expect(lowEdge).ToNot(Equal(-1))
-
-				// Verify high edge
-				Expect(inter.Edges[highEdge].Source.Node).To(Equal("demux_0"))
-				Expect(inter.Edges[highEdge].Source.Param).To(Equal("high"))
-				Expect(inter.Edges[highEdge].Target.Node).To(Equal(alarmNode.Key))
-				Expect(inter.Edges[highEdge].Target.Param).To(Equal("value")) // alarm's input parameter
-
-				// Verify low edge
-				Expect(inter.Edges[lowEdge].Source.Node).To(Equal("demux_0"))
-				Expect(inter.Edges[lowEdge].Source.Param).To(Equal("low"))
-				Expect(inter.Edges[lowEdge].Target.Node).To(Equal(loggerNode.Key))
-				Expect(inter.Edges[lowEdge].Target.Param).To(Equal("value")) // logger's input parameter
+				lowEdge := findEdgeBySourceParam(inter.Edges, "low")
+				Expect(lowEdge.Source.Node).To(Equal("demux_0"))
+				Expect(lowEdge.Target.Node).To(Equal(loggerNode.Key))
+				Expect(lowEdge.Target.Param).To(Equal("value"))
 			})
 
 			It("Should handle routing with chained processing", func() {
@@ -558,13 +519,9 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have: demux, amplify, display
 				Expect(inter.Nodes).To(HaveLen(3))
-
-				// Should have 2 edges: demux.high -> amplify, amplify -> display
 				Expect(inter.Edges).To(HaveLen(2))
 
-				// Verify edge chain (each function type has its own counter)
 				edge0 := inter.Edges[0]
 				Expect(edge0.Source.Node).To(Equal("demux_0"))
 				Expect(edge0.Source.Param).To(Equal("high"))
@@ -591,22 +548,15 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeFalse())
-				// Error message comes from text compiler validation
 				Expect(diagnostics.String()).To(ContainSubstring("nonexistent"))
 			})
 		})
 
-		Describe("Stratification", func() {
+		Context("Stratification", func() {
 			It("Should calculate strata for simple flow chain", func() {
-				resolver := symbol.MapResolver(map[string]symbol.Symbol{
-					"sensor": {
-						Name: "sensor",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I64()),
-						ID:   1,
-					},
-				})
-
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				}
 				source := `
 				func filter{} (data i64) i64 {
 					return data
@@ -622,23 +572,12 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Verify strata are calculated
 				Expect(inter.Strata).ToNot(BeNil())
-				Expect(len(inter.Strata)).To(BeNumerically(">=", 1))
+				Expect(inter.Strata).To(HaveLen(3))
 
-				// Strata should have nodes in topological order
-				// Stratum 0: sensor (no dependencies)
-				// Stratum 1: filter (depends on sensor)
-				// Stratum 2: transform (depends on filter)
-				Expect(len(inter.Strata)).To(Equal(3))
-
-				// Verify sensor is in stratum 0
+				// Stratum 0: sensor, Stratum 1: filter, Stratum 2: transform
 				Expect(inter.Strata[0]).To(ContainElement("on_sensor_0"))
-
-				// Verify filter is in stratum 1 (each function type has its own counter)
 				Expect(inter.Strata[1]).To(ContainElement("filter_0"))
-
-				// Verify transform is in stratum 2 (each function type has its own counter)
 				Expect(inter.Strata[2]).To(ContainElement("transform_0"))
 			})
 
@@ -667,35 +606,20 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Verify strata exist
 				Expect(inter.Strata).ToNot(BeNil())
-				Expect(len(inter.Strata)).To(Equal(2))
+				Expect(inter.Strata).To(HaveLen(2))
 
-				// Stratum 0: demux (source)
+				// Stratum 0: demux, Stratum 1: alarm and logger (parallel)
 				Expect(inter.Strata[0]).To(ContainElement("demux_0"))
-
-				// Stratum 1: alarm and logger (both depend on demux, can execute in parallel)
-				// Each function type has its own counter
-				Expect(inter.Strata[1]).To(ContainElement("alarm_0"))
-				Expect(inter.Strata[1]).To(ContainElement("logger_0"))
+				Expect(inter.Strata[1]).To(ContainElements("alarm_0", "logger_0"))
 			})
 		})
 
-		Describe("Channel Sink Detection", func() {
+		Context("Channel Sink Detection", func() {
 			It("Should create write node for channel at end of flow", func() {
 				resolver := symbol.MapResolver{
-					"input_chan": {
-						Name: "input_chan",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F32()),
-						ID:   1,
-					},
-					"output_chan": {
-						Name: "output_chan",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F32()),
-						ID:   2,
-					},
+					"input_chan":  {Name: "input_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					"output_chan": {Name: "output_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
 				}
 				source := `
 				func double{} (x f32) f32 {
@@ -710,13 +634,11 @@ var _ = Describe("Text", func() {
 
 				Expect(inter.Nodes).To(HaveLen(3))
 
-				// First node: source channel
 				inputNode := inter.Nodes[0]
 				Expect(inputNode.Type).To(Equal("on"))
 				Expect(inputNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
 				Expect(inputNode.Outputs).To(HaveLen(1))
 
-				// Last node: sink channel
 				outputNode := inter.Nodes[2]
 				Expect(outputNode.Type).To(Equal("write"))
 				Expect(outputNode.Channels.Write.Contains(uint32(2))).To(BeTrue())
@@ -727,18 +649,8 @@ var _ = Describe("Text", func() {
 
 			It("Should handle channel-to-channel flow", func() {
 				resolver := symbol.MapResolver{
-					"chan1": {
-						Name: "chan1",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   1,
-					},
-					"chan2": {
-						Name: "chan2",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.I32()),
-						ID:   2,
-					},
+					"chan1": {Name: "chan1", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
+					"chan2": {Name: "chan2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
 				}
 				source := `chan1 -> chan2`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -754,18 +666,8 @@ var _ = Describe("Text", func() {
 
 			It("Should handle channel sinks in routing tables", func() {
 				resolver := symbol.MapResolver{
-					"high_chan": {
-						Name: "high_chan",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F64()),
-						ID:   1,
-					},
-					"low_chan": {
-						Name: "low_chan",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F64()),
-						ID:   2,
-					},
+					"high_chan": {Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
+					"low_chan":  {Name: "low_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
@@ -785,53 +687,40 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have: demux, high_chan (write), low_chan (write)
 				Expect(inter.Nodes).To(HaveLen(3))
 
-				// Find channel nodes by type
-				var writeNodes []string
+				writeCount := countNodesByType(inter.Nodes, "write")
+				Expect(writeCount).To(Equal(2))
+
 				for _, node := range inter.Nodes {
 					if node.Type == "write" {
-						writeNodes = append(writeNodes, node.Key)
 						Expect(node.Inputs).To(HaveLen(1))
 					}
 				}
-				Expect(writeNodes).To(HaveLen(2))
 			})
 		})
 
-		Describe("Single Node Flow Validation", func() {
-			It("Should error on single-node flow at parse time", func() {
-				source := `
-				func print{} () {
-				}
+		Context("Single Node Flow Validation", func() {
+			DescribeTable("Should reject single-node flows at parse time",
+				func(source string) {
+					_, diagnostics := text.Parse(text.Text{Raw: source})
+					Expect(diagnostics).ToNot(BeNil())
+					Expect(diagnostics.Ok()).To(BeFalse())
+				},
+				Entry("single function node", `
+					func print{} () {
+					}
 
-				print{}
-				`
-				// Single-node flows are rejected at parse time by the grammar
-				_, diagnostics := text.Parse(text.Text{Raw: source})
-				Expect(diagnostics).ToNot(BeNil())
-				Expect(diagnostics.Ok()).To(BeFalse())
-			})
-
-			It("Should error on single-channel flow at parse time", func() {
-				source := `sensor`
-				// Single-node flows are rejected at parse time by the grammar
-				_, diagnostics := text.Parse(text.Text{Raw: source})
-				Expect(diagnostics).ToNot(BeNil())
-				Expect(diagnostics.Ok()).To(BeFalse())
-			})
+					print{}
+				`),
+				Entry("single channel identifier", `sensor`),
+			)
 		})
 
-		Describe("Sequence Targeting", func() {
+		Context("Sequence Targeting", func() {
 			It("Should connect one-shot edge to sequence's first stage entry node", func() {
 				resolver := symbol.MapResolver{
-					"trigger": {
-						Name: "trigger",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
-						ID:   1,
-					},
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
 				}
 				source := `
 				sequence main {
@@ -845,19 +734,12 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have:
-				// - on_trigger_0 (channel source)
-				// - entry_main_run (stage entry from sequence)
-				// No write_main_0 should exist!
 				Expect(inter.Nodes).To(HaveLen(2))
 
-				// Verify nodes
-				triggerNode, found := inter.Nodes.Find("on_trigger_0")
-				Expect(found).To(BeTrue())
+				triggerNode := findNodeByKey(inter.Nodes, "on_trigger_0")
 				Expect(triggerNode.Type).To(Equal("on"))
 
-				entryNode, found := inter.Nodes.Find("entry_main_run")
-				Expect(found).To(BeTrue())
+				entryNode := findNodeByKey(inter.Nodes, "entry_main_run")
 				Expect(entryNode.Type).To(Equal("stage_entry"))
 				Expect(entryNode.Inputs).To(HaveLen(1))
 				Expect(entryNode.Inputs[0].Name).To(Equal("activate"))
@@ -867,10 +749,7 @@ var _ = Describe("Text", func() {
 					Expect(node.Key).ToNot(HavePrefix("write_main"))
 				}
 
-				// Should have exactly 1 edge
 				Expect(inter.Edges).To(HaveLen(1))
-
-				// Verify the edge connects trigger to entry node's activate input
 				edge := inter.Edges[0]
 				Expect(edge.Source.Node).To(Equal("on_trigger_0"))
 				Expect(edge.Source.Param).To(Equal("output"))
@@ -881,12 +760,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle continuous flow to sequence", func() {
 				resolver := symbol.MapResolver{
-					"sensor": {
-						Name: "sensor",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
-						ID:   1,
-					},
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
 				}
 				source := `
 				sequence main {
@@ -900,7 +774,6 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Verify edge kind is Continuous for -> operator
 				Expect(inter.Edges).To(HaveLen(1))
 				edge := inter.Edges[0]
 				Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
@@ -910,12 +783,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle sequence with multiple stages - connects to first stage", func() {
 				resolver := symbol.MapResolver{
-					"trigger": {
-						Name: "trigger",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
-						ID:   1,
-					},
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
 				}
 				source := `
 				sequence main {
@@ -931,11 +799,9 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have: on_trigger_0, entry_main_first, entry_main_second
 				Expect(inter.Nodes).To(HaveLen(3))
-
-				// Verify edge targets the first stage
 				Expect(inter.Edges).To(HaveLen(1))
+
 				edge := inter.Edges[0]
 				Expect(edge.Target.Node).To(Equal("entry_main_first"))
 				Expect(edge.Target.Param).To(Equal("activate"))
@@ -943,12 +809,7 @@ var _ = Describe("Text", func() {
 
 			It("Should error when targeting empty sequence (no stages)", func() {
 				resolver := symbol.MapResolver{
-					"trigger": {
-						Name: "trigger",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.U8()),
-						ID:   1,
-					},
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
 				}
 				source := `
 				sequence empty {
@@ -964,12 +825,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle sequence in routing table as sink", func() {
 				resolver := symbol.MapResolver{
-					"high_chan": {
-						Name: "high_chan",
-						Kind: symbol.KindChannel,
-						Type: types.Chan(types.F64()),
-						ID:   1,
-					},
+					"high_chan": {Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
 				}
 				source := `
 				sequence alarm {
@@ -994,40 +850,308 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have: demux_0, entry_alarm_active, write_high_chan_0
 				Expect(inter.Nodes).To(HaveLen(3))
 
-				// Verify alarm is an entry node, not a write node
-				entryNode, found := inter.Nodes.Find("entry_alarm_active")
-				Expect(found).To(BeTrue())
+				entryNode := findNodeByKey(inter.Nodes, "entry_alarm_active")
 				Expect(entryNode.Type).To(Equal("stage_entry"))
 
-				// Verify high_chan is a write node
-				var writeNode *ir.Node
-				for i := range inter.Nodes {
-					if inter.Nodes[i].Type == "write" {
-						writeNode = &inter.Nodes[i]
-						break
-					}
-				}
-				Expect(writeNode).ToNot(BeNil())
+				writeNode := findNodeByType(inter.Nodes, "write")
 				Expect(writeNode.Channels.Write.Contains(uint32(1))).To(BeTrue())
 
-				// Should have 2 edges
 				Expect(inter.Edges).To(HaveLen(2))
 
-				// Find edge to alarm
-				var alarmEdge *ir.Edge
-				for i := range inter.Edges {
-					if inter.Edges[i].Target.Node == "entry_alarm_active" {
-						alarmEdge = &inter.Edges[i]
+				alarmEdge := findEdgeByTarget(inter.Edges, "entry_alarm_active")
+				Expect(alarmEdge.Target.Param).To(Equal("activate"))
+			})
+
+		})
+
+		Context("Direct Stage Targeting", func() {
+			It("Should allow targeting a stage by name within a sequence", func() {
+				resolver := symbol.MapResolver{
+					"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+				}
+				source := `
+				sequence main {
+					stage first {
+						input > 10 => second
+					}
+					stage second {
+					}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have edges connecting to the second stage's entry node
+				secondEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
+				Expect(secondEdge.Target.Param).To(Equal("activate"))
+				Expect(secondEdge.Kind).To(Equal(ir.OneShot))
+			})
+		})
+
+		Context("next keyword", func() {
+			It("Should wire next to the following stage's entry node", func() {
+				source := `
+				sequence main {
+					stage first {
+						1 -> output,
+						input > 10 => next
+					}
+					stage second {
+						0 -> output
+					}
+				}`
+				resolver := symbol.MapResolver{
+					"input":  {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 2},
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diag := text.Analyze(ctx, parsedText, resolver)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+				nextEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
+				Expect(nextEdge.Target.Param).To(Equal("activate"))
+				Expect(nextEdge.Kind).To(Equal(ir.OneShot))
+			})
+
+			DescribeTable("next keyword error cases",
+				func(source string, resolver symbol.MapResolver, expectedError string) {
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diag := text.Analyze(ctx, parsedText, resolver)
+					Expect(diag).ToNot(BeNil())
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.String()).To(ContainSubstring(expectedError))
+				},
+				Entry("next in last stage",
+					`
+					sequence main {
+						stage only {
+							input > 10 => next
+						}
+					}`,
+					symbol.MapResolver{
+						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					},
+					"no next stage",
+				),
+				Entry("next outside sequence",
+					`input > 10 => next`,
+					symbol.MapResolver{
+						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					},
+					"outside of a sequence",
+				),
+			)
+		})
+
+		Context("Implicit Expression Triggers", func() {
+			It("Should inject implicit trigger for expression as first flow node", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 42},
+				}
+				source := `
+				func alarm{} (value u8) {
+				}
+
+				sensor > 20 => alarm{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 3 nodes: on_sensor (injected trigger), expression, alarm
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Verify trigger node was created
+				triggerNode := findNodeByKey(inter.Nodes, "on_sensor_0")
+				Expect(triggerNode.Type).To(Equal("on"))
+				Expect(triggerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+
+				// Verify expression node exists and tracks channel dependency
+				exprNode := inter.Nodes[1]
+				Expect(exprNode.Type).To(HavePrefix("expression_"))
+				Expect(exprNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+
+				// Verify edges: trigger -> expression -> alarm
+				Expect(inter.Edges).To(HaveLen(2))
+
+				// First edge: trigger -> expression (Continuous)
+				edge0 := inter.Edges[0]
+				Expect(edge0.Source.Node).To(Equal("on_sensor_0"))
+				Expect(edge0.Target.Node).To(Equal(exprNode.Key))
+				Expect(edge0.Kind).To(Equal(ir.Continuous))
+
+				// Second edge: expression -> alarm (OneShot from =>)
+				edge1 := inter.Edges[1]
+				Expect(edge1.Source.Node).To(Equal(exprNode.Key))
+				Expect(edge1.Target.Node).To(Equal("alarm_0"))
+				Expect(edge1.Kind).To(Equal(ir.OneShot))
+			})
+
+			It("Should inject multiple triggers for multi-channel expression", func() {
+				resolver := symbol.MapResolver{
+					"temp":     {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 1},
+					"pressure": {Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 2},
+				}
+				source := `
+				func alarm{} (value u8) {
+				}
+
+				temp + pressure > 100 => alarm{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 4 nodes: 2 trigger nodes + expression + alarm
+				Expect(inter.Nodes).To(HaveLen(4))
+
+				// Count trigger nodes
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(2))
+
+				// Verify expression node tracks both channel dependencies
+				var exprNode ir.Node
+				for _, n := range inter.Nodes {
+					if n.Type != "on" && n.Type != "alarm" {
+						exprNode = n
 						break
 					}
 				}
-				Expect(alarmEdge).ToNot(BeNil())
-				Expect(alarmEdge.Target.Param).To(Equal("activate"))
+				Expect(exprNode.Channels.Read).To(HaveLen(2))
+				Expect(exprNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
+				Expect(exprNode.Channels.Read.Contains(uint32(2))).To(BeTrue())
+
+				// Should have 3 edges: 2 triggers -> expression, expression -> alarm
+				Expect(inter.Edges).To(HaveLen(3))
+
+				// Count edges targeting expression node
+				exprEdgeCount := 0
+				for _, edge := range inter.Edges {
+					if edge.Target.Node == exprNode.Key {
+						exprEdgeCount++
+						Expect(edge.Kind).To(Equal(ir.Continuous))
+					}
+				}
+				Expect(exprEdgeCount).To(Equal(2))
+			})
+
+			It("Should not inject trigger for constant expressions", func() {
+				resolver := symbol.MapResolver{
+					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 1},
+				}
+				source := `1 + 2 -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 2 nodes: expression + write (no trigger injected)
+				Expect(inter.Nodes).To(HaveLen(2))
+
+				// Verify no trigger nodes were created
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(0))
+			})
+
+			It("Should not inject trigger when expression is not first node", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 42},
+				}
+				source := `
+				func alarm{} (value u8) {
+				}
+
+				sensor -> sensor > 20 => alarm{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 3 nodes: explicit trigger, expression, alarm
+				Expect(inter.Nodes).To(HaveLen(3))
+
+				// Only one trigger node (the explicit one)
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(1))
+
+				// Verify edges: trigger -> expression -> alarm (2 edges total)
+				Expect(inter.Edges).To(HaveLen(2))
+			})
+
+			It("Should inject trigger for expression in sequence stage", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 42},
+				}
+				source := `
+				sequence main {
+					stage monitoring {
+						sensor > 100 => next
+					}
+					stage alarm {
+					}
+				}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Verify trigger node was created
+				triggerCount := countNodesByType(inter.Nodes, "on")
+				Expect(triggerCount).To(Equal(1))
+
+				triggerNode := findNodeByType(inter.Nodes, "on")
+				Expect(triggerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
 			})
 		})
 	})
 
+	Describe("Unit Dimensional Analysis", func() {
+		DescribeTable("dimension compatibility",
+			func(source string, expectOk bool, expectedErrorContains string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diag := text.Analyze(ctx, parsedText, nil)
+				if expectOk {
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+				} else {
+					Expect(diag.Ok()).To(BeFalse())
+					Expect(diag.String()).To(ContainSubstring(expectedErrorContains))
+				}
+			},
+			Entry("error when adding incompatible dimensions",
+				`func bad() f64 { return 5psi + 3s }`,
+				false, "incompatible: dimensions",
+			),
+			Entry("allow adding same dimensions",
+				`func good() f64 { return 100psi + 50psi }`,
+				true, "",
+			),
+			Entry("allow multiplying different dimensions",
+				`func velocity() f64 { return 100m / 10s }`,
+				true, "",
+			),
+		)
+	})
+
+	Describe("Compile", func() {
+		It("Should compile a simple arc program to WebAssembly", func() {
+			source := `
+			func adder{} (a i64, b i64) i64 {
+				return a + b
+			}
+
+			func print{} () {
+			}
+
+			adder{} -> print{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			ir, diagnostics := text.Analyze(ctx, parsedText, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			module, err := text.Compile(ctx, ir)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+	})
 })

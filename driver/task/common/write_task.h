@@ -149,7 +149,7 @@ class WriteTask final : public driver::task::Task {
             return this->internal->read(breaker, fr);
         }
 
-        x::errors::Error write(const x::telem::Frame &frame) override {
+        x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             auto err = this->internal->write(frame);
             if (!err)

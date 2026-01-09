@@ -26,7 +26,7 @@ x::errors::Error plugins::SynnaxFrameSink::open() {
     return x::errors::NIL;
 }
 
-x::errors::Error plugins::SynnaxFrameSink::write(const x::telem::Frame &frame) {
+x::errors::Error plugins::SynnaxFrameSink::write(x::telem::Frame &frame) {
     if (frame.empty()) return x::errors::NIL;
     return this->writer->write(frame);
 }

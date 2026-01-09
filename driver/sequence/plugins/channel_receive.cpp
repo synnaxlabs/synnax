@@ -49,7 +49,7 @@ x::errors::Error plugins::ChannelReceive::after_all(lua_State *L) {
 
 /// @brief implements driver::pipeline::Sink to receive values from a streamer and bind them
 /// into the latest values state.
-x::errors::Error plugins::ChannelReceive::Sink::write(const x::telem::Frame &frame) {
+x::errors::Error plugins::ChannelReceive::Sink::write(x::telem::Frame &frame) {
     std::lock_guard lock(this->receiver.mu);
     for (size_t i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);

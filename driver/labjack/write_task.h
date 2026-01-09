@@ -211,7 +211,7 @@ public:
     }
 
     /// @brief implements driver::pipeline::Sink to write to the LabJack device.
-    x::errors::Error write(const x::telem::Frame &frame) override {
+    x::errors::Error write(x::telem::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)
             if (const auto it = this->cfg.channels.find(cmd_key);

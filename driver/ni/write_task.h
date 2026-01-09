@@ -193,7 +193,7 @@ private:
     /// @brief implements driver::pipeline::Sink to write the incoming frame to the
     /// underlying hardware. If the values are successfully written, updates
     /// the write tasks state to match the output values.
-    x::errors::Error write(const x::telem::Frame &frame) override {
+    x::errors::Error write(x::telem::Frame &frame) override {
         for (const auto &[cmd_key, series]: frame)
             if (auto it = this->cfg.buf_indexes.find(cmd_key);
                 it != this->cfg.buf_indexes.end()) {

@@ -39,7 +39,8 @@ void driver::rack::Rack::run(x::args::Parser &args, const std::function<void()> 
         this->task_manager = std::make_unique<driver::task::Manager>(
             cfg.rack,
             cfg.new_client(),
-            cfg.new_factory()
+            cfg.new_factory(),
+            cfg.manager
         );
         err = this->task_manager->run([this]() { this->breaker.reset(); });
         if (err && this->should_exit(err, on_shutdown)) return;

@@ -138,7 +138,7 @@ public:
         return x::errors::NIL;
     }
 
-    x::errors::Error write(const ::x::telem::Frame &frame) override {
+    x::errors::Error write(::x::telem::Frame &frame) override {
         auto err = this->perform_write(frame);
         if (!err.matches(driver::opc::errors::UNREACHABLE)) return err;
         LOG(

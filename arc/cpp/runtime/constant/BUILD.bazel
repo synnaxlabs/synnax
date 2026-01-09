@@ -11,3 +11,14 @@ cc_library(
         "//x/cpp/telem",
     ],
 )
+
+cc_test(
+    name = "constant_test",
+    srcs = ["constant_test.cpp"],
+    deps = [
+        ":constant",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

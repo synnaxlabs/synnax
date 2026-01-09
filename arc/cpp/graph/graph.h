@@ -18,20 +18,19 @@
 #include "x/cpp/spatial/spatial.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/proto/proto.h"
-#include "arc/go/graph/graph.pb.h"
+#include "arc/go/graph/arc/go/graph/graph.pb.h"
 
 namespace arc::graph {
 struct Viewport {
-    x::spatial::XY position;
+    spatial::XY position;
     float zoom = 1.0f;
 
     Viewport() = default;
 
-    explicit Viewport(const x::arc::graph::PBViewport &pb):
+    explicit Viewport(const v1::graph::PBViewport &pb):
         position(pb.position()), zoom(pb.zoom()) {}
 
-    void to_proto(x::arc::graph::PBViewport *pb) const {
+    void to_proto(v1::graph::PBViewport *pb) const {
         this->position.to_proto(pb->mutable_position());
         pb->set_zoom(this->zoom);
     }
@@ -41,23 +40,23 @@ struct Viewport {
 struct Node {
     std::string key;
     std::string type;
-    std::map<std::string, nlohmann::json> config;
-    x::spatial::XY position;
+    std::map<std::string, telem::SampleValue> config;
+    spatial::XY position;
 
     Node() = default;
 
-    explicit Node(const x::arc::graph::PBNode &pb): key(pb.key()), type(pb.type()) {
+    explicit Node(const v1::graph::PBNode &pb): key(pb.key()), type(pb.type()) {
         for (const auto &[config_key, config_value]: pb.config())
-            this->config[config_key] = proto::pb_value_to_json(config_value);
-        if (pb.has_position()) this->position = x::spatial::XY(pb.position());
+            this->config[config_key] = telem::from_proto(config_value);
+        if (pb.has_position()) this->position = spatial::XY(pb.position());
     }
 
-    void to_proto(x::arc::graph::PBNode *pb) const {
+    void to_proto(v1::graph::PBNode *pb) const {
         pb->set_key(this->key);
         pb->set_type(this->type);
         auto *config_map = pb->mutable_config();
         for (const auto &[k, v]: this->config)
-            proto::json_to_pb_value(v, &(*config_map)[k]);
+            telem::to_proto(v, &(*config_map)[k]);
         this->position.to_proto(pb->mutable_position());
     }
 };
@@ -70,7 +69,7 @@ struct Graph {
 
     Graph() = default;
 
-    explicit Graph(const x::arc::graph::PBGraph &pb): viewport(pb.viewport()) {
+    explicit Graph(const v1::graph::PBGraph &pb): viewport(pb.viewport()) {
         this->functions.reserve(pb.functions_size());
         for (const auto &fn_pb: pb.functions())
             this->functions.emplace_back(fn_pb);
@@ -82,7 +81,7 @@ struct Graph {
             this->nodes.emplace_back(node_pb);
     }
 
-    void to_proto(x::arc::graph::PBGraph *pb) const {
+    void to_proto(v1::graph::PBGraph *pb) const {
         this->viewport.to_proto(pb->mutable_viewport());
         pb->mutable_functions()->Reserve(static_cast<int>(this->functions.size()));
         for (const auto &fn: this->functions)

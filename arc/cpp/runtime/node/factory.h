@@ -22,14 +22,23 @@ namespace arc::runtime::node {
 struct Config {
     ir::Node node;
     state::Node state;
+
+    Config(ir::Node node, state::Node &&state):
+        node(std::move(node)), state(std::move(state)) {}
+
+    Config(Config &&) = default;
+    Config &operator=(Config &&) = delete;
+    Config(const Config &) = delete;
+    Config &operator=(const Config &) = delete;
 };
 
 class Factory {
 public:
     virtual ~Factory() = default;
 
-    virtual std::pair<std::unique_ptr<Node>, x::errors::Error>
-    create(const Config &cfg) = 0;
+    virtual bool handles(const std::string &node_type) const { return false; }
+
+    virtual std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) = 0;
 };
 
 class MultiFactory : public Factory {
@@ -39,28 +48,30 @@ public:
     explicit MultiFactory(std::vector<std::shared_ptr<Factory>> factories):
         factories(std::move(factories)) {}
 
-    std::pair<std::unique_ptr<Node>, x::errors::Error>
-    create(const Config &cfg) override {
+    std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) override {
+        const auto node_key = cfg.node.key;
+        const auto node_type = cfg.node.type;
         for (const auto &factory: this->factories) {
-            auto [node, err] = factory->create(cfg);
-            if (!err) return {std::move(node), x::errors::NIL};
-            if (x::errors::NOT_FOUND.matches(err)) continue;
-            return {
-                nullptr,
-                x::errors::Error(
-                    err,
-                    err.data + " (while creating node '" + cfg.node.key +
-                        "' of type '" + cfg.node.type + "')"
-                )
-            };
+            if (!factory->handles(node_type)) continue;
+            auto [node, err] = factory->create(std::move(cfg));
+            if (err) {
+                return {
+                    nullptr,
+                    x::errors::Error(
+                        err,
+                        err.data + " (while creating node '" + node_key +
+                            "' of type '" + node_type + "')"
+                    )
+                };
+            }
+            return {std::move(node), x::errors::NIL};
         }
-
         return {
             nullptr,
             x::errors::Error(
                 x::errors::NOT_FOUND,
-                "No factory registered for node type '" + cfg.node.type +
-                    "' (node: " + cfg.node.key + ")"
+                "No factory registered for node type '" + node_type +
+                    "' (node: " + node_key + ")"
             )
         };
     }

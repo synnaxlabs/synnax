@@ -45,7 +45,7 @@ struct Module : ir::IR {
         ss << "Arc Module\n";
 
         const bool has_content = !functions.empty() || !nodes.empty() ||
-                                 !edges.empty() || !strata.strata.empty() ||
+                                 !edges.empty() || !strata.empty() ||
                                  !sequences.empty();
 
         ss << ir::tree_prefix(!has_content) << wasm_summary() << "\n";
@@ -64,7 +64,7 @@ private:
         std::ostringstream ss;
         ss << "WASM: " << wasm.size() << " bytes (sha256: ";
         ss << std::hex << std::setfill('0');
-        for (size_t i = 0; i < std::min(size_t(4), wasm.size()); ++i)
+        for (size_t i = 0; i < std::min(static_cast<size_t>(4), wasm.size()); ++i)
             ss << std::setw(2) << static_cast<int>(wasm[i]);
         ss << "...)";
         return ss.str();

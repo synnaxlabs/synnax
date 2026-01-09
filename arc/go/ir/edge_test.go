@@ -20,61 +20,49 @@ import (
 
 var _ = Describe("EdgeKind", func() {
 	Describe("Constants", func() {
-		It("Should have Continuous as zero value", func() {
-			var kind ir.EdgeKind
-			Expect(kind).To(Equal(ir.EdgeKindContinuous))
+		It("Should distinguish Continuous and OneShot", func() {
+			Expect(ir.Continuous).ToNot(Equal(ir.OneShot))
 		})
 
-		It("Should distinguish Continuous and EdgeKindOneShot", func() {
-			Expect(ir.EdgeKindContinuous).ToNot(Equal(ir.EdgeKindOneShot))
-		})
-
-		It("Should have Continuous = 0 and EdgeKindOneShot = 1", func() {
-			Expect(int(ir.EdgeKindContinuous)).To(Equal(0))
-			Expect(int(ir.EdgeKindOneShot)).To(Equal(1))
+		It("Should have Continuous = 1 and OneShot = 2 to match protobuf", func() {
+			Expect(int(ir.Continuous)).To(Equal(1))
+			Expect(int(ir.OneShot)).To(Equal(2))
 		})
 	})
 
 	Describe("JSON Serialization", func() {
-		It("Should marshal Continuous as 0", func() {
+		It("Should marshal Continuous as 1", func() {
 			edge := ir.Edge{
 				Source: ir.Handle{Node: "a", Param: "out"},
 				Target: ir.Handle{Node: "b", Param: "in"},
-				Kind:   ir.EdgeKindContinuous,
-			}
-			data := MustSucceed(json.Marshal(edge))
-			Expect(string(data)).To(ContainSubstring(`"kind":0`))
-		})
-
-		It("Should marshal EdgeKindOneShot as 1", func() {
-			edge := ir.Edge{
-				Source: ir.Handle{Node: "a", Param: "out"},
-				Target: ir.Handle{Node: "b", Param: "in"},
-				Kind:   ir.EdgeKindOneShot,
+				Kind:   ir.Continuous,
 			}
 			data := MustSucceed(json.Marshal(edge))
 			Expect(string(data)).To(ContainSubstring(`"kind":1`))
 		})
 
+		It("Should marshal OneShot as 2", func() {
+			edge := ir.Edge{
+				Source: ir.Handle{Node: "a", Param: "out"},
+				Target: ir.Handle{Node: "b", Param: "in"},
+				Kind:   ir.OneShot,
+			}
+			data := MustSucceed(json.Marshal(edge))
+			Expect(string(data)).To(ContainSubstring(`"kind":2`))
+		})
+
 		It("Should unmarshal Continuous edge", func() {
-			data := []byte(`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"},"kind":0}`)
+			data := []byte(`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"},"kind":1}`)
 			var edge ir.Edge
 			Expect(json.Unmarshal(data, &edge)).To(Succeed())
-			Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
+			Expect(edge.Kind).To(Equal(ir.Continuous))
 		})
 
-		It("Should unmarshal EdgeKindOneShot edge", func() {
-			data := []byte(`{"source":{"node":"cond","param":"output"},"target":{"node":"stage_entry","param":"activate"},"kind":1}`)
+		It("Should unmarshal OneShot edge", func() {
+			data := []byte(`{"source":{"node":"cond","param":"output"},"target":{"node":"stage_entry","param":"activate"},"kind":2}`)
 			var edge ir.Edge
 			Expect(json.Unmarshal(data, &edge)).To(Succeed())
-			Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
-		})
-
-		It("Should default to Continuous when kind is omitted", func() {
-			data := []byte(`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"}}`)
-			var edge ir.Edge
-			Expect(json.Unmarshal(data, &edge)).To(Succeed())
-			Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
+			Expect(edge.Kind).To(Equal(ir.OneShot))
 		})
 	})
 })
@@ -213,75 +201,75 @@ var _ = Describe("Edges", func() {
 				{
 					Source: ir.Handle{Node: "timer", Param: "output"},
 					Target: ir.Handle{Node: "controller", Param: "input"},
-					Kind:   ir.EdgeKindContinuous,
+					Kind:   ir.Continuous,
 				},
 				{
 					Source: ir.Handle{Node: "condition", Param: "output"},
 					Target: ir.Handle{Node: "stage_entry", Param: "activate"},
-					Kind:   ir.EdgeKindOneShot,
+					Kind:   ir.OneShot,
 				},
 				{
 					Source: ir.Handle{Node: "sensor", Param: "output"},
 					Target: ir.Handle{Node: "filter", Param: "input"},
-					Kind:   ir.EdgeKindContinuous,
+					Kind:   ir.Continuous,
 				},
 				{
 					Source: ir.Handle{Node: "timeout", Param: "output"},
 					Target: ir.Handle{Node: "abort_entry", Param: "activate"},
-					Kind:   ir.EdgeKindOneShot,
+					Kind:   ir.OneShot,
 				},
 				{
 					Source: ir.Handle{Node: "pid", Param: "output"},
 					Target: ir.Handle{Node: "actuator", Param: "input"},
-					Kind:   ir.EdgeKindContinuous,
+					Kind:   ir.Continuous,
 				},
 			}
 		})
 
 		It("Should filter Continuous edges", func() {
-			continuous := mixedEdges.GetByKind(ir.EdgeKindContinuous)
+			continuous := mixedEdges.GetByKind(ir.Continuous)
 			Expect(continuous).To(HaveLen(3))
 			for _, e := range continuous {
-				Expect(e.Kind).To(Equal(ir.EdgeKindContinuous))
+				Expect(e.Kind).To(Equal(ir.Continuous))
 			}
 		})
 
-		It("Should filter EdgeKindOneShot edges", func() {
-			EdgeKindOneShot := mixedEdges.GetByKind(ir.EdgeKindOneShot)
-			Expect(EdgeKindOneShot).To(HaveLen(2))
-			for _, e := range EdgeKindOneShot {
-				Expect(e.Kind).To(Equal(ir.EdgeKindOneShot))
+		It("Should filter OneShot edges", func() {
+			oneShot := mixedEdges.GetByKind(ir.OneShot)
+			Expect(oneShot).To(HaveLen(2))
+			for _, e := range oneShot {
+				Expect(e.Kind).To(Equal(ir.OneShot))
 			}
 		})
 
 		It("Should return empty for no matches", func() {
 			allContinuous := ir.Edges{
-				{Kind: ir.EdgeKindContinuous},
-				{Kind: ir.EdgeKindContinuous},
-				{Kind: ir.EdgeKindContinuous},
+				{Kind: ir.Continuous},
+				{Kind: ir.Continuous},
+				{Kind: ir.Continuous},
 			}
-			Expect(allContinuous.GetByKind(ir.EdgeKindOneShot)).To(BeEmpty())
+			Expect(allContinuous.GetByKind(ir.OneShot)).To(BeEmpty())
 		})
 
 		It("Should return empty from empty collection", func() {
 			empty := ir.Edges{}
-			Expect(empty.GetByKind(ir.EdgeKindContinuous)).To(BeEmpty())
-			Expect(empty.GetByKind(ir.EdgeKindOneShot)).To(BeEmpty())
+			Expect(empty.GetByKind(ir.Continuous)).To(BeEmpty())
+			Expect(empty.GetByKind(ir.OneShot)).To(BeEmpty())
 		})
 
 		It("Should preserve source and target handles when filtering", func() {
-			EdgeKindOneShot := mixedEdges.GetByKind(ir.EdgeKindOneShot)
-			Expect(EdgeKindOneShot).To(HaveLen(2))
-			// Verify first EdgeKindOneShot edge
-			Expect(EdgeKindOneShot[0].Source.Node).To(Equal("condition"))
-			Expect(EdgeKindOneShot[0].Target.Node).To(Equal("stage_entry"))
-			// Verify second EdgeKindOneShot edge
-			Expect(EdgeKindOneShot[1].Source.Node).To(Equal("timeout"))
-			Expect(EdgeKindOneShot[1].Target.Node).To(Equal("abort_entry"))
+			oneShot := mixedEdges.GetByKind(ir.OneShot)
+			Expect(oneShot).To(HaveLen(2))
+			// Verify first OneShot edge
+			Expect(oneShot[0].Source.Node).To(Equal("condition"))
+			Expect(oneShot[0].Target.Node).To(Equal("stage_entry"))
+			// Verify second OneShot edge
+			Expect(oneShot[1].Source.Node).To(Equal("timeout"))
+			Expect(oneShot[1].Target.Node).To(Equal("abort_entry"))
 		})
 
 		It("Should return edges in original order", func() {
-			continuous := mixedEdges.GetByKind(ir.EdgeKindContinuous)
+			continuous := mixedEdges.GetByKind(ir.Continuous)
 			Expect(continuous[0].Source.Node).To(Equal("timer"))
 			Expect(continuous[1].Source.Node).To(Equal("sensor"))
 			Expect(continuous[2].Source.Node).To(Equal("pid"))

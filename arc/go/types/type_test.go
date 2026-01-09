@@ -10,6 +10,8 @@
 package types_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/types"
@@ -92,9 +94,10 @@ var _ = Describe("Types", func() {
 
 		Describe("Function types", func() {
 			It("should return function type unchanged", func() {
-				props := types.NewFunctionProperties()
-				props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: types.I32()})
-				props.Outputs = append(props.Outputs, types.Param{Name: "result", Type: types.I32()})
+				props := types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+					Outputs: types.Params{{Name: "result", Type: types.I32()}},
+				}
 				fnType := types.Function(props)
 				Expect(fnType.Unwrap()).To(Equal(fnType))
 			})
@@ -181,13 +184,17 @@ var _ = Describe("Types", func() {
 					Expect(t.IsNumeric()).To(BeFalse())
 				},
 				Entry("String", types.String()),
-				Entry("TimeStamp", types.TimeStamp()),
-				Entry("TimeSpan", types.TimeSpan()),
+				// Note: TimeStamp() and TimeSpan() are now i64 with units, so they ARE numeric
 			)
 
 			It("Should check value type for channels", func() {
 				Expect(types.Chan(types.F64()).IsNumeric()).To(BeTrue())
 				Expect(types.Chan(types.String()).IsNumeric()).To(BeFalse())
+			})
+
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.F64()).IsNumeric()).To(BeTrue())
+				Expect(types.Series(types.String()).IsNumeric()).To(BeFalse())
 			})
 
 			It("Should handle type variables with numeric constraint", func() {
@@ -303,6 +310,87 @@ var _ = Describe("Types", func() {
 			)
 		})
 
+		Describe("IsSigned", func() {
+			DescribeTable("Should return true for signed types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeTrue())
+				},
+				Entry("I8", types.I8()),
+				Entry("I16", types.I16()),
+				Entry("I32", types.I32()),
+				Entry("I64", types.I64()),
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+			)
+
+			DescribeTable("Should return false for unsigned types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeFalse())
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IntegerMaxValue", func() {
+			DescribeTable("Should return correct max value for integer types",
+				func(t types.Type, expected int64) {
+					Expect(t.IntegerMaxValue()).To(Equal(expected))
+				},
+				Entry("I8", types.I8(), int64(math.MaxInt8)),
+				Entry("I16", types.I16(), int64(math.MaxInt16)),
+				Entry("I32", types.I32(), int64(math.MaxInt32)),
+				Entry("I64", types.I64(), int64(math.MaxInt64)),
+				Entry("U8", types.U8(), int64(math.MaxUint8)),
+				Entry("U16", types.U16(), int64(math.MaxUint16)),
+				Entry("U32", types.U32(), int64(math.MaxUint32)),
+				Entry("U64", types.U64(), int64(math.MaxInt64)), // Uses MaxInt64 for comparison safety
+			)
+
+			DescribeTable("Should panic for non-integer types",
+				func(t types.Type) {
+					Expect(func() { t.IntegerMaxValue() }).To(Panic())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IntegerMinValue", func() {
+			DescribeTable("Should return correct min value for signed integer types",
+				func(t types.Type, expected int64) {
+					Expect(t.IntegerMinValue()).To(Equal(expected))
+				},
+				Entry("I8", types.I8(), int64(math.MinInt8)),
+				Entry("I16", types.I16(), int64(math.MinInt16)),
+				Entry("I32", types.I32(), int64(math.MinInt32)),
+				Entry("I64", types.I64(), int64(math.MinInt64)),
+			)
+
+			DescribeTable("Should return 0 for unsigned integer types",
+				func(t types.Type) {
+					Expect(t.IntegerMinValue()).To(Equal(int64(0)))
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+			)
+
+			DescribeTable("Should panic for non-integer types",
+				func(t types.Type) {
+					Expect(func() { t.IntegerMinValue() }).To(Panic())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+				Entry("String", types.String()),
+			)
+		})
+
 		Describe("Is64Bit", func() {
 			DescribeTable("Should return true for 64-bit types",
 				func(t types.Type) {
@@ -332,6 +420,16 @@ var _ = Describe("Types", func() {
 			It("Should return false for other types", func() {
 				Expect(types.I32().IsBool()).To(BeFalse())
 				Expect(types.String().IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for channels", func() {
+				Expect(types.Chan(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.I32()).IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.I32()).IsBool()).To(BeFalse())
 			})
 		})
 
@@ -413,84 +511,68 @@ var _ = Describe("Types", func() {
 		})
 
 		It("Should compare function types", func() {
-			props1 := types.NewFunctionProperties()
-			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
-			props1.Outputs = append(props1.Outputs, types.Param{Name: "y", Type: types.I32()})
-
-			props2 := types.NewFunctionProperties()
-			props2.Inputs = append(props2.Inputs, types.Param{Name: "x", Type: types.I32()})
-			props2.Outputs = append(props2.Outputs, types.Param{Name: "y", Type: types.I32()})
-
+			props1 := types.FunctionProperties{
+				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+				Outputs: types.Params{{Name: "y", Type: types.I32()}},
+			}
+			props2 := types.FunctionProperties{
+				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+				Outputs: types.Params{{Name: "y", Type: types.I32()}},
+			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeTrue())
 		})
 
 		It("Should return false for function types with different inputs", func() {
-			props1 := types.NewFunctionProperties()
-			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
-
-			props2 := types.NewFunctionProperties()
-			props2.Inputs = append(props2.Inputs, types.Param{Name: "y", Type: types.I32()})
-
+			props1 := types.FunctionProperties{
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
+			}
+			props2 := types.FunctionProperties{
+				Inputs: types.Params{{Name: "y", Type: types.I32()}},
+			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different input types", func() {
-			props1 := types.NewFunctionProperties()
-			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
-
-			props2 := types.NewFunctionProperties()
-			props2.Inputs = append(props2.Inputs, types.Param{Name: "x", Type: types.F64()})
-
+			props1 := types.FunctionProperties{
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
+			}
+			props2 := types.FunctionProperties{
+				Inputs: types.Params{{Name: "x", Type: types.F64()}},
+			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different input counts", func() {
-			props1 := types.NewFunctionProperties()
-			props1.Inputs = append(props1.Inputs, types.Param{Name: "x", Type: types.I32()})
-			props1.Inputs = append(props1.Inputs, types.Param{Name: "y", Type: types.I32()})
-
-			props2 := types.NewFunctionProperties()
-			props2.Inputs = append(props2.Inputs, types.Param{Name: "x", Type: types.I32()})
-
+			props1 := types.FunctionProperties{
+				Inputs: types.Params{
+					{Name: "x", Type: types.I32()},
+					{Name: "y", Type: types.I32()},
+				},
+			}
+			props2 := types.FunctionProperties{
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
+			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different outputs", func() {
-			props1 := types.NewFunctionProperties()
-			props1.Outputs = append(props1.Outputs, types.Param{Name: "result", Type: types.I32()})
-
-			props2 := types.NewFunctionProperties()
-			props2.Outputs = append(props2.Outputs, types.Param{Name: "result", Type: types.F64()})
-
+			props1 := types.FunctionProperties{
+				Outputs: types.Params{{Name: "result", Type: types.I32()}},
+			}
+			props2 := types.FunctionProperties{
+				Outputs: types.Params{{Name: "result", Type: types.F64()}},
+			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
 
 		It("Should return false for function types with different config", func() {
-			props1 := types.NewFunctionProperties()
-			props1.Config = append(props1.Config, types.Param{Name: "option", Type: types.I32()})
-
-			props2 := types.NewFunctionProperties()
-			props2.Config = append(props2.Config, types.Param{Name: "option", Type: types.F64()})
-
+			props1 := types.FunctionProperties{
+				Config: types.Params{{Name: "option", Type: types.I32()}},
+			}
+			props2 := types.FunctionProperties{
+				Config: types.Params{{Name: "option", Type: types.F64()}},
+			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
-		})
-	})
-
-	Describe("FunctionProperties", func() {
-		It("Should create a deep copy of function properties", func() {
-			props := types.NewFunctionProperties()
-			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: types.I32()})
-			props.Outputs = append(props.Outputs, types.Param{Name: "y", Type: types.F64()})
-			props.Config = append(props.Config, types.Param{Name: "debug", Type: types.U8()})
-
-			copied := props.Copy()
-
-			Expect(len(copied.Inputs)).To(Equal(1))
-			Expect(len(copied.Outputs)).To(Equal(1))
-			Expect(len(copied.Config)).To(Equal(1))
-
-			inputX := copied.Inputs[0]
-			Expect(inputX.Type).To(Equal(types.I32()))
 		})
 	})
 
@@ -505,8 +587,9 @@ var _ = Describe("Types", func() {
 		})
 
 		It("Should preserve provided inputs/outputs/config", func() {
-			props := types.NewFunctionProperties()
-			props.Inputs = append(props.Inputs, types.Param{Name: "x", Type: types.I32()})
+			props := types.FunctionProperties{
+				Inputs: types.Params{{Name: "x", Type: types.I32()}},
+			}
 			fn := types.Function(props)
 			Expect(len(fn.Inputs)).To(Equal(1))
 		})
@@ -528,8 +611,8 @@ var _ = Describe("Types", func() {
 			Entry("F32", types.F32(), "f32"),
 			Entry("F64", types.F64(), "f64"),
 			Entry("String", types.String(), "str"),
-			Entry("TimeStamp", types.TimeStamp(), "timestamp"),
-			Entry("TimeSpan", types.TimeSpan(), "timespan"),
+			Entry("TimeStamp", types.TimeStamp(), "i64 ns"),
+			Entry("TimeSpan", types.TimeSpan(), "i64 ns"),
 		)
 
 		DescribeTable("Should return correct strings for compound types",
@@ -567,8 +650,7 @@ var _ = Describe("Types", func() {
 		)
 
 		It("Should return 'function' for function types", func() {
-			props := types.NewFunctionProperties()
-			fnType := types.Function(props)
+			fnType := types.Function(types.FunctionProperties{})
 			Expect(fnType.String()).To(Equal("function"))
 		})
 
@@ -627,7 +709,7 @@ var _ = Describe("Types", func() {
 			chanType := types.Chan(types.I32())
 			Expect(types.ToTelem(chanType)).To(Equal(telem.UnknownT))
 
-			fnType := types.Function(types.NewFunctionProperties())
+			fnType := types.Function(types.FunctionProperties{})
 			Expect(types.ToTelem(fnType)).To(Equal(telem.UnknownT))
 		})
 	})
@@ -662,7 +744,7 @@ var _ = Describe("Types", func() {
 			Entry("NumericConstraint", types.NumericConstraint()),
 			Entry("IntegerConstraint", types.IntegerConstraint()),
 			Entry("FloatConstraint", types.FloatConstraint()),
-			Entry("Function", types.Function(types.NewFunctionProperties())),
+			Entry("Function", types.Function(types.FunctionProperties{})),
 			Entry("Invalid", types.Type{Kind: types.KindInvalid}),
 		)
 	})
@@ -752,6 +834,127 @@ var _ = Describe("Types", func() {
 				Expect(valueMap["a"]).To(BeNil())
 				Expect(valueMap["b"]).To(Equal(1.5))
 			})
+		})
+		Describe("RequiredCount", func() {
+			It("Should return total count when no parameters have defaults", func() {
+				requiredOnly := types.Params{
+					{Name: "a", Type: types.I32(), Value: nil},
+					{Name: "b", Type: types.F64(), Value: nil},
+					{Name: "c", Type: types.U8(), Value: nil},
+				}
+				Expect(requiredOnly.RequiredCount()).To(Equal(3))
+			})
+			It("Should return zero when all parameters have defaults", func() {
+				allOptional := types.Params{
+					{Name: "a", Type: types.I32(), Value: int32(10)},
+					{Name: "b", Type: types.F64(), Value: 3.14},
+				}
+				Expect(allOptional.RequiredCount()).To(Equal(0))
+			})
+			It("Should return count of parameters without defaults (mixed)", func() {
+				mixed := types.Params{
+					{Name: "required1", Type: types.I64(), Value: nil},
+					{Name: "required2", Type: types.I64(), Value: nil},
+					{Name: "optional1", Type: types.I64(), Value: int64(100)},
+					{Name: "optional2", Type: types.I64(), Value: int64(200)},
+				}
+				Expect(mixed.RequiredCount()).To(Equal(2))
+			})
+			It("Should return zero for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.RequiredCount()).To(Equal(0))
+			})
+			It("Should count correctly with single required parameter", func() {
+				single := types.Params{
+					{Name: "x", Type: types.I32(), Value: nil},
+				}
+				Expect(single.RequiredCount()).To(Equal(1))
+			})
+			It("Should count correctly with single optional parameter", func() {
+				single := types.Params{
+					{Name: "x", Type: types.I32(), Value: int32(42)},
+				}
+				Expect(single.RequiredCount()).To(Equal(0))
+			})
+		})
+	})
+
+	Describe("Dimensions", func() {
+		Describe("Mul", func() {
+			It("Should add exponents (m * m = m^2)", func() {
+				result := types.DimLength.Mul(types.DimLength)
+				Expect(result.Length).To(Equal(int8(2)))
+			})
+
+			It("Should produce velocity (m * s^-1)", func() {
+				result := types.DimLength.Mul(types.DimFrequency)
+				Expect(result).To(Equal(types.DimVelocity))
+			})
+
+			It("Should handle dimensionless", func() {
+				result := types.DimNone.Mul(types.DimLength)
+				Expect(result).To(Equal(types.DimLength))
+			})
+		})
+
+		Describe("Div", func() {
+			It("Should subtract exponents (m / s = velocity)", func() {
+				result := types.DimLength.Div(types.DimTime)
+				Expect(result).To(Equal(types.DimVelocity))
+			})
+
+			It("Should cancel dimensions (m / m = dimensionless)", func() {
+				result := types.DimLength.Div(types.DimLength)
+				Expect(result.IsZero()).To(BeTrue())
+			})
+
+			It("Should produce frequency (1 / s)", func() {
+				result := types.DimNone.Div(types.DimTime)
+				Expect(result).To(Equal(types.DimFrequency))
+			})
+		})
+
+		Describe("IsZero", func() {
+			It("Should return true for dimensionless", func() {
+				Expect(types.DimNone.IsZero()).To(BeTrue())
+			})
+
+			It("Should return false for dimensioned", func() {
+				Expect(types.DimLength.IsZero()).To(BeFalse())
+				Expect(types.DimPressure.IsZero()).To(BeFalse())
+			})
+		})
+
+		Describe("String", func() {
+			It("Should format velocity", func() {
+				s := types.DimVelocity.String()
+				Expect(s).To(ContainSubstring("length^1"))
+				Expect(s).To(ContainSubstring("time^-1"))
+			})
+
+			It("Should return dimensionless for zero", func() {
+				Expect(types.DimNone.String()).To(Equal("dimensionless"))
+			})
+		})
+	})
+
+	Describe("Unit", func() {
+		It("Should compare equal units", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			u2 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			Expect(u1.Equal(u2)).To(BeTrue())
+		})
+
+		It("Should detect different scales", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			u2 := types.Unit{Dimensions: types.DimLength, Scale: 1, Name: "m"}
+			Expect(u1.Equal(u2)).To(BeFalse())
+		})
+
+		It("Should detect different dimensions", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1, Name: "m"}
+			u2 := types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "s"}
+			Expect(u1.Equal(u2)).To(BeFalse())
 		})
 	})
 })

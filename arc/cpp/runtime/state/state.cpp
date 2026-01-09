@@ -9,154 +9,113 @@
 
 #include <utility>
 
-#include "x/cpp/errors/errors.h"
+#include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
-Series parse_default_value(const nlohmann::json &value, const types::Type &type) {
+Series parse_default_value(
+    const std::optional<telem::SampleValue> &value,
+    const types::Type &type
+) {
     auto data_type = type.telem();
-    auto series = x::memory::make_local_shared<x::telem::Series>(data_type, 1);
-    if (value.is_null()) {
-        switch (type.kind) {
-            case types::Kind::I8:
-                series->write(static_cast<int8_t>(0));
-                break;
-            case types::Kind::I16:
-                series->write(static_cast<int16_t>(0));
-                break;
-            case types::Kind::I32:
-                series->write(static_cast<int32_t>(0));
-                break;
-            case types::Kind::I64:
-                series->write(static_cast<int64_t>(0));
-                break;
-            case types::Kind::U8:
-                series->write(static_cast<uint8_t>(0));
-                break;
-            case types::Kind::U16:
-                series->write(static_cast<uint16_t>(0));
-                break;
-            case types::Kind::U32:
-                series->write(static_cast<uint32_t>(0));
-                break;
-            case types::Kind::U64:
-                series->write(static_cast<uint64_t>(0));
-                break;
-            case types::Kind::F32:
-                series->write(0.0f);
-                break;
-            case types::Kind::F64:
-                series->write(0.0);
-                break;
-            default:
-                break;
-        }
-        return series;
+    if (value.has_value()) {
+        auto casted = data_type.cast(*value);
+        return xmemory::make_local_shared<telem::Series>(casted);
     }
-
+    auto series = xmemory::make_local_shared<telem::Series>(data_type, 1);
     switch (type.kind) {
         case types::Kind::I8:
-            series->write(
-                static_cast<int8_t>(value.is_number() ? value.get<int>() : 0)
-            );
+            series->write(static_cast<int8_t>(0));
             break;
         case types::Kind::I16:
-            series->write(
-                static_cast<int16_t>(value.is_number() ? value.get<int>() : 0)
-            );
+            series->write(static_cast<int16_t>(0));
             break;
         case types::Kind::I32:
-            series->write(value.is_number() ? value.get<int32_t>() : 0);
+            series->write(static_cast<int32_t>(0));
             break;
         case types::Kind::I64:
-            series->write(value.is_number() ? value.get<int64_t>() : 0);
+            series->write(static_cast<int64_t>(0));
             break;
         case types::Kind::U8:
-            series->write(
-                static_cast<uint8_t>(value.is_number() ? value.get<unsigned>() : 0)
-            );
+            series->write(static_cast<uint8_t>(0));
             break;
         case types::Kind::U16:
-            series->write(
-                static_cast<uint16_t>(value.is_number() ? value.get<unsigned>() : 0)
-            );
+            series->write(static_cast<uint16_t>(0));
             break;
         case types::Kind::U32:
-            series->write(value.is_number() ? value.get<uint32_t>() : 0);
+            series->write(static_cast<uint32_t>(0));
             break;
         case types::Kind::U64:
-            series->write(value.is_number() ? value.get<uint64_t>() : 0);
+            series->write(static_cast<uint64_t>(0));
             break;
         case types::Kind::F32:
-            series->write(value.is_number() ? value.get<float>() : 0.0f);
+            series->write(0.0f);
             break;
         case types::Kind::F64:
-            series->write(value.is_number() ? value.get<double>() : 0.0);
-            break;
-        case types::Kind::String:
-            if (value.is_string()) {
-                // String handling would require special series support
-                // For now, leave empty
-            }
+            series->write(0.0);
             break;
         default:
             break;
     }
-
     return series;
 }
 
 State::State(const Config &cfg): cfg(cfg) {
+    size_t total = 0;
+    for (const auto &node: cfg.ir.nodes)
+        total += node.outputs.size();
+    this->values.reserve(total);
+
     for (const auto &digest: cfg.channels)
-        indexes[digest.key] = digest.index;
+        this->indexes[digest.key] = digest.index;
+
     for (const auto &node: cfg.ir.nodes) {
         for (const auto &output: node.outputs) {
             ir::Handle handle(node.key, output.name);
-            outputs[handle] = Value{
-                x::memory::local_shared<x::telem::Series>(output.type.telem(), 0),
-                x::memory::local_shared<x::telem::Series>(x::telem::TIMESTAMP_T, 0)
-            };
+            this->value_index[handle] = this->values.size();
+            this->values.emplace_back(
+                Value{
+                    xmemory::local_shared<telem::Series>(output.type.telem(), 0),
+                    xmemory::local_shared<telem::Series>(telem::TIMESTAMP_T, 0)
+                }
+            );
         }
     }
 }
 
-std::pair<Node, x::errors::Error> State::node(const std::string &key) {
-    auto ir_node_iter = this->cfg.ir.find_node(key);
-    if (ir_node_iter == this->cfg.ir.nodes.end()) return {Node(), x::errors::NOT_FOUND};
-    const auto ir_node = *ir_node_iter;
-
+std::pair<Node, xerrors::Error> State::node(const std::string &key) {
+    const auto &ir_node = this->cfg.ir.node(key);
     const size_t num_inputs = ir_node.inputs.size();
     std::vector<ir::Edge> inputs(num_inputs);
     std::vector<Series> aligned_data(num_inputs);
     std::vector<Series> aligned_time(num_inputs);
     std::vector<Node::InputEntry> accumulated(num_inputs);
-    std::vector<Value *> input_sources(num_inputs);
+    std::vector<size_t> input_source_idx(num_inputs);
 
     for (size_t i = 0; i < num_inputs; i++)
-        aligned_time[i] = x::memory::make_local_shared<x::telem::Series>(
-            x::telem::TIMESTAMP_T,
+        aligned_time[i] = xmemory::make_local_shared<telem::Series>(
+            telem::TIMESTAMP_T,
             0
         );
 
     for (size_t i = 0; i < num_inputs; i++) {
         const auto &param = ir_node.inputs[i];
         ir::Handle target_handle(key, param.name);
-        auto edge_iter = cfg.ir.find_edge_by_target(target_handle);
-
-        if (edge_iter != cfg.ir.edges.end()) {
-            inputs[i] = *edge_iter;
-            const auto &source_handle = edge_iter->source;
-
-            auto source_output_iter = outputs.find(source_handle);
-            if (source_output_iter != outputs.end()) {
-                aligned_data[i] = x::memory::make_local_shared<x::telem::Series>(
-                    source_output_iter->second.data->data_type(),
+        if (auto edge = this->cfg.ir.edge_to(target_handle)) {
+            inputs[i] = *edge;
+            const auto &source_handle = edge->source;
+            auto idx_iter = this->value_index.find(source_handle);
+            if (idx_iter != this->value_index.end()) {
+                size_t idx = idx_iter->second;
+                aligned_data[i] = xmemory::make_local_shared<telem::Series>(
+                    this->values[idx].data->data_type(),
                     0
                 );
-                input_sources[i] = &source_output_iter->second;
-                accumulated[i].last_timestamp = x::telem::TimeStamp(0);
+                input_source_idx[i] = idx;
+                accumulated[i].source = idx;
+                accumulated[i].last_timestamp = telem::TimeStamp(0);
                 accumulated[i].consumed = true;
             }
         } else {
@@ -164,53 +123,60 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             inputs[i] = ir::Edge(synthetic_handle, target_handle);
 
             auto data_series = parse_default_value(param.value, param.type);
-            auto time_series = x::memory::make_local_shared<x::telem::Series>(
-                x::telem::TIMESTAMP_T,
+            auto time_series = xmemory::make_local_shared<telem::Series>(
+                telem::TIMESTAMP_T,
                 1
             );
-            time_series->write(x::telem::TimeStamp(0));
+            time_series->write(telem::TimeStamp(0));
 
             aligned_data[i] = data_series;
             aligned_time[i] = time_series;
 
             accumulated[i].data = data_series;
             accumulated[i].time = time_series;
-            accumulated[i].last_timestamp = x::telem::TimeStamp(0);
-            accumulated[i].consumed = true;
+            accumulated[i].last_timestamp = telem::TimeStamp(0);
+            accumulated[i].consumed = false;
 
-            if (!this->outputs.contains(synthetic_handle))
-                this->outputs[synthetic_handle] = Value{data_series, time_series};
-
-            input_sources[i] = &this->outputs[synthetic_handle];
+            if (!this->value_index.contains(synthetic_handle)) {
+                this->value_index[synthetic_handle] = this->values.size();
+                this->values.emplace_back(Value{data_series, time_series});
+            }
+            input_source_idx[i] = this->value_index[synthetic_handle];
+            accumulated[i].source = input_source_idx[i];
         }
     }
 
-    // Pre-cache output value pointers
     std::vector<ir::Handle> output_handles;
-    std::vector<Value *> output_cache;
-    for (const auto &output_param: ir_node.outputs) {
+    std::vector<size_t> output_idx;
+    std::unordered_map<std::string, size_t> output_name_idx;
+    for (size_t i = 0; i < ir_node.outputs.size(); i++) {
+        const auto &output_param = ir_node.outputs[i];
         ir::Handle handle(key, output_param.name);
         output_handles.push_back(handle);
-        output_cache.push_back(&this->outputs[handle]);
+        output_idx.push_back(this->value_index[handle]);
+        output_name_idx[output_param.name] = i;
     }
 
     return {
-        {this,
-         std::move(inputs),
-         std::move(output_handles),
-         std::move(accumulated),
-         std::move(aligned_data),
-         std::move(aligned_time),
-         std::move(input_sources),
-         std::move(output_cache)},
-        x::errors::NIL
+        Node(
+            *this,
+            std::move(inputs),
+            std::move(output_handles),
+            std::move(input_source_idx),
+            std::move(output_idx),
+            std::move(output_name_idx),
+            std::move(accumulated),
+            std::move(aligned_data),
+            std::move(aligned_time)
+        ),
+        xerrors::NIL
     };
 }
 
-void State::ingest(const x::telem::Frame &frame) {
+void State::ingest(const telem::Frame &frame) {
     for (size_t i = 0; i < frame.size(); i++)
         reads[frame.channels->at(i)].push_back(
-            x::memory::local_shared<x::telem::Series>(std::move(frame.series->at(i)))
+            xmemory::local_shared(std::move(frame.series->at(i)))
         );
 }
 
@@ -239,56 +205,53 @@ void State::write_channel(
 }
 
 bool Node::refresh_inputs() {
-    if (inputs.empty()) return true;
-
+    if (this->inputs.empty()) return true;
     bool has_unconsumed = false;
-    for (size_t i = 0; i < inputs.size(); i++) {
-        const auto *src = this->input_sources[i];
-        if (src != nullptr && src->time != nullptr && !src->time->empty()) {
-            if (auto ts = src->time->at<x::telem::TimeStamp>(-1);
+    for (size_t i = 0; i < this->inputs.size(); i++) {
+        const Value &src = this->state.values[this->accumulated[i].source];
+        const auto *time_ptr = src.time.get();
+        const auto *data_ptr = src.data.get();
+        if (time_ptr != nullptr && data_ptr != nullptr && time_ptr->size() > 0 &&
+            data_ptr->size() > 0) {
+            if (auto ts = time_ptr->at<telem::TimeStamp>(-1);
                 ts > this->accumulated[i].last_timestamp) {
-                this->accumulated[i].data = src->data;
-                this->accumulated[i].time = src->time;
+                this->accumulated[i].data = src.data;
+                this->accumulated[i].time = src.time;
                 this->accumulated[i].last_timestamp = ts;
                 this->accumulated[i].consumed = false;
             }
         }
-
-        if (accumulated[i].data == nullptr || accumulated[i].data->empty())
+        if (this->accumulated[i].data == nullptr || this->accumulated[i].data->empty())
             return false;
-
-        if (!accumulated[i].consumed) has_unconsumed = true;
+        if (!this->accumulated[i].consumed) has_unconsumed = true;
     }
-
     if (!has_unconsumed) return false;
-
     for (size_t i = 0; i < this->inputs.size(); i++) {
         this->aligned_data[i] = this->accumulated[i].data;
         this->aligned_time[i] = this->accumulated[i].time;
         this->accumulated[i].consumed = true;
     }
-
     return true;
 }
 
-std::pair<x::telem::MultiSeries, bool> State::read_channel(const types::ChannelKey key) {
-    auto it = reads.find(key);
-    if (it == reads.end() || it->second.empty()) return {x::telem::MultiSeries{}, false};
-    x::telem::MultiSeries ms;
+std::pair<telem::MultiSeries, bool> State::read_channel(const types::ChannelKey key) {
+    const auto it = reads.find(key);
+    if (it == reads.end() || it->second.empty()) return {telem::MultiSeries{}, false};
+    telem::MultiSeries ms;
     for (const auto &s: it->second)
         ms.series.push_back(s->deep_copy());
     return {std::move(ms), true};
 }
 
-std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
-Node::read_chan(const types::ChannelKey key) {
-    auto [data, ok] = state_ptr->read_channel(key);
-    if (!ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    auto index_it = state_ptr->indexes.find(key);
-    if (index_it == state_ptr->indexes.end() || index_it->second == 0)
-        return {std::move(data), x::telem::MultiSeries{}, !data.series.empty()};
-    auto [time, time_ok] = state_ptr->read_channel(index_it->second);
-    if (!time_ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
+std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
+Node::read_chan(const types::ChannelKey key) const {
+    auto [data, ok] = this->state.read_channel(key);
+    if (!ok) return {telem::MultiSeries{}, telem::MultiSeries{}, false};
+    const auto index_it = this->state.indexes.find(key);
+    if (index_it == this->state.indexes.end() || index_it->second == 0)
+        return {std::move(data), telem::MultiSeries{}, !data.series.empty()};
+    auto [time, time_ok] = this->state.read_channel(index_it->second);
+    if (!time_ok) return {telem::MultiSeries{}, telem::MultiSeries{}, false};
     return {
         std::move(data),
         std::move(time),
@@ -300,7 +263,25 @@ void Node::write_chan(
     const types::ChannelKey key,
     const Series &data,
     const Series &time
-) {
-    state_ptr->write_channel(key, data, time);
+) const {
+    this->state.write_channel(key, data, time);
+}
+
+const Series &Node::input_time(const size_t param_index) const {
+    return this->aligned_time[param_index];
+}
+Series &Node::output(const size_t param_index) const {
+    return this->state.values[this->output_idx[param_index]].data;
+}
+
+Series &Node::output_time(const size_t param_index) const {
+    return this->state.values[this->output_idx[param_index]].time;
+}
+
+bool Node::is_output_truthy(const std::string &param_name) const {
+    const auto it = this->output_name_idx.find(param_name);
+    if (it == this->output_name_idx.end()) return false;
+    const auto *s = this->state.values[this->output_idx[it->second]].data.get();
+    return s != nullptr && this->is_series_truthy(*s);
 }
 }

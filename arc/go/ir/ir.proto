@@ -27,6 +27,7 @@ message PBEdge {
 message PBStage {
   string key = 1;
   repeated string nodes = 2;
+  repeated PBStratum strata = 3;
 }
 
 message PBSequence {

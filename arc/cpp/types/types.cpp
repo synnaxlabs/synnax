@@ -39,6 +39,7 @@ x::telem::DataType Type::telem() const {
         case Kind::Series:
         case Kind::Chan:
             if (this->elem) return elem->telem();
+            [[fallthrough]];
         default:
             return x::telem::UNKNOWN_T;
     }
