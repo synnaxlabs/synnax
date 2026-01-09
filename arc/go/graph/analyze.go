@@ -127,7 +127,7 @@ func Analyze(
 						ctx.Diagnostics.AddError(err, nil)
 						return ir.IR{}, ctx.Diagnostics
 					}
-					node.Channels.Read.Add(k)
+					node.Channels.Read[k] = ""
 				}
 			}
 			node.Config[j].Value = configValue

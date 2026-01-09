@@ -29,9 +29,6 @@ export type Sequences = z.infer<typeof sequencesZ>;
 export const functionsZ = z.array(functionZ);
 export type Functions = z.infer<typeof functionsZ>;
 
-export const stratumZ = z.array(z.string());
-export type Stratum = z.infer<typeof stratumZ>;
-
 export const strataZ = z.array(stratumZ);
 export type Strata = z.infer<typeof strataZ>;
 
@@ -69,6 +66,9 @@ export enum EdgeKind {
   one_shot = 2,
 }
 export const edgeKindZ = z.enum(EdgeKind);
+
+export const stratumZ = z.array(z.string());
+export type Stratum = z.infer<typeof stratumZ>;
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -112,6 +112,12 @@ export const irZ = z.object({
   sequences: sequencesZ.optional(),
 });
 export interface IR extends z.infer<typeof irZ> {}
+
+export const compilerOutputZ = z.object({
+  wasm: z.instanceof(Uint8Array),
+  outputMemoryBases: z.record(z.string(), z.uint32()),
+});
+export interface CompilerOutput extends z.infer<typeof compilerOutputZ> {}
 
 export const graphNodeZ = z.object({
   key: z.string(),
@@ -182,11 +188,7 @@ export const nodeZ = z.object({
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
-export const moduleZ = z.object({
-  ir: irZ,
-  wasm: z.instanceof(Uint8Array),
-  outputMemoryBases: z.record(z.string(), z.uint32()),
-});
+export const moduleZ = irZ.extend(compilerOutputZ.shape);
 export interface Module extends z.infer<typeof moduleZ> {}
 
 export const graphZ = z.object({

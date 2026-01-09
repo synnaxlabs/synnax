@@ -886,6 +886,127 @@ var _ = Describe("Analyzer", func() {
 			Expect(exprMap["min_length"].Values[0].IntValue).To(Equal(int64(1)))
 			Expect(exprMap["max_length"].Values[0].IntValue).To(Equal(int64(100)))
 		})
+
+		// Multiple inheritance tests
+		It("Should parse multiple extends with comma-separated parents", func() {
+			source := `
+				A struct { a string }
+				B struct { b string }
+				C struct extends A, B { c string }
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			cType := table.MustGet("test.C")
+			form := cType.Form.(resolution.StructForm)
+			Expect(form.Extends).To(HaveLen(2))
+			Expect(form.Extends[0].Name).To(Equal("test.A"))
+			Expect(form.Extends[1].Name).To(Equal("test.B"))
+
+			allFields := resolution.UnifiedFields(cType, table)
+			Expect(allFields).To(HaveLen(3))
+			fieldNames := []string{allFields[0].Name, allFields[1].Name, allFields[2].Name}
+			Expect(fieldNames).To(ContainElements("a", "b", "c"))
+		})
+
+		It("Should use first parent's field when names conflict", func() {
+			source := `
+				A struct { shared int32 }
+				B struct { shared string }
+				C struct extends A, B { }
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			cType := table.MustGet("test.C")
+			allFields := resolution.UnifiedFields(cType, table)
+			Expect(allFields).To(HaveLen(1))
+			Expect(allFields[0].Type.Name).To(Equal("int32")) // From A (first parent)
+		})
+
+		It("Should handle diamond inheritance", func() {
+			source := `
+				Base struct { base string }
+				Left struct extends Base { left string }
+				Right struct extends Base { right string }
+				Diamond struct extends Left, Right { }
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			dType := table.MustGet("test.Diamond")
+			allFields := resolution.UnifiedFields(dType, table)
+			// base appears once (from Left path), left, right
+			Expect(allFields).To(HaveLen(3))
+			fieldNames := make([]string, len(allFields))
+			for i, f := range allFields {
+				fieldNames[i] = f.Name
+			}
+			Expect(fieldNames).To(ContainElements("base", "left", "right"))
+		})
+
+		It("Should detect circular inheritance with multiple parents", func() {
+			source := `
+				A struct extends C { a string }
+				B struct { b string }
+				C struct extends A, B { c string }
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeTrue())
+		})
+
+		It("Should handle type parameters with multiple extends", func() {
+			source := `
+				Generic1 struct<T> { value1 T }
+				Generic2 struct<U> { value2 U }
+				Combined struct<V> extends Generic1<V>, Generic2<string> {
+					combined V
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			cType := table.MustGet("test.Combined")
+			allFields := resolution.UnifiedFields(cType, table)
+			Expect(allFields).To(HaveLen(3))
+		})
+
+		It("Should allow omitting fields from any parent", func() {
+			source := `
+				A struct {
+					a string
+					shared string
+				}
+				B struct { b string }
+				C struct extends A, B {
+					-shared
+					c string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			cType := table.MustGet("test.C")
+			allFields := resolution.UnifiedFields(cType, table)
+			fieldNames := make([]string, len(allFields))
+			for i, f := range allFields {
+				fieldNames[i] = f.Name
+			}
+			Expect(fieldNames).NotTo(ContainElement("shared"))
+			Expect(fieldNames).To(ContainElements("a", "b", "c"))
+		})
+
+		It("Should error when omitting field not in any parent", func() {
+			source := `
+				A struct { a string }
+				B struct { b string }
+				C struct extends A, B {
+					-nonexistent
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeTrue())
+		})
 	})
 
 	Describe("TypeDef", func() {
@@ -939,6 +1060,22 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Base.Name).To(Equal("Array"))
 			Expect(form.Base.TypeArgs).To(HaveLen(1))
 			Expect(form.Base.TypeArgs[0].Name).To(Equal("ir.Param"))
+		})
+
+		It("Should analyze an alias to an array type", func() {
+			source := `
+				Stratum = string[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			stratumType := table.MustGet("ir.Stratum")
+			form, ok := stratumType.Form.(resolution.AliasForm)
+			Expect(ok).To(BeTrue())
+			// The target should be Array with type arg string
+			Expect(form.Target.Name).To(Equal("Array"))
+			Expect(form.Target.TypeArgs).To(HaveLen(1))
+			Expect(form.Target.TypeArgs[0].Name).To(Equal("string"))
 		})
 	})
 

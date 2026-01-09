@@ -397,7 +397,7 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	return fieldData{
 		GoName:         gointernal.ToPascalCase(field.Name),
 		GoType:         goType,
-		JSONName:       field.Name,
+		JSONName:       gointernal.ToSnakeCase(field.Name),
 		IsOptional:     field.IsOptional || field.IsHardOptional,
 		IsHardOptional: field.IsHardOptional,
 		Doc:            doc.Get(field.Domains),
@@ -419,19 +419,25 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *temp
 func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
+	// Check for @go name override
+	name := getGoName(parent)
+	if name == "" {
+		name = parent.Name
+	}
+
 	// Same namespace AND same output path (or no output path) -> use unqualified name
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
-		return buildGenericType(parent.Name, extendsRef.TypeArgs, data)
+		return buildGenericType(name, extendsRef.TypeArgs, data)
 	}
 
 	// Different output path -> need qualified name with import
 	if targetOutputPath == "" {
 		// No output path but different namespace - can't resolve package, use unqualified
-		return parent.Name
+		return name
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-	return fmt.Sprintf("%s.%s", alias, buildGenericType(parent.Name, extendsRef.TypeArgs, data))
+	return fmt.Sprintf("%s.%s", alias, buildGenericType(name, extendsRef.TypeArgs, data))
 }
 
 // hasFieldConflicts checks if multiple parents have fields with the same name,

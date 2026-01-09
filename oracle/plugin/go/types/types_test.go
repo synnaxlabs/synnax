@@ -139,6 +139,37 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`MyLongFieldName string`))
 			})
 
+			It("Should preserve screaming case (all-uppercase) field names but use snake_case for JSON tags", func() {
+				source := `
+				@go output "core/compiler"
+
+				Output struct {
+					WASM bytes
+					IR   string
+					CPU_ID uint32
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "compiler", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Screaming case fields should preserve their Go names
+				Expect(content).To(ContainSubstring(`WASM []byte`))
+				Expect(content).To(ContainSubstring(`IR string`))
+				Expect(content).To(ContainSubstring(`CPU_ID uint32`))
+				// JSON tags should use snake_case (all lowercase)
+				Expect(content).To(ContainSubstring(`json:"wasm"`))
+				Expect(content).To(ContainSubstring(`json:"ir"`))
+				Expect(content).To(ContainSubstring(`json:"cpu_id"`))
+			})
+
 		})
 
 		Context("primitive type mappings", func() {
@@ -562,6 +593,28 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`type Alias = Original`))
 			})
 
+			It("Should generate type alias for array types", func() {
+				source := `
+				@go output "core/ir"
+
+				Stratum = string[]
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// Stratum should be an alias to []string, not just string
+				Expect(content).To(ContainSubstring(`type Stratum = []string`))
+				Expect(content).NotTo(ContainSubstring(`type Stratum = string`))
+			})
+
 		})
 
 		Context("type references", func() {
@@ -870,6 +923,119 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Timestamp telem.TimeStamp`))
 			})
 
+			It("Should generate multiple embedding for multiple extends without conflicts", func() {
+				source := `
+				@go output "core/entities"
+
+				A struct {
+					a string
+				}
+
+				B struct {
+					b int32
+				}
+
+				C struct extends A, B {
+					c bool
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "entities", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// C should embed both A and B
+				Expect(content).To(ContainSubstring(`type C struct {`))
+				Expect(content).To(ContainSubstring("\tA\n"))
+				Expect(content).To(ContainSubstring("\tB\n"))
+				Expect(content).To(ContainSubstring(`C bool`))
+			})
+
+			It("Should flatten fields when multiple extends have field conflicts", func() {
+				source := `
+				@go output "core/entities"
+
+				A struct {
+					shared string
+					a int32
+				}
+
+				B struct {
+					shared string
+					b int32
+				}
+
+				C struct extends A, B {
+					c bool
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "entities", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// C should have flattened fields (no embedding due to conflict)
+				Expect(content).To(ContainSubstring(`type C struct {`))
+				Expect(content).NotTo(ContainSubstring("\tA\n"))
+				Expect(content).NotTo(ContainSubstring("\tB\n"))
+				Expect(content).To(ContainSubstring(`Shared string`))
+				Expect(content).To(ContainSubstring(`A int32`))
+				Expect(content).To(ContainSubstring(`B int32`))
+				Expect(content).To(ContainSubstring(`C bool`))
+			})
+
+			It("Should flatten fields when multiple extends has omitted fields", func() {
+				source := `
+				@go output "core/entities"
+
+				A struct {
+					a string
+					shared string
+				}
+
+				B struct {
+					b int32
+				}
+
+				C struct extends A, B {
+					-shared
+					c bool
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "entities", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// C should have flattened fields (no embedding due to omission)
+				Expect(content).To(ContainSubstring(`type C struct {`))
+				Expect(content).NotTo(ContainSubstring("\tA\n"))
+				Expect(content).NotTo(ContainSubstring("\tB\n"))
+				Expect(content).To(ContainSubstring(`A string`))
+				Expect(content).To(ContainSubstring(`B int32`))
+				Expect(content).To(ContainSubstring(`C bool`))
+				// shared should NOT be present (omitted)
+				Expect(content).NotTo(MatchRegexp(`C struct \{[^}]*Shared`))
+			})
+
 		})
 
 		Context("declaration ordering", func() {
@@ -1018,6 +1184,39 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("regression tests", func() {
+			It("Should use snake_case for JSON struct tags regardless of field name casing", func() {
+				// Regression test: JSON tags should always be snake_case, regardless of
+				// whether the field name is PascalCase, camelCase, or SCREAMING_CASE.
+				source := `
+					@go output "arc/go/compiler"
+
+					Output struct {
+						WASM bytes
+						OutputMemoryBases map<string, uint32>
+						camelCaseField string
+						PascalCaseField int32
+						already_snake_case bool
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "compiler", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// All JSON tags should be snake_case
+				Expect(content).To(ContainSubstring(`json:"wasm"`))
+				Expect(content).To(ContainSubstring(`json:"output_memory_bases"`))
+				Expect(content).To(ContainSubstring(`json:"camel_case_field"`))
+				Expect(content).To(ContainSubstring(`json:"pascal_case_field"`))
+				Expect(content).To(ContainSubstring(`json:"already_snake_case"`))
+			})
+
 			It("Should use alias type name in struct fields instead of expanded target", func() {
 				// Regression test: When a struct field references a type alias,
 				// the generated code should use the alias name, not expand to the target type.
@@ -1081,6 +1280,88 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).NotTo(MatchRegexp(`Key\s+int`))
 			})
 
+			It("Should respect @go name directive for embedded parent types", func() {
+				// Regression test: When a struct extends a parent with @go name directive,
+				// the generated embedded field should use the Go-specific name, not the schema name.
+				loader.Add("schemas/compiler.oracle", `
+					@go output "arc/go/compiler"
+
+					CompilerOutput struct {
+						WASM bytes
+						OutputMemoryBases map<string, uint32>
+
+						@go name "Output"
+					}
+				`)
+
+				source := `
+					import "schemas/compiler"
+
+					@go output "arc/go/module"
+
+					Module struct extends compiler.CompilerOutput {
+						name string
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "module", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				// Find the module file
+				var moduleContent string
+				for _, f := range resp.Files {
+					if f.Path == "arc/go/module/types.gen.go" {
+						moduleContent = string(f.Content)
+						break
+					}
+				}
+				Expect(moduleContent).NotTo(BeEmpty())
+				// Should use @go name "Output", not schema name "CompilerOutput"
+				Expect(moduleContent).To(ContainSubstring("compiler.Output"))
+				Expect(moduleContent).NotTo(ContainSubstring("compiler.CompilerOutput"))
+			})
+
+			It("Should respect @go name directive for same-namespace embedded types", func() {
+				// Regression test: When a struct extends a parent with @go name in same namespace,
+				// the generated embedded field should use the Go-specific name.
+				source := `
+					@go output "arc/go/ir"
+
+					InternalIR struct {
+						nodes string[]
+
+						@go name "IR"
+					}
+
+					ExtendedIR struct extends InternalIR {
+						metadata string
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				content := string(resp.Files[0].Content)
+				// The parent type should be named "IR" (from @go name), not "InternalIR"
+				Expect(content).To(ContainSubstring("type IR struct {"))
+				// The child should embed "IR", not "InternalIR"
+				Expect(content).To(ContainSubstring("type ExtendedIR struct {"))
+				Expect(content).To(ContainSubstring("\tIR\n"))
+				Expect(content).NotTo(ContainSubstring("\tInternalIR\n"))
+			})
+
 		})
 
 		Context("extra fields and imports", func() {
@@ -1128,6 +1409,58 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`"github.com/antlr4-go/antlr/v4"`))
 				Expect(content).To(ContainSubstring(`"github.com/custom/package"`))
+			})
+
+			It("Should not duplicate imports when package is in both @go imports and type references", func() {
+				// Regression test: When a package is imported via @go imports AND
+				// also needed for resolving cross-namespace type references,
+				// the generated code should only include the import once.
+				loader.Add("schemas/types.oracle", `
+					@go output "arc/go/types"
+
+					Param struct {
+						name string
+						value json?
+					}
+
+					Params Param[]
+				`)
+
+				source := `
+					import "schemas/types"
+
+					@go output "arc/go/ir"
+
+					Function struct {
+						key string
+						config types.Params?
+
+						@go imports "github.com/synnaxlabs/synnax/arc/go/types"
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := goPlugin.Generate(req)
+				Expect(err).To(BeNil())
+
+				// Find the ir file
+				var irContent string
+				for _, f := range resp.Files {
+					if f.Path == "arc/go/ir/types.gen.go" {
+						irContent = string(f.Content)
+						break
+					}
+				}
+				Expect(irContent).NotTo(BeEmpty())
+
+				// The types import should only appear once
+				importCount := strings.Count(irContent, `"github.com/synnaxlabs/synnax/arc/go/types"`)
+				Expect(importCount).To(Equal(1), "Import should appear exactly once, got: %d", importCount)
 			})
 		})
 	})

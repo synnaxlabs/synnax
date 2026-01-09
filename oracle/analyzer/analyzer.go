@@ -260,7 +260,17 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 
 	// Collect type params first so they're available when parsing the target type.
 	typeParams := collectTypeParams(def.TypeParams())
-	target := collectTypeRef(def.TypeRef(), typeParams)
+	tr := def.TypeRef()
+	target := collectTypeRef(tr, typeParams)
+
+	// Handle array types (e.g., "Stratum = string[]")
+	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok && normalCtx.LBRACKET() != nil {
+		target = resolution.TypeRef{
+			Name:     "Array",
+			TypeArgs: []resolution.TypeRef{target},
+		}
+	}
+
 	domains := make(map[string]resolution.Domain)
 	for k, v := range c.fileDomains {
 		domains[k] = v

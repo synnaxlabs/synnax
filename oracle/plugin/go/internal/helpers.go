@@ -13,12 +13,41 @@ package internal
 import (
 	"path/filepath"
 	"sort"
+	"unicode"
 
 	"github.com/samber/lo"
 )
 
-// ToPascalCase converts snake_case to PascalCase.
-func ToPascalCase(s string) string { return lo.PascalCase(s) }
+// ToPascalCase converts snake_case to PascalCase, preserving screaming case
+// (all-uppercase) names like "WASM" or "IR" as-is.
+func ToPascalCase(s string) string {
+	if isScreamingCase(s) {
+		return s
+	}
+	return lo.PascalCase(s)
+}
+
+// ToSnakeCase converts any case to snake_case (all lowercase with underscores).
+func ToSnakeCase(s string) string { return lo.SnakeCase(s) }
+
+// isScreamingCase returns true if s is all uppercase letters (possibly with underscores).
+func isScreamingCase(s string) bool {
+	if s == "" {
+		return false
+	}
+	hasLetter := false
+	for _, r := range s {
+		if unicode.IsLetter(r) {
+			hasLetter = true
+			if !unicode.IsUpper(r) {
+				return false
+			}
+		} else if r != '_' {
+			return false
+		}
+	}
+	return hasLetter
+}
 
 // DerivePackageName extracts the package name from an output path.
 // Example: "core/pkg/service/user" -> "user"
@@ -100,10 +129,15 @@ func (i InternalImportData) NeedsAlias() bool {
 	return i.Alias != "" && i.Alias != filepath.Base(i.Path)
 }
 
-// InternalImports returns sorted internal imports.
+// InternalImports returns sorted internal imports, excluding any that are already
+// in the external imports list to avoid duplicates.
 func (m *ImportManager) InternalImports() []InternalImportData {
 	imports := make([]InternalImportData, 0, len(m.internal))
 	for _, imp := range m.internal {
+		// Skip if this path is already in external imports
+		if m.external[imp.Path] {
+			continue
+		}
 		imports = append(imports, InternalImportData{
 			Path:  imp.Path,
 			Alias: imp.Alias,

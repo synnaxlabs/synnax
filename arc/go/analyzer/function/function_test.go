@@ -386,8 +386,8 @@ var _ = Describe("Function Analyzer", func() {
 			f := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 			Expect(f.Channels.Read).To(HaveLen(2))
 			Expect(f.Channels.Write).To(BeEmpty())
-			Expect(f.Channels.Read.Contains(12)).To(BeTrue())
-			Expect(f.Channels.Read.Contains(13)).To(BeTrue())
+			Expect(f.Channels.Read).To(HaveKey(uint32(12)))
+			Expect(f.Channels.Read).To(HaveKey(uint32(13)))
 		})
 	})
 

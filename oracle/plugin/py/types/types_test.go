@@ -531,6 +531,110 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`timestamp: TimeStamp`))
 		})
 
+		It("Should generate multiple inheritance for multiple extends", func() {
+			source := `
+				@py output "out"
+
+				A struct {
+					a string
+				}
+
+				B struct {
+					b int32
+				}
+
+				C struct extends A, B {
+					c bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// C should inherit from both A and B using Python multiple inheritance
+			Expect(content).To(ContainSubstring(`class C(A, B):`))
+			Expect(content).To(ContainSubstring(`c: bool`))
+		})
+
+		It("Should handle field omission with multiple extends", func() {
+			source := `
+				@py output "out"
+
+				A struct {
+					a string
+					shared string
+				}
+
+				B struct {
+					b int32
+				}
+
+				C struct extends A, B {
+					-shared
+					c bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// C should inherit from both A and B
+			Expect(content).To(ContainSubstring(`class C(A, B):`))
+			Expect(content).To(ContainSubstring(`c: bool`))
+			// shared field should not be present in C (omitted)
+			// Note: Python inheritance doesn't explicitly omit, but the field shouldn't be redefined
+		})
+
+		It("Should handle three extends with multiple inheritance", func() {
+			source := `
+				@py output "out"
+
+				A struct {
+					a string
+				}
+
+				B struct {
+					b int32
+				}
+
+				D struct {
+					d bool
+				}
+
+				C struct extends A, B, D {
+					c float32
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// C should inherit from all three parents
+			Expect(content).To(ContainSubstring(`class C(A, B, D):`))
+			Expect(content).To(ContainSubstring(`c: float`))
+		})
+
 		It("Should preserve struct declaration order", func() {
 			source := `
 				@py output "out"

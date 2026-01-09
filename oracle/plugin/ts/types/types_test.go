@@ -1081,6 +1081,111 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`timestamp: TimeStamp.z`))
 		})
 
+		It("Should generate .merge() chain for multiple extends", func() {
+			source := `
+				@ts output "out"
+
+				A struct {
+					a string
+				}
+
+				B struct {
+					b int32
+				}
+
+				C struct extends A, B {
+					c bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// C should use .extend().shape to combine both parents
+			Expect(content).To(ContainSubstring(`export const cZ = aZ.extend(bZ.shape)`))
+			Expect(content).To(ContainSubstring(`.extend({`))
+			Expect(content).To(ContainSubstring(`c: z.boolean()`))
+		})
+
+		It("Should handle .omit() with multiple extends", func() {
+			source := `
+				@ts output "out"
+
+				A struct {
+					a string
+					shared string
+				}
+
+				B struct {
+					b int32
+				}
+
+				C struct extends A, B {
+					-shared
+					c bool
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// C should extend parents and then omit
+			Expect(content).To(ContainSubstring(`aZ.extend(bZ.shape)`))
+			Expect(content).To(ContainSubstring(`.omit({ shared: true })`))
+			Expect(content).To(ContainSubstring(`c: z.boolean()`))
+		})
+
+		It("Should handle three extends with extend chain", func() {
+			source := `
+				@ts output "out"
+
+				A struct {
+					a string
+				}
+
+				B struct {
+					b int32
+				}
+
+				D struct {
+					d bool
+				}
+
+				C struct extends A, B, D {
+					c float32
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// C should chain extend calls for all three parents
+			Expect(content).To(ContainSubstring(`aZ.extend(bZ.shape).extend(dZ.shape)`))
+			Expect(content).To(ContainSubstring(`.extend({`))
+			Expect(content).To(ContainSubstring(`c: z.number()`))
+		})
+
 		It("Should preserve field declaration order", func() {
 			source := `
 				@ts output "out"

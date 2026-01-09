@@ -25,11 +25,11 @@ type Sequences []Sequence
 
 type Functions []Function
 
-type Stratum []string
-
 type Strata []Stratum
 
 type Nodes []Node
+
+type Stratum = []string
 
 type EdgeKind uint8
 
