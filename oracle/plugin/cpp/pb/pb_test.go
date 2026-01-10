@@ -450,5 +450,162 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 		})
+
+		Context("nested array handling (array of arrays)", func() {
+			It("Should use wrapper messages for nested arrays via alias", func() {
+				// This tests the Strata pattern: Strata = Stratum[] where Stratum = string[]
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Stratum = string[]
+
+					Strata Stratum[]
+
+					Stage struct {
+						key string
+						strata Strata
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: should get a wrapper via add_strata(), then add values
+						"for (const auto& item : this->strata)",
+						"auto* wrapper = pb.add_strata()",
+						"for (const auto& v : item) wrapper->add_values(v)",
+						// Backward: should iterate over wrappers and extract values
+						"for (const auto& wrapper : pb.strata())",
+						"cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()})",
+					).
+					ToNotContain(
+						// Should NOT directly add items (wrong API for nested arrays)
+						"pb.add_strata(item)",
+					)
+			})
+
+			It("Should handle nested arrays in direct array fields", func() {
+				// Oracle doesn't support string[][] directly, so we use an alias
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Row = string[]
+
+					Matrix struct {
+						rows Row[]
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: should use wrapper pattern
+						"auto* wrapper = pb.add_rows()",
+						"wrapper->add_values(v)",
+						// Backward: should extract from wrapper
+						"wrapper.values().begin()",
+					)
+			})
+
+			It("Should handle nested arrays alongside other fields in a struct", func() {
+				// This tests a more complex case similar to IR struct
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Stratum = string[]
+					Strata Stratum[]
+
+					Node struct {
+						key string
+					}
+
+					Nodes Node[]
+
+					IR struct {
+						nodes Nodes
+						strata Strata
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Regular struct array should use normal pattern
+						"for (const auto& item : this->nodes) *pb.add_nodes() = item.to_proto()",
+						// Nested array should use wrapper pattern
+						"for (const auto& item : this->strata)",
+						"auto* wrapper = pb.add_strata()",
+						"wrapper->add_values(v)",
+					)
+			})
+
+			It("Should handle nested arrays through distinct type alias", func() {
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Row string[]
+					Grid Row[]
+
+					Table struct {
+						data Grid
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Should detect nested array through alias chain
+						"auto* wrapper = pb.add_data()",
+						"wrapper->add_values(v)",
+					)
+			})
+		})
+
+		Describe("Array Wrapper Proto Generation", func() {
+			// Proto uses repeated fields for arrays, not wrapper messages.
+			// So array wrapper distinct types (like Params Param[]) cannot have
+			// proto methods - there's no proto message to convert to/from.
+			It("Should not generate proto for array wrappers (proto uses repeated fields)", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+					@pb output "x/go/types/pb"
+
+					Channels uint32[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				// No proto.gen.h should be generated for array-only schemas
+				Expect(len(resp.Files)).To(Equal(0))
+			})
+
+			It("Should generate proto for structs but not array wrappers in same schema", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+					@pb output "x/go/types/pb"
+
+					Param struct {
+						name string
+						dataType string
+					}
+
+					Params Param[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				// Should generate proto for Param struct only
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"Param::to_proto() const {",
+					).
+					ToNotContain(
+						// Params wrapper should NOT have proto methods
+						"Params::to_proto()",
+					)
+			})
+		})
 	})
 })

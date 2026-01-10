@@ -56,32 +56,32 @@ inline x::json::json Viewport::to_json() const {
 inline Graph Graph::parse(x::json::Parser parser) {
     return Graph{
         .viewport = parser.field<Viewport>("viewport"),
-        .functions = parser.field<std::vector<arc::ir::Function>>("functions"),
-        .edges = parser.field<std::vector<arc::ir::Edge>>("edges"),
-        .nodes = parser.field<std::vector<Node>>("nodes"),
+        .functions = parser.field<arc::ir::Functions>("functions"),
+        .edges = parser.field<arc::ir::Edges>("edges"),
+        .nodes = parser.field<Nodes>("nodes"),
     };
 }
 
 inline x::json::json Graph::to_json() const {
     x::json::json j;
     j["viewport"] = this->viewport.to_json();
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->functions)
-            arr.push_back(item.to_json());
-        j["functions"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->edges)
-            arr.push_back(item.to_json());
-        j["edges"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->nodes)
-            arr.push_back(item.to_json());
-        j["nodes"] = arr;
+    j["functions"] = this->functions.to_json();
+    j["edges"] = this->edges.to_json();
+    j["nodes"] = this->nodes.to_json();
+    return j;
+}
+
+inline Nodes Nodes::parse(x::json::Parser parser) {
+    Nodes result;
+    for (auto &item: parser.field<std::vector<Node>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Nodes::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
     }
     return j;
 }

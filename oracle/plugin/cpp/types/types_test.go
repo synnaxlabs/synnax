@@ -674,7 +674,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::vector<std::uint8_t> wasm;`))
 		})
 
-		It("Should handle typedef array aliases", func() {
+		It("Should handle array wrapper distinct types", func() {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -696,11 +696,12 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`using Params = std::vector<Param>;`))
+			// Array distinct types should generate wrapper structs, not using aliases
+			Expect(content).To(ContainSubstring(`struct Params : private std::vector<Param>`))
 			Expect(content).NotTo(ContainSubstring(`using Params = void;`))
 		})
 
-		It("Should handle typedef array of structs used in other structs", func() {
+		It("Should handle array wrapper of structs used in other structs", func() {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -727,12 +728,13 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`using Params = std::vector<Param>;`))
+			// Array distinct types should generate wrapper structs
+			Expect(content).To(ContainSubstring(`struct Params : private std::vector<Param>`))
 			Expect(content).To(ContainSubstring(`Params inputs;`))
 			Expect(content).To(ContainSubstring(`Params outputs;`))
 		})
 
-		It("Should order typedef after its dependency struct", func() {
+		It("Should order array wrapper after its dependency struct", func() {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -754,14 +756,14 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Param struct definition must appear before Params typedef
+			// Param struct definition must appear before Params wrapper
 			paramDefIdx := strings.Index(content, "struct Param {")
-			paramsIdx := strings.Index(content, "using Params")
+			paramsIdx := strings.Index(content, "struct Params : private")
 			Expect(paramDefIdx).To(BeNumerically("<", paramsIdx),
-				"Param struct definition should be declared before Params typedef")
+				"Param struct definition should be declared before Params wrapper")
 		})
 
-		It("Should generate forward declarations for structs before typedefs", func() {
+		It("Should generate forward declarations for structs before array wrappers", func() {
 			source := `
 				@cpp output "client/cpp/types"
 
@@ -783,12 +785,12 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Forward declaration must appear before typedef
+			// Forward declaration must appear before array wrapper
 			fwdDeclIdx := strings.Index(content, "struct Param;")
-			typedefIdx := strings.Index(content, "using Params")
+			wrapperIdx := strings.Index(content, "struct Params : private")
 			Expect(fwdDeclIdx).To(BeNumerically(">", -1), "Forward declaration should exist")
-			Expect(fwdDeclIdx).To(BeNumerically("<", typedefIdx),
-				"Forward declaration should appear before typedef")
+			Expect(fwdDeclIdx).To(BeNumerically("<", wrapperIdx),
+				"Forward declaration should appear before array wrapper")
 		})
 
 		It("Should handle cyclic dependencies with forward declarations", func() {
@@ -825,8 +827,8 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring("struct FunctionProperties;"))
 			Expect(content).To(ContainSubstring("struct Type;"))
 			Expect(content).To(ContainSubstring("struct Param;"))
-			// Typedef should reference Param
-			Expect(content).To(ContainSubstring("using Params = std::vector<Param>;"))
+			// Array wrapper should generate a struct, not a using alias
+			Expect(content).To(ContainSubstring("struct Params : private std::vector<Param>"))
 		})
 
 		It("Should handle int enums with uint8_t underlying type", func() {
@@ -1048,6 +1050,101 @@ var _ = Describe("C++ Types Plugin", func() {
 				mangoIdx := strings.Index(content, "mango;")
 				Expect(zebraIdx).To(BeNumerically("<", appleIdx))
 				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
+			})
+		})
+
+		Describe("Array Wrapper Generation", func() {
+			It("Should generate wrapper struct for array distinct types", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+
+					Channels uint32[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"struct Channels : private std::vector<std::uint32_t>",
+						"using Base = std::vector<std::uint32_t>;",
+						"using Base::Base;",
+						"using Base::begin;",
+						"using Base::end;",
+						"using Base::size;",
+						"using Base::push_back;",
+						"using Base::operator[]",
+					)
+			})
+
+			It("Should generate wrapper struct for array of structs", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+
+					Param struct {
+						name string
+						dataType string
+					}
+
+					Params Param[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"struct Params : private std::vector<Param>",
+						"using Base = std::vector<Param>;",
+					)
+			})
+
+			It("Should generate parse/to_json declarations for array wrappers", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+
+					Channels uint32[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"static Channels parse(x::json::Parser parser);",
+						"[[nodiscard]] x::json::json to_json() const;",
+					)
+			})
+
+			// Note: Proto declarations for array wrappers are tested in the pb plugin tests.
+			// The types plugin generates declarations when HasProto is set, which
+			// requires explicit @pb annotations on the type (tested in pb plugin).
+
+			It("Should support @cpp methods for custom methods on array wrappers", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+					@cpp methods "std::optional<Param> get(const std::string& name) const"
+
+					Param struct {
+						name string
+					}
+
+					Params Param[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"std::optional<Param> get(const std::string& name) const;",
+					)
+			})
+
+			It("Should generate initializer_list constructor for array wrappers", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+
+					Channels uint32[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"Channels(std::initializer_list<std::uint32_t> init) : Base(init) {}",
+					)
 			})
 		})
 	})

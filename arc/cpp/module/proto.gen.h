@@ -30,8 +30,11 @@ inline ::arc::module::pb::Module Module::to_proto() const {
         *pb.add_nodes() = item.to_proto();
     for (const auto &item: this->edges)
         *pb.add_edges() = item.to_proto();
-    for (const auto &item: this->strata)
-        pb.add_strata(item);
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item)
+            wrapper->add_values(v);
+    };
     for (const auto &item: this->sequences)
         *pb.add_sequences() = item.to_proto();
     pb.set_WASM(this->WASM);
@@ -58,8 +61,8 @@ Module::from_proto(const ::arc::module::pb::Module &pb) {
         if (err) return {{}, err};
         cpp.edges.push_back(v);
     }
-    for (const auto &item: pb.strata())
-        cpp.strata.push_back(item);
+    for (const auto &wrapper: pb.strata())
+        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
     for (const auto &item: pb.sequences()) {
         auto [v, err] = arc::ir::Sequence::from_proto(item);
         if (err) return {{}, err};

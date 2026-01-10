@@ -72,6 +72,27 @@ inline x::json::json {{.Name}}::to_json() const {
 }
 {{- end}}
 {{- end}}
+{{- range .ArrayWrappers}}
+
+inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
+    {{.Name}} result;
+    for (auto& item : parser.field<std::vector<{{.ElementType}}>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json {{.Name}}::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto& item : *this) {
+{{- if .ElementNeedsConvert}}
+        j.push_back(item.to_json());
+{{- else}}
+        j.push_back(item);
+{{- end}}
+    }
+    return j;
+}
+{{- end}}
 
 }
 `))

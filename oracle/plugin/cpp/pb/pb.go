@@ -74,6 +74,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
 	outputStructs := make(map[string][]resolution.Type)
+	outputDistinct := make(map[string][]resolution.Type)
 	var outputOrder []string
 
 	for _, entry := range req.Resolutions.StructTypes() {
@@ -101,6 +102,35 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			outputOrder = append(outputOrder, cppOutputPath)
 		}
 		outputStructs[cppOutputPath] = append(outputStructs[cppOutputPath], entry)
+	}
+
+	// Collect distinct types (array wrappers) that have pb support
+	// Array wrappers require an explicit @pb name directive, indicating a
+	// corresponding proto message exists (proto uses repeated fields by default)
+	for _, entry := range req.Resolutions.DistinctTypes() {
+		cppOutputPath := output.GetPath(entry, "cpp")
+		if cppOutputPath == "" {
+			continue
+		}
+		if omit.IsType(entry, "cpp") || omit.IsType(entry, "pb") {
+			continue
+		}
+		if !hasPBFlag(entry) || !hasExplicitPBName(entry) {
+			continue
+		}
+
+		// Only process array types
+		form, ok := entry.Form.(resolution.DistinctForm)
+		if !ok || form.Base.Name != "Array" {
+			continue
+		}
+
+		if _, exists := outputStructs[cppOutputPath]; !exists {
+			if _, exists := outputDistinct[cppOutputPath]; !exists {
+				outputOrder = append(outputOrder, cppOutputPath)
+			}
+		}
+		outputDistinct[cppOutputPath] = append(outputDistinct[cppOutputPath], entry)
 	}
 
 	standaloneEnums := make(map[string][]resolution.Type)
@@ -170,6 +200,19 @@ func hasPBFlag(t resolution.Type) bool {
 	return hasPB
 }
 
+// hasExplicitPBName returns true if the type has an explicit @pb name directive.
+// This is used to determine if an array wrapper has a corresponding proto message.
+func hasExplicitPBName(t resolution.Type) bool {
+	if domain, ok := t.Domains["pb"]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "name" && len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (p *Plugin) generateProto(
 	outputPath string,
 	structs []resolution.Type,
@@ -182,6 +225,7 @@ func (p *Plugin) generateProto(
 		Namespace:        deriveNamespace(outputPath),
 		Translators:      make([]translatorData, 0, len(structs)),
 		EnumTranslators:  make([]enumTranslatorData, 0),
+		ArrayWrappers:    make([]arrayWrapperTranslatorData, 0),
 		includes:         newIncludeManager(),
 		table:            req.Resolutions,
 		rawNs:            namespace,
@@ -239,7 +283,32 @@ func (p *Plugin) generateProto(
 		}
 	}
 
-	if len(data.Translators) == 0 && len(data.EnumTranslators) == 0 {
+	// Process array wrapper distinct types (e.g., Params Param[])
+	// Proto uses repeated fields for arrays, not wrapper messages.
+	// So array wrappers need explicit @pb name indicating a manually-defined proto message.
+	for _, dt := range req.Resolutions.DistinctTypes() {
+		if output.GetPath(dt, "cpp") != outputPath {
+			continue
+		}
+		if omit.IsType(dt, "cpp") || omit.IsType(dt, "pb") {
+			continue
+		}
+		if !hasPBFlag(dt) || !hasExplicitPBName(dt) {
+			continue
+		}
+
+		form, ok := dt.Form.(resolution.DistinctForm)
+		if !ok || form.Base.Name != "Array" {
+			continue
+		}
+
+		arrayWrapper := p.processArrayWrapperForTranslation(dt, form, data)
+		if arrayWrapper != nil {
+			data.ArrayWrappers = append(data.ArrayWrappers, *arrayWrapper)
+		}
+	}
+
+	if len(data.Translators) == 0 && len(data.EnumTranslators) == 0 && len(data.ArrayWrappers) == 0 {
 		return nil, nil
 	}
 
@@ -594,6 +663,10 @@ func (p *Plugin) generateDistinctConversion(
 
 	// Check if the distinct type is based on an Array (e.g., Params Param[])
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
+		// Check if this is a nested array (array of arrays)
+		if p.isNestedArrayType(form.Base, data.table) {
+			return p.generateNestedArrayConversion(fieldName, form.Base, data)
+		}
 		elemType := form.Base.TypeArgs[0]
 		return p.generateArrayAliasConversion(fieldName, elemType, data)
 	}
@@ -615,6 +688,10 @@ func (p *Plugin) generateAliasConversion(
 
 	// Check if the alias target is an Array (e.g., Params -> Param[])
 	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
+		// Check if this is a nested array (array of arrays)
+		if p.isNestedArrayType(form.Target, data.table) {
+			return p.generateNestedArrayConversion(fieldName, form.Target, data)
+		}
 		elemType := form.Target.TypeArgs[0]
 		return p.generateArrayAliasConversion(fieldName, elemType, data)
 	}
@@ -674,6 +751,11 @@ func (p *Plugin) generateArrayConversion(
 
 	if len(typeRef.TypeArgs) == 0 {
 		return "// TODO: array without type args", "// TODO: array without type args"
+	}
+
+	// Check if this is a nested array (array of arrays)
+	if p.isNestedArrayType(typeRef, data.table) {
+		return p.generateNestedArrayConversion(fieldName, typeRef, data)
 	}
 
 	elemType := typeRef.TypeArgs[0]
@@ -743,6 +825,106 @@ func (p *Plugin) generateMapConversion(
 	return forward, backward
 }
 
+// isArrayType checks if a type is an array type (directly or through aliases).
+func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	if typeRef.Name == "Array" {
+		return true
+	}
+
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.AliasForm:
+		return p.isArrayType(form.Target, table)
+	case resolution.DistinctForm:
+		return p.isArrayType(form.Base, table)
+	}
+
+	return false
+}
+
+// getArrayElementType returns the element type of an array type (following aliases).
+func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0], true
+	}
+
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.AliasForm:
+		return p.getArrayElementType(form.Target, table)
+	case resolution.DistinctForm:
+		return p.getArrayElementType(form.Base, table)
+	}
+
+	return resolution.TypeRef{}, false
+}
+
+// isNestedArrayType checks if a type is an array of arrays (nested array).
+func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	if !p.isArrayType(typeRef, table) {
+		return false
+	}
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return false
+	}
+	return p.isArrayType(elemType, table)
+}
+
+// getNestedArrayWrapperName returns the wrapper message name for a nested array element type.
+func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return "ArrayWrapper"
+	}
+
+	// Try to get a meaningful name from the element type
+	if resolved, ok := elemType.Resolve(table); ok {
+		return resolved.Name + "Wrapper"
+	}
+
+	if elemType.Name == "Array" {
+		return "ArrayWrapper"
+	}
+
+	return "ArrayWrapper"
+}
+
+// generateNestedArrayConversion generates conversion for nested array types (array of arrays).
+// This handles types like Strata which is Stratum[] where Stratum = string[].
+// Proto uses wrapper messages for these (e.g., StratumWrapper with repeated string values).
+func (p *Plugin) generateNestedArrayConversion(
+	fieldName string,
+	typeRef resolution.TypeRef,
+	data *templateData,
+) (forward, backward string) {
+	// Forward: wrap each inner array in a wrapper message
+	// for (const auto& item : this->strata) {
+	//     auto* wrapper = pb.add_strata();
+	//     for (const auto& v : item) wrapper->add_values(v);
+	// }
+	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto* wrapper = pb.add_%s();
+        for (const auto& v : item) wrapper->add_values(v);
+    }`, fieldName, fieldName)
+
+	// Backward: unwrap each wrapper to get the inner array
+	// for (const auto& wrapper : pb.strata())
+	//     cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
+	backward = fmt.Sprintf(`for (const auto& wrapper : pb.%s())
+        cpp.%s.push_back({wrapper.values().begin(), wrapper.values().end()});`, fieldName, fieldName)
+
+	return forward, backward
+}
+
 func (p *Plugin) processEnumForTranslation(
 	e resolution.Type,
 	data *templateData,
@@ -777,6 +959,51 @@ func (p *Plugin) processEnumForTranslation(
 		Values:      values,
 		PBDefault:   fmt.Sprintf("%s_UNSPECIFIED", toScreamingSnake(e.Name)),
 		CppDefault:  fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name)),
+	}
+}
+
+func (p *Plugin) processArrayWrapperForTranslation(
+	dt resolution.Type,
+	form resolution.DistinctForm,
+	data *templateData,
+) *arrayWrapperTranslatorData {
+	if form.Base.Name != "Array" || len(form.Base.TypeArgs) == 0 {
+		return nil
+	}
+
+	cppName := domain.GetName(dt, "cpp")
+	pbName := getPBName(dt)
+	pbOutputPath := output.GetPBPath(dt)
+	pbNamespace := derivePBCppNamespace(pbOutputPath)
+
+	elemType := form.Base.TypeArgs[0]
+	elemCppType := p.typeRefToCppForTranslator(elemType, data)
+
+	// Check if element needs conversion (i.e., it's a struct)
+	elementNeedsConvert := false
+	forwardConv := "pb.add_%s(item)"
+	backwardConv := "cpp.push_back(item)"
+
+	if !resolution.IsPrimitive(elemType.Name) {
+		if resolved, ok := elemType.Resolve(data.table); ok {
+			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+				elementNeedsConvert = true
+				forwardConv = "*pb.add_%s() = item.to_proto()"
+				backwardConv = fmt.Sprintf(`auto [v, err] = %s::from_proto(item);
+        if (err) return {{}, err};
+        cpp.push_back(v)`, elemCppType)
+			}
+		}
+	}
+
+	return &arrayWrapperTranslatorData{
+		CppName:             cppName,
+		PBName:              pbName,
+		PBNamespace:         pbNamespace,
+		ElementType:         elemCppType,
+		ElementNeedsConvert: elementNeedsConvert,
+		ForwardConv:         forwardConv,
+		BackwardConv:        backwardConv,
 	}
 }
 
@@ -917,11 +1144,22 @@ type templateData struct {
 	Namespace        string
 	Translators      []translatorData
 	EnumTranslators  []enumTranslatorData
+	ArrayWrappers    []arrayWrapperTranslatorData
 	includes         *includeManager
 	table            *resolution.Table
 	rawNs            string
 	processedEnums   map[string]bool
 	processedStructs map[string]bool
+}
+
+type arrayWrapperTranslatorData struct {
+	CppName             string
+	PBName              string
+	PBNamespace         string
+	ElementType         string
+	ElementNeedsConvert bool   // True if element is a struct that needs to_proto()/from_proto()
+	ForwardConv         string // Code to convert element to proto
+	BackwardConv        string // Code to convert element from proto
 }
 
 func (d *templateData) HasIncludes() bool {

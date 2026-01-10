@@ -25,11 +25,11 @@ namespace arc::module {
 
 inline Module Module::parse(x::json::Parser parser) {
     return Module{
-        .functions = parser.field<std::vector<arc::ir::Function>>("functions"),
-        .nodes = parser.field<std::vector<arc::ir::Node>>("nodes"),
-        .edges = parser.field<std::vector<arc::ir::Edge>>("edges"),
-        .strata = parser.field<std::vector<arc::ir::Stratum>>("strata"),
-        .sequences = parser.field<std::vector<arc::ir::Sequence>>("sequences"),
+        .functions = parser.field<arc::ir::Functions>("functions"),
+        .nodes = parser.field<arc::ir::Nodes>("nodes"),
+        .edges = parser.field<arc::ir::Edges>("edges"),
+        .strata = parser.field<arc::ir::Strata>("strata"),
+        .sequences = parser.field<arc::ir::Sequences>("sequences"),
         .WASM = parser.field<std::vector<std::uint8_t>>("WASM"),
         .OutputMemoryBases = parser
                                  .field<std::unordered_map<std::string, std::uint32_t>>(
@@ -40,31 +40,11 @@ inline Module Module::parse(x::json::Parser parser) {
 
 inline x::json::json Module::to_json() const {
     x::json::json j;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->functions)
-            arr.push_back(item.to_json());
-        j["functions"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->nodes)
-            arr.push_back(item.to_json());
-        j["nodes"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->edges)
-            arr.push_back(item.to_json());
-        j["edges"] = arr;
-    }
-    j["strata"] = this->strata;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->sequences)
-            arr.push_back(item.to_json());
-        j["sequences"] = arr;
-    }
+    j["functions"] = this->functions.to_json();
+    j["nodes"] = this->nodes.to_json();
+    j["edges"] = this->edges.to_json();
+    j["strata"] = this->strata.to_json();
+    j["sequences"] = this->sequences.to_json();
     j["WASM"] = this->WASM;
     j["OutputMemoryBases"] = this->OutputMemoryBases;
     return j;

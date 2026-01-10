@@ -419,10 +419,77 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	}
 	// Check for @cpp name override
 	name := domain.GetName(td, "cpp")
-	return typeDefData{
+
+	tdd := typeDefData{
 		Name:    name,
 		CppType: p.typeRefToCpp(form.Base, data),
 	}
+
+	// Check if this is an array type - if so, generate a wrapper struct
+	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
+		tdd.IsArrayWrapper = true
+		elemTypeRef := form.Base.TypeArgs[0]
+		tdd.ElementType = p.typeRefToCpp(elemTypeRef, data)
+		// Check if element is primitive - allows inline initializer_list constructor
+		tdd.ElementIsPrimitive = resolution.IsPrimitive(elemTypeRef.Name)
+
+		// Extract custom methods from @cpp directives
+		if cppDomain, ok := td.Domains["cpp"]; ok {
+			if methodsExpr, found := cppDomain.Expressions.Find("methods"); found {
+				for _, v := range methodsExpr.Values {
+					if v.StringValue != "" {
+						tdd.Methods = append(tdd.Methods, v.StringValue)
+					}
+				}
+			}
+			// Add custom includes required by the methods
+			if includesExpr, found := cppDomain.Expressions.Find("includes"); found {
+				for _, v := range includesExpr.Values {
+					if v.StringValue != "" {
+						data.includes.addInternal(v.StringValue)
+					}
+				}
+			}
+			// Add system includes
+			if sysIncludesExpr, found := cppDomain.Expressions.Find("system_includes"); found {
+				for _, v := range sysIncludesExpr.Values {
+					if v.StringValue != "" {
+						data.includes.addSystem(v.StringValue)
+					}
+				}
+			}
+		}
+
+		// Note: Array wrappers do NOT get proto support by default because
+		// proto uses repeated fields, not wrapper messages. Proto support for
+		// array wrappers requires an explicit @pb name directive indicating
+		// a corresponding proto message exists.
+		if hasPBFlag(td) && !omit.IsType(td, "pb") {
+			// Only generate proto for array wrappers if they have an explicit @pb name
+			// (meaning someone defined a proto message for this wrapper type)
+			if hasExplicitPBName(td) {
+				pbOutputPath := output.GetPBPath(td)
+				if pbOutputPath != "" {
+					pbName := getPBName(td)
+					pbNamespace := derivePBCppNamespace(pbOutputPath)
+					tdd.HasProto = true
+					tdd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
+					tdd.ProtoNamespace = pbNamespace
+					tdd.ProtoClass = pbName
+					data.includes.addSystem("utility")
+					data.includes.addInternal("x/cpp/errors/errors.h")
+					// Include the protobuf header
+					protoInclude := fmt.Sprintf("%s/%s.pb.h", pbOutputPath, td.Namespace)
+					data.includes.addInternal(protoInclude)
+				}
+			}
+		}
+
+		// Array wrappers need json.h for parse/to_json
+		data.includes.addInternal("x/cpp/json/json.h")
+	}
+
+	return tdd
 }
 
 func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasData {
@@ -933,8 +1000,16 @@ type keyFieldData struct {
 }
 
 type typeDefData struct {
-	Name    string
-	CppType string
+	Name               string
+	CppType            string
+	IsArrayWrapper     bool     // True if this is an array distinct type that should be a wrapper struct
+	ElementType        string   // The element type for array wrappers
+	ElementIsPrimitive bool     // True if element type is primitive (allows initializer_list constructor)
+	Methods            []string // Custom methods from @cpp methods
+	HasProto           bool
+	ProtoType          string
+	ProtoNamespace     string
+	ProtoClass         string
 }
 
 type aliasData struct {
@@ -1006,6 +1081,19 @@ func getPBName(s resolution.Type) string {
 	return s.Name
 }
 
+// hasExplicitPBName returns true if the type has an explicit @pb name directive.
+// This is used to determine if an array wrapper has a corresponding proto message.
+func hasExplicitPBName(s resolution.Type) bool {
+	if domain, ok := s.Domains["pb"]; ok {
+		for _, expr := range domain.Expressions {
+			if expr.Name == "name" && len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 var templateFuncs = template.FuncMap{
 	"join":             strings.Join,
 	"toUpper":          strings.ToUpper,
@@ -1054,7 +1142,77 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- if $d.IsTypeDef}}
 {{- $td := $d.TypeDef}}
 {{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
-{{end}}using {{$td.Name}} = {{$td.CppType}};
+{{end}}
+{{- if $td.IsArrayWrapper}}
+struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
+    using Base = std::vector<{{$td.ElementType}}>;
+
+    // Inherit constructors - these are instantiated at point of use, not declaration
+    using Base::Base;
+    {{$td.Name}}() = default;
+{{- if $td.ElementIsPrimitive}}
+    {{$td.Name}}(std::initializer_list<{{$td.ElementType}}> init) : Base(init) {}
+{{- end}}
+
+    // Container interface
+    using Base::value_type;
+    using Base::iterator;
+    using Base::const_iterator;
+    using Base::reverse_iterator;
+    using Base::const_reverse_iterator;
+    using Base::size_type;
+    using Base::difference_type;
+    using Base::reference;
+    using Base::const_reference;
+    using Base::begin;
+    using Base::end;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::rbegin;
+    using Base::rend;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::size;
+    using Base::empty;
+    using Base::max_size;
+    using Base::capacity;
+    using Base::reserve;
+    using Base::shrink_to_fit;
+    using Base::operator[];
+    using Base::at;
+    using Base::front;
+    using Base::back;
+    using Base::data;
+    using Base::push_back;
+    using Base::emplace_back;
+    using Base::pop_back;
+    using Base::insert;
+    using Base::emplace;
+    using Base::erase;
+    using Base::clear;
+    using Base::resize;
+    using Base::swap;
+    using Base::assign;
+
+    static {{$td.Name}} parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+{{- if $td.HasProto}}
+
+    using proto_type = {{$td.ProtoType}};
+    [[nodiscard]] {{$td.ProtoType}} to_proto() const;
+    static std::pair<{{$td.Name}}, x::errors::Error> from_proto(const {{$td.ProtoType}}& pb);
+{{- end}}
+{{- if $td.Methods}}
+
+    // Custom methods
+{{- range $td.Methods}}
+    {{.}};
+{{- end}}
+{{- end}}
+};
+{{- else}}
+using {{$td.Name}} = {{$td.CppType}};
+{{- end}}
 {{- else if $d.IsAlias}}
 {{- $a := $d.Alias}}
 {{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}

@@ -55,7 +55,7 @@ inline Stage Stage::parse(x::json::Parser parser) {
     return Stage{
         .key = parser.field<std::string>("key"),
         .nodes = parser.field<std::vector<std::string>>("nodes"),
-        .strata = parser.field<std::vector<Stratum>>("strata"),
+        .strata = parser.field<Strata>("strata"),
     };
 }
 
@@ -63,7 +63,7 @@ inline x::json::json Stage::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["nodes"] = this->nodes;
-    j["strata"] = this->strata;
+    j["strata"] = this->strata.to_json();
     return j;
 }
 
@@ -102,9 +102,9 @@ inline Function Function::parse(x::json::Parser parser) {
     return Function{
         .key = parser.field<std::string>("key"),
         .body = parser.field<Body>("body"),
-        .config = parser.field<std::vector<arc::types::Param>>("config"),
-        .inputs = parser.field<std::vector<arc::types::Param>>("inputs"),
-        .outputs = parser.field<std::vector<arc::types::Param>>("outputs"),
+        .config = parser.field<arc::types::Params>("config"),
+        .inputs = parser.field<arc::types::Params>("inputs"),
+        .outputs = parser.field<arc::types::Params>("outputs"),
         .channels = parser.field<arc::types::Channels>("channels"),
     };
 }
@@ -113,24 +113,9 @@ inline x::json::json Function::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["body"] = this->body.to_json();
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->config)
-            arr.push_back(item.to_json());
-        j["config"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->inputs)
-            arr.push_back(item.to_json());
-        j["inputs"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->outputs)
-            arr.push_back(item.to_json());
-        j["outputs"] = arr;
-    }
+    j["config"] = this->config.to_json();
+    j["inputs"] = this->inputs.to_json();
+    j["outputs"] = this->outputs.to_json();
     j["channels"] = this->channels.to_json();
     return j;
 }
@@ -139,9 +124,9 @@ inline Node Node::parse(x::json::Parser parser) {
     return Node{
         .key = parser.field<std::string>("key"),
         .type = parser.field<std::string>("type"),
-        .config = parser.field<std::vector<arc::types::Param>>("config"),
-        .inputs = parser.field<std::vector<arc::types::Param>>("inputs"),
-        .outputs = parser.field<std::vector<arc::types::Param>>("outputs"),
+        .config = parser.field<arc::types::Params>("config"),
+        .inputs = parser.field<arc::types::Params>("inputs"),
+        .outputs = parser.field<arc::types::Params>("outputs"),
         .channels = parser.field<arc::types::Channels>("channels"),
     };
 }
@@ -150,64 +135,119 @@ inline x::json::json Node::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["type"] = this->type;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->config)
-            arr.push_back(item.to_json());
-        j["config"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->inputs)
-            arr.push_back(item.to_json());
-        j["inputs"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->outputs)
-            arr.push_back(item.to_json());
-        j["outputs"] = arr;
-    }
+    j["config"] = this->config.to_json();
+    j["inputs"] = this->inputs.to_json();
+    j["outputs"] = this->outputs.to_json();
     j["channels"] = this->channels.to_json();
     return j;
 }
 
 inline IR IR::parse(x::json::Parser parser) {
     return IR{
-        .functions = parser.field<std::vector<Function>>("functions"),
-        .nodes = parser.field<std::vector<Node>>("nodes"),
-        .edges = parser.field<std::vector<Edge>>("edges"),
-        .strata = parser.field<std::vector<Stratum>>("strata"),
-        .sequences = parser.field<std::vector<Sequence>>("sequences"),
+        .functions = parser.field<Functions>("functions"),
+        .nodes = parser.field<Nodes>("nodes"),
+        .edges = parser.field<Edges>("edges"),
+        .strata = parser.field<Strata>("strata"),
+        .sequences = parser.field<Sequences>("sequences"),
     };
 }
 
 inline x::json::json IR::to_json() const {
     x::json::json j;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->functions)
-            arr.push_back(item.to_json());
-        j["functions"] = arr;
+    j["functions"] = this->functions.to_json();
+    j["nodes"] = this->nodes.to_json();
+    j["edges"] = this->edges.to_json();
+    j["strata"] = this->strata.to_json();
+    j["sequences"] = this->sequences.to_json();
+    return j;
+}
+
+inline Edges Edges::parse(x::json::Parser parser) {
+    Edges result;
+    for (auto &item: parser.field<std::vector<Edge>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Edges::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
     }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->nodes)
-            arr.push_back(item.to_json());
-        j["nodes"] = arr;
+    return j;
+}
+
+inline Stages Stages::parse(x::json::Parser parser) {
+    Stages result;
+    for (auto &item: parser.field<std::vector<Stage>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Stages::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
     }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->edges)
-            arr.push_back(item.to_json());
-        j["edges"] = arr;
+    return j;
+}
+
+inline Sequences Sequences::parse(x::json::Parser parser) {
+    Sequences result;
+    for (auto &item: parser.field<std::vector<Sequence>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Sequences::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
     }
-    j["strata"] = this->strata;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->sequences)
-            arr.push_back(item.to_json());
-        j["sequences"] = arr;
+    return j;
+}
+
+inline Functions Functions::parse(x::json::Parser parser) {
+    Functions result;
+    for (auto &item: parser.field<std::vector<Function>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Functions::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
+    }
+    return j;
+}
+
+inline Strata Strata::parse(x::json::Parser parser) {
+    Strata result;
+    for (auto &item: parser.field<std::vector<Stratum>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Strata::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item);
+    }
+    return j;
+}
+
+inline Nodes Nodes::parse(x::json::Parser parser) {
+    Nodes result;
+    for (auto &item: parser.field<std::vector<Node>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Nodes::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
     }
     return j;
 }

@@ -23,40 +23,25 @@ namespace arc::types {
 
 inline FunctionProperties FunctionProperties::parse(x::json::Parser parser) {
     return FunctionProperties{
-        .inputs = parser.field<std::vector<Param>>("inputs"),
-        .outputs = parser.field<std::vector<Param>>("outputs"),
-        .config = parser.field<std::vector<Param>>("config"),
+        .inputs = parser.field<Params>("inputs"),
+        .outputs = parser.field<Params>("outputs"),
+        .config = parser.field<Params>("config"),
     };
 }
 
 inline x::json::json FunctionProperties::to_json() const {
     x::json::json j;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->inputs)
-            arr.push_back(item.to_json());
-        j["inputs"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->outputs)
-            arr.push_back(item.to_json());
-        j["outputs"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->config)
-            arr.push_back(item.to_json());
-        j["config"] = arr;
-    }
+    j["inputs"] = this->inputs.to_json();
+    j["outputs"] = this->outputs.to_json();
+    j["config"] = this->config.to_json();
     return j;
 }
 
 inline Type Type::parse(x::json::Parser parser) {
     return Type{
-        .inputs = parser.field<std::vector<Param>>("inputs"),
-        .outputs = parser.field<std::vector<Param>>("outputs"),
-        .config = parser.field<std::vector<Param>>("config"),
+        .inputs = parser.field<Params>("inputs"),
+        .outputs = parser.field<Params>("outputs"),
+        .config = parser.field<Params>("config"),
         .kind = parser.field<Kind>("kind"),
         .name = parser.field<std::string>("name"),
         .elem = parser.has("elem") ? x::mem::indirect<Type>(parser.field<Type>("elem"))
@@ -70,24 +55,9 @@ inline Type Type::parse(x::json::Parser parser) {
 
 inline x::json::json Type::to_json() const {
     x::json::json j;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->inputs)
-            arr.push_back(item.to_json());
-        j["inputs"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->outputs)
-            arr.push_back(item.to_json());
-        j["outputs"] = arr;
-    }
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->config)
-            arr.push_back(item.to_json());
-        j["config"] = arr;
-    }
+    j["inputs"] = this->inputs.to_json();
+    j["outputs"] = this->outputs.to_json();
+    j["config"] = this->config.to_json();
     j["kind"] = this->kind;
     j["name"] = this->name;
     if (this->elem.has_value()) j["elem"] = this->elem->to_json();
@@ -165,6 +135,21 @@ inline x::json::json Unit::to_json() const {
     j["dimensions"] = this->dimensions.to_json();
     j["scale"] = this->scale;
     j["name"] = this->name;
+    return j;
+}
+
+inline Params Params::parse(x::json::Parser parser) {
+    Params result;
+    for (auto &item: parser.field<std::vector<Param>>())
+        result.push_back(std::move(item));
+    return result;
+}
+
+inline x::json::json Params::to_json() const {
+    x::json::json j = x::json::json::array();
+    for (const auto &item: *this) {
+        j.push_back(item.to_json());
+    }
     return j;
 }
 

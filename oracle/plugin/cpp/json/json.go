@@ -78,14 +78,35 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	for _, outputPath := range structCollector.Paths() {
+	// Also collect distinct types (typedefs) for array wrappers
+	distinctCollector, err := framework.CollectDistinct("cpp", req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Combine paths from both collectors
+	allPaths := make(map[string]bool)
+	for _, path := range structCollector.Paths() {
+		allPaths[path] = true
+	}
+	for _, path := range distinctCollector.Paths() {
+		allPaths[path] = true
+	}
+
+	for outputPath := range allPaths {
 		structs := structCollector.Get(outputPath)
-		if len(structs) == 0 {
+		distinctTypes := distinctCollector.Get(outputPath)
+
+		var namespace string
+		if len(structs) > 0 {
+			namespace = structs[0].Namespace
+		} else if len(distinctTypes) > 0 {
+			namespace = distinctTypes[0].Namespace
+		} else {
 			continue
 		}
 
-		namespace := structs[0].Namespace
-		content, err := p.generateFile(outputPath, structs, namespace, req)
+		content, err := p.generateFile(outputPath, structs, distinctTypes, namespace, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate json for %s", outputPath)
 		}
@@ -103,16 +124,18 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
+	distinctTypes []resolution.Type,
 	namespace string,
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		OutputPath:  outputPath,
-		Namespace:   deriveNamespace(outputPath),
-		Serializers: make([]serializerData, 0, len(structs)),
-		includes:    newIncludeManager(),
-		table:       req.Resolutions,
-		rawNs:       namespace,
+		OutputPath:     outputPath,
+		Namespace:      deriveNamespace(outputPath),
+		Serializers:    make([]serializerData, 0, len(structs)),
+		ArrayWrappers:  make([]arrayWrapperData, 0),
+		includes:       newIncludeManager(),
+		table:          req.Resolutions,
+		rawNs:          namespace,
 	}
 
 	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
@@ -131,7 +154,18 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	if len(data.Serializers) == 0 {
+	// Process distinct types that are array wrappers
+	for _, dt := range distinctTypes {
+		if omit.IsType(dt, "cpp") {
+			continue
+		}
+		wrapper := p.processArrayWrapper(dt, data)
+		if wrapper != nil {
+			data.ArrayWrappers = append(data.ArrayWrappers, *wrapper)
+		}
+	}
+
+	if len(data.Serializers) == 0 && len(data.ArrayWrappers) == 0 {
 		return nil, nil
 	}
 
@@ -140,6 +174,38 @@ func (p *Plugin) generateFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// processArrayWrapper processes a distinct type that is an array to generate
+// JSON serialization for the wrapper struct.
+func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *arrayWrapperData {
+	form, ok := dt.Form.(resolution.DistinctForm)
+	if !ok {
+		return nil
+	}
+
+	// Only process array types
+	if form.Base.Name != "Array" || len(form.Base.TypeArgs) == 0 {
+		return nil
+	}
+
+	name := domain.GetName(dt, "cpp")
+	elemType := form.Base.TypeArgs[0]
+	elemCppType := p.typeRefToCpp(elemType, data)
+
+	// Check if element type is a struct (needs to_json()/parse())
+	elemNeedsConversion := false
+	if elemResolved, ok := elemType.Resolve(data.table); ok {
+		if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
+			elemNeedsConversion = true
+		}
+	}
+
+	return &arrayWrapperData{
+		Name:                name,
+		ElementType:         elemCppType,
+		ElementNeedsConvert: elemNeedsConversion,
+	}
 }
 
 func (p *Plugin) processStruct(
@@ -346,7 +412,25 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
 	}
 
-	// Check for Array or alias that resolves to Array
+	// Check if the type is a distinct array wrapper (e.g., Params -> Param[])
+	// Parser::field<T> will call T::parse() automatically via has_static_parse trait
+	if resolved, ok := typeRef.Resolve(data.table); ok {
+		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
+				wrapperType := domain.GetName(resolved, "cpp")
+				if resolved.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(resolved, "cpp")
+					if targetOutputPath != "" {
+						ns := deriveNamespace(targetOutputPath)
+						wrapperType = fmt.Sprintf("%s::%s", ns, wrapperType)
+					}
+				}
+				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
+			}
+		}
+	}
+
+	// Check for raw Array or alias that resolves to Array (not a distinct wrapper)
 	if elemType, isArray := p.resolveToArrayElement(typeRef, data); isArray {
 		innerType := p.typeRefToCpp(elemType, data)
 
@@ -481,7 +565,17 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
         j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, jsonName, fieldName)
 	}
 
-	// Check for Array or alias that resolves to Array (like Params -> Param[])
+	// Check if the type is a distinct array wrapper (e.g., Params -> Param[])
+	// These have their own to_json() method
+	if resolved, ok := typeRef.Resolve(data.table); ok {
+		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
+				return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+			}
+		}
+	}
+
+	// Check for raw Array or alias that resolves to Array (like Params -> Param[])
 	if elemType, isArray := p.resolveToArrayElement(typeRef, data); isArray {
 		if elemType.TypeParam != nil {
 			typeName := elemType.TypeParam.Name
@@ -606,12 +700,19 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	OutputPath  string
-	Namespace   string
-	Serializers []serializerData
-	includes    *includeManager
-	table       *resolution.Table
-	rawNs       string
+	OutputPath    string
+	Namespace     string
+	Serializers   []serializerData
+	ArrayWrappers []arrayWrapperData
+	includes      *includeManager
+	table         *resolution.Table
+	rawNs         string
+}
+
+type arrayWrapperData struct {
+	Name                string
+	ElementType         string
+	ElementNeedsConvert bool // True if element is a struct that needs to_json()/parse()
 }
 
 func (d *templateData) HasIncludes() bool {

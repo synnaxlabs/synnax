@@ -67,8 +67,11 @@ inline ::arc::ir::pb::Stage Stage::to_proto() const {
     pb.set_key(this->key);
     for (const auto &item: this->nodes)
         pb.add_nodes(item);
-    for (const auto &item: this->strata)
-        pb.add_strata(item);
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item)
+            wrapper->add_values(v);
+    };
     return pb;
 }
 
@@ -78,8 +81,8 @@ Stage::from_proto(const ::arc::ir::pb::Stage &pb) {
     cpp.key = pb.key();
     for (const auto &item: pb.nodes())
         cpp.nodes.push_back(item);
-    for (const auto &item: pb.strata())
-        cpp.strata.push_back(item);
+    for (const auto &wrapper: pb.strata())
+        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
     return {cpp, x::errors::NIL};
 }
 
@@ -212,8 +215,11 @@ inline ::arc::ir::pb::IR IR::to_proto() const {
         *pb.add_nodes() = item.to_proto();
     for (const auto &item: this->edges)
         *pb.add_edges() = item.to_proto();
-    for (const auto &item: this->strata)
-        pb.add_strata(item);
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item)
+            wrapper->add_values(v);
+    };
     for (const auto &item: this->sequences)
         *pb.add_sequences() = item.to_proto();
     return pb;
@@ -236,8 +242,8 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         if (err) return {{}, err};
         cpp.edges.push_back(v);
     }
-    for (const auto &item: pb.strata())
-        cpp.strata.push_back(item);
+    for (const auto &wrapper: pb.strata())
+        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
     for (const auto &item: pb.sequences()) {
         auto [v, err] = Sequence::from_proto(item);
         if (err) return {{}, err};

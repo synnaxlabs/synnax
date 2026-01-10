@@ -111,6 +111,32 @@ inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
 }
 {{- end}}
 {{- end}}
+{{- range .ArrayWrappers}}
+
+inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {
+    {{.PBNamespace}}::{{.PBName}} pb;
+{{- if .ElementNeedsConvert}}
+    for (const auto& item : *this) *pb.add_values() = item.to_proto();
+{{- else}}
+    for (const auto& item : *this) pb.add_values(item);
+{{- end}}
+    return pb;
+}
+
+inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
+    const {{.PBNamespace}}::{{.PBName}}& pb
+) {
+    {{.CppName}} cpp;
+{{- if .ElementNeedsConvert}}
+    for (const auto& item : pb.values()) {
+        {{.BackwardConv}};
+    }
+{{- else}}
+    for (const auto& item : pb.values()) cpp.push_back(item);
+{{- end}}
+    return {cpp, x::errors::NIL};
+}
+{{- end}}
 
 }
 `))

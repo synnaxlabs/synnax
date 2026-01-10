@@ -246,6 +246,42 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
+// LocationToPB converts spatial.Location to Location.
+func LocationToPB(v spatial.Location) Location {
+	switch v {
+	case spatial.LocationTop:
+		return Location_LOCATION_TOP
+	case spatial.LocationRight:
+		return Location_LOCATION_RIGHT
+	case spatial.LocationBottom:
+		return Location_LOCATION_BOTTOM
+	case spatial.LocationLeft:
+		return Location_LOCATION_LEFT
+	case spatial.LocationCenter:
+		return Location_LOCATION_CENTER
+	default:
+		return Location_LOCATION_UNSPECIFIED
+	}
+}
+
+// LocationFromPB converts Location to spatial.Location.
+func LocationFromPB(v Location) spatial.Location {
+	switch v {
+	case Location_LOCATION_TOP:
+		return spatial.LocationTop
+	case Location_LOCATION_RIGHT:
+		return spatial.LocationRight
+	case Location_LOCATION_BOTTOM:
+		return spatial.LocationBottom
+	case Location_LOCATION_LEFT:
+		return spatial.LocationLeft
+	case Location_LOCATION_CENTER:
+		return spatial.LocationCenter
+	default:
+		return spatial.LocationTop
+	}
+}
+
 // AlignmentToPB converts spatial.Alignment to Alignment.
 func AlignmentToPB(v spatial.Alignment) Alignment {
 	switch v {
@@ -419,41 +455,5 @@ func CenterLocationFromPB(v CenterLocation) spatial.CenterLocation {
 		return spatial.CenterLocationCenter
 	default:
 		return spatial.CenterLocationCenter
-	}
-}
-
-// LocationToPB converts spatial.Location to Location.
-func LocationToPB(v spatial.Location) Location {
-	switch v {
-	case spatial.LocationTop:
-		return Location_LOCATION_TOP
-	case spatial.LocationRight:
-		return Location_LOCATION_RIGHT
-	case spatial.LocationBottom:
-		return Location_LOCATION_BOTTOM
-	case spatial.LocationLeft:
-		return Location_LOCATION_LEFT
-	case spatial.LocationCenter:
-		return Location_LOCATION_CENTER
-	default:
-		return Location_LOCATION_UNSPECIFIED
-	}
-}
-
-// LocationFromPB converts Location to spatial.Location.
-func LocationFromPB(v Location) spatial.Location {
-	switch v {
-	case Location_LOCATION_TOP:
-		return spatial.LocationTop
-	case Location_LOCATION_RIGHT:
-		return spatial.LocationRight
-	case Location_LOCATION_BOTTOM:
-		return spatial.LocationBottom
-	case Location_LOCATION_LEFT:
-		return spatial.LocationLeft
-	case Location_LOCATION_CENTER:
-		return spatial.LocationCenter
-	default:
-		return spatial.LocationTop
 	}
 }

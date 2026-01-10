@@ -56,7 +56,56 @@ struct Viewport {
     from_proto(const ::arc::graph::pb::Viewport &pb);
 };
 
-using Nodes = std::vector<Node>;
+struct Nodes : private std::vector<Node> {
+    using Base = std::vector<Node>;
+
+    // Inherit constructors - these are instantiated at point of use, not declaration
+    using Base::Base;
+    Nodes() = default;
+
+    // Container interface
+    using Base::begin;
+    using Base::capacity;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::const_iterator;
+    using Base::const_reference;
+    using Base::const_reverse_iterator;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::difference_type;
+    using Base::empty;
+    using Base::end;
+    using Base::iterator;
+    using Base::max_size;
+    using Base::rbegin;
+    using Base::reference;
+    using Base::rend;
+    using Base::reserve;
+    using Base::reverse_iterator;
+    using Base::shrink_to_fit;
+    using Base::size;
+    using Base::size_type;
+    using Base::value_type;
+    using Base::operator[];
+    using Base::assign;
+    using Base::at;
+    using Base::back;
+    using Base::clear;
+    using Base::data;
+    using Base::emplace;
+    using Base::emplace_back;
+    using Base::erase;
+    using Base::front;
+    using Base::insert;
+    using Base::pop_back;
+    using Base::push_back;
+    using Base::resize;
+    using Base::swap;
+
+    static Nodes parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 struct Graph {
     Viewport viewport;

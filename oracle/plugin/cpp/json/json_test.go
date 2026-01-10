@@ -351,5 +351,50 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 		})
+
+		Context("array wrapper distinct types", func() {
+			It("Should generate parse/to_json for array wrappers with primitive elements", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+
+					Channels uint32[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				testutil.ExpectContent(resp, "json.gen.h").
+					ToContain(
+						// parse method
+						"inline Channels Channels::parse(x::json::Parser parser) {",
+						"for (auto& elem : parser.array())",
+						// to_json method
+						"inline x::json::json Channels::to_json() const {",
+						"x::json::json j = x::json::json::array()",
+						"for (const auto& item : *this)",
+					)
+			})
+
+			It("Should generate parse/to_json for array wrappers with struct elements", func() {
+				source := `
+					@cpp output "arc/cpp/types"
+
+					Param struct {
+						name string
+					}
+
+					Params Param[]
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				testutil.ExpectContent(resp, "json.gen.h").
+					ToContain(
+						// parse method should call Param::parse for each element
+						"inline Params Params::parse(x::json::Parser parser) {",
+						"result.push_back(Param::parse(elem))",
+						// to_json method should call item.to_json() for each element
+						"inline x::json::json Params::to_json() const {",
+						"j.push_back(item.to_json())",
+					)
+			})
+		})
 	})
 })
