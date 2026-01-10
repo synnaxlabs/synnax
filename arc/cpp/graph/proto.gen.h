@@ -44,7 +44,7 @@ Node::from_proto(const ::arc::graph::pb::Node &pb) {
         cpp.config = val;
     }
     {
-        auto [val, err] = x::spatial::XY::from_proto(pb.position());
+        auto [val, err] = ::x::spatial::XY::from_proto(pb.position());
         if (err) return {{}, err};
         cpp.position = val;
     }
@@ -62,7 +62,7 @@ inline std::pair<Viewport, x::errors::Error>
 Viewport::from_proto(const ::arc::graph::pb::Viewport &pb) {
     Viewport cpp;
     {
-        auto [val, err] = x::spatial::XY::from_proto(pb.position());
+        auto [val, err] = ::x::spatial::XY::from_proto(pb.position());
         if (err) return {{}, err};
         cpp.position = val;
     }
@@ -91,12 +91,12 @@ Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
         cpp.viewport = val;
     }
     for (const auto &item: pb.functions()) {
-        auto [v, err] = arc::ir::Function::from_proto(item);
+        auto [v, err] = ::arc::ir::Function::from_proto(item);
         if (err) return {{}, err};
         cpp.functions.push_back(v);
     }
     for (const auto &item: pb.edges()) {
-        auto [v, err] = arc::ir::Edge::from_proto(item);
+        auto [v, err] = ::arc::ir::Edge::from_proto(item);
         if (err) return {{}, err};
         cpp.edges.push_back(v);
     }

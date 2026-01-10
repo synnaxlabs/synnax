@@ -49,7 +49,9 @@ class TestOntology:
         assert g.key is not None
         g2 = client.groups.create(sy.group.ontology_id(g.key), name)
         assert g2.key is not None
-        client.ontology.remove_children(sy.group.ontology_id(g.key), sy.group.ontology_id(g2.key))
+        client.ontology.remove_children(
+            sy.group.ontology_id(g.key), sy.group.ontology_id(g2.key)
+        )
         children = client.ontology.retrieve_children(sy.group.ontology_id(g.key))
         assert len(children) == 0
 
@@ -59,7 +61,11 @@ class TestOntology:
         assert g.key is not None
         g2 = client.groups.create(sy.ontology.ROOT_ID, name)
         assert g2.key is not None
-        client.ontology.move_children(sy.group.ontology_id(g.key), sy.group.ontology_id(g2.key), sy.group.ontology_id(g.key))
+        client.ontology.move_children(
+            sy.group.ontology_id(g.key),
+            sy.group.ontology_id(g2.key),
+            sy.group.ontology_id(g.key),
+        )
         children = client.ontology.retrieve_children(sy.group.ontology_id(g2.key))
         assert len(children) == 1
         assert children[0].name == name

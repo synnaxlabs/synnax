@@ -16,6 +16,7 @@
 
 #include "client/cpp/rack/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"
 

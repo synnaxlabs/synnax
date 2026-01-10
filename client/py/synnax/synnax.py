@@ -25,9 +25,9 @@ from synnax.control import Client as ControlClient
 from synnax.device import Client as DeviceClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
+from synnax.group import Client as GroupClient
 from synnax.kv import Client as KVClient
 from synnax.ontology import Client as OntologyClient
-from synnax.group import Client as GroupClient
 from synnax.options import SynnaxOptions
 from synnax.rack import Client as RackClient
 from synnax.ranger import RangeRetriever, RangeWriter

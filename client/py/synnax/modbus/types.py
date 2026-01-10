@@ -524,7 +524,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
 
             props["read"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -604,7 +604,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             # Map the generated key to the Synnax channel that will send command values
             props["write"]["channels"][key] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -685,5 +685,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

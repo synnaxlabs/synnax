@@ -41,20 +41,6 @@ Device struct<
     status     Status??
 
     @ontology type "device"
-    @go omit
-    @pb omit
-    @cpp omit
-}
-
-GoDevice struct extends Device<json, string, string> {
-    properties string
-    -properties
-
-    @go name  "Device"
-    @pb name  "Device"
-    @cpp name "Payload"
-    @py omit
-    @ts omit
 }
 
 New struct<
@@ -69,5 +55,6 @@ New struct<
     @ts use_input
     @go omit
     @pb omit
+    @py omit
     @cpp omit
 }

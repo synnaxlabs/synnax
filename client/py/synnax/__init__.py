@@ -142,5 +142,5 @@ __all__ = [
     "auth",
     "status",
     "Status",
-    "group"
+    "group",
 ]

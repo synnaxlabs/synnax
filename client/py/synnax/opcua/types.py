@@ -384,7 +384,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             if ch.node_id:
                 props["read"]["channels"][ch.node_id] = ch.channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -463,7 +463,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
             if ch.node_id:
                 props["write"]["channels"][ch.node_id] = ch.cmd_channel
 
-        dev.properties = json.dumps(props)
+        dev.properties = props
         return device_client.create(dev)
 
 
@@ -576,5 +576,5 @@ class Device(device.Device):
             make=MAKE,
             model=MODEL,
             configured=configured,
-            properties=json.dumps(props),
+            properties=props,
         )

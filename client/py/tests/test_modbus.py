@@ -546,16 +546,15 @@ class TestModbusDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
 
         # Verify read.channels mapping exists
-        assert "read" in props
-        assert "channels" in props["read"]
+        assert "read" in updated_device.properties
+        assert "channels" in updated_device.properties["read"]
 
         # Verify channel keys match Console format:
         # InputRegisterChan: "register-input-{address}-{dataType}"
         # HoldingRegisterInputChan: "holding-register-input-{address}-{dataType}"
-        channels = props["read"]["channels"]
+        channels = updated_device.properties["read"]["channels"]
 
         # Check InputRegisterChan mapping (type-address-dataType, underscores replaced with hyphens)
         assert "register-input-0-uint8" in channels
@@ -627,14 +626,13 @@ class TestModbusDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
 
         # Verify write.channels mapping exists
-        assert "write" in props
-        assert "channels" in props["write"]
+        assert "write" in updated_device.properties
+        assert "channels" in updated_device.properties["write"]
 
         # Verify channel keys match Console format (type-address, no dataType for write)
-        channels = props["write"]["channels"]
+        channels = updated_device.properties["write"]["channels"]
 
         # Check CoilOutputChan mapping (type-address, underscores replaced with hyphens)
         assert "coil-output-10" in channels

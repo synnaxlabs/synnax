@@ -12,67 +12,52 @@
 #pragma once
 
 #include <string>
-#include <type_traits>
 
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/json.gen.h"
 
 namespace synnax::task {
 
-template<typename Data>
-StatusDetails<Data> StatusDetails<Data>::parse(x::json::Parser parser) {
-    return StatusDetails<Data>{
+inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
+    return StatusDetails{
         .task = parser.field<Key>("task"),
         .running = parser.field<bool>("running", false),
         .cmd = parser.field<std::string>("cmd", ""),
-        .data = parser.has("data") ? std::make_optional(parser.field<Data>("data"))
-                                   : std::nullopt,
+        .data = parser.field<x::json::json>("data"),
     };
 }
 
-template<typename Data>
-x::json::json StatusDetails<Data>::to_json() const {
+inline x::json::json StatusDetails::to_json() const {
     x::json::json j;
     j["task"] = this->task;
     j["running"] = this->running;
     j["cmd"] = this->cmd;
-    if constexpr (std::is_same_v<Data, x::json::json>)
-        j["data"] = this->data;
-    else
-        j["data"] = this->data.to_json();
+    j["data"] = this->data;
     return j;
 }
 
-template<typename Type, Config, StatusData>
-Task<Type, Config, StatusData>
-Task<Type, Config, StatusData>::parse(x::json::Parser parser) {
-    return Task<Type, Config, StatusData>{
+inline Task Task::parse(x::json::Parser parser) {
+    return Task{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
-        .type = parser.field<Type>("type"),
-        .config = parser.field<Config>("config"),
+        .type = parser.field<std::string>("type"),
+        .config = parser.field<x::json::json>("config"),
         .internal = parser.field<bool>("internal", false),
         .snapshot = parser.field<bool>("snapshot", false),
-        .status = parser.field<Status<StatusData>>("status"),
+        .status = parser.field<Status<x::json::json>>("status"),
     };
 }
 
-template<typename Type, Config, StatusData>
-x::json::json Task<Type, Config, StatusData>::to_json() const {
+inline x::json::json Task::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
-    if constexpr (std::is_same_v<Type, x::json::json>)
-        j["type"] = this->type;
-    else
-        j["type"] = this->type.to_json();
-    if constexpr (std::is_same_v<Config, x::json::json>)
-        j["config"] = this->config;
-    else
-        j["config"] = this->config.to_json();
+    j["type"] = this->type;
+    j["config"] = this->config;
     j["internal"] = this->internal;
     j["snapshot"] = this->snapshot;
-    j["status"] = this->status;
+    if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
 

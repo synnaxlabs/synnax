@@ -574,7 +574,7 @@ class TestLabJackDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify read.channels mapping exists
         assert "read" in props
@@ -672,7 +672,7 @@ class TestLabJackDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify write.channels mapping exists
         assert "write" in props

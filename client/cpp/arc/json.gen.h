@@ -15,6 +15,7 @@
 
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/json.gen.h"
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/module/json.gen.h"
@@ -56,7 +57,7 @@ inline x::json::json Arc::to_json() const {
     if (this->module.has_value()) j["module"] = this->module->to_json();
     j["deploy"] = this->deploy;
     j["version"] = this->version;
-    j["status"] = this->status;
+    if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
 

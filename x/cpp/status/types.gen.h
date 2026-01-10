@@ -24,6 +24,14 @@
 #include "x/go/status/pb/status.pb.h"
 
 namespace x::status {
+
+constexpr const char *VARIANT_SUCCESS = "success";
+constexpr const char *VARIANT_INFO = "info";
+constexpr const char *VARIANT_WARNING = "warning";
+constexpr const char *VARIANT_ERROR = "error";
+constexpr const char *VARIANT_LOADING = "loading";
+constexpr const char *VARIANT_DISABLED = "disabled";
+
 template<typename Details>
 struct Status {
     std::string key;

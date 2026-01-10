@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, overload
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, Payload, UnaryClient, send_required
@@ -64,7 +64,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        properties: str = "",
+        properties: Any = None,
     ): ...
 
     @overload
@@ -84,7 +84,7 @@ class Client:
         make: str = "",
         model: str = "",
         configured: bool = False,
-        properties: str = "",
+        properties: Any = None,
     ):
         is_single = not isinstance(devices, list)
         if devices is None:

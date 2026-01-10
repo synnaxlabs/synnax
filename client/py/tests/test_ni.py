@@ -642,11 +642,9 @@ class TestNIDeviceHelpers:
             rack=1,
         )
 
-        assert isinstance(device.properties, str)
-        props = json.loads(device.properties)
-        assert isinstance(props, dict)
-        assert "identifier" in props
-        assert props["identifier"] == "test_device_01"
+        assert isinstance(device.properties, dict)
+        assert "identifier" in device.properties
+        assert device.properties["identifier"] == "test_device_01"
 
     def test_device_with_different_identifiers(self):
         """Test Device class with various identifier formats."""
@@ -665,7 +663,7 @@ class TestNIDeviceHelpers:
                 location="cDAQ1/dev_mod1",
                 rack=1,
             )
-            props = json.loads(device.properties)
+            props = device.properties
             assert props["identifier"] == identifier
 
     def test_device_sets_make(self, client: sy.Synnax):
@@ -740,10 +738,8 @@ class TestNIDeviceHelpers:
 
         created_device = client.devices.create(device)
 
-        # Retrieve and parse properties
-        props = json.loads(created_device.properties)
-        assert "identifier" in props
-        assert props["identifier"] == test_identifier
+        assert "identifier" in created_device.properties
+        assert created_device.properties["identifier"] == test_identifier
 
     def test_create_device_using_ni_module_directly(self, client: sy.Synnax):
         """Test that ni.Device works when imported via module."""
@@ -771,11 +767,5 @@ class TestNIDeviceHelpers:
             location="cDAQ1/dev_mod1",
             rack=1,
         )
-
-        # Properties should be JSON string
-        assert isinstance(device.properties, str)
-
-        # Parse and verify
-        props = json.loads(device.properties)
-        assert isinstance(props, dict)
-        assert props["identifier"] == "test_id"
+        assert isinstance(device.properties, dict)
+        assert device.properties["identifier"] == "test_id"

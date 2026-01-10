@@ -16,6 +16,7 @@
 #include "client/cpp/device/types.gen.h"
 #include "client/cpp/rack/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/json.gen.h"
 
 namespace synnax::device {
 
@@ -33,8 +34,8 @@ inline x::json::json StatusDetails::to_json() const {
     return j;
 }
 
-inline Payload Payload::parse(x::json::Parser parser) {
-    return Payload{
+inline Device Device::parse(x::json::Parser parser) {
+    return Device{
         .key = parser.field<Key>("key"),
         .rack = parser.field<synnax::rack::Key>("rack"),
         .location = parser.field<std::string>("location"),
@@ -42,12 +43,12 @@ inline Payload Payload::parse(x::json::Parser parser) {
         .model = parser.field<std::string>("model"),
         .name = parser.field<std::string>("name"),
         .configured = parser.field<bool>("configured", false),
+        .properties = parser.field<x::json::json>("properties"),
         .status = parser.field<Status>("status"),
-        .properties = parser.field<std::string>("properties"),
     };
 }
 
-inline x::json::json Payload::to_json() const {
+inline x::json::json Device::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["rack"] = this->rack;
@@ -56,8 +57,8 @@ inline x::json::json Payload::to_json() const {
     j["model"] = this->model;
     j["name"] = this->name;
     j["configured"] = this->configured;
-    j["status"] = this->status;
     j["properties"] = this->properties;
+    if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
 

@@ -16,6 +16,7 @@
 
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/status/proto.gen.h"
 
 #include "arc/cpp/graph/proto.gen.h"
 #include "arc/cpp/module/proto.gen.h"
@@ -56,17 +57,17 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
     cpp.key = pb.key();
     cpp.name = pb.name();
     {
-        auto [val, err] = arc::graph::Graph::from_proto(pb.graph());
+        auto [val, err] = ::arc::graph::Graph::from_proto(pb.graph());
         if (err) return {{}, err};
         cpp.graph = val;
     }
     {
-        auto [val, err] = arc::text::Text::from_proto(pb.text());
+        auto [val, err] = ::arc::text::Text::from_proto(pb.text());
         if (err) return {{}, err};
         cpp.text = val;
     }
     if (pb.has_module()) {
-        auto [val, err] = arc::module::Module::from_proto(pb.module());
+        auto [val, err] = ::arc::module::Module::from_proto(pb.module());
         if (err) return {{}, err};
         cpp.module = val;
     }

@@ -22,12 +22,12 @@
 
 namespace x::status {
 
-template<typename Details, V>
-Status<Details, V> Status<Details, V>::parse(x::json::Parser parser) {
-    return Status<Details, V>{
+template<typename Details>
+Status<Details> Status<Details>::parse(x::json::Parser parser) {
+    return Status<Details>{
         .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name"),
-        .variant = parser.field<V>("variant"),
+        .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),
         .description = parser.field<std::string>("description", ""),
         .time = parser.field<x::telem::TimeStamp>("time"),
@@ -36,15 +36,12 @@ Status<Details, V> Status<Details, V>::parse(x::json::Parser parser) {
     };
 }
 
-template<typename Details, V>
-x::json::json Status<Details, V>::to_json() const {
+template<typename Details>
+x::json::json Status<Details>::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
-    if constexpr (std::is_same_v<V, x::json::json>)
-        j["variant"] = this->variant;
-    else
-        j["variant"] = this->variant.to_json();
+    j["variant"] = this->variant;
     j["message"] = this->message;
     j["description"] = this->description;
     j["time"] = this->time.nanoseconds();

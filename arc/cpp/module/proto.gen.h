@@ -25,8 +25,8 @@ namespace arc::module {
 
 inline ::arc::module::pb::Module Module::to_proto() const {
     ::arc::module::pb::Module pb;
-    pb.MergeFrom(arc::ir::IR::to_proto());
-    pb.MergeFrom(arc::compiler::Output::to_proto());
+    pb.MergeFrom(::arc::ir::IR::to_proto());
+    pb.MergeFrom(::arc::compiler::Output::to_proto());
     return pb;
 }
 
@@ -34,24 +34,24 @@ inline std::pair<Module, x::errors::Error>
 Module::from_proto(const ::arc::module::pb::Module &pb) {
     Module cpp;
     for (const auto &item: pb.functions()) {
-        auto [v, err] = arc::ir::Function::from_proto(item);
+        auto [v, err] = ::arc::ir::Function::from_proto(item);
         if (err) return {{}, err};
         cpp.functions.push_back(v);
     }
     for (const auto &item: pb.nodes()) {
-        auto [v, err] = arc::ir::Node::from_proto(item);
+        auto [v, err] = ::arc::ir::Node::from_proto(item);
         if (err) return {{}, err};
         cpp.nodes.push_back(v);
     }
     for (const auto &item: pb.edges()) {
-        auto [v, err] = arc::ir::Edge::from_proto(item);
+        auto [v, err] = ::arc::ir::Edge::from_proto(item);
         if (err) return {{}, err};
         cpp.edges.push_back(v);
     }
     for (const auto &wrapper: pb.strata())
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
     for (const auto &item: pb.sequences()) {
-        auto [v, err] = arc::ir::Sequence::from_proto(item);
+        auto [v, err] = ::arc::ir::Sequence::from_proto(item);
         if (err) return {{}, err};
         cpp.sequences.push_back(v);
     }

@@ -607,14 +607,28 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 		}
 	}
 
-	// Build with type arguments
+	// Build with type arguments, filtering out defaulted params
 	if len(typeRef.TypeArgs) == 0 {
 		return name
 	}
 
-	args := make([]string, len(typeRef.TypeArgs))
-	for i, arg := range typeRef.TypeArgs {
-		args[i] = p.aliasTargetToCpp(arg, data)
+	// Filter type args, skipping those for defaulted params
+	var args []string
+	if form, ok := resolved.Form.(resolution.StructForm); ok {
+		for i, arg := range typeRef.TypeArgs {
+			if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
+				continue // Skip type args for defaulted params
+			}
+			args = append(args, p.aliasTargetToCpp(arg, data))
+		}
+	} else {
+		for _, arg := range typeRef.TypeArgs {
+			args = append(args, p.aliasTargetToCpp(arg, data))
+		}
+	}
+
+	if len(args) == 0 {
+		return name
 	}
 	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
 }
@@ -962,9 +976,17 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 	// Filter type args, skipping those that correspond to defaulted params
 	var args []string
 	if targetType != nil {
-		if form, ok := targetType.Form.(resolution.StructForm); ok {
+		var typeParams []resolution.TypeParam
+		switch form := targetType.Form.(type) {
+		case resolution.StructForm:
+			typeParams = form.TypeParams
+		case resolution.AliasForm:
+			typeParams = form.TypeParams
+		}
+
+		if len(typeParams) > 0 {
 			for i, arg := range typeArgs {
-				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
+				if i < len(typeParams) && typeParams[i].HasDefault() {
 					continue // Skip defaulted type args
 				}
 				args = append(args, p.typeRefToCpp(arg, data))

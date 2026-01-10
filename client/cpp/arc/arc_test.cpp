@@ -169,7 +169,7 @@ TEST(TestArc, testModuleField) {
     ASSERT_NIL(err);
     ASSERT_EQ(retrieved.key, arc.key);
     // Module field exists but WASM is empty when not compiled
-    ASSERT_TRUE(retrieved.module.wasm.empty());
+    ASSERT_TRUE(retrieved.module->wasm.empty());
 }
 
 /// @brief it should compile an Arc program when retrieved with compile=true.
@@ -213,31 +213,31 @@ func calc(val f32) f32 {
     ASSERT_EQ(retrieved.key, arc.key);
 
     // Verify the module was compiled - should have WASM bytes
-    ASSERT_FALSE(retrieved.module.wasm.empty())
+    ASSERT_FALSE(retrieved.module->wasm.empty())
         << "Expected WASM bytecode to be present after compilation";
 
     // Verify correct node structure (same as Go test expectations)
     // 3 nodes: source (on), calc function, sink (write)
-    ASSERT_EQ(retrieved.module.nodes.size(), 3)
+    ASSERT_EQ(retrieved.module->nodes.size(), 3)
         << "Expected 3 nodes: source, calc, sink";
 
     // First node: source channel (on)
-    ASSERT_EQ(retrieved.module.nodes[0].type, "on");
-    ASSERT_GT(retrieved.module.nodes[0].channels.read.count(ox_pt_1.key), 0)
+    ASSERT_EQ(retrieved.module->nodes[0].type, "on");
+    ASSERT_GT(retrieved.module->nodes[0].channels.read.count(ox_pt_1.key), 0)
         << "First node should read from ox_pt_1 channel";
-    ASSERT_EQ(retrieved.module.nodes[0].outputs.size(), 1);
+    ASSERT_EQ(retrieved.module->nodes[0].outputs.size(), 1);
 
     // Second node: calc function
-    ASSERT_EQ(retrieved.module.nodes[1].type, "calc");
+    ASSERT_EQ(retrieved.module->nodes[1].type, "calc");
 
     // Third node: sink channel (write)
-    ASSERT_EQ(retrieved.module.nodes[2].type, "write");
-    ASSERT_GT(retrieved.module.nodes[2].channels.write.count(ox_pt_doubled.key), 0)
+    ASSERT_EQ(retrieved.module->nodes[2].type, "write");
+    ASSERT_GT(retrieved.module->nodes[2].channels.write.count(ox_pt_doubled.key), 0)
         << "Third node should write to ox_pt_doubled channel";
-    ASSERT_EQ(retrieved.module.nodes[2].inputs.size(), 1);
+    ASSERT_EQ(retrieved.module->nodes[2].inputs.size(), 1);
 
     // Verify edges (2 edges connecting the 3 nodes)
-    ASSERT_EQ(retrieved.module.edges.size(), 2)
+    ASSERT_EQ(retrieved.module->edges.size(), 2)
         << "Expected 2 edges connecting the nodes";
 }
 }

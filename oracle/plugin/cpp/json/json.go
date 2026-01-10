@@ -282,19 +282,23 @@ func (p *Plugin) processStruct(
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range form.TypeParams {
+		// Skip defaulted type params - they're handled by substituting the default
+		if tp.HasDefault() {
+			continue
+		}
 		typeParams = append(typeParams, typeParamData{Name: tp.Name})
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
 
 	serializer := &serializerData{
 		Name:           cppName,
-		IsGeneric:      form.IsGeneric(),
+		IsGeneric:      len(typeParams) > 0,
 		TypeParams:     typeParams,
 		TypeParamNames: strings.Join(typeParamNames, ", "),
 		Fields:         make([]fieldData, 0),
 	}
 
-	if form.IsGeneric() {
+	if len(typeParams) > 0 {
 		data.includes.addSystem("type_traits")
 	}
 
@@ -375,7 +379,9 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	cppType := p.typeRefToCpp(field.Type, data)
 	jsonName := field.Name
 
-	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil
+	// Only treat as generic field if the type param does NOT have a default
+	// Defaulted type params are substituted with their default value
+	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil && !field.Type.TypeParam.HasDefault()
 	typeParamName := ""
 	if isGenericField {
 		typeParamName = field.Type.TypeParam.Name
@@ -408,6 +414,10 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
 	if typeRef.TypeParam != nil {
+		// For defaulted type params, substitute the default type
+		if typeRef.TypeParam.HasDefault() {
+			return p.typeRefToCpp(*typeRef.TypeParam.Default, data)
+		}
 		return typeRef.TypeParam.Name
 	}
 
@@ -455,6 +465,21 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return resolved.Name
 	}
 
+	// If this is an alias to a struct from a different namespace, we need to include
+	// that target's json.gen.h since that's where the template implementations are
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
+			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+				if targetResolved.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(targetResolved, "cpp")
+					if targetOutputPath != "" {
+						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					}
+				}
+			}
+		}
+	}
+
 	name := domain.GetName(resolved, "cpp")
 
 	if resolved.Namespace != data.rawNs {
@@ -483,7 +508,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 	jsonName := field.Name
 	hasDefault := field.IsOptional
 
-	if typeRef.TypeParam != nil {
+	// Only treat as generic field if the type param does NOT have a default
+	// Defaulted type params are substituted with their default value
+	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		innerType := typeRef.TypeParam.Name
 		if field.IsHardOptional {
 			innerExpr := p.parseExprForTypeRef(typeRef, innerType, jsonName, false, data)
@@ -637,7 +664,9 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 	jsonName := field.Name
 	fieldName := toSnakeCase(field.Name)
 
-	if typeRef.TypeParam != nil {
+	// Only treat as generic field if the type param does NOT have a default
+	// Defaulted type params are substituted with their default value
+	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		typeName := typeRef.TypeParam.Name
 		return fmt.Sprintf(`if constexpr (std::is_same_v<%s, x::json::json>)
         j["%s"] = this->%s;
@@ -686,6 +715,7 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 
 	resolved, resolvedOk := typeRef.Resolve(data.table)
 	if resolvedOk {
+		// Check if it's a struct
 		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 			// For hard optional self-referential types (indirect<T>), use has_value() check and ->
 			if isSelfRef {
@@ -696,6 +726,17 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
 			}
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+		}
+		// Check if it's an alias to a struct - treat the same as a struct
+		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
+				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+					if field.IsHardOptional {
+						return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+					}
+					return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+				}
+			}
 		}
 	}
 

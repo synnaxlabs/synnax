@@ -39,6 +39,13 @@ func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, se
 		collectEnumsFromTypeRef(arg, table, seen, enums)
 	}
 
+	// Handle type parameters with defaults (e.g., V extends Variant = Variant)
+	// When a field has a type param, check if it has a default and collect from that
+	if ref.IsTypeParam() && ref.TypeParam != nil && ref.TypeParam.HasDefault() {
+		collectEnumsFromTypeRef(*ref.TypeParam.Default, table, seen, enums)
+		return
+	}
+
 	// Try to resolve the type
 	resolved, ok := ref.Resolve(table)
 	if !ok {

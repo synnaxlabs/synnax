@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from synnax import rack, status
 from synnax.ontology.payload import ID
@@ -42,12 +42,6 @@ class Device(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class New(Device):
-    key: Key | None = None
-    properties: Any
-    configured: bool | None = Field(default=None, exclude=True)
 
 
 ONTOLOGY_TYPE = ID(type="device")

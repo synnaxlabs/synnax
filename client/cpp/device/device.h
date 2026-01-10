@@ -18,6 +18,7 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
 #include "client/cpp/ontology/id.h"

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
@@ -66,8 +67,15 @@ func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]device.S
 	return result, nil
 }
 
-// DeviceToPB converts Device to Device.
-func DeviceToPB(ctx context.Context, r device.Device) (*Device, error) {
+// DeviceToPB converts Device to Device using provided type converters.
+func DeviceToPB(
+	ctx context.Context,
+	r device.Device,
+) (*Device, error) {
+	propertiesVal, err := structpb.NewStruct(r.Properties)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Device{
 		Key:        string(r.Key),
 		Rack:       uint32(r.Rack),
@@ -76,7 +84,7 @@ func DeviceToPB(ctx context.Context, r device.Device) (*Device, error) {
 		Model:      r.Model,
 		Name:       r.Name,
 		Configured: r.Configured,
-		Properties: r.Properties,
+		Properties: propertiesVal,
 	}
 	if r.Status != nil {
 		var err error
@@ -88,12 +96,16 @@ func DeviceToPB(ctx context.Context, r device.Device) (*Device, error) {
 	return pb, nil
 }
 
-// DeviceFromPB converts Device to Device.
-func DeviceFromPB(ctx context.Context, pb *Device) (device.Device, error) {
+// DeviceFromPB converts Device to Device using provided type converters.
+func DeviceFromPB(
+	ctx context.Context,
+	pb *Device,
+) (device.Device, error) {
 	var r device.Device
 	if pb == nil {
 		return r, nil
 	}
+	r.Properties = pb.Properties.AsMap()
 	r.Key = device.Key(pb.Key)
 	r.Rack = rack.Key(pb.Rack)
 	r.Location = pb.Location
@@ -101,7 +113,6 @@ func DeviceFromPB(ctx context.Context, pb *Device) (device.Device, error) {
 	r.Model = pb.Model
 	r.Name = pb.Name
 	r.Configured = pb.Configured
-	r.Properties = pb.Properties
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[device.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {
@@ -113,7 +124,10 @@ func DeviceFromPB(ctx context.Context, pb *Device) (device.Device, error) {
 }
 
 // DevicesToPB converts a slice of Device to Device.
-func DevicesToPB(ctx context.Context, rs []device.Device) ([]*Device, error) {
+func DevicesToPB(
+	ctx context.Context,
+	rs []device.Device,
+) ([]*Device, error) {
 	result := make([]*Device, len(rs))
 	for i := range rs {
 		var err error
@@ -126,7 +140,10 @@ func DevicesToPB(ctx context.Context, rs []device.Device) ([]*Device, error) {
 }
 
 // DevicesFromPB converts a slice of Device to Device.
-func DevicesFromPB(ctx context.Context, pbs []*Device) ([]device.Device, error) {
+func DevicesFromPB(
+	ctx context.Context,
+	pbs []*Device,
+) ([]device.Device, error) {
 	result := make([]device.Device, len(pbs))
 	for i, pb := range pbs {
 		var err error

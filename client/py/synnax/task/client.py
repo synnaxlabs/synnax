@@ -27,7 +27,8 @@ from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
-from synnax.task.types_gen import Payload as TaskPayload, Key
+from synnax.task.types_gen import Key
+from synnax.task.types_gen import Payload as TaskPayload
 from synnax.task.types_gen import Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
@@ -368,16 +369,13 @@ class Client:
         type: str = "",
         config: Any,
         rack: int = 0,
-    ):
-        ...
+    ): ...
 
     @overload
-    def create(self, tasks: Task) -> Task:
-        ...
+    def create(self, tasks: Task) -> Task: ...
 
     @overload
-    def create(self, tasks: list[Task]) -> list[Task]:
-        ...
+    def create(self, tasks: list[Task]) -> list[Task]: ...
 
     def create(
         self,
@@ -462,8 +460,7 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
-    ) -> Task:
-        ...
+    ) -> Task: ...
 
     @overload
     def retrieve(
@@ -471,8 +468,7 @@ class Client:
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
-    ) -> list[Task]:
-        ...
+    ) -> list[Task]: ...
 
     def retrieve(
         self,

@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 from typing import Literal
 from uuid import uuid4
 
@@ -2822,9 +2821,6 @@ class Device(device.Device):
         if not key:
             key = str(uuid4())
 
-        # Set properties with identifier
-        props = json.dumps({"identifier": identifier})
-
         super().__init__(
             key=key,
             location=location,
@@ -2833,5 +2829,5 @@ class Device(device.Device):
             make=MAKE,
             model=model,
             configured=configured,
-            properties=props,
+            properties={"identifier": identifier},
         )

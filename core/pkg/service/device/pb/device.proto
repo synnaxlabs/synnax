@@ -4,6 +4,7 @@ syntax = "proto3";
 
 package service.device.pb;
 
+import "google/protobuf/struct.proto";
 import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/device/pb";
@@ -21,6 +22,6 @@ message Device {
   string model = 5;
   string name = 6;
   bool configured = 7;
-  optional .x.status.pb.Status status = 8;
-  string properties = 9;
+  google.protobuf.Struct properties = 8;
+  optional .x.status.pb.Status status = 9;
 }

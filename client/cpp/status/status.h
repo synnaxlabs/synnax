@@ -22,6 +22,8 @@
 #include "core/pkg/api/grpc/status/status.pb.h"
 
 namespace synnax::status {
+using Status = x::status::Status<x::json::json>;
+
 const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
@@ -57,7 +59,7 @@ public:
     /// @modifies status May update the key if auto-generated.
     /// @returns An error where ok() is false if the status could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    template<typename Details = json>
+    template<typename Details = x::json::json>
     [[nodiscard]] x::errors::Error set(x::status::Status<Details> &status) const {
         grpc::status::SetRequest req;
         *req.add_statuses() = status.to_proto();
@@ -79,7 +81,7 @@ public:
     /// @modifies statuses May update keys if auto-generated.
     /// @returns An error where ok() is false if the statuses could not be created.
     /// Use err.message() to get the error message or err.type to get the error type.
-    template<typename Details = json>
+    template<typename Details = x::json::json>
     [[nodiscard]] x::errors::Error
     set(std::vector<x::status::Status<Details>> &statuses) const {
         grpc::status::SetRequest req;
@@ -105,7 +107,7 @@ public:
     /// false if the status could not be retrieved. In the case of an error, the
     /// returned status will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    template<typename Details = json>
+    template<typename Details = x::json::json>
     [[nodiscard]] std::pair<x::status::Status<Details>, x::errors::Error>
     retrieve(const std::string &key) const {
         auto [statuses, err] = this->retrieve<Details>(std::vector{key});
@@ -125,7 +127,7 @@ public:
     /// @returns A pair containing all statuses matching the given keys and an error
     /// where ok() is false if the statuses could not be retrieved. Statuses that
     /// don't exist will not be in the returned vector.
-    template<typename Details = json>
+    template<typename Details = x::json::json>
     [[nodiscard]] std::pair<std::vector<x::status::Status<Details>>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const {
         grpc::status::RetrieveRequest req;

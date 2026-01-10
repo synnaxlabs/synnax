@@ -143,22 +143,22 @@ Function::from_proto(const ::arc::ir::pb::Function &pb) {
         cpp.body = val;
     }
     for (const auto &item: pb.config()) {
-        auto [v, err] = arc::types::Param::from_proto(item);
+        auto [v, err] = ::arc::types::Param::from_proto(item);
         if (err) return {{}, err};
         cpp.config.push_back(v);
     }
     for (const auto &item: pb.inputs()) {
-        auto [v, err] = arc::types::Param::from_proto(item);
+        auto [v, err] = ::arc::types::Param::from_proto(item);
         if (err) return {{}, err};
         cpp.inputs.push_back(v);
     }
     for (const auto &item: pb.outputs()) {
-        auto [v, err] = arc::types::Param::from_proto(item);
+        auto [v, err] = ::arc::types::Param::from_proto(item);
         if (err) return {{}, err};
         cpp.outputs.push_back(v);
     }
     {
-        auto [val, err] = arc::types::Channels::from_proto(pb.channels());
+        auto [val, err] = ::arc::types::Channels::from_proto(pb.channels());
         if (err) return {{}, err};
         cpp.channels = val;
     }
@@ -185,22 +185,22 @@ Node::from_proto(const ::arc::ir::pb::Node &pb) {
     cpp.key = pb.key();
     cpp.type = pb.type();
     for (const auto &item: pb.config()) {
-        auto [v, err] = arc::types::Param::from_proto(item);
+        auto [v, err] = ::arc::types::Param::from_proto(item);
         if (err) return {{}, err};
         cpp.config.push_back(v);
     }
     for (const auto &item: pb.inputs()) {
-        auto [v, err] = arc::types::Param::from_proto(item);
+        auto [v, err] = ::arc::types::Param::from_proto(item);
         if (err) return {{}, err};
         cpp.inputs.push_back(v);
     }
     for (const auto &item: pb.outputs()) {
-        auto [v, err] = arc::types::Param::from_proto(item);
+        auto [v, err] = ::arc::types::Param::from_proto(item);
         if (err) return {{}, err};
         cpp.outputs.push_back(v);
     }
     {
-        auto [val, err] = arc::types::Channels::from_proto(pb.channels());
+        auto [val, err] = ::arc::types::Channels::from_proto(pb.channels());
         if (err) return {{}, err};
         cpp.channels = val;
     }

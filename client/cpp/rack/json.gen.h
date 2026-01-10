@@ -16,6 +16,7 @@
 
 #include "client/cpp/rack/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/json.gen.h"
 
 namespace synnax::rack {
 
@@ -47,7 +48,7 @@ inline x::json::json Payload::to_json() const {
     j["name"] = this->name;
     j["task_counter"] = this->task_counter;
     j["embedded"] = this->embedded;
-    j["status"] = this->status;
+    if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
 

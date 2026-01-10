@@ -39,7 +39,7 @@ Payload::from_proto(const ::api::ranger::pb::Range &pb) {
     cpp.time_range = pb.time_range();
     cpp.color = pb.color();
     for (const auto &item: pb.labels()) {
-        auto [v, err] = x::label::Label::from_proto(item);
+        auto [v, err] = ::x::label::Label::from_proto(item);
         if (err) return {{}, err};
         cpp.labels.push_back(v);
     }

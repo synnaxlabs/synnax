@@ -21,6 +21,7 @@ import (
 	pb "github.com/synnaxlabs/x/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -94,8 +95,8 @@ type Device struct {
 	Model         string                 `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
 	Name          string                 `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
 	Configured    bool                   `protobuf:"varint,7,opt,name=configured,proto3" json:"configured,omitempty"`
-	Status        *pb.Status             `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
-	Properties    string                 `protobuf:"bytes,9,opt,name=properties,proto3" json:"properties,omitempty"`
+	Properties    *structpb.Struct       `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
+	Status        *pb.Status             `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -179,6 +180,13 @@ func (x *Device) GetConfigured() bool {
 	return false
 }
 
+func (x *Device) GetProperties() *structpb.Struct {
+	if x != nil {
+		return x.Properties
+	}
+	return nil
+}
+
 func (x *Device) GetStatus() *pb.Status {
 	if x != nil {
 		return x.Status
@@ -186,21 +194,14 @@ func (x *Device) GetStatus() *pb.Status {
 	return nil
 }
 
-func (x *Device) GetProperties() string {
-	if x != nil {
-		return x.Properties
-	}
-	return ""
-}
-
 var File_core_pkg_service_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a\x1bx/go/status/pb/status.proto\";\n" +
+	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\";\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\"\x85\x02\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\"\x9e\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -210,11 +211,11 @@ const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\x04name\x18\x06 \x01(\tR\x04name\x12\x1e\n" +
 	"\n" +
 	"configured\x18\a \x01(\bR\n" +
-	"configured\x120\n" +
-	"\x06status\x18\b \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x1e\n" +
+	"configured\x127\n" +
 	"\n" +
-	"properties\x18\t \x01(\tR\n" +
-	"propertiesB\t\n" +
+	"properties\x18\b \x01(\v2\x17.google.protobuf.StructR\n" +
+	"properties\x120\n" +
+	"\x06status\x18\t \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_statusB\xbe\x01\n" +
 	"\x15com.service.device.pbB\vDeviceProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/device/pb\xa2\x02\x03SDP\xaa\x02\x11Service.Device.Pb\xca\x02\x11Service\\Device\\Pb\xe2\x02\x1dService\\Device\\Pb\\GPBMetadata\xea\x02\x13Service::Device::Pbb\x06proto3"
 
@@ -232,17 +233,19 @@ func file_core_pkg_service_device_pb_device_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_device_pb_device_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_core_pkg_service_device_pb_device_proto_goTypes = []any{
-	(*StatusDetails)(nil), // 0: service.device.pb.StatusDetails
-	(*Device)(nil),        // 1: service.device.pb.Device
-	(*pb.Status)(nil),     // 2: x.status.pb.Status
+	(*StatusDetails)(nil),   // 0: service.device.pb.StatusDetails
+	(*Device)(nil),          // 1: service.device.pb.Device
+	(*structpb.Struct)(nil), // 2: google.protobuf.Struct
+	(*pb.Status)(nil),       // 3: x.status.pb.Status
 }
 var file_core_pkg_service_device_pb_device_proto_depIdxs = []int32{
-	2, // 0: service.device.pb.Device.status:type_name -> x.status.pb.Status
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
+	3, // 1: service.device.pb.Device.status:type_name -> x.status.pb.Status
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_device_pb_device_proto_init() }

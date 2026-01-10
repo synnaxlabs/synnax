@@ -362,7 +362,7 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "proto.gen.h")
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 
@@ -420,12 +420,12 @@ func (p *Plugin) processStructForTranslation(
 		PBName:         pbName,
 		PBNamespace:    pbNamespace,
 		Fields:         make([]fieldTranslatorData, 0),
-		IsGeneric:      form.IsGeneric(),
+		IsGeneric:      len(typeParams) > 0, // Only generic if non-defaulted type params remain
 		TypeParams:     typeParams,
 		TypeParamNames: strings.Join(typeParamNames, ", "),
 	}
 
-	if form.IsGeneric() {
+	if len(typeParams) > 0 {
 		data.includes.addInternal("x/cpp/json/any.h")
 	}
 
@@ -704,7 +704,7 @@ func (p *Plugin) typeRefToCppForTranslator(typeRef resolution.TypeRef, data *tem
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 
@@ -849,13 +849,21 @@ func (p *Plugin) generateAliasConversion(
 
 	// If the target is a struct, generate struct conversion
 	if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+		// Add include for the target struct's proto.gen.h since that's where
+		// template implementations (to_proto/from_proto) are defined
+		if targetResolved.Namespace != data.rawNs {
+			targetOutputPath := output.GetPath(targetResolved, "cpp")
+			if targetOutputPath != "" {
+				data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+			}
+		}
 		// Use the alias type name for from_proto since that's what the field type is
 		// Get the C++ name directly from the resolved type (respects @cpp name directive)
 		cppType := domain.GetName(resolved, "cpp")
 		if resolved.Namespace != data.rawNs {
-			targetOutputPath := output.GetPath(resolved, "cpp")
-			if targetOutputPath != "" {
-				ns := deriveNamespace(targetOutputPath)
+			aliasOutputPath := output.GetPath(resolved, "cpp")
+			if aliasOutputPath != "" {
+				ns := deriveNamespace(aliasOutputPath)
 				cppType = fmt.Sprintf("%s::%s", ns, cppType)
 			}
 		}
