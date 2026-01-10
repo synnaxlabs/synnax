@@ -15,7 +15,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/factory.h"
@@ -240,7 +240,7 @@ func double(val f32) f32 {
 
     auto on_data = telem::Series(std::vector{5.0f, 10.0f, 15.0f});
     on_data.alignment = telem::Alignment(1, 0);
-    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+    on_node_state.output(0) = x::mem::make_local_shared<telem::Series>(
         std::move(on_data)
     );
 
@@ -252,7 +252,7 @@ func double(val f32) f32 {
         }
     );
     on_time.alignment = telem::Alignment(1, 0);
-    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+    on_node_state.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::move(on_time)
     );
 
@@ -326,12 +326,12 @@ func divide_by_zero(val i32) i32 {
     auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
     auto on_data = telem::Series(static_cast<int32_t>(42));
     on_data.alignment = telem::Alignment(1, 0);
-    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+    on_node_state.output(0) = x::mem::make_local_shared<telem::Series>(
         std::move(on_data)
     );
     auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
     on_time.alignment = telem::Alignment(1, 0);
-    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+    on_node_state.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::move(on_time)
     );
 
@@ -425,12 +425,12 @@ func passthrough(val f32) f32 {
     auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
     auto on_data = telem::Series(42.0f);
     on_data.alignment = telem::Alignment(1, 0);
-    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+    on_node_state.output(0) = x::mem::make_local_shared<telem::Series>(
         std::move(on_data)
     );
     auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
     on_time.alignment = telem::Alignment(1, 0);
-    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+    on_node_state.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::move(on_time)
     );
 

@@ -34,8 +34,6 @@ x::telem::DataType Type::telem() const {
             return x::telem::FLOAT64_T;
         case Kind::String:
             return x::telem::STRING_T;
-        case Kind::TimeStamp:
-            return x::telem::TIMESTAMP_T;
         case Kind::Series:
         case Kind::Chan:
             if (this->elem) return elem->telem();

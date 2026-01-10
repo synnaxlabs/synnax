@@ -256,15 +256,6 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	// Process typedefs (distinct types) - mark as declared
-	for _, td := range typeDefs {
-		tdd := p.processTypeDef(td, data)
-		if !declaredNames[tdd.Name] {
-			declaredNames[tdd.Name] = true
-			data.TypeDefs = append(data.TypeDefs, tdd)
-		}
-	}
-
 	// Process enums that are in the same namespace
 	for _, e := range enums {
 		if e.Namespace == namespace && !omit.IsType(e, "cpp") {
@@ -272,9 +263,14 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	// Combine aliases and structs for topological sorting
+	// Combine typedefs, aliases and structs for topological sorting
 	// These are the types that can have cross-dependencies
 	var combinedTypes []resolution.Type
+	for _, td := range typeDefs {
+		if !omit.IsType(td, "cpp") {
+			combinedTypes = append(combinedTypes, td)
+		}
+	}
 	for _, alias := range aliases {
 		if !omit.IsType(alias, "cpp") {
 			combinedTypes = append(combinedTypes, alias)
@@ -289,8 +285,28 @@ func (p *Plugin) generateFile(
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := table.TopologicalSort(combinedTypes)
 
+	// Collect forward declarations for non-generic structs only.
+	// Template structs cannot use simple forward declarations - they require
+	// template<typename T> struct Foo; syntax, and even then std::optional<Foo<T>>
+	// needs the full definition. So we skip templates entirely.
+	for _, typ := range sortedTypes {
+		if form, ok := typ.Form.(resolution.StructForm); ok && !form.IsGeneric() {
+			name := domain.GetName(typ, "cpp")
+			data.ForwardDecls = append(data.ForwardDecls, name)
+		}
+	}
+
 	for _, typ := range sortedTypes {
 		switch typ.Form.(type) {
+		case resolution.DistinctForm:
+			tdd := p.processTypeDef(typ, data)
+			if !declaredNames[tdd.Name] {
+				declaredNames[tdd.Name] = true
+				data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+					IsTypeDef: true,
+					TypeDef:   tdd,
+				})
+			}
 		case resolution.AliasForm:
 			aliasData := p.processAlias(typ, data)
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
@@ -326,6 +342,8 @@ func deriveNamespace(outputPath string) string {
 		topLevel = "x"
 	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
 		topLevel = "synnax"
+	case len(parts) >= 2 && parts[0] == "arc" && parts[1] == "cpp":
+		topLevel = "arc"
 	case len(parts) >= 1 && parts[0] == "driver":
 		topLevel = "driver"
 	default:
@@ -403,35 +421,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	name := domain.GetName(td, "cpp")
 	return typeDefData{
 		Name:    name,
-		CppType: p.typeDefBaseToCpp(form.Base, data),
-	}
-}
-
-func (p *Plugin) typeDefBaseToCpp(typeRef resolution.TypeRef, data *templateData) string {
-	if resolution.IsPrimitive(typeRef.Name) {
-		return p.primitiveToCpp(typeRef.Name, data)
-	}
-	// Try to resolve as another type
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return "void"
-	}
-	switch resolved.Form.(type) {
-	case resolution.DistinctForm:
-		// Another typedef - use its name (with namespace if different)
-		if resolved.Namespace != data.rawNs {
-			targetOutputPath := output.GetPath(resolved, "cpp")
-			if targetOutputPath != "" {
-				includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
-				data.includes.addInternal(includePath)
-			}
-			// Use namespace-qualified name
-			ns := deriveNamespace(targetOutputPath)
-			return fmt.Sprintf("%s::%s", ns, resolved.Name)
-		}
-		return resolved.Name
-	default:
-		return "void"
+		CppType: p.typeRefToCpp(form.Base, data),
 	}
 }
 
@@ -631,18 +621,43 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
+	isSelfRef := isSelfReference(field.Type, entry)
 
 	// Apply optional wrappers based on field flags
 	if field.IsHardOptional {
-		data.includes.addSystem("optional")
-		cppType = fmt.Sprintf("std::optional<%s>", cppType)
+		if isSelfRef {
+			// Self-referential types need indirect storage because std::optional<T>
+			// requires T to be complete, but T is incomplete inside its own definition.
+			// x::mem::indirect provides value semantics with deep copy support.
+			data.includes.addInternal("x/cpp/mem/indirect.h")
+			cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
+		} else {
+			data.includes.addSystem("optional")
+			cppType = fmt.Sprintf("std::optional<%s>", cppType)
+		}
 	}
 
 	return fieldData{
-		Name:    field.Name,
-		CppType: cppType,
-		Doc:     doc.Get(field.Domains),
+		Name:      field.Name,
+		CppType:   cppType,
+		Doc:       doc.Get(field.Domains),
+		IsSelfRef: isSelfRef,
 	}
+}
+
+// isSelfReference checks if a type reference refers to its containing type,
+// either directly or through type arguments (for generic recursive references).
+func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
+	if t.Name == parent.QualifiedName {
+		return true
+	}
+	// Check type arguments for generic recursive references
+	for _, arg := range t.TypeArgs {
+		if isSelfReference(arg, parent) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
@@ -862,24 +877,27 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	OutputPath  string
-	Namespace   string
-	KeyFields   []keyFieldData
-	Structs     []structData
-	Enums       []enumData
-	TypeDefs    []typeDefData
-	Aliases     []aliasData
-	SortedDecls []sortedDeclData
-	includes    *includeManager
-	table       *resolution.Table
-	rawNs       string
+	OutputPath   string
+	Namespace    string
+	ForwardDecls []string
+	KeyFields    []keyFieldData
+	Structs      []structData
+	Enums        []enumData
+	TypeDefs     []typeDefData
+	Aliases      []aliasData
+	SortedDecls  []sortedDeclData
+	includes     *includeManager
+	table        *resolution.Table
+	rawNs        string
 }
 
 type sortedDeclData struct {
-	IsAlias  bool
-	IsStruct bool
-	Alias    aliasData
-	Struct   structData
+	IsAlias   bool
+	IsStruct  bool
+	IsTypeDef bool
+	Alias     aliasData
+	Struct    structData
+	TypeDef   typeDefData
 }
 
 type keyFieldData struct {
@@ -926,9 +944,10 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name    string
-	CppType string
-	Doc     string
+	Name      string
+	CppType   string
+	Doc       string
+	IsSelfRef bool
 }
 
 type enumData struct {
@@ -980,17 +999,19 @@ var fileTemplate = template.Must(template.New("cpp-types").Funcs(templateFuncs).
 {{- end}}
 
 namespace {{.Namespace}} {
+{{- if .ForwardDecls}}
+{{range .ForwardDecls}}
+struct {{.}};
+{{- end}}
+{{end}}
 {{- range $i, $kf := .KeyFields}}
 using {{$kf.Name}} = {{$kf.CppType}};
-{{- end}}
-{{- range $i, $td := .TypeDefs}}
-using {{$td.Name}} = {{$td.CppType}};
 {{- end}}
 {{- range $i, $enum := .Enums}}
 {{if $i}}
 {{end}}
 {{if $enum.IsIntEnum}}
-enum class {{$enum.Name}} {
+enum class {{$enum.Name}} : std::uint8_t {
 {{- range $j, $v := $enum.Values}}
     {{$v.Name}} = {{$v.IntValue}},
 {{- end}}
@@ -1002,15 +1023,19 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- end}}
 {{- end}}
 {{- range $i, $d := .SortedDecls}}
-{{- if $d.IsAlias}}
+{{- if $d.IsTypeDef}}
+{{- $td := $d.TypeDef}}
+{{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
+{{end}}using {{$td.Name}} = {{$td.CppType}};
+{{- else if $d.IsAlias}}
 {{- $a := $d.Alias}}
-{{if or $i (gt (len $.KeyFields) 0) (gt (len $.TypeDefs) 0) (gt (len $.Enums) 0)}}
+{{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $a.IsGeneric}}template <{{range $j, $p := $a.TypeParams}}{{if $j}}, {{end}}typename {{$p}}{{end}}>
 {{end}}using {{$a.Name}} = {{$a.Target}};
 {{- else if $d.IsStruct}}
 {{- $s := $d.Struct}}
-{{if or $i (gt (len $.KeyFields) 0) (gt (len $.TypeDefs) 0) (gt (len $.Enums) 0)}}
+{{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $s.Doc}}
 /// @brief {{$s.Doc}}

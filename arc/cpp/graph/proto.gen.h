@@ -21,7 +21,7 @@
 #include "arc/cpp/graph/types.gen.h"
 #include "arc/go/graph/pb/graph.pb.h"
 
-namespace synnax::graph {
+namespace arc::graph {
 
 inline ::arc::graph::pb::Node Node::to_proto() const {
     ::arc::graph::pb::Node pb;

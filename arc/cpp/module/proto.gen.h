@@ -19,7 +19,7 @@
 #include "arc/cpp/module/types.gen.h"
 #include "arc/go/module/pb/module.pb.h"
 
-namespace synnax::module {
+namespace arc::module {
 
 inline ::arc::module::pb::Module Module::to_proto() const {
     ::arc::module::pb::Module pb;

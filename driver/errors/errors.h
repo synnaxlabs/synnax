@@ -12,7 +12,7 @@
 #include <string>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/lib/xlib.h"
+#include "x/cpp/lib/lib.h"
 
 namespace driver {
 const x::errors::Error BASE_ERROR = x::errors::SY.sub("driver");

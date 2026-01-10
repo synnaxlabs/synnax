@@ -9,10 +9,10 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/memory/local_shared.h"
+#include "x/cpp/mem/local_shared.h"
 #include "x/cpp/test/test.h"
 
-namespace x::memory {
+namespace x::mem {
 TEST(LocalShared, DefaultConstruction) {
     local_shared<int> ptr;
     EXPECT_EQ(ptr.get(), nullptr);

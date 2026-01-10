@@ -8,7 +8,7 @@ cc_library(
     deps = [
         "//arc/cpp/ir",
         "//x/cpp/errors",
-        "//x/cpp/queue:spsc",
+        "//x/cpp/queue",
         "//x/cpp/telem",
     ],
 )

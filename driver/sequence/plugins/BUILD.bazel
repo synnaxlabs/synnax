@@ -12,7 +12,7 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/pipeline",
         "//x/cpp/errors",
-        "//x/cpp/xlua",
+        "//x/cpp/lua",
         "@glog",
         "@nlohmann_json//:json",
     ],

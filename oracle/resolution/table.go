@@ -233,19 +233,29 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 		}
 	}
 
-	if len(sorted) != len(types) {
-		return types // cycle detected
-	}
-
 	typeMap := make(map[string]Type, len(types))
 	for _, typ := range types {
 		typeMap[typ.QualifiedName] = typ
 	}
 
-	result := make([]Type, 0, len(sorted))
+	result := make([]Type, 0, len(types))
+	sortedSet := make(map[string]bool, len(sorted))
 	for _, qname := range sorted {
 		result = append(result, typeMap[qname])
+		sortedSet[qname] = true
 	}
+
+	// If there was a cycle, append remaining types in their original order.
+	// This ensures non-cyclic dependencies come first, and cyclic types
+	// are appended at the end in declaration order.
+	if len(sorted) != len(types) {
+		for _, typ := range types {
+			if !sortedSet[typ.QualifiedName] {
+				result = append(result, typ)
+			}
+		}
+	}
+
 	return result
 }
 

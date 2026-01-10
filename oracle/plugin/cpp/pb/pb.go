@@ -720,6 +720,8 @@ func deriveNamespace(outputPath string) string {
 		topLevel = "x"
 	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
 		topLevel = "synnax"
+	case len(parts) >= 2 && parts[0] == "arc" && parts[1] == "cpp":
+		topLevel = "arc"
 	case len(parts) >= 1 && parts[0] == "driver":
 		topLevel = "driver"
 	default:

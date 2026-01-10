@@ -1,7 +1,11 @@
 cc_library(
     name = "types",
-    srcs = ["types.cpp"],
-    hdrs = ["types.h"],
+    #    srcs = ["types.cpp"],
+    hdrs = [
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/types:types_grpc",

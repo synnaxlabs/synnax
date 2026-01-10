@@ -22,7 +22,7 @@ cc_test(
         "//arc/cpp/ir/testutil",
         "//arc/cpp/runtime/node",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
         "@googletest//:gtest_main",
     ],
 )

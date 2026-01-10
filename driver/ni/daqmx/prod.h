@@ -12,7 +12,7 @@
 #include <memory>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/lib/xlib.h"
+#include "x/cpp/lib/lib.h"
 
 #include "driver/ni/daqmx/api.h"
 #include "driver/ni/daqmx/nidaqmx.h"

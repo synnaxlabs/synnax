@@ -321,7 +321,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 			if field.IsHardOptional {
 				return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, structType, jsonName)
 			}
-			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
+			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
 	}
 
@@ -339,12 +339,12 @@ func (p *Plugin) parseExprForField(field resolution.Field, cppType string, data 
 	if field.IsHardOptional {
 		return fmt.Sprintf(`%s::parse(parser.optional_child("%s"))`, cppType, jsonName)
 	}
-	return fmt.Sprintf(`%s::parse(parser.child("%s"))`, cppType, jsonName)
+	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
 func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonName string, hasDefault bool, data *templateData) string {
 	if typeRef.TypeParam != nil {
-		return fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeRef.TypeParam.Name, jsonName)
+		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
 	}
 
 	resolved, resolvedOk := typeRef.Resolve(data.table)
@@ -358,7 +358,7 @@ func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonNa
 					structType = fmt.Sprintf("%s::%s", ns, structType)
 				}
 			}
-			return fmt.Sprintf(`%s::parse(parser.child("%s"))`, structType, jsonName)
+			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
 	}
 
@@ -366,7 +366,7 @@ func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonNa
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	}
 
-	return fmt.Sprintf(`%s::parse(parser.child("%s"))`, cppType, jsonName)
+	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
 func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templateData) (jsonParseExpr, structParseExpr string) {
@@ -375,10 +375,10 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 
 	if field.IsHardOptional {
 		jsonParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<x::json::json>("%s")) : std::nullopt`, jsonName, jsonName)
-		structParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s::parse(parser.child("%s"))) : std::nullopt`, jsonName, typeParamName, jsonName)
+		structParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, typeParamName, jsonName)
 	} else {
 		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json>("%s")`, jsonName)
-		structParseExpr = fmt.Sprintf(`%s::parse(parser.child("%s"))`, typeParamName, jsonName)
+		structParseExpr = fmt.Sprintf(`parser.field<%s>("%s")`, typeParamName, jsonName)
 	}
 
 	return jsonParseExpr, structParseExpr
@@ -478,6 +478,8 @@ func deriveNamespace(outputPath string) string {
 		topLevel = "x"
 	case len(parts) >= 2 && parts[0] == "client" && parts[1] == "cpp":
 		topLevel = "synnax"
+	case len(parts) >= 2 && parts[0] == "arc" && parts[1] == "cpp":
+		topLevel = "arc"
 	case len(parts) >= 1 && parts[0] == "driver":
 		topLevel = "driver"
 	default:

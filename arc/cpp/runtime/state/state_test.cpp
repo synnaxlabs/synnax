@@ -10,7 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
 

@@ -29,7 +29,7 @@ cc_library(
         "//x/cpp/breaker",
         "//x/cpp/cli",
         "//x/cpp/log",
-        "//x/cpp/xshutdown",
+        "//x/cpp/shutdown",
         "@gflags",
         "@glog",
     ],

@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "client/ts/src/arc/types"
-@go output "arc/go/types"
+@ts output  "client/ts/src/arc/types"
+@go output  "arc/go/types"
+@cpp output "arc/cpp/types"
 @pb
 
 Kind enum {

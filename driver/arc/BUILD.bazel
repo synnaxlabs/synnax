@@ -15,8 +15,8 @@ cc_library(
         "//driver/task",
         "//driver/task/common",
         "//x/cpp/breaker",
+        "//x/cpp/json",
         "//x/cpp/telem",
-        "//x/cpp/xjson",
     ],
 )
 
@@ -29,7 +29,7 @@ cc_test(
         "//driver/pipeline/mock",
         "//driver/task",
         "//x/cpp/defer",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

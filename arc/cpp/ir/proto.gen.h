@@ -17,9 +17,10 @@
 #include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/types.gen.h"
+#include "arc/cpp/types/proto.gen.h"
 #include "arc/go/ir/pb/ir.pb.h"
 
-namespace synnax::ir {
+namespace arc::ir {
 
 inline ::arc::ir::pb::Handle Handle::to_proto() const {
     ::arc::ir::pb::Handle pb;
@@ -137,7 +138,7 @@ Function::from_proto(const ::arc::ir::pb::Function &pb) {
     cpp.inputs = pb.inputs();
     cpp.outputs = pb.outputs();
     {
-        auto [val, err] = Channels::from_proto(pb.channels());
+        auto [val, err] = arc::types::Channels::from_proto(pb.channels());
         if (err) return {{}, err};
         cpp.channels = val;
     }
@@ -164,7 +165,7 @@ Node::from_proto(const ::arc::ir::pb::Node &pb) {
     cpp.inputs = pb.inputs();
     cpp.outputs = pb.outputs();
     {
-        auto [val, err] = Channels::from_proto(pb.channels());
+        auto [val, err] = arc::types::Channels::from_proto(pb.channels());
         if (err) return {{}, err};
         cpp.channels = val;
     }

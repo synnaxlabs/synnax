@@ -19,7 +19,7 @@
 #include "arc/cpp/compiler/types.gen.h"
 #include "arc/go/compiler/pb/compiler.pb.h"
 
-namespace synnax::compiler {
+namespace arc::compiler {
 
 inline ::arc::compiler::pb::Output Output::to_proto() const {
     ::arc::compiler::pb::Output pb;

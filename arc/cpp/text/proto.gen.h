@@ -19,7 +19,7 @@
 #include "arc/cpp/text/types.gen.h"
 #include "arc/go/text/pb/text.pb.h"
 
-namespace synnax::text {
+namespace arc::text {
 
 inline ::arc::text::pb::Text Text::to_proto() const {
     ::arc::text::pb::Text pb;

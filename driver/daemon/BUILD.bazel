@@ -24,7 +24,7 @@ cc_library(
     deps = [
         "//x/cpp/errors",
         "//x/cpp/os",
-        "//x/cpp/xthread",
+        "//x/cpp/thread",
         "@glog//:glog",
     ],
 )

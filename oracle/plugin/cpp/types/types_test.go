@@ -40,6 +40,38 @@ var _ = Describe("C++ Types Plugin", func() {
 		cppPlugin = types.New(types.DefaultOptions())
 	})
 
+	Describe("Namespace Derivation", func() {
+		DescribeTable("should derive correct namespace from output path",
+			func(outputPath, expectedNamespace string) {
+				source := `
+					@cpp output "` + outputPath + `"
+
+					TestType struct {
+						key uint32
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, cppPlugin)
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain("namespace " + expectedNamespace + " {")
+			},
+			// arc/cpp paths should use arc:: namespace
+			Entry("arc/cpp/types", "arc/cpp/types", "arc::types"),
+			Entry("arc/cpp/ir", "arc/cpp/ir", "arc::ir"),
+			Entry("arc/cpp/graph", "arc/cpp/graph", "arc::graph"),
+			// x/cpp paths should use x:: namespace
+			Entry("x/cpp/telem", "x/cpp/telem", "x::telem"),
+			Entry("x/cpp/json", "x/cpp/json", "x::json"),
+			// client/cpp paths should use synnax:: namespace
+			Entry("client/cpp/channel", "client/cpp/channel", "synnax::channel"),
+			Entry("client/cpp/user", "client/cpp/user", "synnax::user"),
+			// driver paths should use driver:: namespace
+			Entry("driver/modbus", "driver/modbus", "driver::modbus"),
+			Entry("driver/ni", "driver/ni", "driver::ni"),
+			// unknown paths should default to synnax:: namespace
+			Entry("other/path", "other/path", "synnax::path"),
+		)
+	})
+
 	Describe("Plugin Interface", func() {
 		It("Should have correct name", func() {
 			Expect(cppPlugin.Name()).To(Equal("cpp/types"))
@@ -642,7 +674,162 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`std::vector<std::uint8_t> wasm;`))
 		})
 
-		It("Should handle int enums", func() {
+		It("Should handle typedef array aliases", func() {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Param struct {
+					name string
+					value int32
+				}
+
+				Params Param[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`using Params = std::vector<Param>;`))
+			Expect(content).NotTo(ContainSubstring(`using Params = void;`))
+		})
+
+		It("Should handle typedef array of structs used in other structs", func() {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Param struct {
+					name string
+					value int32
+				}
+
+				Params Param[]
+
+				FunctionProperties struct {
+					inputs Params
+					outputs Params
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`using Params = std::vector<Param>;`))
+			Expect(content).To(ContainSubstring(`Params inputs;`))
+			Expect(content).To(ContainSubstring(`Params outputs;`))
+		})
+
+		It("Should order typedef after its dependency struct", func() {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Param struct {
+					name string
+					value int32
+				}
+
+				Params Param[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Param struct definition must appear before Params typedef
+			paramDefIdx := strings.Index(content, "struct Param {")
+			paramsIdx := strings.Index(content, "using Params")
+			Expect(paramDefIdx).To(BeNumerically("<", paramsIdx),
+				"Param struct definition should be declared before Params typedef")
+		})
+
+		It("Should generate forward declarations for structs before typedefs", func() {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Param struct {
+					name string
+					value int32
+				}
+
+				Params Param[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Forward declaration must appear before typedef
+			fwdDeclIdx := strings.Index(content, "struct Param;")
+			typedefIdx := strings.Index(content, "using Params")
+			Expect(fwdDeclIdx).To(BeNumerically(">", -1), "Forward declaration should exist")
+			Expect(fwdDeclIdx).To(BeNumerically("<", typedefIdx),
+				"Forward declaration should appear before typedef")
+		})
+
+		It("Should handle cyclic dependencies with forward declarations", func() {
+			source := `
+				@cpp output "client/cpp/types"
+
+				FunctionProperties struct {
+					inputs Params
+				}
+
+				Type struct {
+					props FunctionProperties
+					name string
+				}
+
+				Param struct {
+					type Type
+				}
+
+				Params Param[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// All structs should have forward declarations
+			Expect(content).To(ContainSubstring("struct FunctionProperties;"))
+			Expect(content).To(ContainSubstring("struct Type;"))
+			Expect(content).To(ContainSubstring("struct Param;"))
+			// Typedef should reference Param
+			Expect(content).To(ContainSubstring("using Params = std::vector<Param>;"))
+		})
+
+		It("Should handle int enums with uint8_t underlying type", func() {
 			source := `
 				@cpp output "client/cpp/status"
 
@@ -667,10 +854,69 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`enum class Variant {`))
+			Expect(content).To(ContainSubstring(`enum class Variant : std::uint8_t {`))
 			Expect(content).To(ContainSubstring(`Success = 0,`))
 			Expect(content).To(ContainSubstring(`Error = 1,`))
 			Expect(content).To(ContainSubstring(`Warning = 2,`))
+		})
+
+		It("Should use indirect for self-referential optional fields", func() {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Node struct {
+					name string
+					left Node??
+					right Node??
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Self-referential fields should use x::mem::indirect, not optional
+			Expect(content).To(ContainSubstring(`x::mem::indirect<Node> left;`))
+			Expect(content).To(ContainSubstring(`x::mem::indirect<Node> right;`))
+			Expect(content).To(ContainSubstring(`#include "x/cpp/mem/indirect.h"`))
+			// Should NOT use std::optional for self-referential types
+			Expect(content).NotTo(ContainSubstring(`std::optional<Node>`))
+		})
+
+		It("Should use optional for non-self-referential optional fields", func() {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Unit struct {
+					name string
+					scale float64
+				}
+
+				Type struct {
+					name string
+					unit Unit??
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Non-self-referential optional fields should use std::optional
+			Expect(content).To(ContainSubstring(`std::optional<Unit> unit;`))
+			Expect(content).To(ContainSubstring(`#include <optional>`))
 		})
 
 		It("Should handle cross-namespace references to handwritten types", func() {

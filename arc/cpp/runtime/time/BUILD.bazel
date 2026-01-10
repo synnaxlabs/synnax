@@ -6,8 +6,8 @@ cc_library(
         "//arc/cpp/ir",
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
+        "//x/cpp/errors",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
     ],
 )
 
@@ -17,7 +17,7 @@ cc_test(
     deps = [
         ":time",
         "//arc/cpp/runtime/state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
