@@ -1,6 +1,11 @@
 cc_library(
     name = "text",
-    hdrs = ["text.h"],
+    hdrs = [
+        "json.gen.h",
+        "proto.gen.h",
+        "text.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = ["//arc/go/text:text_grpc"],
 )

@@ -27,8 +27,8 @@ namespace arc::compiler {
 struct Output;
 
 struct Output {
-    std::vector<std::uint8_t> WASM;
-    std::unordered_map<std::string, std::uint32_t> OutputMemoryBases;
+    std::vector<std::uint8_t> wasm;
+    std::unordered_map<std::string, std::uint32_t> output_memory_bases;
 
     static Output parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -178,10 +178,7 @@ struct FunctionProperties {
     from_proto(const ::arc::types::pb::FunctionProperties &pb);
 };
 
-struct Type {
-    Params inputs;
-    Params outputs;
-    Params config;
+struct Type : public FunctionProperties {
     Kind kind;
     std::string name;
     x::mem::indirect<Type> elem;

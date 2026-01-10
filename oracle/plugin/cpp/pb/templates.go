@@ -90,6 +90,28 @@ inline std::pair<{{.CppName}}<{{.TypeParamNames}}>, x::errors::Error> {{.CppName
 {{- end}}
     return {cpp, x::errors::NIL};
 }
+{{- else if .HasExtends}}
+
+inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {
+    {{.PBNamespace}}::{{.PBName}} pb;
+{{- range .ParentTypes}}
+    pb.MergeFrom({{.QualifiedName}}::to_proto());
+{{- end}}
+{{- range .Fields}}
+    {{.ForwardExpr}};
+{{- end}}
+    return pb;
+}
+
+inline std::pair<{{.CppName}}, x::errors::Error> {{.CppName}}::from_proto(
+    const {{.PBNamespace}}::{{.PBName}}& pb
+) {
+    {{.CppName}} cpp;
+{{- range .AllFields}}
+    {{.BackwardExpr}}
+{{- end}}
+    return {cpp, x::errors::NIL};
+}
 {{- else}}
 
 inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {

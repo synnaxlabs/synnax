@@ -53,6 +53,29 @@ x::json::json {{.Name}}<{{.TypeParamNames}}>::to_json() const {
 {{- end}}
     return j;
 }
+{{- else if .HasExtends}}
+
+inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
+    {{.Name}} result;
+{{- range .ParentTypes}}
+    static_cast<{{.QualifiedName}}&>(result) = {{.QualifiedName}}::parse(parser);
+{{- end}}
+{{- range .Fields}}
+    result.{{.Name}} = {{.ParseExpr}};
+{{- end}}
+    return result;
+}
+
+inline x::json::json {{.Name}}::to_json() const {
+    x::json::json j;
+{{- range .ParentTypes}}
+    for (auto& [k, v] : {{.QualifiedName}}::to_json().items()) j[k] = v;
+{{- end}}
+{{- range .Fields}}
+    {{.ToJsonExpr}}
+{{- end}}
+    return j;
+}
 {{- else}}
 
 inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {

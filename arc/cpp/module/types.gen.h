@@ -11,15 +11,12 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
+#include "arc/cpp/compiler/types.gen.h"
 #include "arc/cpp/ir/types.gen.h"
 #include "arc/go/module/pb/module.pb.h"
 
@@ -27,14 +24,7 @@ namespace arc::module {
 
 struct Module;
 
-struct Module {
-    arc::ir::Functions functions;
-    arc::ir::Nodes nodes;
-    arc::ir::Edges edges;
-    arc::ir::Strata strata;
-    arc::ir::Sequences sequences;
-    std::vector<std::uint8_t> WASM;
-    std::unordered_map<std::string, std::uint32_t> OutputMemoryBases;
+struct Module : public arc::ir::IR, public arc::compiler::Output {
 
     static Module parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

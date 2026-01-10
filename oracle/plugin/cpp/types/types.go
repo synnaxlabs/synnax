@@ -646,12 +646,30 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		return sd
 	}
 
-	for _, field := range resolution.UnifiedFields(entry, data.table) {
-		sd.Fields = append(sd.Fields, p.processField(field, entry, data))
+	// Check if we can use C++ multiple inheritance
+	if canUseInheritance(form, data.table) {
+		sd.HasExtends = true
+		for _, extendsRef := range form.Extends {
+			parent, ok := extendsRef.Resolve(data.table)
+			if !ok {
+				continue
+			}
+			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
+			sd.ExtendsTypes = append(sd.ExtendsTypes, qualifiedName)
+		}
+		// Only process child's own fields (not inherited)
+		for _, field := range form.Fields {
+			sd.Fields = append(sd.Fields, p.processField(field, entry, data))
+		}
+	} else {
+		// Fall back to field flattening (current behavior)
+		for _, field := range resolution.UnifiedFields(entry, data.table) {
+			sd.Fields = append(sd.Fields, p.processField(field, entry, data))
+		}
 	}
 
-	// Structs with fields need json.h for parse/to_json methods
-	if len(sd.Fields) > 0 {
+	// Structs with fields or inheritance need json.h for parse/to_json methods
+	if len(sd.Fields) > 0 || sd.HasExtends {
 		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
@@ -732,7 +750,7 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	}
 
 	return fieldData{
-		Name:      field.Name,
+		Name:      toSnakeCase(field.Name),
 		CppType:   cppType,
 		Doc:       doc.Get(field.Domains),
 		IsSelfRef: isSelfRef,
@@ -1040,6 +1058,9 @@ type structData struct {
 	ProtoNamespace string
 	ProtoClass     string
 	Methods        []string
+	// Inheritance support
+	HasExtends   bool
+	ExtendsTypes []string // e.g., ["arc::ir::IR", "arc::compiler::Output"]
 }
 
 type typeParamData struct {
@@ -1092,6 +1113,61 @@ func hasExplicitPBName(s resolution.Type) bool {
 		}
 	}
 	return false
+}
+
+// canUseInheritance checks if a struct can use C++ multiple inheritance.
+// Returns false if there are omitted fields or field name conflicts between parents.
+func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
+	if len(form.Extends) == 0 {
+		return false
+	}
+	if len(form.OmittedFields) > 0 {
+		return false // Can't omit fields with inheritance
+	}
+	return !hasFieldConflicts(form.Extends, table)
+}
+
+// hasFieldConflicts returns true if multiple parents have overlapping field names.
+func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
+	if len(extends) < 2 {
+		return false
+	}
+	seen := make(map[string]bool)
+	for _, ext := range extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, table) {
+			if seen[f.Name] {
+				return true
+			}
+			seen[f.Name] = true
+		}
+	}
+	return false
+}
+
+// resolveExtendsType converts a parent TypeRef to a fully qualified C++ type string.
+// It also adds the necessary include for the parent's header.
+func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
+	name := domain.GetName(parent, "cpp")
+
+	// Check for cross-namespace reference
+	if parent.Namespace != data.rawNs {
+		targetOutputPath := output.GetPath(parent, "cpp")
+		if targetOutputPath != "" {
+			// Add include for the parent's header
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			data.includes.addInternal(includePath)
+			// Use namespace-qualified name
+			ns := deriveNamespace(targetOutputPath)
+			name = fmt.Sprintf("%s::%s", ns, name)
+		}
+	}
+
+	// Handle generic parents with type arguments
+	return p.buildGenericType(name, extendsRef.TypeArgs, data)
 }
 
 var templateFuncs = template.FuncMap{
@@ -1231,7 +1307,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{end}}using {{$s.Name}} = {{$s.AliasOf}};
 {{- else}}
 {{- if $s.IsGeneric}}template <{{range $j, $p := $s.TypeParams}}{{if $j}}, {{end}}typename {{$p.Name}}{{end}}>
-{{end}}struct {{$s.Name}} {
+{{end}}struct {{$s.Name}}{{if $s.HasExtends}} : {{range $i, $parent := $s.ExtendsTypes}}{{if $i}}, {{end}}public {{$parent}}{{end}}{{end}} {
 {{- range $s.Fields}}
 {{- if .Doc}}
     /// @brief {{.Doc}}

@@ -319,6 +319,65 @@ func (p *Plugin) generateProto(
 	return buf.Bytes(), nil
 }
 
+// canUseInheritance checks if a struct can use C++ multiple inheritance.
+func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
+	if len(form.Extends) == 0 {
+		return false
+	}
+	if len(form.OmittedFields) > 0 {
+		return false
+	}
+	return !hasFieldConflicts(form.Extends, table)
+}
+
+// hasFieldConflicts returns true if multiple parents have overlapping field names.
+func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
+	if len(extends) < 2 {
+		return false
+	}
+	seen := make(map[string]bool)
+	for _, ext := range extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, table) {
+			if seen[f.Name] {
+				return true
+			}
+			seen[f.Name] = true
+		}
+	}
+	return false
+}
+
+// resolveExtendsType converts a parent TypeRef to a fully qualified C++ type string.
+func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
+	name := domain.GetName(parent, "cpp")
+
+	if parent.Namespace != data.rawNs {
+		targetOutputPath := output.GetPath(parent, "cpp")
+		if targetOutputPath != "" {
+			// Add include for the parent's proto.gen.h
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "proto.gen.h")
+			data.includes.addInternal(includePath)
+			ns := deriveNamespace(targetOutputPath)
+			name = fmt.Sprintf("%s::%s", ns, name)
+		}
+	}
+
+	// Handle generic parents with type arguments
+	if len(extendsRef.TypeArgs) > 0 {
+		args := make([]string, 0, len(extendsRef.TypeArgs))
+		for _, arg := range extendsRef.TypeArgs {
+			args = append(args, p.typeRefToCppForTranslator(arg, data))
+		}
+		name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+	}
+
+	return name
+}
+
 func (p *Plugin) processStructForTranslation(
 	s resolution.Type,
 	form resolution.StructForm,
@@ -352,9 +411,35 @@ func (p *Plugin) processStructForTranslation(
 		data.includes.addInternal("x/cpp/json/any.h")
 	}
 
-	for _, field := range resolution.UnifiedFields(s, data.table) {
-		fieldData := p.processFieldForTranslation(field, form, data)
-		translator.Fields = append(translator.Fields, fieldData)
+	// Check if we can use C++ multiple inheritance
+	if canUseInheritance(form, data.table) {
+		translator.HasExtends = true
+		for _, extendsRef := range form.Extends {
+			parent, ok := extendsRef.Resolve(data.table)
+			if !ok {
+				continue
+			}
+			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
+			translator.ParentTypes = append(translator.ParentTypes, parentTypeData{
+				QualifiedName: qualifiedName,
+			})
+		}
+		// Only process child's own fields for to_proto (inherited fields use MergeFrom)
+		for _, field := range form.Fields {
+			fieldData := p.processFieldForTranslation(field, form, data)
+			translator.Fields = append(translator.Fields, fieldData)
+		}
+		// Process all unified fields for from_proto (can't call parent's from_proto due to type mismatch)
+		for _, field := range resolution.UnifiedFields(s, data.table) {
+			fieldData := p.processFieldForTranslation(field, form, data)
+			translator.AllFields = append(translator.AllFields, fieldData)
+		}
+	} else {
+		// Fall back to field flattening
+		for _, field := range resolution.UnifiedFields(s, data.table) {
+			fieldData := p.processFieldForTranslation(field, form, data)
+			translator.Fields = append(translator.Fields, fieldData)
+		}
 	}
 
 	return translator
@@ -365,8 +450,8 @@ func (p *Plugin) processFieldForTranslation(
 	form resolution.StructForm,
 	data *templateData,
 ) fieldTranslatorData {
-	fieldName := field.Name
-	pbFieldName := field.Name
+	fieldName := toSnakeCase(field.Name)
+	pbFieldName := toSnakeCase(field.Name)
 
 	isGenericField := false
 	typeParamName := ""
@@ -400,7 +485,7 @@ func (p *Plugin) generateFieldConversion(
 	data *templateData,
 ) (forward, backward string) {
 	typeRef := field.Type
-	fieldName := field.Name
+	fieldName := toSnakeCase(field.Name)
 	pbSetter := fmt.Sprintf("pb.set_%s", fieldName)
 
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
@@ -444,7 +529,7 @@ func (p *Plugin) generateJsonFieldConversion(
 	field resolution.Field,
 	data *templateData,
 ) (forward, backward string) {
-	fieldName := field.Name
+	fieldName := toSnakeCase(field.Name)
 	if field.IsHardOptional {
 		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", fieldName, fieldName, fieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
@@ -517,6 +602,12 @@ func (p *Plugin) generatePrimitiveConversion(
     }`, fieldName, fieldName)
 		}
 		return forward, backward
+	case "bytes":
+		// bytes in C++ is std::vector<uint8_t>, but protobuf uses std::string
+		// to_proto: use data() and size() to set the bytes field
+		// from_proto: use assign with iterators to copy from string to vector
+		return fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", fieldName, fieldName, fieldName),
+			fmt.Sprintf("cpp.%s.assign(pb.%s().begin(), pb.%s().end());", fieldName, fieldName, fieldName)
 	default:
 		return fmt.Sprintf("%s(this->%s)", pbSetter, fieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", fieldName, fieldName)
@@ -746,7 +837,7 @@ func (p *Plugin) generateArrayConversion(
 	field resolution.Field,
 	data *templateData,
 ) (forward, backward string) {
-	fieldName := field.Name
+	fieldName := toSnakeCase(field.Name)
 	typeRef := field.Type
 
 	if len(typeRef.TypeArgs) == 0 {
@@ -808,7 +899,7 @@ func (p *Plugin) generateMapConversion(
 	field resolution.Field,
 	data *templateData,
 ) (forward, backward string) {
-	fieldName := field.Name
+	fieldName := toSnakeCase(field.Name)
 	typeRef := field.Type
 
 	if len(typeRef.TypeArgs) < 2 {
@@ -1176,6 +1267,14 @@ type translatorData struct {
 	IsGeneric      bool
 	TypeParams     []typeParamData
 	TypeParamNames string
+	// Inheritance support
+	HasExtends  bool
+	ParentTypes []parentTypeData
+	AllFields   []fieldTranslatorData // All unified fields for from_proto when HasExtends
+}
+
+type parentTypeData struct {
+	QualifiedName string // e.g., "arc::ir::IR"
 }
 
 type typeParamData struct {

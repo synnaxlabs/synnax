@@ -208,6 +208,65 @@ func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *ar
 	}
 }
 
+// canUseInheritance checks if a struct can use C++ multiple inheritance.
+func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
+	if len(form.Extends) == 0 {
+		return false
+	}
+	if len(form.OmittedFields) > 0 {
+		return false
+	}
+	return !hasFieldConflicts(form.Extends, table)
+}
+
+// hasFieldConflicts returns true if multiple parents have overlapping field names.
+func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
+	if len(extends) < 2 {
+		return false
+	}
+	seen := make(map[string]bool)
+	for _, ext := range extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, table) {
+			if seen[f.Name] {
+				return true
+			}
+			seen[f.Name] = true
+		}
+	}
+	return false
+}
+
+// resolveExtendsType converts a parent TypeRef to a fully qualified C++ type string.
+func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
+	name := domain.GetName(parent, "cpp")
+
+	if parent.Namespace != data.rawNs {
+		targetOutputPath := output.GetPath(parent, "cpp")
+		if targetOutputPath != "" {
+			// Add include for the parent's json.gen.h
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "json.gen.h")
+			data.includes.addInternal(includePath)
+			ns := deriveNamespace(targetOutputPath)
+			name = fmt.Sprintf("%s::%s", ns, name)
+		}
+	}
+
+	// Handle generic parents with type arguments
+	if len(extendsRef.TypeArgs) > 0 {
+		args := make([]string, 0, len(extendsRef.TypeArgs))
+		for _, arg := range extendsRef.TypeArgs {
+			args = append(args, p.typeRefToCpp(arg, data))
+		}
+		name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+	}
+
+	return name
+}
+
 func (p *Plugin) processStruct(
 	s resolution.Type,
 	data *templateData,
@@ -239,9 +298,30 @@ func (p *Plugin) processStruct(
 		data.includes.addSystem("type_traits")
 	}
 
-	for _, field := range resolution.UnifiedFields(s, data.table) {
-		fieldData := p.processField(field, s, data)
-		serializer.Fields = append(serializer.Fields, fieldData)
+	// Check if we can use C++ multiple inheritance
+	if canUseInheritance(form, data.table) {
+		serializer.HasExtends = true
+		for _, extendsRef := range form.Extends {
+			parent, ok := extendsRef.Resolve(data.table)
+			if !ok {
+				continue
+			}
+			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
+			serializer.ParentTypes = append(serializer.ParentTypes, parentTypeData{
+				QualifiedName: qualifiedName,
+			})
+		}
+		// Only process child's own fields (not inherited)
+		for _, field := range form.Fields {
+			fieldData := p.processField(field, s, data)
+			serializer.Fields = append(serializer.Fields, fieldData)
+		}
+	} else {
+		// Fall back to field flattening
+		for _, field := range resolution.UnifiedFields(s, data.table) {
+			fieldData := p.processField(field, s, data)
+			serializer.Fields = append(serializer.Fields, fieldData)
+		}
 	}
 
 	return serializer, nil
@@ -313,7 +393,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	}
 
 	return fieldData{
-		Name:            field.Name,
+		Name:            toSnakeCase(field.Name),
 		CppType:         cppType,
 		JsonName:        jsonName,
 		ParseExpr:       parseExpr,
@@ -555,7 +635,7 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Type, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
 	jsonName := field.Name
-	fieldName := field.Name
+	fieldName := toSnakeCase(field.Name)
 
 	if typeRef.TypeParam != nil {
 		typeName := typeRef.TypeParam.Name
@@ -651,6 +731,10 @@ func defaultValueForPrimitive(primitive string) string {
 	}
 }
 
+func toSnakeCase(s string) string {
+	return lo.SnakeCase(s)
+}
+
 func deriveNamespace(outputPath string) string {
 	parts := strings.Split(outputPath, "/")
 	if len(parts) == 0 {
@@ -733,6 +817,13 @@ type serializerData struct {
 	TypeParams     []typeParamData
 	TypeParamNames string
 	Fields         []fieldData
+	// Inheritance support
+	HasExtends  bool
+	ParentTypes []parentTypeData
+}
+
+type parentTypeData struct {
+	QualifiedName string // e.g., "arc::ir::IR"
 }
 
 type typeParamData struct {

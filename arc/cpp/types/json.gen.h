@@ -38,26 +38,24 @@ inline x::json::json FunctionProperties::to_json() const {
 }
 
 inline Type Type::parse(x::json::Parser parser) {
-    return Type{
-        .inputs = parser.field<Params>("inputs"),
-        .outputs = parser.field<Params>("outputs"),
-        .config = parser.field<Params>("config"),
-        .kind = parser.field<Kind>("kind"),
-        .name = parser.field<std::string>("name"),
-        .elem = parser.has("elem") ? x::mem::indirect<Type>(parser.field<Type>("elem"))
-                                   : nullptr,
-        .unit = parser.field<Unit>("unit"),
-        .constraint = parser.has("constraint")
-                        ? x::mem::indirect<Type>(parser.field<Type>("constraint"))
-                        : nullptr,
-    };
+    Type result;
+    static_cast<FunctionProperties &>(result) = FunctionProperties::parse(parser);
+    result.kind = parser.field<Kind>("kind");
+    result.name = parser.field<std::string>("name");
+    result.elem = parser.has("elem")
+                    ? x::mem::indirect<Type>(parser.field<Type>("elem"))
+                    : nullptr;
+    result.unit = parser.field<Unit>("unit");
+    result.constraint = parser.has("constraint")
+                          ? x::mem::indirect<Type>(parser.field<Type>("constraint"))
+                          : nullptr;
+    return result;
 }
 
 inline x::json::json Type::to_json() const {
     x::json::json j;
-    j["inputs"] = this->inputs.to_json();
-    j["outputs"] = this->outputs.to_json();
-    j["config"] = this->config.to_json();
+    for (auto &[k, v]: FunctionProperties::to_json().items())
+        j[k] = v;
     j["kind"] = this->kind;
     j["name"] = this->name;
     if (this->elem.has_value()) j["elem"] = this->elem->to_json();

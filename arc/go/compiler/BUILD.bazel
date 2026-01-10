@@ -2,8 +2,8 @@ load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
 
 proto_library(
-    name = "module_proto",
-    srcs = ["pb/module.proto"],
+    name = "compiler_proto",
+    srcs = ["pb/compiler.proto"],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/ir:ir_proto",
@@ -11,9 +11,9 @@ proto_library(
 )
 
 cpp_grpc_library(
-    name = "module_grpc",
+    name = "compiler_grpc",
     output_mode = "NO_PREFIX",
-    protos = [":module_proto"],
+    protos = [":compiler_proto"],
     visibility = ["//visibility:public"],
     deps = ["//arc/go/ir:ir_grpc"],
 )

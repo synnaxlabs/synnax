@@ -11,42 +11,27 @@
 
 #pragma once
 
-#include <cstdint>
-#include <string>
-#include <unordered_map>
-#include <vector>
-
 #include "x/cpp/json/json.h"
 
+#include "arc/cpp/compiler/json.gen.h"
 #include "arc/cpp/ir/json.gen.h"
 #include "arc/cpp/module/types.gen.h"
 
 namespace arc::module {
 
 inline Module Module::parse(x::json::Parser parser) {
-    return Module{
-        .functions = parser.field<arc::ir::Functions>("functions"),
-        .nodes = parser.field<arc::ir::Nodes>("nodes"),
-        .edges = parser.field<arc::ir::Edges>("edges"),
-        .strata = parser.field<arc::ir::Strata>("strata"),
-        .sequences = parser.field<arc::ir::Sequences>("sequences"),
-        .WASM = parser.field<std::vector<std::uint8_t>>("WASM"),
-        .OutputMemoryBases = parser
-                                 .field<std::unordered_map<std::string, std::uint32_t>>(
-                                     "OutputMemoryBases"
-                                 ),
-    };
+    Module result;
+    static_cast<arc::ir::IR &>(result) = arc::ir::IR::parse(parser);
+    static_cast<arc::compiler::Output &>(result) = arc::compiler::Output::parse(parser);
+    return result;
 }
 
 inline x::json::json Module::to_json() const {
     x::json::json j;
-    j["functions"] = this->functions.to_json();
-    j["nodes"] = this->nodes.to_json();
-    j["edges"] = this->edges.to_json();
-    j["strata"] = this->strata.to_json();
-    j["sequences"] = this->sequences.to_json();
-    j["WASM"] = this->WASM;
-    j["OutputMemoryBases"] = this->OutputMemoryBases;
+    for (auto &[k, v]: arc::ir::IR::to_json().items())
+        j[k] = v;
+    for (auto &[k, v]: arc::compiler::Output::to_json().items())
+        j[k] = v;
     return j;
 }
 
