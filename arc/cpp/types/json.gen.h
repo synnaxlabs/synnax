@@ -45,7 +45,8 @@ inline Type Type::parse(x::json::Parser parser) {
     result.elem = parser.has("elem")
                     ? x::mem::indirect<Type>(parser.field<Type>("elem"))
                     : nullptr;
-    result.unit = parser.field<Unit>("unit");
+    result.unit = parser.has("unit") ? std::make_optional(parser.field<Unit>("unit"))
+                                     : std::nullopt;
     result.constraint = parser.has("constraint")
                           ? x::mem::indirect<Type>(parser.field<Type>("constraint"))
                           : nullptr;

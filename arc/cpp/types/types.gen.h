@@ -73,14 +73,14 @@ struct Channels {
 };
 
 struct Dimensions {
-    std::int8_t length;
-    std::int8_t mass;
-    std::int8_t time;
-    std::int8_t current;
-    std::int8_t temperature;
-    std::int8_t angle;
-    std::int8_t count;
-    std::int8_t data;
+    std::int8_t length = 0;
+    std::int8_t mass = 0;
+    std::int8_t time = 0;
+    std::int8_t current = 0;
+    std::int8_t temperature = 0;
+    std::int8_t angle = 0;
+    std::int8_t count = 0;
+    std::int8_t data = 0;
 
     static Dimensions parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -97,7 +97,7 @@ struct Dimensions {
 
 struct Unit {
     Dimensions dimensions;
-    double scale;
+    double scale = 0;
     std::string name;
 
     static Unit parse(x::json::Parser parser);

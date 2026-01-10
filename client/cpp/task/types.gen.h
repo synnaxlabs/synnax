@@ -30,8 +30,8 @@ struct Command;
 using Key = std::uint64_t;
 
 struct StatusDetails {
-    Key task;
-    bool running;
+    Key task = 0;
+    bool running = false;
     std::string cmd;
     std::optional<x::json::json> data;
 
@@ -45,7 +45,7 @@ struct StatusDetails {
 };
 
 struct Command {
-    Key task;
+    Key task = 0;
     std::string type;
     std::string key;
     x::json::json args;
@@ -62,12 +62,12 @@ struct Command {
 using Status = ::x::status::Status<StatusDetails>;
 
 struct Task {
-    Key key;
+    Key key = 0;
     std::string name;
     std::string type;
     x::json::json config;
-    bool internal;
-    bool snapshot;
+    bool internal = false;
+    bool snapshot = false;
     std::optional<Status> status;
 
     static Task parse(x::json::Parser parser);

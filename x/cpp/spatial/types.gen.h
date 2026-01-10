@@ -27,8 +27,8 @@ struct SignedDimensions;
 struct Bounds;
 
 struct XY {
-    double x;
-    double y;
+    double x = 0;
+    double y = 0;
 
     static XY parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -39,8 +39,8 @@ struct XY {
 };
 
 struct ClientXY {
-    double client_x;
-    double client_y;
+    double client_x = 0;
+    double client_y = 0;
 
     static ClientXY parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -52,8 +52,8 @@ struct ClientXY {
 };
 
 struct Dimensions {
-    double width;
-    double height;
+    double width = 0;
+    double height = 0;
 
     static Dimensions parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -65,8 +65,8 @@ struct Dimensions {
 };
 
 struct SignedDimensions {
-    double signed_width;
-    double signed_height;
+    double signed_width = 0;
+    double signed_height = 0;
 
     static SignedDimensions parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -78,8 +78,8 @@ struct SignedDimensions {
 };
 
 struct Bounds {
-    double lower;
-    double upper;
+    double lower = 0;
+    double upper = 0;
 
     static Bounds parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

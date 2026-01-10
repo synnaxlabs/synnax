@@ -30,7 +30,7 @@ struct StatusDetails;
 using Key = std::string;
 
 struct StatusDetails {
-    ::synnax::rack::Key rack;
+    ::synnax::rack::Key rack = 0;
     std::string device;
 
     static StatusDetails parse(x::json::Parser parser);
@@ -46,12 +46,12 @@ using Status = ::x::status::Status<StatusDetails>;
 
 struct Device {
     Key key;
-    ::synnax::rack::Key rack;
+    ::synnax::rack::Key rack = 0;
     std::string location;
     std::string make;
     std::string model;
     std::string name;
-    bool configured;
+    bool configured = false;
     x::json::json properties;
     std::optional<Status> status;
 

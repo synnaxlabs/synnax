@@ -49,9 +49,9 @@ Type struct extends FunctionProperties {
     unit       Unit??
     constraint Type??
 
-    @cpp includes "x/cpp/telem/telem.h"
+    @cpp includes        "x/cpp/telem/telem.h"
     @cpp system_includes "ostream"
-    @cpp methods "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] x::telem::DataType telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
+    @cpp methods         "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] x::telem::DataType telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
 }
 
 Param struct {

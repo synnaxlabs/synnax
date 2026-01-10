@@ -569,7 +569,8 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 			if !enumForm.IsIntEnum {
 				if field.IsHardOptional {
-					return fmt.Sprintf(`parser.optional_field<std::string>("%s")`, jsonName)
+					// For hard optional string enums, use has() check with std::make_optional
+					return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<std::string>("%s")) : std::nullopt`, jsonName, jsonName)
 				}
 				if hasDefault {
 					return fmt.Sprintf(`parser.field<std::string>("%s", "")`, jsonName)
@@ -591,15 +592,37 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				if isSelfRef {
 					return fmt.Sprintf(`parser.has("%s") ? x::mem::indirect<%s>(parser.field<%s>("%s")) : nullptr`, jsonName, structType, structType, jsonName)
 				}
-				return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
+				// For non-self-referential hard optional structs, use has() check with std::make_optional
+				return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, structType, jsonName)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
+		}
+		// Check if it's an alias to a struct - treat the same as a struct for parsing
+		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
+				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
+					aliasType := domain.GetName(resolved, "cpp")
+					if resolved.Namespace != data.rawNs {
+						targetOutputPath := output.GetPath(resolved, "cpp")
+						if targetOutputPath != "" {
+							ns := deriveNamespace(targetOutputPath)
+							aliasType = fmt.Sprintf("%s::%s", ns, aliasType)
+						}
+					}
+					if field.IsHardOptional {
+						// For hard optional alias fields, use has() check with std::make_optional
+						return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, aliasType, jsonName)
+					}
+					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
+				}
+			}
 		}
 	}
 
 	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" && mapping.TargetType != "void" {
 		if field.IsHardOptional {
-			return fmt.Sprintf(`parser.optional_field<%s>("%s")`, cppType, jsonName)
+			// For hard optional primitives, use has() check with std::make_optional
+			return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, cppType, jsonName)
 		}
 		if hasDefault {
 			defaultVal := defaultValueForPrimitive(typeRef.Name)
@@ -612,7 +635,8 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		if isSelfRef {
 			return fmt.Sprintf(`parser.has("%s") ? x::mem::indirect<%s>(parser.field<%s>("%s")) : nullptr`, jsonName, cppType, cppType, jsonName)
 		}
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
+		// For non-self-referential hard optional fields, use has() check with std::make_optional
+		return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, cppType, jsonName)
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }

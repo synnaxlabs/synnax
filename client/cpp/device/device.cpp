@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include "client/cpp/device/device.h"
+#include "client/cpp/device/types.gen.h"
+#include "client/cpp/device/proto.gen.h"
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/rack/rack.h"
 #include "x/cpp/errors/errors.h"
@@ -29,7 +31,7 @@ std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) con
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
         return {Device(), not_found_error("device", "key " + key)};
-    auto [pld, proto_err] = Payload::from_proto(res.devices(0));
+    auto [pld, proto_err] = Device::from_proto(res.devices(0));
     if (proto_err) return {Device(), proto_err};
     return {Device(std::move(pld)), x::errors::NIL};
 }
@@ -43,7 +45,7 @@ Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
         return {Device(), not_found_error("device", "key " + key)};
-    auto [pld, proto_err] = Payload::from_proto(res.devices(0));
+    auto [pld, proto_err] = Device::from_proto(res.devices(0));
     if (proto_err) return {Device(), proto_err};
     return {Device(std::move(pld)), x::errors::NIL};
 }
@@ -75,7 +77,7 @@ Client::retrieve(RetrieveRequest &req) const {
     std::vector<Device> devices;
     devices.reserve(res.devices_size());
     for (const auto &d: res.devices()) {
-        auto [pld, proto_err] = Payload::from_proto(d);
+        auto [pld, proto_err] = Device::from_proto(d);
         if (proto_err) return {std::vector<Device>(), proto_err};
         devices.push_back(Device(std::move(pld)));
     }
@@ -113,23 +115,5 @@ x::errors::Error Client::del(const std::vector<std::string> &keys) const {
     req.mutable_keys()->Add(keys.begin(), keys.end());
     auto [res, err] = device_delete_client->send("/device/delete", req);
     return err;
-}
-
-Device::Device(
-    std::string key,
-    std::string name,
-    RackKey rack,
-    std::string location,
-    std::string make,
-    std::string model,
-    std::string properties
-) {
-    this->key = std::move(key);
-    this->name = std::move(name);
-    this->rack = rack;
-    this->location = std::move(location);
-    this->make = std::move(make);
-    this->model = std::move(model);
-    this->properties = std::move(properties);
 }
 }

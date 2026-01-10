@@ -35,7 +35,7 @@ StatusDetails::from_proto(const ::service::rack::pb::StatusDetails &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::service::rack::pb::Rack Payload::to_proto() const {
+inline ::service::rack::pb::Rack Rack::to_proto() const {
     ::service::rack::pb::Rack pb;
     pb.set_key(static_cast<uint32_t>(this->key));
     pb.set_name(this->name);
@@ -45,9 +45,9 @@ inline ::service::rack::pb::Rack Payload::to_proto() const {
     return pb;
 }
 
-inline std::pair<Payload, x::errors::Error>
-Payload::from_proto(const ::service::rack::pb::Rack &pb) {
-    Payload cpp;
+inline std::pair<Rack, x::errors::Error>
+Rack::from_proto(const ::service::rack::pb::Rack &pb) {
+    Rack cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
     cpp.task_counter = pb.task_counter();

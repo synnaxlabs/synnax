@@ -124,8 +124,8 @@ std::pair<std::vector<Task>, x::errors::Error> Client::retrieve_by_type(
 }
 
 x::errors::Error Client::create(Task &task) const {
+    if (task.key == 0 && this->rack != 0) task.key = create_task_key(this->rack, 0);
     auto req = grpc::task::CreateRequest();
-    // Use generated translator - implicit upcast to Payload works
     *req.add_tasks() = task.to_proto();
     auto [res, err] = task_create_client->send("/task/create", req);
     if (err) return err;

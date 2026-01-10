@@ -68,43 +68,6 @@ inline std::uint16_t rack_key_node(const Key key) {
     return key >> 12;
 }
 
-/// @brief A Rack represents a physical or logical grouping of hardware devices.
-/// Racks contain tasks that can be used to interact with hardware.
-class Rack : public Payload {
-public:
-    /// @brief Client for managing tasks on this rack.
-    /// Note: This will be initialized after construction by RackClient.
-    task::Client tasks;
-
-    /// @brief Default constructor for an empty rack.
-    Rack() = default;
-
-    /// @brief Move constructor from generated Payload.
-    /// @param payload The payload to move from.
-    Rack(Payload &&payload): Payload(std::move(payload)) {}
-
-    /// @brief Copy constructor from generated Payload.
-    /// @param payload The payload to copy from.
-    Rack(const Payload &payload): Payload(payload) {}
-
-    /// @brief Constructs a new rack with the given key and name.
-    /// @param key The unique identifier for the rack.
-    /// @param name A human-readable name for the rack.
-    Rack(Key key, std::string name);
-
-    /// @brief Constructs a new rack with the given name.
-    /// @param name A human-readable name for the rack.
-    explicit Rack(std::string name);
-
-    /// @brief Equality operator for racks.
-    /// @param rack The rack to compare with.
-    /// @returns True if the racks have the same key.
-    bool operator==(const Rack &rack) const { return rack.key == key; }
-
-private:
-    friend class Client;
-};
-
 /// @brief Client for managing racks in a Synnax cluster.
 class Client {
 public:

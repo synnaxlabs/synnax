@@ -20,7 +20,9 @@
 namespace x::json {
 inline google::protobuf::Any to_any(const json &j) {
     google::protobuf::Any any;
-    auto [s, err] = to_struct(j);
+    // Struct only supports objects - convert null/non-object to empty object
+    const auto &obj = j.is_object() ? j : json::object();
+    auto [s, err] = to_struct(obj);
     if (err) return any;
     any.PackFrom(s);
     return any;
@@ -28,6 +30,8 @@ inline google::protobuf::Any to_any(const json &j) {
 
 inline std::pair<nlohmann::json, errors::Error>
 from_any(const google::protobuf::Any &any) {
+    // Handle empty Any (no type_url set) - return empty JSON object
+    if (any.type_url().empty()) return {json::object(), errors::NIL};
     google::protobuf::Struct s;
     if (!any.UnpackTo(&s))
         return {

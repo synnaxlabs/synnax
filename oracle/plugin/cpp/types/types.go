@@ -750,9 +750,86 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 	}
 }
 
+// cppDefaultValue returns the default initializer for a C++ type based on both
+// the C++ type string and the underlying primitive type (if any).
+// Returns empty string if no explicit default is needed (e.g., for types with
+// proper default constructors like std::string, std::vector, std::optional).
+func cppDefaultValue(cppType string, underlyingPrimitive string) string {
+	// First check the underlying primitive type for aliases/distinct types
+	if underlyingPrimitive != "" {
+		switch underlyingPrimitive {
+		case "bool":
+			return "false"
+		case "float32", "float64":
+			return "0"
+		case "int8", "int16", "int32", "int64":
+			return "0"
+		case "uint8", "uint12", "uint16", "uint20", "uint32", "uint64":
+			return "0"
+		case "timestamp", "timespan", "time_range", "time_range_bounded":
+			return "{}"
+		}
+	}
+
+	// Then check the C++ type string for direct primitive types
+	switch cppType {
+	case "bool":
+		return "false"
+	case "float", "double":
+		return "0"
+	case "std::int8_t", "std::int16_t", "std::int32_t", "std::int64_t":
+		return "0"
+	case "std::uint8_t", "std::uint16_t", "std::uint32_t", "std::uint64_t":
+		return "0"
+	}
+
+	// Telem types need brace initialization for value-initialization
+	if strings.HasPrefix(cppType, "x::telem::") {
+		return "{}"
+	}
+
+	// Types that have proper default constructors don't need explicit defaults:
+	// - std::string defaults to ""
+	// - std::vector<T> defaults to empty
+	// - std::optional<T> defaults to nullopt
+	// - std::unordered_map<K,V> defaults to empty
+	// - x::mem::indirect<T> defaults to empty/null
+	// - User-defined structs have their own field defaults
+	return ""
+}
+
+// getUnderlyingPrimitive returns the underlying primitive type name for a type reference.
+// For primitives, returns the primitive name directly.
+// For distinct types (aliases), returns the underlying primitive if the alias is based on a primitive.
+// Returns empty string if not based on a primitive.
+func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table) string {
+	// Direct primitive check
+	if resolution.IsPrimitive(typeRef.Name) {
+		return typeRef.Name
+	}
+
+	// Try to resolve the type
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return ""
+	}
+
+	// Check for distinct type (type alias)
+	if form, ok := resolved.Form.(resolution.DistinctForm); ok {
+		// Recursively check the base type
+		return getUnderlyingPrimitive(form.Base, table)
+	}
+
+	return ""
+}
+
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 	isSelfRef := isSelfReference(field.Type, entry)
+
+	// Get the underlying primitive type for determining default values
+	// This handles type aliases like `Key = uint32` where Key should get `= 0`
+	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
 
 	// Apply optional wrappers based on field flags
 	if field.IsHardOptional {
@@ -766,13 +843,16 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 			data.includes.addSystem("optional")
 			cppType = fmt.Sprintf("std::optional<%s>", cppType)
 		}
+		// Optional types don't need default values since std::optional defaults to nullopt
+		underlyingPrimitive = ""
 	}
 
 	return fieldData{
-		Name:      toSnakeCase(field.Name),
-		CppType:   cppType,
-		Doc:       doc.Get(field.Domains),
-		IsSelfRef: isSelfRef,
+		Name:         toSnakeCase(field.Name),
+		CppType:      cppType,
+		Doc:          doc.Get(field.Domains),
+		IsSelfRef:    isSelfRef,
+		DefaultValue: cppDefaultValue(cppType, underlyingPrimitive),
 	}
 }
 
@@ -1115,10 +1195,11 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name      string
-	CppType   string
-	Doc       string
-	IsSelfRef bool
+	Name         string
+	CppType      string
+	Doc          string
+	IsSelfRef    bool
+	DefaultValue string // Default initializer (e.g., "0", "false", "{}")
 }
 
 type enumData struct {
@@ -1356,7 +1437,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- if .Doc}}
     /// @brief {{.Doc}}
 {{- end}}
-    {{.CppType}} {{.Name}};
+    {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
 {{- end}}
 
     static {{$s.Name}} parse(x::json::Parser parser);

@@ -16,6 +16,7 @@
 #include <string>
 #include <utility>
 
+#include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
@@ -25,12 +26,12 @@
 namespace synnax::rack {
 
 struct StatusDetails;
-struct Payload;
+struct Rack;
 
 using Key = std::uint32_t;
 
 struct StatusDetails {
-    Key rack;
+    Key rack = 0;
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -43,19 +44,22 @@ struct StatusDetails {
 
 using Status = ::x::status::Status<StatusDetails>;
 
-struct Payload {
-    Key key;
+struct Rack {
+    Key key = 0;
     std::string name;
-    std::uint32_t task_counter;
-    bool embedded;
+    std::uint32_t task_counter = 0;
+    bool embedded = false;
     std::optional<Status> status;
 
-    static Payload parse(x::json::Parser parser);
+    static Rack parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::rack::pb::Rack;
     [[nodiscard]] ::service::rack::pb::Rack to_proto() const;
-    static std::pair<Payload, x::errors::Error>
+    static std::pair<Rack, x::errors::Error>
     from_proto(const ::service::rack::pb::Rack &pb);
+
+    // Custom methods
+    task::Client tasks;
 };
 }

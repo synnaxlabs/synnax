@@ -45,7 +45,7 @@ struct Node {
 
 struct Viewport {
     ::x::spatial::XY position;
-    double zoom;
+    double zoom = 0;
 
     static Viewport parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

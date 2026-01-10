@@ -110,17 +110,17 @@ var _ = Describe("C++ Types Plugin", func() {
 						`#include <string>`,
 						`namespace synnax::user {`,
 						`struct User {`,
-						`std::uint32_t key;`,
+						`std::uint32_t key = 0;`,
 						`std::string name;`,
-						`std::int32_t age;`,
-						`bool active;`,
+						`std::int32_t age = 0;`,
+						`bool active = false;`,
 					)
 			})
 		})
 
 		Context("primitive type mappings", func() {
 			DescribeTable("should generate correct C++ type",
-				func(oracleType, expectedCppType string) {
+				func(oracleType, expectedFieldDecl string) {
 					source := `
 						@cpp output "out"
 
@@ -129,24 +129,24 @@ var _ = Describe("C++ Types Plugin", func() {
 						}
 					`
 					resp := testutil.MustGenerate(ctx, source, "test", loader, cppPlugin)
-					testutil.ExpectContent(resp, "types.gen.h").ToContain(expectedCppType + " field;")
+					testutil.ExpectContent(resp, "types.gen.h").ToContain(expectedFieldDecl)
 				},
-				Entry("string", "string", "std::string"),
-				Entry("bool", "bool", "bool"),
-				Entry("int8", "int8", "std::int8_t"),
-				Entry("int16", "int16", "std::int16_t"),
-				Entry("int32", "int32", "std::int32_t"),
-				Entry("int64", "int64", "std::int64_t"),
-				Entry("uint8", "uint8", "std::uint8_t"),
-				Entry("uint16", "uint16", "std::uint16_t"),
-				Entry("uint32", "uint32", "std::uint32_t"),
-				Entry("uint64", "uint64", "std::uint64_t"),
-				Entry("float32", "float32", "float"),
-				Entry("float64", "float64", "double"),
-				Entry("timestamp", "timestamp", "telem::TimeStamp"),
-				Entry("timespan", "timespan", "telem::TimeSpan"),
-				Entry("time_range", "time_range", "telem::TimeRange"),
-				Entry("json", "json", "x::json::json"),
+				Entry("string", "string", "std::string field;"),
+				Entry("bool", "bool", "bool field = false;"),
+				Entry("int8", "int8", "std::int8_t field = 0;"),
+				Entry("int16", "int16", "std::int16_t field = 0;"),
+				Entry("int32", "int32", "std::int32_t field = 0;"),
+				Entry("int64", "int64", "std::int64_t field = 0;"),
+				Entry("uint8", "uint8", "std::uint8_t field = 0;"),
+				Entry("uint16", "uint16", "std::uint16_t field = 0;"),
+				Entry("uint32", "uint32", "std::uint32_t field = 0;"),
+				Entry("uint64", "uint64", "std::uint64_t field = 0;"),
+				Entry("float32", "float32", "float field = 0;"),
+				Entry("float64", "float64", "double field = 0;"),
+				Entry("timestamp", "timestamp", "telem::TimeStamp field = {};"),
+				Entry("timespan", "timespan", "telem::TimeSpan field = {};"),
+				Entry("time_range", "time_range", "telem::TimeRange field = {};"),
+				Entry("json", "json", "x::json::json field;"),
 			)
 
 			It("Should import required headers for special types", func() {
@@ -190,8 +190,8 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Soft optionals (?) are just the bare type in C++
-			Expect(content).To(ContainSubstring(`std::uint32_t task_counter;`))
-			Expect(content).To(ContainSubstring(`bool embedded;`))
+			Expect(content).To(ContainSubstring(`std::uint32_t task_counter = 0;`))
+			Expect(content).To(ContainSubstring(`bool embedded = false;`))
 			Expect(content).NotTo(ContainSubstring(`std::optional`))
 		})
 
@@ -244,6 +244,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`#include <vector>`))
 			Expect(content).To(ContainSubstring(`std::vector<std::string> tags;`))
 			Expect(content).To(ContainSubstring(`std::vector<std::int32_t> values;`))
+			// Note: vectors don't get = {} default since they have a proper default constructor
 		})
 
 		It("Should treat soft optional arrays as bare vector", func() {
@@ -317,9 +318,9 @@ var _ = Describe("C++ Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include "x/cpp/telem/telem.h"`))
-			Expect(content).To(ContainSubstring(`telem::TimeStamp created_at;`))
-			Expect(content).To(ContainSubstring(`telem::TimeSpan duration;`))
-			Expect(content).To(ContainSubstring(`telem::TimeRange range;`))
+			Expect(content).To(ContainSubstring(`x::telem::TimeStamp created_at = {};`))
+			Expect(content).To(ContainSubstring(`x::telem::TimeSpan duration = {};`))
+			Expect(content).To(ContainSubstring(`x::telem::TimeRange range = {};`))
 		})
 
 		It("Should handle json type", func() {
@@ -1045,9 +1046,13 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(err).To(BeNil())
 
 				content := string(resp.Files[0].Content)
-				zebraIdx := strings.Index(content, "zebra;")
-				appleIdx := strings.Index(content, "apple;")
-				mangoIdx := strings.Index(content, "mango;")
+				// Fields now have default values, so match the field names in declaration context
+				zebraIdx := strings.Index(content, "std::string zebra;")
+				appleIdx := strings.Index(content, "std::int32_t apple = 0;")
+				mangoIdx := strings.Index(content, "bool mango = false;")
+				Expect(zebraIdx).To(BeNumerically(">", -1), "zebra field should exist")
+				Expect(appleIdx).To(BeNumerically(">", -1), "apple field should exist")
+				Expect(mangoIdx).To(BeNumerically(">", -1), "mango field should exist")
 				Expect(zebraIdx).To(BeNumerically("<", appleIdx))
 				Expect(appleIdx).To(BeNumerically("<", mangoIdx))
 			})

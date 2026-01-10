@@ -36,8 +36,8 @@ using Name = std::string;
 
 struct Operation {
     std::string type;
-    ChannelKey reset_channel;
-    x::telem::TimeSpan duration;
+    ChannelKey reset_channel = 0;
+    x::telem::TimeSpan duration = {};
 
     static Operation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

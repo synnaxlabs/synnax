@@ -32,8 +32,9 @@ Rack struct {
 
     @ts name       "Payload"
     @ontology type "rack"
-    @cpp name      "Payload"
     @py name       "Base"
+    @cpp methods   "task::Client tasks"
+    @cpp includes  "client/cpp/task/task.h"
 }
 
 New struct extends Rack {

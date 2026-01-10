@@ -32,17 +32,19 @@ inline x::json::json StatusDetails::to_json() const {
     return j;
 }
 
-inline Payload Payload::parse(x::json::Parser parser) {
-    return Payload{
+inline Rack Rack::parse(x::json::Parser parser) {
+    return Rack{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
         .task_counter = parser.field<std::uint32_t>("task_counter", 0),
         .embedded = parser.field<bool>("embedded", false),
-        .status = parser.field<Status>("status"),
+        .status = parser.has("status")
+                    ? std::make_optional(parser.field<Status>("status"))
+                    : std::nullopt,
     };
 }
 
-inline x::json::json Payload::to_json() const {
+inline x::json::json Rack::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;

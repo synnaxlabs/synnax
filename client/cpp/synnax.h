@@ -160,14 +160,16 @@ public:
           cfg.client_cert_file,
           cfg.client_key_file),
         channels(this->t.chan_retrieve, this->t.chan_create),
-        auth(
-            std::make_shared<AuthMiddleware>(
+        auth([&]() -> std::shared_ptr<AuthMiddleware> {
+            auto mw = std::make_shared<AuthMiddleware>(
                 std::move(this->t.auth_login),
                 cfg.username,
                 cfg.password,
                 cfg.clock_skew_threshold
-            )
-        ),
+            );
+            this->t.use(mw);
+            return mw;
+        }()),
         ranges(
             std::move(this->t.range_retrieve),
             std::move(this->t.range_create),

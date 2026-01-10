@@ -66,50 +66,6 @@ inline std::vector<ontology::ID> ontology_ids(const std::vector<std::string> &ke
     return ids;
 }
 
-// StatusDetails struct is now generated in types.gen.h
-// Status type alias is now generated in types.gen.h
-
-/// @brief A Device represents a physical hardware device connected to a rack.
-/// Extends generated Payload struct with domain-specific methods.
-class Device : public Payload {
-public:
-    /// @brief Default constructor for an empty device.
-    Device() = default;
-
-    /// @brief Move constructor from generated Payload.
-    /// @param payload The payload to move from.
-    Device(Payload &&payload): Payload(std::move(payload)) {}
-
-    /// @brief Copy constructor from generated Payload.
-    /// @param payload The payload to copy from.
-    Device(const Payload &payload): Payload(payload) {}
-
-    /// @brief Constructs a new device with the given properties.
-    /// @param key The unique identifier for the device.
-    /// @param name A human-readable name for the device.
-    /// @param rack The rack that this device is connected to.
-    /// @param location The physical location of the device.
-    /// @param make The manufacturer of the device.
-    /// @param model The model of the device.
-    /// @param properties Additional properties of the device.
-    Device(
-        std::string key,
-        std::string name,
-        RackKey rack,
-        std::string location,
-        std::string make,
-        std::string model,
-        std::string properties
-    );
-
-    /// @brief returns the key used for creating statuses associated with the task.
-    [[nodiscard]] std::string status_key() const {
-        return ontology_id(this->key).string();
-    }
-
-    friend class Client;
-};
-
 /// @brief Creates a map of device keys to devices.
 /// @param devices The devices to map.
 /// @returns A map from device keys to devices.

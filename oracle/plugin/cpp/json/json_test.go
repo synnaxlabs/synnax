@@ -77,9 +77,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Should parse as vector of Param
-						`parser.field<std::vector<Param>>("inputs")`,
-						`parser.field<std::vector<Param>>("outputs")`,
+						// Should parse using the wrapper type which has its own parse method
+						`parser.field<Params>("inputs")`,
+						`parser.field<Params>("outputs")`,
 					)
 			})
 
@@ -103,9 +103,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Should iterate over array and call to_json() on each struct element
-						"for (const auto& item : this->inputs) arr.push_back(item.to_json())",
-						"for (const auto& item : this->outputs) arr.push_back(item.to_json())",
+						// Wrapper types have their own to_json() method
+						`j["inputs"] = this->inputs.to_json()`,
+						`j["outputs"] = this->outputs.to_json()`,
 					)
 			})
 
@@ -129,8 +129,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						`parser.field<std::vector<Param>>("inputs")`,
-						`parser.field<std::vector<Param>>("outputs")`,
+						// Soft optional (?) wrapper types still use field<> with wrapper type
+						`parser.field<Params>("inputs")`,
+						`parser.field<Params>("outputs")`,
 					)
 			})
 		})
@@ -240,7 +241,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						`parser.field<Unit>("unit")`,
+						// Hard optional struct fields use has() check with std::make_optional
+						`parser.has("unit") ? std::make_optional(parser.field<Unit>("unit")) : std::nullopt`,
 					)
 			})
 		})
@@ -294,10 +296,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// FunctionProperties fields should use vector parsing
-						`parser.field<std::vector<Param>>("inputs")`,
-						`parser.field<std::vector<Param>>("outputs")`,
-						`parser.field<std::vector<Param>>("config")`,
+						// FunctionProperties fields use wrapper type (soft optional uses bare type)
+						`parser.field<Params>("inputs")`,
+						`parser.field<Params>("outputs")`,
+						`parser.field<Params>("config")`,
 						// Type fields should use indirect with has() guard
 						`parser.has("elem") ? x::mem::indirect<Type>(parser.field<Type>("elem")) : nullptr`,
 						`parser.has("constraint") ? x::mem::indirect<Type>(parser.field<Type>("constraint")) : nullptr`,
@@ -363,9 +365,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// parse method
+						// parse method uses parser.field<std::vector<T>>()
 						"inline Channels Channels::parse(x::json::Parser parser) {",
-						"for (auto& elem : parser.array())",
+						"for (auto& item : parser.field<std::vector<std::uint32_t>>())",
 						// to_json method
 						"inline x::json::json Channels::to_json() const {",
 						"x::json::json j = x::json::json::array()",
@@ -387,9 +389,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// parse method should call Param::parse for each element
+						// parse method uses parser.field<std::vector<StructType>>()
 						"inline Params Params::parse(x::json::Parser parser) {",
-						"result.push_back(Param::parse(elem))",
+						"for (auto& item : parser.field<std::vector<Param>>())",
 						// to_json method should call item.to_json() for each element
 						"inline x::json::json Params::to_json() const {",
 						"j.push_back(item.to_json())",

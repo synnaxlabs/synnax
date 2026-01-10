@@ -32,7 +32,7 @@ struct Arc;
 using Key = std::string;
 
 struct StatusDetails {
-    bool running;
+    bool running = false;
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -51,7 +51,7 @@ struct Arc {
     ::arc::graph::Graph graph;
     ::arc::text::Text text;
     std::optional<::arc::module::Module> module;
-    bool deploy;
+    bool deploy = false;
     std::string version;
     std::optional<Status> status;
 
