@@ -3,7 +3,12 @@ cc_library(
     srcs = [
         "arc.cpp",
     ],
-    hdrs = ["arc.h"],
+    hdrs = [
+        "arc.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/cpp/graph",
@@ -13,6 +18,7 @@ cc_library(
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
+        "//x/cpp/status",
         "@grpc//:grpc++",
     ],
 )

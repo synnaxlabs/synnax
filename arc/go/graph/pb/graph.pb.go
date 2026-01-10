@@ -227,7 +227,7 @@ var File_arc_go_graph_pb_graph_proto protoreflect.FileDescriptor
 
 const file_arc_go_graph_pb_graph_proto_rawDesc = "" +
 	"\n" +
-	"\x1barc/go/graph/pb/graph.proto\x12\farc.graph.pb\x1a\x15arc/go/ir/pb/ir.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x8b\x01\n" +
+	"\x1barc/go/graph/pb/graph.proto\x12\farc.graph.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x15arc/go/ir/pb/ir.proto\"\x8b\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12/\n" +

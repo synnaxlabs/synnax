@@ -24,7 +24,7 @@ namespace arc::module {
 
 struct Module;
 
-struct Module : public arc::ir::IR, public arc::compiler::Output {
+struct Module : public ::arc::ir::IR, public ::arc::compiler::Output {
 
     static Module parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

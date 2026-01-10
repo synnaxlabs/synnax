@@ -32,7 +32,7 @@ struct Node {
     std::string key;
     std::string type;
     x::json::json config;
-    x::spatial::XY position;
+    ::x::spatial::XY position;
 
     static Node parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -44,7 +44,7 @@ struct Node {
 };
 
 struct Viewport {
-    x::spatial::XY position;
+    ::x::spatial::XY position;
     double zoom;
 
     static Viewport parse(x::json::Parser parser);
@@ -109,8 +109,8 @@ struct Nodes : private std::vector<Node> {
 
 struct Graph {
     Viewport viewport;
-    arc::ir::Functions functions;
-    arc::ir::Edges edges;
+    ::arc::ir::Functions functions;
+    ::arc::ir::Edges edges;
     Nodes nodes;
 
     static Graph parse(x::json::Parser parser);

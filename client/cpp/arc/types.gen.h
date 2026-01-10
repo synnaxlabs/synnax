@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -20,42 +19,48 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
 
-#include "core/pkg/service/rack/pb/rack.pb.h"
+#include "arc/cpp/graph/types.gen.h"
+#include "arc/cpp/module/types.gen.h"
+#include "arc/cpp/text/types.gen.h"
+#include "core/pkg/service/arc/pb/arc.pb.h"
 
-namespace synnax::rack {
+namespace synnax::arc {
 
 struct StatusDetails;
-struct Payload;
+struct Arc;
 
-using Key = std::uint32_t;
+using Key = std::string;
 
 struct StatusDetails {
-    Key rack;
+    bool running;
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::rack::pb::StatusDetails;
-    [[nodiscard]] ::service::rack::pb::StatusDetails to_proto() const;
+    using proto_type = ::service::arc::pb::StatusDetails;
+    [[nodiscard]] ::service::arc::pb::StatusDetails to_proto() const;
     static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::rack::pb::StatusDetails &pb);
+    from_proto(const ::service::arc::pb::StatusDetails &pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
 
-struct Payload {
+struct Arc {
     Key key;
     std::string name;
-    std::uint32_t task_counter;
-    bool embedded;
+    ::arc::graph::Graph graph;
+    ::arc::text::Text text;
+    ::arc::module::Module module;
+    bool deploy;
+    std::string version;
     std::optional<Status> status;
 
-    static Payload parse(x::json::Parser parser);
+    static Arc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::rack::pb::Rack;
-    [[nodiscard]] ::service::rack::pb::Rack to_proto() const;
-    static std::pair<Payload, x::errors::Error>
-    from_proto(const ::service::rack::pb::Rack &pb);
+    using proto_type = ::service::arc::pb::Arc;
+    [[nodiscard]] ::service::arc::pb::Arc to_proto() const;
+    static std::pair<Arc, x::errors::Error>
+    from_proto(const ::service::arc::pb::Arc &pb);
 };
 }

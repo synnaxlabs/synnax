@@ -15,8 +15,9 @@ import "schemas/arc/ir"
 import "schemas/arc/compiler"
 import "schemas/arc/module"
 
-@ts output "client/ts/src/arc"
-@go output "core/pkg/service/arc"
+@ts output  "client/ts/src/arc"
+@go output  "core/pkg/service/arc"
+@cpp output "client/cpp/arc"
 @pb
 
 StatusDetails struct {
@@ -51,4 +52,5 @@ New struct {
     @ts use_input
     @go omit
     @pb omit
+    @cpp omit
 }

@@ -23,8 +23,6 @@ namespace x::label {
 
 struct Label;
 
-using Key = std::string;
-
 struct Label {
     std::string key;
     std::string name;

@@ -60,7 +60,7 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
-using Status = x::status::Status<StatusDetails>;
+using Status = ::x::status::Status<StatusDetails>;
 
 struct Payload {
     Key key;

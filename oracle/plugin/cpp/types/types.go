@@ -17,7 +17,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
-	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -230,7 +229,6 @@ func (p *Plugin) generateFile(
 	data := &templateData{
 		OutputPath:  outputPath,
 		Namespace:   deriveNamespace(outputPath),
-		KeyFields:   make([]keyFieldData, 0),
 		Structs:     make([]structData, 0, len(structs)),
 		Enums:       make([]enumData, 0, len(enums)),
 		TypeDefs:    make([]typeDefData, 0, len(typeDefs)),
@@ -243,18 +241,6 @@ func (p *Plugin) generateFile(
 
 	// Track declared type names to avoid duplicates
 	declaredNames := make(map[string]bool)
-
-	// Collect key fields from structs - these are inferred 'using' declarations
-	skip := func(s resolution.Type) bool { return omit.IsType(s, "cpp") }
-	keyFields := key.Collect(structs, table, skip)
-	for _, kf := range keyFields {
-		kfd := p.processKeyField(kf, data)
-		// Only add if not already declared by a typedef
-		if !declaredNames[kfd.Name] {
-			declaredNames[kfd.Name] = true
-			data.KeyFields = append(data.KeyFields, kfd)
-		}
-	}
 
 	// Process enums that are in the same namespace
 	for _, e := range enums {
@@ -593,10 +579,11 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 			}
 		} else {
 			// Generated type - include the generated header and add namespace prefix
+			// Must use :: prefix for absolute namespace resolution
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 
@@ -612,13 +599,6 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
 }
 
-func (p *Plugin) processKeyField(kf key.Field, data *templateData) keyFieldData {
-	cppType := p.primitiveToCpp(kf.Primitive, data)
-	return keyFieldData{
-		Name:    lo.Capitalize(lo.CamelCase(kf.Name)),
-		CppType: cppType,
-	}
-}
 
 func (p *Plugin) processStruct(entry resolution.Type, data *templateData) structData {
 	form, ok := entry.Form.(resolution.StructForm)
@@ -885,8 +865,9 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
 			// Use namespace prefix for cross-namespace generated types
+			// Must use :: prefix for absolute namespace resolution
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 
@@ -922,9 +903,9 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
 		}
-		// Use namespace-qualified name
+		// Use namespace-qualified name with :: prefix for absolute resolution
 		ns := deriveNamespace(targetOutputPath)
-		return fmt.Sprintf("%s::%s", ns, name)
+		return fmt.Sprintf("::%s::%s", ns, name)
 	}
 	return name
 }
@@ -936,8 +917,9 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolutio
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
+			// Use :: prefix for absolute namespace resolution
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 	return p.buildGenericType(name, typeArgs, data)
@@ -992,7 +974,6 @@ type templateData struct {
 	OutputPath   string
 	Namespace    string
 	ForwardDecls []string
-	KeyFields    []keyFieldData
 	Structs      []structData
 	Enums        []enumData
 	TypeDefs     []typeDefData
@@ -1010,11 +991,6 @@ type sortedDeclData struct {
 	Alias     aliasData
 	Struct    structData
 	TypeDef   typeDefData
-}
-
-type keyFieldData struct {
-	Name    string
-	CppType string
 }
 
 type typeDefData struct {
@@ -1160,9 +1136,9 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 			// Add include for the parent's header
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
-			// Use namespace-qualified name
+			// Use namespace-qualified name with :: prefix for absolute resolution
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 
@@ -1196,9 +1172,6 @@ namespace {{.Namespace}} {
 struct {{.}};
 {{- end}}
 {{end}}
-{{- range $i, $kf := .KeyFields}}
-using {{$kf.Name}} = {{$kf.CppType}};
-{{- end}}
 {{- range $i, $enum := .Enums}}
 {{if $i}}
 {{end}}
@@ -1217,7 +1190,7 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- range $i, $d := .SortedDecls}}
 {{- if $d.IsTypeDef}}
 {{- $td := $d.TypeDef}}
-{{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
+{{if or $i (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $td.IsArrayWrapper}}
 struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
@@ -1291,13 +1264,13 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- end}}
 {{- else if $d.IsAlias}}
 {{- $a := $d.Alias}}
-{{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
+{{if or $i (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $a.IsGeneric}}template <{{range $j, $p := $a.TypeParams}}{{if $j}}, {{end}}typename {{$p}}{{end}}>
 {{end}}using {{$a.Name}} = {{$a.Target}};
 {{- else if $d.IsStruct}}
 {{- $s := $d.Struct}}
-{{if or $i (gt (len $.KeyFields) 0) (gt (len $.Enums) 0)}}
+{{if or $i (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $s.Doc}}
 /// @brief {{$s.Doc}}

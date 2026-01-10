@@ -66,10 +66,10 @@ struct Body {
 struct Node {
     std::string key;
     std::string type;
-    arc::types::Params config;
-    arc::types::Params inputs;
-    arc::types::Params outputs;
-    arc::types::Channels channels;
+    ::arc::types::Params config;
+    ::arc::types::Params inputs;
+    ::arc::types::Params outputs;
+    ::arc::types::Channels channels;
 
     static Node parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -146,10 +146,10 @@ struct Edge {
 struct Function {
     std::string key;
     Body body;
-    arc::types::Params config;
-    arc::types::Params inputs;
-    arc::types::Params outputs;
-    arc::types::Channels channels;
+    ::arc::types::Params config;
+    ::arc::types::Params inputs;
+    ::arc::types::Params outputs;
+    ::arc::types::Channels channels;
 
     static Function parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

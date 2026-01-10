@@ -40,7 +40,7 @@ struct Status {
     std::string description;
     x::telem::TimeStamp time;
     Details details;
-    std::vector<x::label::Label> labels;
+    std::vector<::x::label::Label> labels;
     std::string variant;
 
     static Status parse(x::json::Parser parser);
