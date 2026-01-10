@@ -24,12 +24,9 @@ export const logZ = z.object({
 });
 export interface Log extends z.infer<typeof logZ> {}
 
-export const newZ = logZ
-  .omit({ data: true })
-  .partial({ key: true })
-  .extend({
-    data: zod.jsonStringifier(),
-  });
+export const newZ = logZ.omit({ data: true }).partial({ key: true }).extend({
+  data: zod.jsonStringifier(),
+});
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("log");

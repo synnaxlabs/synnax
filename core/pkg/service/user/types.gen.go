@@ -18,17 +18,17 @@ import (
 type Key = uuid.UUID
 
 type User struct {
-	Key Key `json:"key" msgpack:"key"`
-	Username string `json:"username" msgpack:"username"`
+	Key       Key    `json:"key" msgpack:"key"`
+	Username  string `json:"username" msgpack:"username"`
 	FirstName string `json:"first_name" msgpack:"first_name"`
-	LastName string `json:"last_name" msgpack:"last_name"`
-	RootUser bool `json:"root_user" msgpack:"root_user"`
+	LastName  string `json:"last_name" msgpack:"last_name"`
+	RootUser  bool   `json:"root_user" msgpack:"root_user"`
 }
 
 type New struct {
-	Username string `json:"username" msgpack:"username"`
-	Key Key `json:"key" msgpack:"key"`
-	Password string `json:"password" msgpack:"password"`
+	Username  string `json:"username" msgpack:"username"`
+	Key       Key    `json:"key" msgpack:"key"`
+	Password  string `json:"password" msgpack:"password"`
 	FirstName string `json:"first_name" msgpack:"first_name"`
-	LastName string `json:"last_name" msgpack:"last_name"`
+	LastName  string `json:"last_name" msgpack:"last_name"`
 }

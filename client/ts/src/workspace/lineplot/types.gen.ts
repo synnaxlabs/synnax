@@ -24,12 +24,9 @@ export const linePlotZ = z.object({
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}
 
-export const newZ = linePlotZ
-  .omit({ data: true })
-  .partial({ key: true })
-  .extend({
-    data: zod.jsonStringifier(),
-  });
+export const newZ = linePlotZ.omit({ data: true }).partial({ key: true }).extend({
+  data: zod.jsonStringifier(),
+});
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("lineplot");

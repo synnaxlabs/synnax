@@ -610,6 +610,33 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		}
 	}
 
+	// Extract custom method declarations and includes from @cpp directives
+	if cppDomain, ok := entry.Domains["cpp"]; ok {
+		if methodsExpr, found := cppDomain.Expressions.Find("methods"); found {
+			for _, v := range methodsExpr.Values {
+				if v.StringValue != "" {
+					sd.Methods = append(sd.Methods, v.StringValue)
+				}
+			}
+		}
+		// Add custom includes required by the methods
+		if includesExpr, found := cppDomain.Expressions.Find("includes"); found {
+			for _, v := range includesExpr.Values {
+				if v.StringValue != "" {
+					data.includes.addInternal(v.StringValue)
+				}
+			}
+		}
+		// Add system includes (e.g., <ostream>)
+		if sysIncludesExpr, found := cppDomain.Expressions.Find("system_includes"); found {
+			for _, v := range sysIncludesExpr.Values {
+				if v.StringValue != "" {
+					data.includes.addSystem(v.StringValue)
+				}
+			}
+		}
+	}
+
 	return sd
 }
 
@@ -937,6 +964,7 @@ type structData struct {
 	ProtoType      string
 	ProtoNamespace string
 	ProtoClass     string
+	Methods        []string
 }
 
 type typeParamData struct {
@@ -1060,6 +1088,13 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
     using proto_type = {{$s.ProtoType}};
     [[nodiscard]] {{$s.ProtoType}} to_proto() const;
     static std::pair<{{$s.Name}}, x::errors::Error> from_proto(const {{$s.ProtoType}}& pb);
+{{- end}}
+{{- if $s.Methods}}
+
+    // Custom methods
+{{- range $s.Methods}}
+    {{.}};
+{{- end}}
 {{- end}}
 };
 {{- end}}

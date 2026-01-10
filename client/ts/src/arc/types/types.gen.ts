@@ -12,7 +12,6 @@
 import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-
 export const paramsZ = z.array(paramZ);
 export type Params = z.infer<typeof paramsZ>;
 export enum Kind {
@@ -72,18 +71,17 @@ export const unitZ = z.object({
 });
 export interface Unit extends z.infer<typeof unitZ> {}
 
-export const typeZ = functionPropertiesZ
-  .extend({
-    kind: kindZ,
-    name: z.string(),
-    get elem() {
-      return typeZ.optional();
-    },
-    unit: unitZ.optional(),
-    get constraint() {
-      return typeZ.optional();
-    },
-  });
+export const typeZ = functionPropertiesZ.extend({
+  kind: kindZ,
+  name: z.string(),
+  get elem() {
+    return typeZ.optional();
+  },
+  unit: unitZ.optional(),
+  get constraint() {
+    return typeZ.optional();
+  },
+});
 export interface Type extends z.infer<typeof typeZ> {}
 
 export const paramZ = z.object({

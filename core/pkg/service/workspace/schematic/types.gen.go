@@ -18,8 +18,8 @@ import (
 type Key = uuid.UUID
 
 type Schematic struct {
-	Key Key `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
-	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
-	Data string `json:"data" msgpack:"data"`
+	Key      Key    `json:"key" msgpack:"key"`
+	Name     string `json:"name" msgpack:"name"`
+	Snapshot bool   `json:"snapshot" msgpack:"snapshot"`
+	Data     string `json:"data" msgpack:"data"`
 }

@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -21,6 +22,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/telem/telem.h"
 
 #include "arc/go/types/pb/types.pb.h"
 
@@ -87,6 +89,10 @@ struct Dimensions {
     [[nodiscard]] ::arc::types::pb::Dimensions to_proto() const;
     static std::pair<Dimensions, x::errors::Error>
     from_proto(const ::arc::types::pb::Dimensions &pb);
+
+    // Custom methods
+    bool operator==(const Dimensions &other) const;
+    [[nodiscard]] bool is_zero() const;
 };
 
 struct Unit {
@@ -101,6 +107,10 @@ struct Unit {
     [[nodiscard]] ::arc::types::pb::Unit to_proto() const;
     static std::pair<Unit, x::errors::Error>
     from_proto(const ::arc::types::pb::Unit &pb);
+
+    // Custom methods
+    bool operator==(const Unit &other) const;
+    [[nodiscard]] bool is_timestamp() const;
 };
 
 using Params = std::vector<Param>;
@@ -136,6 +146,14 @@ struct Type {
     [[nodiscard]] ::arc::types::pb::Type to_proto() const;
     static std::pair<Type, x::errors::Error>
     from_proto(const ::arc::types::pb::Type &pb);
+
+    // Custom methods
+    [[nodiscard]] size_t density() const;
+    [[nodiscard]] bool is_valid() const;
+    [[nodiscard]] bool is_timestamp() const;
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] x::telem::DataType telem() const;
+    friend std::ostream &operator<<(std::ostream &os, const Type &t);
 };
 
 struct Param {

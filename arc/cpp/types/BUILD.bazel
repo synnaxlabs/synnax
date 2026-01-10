@@ -1,6 +1,6 @@
 cc_library(
     name = "types",
-    #    srcs = ["types.cpp"],
+    srcs = ["types.cpp"],
     hdrs = [
         "json.gen.h",
         "proto.gen.h",

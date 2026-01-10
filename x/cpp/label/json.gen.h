@@ -13,8 +13,8 @@
 
 #include <string>
 
-#include "x/cpp/label/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/label/types.gen.h"
 
 namespace x::label {
 

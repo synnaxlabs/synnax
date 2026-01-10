@@ -11,18 +11,18 @@
 
 #pragma once
 
-#include <type_traits>
 #include <string>
+#include <type_traits>
 #include <vector>
 
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/label/json.gen.h"
+#include "x/cpp/status/types.gen.h"
+#include "x/cpp/telem/telem.h"
 
 namespace x::status {
 
-template <typename Details>
+template<typename Details>
 Status<Details> Status<Details>::parse(x::json::Parser parser) {
     return Status<Details>{
         .key = parser.field<std::string>("key"),
@@ -36,7 +36,7 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
     };
 }
 
-template <typename Details>
+template<typename Details>
 x::json::json Status<Details>::to_json() const {
     x::json::json j;
     j["key"] = this->key;
@@ -50,7 +50,8 @@ x::json::json Status<Details>::to_json() const {
         j["details"] = this->details.to_json();
     {
         auto arr = x::json::json::array();
-        for (const auto& item : this->labels) arr.push_back(item.to_json());
+        for (const auto &item: this->labels)
+            arr.push_back(item.to_json());
         j["labels"] = arr;
     }
     j["variant"] = this->variant;
