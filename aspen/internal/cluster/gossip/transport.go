@@ -10,7 +10,7 @@
 package gossip
 
 import (
-	"github.com/synnaxlabs/aspen/internal/node"
+	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/freighter"
 )
 

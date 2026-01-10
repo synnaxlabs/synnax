@@ -13,7 +13,7 @@
 
 #include "driver/task/task.h"
 
-namespace common {
+namespace driver::task::common {
 /// @brief a common base configuration for tasks.
 struct BaseTaskConfig {
     /// @brief whether data saving is enabled for the task.
@@ -28,7 +28,7 @@ struct BaseTaskConfig {
     BaseTaskConfig(const BaseTaskConfig &other) = delete;
     const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
 
-    explicit BaseTaskConfig(xjson::Parser &parser):
+    explicit BaseTaskConfig(x::json::Parser &parser):
         data_saving(parser.field<bool>("data_saving", true)),
         auto_start(parser.field<bool>("auto_start", false)) {}
 };
@@ -37,8 +37,8 @@ struct BaseTaskConfig {
 /// helper functions.
 struct ConfigureResult {
     /// @brief the task instantiated by a specific task driver. Should be null if error
-    /// is not xerrors::NIL.
-    std::unique_ptr<task::Task> task;
+    /// is not x::errors::NIL.
+    std::unique_ptr<driver::task::Task> task;
     /// @brief whether to auto-start the task if no error occurred.
     bool auto_start = false;
 };

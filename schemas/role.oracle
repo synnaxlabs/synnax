@@ -1,0 +1,30 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/access/role"
+@py output "client/py/synnax/access/role"
+
+Key = uuid
+
+Role struct {
+    key         Key     @key
+    name        string
+    description string?
+    internal    bool?
+
+    @ontology type "role"
+    @py name       "Base"
+}
+
+New struct extends Role {
+    key Key?
+
+    @ts use_input
+    @py name      "Role"
+}

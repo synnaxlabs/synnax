@@ -13,7 +13,7 @@
 
 #include "driver/task/task.h"
 
-namespace common {
+namespace driver::task::common {
 /// @brief Creates a task on a rack if a task of the specified type doesn't already
 /// exist
 /// @param rack The rack to create the task on
@@ -24,17 +24,17 @@ namespace common {
 ///         - Error: any error that occurred during the operation
 /// @note If a task of the specified type already exists, returns {false, err} where err
 ///       is the error from the retrieval operation
-inline std::pair<bool, xerrors::Error>
+inline std::pair<bool, x::errors::Error>
 create_if_type_not_exists_on_rack(const synnax::Rack &rack, synnax::Task &task) {
     auto [_, err] = rack.tasks.retrieve_by_type(task.type);
-    if (err.matches(xerrors::NOT_FOUND)) return {true, rack.tasks.create(task)};
+    if (err.matches(x::errors::NOT_FOUND)) return {true, rack.tasks.create(task)};
     return {false, err};
 }
 
 /// @brief Creates and configures initial tasks for a factory
 /// @tparam F A factory type that implements the configure_task method with signature:
-///           std::pair<std::unique_ptr<task::Task>, xerrors::Error> configure_task(
-///               const std::shared_ptr<task::Context> &ctx,
+///           std::pair<std::unique_ptr<driver::task::Task>, x::errors::Error> configure_task(
+///               const std::shared_ptr<driver::task::Context> &ctx,
 ///               const synnax::Task &task)
 /// @param factory Pointer to the factory instance that will configure the tasks
 /// @param ctx Shared context for task execution
@@ -44,7 +44,7 @@ create_if_type_not_exists_on_rack(const synnax::Rack &rack, synnax::Task &task) 
 /// @param integration_name Name of the integration for logging purposes
 /// @return Vector of pairs containing:
 ///         - synnax::Task: The created Synnax task configuration
-///         - std::unique_ptr<task::Task>: The configured task implementation
+///         - std::unique_ptr<driver::task::Task>: The configured task implementation
 /// @note
 /// - Returns an empty vector if:
 ///   1. A task of the specified type already exists
@@ -52,16 +52,16 @@ create_if_type_not_exists_on_rack(const synnax::Rack &rack, synnax::Task &task) 
 ///   3. Task configuration fails
 /// - Logs errors and warnings through glog
 template<typename F>
-std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
 configure_initial_factory_tasks(
     F *factory,
-    const std::shared_ptr<task::Context> &ctx,
+    const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::Rack &rack,
     const std::string &task_name,
     const std::string &task_type,
     const std::string &integration_name
 ) {
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>> tasks;
+    std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>> tasks;
     auto sy_task = synnax::Task(rack.key, task_name, task_type, "", true);
     auto [created, err] = create_if_type_not_exists_on_rack(rack, sy_task);
     if (err) {
@@ -92,13 +92,13 @@ configure_initial_factory_tasks(
 /// - Logs success/failure through glog
 /// - Silently succeeds if no task of the specified type exists
 /// - Useful for cleaning up legacy tasks during system upgrades or reconfigurations
-inline xerrors::Error delete_legacy_task_by_type(
+inline x::errors::Error delete_legacy_task_by_type(
     const synnax::Rack &rack,
     const std::string &task_type,
     const std::string &integration_name
 ) {
     auto [old_heartbeat_task, o_err] = rack.tasks.retrieve_by_type(task_type);
-    if (o_err) return o_err.skip(xerrors::NOT_FOUND);
+    if (o_err) return o_err.skip(x::errors::NOT_FOUND);
     if (const auto del_err = rack.tasks.del(old_heartbeat_task.key))
         LOG(ERROR) << "[" << integration_name
                    << "] failed to delete legacy heartbeat task: " << del_err;

@@ -1,0 +1,56 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/spatial"
+import "schemas/status"
+import "schemas/arc/graph"
+import "schemas/arc/text"
+import "schemas/arc/ir"
+import "schemas/arc/compiler"
+import "schemas/arc/module"
+
+@ts output  "client/ts/src/arc"
+@go output  "core/pkg/service/arc"
+@cpp output "client/cpp/arc"
+@pb
+
+StatusDetails struct {
+    running bool
+}
+
+Status = status.GoStatus<StatusDetails>
+
+Key = uuid
+
+Arc struct {
+    key     Key           @key
+    name    string
+    graph   graph.Graph
+    text    text.Text
+    module  module.Module
+    deploy  bool
+    version string
+    status  Status??
+
+    @ontology type "arc"
+}
+
+New struct {
+    key     Key?
+    name    string
+    graph   graph.Graph
+    text    text.Text
+    deploy  bool
+    version string
+
+    @ts use_input
+    @go omit
+    @pb omit
+    @cpp omit
+}

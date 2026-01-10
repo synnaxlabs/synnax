@@ -180,7 +180,7 @@ func (s *Scheduler) MarkNodeChanged(nodeKey string) {
 func (s *Scheduler) markChanged(param string) {
 	n := s.nodes[s.currNodeKey]
 	for _, edge := range n.outgoing[param] {
-		if edge.Kind == ir.OneShot {
+		if edge.Kind == ir.EdgeKindOneShot {
 			if !n.IsOutputTruthy(param) {
 				continue
 			}

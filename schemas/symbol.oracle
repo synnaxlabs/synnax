@@ -1,0 +1,67 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/spatial"
+
+@ts output "client/ts/src/workspace/schematic/symbol"
+
+Key = uuid
+
+Region struct {
+    key          string
+    name         string
+    selectors    string[]?
+    stroke_color string?
+    fill_color   string?
+}
+
+State struct {
+    key     string
+    name    string
+    regions Region[]
+}
+
+Handle struct {
+    key         string
+    position    spatial.XY
+    orientation spatial.OuterLocation
+}
+
+Viewport struct {
+    zoom     float64    @validate default 1
+    position spatial.XY
+}
+
+Spec struct {
+    svg              string    @validate min_length 1
+    states           State[]
+    variant          string    @validate min_length 1
+    handles          Handle[]
+    scale            float64   @validate default 1
+    scale_stroke     bool      @validate default false
+    preview_viewport Viewport?
+}
+
+Symbol struct {
+    key     Key    @key
+    version uint32 @validate default 1
+    name    string @validate min_length 1
+    data    Spec
+
+    @ontology type "schematic_symbol"
+}
+
+New struct {
+    key     Key?   @key
+    version uint32 @validate default 1
+    name    string @validate min_length 1
+    data    Spec
+
+    @ts use_input
+}

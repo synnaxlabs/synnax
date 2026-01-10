@@ -22,9 +22,9 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xerrors",
-        "//x/cpp/xos",
-        "//x/cpp/xthread",
+        "//x/cpp/errors",
+        "//x/cpp/os",
+        "//x/cpp/thread",
         "@glog//:glog",
     ],
 )

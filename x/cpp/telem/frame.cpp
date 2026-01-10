@@ -13,7 +13,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 
-namespace telem {
+namespace x::telem {
 Frame::Frame(const size_t size):
     channels(std::make_unique<std::vector<uint32_t>>()),
     series(std::make_unique<std::vector<telem::Series>>()) {
@@ -40,7 +40,7 @@ Frame::Frame(std::unordered_map<std::uint32_t, telem::SampleValue> &data, size_t
     }
 }
 
-Frame::Frame(const PBFrame &f):
+Frame::Frame(const ::telem::PBFrame &f):
     channels(
         std::make_unique<std::vector<std::uint32_t>>(f.keys().begin(), f.keys().end())
     ),
@@ -55,7 +55,7 @@ void Frame::add(const std::uint32_t &chan, telem::Series &ser) const {
     this->series->push_back(std::move(ser));
 }
 
-void Frame::to_proto(PBFrame *f) const {
+void Frame::to_proto(::telem::PBFrame *f) const {
     f->mutable_keys()->Add(this->channels->begin(), this->channels->end());
     f->mutable_series()->Reserve(static_cast<int>(this->series->size()));
     for (auto &ser: *this->series)

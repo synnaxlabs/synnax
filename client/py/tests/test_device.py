@@ -17,7 +17,13 @@ import synnax as sy
 def basic_device(rack: int, n: int) -> sy.Device:
     key = str(uuid4())
     return sy.Device(
-        key=key, name=f"My Device {n} {key}", rack=rack, location=f"dev{n}"
+        key=key,
+        name=f"My Device {n} {key}",
+        rack=rack,
+        location=f"dev{n}",
+        make="test_make",
+        model="test_model",
+        properties="{}",
     )
 
 
@@ -114,6 +120,9 @@ class TestDevice:
             name="Configured Device",
             rack=r.key,
             location="test-location",
+            make="test_make",
+            model="test_model",
+            properties="{}",
             configured=True,
         )
         assert device.configured is True
@@ -129,6 +138,9 @@ class TestDevice:
             name="Unconfigured Device",
             rack=r.key,
             location="test-location",
+            make="test_make",
+            model="test_model",
+            properties="{}",
             configured=False,
         )
         assert device.configured is False
@@ -144,6 +156,9 @@ class TestDevice:
             name="Device 1",
             rack=r.key,
             location="loc1",
+            make="test_make",
+            model="test_model",
+            properties="{}",
             configured=True,
         )
         d2 = sy.Device(
@@ -151,6 +166,9 @@ class TestDevice:
             name="Device 2",
             rack=r.key,
             location="loc2",
+            make="test_make",
+            model="test_model",
+            properties="{}",
             configured=False,
         )
         devices = client.devices.create(devices=[d1, d2])

@@ -12,41 +12,41 @@
 
 #include "glog/logging.h"
 
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/modbus/scan_task.h"
 #include "driver/task/common/status.h"
 
-namespace modbus {
+namespace driver::modbus {
 Scanner::Scanner(
-    std::shared_ptr<task::Context> ctx,
+    std::shared_ptr<driver::task::Context> ctx,
     synnax::Task task,
     std::shared_ptr<device::Manager> devices
 ):
     ctx(std::move(ctx)), task(std::move(task)), devices(std::move(devices)) {}
 
-common::ScannerConfig Scanner::config() const {
-    return common::ScannerConfig{
+driver::task::common::ScannerConfig Scanner::config() const {
+    return driver::task::common::ScannerConfig{
         .make = INTEGRATION_NAME,
         .log_prefix = SCAN_LOG_PREFIX,
     };
 }
 
-std::pair<std::vector<synnax::Device>, xerrors::Error>
-Scanner::scan(const common::ScannerContext &scan_ctx) {
+std::pair<std::vector<synnax::Device>, x::errors::Error>
+Scanner::scan(const driver::task::common::ScannerContext &scan_ctx) {
     std::vector<synnax::Device> devices_out;
-    if (scan_ctx.devices == nullptr) return {devices_out, xerrors::NIL};
+    if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
     for (auto [key, dev]: *scan_ctx.devices) {
         this->check_device_health(dev);
         devices_out.push_back(dev);
     }
-    return {devices_out, xerrors::NIL};
+    return {devices_out, x::errors::NIL};
 }
 
 bool Scanner::exec(
-    task::Command &cmd,
+    driver::task::Command &cmd,
     const synnax::Task &,
-    const std::shared_ptr<task::Context> &
+    const std::shared_ptr<driver::task::Context> &
 ) {
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) {
         this->test_connection(cmd);
@@ -57,7 +57,7 @@ bool Scanner::exec(
 
 void Scanner::check_device_health(synnax::Device &dev) const {
     const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
-    const auto parser = xjson::Parser(dev.properties);
+    const auto parser = x::json::Parser(dev.properties);
     const auto conn_cfg = device::ConnectionConfig(parser.child("connection"));
     if (parser.error()) {
         dev.status = synnax::DeviceStatus{
@@ -66,7 +66,7 @@ void Scanner::check_device_health(synnax::Device &dev) const {
             .variant = status::variant::WARNING,
             .message = "Invalid device properties",
             .description = parser.error().message(),
-            .time = telem::TimeStamp::now(),
+            .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
         return;
@@ -80,7 +80,7 @@ void Scanner::check_device_health(synnax::Device &dev) const {
             .variant = status::variant::WARNING,
             .message = "Failed to reach device",
             .description = conn_err.message(),
-            .time = telem::TimeStamp::now(),
+            .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
     else
@@ -89,13 +89,13 @@ void Scanner::check_device_health(synnax::Device &dev) const {
             .name = dev.name,
             .variant = status::variant::SUCCESS,
             .message = "Device connected",
-            .time = telem::TimeStamp::now(),
+            .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
 }
 
-void Scanner::test_connection(const task::Command &cmd) const {
-    xjson::Parser parser(cmd.args);
+void Scanner::test_connection(const driver::task::Command &cmd) const {
+    x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::TaskStatus status{
         .key = this->task.status_key(),

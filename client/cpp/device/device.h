@@ -20,61 +20,61 @@
 
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/status/status.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/device.pb.h"
+#include "core/pkg/api/grpc/device/device.pb.h"
+#include "core/pkg/service/device/pb/device.pb.h"
 
-namespace synnax {
+namespace synnax::device {
 const std::string DEVICE_SET_CHANNEL = "sy_device_set";
 const std::string DEVICE_DELETE_CHANNEL = "sy_device_delete";
 
 // Forward declaration for RackKey (needed for Device struct)
-using RackKey = std::uint32_t;
+using Key = std::uint32_t;
 
 /// @brief Type alias for the transport used to create a device.
-using DeviceCreateClient = freighter::
-    UnaryClient<api::v1::DeviceCreateRequest, api::v1::DeviceCreateResponse>;
+using CreateClient = freighter::
+    UnaryClient<grpc::device::CreateRequest, grpc::device::CreateResponse>;
 
 /// @brief Type alias for the transport used to retrieve a device.
-using DeviceRetrieveClient = freighter::
-    UnaryClient<api::v1::DeviceRetrieveRequest, api::v1::DeviceRetrieveResponse>;
+using RetrieveClient = freighter::
+    UnaryClient<grpc::device::RetrieveRequest, grpc::device::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a device.
-using DeviceDeleteClient = freighter::
-    UnaryClient<api::v1::DeviceDeleteRequest, google::protobuf::Empty>;
+using DeleteClient = freighter::
+    UnaryClient<grpc::device::DeleteRequest, google::protobuf::Empty>;
 
 /// @brief Converts a device key to an ontology ID.
 /// @param key The device key.
 /// @returns An ontology ID with type "device" and the given key.
-inline ontology::ID device_ontology_id(const std::string &key) {
+inline ontology::ID ontology_id(const std::string &key) {
     return ontology::ID("device", key);
 }
 
 /// @brief Converts a vector of device keys to a vector of ontology IDs.
 /// @param keys The device keys.
 /// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID>
-device_ontology_ids(const std::vector<std::string> &keys) {
+inline std::vector<ontology::ID> ontology_ids(const std::vector<std::string> &keys) {
     std::vector<ontology::ID> ids;
     ids.reserve(keys.size());
     for (const auto &key: keys)
-        ids.push_back(device_ontology_id(key));
+        ids.push_back(ontology_id(key));
     return ids;
 }
 
 /// @brief specific status details for devices.
-struct DeviceStatusDetails {
+struct StatusDetails {
     /// @brief the rack that this device is connected to.
-    RackKey rack = 0;
+    Key rack = 0;
     /// @brief the device that this status is for.
     std::string device;
 
     /// @brief parses the device status details from a JSON parser.
-    static DeviceStatusDetails parse(xjson::Parser parser) {
-        return DeviceStatusDetails{
-            .rack = parser.field<RackKey>("rack"),
+    static StatusDetails parse(x::json::Parser parser) {
+        return StatusDetails{
+            .rack = parser.field<Key>("rack"),
             .device = parser.field<std::string>("device"),
         };
     }
@@ -89,7 +89,7 @@ struct DeviceStatusDetails {
 };
 
 /// @brief status information about a device.
-using DeviceStatus = status::Status<DeviceStatusDetails>;
+using DeviceStatus = x::status::Status<json>;
 
 /// @brief A Device represents a physical hardware device connected to a rack.
 struct Device {
@@ -98,7 +98,7 @@ struct Device {
     /// @brief A human-readable name for the device.
     std::string name;
     /// @brief The rack that this device is connected to.
-    RackKey rack = 0;
+    Key rack = 0;
     /// @brief The physical location of the device.
     std::string location;
     /// @brief The manufacturer of the device.
@@ -123,7 +123,7 @@ struct Device {
     Device(
         std::string key,
         std::string name,
-        RackKey rack,
+        Key rack,
         std::string location,
         std::string make,
         std::string model,
@@ -135,23 +135,24 @@ struct Device {
 
     /// @brief returns the key used for creating statuses associated with the task.
     [[nodiscard]] std::string status_key() const {
-        return device_ontology_id(this->key).string();
+        return ontology_id(this->key).string();
     }
 
     /// @brief Constructs a device from its protobuf representation.
     /// @param device The protobuf representation of the device.
     /// @returns A pair containing the device and an error if one occurred.
-    static std::pair<Device, xerrors::Error> from_proto(const api::v1::Device &device);
+    static std::pair<Device, x::errors::Error>
+    from_proto(const service::device::pb::Device &device);
 
     /// @brief Parses a device from a JSON parser.
     /// @param parser The JSON parser containing device data.
     /// @returns The parsed device.
-    static Device parse(xjson::Parser &parser);
+    static Device parse(x::json::Parser &parser);
 
 private:
-    void to_proto(api::v1::Device *device) const;
+    void to_proto(service::device::pb::Device *device) const;
 
-    friend class DeviceClient;
+    friend class Client;
 };
 
 /// @brief Creates a map of device keys to devices.
@@ -167,26 +168,26 @@ map_device_keys(const std::vector<Device> &devices) {
 }
 
 /// @brief Options for retrieving devices.
-struct DeviceRetrieveOptions {
+struct RetrieveOptions {
     /// @brief Whether to include status information in the retrieved devices.
     bool include_status = false;
 };
 
 /// @brief Request structure for retrieving devices with various filter options.
-struct DeviceRetrieveRequest {
+struct RetrieveRequest {
     std::vector<std::string> keys;
     std::vector<std::string> names;
     std::vector<std::string> makes;
     std::vector<std::string> models;
     std::vector<std::string> locations;
-    std::vector<RackKey> racks;
+    std::vector<Key> racks;
     std::string search;
     std::uint32_t limit = 0;
     std::uint32_t offset = 0;
     bool ignore_not_found = false;
     bool include_status = false;
 
-    void to_proto(api::v1::DeviceRetrieveRequest &request) const {
+    void to_proto(grpc::device::RetrieveRequest &request) const {
         request.set_ignore_not_found(ignore_not_found);
         request.set_limit(limit);
         request.set_offset(offset);
@@ -202,16 +203,16 @@ struct DeviceRetrieveRequest {
 };
 
 /// @brief Client for managing devices in a Synnax cluster.
-class DeviceClient {
+class Client {
 public:
     /// @brief Constructs a new device client with the given transport clients.
     /// @param device_create_client Client for creating devices.
     /// @param device_retrieve_client Client for retrieving devices.
     /// @param device_delete_client Client for deleting devices.
-    DeviceClient(
-        std::unique_ptr<DeviceCreateClient> device_create_client,
-        std::unique_ptr<DeviceRetrieveClient> device_retrieve_client,
-        std::unique_ptr<DeviceDeleteClient> device_delete_client
+    Client(
+        std::unique_ptr<CreateClient> device_create_client,
+        std::unique_ptr<RetrieveClient> device_retrieve_client,
+        std::unique_ptr<DeleteClient> device_delete_client
     );
 
     /// @brief Retrieves a device by its key.
@@ -219,7 +220,7 @@ public:
     /// @returns A pair containing the retrieved device and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error> retrieve(const std::string &key) const;
+    std::pair<Device, x::errors::Error> retrieve(const std::string &key) const;
 
     /// @brief Retrieves a device by its key with options.
     /// @param key The key of the device to retrieve.
@@ -227,15 +228,15 @@ public:
     /// @returns A pair containing the retrieved device and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<Device, xerrors::Error>
-    retrieve(const std::string &key, const DeviceRetrieveOptions &options) const;
+    std::pair<Device, x::errors::Error>
+    retrieve(const std::string &key, const RetrieveOptions &options) const;
 
     /// @brief Retrieves multiple devices by their keys.
     /// @param keys The keys of the devices to retrieve.
     /// @returns A pair containing the retrieved devices and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<std::vector<Device>, xerrors::Error>
+    std::pair<std::vector<Device>, x::errors::Error>
     retrieve(const std::vector<std::string> &keys) const;
 
     /// @brief Retrieves multiple devices by their keys with options.
@@ -244,49 +245,49 @@ public:
     /// @returns A pair containing the retrieved devices and an error if one
     /// occurred.
     [[nodiscard]]
-    std::pair<std::vector<Device>, xerrors::Error> retrieve(
+    std::pair<std::vector<Device>, x::errors::Error> retrieve(
         const std::vector<std::string> &keys,
-        const DeviceRetrieveOptions &options
+        const RetrieveOptions &options
     ) const;
 
     /// @brief Retrieves devices using a custom retrieve request.
     /// @param req The retrieve request with filter criteria.
     /// @returns A pair containing the retrieved devices and an error if one occurred.
     [[nodiscard]]
-    std::pair<std::vector<Device>, xerrors::Error>
-    retrieve(DeviceRetrieveRequest &req) const;
+    std::pair<std::vector<Device>, x::errors::Error>
+    retrieve(RetrieveRequest &req) const;
 
     /// @brief Creates a device in the cluster.
     /// @param device The device to create. Will be updated with the assigned key.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    xerrors::Error create(Device &device) const;
+    x::errors::Error create(Device &device) const;
 
     /// @brief Creates multiple devices in the cluster.
     /// @param devs The devices to create. Will be updated with the assigned keys.
     /// @returns An error if the creation failed.
     [[nodiscard]]
-    xerrors::Error create(const std::vector<Device> &devs) const;
+    x::errors::Error create(const std::vector<Device> &devs) const;
 
     /// @brief Deletes a device by its key.
     /// @param key The key of the device to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(const std::string &key) const;
+    x::errors::Error del(const std::string &key) const;
 
     /// @brief Deletes multiple devices by their keys.
     /// @param keys The keys of the devices to delete.
     /// @returns An error if the deletion failed.
     [[nodiscard]]
-    xerrors::Error del(const std::vector<std::string> &keys) const;
+    x::errors::Error del(const std::vector<std::string> &keys) const;
 
 private:
     /// @brief Device creation transport.
-    std::unique_ptr<DeviceCreateClient> device_create_client;
+    std::unique_ptr<CreateClient> device_create_client;
     /// @brief Device retrieval transport.
-    std::unique_ptr<DeviceRetrieveClient> device_retrieve_client;
+    std::unique_ptr<RetrieveClient> device_retrieve_client;
     /// @brief Device deletion transport.
-    std::unique_ptr<DeviceDeleteClient> device_delete_client;
+    std::unique_ptr<DeleteClient> device_delete_client;
 };
 
 }

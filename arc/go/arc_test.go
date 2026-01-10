@@ -73,7 +73,7 @@ var _ = Describe("Arc", func() {
 		Expect(mod.Nodes).To(HaveLen(3))
 
 		onNode := findNodeByType(mod.Nodes, "on")
-		Expect(onNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
+		Expect(onNode.Channels.Read).To(HaveKey(uint32(1)))
 		Expect(onNode.Outputs).To(HaveLen(1))
 		Expect(onNode.Outputs.Has("output")).To(BeTrue())
 
@@ -84,7 +84,7 @@ var _ = Describe("Arc", func() {
 		Expect(calcNode.Outputs.Has("output")).To(BeTrue())
 
 		writeNode := findNodeByType(mod.Nodes, "write")
-		Expect(writeNode.Channels.Write.Contains(uint32(2))).To(BeTrue())
+		Expect(writeNode.Channels.Write).To(HaveKey(uint32(2)))
 		Expect(writeNode.Inputs).To(HaveLen(1))
 
 		Expect(mod.Edges).To(HaveLen(2))
@@ -92,11 +92,11 @@ var _ = Describe("Arc", func() {
 		edge1 := MustBeOk(mod.Edges.FindByTarget(ir.Handle{Node: calcNode.Key, Param: "val"}))
 		Expect(edge1.Source.Node).To(Equal(onNode.Key))
 		Expect(edge1.Source.Param).To(Equal("output"))
-		Expect(edge1.Kind).To(Equal(ir.Continuous))
+		Expect(edge1.Kind).To(Equal(ir.EdgeKindContinuous))
 
 		edge2 := MustBeOk(mod.Edges.FindBySource(ir.Handle{Node: calcNode.Key, Param: "output"}))
 		Expect(edge2.Target.Node).To(Equal(writeNode.Key))
-		Expect(edge2.Kind).To(Equal(ir.Continuous))
+		Expect(edge2.Kind).To(Equal(ir.EdgeKindContinuous))
 
 		Expect(mod.Strata).To(HaveLen(3))
 		Expect(mod.Strata[0]).To(ContainElement(onNode.Key))
@@ -138,12 +138,12 @@ var _ = Describe("Arc", func() {
 		Expect(constNode.Config).To(HaveLen(1))
 
 		writeNode := findNodeByType(mod.Nodes, "write")
-		Expect(writeNode.Channels.Write.Contains(uint32(1))).To(BeTrue())
+		Expect(writeNode.Channels.Write).To(HaveKey(uint32(1)))
 
 		Expect(mod.Edges).To(HaveLen(1))
 		edge := MustBeOk(mod.Edges.FindByTarget(ir.Handle{Node: writeNode.Key, Param: "input"}))
 		Expect(edge.Source.Node).To(Equal(constNode.Key))
-		Expect(edge.Kind).To(Equal(ir.Continuous))
+		Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 
 		Expect(initStage.Strata).To(HaveLen(2))
 		Expect(initStage.Strata[0]).To(ContainElement(constNode.Key))
@@ -206,10 +206,10 @@ sequence main {
 		_, ok := seq.NextStage("stop")
 		Expect(ok).To(BeFalse())
 
-		oneShotEdges := mod.Edges.GetByKind(ir.OneShot)
+		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
 		Expect(oneShotEdges).ToNot(BeEmpty())
 
-		continuousEdges := mod.Edges.GetByKind(ir.Continuous)
+		continuousEdges := mod.Edges.GetByKind(ir.EdgeKindContinuous)
 		Expect(continuousEdges).ToNot(BeEmpty())
 	})
 
@@ -284,7 +284,7 @@ sequence main {
 		_, ok := seq.NextStage("vent")
 		Expect(ok).To(BeFalse())
 
-		oneShotEdges := mod.Edges.GetByKind(ir.OneShot)
+		oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindOneShot)
 		Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
 	})
 

@@ -12,7 +12,7 @@
 #include <memory>
 
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 namespace arc::runtime::loop {
 enum class ExecutionMode {
@@ -33,8 +33,8 @@ enum class ExecutionMode {
 
 struct Config {
     ExecutionMode mode = ExecutionMode::EVENT_DRIVEN;
-    telem::TimeSpan interval = telem::TimeSpan(0);
-    telem::TimeSpan spin_duration = telem::MICROSECOND * 100;
+    x::telem::TimeSpan interval = x::telem::TimeSpan(0);
+    x::telem::TimeSpan spin_duration = x::telem::MICROSECOND * 100;
     int rt_priority = -1;
     int cpu_affinity = -1;
     bool lock_memory = false;
@@ -45,13 +45,13 @@ struct Loop {
 
     virtual void notify_data() = 0;
 
-    virtual void wait(breaker::Breaker &breaker) = 0;
+    virtual void wait(x::breaker::Breaker &breaker) = 0;
 
-    virtual xerrors::Error start() = 0;
+    virtual x::errors::Error start() = 0;
 
     virtual void stop() = 0;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg);
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg);
 
 }

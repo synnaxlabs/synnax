@@ -1,0 +1,60 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/ontology"
+
+ResourceType enum {
+    label            = "label"
+    log              = "log"
+    builtin          = "builtin"
+    cluster          = "cluster"
+    channel          = "channel"
+    node             = "node"
+    group            = "group"
+    range            = "range"
+    framer           = "framer"
+    range_alias      = "range-alias"
+    user             = "user"
+    workspace        = "workspace"
+    schematic        = "schematic"
+    lineplot         = "lineplot"
+    rack             = "rack"
+    device           = "device"
+    task             = "task"
+    policy           = "policy"
+    role             = "role"
+    table            = "table"
+    arc              = "arc"
+    schematic_symbol = "schematic_symbol"
+    status           = "status"
+    view             = "view"
+}
+
+ID struct {
+    type ResourceType
+    key  string
+
+    @ts omit
+}
+
+Resource struct {
+    id   ID
+    name string
+    data json?
+
+    @ts omit
+}
+
+Relationship struct {
+    from ID
+    type string
+    to   ID
+
+    @ts omit
+}

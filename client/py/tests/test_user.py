@@ -56,6 +56,7 @@ def compare_users(user: User, new_user: NewUser):
         assert user.key is not None
 
 
+@pytest.mark.user
 class TestUserClient:
     def test_create_params(self, client: sy.Synnax):
         user = client.user.create(username="test", password="test")

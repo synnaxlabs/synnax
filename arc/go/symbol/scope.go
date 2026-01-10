@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 )
 
 // CreateRootScope creates a new scope representing the root scope of a program.
@@ -32,37 +31,6 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 		GlobalResolver: globalResolver,
 		Symbol:         Symbol{Kind: KindBlock},
 		Counter:        new(int),
-	}
-}
-
-// Channels tracks which Synnax channels a node reads from and writes to.
-//
-// This is used for data flow analysis to understand which channels are accessed by
-// different parts of an Arc program. The maps use channel IDs as keys and channel
-// names as values.
-type Channels struct {
-	// Read contains Synnax channels that the node reads from.
-	Read set.Mapped[uint32, string] `json:"read"`
-	// Write contains Synnax channels that the node writes to.
-	Write set.Mapped[uint32, string] `json:"write"`
-}
-
-// Copy returns a deep copy of the Channels.
-func (c Channels) Copy() Channels {
-	if c.Read == nil {
-		c.Read = make(set.Mapped[uint32, string])
-	}
-	if c.Write == nil {
-		c.Write = make(set.Mapped[uint32, string])
-	}
-	return Channels{Read: c.Read.Copy(), Write: c.Write.Copy()}
-}
-
-// NewChannels creates a new Channels with empty read and write sets.
-func NewChannels() Channels {
-	return Channels{
-		Read:  make(set.Mapped[uint32, string]),
-		Write: make(set.Mapped[uint32, string]),
 	}
 }
 
@@ -94,7 +62,7 @@ type Scope struct {
 	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
 	OnResolve func(ctx context.Context, s *Scope) error
 	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
-	Channels Channels
+	Channels types.Channels
 }
 
 // GetChildByParserRule finds a direct child scope with the given AST parser rule.
@@ -333,7 +301,7 @@ func (s *Scope) stringWithIndent(indent string) string {
 // in the Channels.Read map. This is used by functions and expressions
 // to track their channel dependencies.
 func (s *Scope) AccumulateReadChannels() {
-	s.Channels = NewChannels()
+	s.Channels = types.NewChannels()
 	s.OnResolve = func(_ context.Context, resolved *Scope) error {
 		if resolved.Kind == KindChannel || resolved.Type.Kind == types.KindChan {
 			s.Channels.Read[uint32(resolved.ID)] = resolved.Name

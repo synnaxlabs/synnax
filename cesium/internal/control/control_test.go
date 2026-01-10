@@ -53,7 +53,7 @@ func baseConfig(value int) (control.GateConfig[testResource], func() int) {
 var _ = Describe("Control", func() {
 	var (
 		c   *control.Controller[testResource]
-		cfg = control.Config{Concurrency: xcontrol.Exclusive}
+		cfg = control.Config{Concurrency: xcontrol.ConcurrencyExclusive}
 	)
 	JustBeforeEach(func() {
 		c = MustSucceed(control.New[testResource](cfg))
@@ -61,7 +61,7 @@ var _ = Describe("Control", func() {
 
 	Context("Exclusive", func() {
 		BeforeEach(func() {
-			cfg.Concurrency = xcontrol.Exclusive
+			cfg.Concurrency = xcontrol.ConcurrencyExclusive
 		})
 
 		Describe("OpenGate", func() {
@@ -908,7 +908,7 @@ var _ = Describe("Control", func() {
 
 	Context("Shared Control", func() {
 		BeforeEach(func() {
-			cfg.Concurrency = xcontrol.Shared
+			cfg.Concurrency = xcontrol.ConcurrencyShared
 		})
 		It("Should authorize gate with the highest authority", func() {
 			cfg1, _ := baseConfig(1)

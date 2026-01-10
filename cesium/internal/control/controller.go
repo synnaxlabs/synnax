@@ -49,7 +49,7 @@ type Config struct {
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening a Controller.
-	DefaultConfig = Config{Concurrency: control.Exclusive}
+	DefaultConfig = Config{Concurrency: control.ConcurrencyExclusive}
 )
 
 // Validate implements config.Config.
@@ -64,7 +64,7 @@ func (c Config) Override(other Config) Config {
 
 // Controller controls access to a specified resource type over discrete time regions.
 // A Controller maintains a set of regions that occupy non-overlapping time ranges.
-// If the controller is open with control.Exclusive, each region can only have one
+// If the controller is open with control.ConcurrencyExclusive, each region can only have one
 // subject, managed by a Gate, controlling it at a single time. Each region manages
 // an independent set of gates that bid for control over the resource using a mix
 // of both first-come-first-serve precedence and specified control authorities

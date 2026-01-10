@@ -18,13 +18,13 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -167,7 +167,7 @@ func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nod
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -181,7 +181,7 @@ func buildChannelWriteNode(name string, sym *symbol.Scope, kg *keyGenerator) (no
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()}},
 	}
@@ -261,7 +261,7 @@ func analyzeExpression(
 		n := ir.Node{
 			Key:      key,
 			Type:     "constant",
-			Channels: symbol.NewChannels(),
+			Channels: types.NewChannels(),
 			Config:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
 			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		}
@@ -374,12 +374,12 @@ func newFlowChainProcessor(ctx acontext.Context[parser.IFlowStatementContext], k
 func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 	children := p.ctx.AST.GetChildren()
 	if p.lastOpIndex < 0 || p.lastOpIndex >= len(children) {
-		return ir.Continuous
+		return ir.EdgeKindContinuous
 	}
 	if opCtx, ok := children[p.lastOpIndex].(parser.IFlowOperatorContext); ok && opCtx.TRANSITION() != nil {
-		return ir.OneShot
+		return ir.EdgeKindOneShot
 	}
-	return ir.Continuous
+	return ir.EdgeKindContinuous
 }
 
 // injectImplicitTriggers creates channel read nodes for all channels referenced
@@ -446,7 +446,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 			p.edges = append(p.edges, ir.Edge{
 				Source: trigger.output,
 				Target: result.input,
-				Kind:   ir.Continuous,
+				Kind:   ir.EdgeKindContinuous,
 			})
 		}
 		p.additionalTriggers = nil
@@ -610,10 +610,10 @@ func analyzeOutputRoutingTable(
 				edges = append(edges, ir.Edge{
 					Source: ir.Handle{Node: sourceNode.Key, Param: outputName},
 					Target: result.input,
-					Kind:   ir.Continuous,
+					Kind:   ir.EdgeKindContinuous,
 				})
 			} else {
-				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: result.input, Kind: ir.Continuous})
+				edges = append(edges, ir.Edge{Source: prevOutputHandle, Target: result.input, Kind: ir.EdgeKindContinuous})
 			}
 
 			if isLast && targetParamName != "" {
@@ -708,7 +708,7 @@ func analyzeStage(
 	entryNode := ir.Node{
 		Key:      entryKey,
 		Type:     "stage_entry",
-		Channels: symbol.NewChannels(),
+		Channels: types.NewChannels(),
 		Inputs: types.Params{
 			{Name: "activate", Type: types.U8()},
 		},

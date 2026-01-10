@@ -1,0 +1,44 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/workspace/schematic"
+@go output "core/pkg/service/workspace/schematic"
+@pb
+
+Key = uuid
+
+Schematic struct {
+    key      Key    @key
+    name     string
+    data     json
+    snapshot bool
+
+    @ontology type "schematic"
+    @go omit
+    @pb omit
+}
+
+GoSchematic struct extends Schematic {
+    data string
+    -data
+
+    @go name "Schematic"
+    @pb name "Schematic"
+    @ts omit
+}
+
+New struct extends Schematic {
+    key      Key?
+    data     json  @ts stringify
+    snapshot bool?
+
+    @ts use_input
+    @go omit
+    @pb omit
+}

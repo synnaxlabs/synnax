@@ -14,13 +14,10 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/vmihailenco/msgpack/v5"
 )
-
-type Key uint64
 
 func NewKey(rack rack.Key, localKey uint32) Key {
 	return Key(uint64(rack)<<32 | uint64(localKey))
@@ -49,16 +46,6 @@ func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-type Task struct {
-	Key      Key     `json:"key" msgpack:"key"`
-	Name     string  `json:"name" msgpack:"name"`
-	Type     string  `json:"type" msgpack:"type"`
-	Config   string  `json:"config" msgpack:"config"`
-	Status   *Status `json:"status" msgpack:"status"`
-	Internal bool    `json:"internal" msgpack:"internal"`
-	Snapshot bool    `json:"snapshot" msgpack:"snapshot"`
-}
-
 var _ gorp.Entry[Key] = Task{}
 
 func (t Task) GorpKey() Key { return t.Key }
@@ -73,13 +60,3 @@ func (t Task) String() string {
 	}
 	return t.Key.String()
 }
-
-type StatusDetails struct {
-	Task    Key            `json:"task" msgpack:"task"`
-	Cmd     string         `json:"cmd" msgpack:"cmd"`
-	Running bool           `json:"running" msgpack:"running"`
-	Data    map[string]any `json:"data" msgpack:"data"`
-}
-
-// Status represents the state of a task.
-type Status = status.Status[StatusDetails]

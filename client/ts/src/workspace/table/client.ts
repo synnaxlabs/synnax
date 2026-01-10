@@ -11,18 +11,16 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  type Params,
-  remoteZ,
   type Table,
-} from "@/workspace/table/payload";
+  tableZ,
+} from "@/workspace/table/types.gen";
+import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/types.gen";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -39,10 +37,10 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ tables: array.nullableZ(remoteZ) });
+const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
 
 const createReqZ = z.object({ workspace: workspaceKeyZ, tables: newZ.array() });
-const createResZ = z.object({ tables: remoteZ.array() });
+const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
 
@@ -104,7 +102,7 @@ export class Client {
     return isSingle ? res.tables[0] : res.tables;
   }
 
-  async delete(keys: Params): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       "/workspace/table/delete",
@@ -114,6 +112,3 @@ export class Client {
     );
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("table");
-export const TYPE_ONTOLOGY_ID = ontologyID("");

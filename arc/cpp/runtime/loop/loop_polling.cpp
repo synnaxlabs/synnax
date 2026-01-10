@@ -56,7 +56,7 @@ public:
         data_available_.store(true, std::memory_order_release);
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (!running_) return;
 
         // Check if we need to wait for timer interval
@@ -105,21 +105,21 @@ public:
         data_available_.store(false, std::memory_order_release);
     }
 
-    xerrors::Error start() override {
+    x::errors::Error start() override {
         if (running_) {
-            return xerrors::NIL; // Already started
+            return x::errors::NIL; // Already started
         }
 
         // Initialize timer if interval is configured
         if (config_.interval.nanoseconds() > 0) {
-            timer_ = std::make_unique<::loop::Timer>(config_.interval);
+            timer_ = std::make_unique<::x::loop::Timer>(config_.interval);
         }
 
         last_tick_ = std::chrono::steady_clock::now();
         running_ = true;
         data_available_.store(false, std::memory_order_release);
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void stop() override {
@@ -129,7 +129,7 @@ public:
 
 private:
     /// @brief Busy wait for the specified duration.
-    void busy_wait(uint64_t duration_ns, breaker::Breaker &breaker) {
+    void busy_wait(uint64_t duration_ns, x::breaker::Breaker &breaker) {
         const auto start = std::chrono::steady_clock::now();
         while (!!breaker.running()) {
             const auto now = std::chrono::steady_clock::now();
@@ -144,15 +144,15 @@ private:
     }
 
     Config config_;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
     std::chrono::steady_clock::time_point last_tick_;
     std::atomic<bool> data_available_{false};
     bool running_ = false;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<PollingLoop>(cfg);
     if (auto err = loop->start(); err) { return {nullptr, err}; }
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 }

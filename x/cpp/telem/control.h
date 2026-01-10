@@ -13,7 +13,7 @@
 
 #include "x/go/control/x/go/control/control.pb.h"
 
-namespace telem {
+namespace x::telem {
 typedef std::uint8_t Authority;
 constexpr Authority AUTH_ABSOLUTE = 255;
 
@@ -21,7 +21,7 @@ struct ControlSubject {
     std::string name;
     std::string key;
 
-    void to_proto(control::ControlSubject *s) const {
+    void to_proto(::control::ControlSubject *s) const {
         s->set_name(name);
         s->set_key(key);
     }

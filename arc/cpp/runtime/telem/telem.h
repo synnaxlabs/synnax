@@ -67,10 +67,10 @@ public:
             } else if (time_series.alignment != ser.alignment)
                 return xerrors::NIL;
 
-            state.output(0) = xmemory::make_local_shared<telem::Series>(
+            state.output(0) = x::mem::make_local_shared<telem::Series>(
                 ser.deep_copy()
             );
-            state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+            state.output_time(0) = x::mem::make_local_shared<telem::Series>(
                 std::move(time_series)
             );
             high_water_mark = telem::Alignment(upper_val + 1);
@@ -100,7 +100,7 @@ public:
         if (data->empty()) return xerrors::NIL;
         // TODO: Fix this hacky code
         const auto start = telem::TimeStamp::now();
-        const auto time = xmemory::local_shared(
+        const auto time = x::mem::local_shared(
             telem::Series::linspace(
                 start,
                 start + 100 * telem::MICROSECOND,

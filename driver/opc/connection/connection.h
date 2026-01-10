@@ -19,10 +19,10 @@
 #include "open62541/client.h"
 
 /// module
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
-namespace opc::connection {
+namespace driver::opc::connection {
 /// @brief the configuration for an OPC UA connection.
 struct Config {
     /// @brief the endpoint of the OPC UA server.
@@ -55,7 +55,7 @@ struct Config {
 
     Config() = default;
 
-    explicit Config(xjson::Parser parser):
+    explicit Config(x::json::Parser parser):
         endpoint(parser.field<std::string>("endpoint")),
         username(parser.field<std::string>("username", "")),
         password(parser.field<std::string>("password", "")),
@@ -83,10 +83,10 @@ struct Config {
     }
 };
 
-std::pair<std::shared_ptr<UA_Client>, xerrors::Error>
+std::pair<std::shared_ptr<UA_Client>, x::errors::Error>
 connect(const Config &cfg, std::string log_prefix);
 
-xerrors::Error
+x::errors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint);
 
 class Pool {
@@ -141,7 +141,7 @@ public:
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
 
-    std::pair<Connection, xerrors::Error>
+    std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
     size_t size() const;
@@ -163,7 +163,7 @@ private:
     /// @param client The OPC UA client to maintain.
     /// @param log_prefix Prefix for log messages.
     /// @return NIL on success, error if maintenance failed or session deactivated.
-    xerrors::Error run_iterate_checked(
+    x::errors::Error run_iterate_checked(
         const std::shared_ptr<UA_Client> &client,
         const std::string &log_prefix
     );

@@ -1,8 +1,14 @@
 cc_library(
     name = "module",
-    hdrs = ["module.h"],
+    hdrs = [
+        "json.gen.h",
+        "module.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
+        "//arc/cpp/compiler",
         "//arc/cpp/ir",
         "//arc/go/module:module_grpc",
     ],

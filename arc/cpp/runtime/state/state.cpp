@@ -22,9 +22,9 @@ Series parse_default_value(
     auto data_type = type.telem();
     if (value.has_value()) {
         auto casted = data_type.cast(*value);
-        return xmemory::make_local_shared<telem::Series>(casted);
+        return x::mem::make_local_shared<telem::Series>(casted);
     }
-    auto series = xmemory::make_local_shared<telem::Series>(data_type, 1);
+    auto series = x::mem::make_local_shared<telem::Series>(data_type, 1);
     switch (type.kind) {
         case types::Kind::I8:
             series->write(static_cast<int8_t>(0));
@@ -77,8 +77,8 @@ State::State(const Config &cfg): cfg(cfg) {
             this->value_index[handle] = this->values.size();
             this->values.emplace_back(
                 Value{
-                    xmemory::local_shared<telem::Series>(output.type.telem(), 0),
-                    xmemory::local_shared<telem::Series>(telem::TIMESTAMP_T, 0)
+                    x::mem::local_shared<telem::Series>(output.type.telem(), 0),
+                    x::mem::local_shared<telem::Series>(telem::TIMESTAMP_T, 0)
                 }
             );
         }
@@ -95,7 +95,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
     std::vector<size_t> input_source_idx(num_inputs);
 
     for (size_t i = 0; i < num_inputs; i++)
-        aligned_time[i] = xmemory::make_local_shared<telem::Series>(
+        aligned_time[i] = x::mem::make_local_shared<telem::Series>(
             telem::TIMESTAMP_T,
             0
         );
@@ -109,7 +109,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
             auto idx_iter = this->value_index.find(source_handle);
             if (idx_iter != this->value_index.end()) {
                 size_t idx = idx_iter->second;
-                aligned_data[i] = xmemory::make_local_shared<telem::Series>(
+                aligned_data[i] = x::mem::make_local_shared<telem::Series>(
                     this->values[idx].data->data_type(),
                     0
                 );
@@ -123,7 +123,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
             inputs[i] = ir::Edge(synthetic_handle, target_handle);
 
             auto data_series = parse_default_value(param.value, param.type);
-            auto time_series = xmemory::make_local_shared<telem::Series>(
+            auto time_series = x::mem::make_local_shared<telem::Series>(
                 telem::TIMESTAMP_T,
                 1
             );
@@ -176,7 +176,7 @@ std::pair<Node, xerrors::Error> State::node(const std::string &key) {
 void State::ingest(const telem::Frame &frame) {
     for (size_t i = 0; i < frame.size(); i++)
         reads[frame.channels->at(i)].push_back(
-            xmemory::local_shared(std::move(frame.series->at(i)))
+            x::mem::local_shared(std::move(frame.series->at(i)))
         );
 }
 

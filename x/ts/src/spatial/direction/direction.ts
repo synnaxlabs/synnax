@@ -14,16 +14,18 @@ import {
   type CrudeXDirection,
   type CrudeYDirection,
   type Dimension,
-  type Direction,
-  direction,
-  DIRECTIONS,
-  type Location,
   type SignedDimension,
+} from "@/spatial/base";
+import {
+  type Direction,
+  DIRECTIONS,
+  directionZ,
+  type Location,
   Y_LOCATIONS,
   type YLocation,
-} from "@/spatial/base";
+} from "@/spatial/types.gen";
 
-export { Direction, direction, DIRECTIONS };
+export { type Direction, DIRECTIONS, directionZ };
 
 export const crude = crudeDirection;
 

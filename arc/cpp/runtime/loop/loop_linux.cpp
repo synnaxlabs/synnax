@@ -53,7 +53,7 @@ public:
         data_available_.store(true, std::memory_order_release);
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (!running_) return;
 
         switch (config_.mode) {
@@ -76,15 +76,15 @@ public:
         }
     }
 
-    xerrors::Error start() override {
+    x::errors::Error start() override {
         if (running_) {
-            return xerrors::NIL; // Already started
+            return x::errors::NIL; // Already started
         }
 
         // Create epoll instance
         epoll_fd_ = epoll_create1(0);
         if (epoll_fd_ == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create epoll: " + std::string(strerror(errno))
             );
         }
@@ -93,7 +93,7 @@ public:
         event_fd_ = eventfd(0, EFD_NONBLOCK);
         if (event_fd_ == -1) {
             close(epoll_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create eventfd: " + std::string(strerror(errno))
             );
         }
@@ -105,7 +105,7 @@ public:
         if (epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, event_fd_, &ev) == -1) {
             close(event_fd_);
             close(epoll_fd_);
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to add eventfd to epoll: " + std::string(strerror(errno))
             );
         }
@@ -116,7 +116,7 @@ public:
             if (timer_fd_ == -1) {
                 close(event_fd_);
                 close(epoll_fd_);
-                return xerrors::Error(
+                return x::errors::Error(
                     "Failed to create timerfd: " + std::string(strerror(errno))
                 );
             }
@@ -132,7 +132,7 @@ public:
                 close(timer_fd_);
                 close(event_fd_);
                 close(epoll_fd_);
-                return xerrors::Error(
+                return x::errors::Error(
                     "Failed to set timerfd interval: " + std::string(strerror(errno))
                 );
             }
@@ -144,7 +144,7 @@ public:
                 close(timer_fd_);
                 close(event_fd_);
                 close(epoll_fd_);
-                return xerrors::Error(
+                return x::errors::Error(
                     "Failed to add timerfd to epoll: " + std::string(strerror(errno))
                 );
             }
@@ -156,7 +156,7 @@ public:
         if (config_.mode == ExecutionMode::HIGH_RATE ||
             config_.mode == ExecutionMode::HYBRID) {
             if (config_.interval.nanoseconds() > 0) {
-                timer_ = std::make_unique<::loop::Timer>(config_.interval);
+                timer_ = std::make_unique<::x::loop::Timer>(config_.interval);
             }
         }
 
@@ -182,7 +182,7 @@ public:
         running_ = true;
         data_available_.store(false, std::memory_order_release);
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void stop() override {
@@ -211,7 +211,7 @@ public:
 
 private:
     /// @brief Busy-wait mode - continuously check epoll with zero timeout.
-    void busy_wait(breaker::Breaker &breaker) {
+    void busy_wait(x::breaker::Breaker &breaker) {
         struct epoll_event events[2];
 
         while (!!breaker.running()) {
@@ -232,7 +232,7 @@ private:
     }
 
     /// @brief High-rate polling with precise sleep.
-    void high_rate_wait(breaker::Breaker &breaker) {
+    void high_rate_wait(x::breaker::Breaker &breaker) {
         if (timer_) {
             timer_->wait(breaker);
         } else {
@@ -244,7 +244,7 @@ private:
     }
 
     /// @brief Event-driven wait using epoll.
-    void event_driven_wait(breaker::Breaker &breaker, bool blocking) {
+    void event_driven_wait(x::breaker::Breaker &breaker, bool blocking) {
         struct epoll_event events[2];
 
         // Blocking: -1 (infinite), Non-blocking (RT): use short timeout
@@ -262,7 +262,7 @@ private:
     }
 
     /// @brief Hybrid mode - spin briefly, then block on epoll.
-    void hybrid_wait(breaker::Breaker &breaker) {
+    void hybrid_wait(x::breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             config_.spin_duration.nanoseconds()
@@ -303,45 +303,45 @@ private:
     }
 
     /// @brief Set real-time scheduling priority.
-    xerrors::Error set_rt_priority(int priority) {
+    x::errors::Error set_rt_priority(int priority) {
         struct sched_param param;
         param.sched_priority = priority;
 
         if (sched_setscheduler(0, SCHED_FIFO, &param) == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set SCHED_FIFO priority (requires CAP_SYS_NICE): " +
                 std::string(strerror(errno))
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Set CPU affinity.
-    xerrors::Error set_cpu_affinity(int cpu) {
+    x::errors::Error set_cpu_affinity(int cpu) {
         cpu_set_t cpuset;
         CPU_ZERO(&cpuset);
         CPU_SET(cpu, &cpuset);
 
         if (sched_setaffinity(0, sizeof(cpuset), &cpuset) == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set CPU affinity: " + std::string(strerror(errno))
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// @brief Lock memory to prevent paging.
-    xerrors::Error lock_memory() {
+    x::errors::Error lock_memory() {
         if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to lock memory (requires CAP_IPC_LOCK): " +
                 std::string(strerror(errno))
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     Config config_;
@@ -349,14 +349,14 @@ private:
     int event_fd_ = -1;
     int timer_fd_ = -1;
     bool timer_enabled_ = false;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
     std::atomic<bool> data_available_{false};
     bool running_ = false;
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<LinuxLoop>(cfg);
     if (auto err = loop->start(); err) { return {nullptr, err}; }
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 }

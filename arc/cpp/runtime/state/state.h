@@ -23,7 +23,7 @@
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
-using Series = xmemory::local_shared<telem::Series>;
+using Series = x::mem::local_shared<telem::Series>;
 
 struct Value {
     Series data;

@@ -12,7 +12,7 @@
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/xmemory/local_shared.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/telem/telem.h"
@@ -523,10 +523,10 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     );
 
     auto upstream = ASSERT_NIL_P(s.node("upstream"));
-    upstream.output(0) = xmemory::make_local_shared<telem::Series>(
+    upstream.output(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<float>{7.7f, 8.8f}
     );
-    upstream.output_time(0) = xmemory::make_local_shared<telem::Series>(
+    upstream.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<int64_t>{500, 501}
     );
 
@@ -644,10 +644,10 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     );
 
     auto upstream = ASSERT_NIL_P(s.node("upstream"));
-    upstream.output(0) = xmemory::make_local_shared<telem::Series>(
+    upstream.output(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<float>{}
     );
-    upstream.output_time(0) = xmemory::make_local_shared<telem::Series>(
+    upstream.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<int64_t>{}
     );
 
@@ -707,10 +707,10 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     auto ctx = make_context();
 
     auto upstream1 = ASSERT_NIL_P(s.node("upstream"));
-    upstream1.output(0) = xmemory::make_local_shared<telem::Series>(
+    upstream1.output(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<float>{1.0f}
     );
-    upstream1.output_time(0) = xmemory::make_local_shared<telem::Series>(
+    upstream1.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<int64_t>{10}
     );
 
@@ -725,10 +725,10 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     }
 
     auto upstream2 = ASSERT_NIL_P(s.node("upstream"));
-    upstream2.output(0) = xmemory::make_local_shared<telem::Series>(
+    upstream2.output(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<float>{2.0f}
     );
-    upstream2.output_time(0) = xmemory::make_local_shared<telem::Series>(
+    upstream2.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<int64_t>{20}
     );
 

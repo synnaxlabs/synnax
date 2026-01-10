@@ -1,0 +1,148 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Package internal provides shared utilities for Go code generation plugins.
+package internal
+
+import (
+	"path/filepath"
+	"sort"
+	"unicode"
+
+	"github.com/samber/lo"
+)
+
+// ToPascalCase converts snake_case to PascalCase, preserving screaming case
+// (all-uppercase) names like "WASM" or "IR" as-is.
+func ToPascalCase(s string) string {
+	if isScreamingCase(s) {
+		return s
+	}
+	return lo.PascalCase(s)
+}
+
+// ToSnakeCase converts any case to snake_case (all lowercase with underscores).
+func ToSnakeCase(s string) string { return lo.SnakeCase(s) }
+
+// isScreamingCase returns true if s is all uppercase letters (possibly with underscores).
+func isScreamingCase(s string) bool {
+	if s == "" {
+		return false
+	}
+	hasLetter := false
+	for _, r := range s {
+		if unicode.IsLetter(r) {
+			hasLetter = true
+			if !unicode.IsUpper(r) {
+				return false
+			}
+		} else if r != '_' {
+			return false
+		}
+	}
+	return hasLetter
+}
+
+// DerivePackageName extracts the package name from an output path.
+// Example: "core/pkg/service/user" -> "user"
+func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
+
+// DerivePackageAlias creates a unique alias for an imported package to avoid conflicts.
+// If the base name conflicts with the current package, it prepends the parent directory.
+func DerivePackageAlias(outputPath, currentPackage string) string {
+	base := filepath.Base(outputPath)
+	if base == currentPackage {
+		parent := filepath.Base(filepath.Dir(outputPath))
+		return parent + base
+	}
+	return base
+}
+
+// ImportManager tracks Go imports needed for generated files.
+type ImportManager struct {
+	external map[string]bool
+	internal map[string]*InternalImport
+}
+
+// InternalImport represents an internal package import with optional alias.
+type InternalImport struct {
+	Path  string
+	Alias string
+}
+
+// NewImportManager creates a new import manager.
+func NewImportManager() *ImportManager {
+	return &ImportManager{
+		external: make(map[string]bool),
+		internal: make(map[string]*InternalImport),
+	}
+}
+
+// AddExternal adds an external package import.
+func (m *ImportManager) AddExternal(path string) { m.external[path] = true }
+
+// AddInternal adds an internal package import with an alias.
+func (m *ImportManager) AddInternal(alias, path string) {
+	m.internal[alias] = &InternalImport{Path: path, Alias: alias}
+}
+
+// AddImport implements resolver.ImportAdder interface.
+// It routes imports to AddExternal or AddInternal based on category.
+func (m *ImportManager) AddImport(category, path, alias string) {
+	if category == "external" || alias == "" {
+		// External imports and imports without aliases go to external list
+		m.AddExternal(path)
+	} else {
+		m.AddInternal(alias, path)
+	}
+}
+
+// HasImports returns true if any imports have been added.
+func (m *ImportManager) HasImports() bool {
+	return len(m.external) > 0 || len(m.internal) > 0
+}
+
+// ExternalImports returns sorted external import paths.
+func (m *ImportManager) ExternalImports() []string {
+	imports := make([]string, 0, len(m.external))
+	for imp := range m.external {
+		imports = append(imports, imp)
+	}
+	sort.Strings(imports)
+	return imports
+}
+
+// InternalImportData holds data for an internal import in templates.
+type InternalImportData struct {
+	Path  string
+	Alias string
+}
+
+// NeedsAlias returns true if the import needs an alias in the generated code.
+func (i InternalImportData) NeedsAlias() bool {
+	return i.Alias != "" && i.Alias != filepath.Base(i.Path)
+}
+
+// InternalImports returns sorted internal imports, excluding any that are already
+// in the external imports list to avoid duplicates.
+func (m *ImportManager) InternalImports() []InternalImportData {
+	imports := make([]InternalImportData, 0, len(m.internal))
+	for _, imp := range m.internal {
+		// Skip if this path is already in external imports
+		if m.external[imp.Path] {
+			continue
+		}
+		imports = append(imports, InternalImportData{
+			Path:  imp.Path,
+			Alias: imp.Alias,
+		})
+	}
+	sort.Slice(imports, func(i, j int) bool { return imports[i].Path < imports[j].Path })
+	return imports
+}

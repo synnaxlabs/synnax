@@ -1,0 +1,75 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/label"
+
+@ts output  "x/ts/src/status"
+@py output  "client/py/synnax/status"
+@go output  "x/go/status"
+@cpp output "x/cpp/status"
+@pb
+
+Variant enum {
+    success  = "success"
+    info     = "info"
+    warning  = "warning"
+    error    = "error"
+    loading  = "loading"
+    disabled = "disabled"
+
+    @ts literals
+}
+
+Status struct<Details?, V extends Variant = Variant> {
+    key         string         @key generate
+    name        string         @validate default ""
+    variant     V
+    message     string
+    description string?
+    time        timestamp      @validate default now
+    details     Details?
+    labels      label.Label[]?
+
+    @ts concrete_types
+    @py omit
+    @go omit
+    @pb omit
+    @cpp omit
+}
+
+GoStatus struct<Details?> extends Status<Details, Variant> {
+    variant Variant
+    -variant
+
+    @ts omit
+    @py omit
+    @go name    "Status"
+    @pb name    "Status"
+    @cpp output "x/cpp/status"
+    @cpp name   "Status"
+}
+
+GoSVCStatus<Details?> = Status<Details?> {
+    @go output "core/pkg/service/status"
+    @go name   "Status"
+    @ts omit
+    @py omit
+    @cpp omit
+}
+
+New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
+    key  string?
+    name string?
+    time timestamp?
+
+    @ts concrete_types
+    @pb omit
+    @cpp omit
+    @go omit
+}

@@ -13,9 +13,9 @@
 #include <thread>
 
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/thread.h"
 
-namespace pipeline {
+namespace driver::pipeline {
 class Base {
     /// @brief the primary thread that runs the pipeline.
     std::thread thread;
@@ -24,7 +24,7 @@ class Base {
 
     /// @brief an internal run
     void run_internal() {
-        if (!this->thread_name.empty()) xthread::set_name(this->thread_name.c_str());
+        if (!this->thread_name.empty()) x::thread::set_name(this->thread_name.c_str());
         try {
             this->run();
         } catch (const std::exception &e) {
@@ -34,9 +34,9 @@ class Base {
 
 protected:
     /// @brief a breaker for managing the lifecycle of the pipeline thread.
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
-    explicit Base(const breaker::Config &breaker_config, std::string thread_name = ""):
+    explicit Base(const x::breaker::Config &breaker_config, std::string thread_name = ""):
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
 public:

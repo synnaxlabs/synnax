@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -35,7 +34,6 @@ import (
 //
 // The first 16 bits are the node key, and the last 16 bits are a unique, sequential
 // key for the rack on the node.
-type Key uint32
 
 // NewKey instantiates a new rack key from its node and local key components.
 func NewKey(node cluster.NodeKey, localKey uint16) Key {
@@ -64,28 +62,6 @@ func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
 	}
 	*k = Key(n)
 	return nil
-}
-
-type StatusDetails struct {
-	Rack Key `json:"rack" msgpack:"rack"`
-}
-
-type Status = status.Status[StatusDetails]
-
-// Rack represents a driver that can communicate with devices and execute tasks.
-type Rack struct {
-	// Key is a unique identifier for a rack. This key is tied to a specific node.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is the name for the rack.
-	Name string `json:"name" msgpack:"name"`
-	// TaskCounter is the total number of tasks that have been created on the rack,
-	// and is used to assign keys to tasks.
-	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
-	// Embedded sets whether the rack is built-in to the Synnax node, or it is an
-	// external rack.
-	Embedded bool `json:"embedded" msgpack:"embedded"`
-	// Status is the current state of the rack.
-	Status *Status `json:"status" msgpack:"status"`
 }
 
 var _ gorp.Entry[Key] = Rack{}

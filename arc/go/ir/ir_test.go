@@ -50,7 +50,7 @@ var _ = Describe("IR", func() {
 
 		It("Should return false when Edges is non-empty", func() {
 			irWithEdges := &ir.IR{
-				Edges: ir.Edges{{Kind: ir.Continuous}},
+				Edges: ir.Edges{{Kind: ir.EdgeKindContinuous}},
 			}
 			Expect(irWithEdges.IsZero()).To(BeFalse())
 		})
@@ -258,12 +258,12 @@ var _ = Describe("IR", func() {
 					{
 						Source: ir.Handle{Node: "timer_1", Param: "output"},
 						Target: ir.Handle{Node: "ctrl_1", Param: "input"},
-						Kind:   ir.Continuous,
+						Kind:   ir.EdgeKindContinuous,
 					},
 					{
 						Source: ir.Handle{Node: "condition_1", Param: "output"},
 						Target: ir.Handle{Node: "main_run_entry", Param: "activate"},
-						Kind:   ir.OneShot,
+						Kind:   ir.EdgeKindOneShot,
 					},
 				},
 				Strata: ir.Strata{{"timer_1"}, {"ctrl_1", "ctrl_2"}},
@@ -291,14 +291,14 @@ var _ = Describe("IR", func() {
 			Expect(next.Key).To(Equal("run"))
 
 			// Verify edge kinds preserved
-			Expect(restored.Edges[0].Kind).To(Equal(ir.Continuous))
-			Expect(restored.Edges[1].Kind).To(Equal(ir.OneShot))
+			Expect(restored.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
+			Expect(restored.Edges[1].Kind).To(Equal(ir.EdgeKindOneShot))
 
 			// Verify GetByKind works
-			continuous := restored.Edges.GetByKind(ir.Continuous)
-			oneShot := restored.Edges.GetByKind(ir.OneShot)
+			continuous := restored.Edges.GetByKind(ir.EdgeKindContinuous)
+			EdgeKindOneShot := restored.Edges.GetByKind(ir.EdgeKindOneShot)
 			Expect(continuous).To(HaveLen(1))
-			Expect(oneShot).To(HaveLen(1))
+			Expect(EdgeKindOneShot).To(HaveLen(1))
 		})
 
 		It("Should handle IR with no sequences", func() {
@@ -399,12 +399,12 @@ var _ = Describe("IR", func() {
 				},
 				Edges: ir.Edges{
 					// Continuous dataflow
-					{Source: ir.Handle{Node: "timer_1", Param: "output"}, Target: ir.Handle{Node: "pressure_check", Param: ir.LHSInputParam}, Kind: ir.Continuous},
-					// Stage transitions (OneShot)
-					{Source: ir.Handle{Node: "pressure_check", Param: "output"}, Target: ir.Handle{Node: "pressurization_entry", Param: "activate"}, Kind: ir.OneShot},
-					{Source: ir.Handle{Node: "pressure_monitor", Param: "threshold"}, Target: ir.Handle{Node: "ignition_entry", Param: "activate"}, Kind: ir.OneShot},
-					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.OneShot},
-					{Source: ir.Handle{Node: "timer_1", Param: "timeout"}, Target: ir.Handle{Node: "shutdown_entry", Param: "activate"}, Kind: ir.OneShot},
+					{Source: ir.Handle{Node: "timer_1", Param: "output"}, Target: ir.Handle{Node: "pressure_check", Param: ir.LHSInputParam}, Kind: ir.EdgeKindContinuous},
+					// Stage transitions (EdgeKindOneShot)
+					{Source: ir.Handle{Node: "pressure_check", Param: "output"}, Target: ir.Handle{Node: "pressurization_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "pressure_monitor", Param: "threshold"}, Target: ir.Handle{Node: "ignition_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
+					{Source: ir.Handle{Node: "timer_1", Param: "timeout"}, Target: ir.Handle{Node: "shutdown_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
 				},
 				Strata: ir.Strata{
 					{"timer_1", "valve_ctrl", "igniter", "throttle_ctrl", "shutdown_seq"},
@@ -434,13 +434,13 @@ var _ = Describe("IR", func() {
 			Expect(ok).To(BeFalse())
 
 			// Verify edge classification
-			continuous := program.Edges.GetByKind(ir.Continuous)
-			oneShot := program.Edges.GetByKind(ir.OneShot)
+			continuous := program.Edges.GetByKind(ir.EdgeKindContinuous)
+			EdgeKindOneShot := program.Edges.GetByKind(ir.EdgeKindOneShot)
 			Expect(continuous).To(HaveLen(1))
-			Expect(oneShot).To(HaveLen(4))
+			Expect(EdgeKindOneShot).To(HaveLen(4))
 
-			// All OneShot edges should target stage entries
-			for _, e := range oneShot {
+			// All EdgeKindOneShot edges should target stage entries
+			for _, e := range EdgeKindOneShot {
 				Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			}
 

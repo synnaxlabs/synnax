@@ -13,15 +13,13 @@
 #include <cmath>
 #include <thread>
 
-#include "glog/logging.h"
-
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/telem/telem.h"
 
 using hs_clock = std::chrono::high_resolution_clock;
 using nanos = std::chrono::nanoseconds;
 
-namespace loop {
+namespace x::loop {
 const telem::TimeSpan HIGH_RES_THRESHOLD = telem::Rate(200).period();
 const telem::TimeSpan MEDIUM_RES_THRESHOLD = telem::Rate(20).period();
 

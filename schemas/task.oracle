@@ -1,0 +1,141 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/status"
+
+@ts output  "client/ts/src/task"
+@py output  "client/py/synnax/task"
+@go output  "core/pkg/service/task"
+@cpp output "client/cpp/task"
+@pb
+
+Key uint64 {
+    @ts type      string
+    @ts to_string
+}
+
+StatusDetails struct<Data extends json = json> {
+    task    Key?
+    running bool?
+    cmd     string?
+    data    Data??
+
+    @go omit
+    @pb omit
+    @cpp omit
+}
+
+GoStatusDetails struct extends StatusDetails<json> {
+    data json??
+    -data
+
+    @go name  "StatusDetails"
+    @pb name  "StatusDetails"
+    @ts omit
+    @py omit
+    @cpp name "StatusDetails"
+}
+
+Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
+    @go omit
+    @pb omit
+    @cpp omit
+}
+
+GoStatus = status.GoStatus<GoStatusDetails> {
+    @go name  "Status"
+    @pb name  "Status"
+    @cpp name "Status"
+    @ts omit
+    @py omit
+}
+
+NewStatusDetails struct<Data extends json = json> {
+    task    Key?
+    running bool
+    cmd     string?
+    data    Data
+
+    @go omit
+    @pb omit
+    @py omit
+    @cpp omit
+}
+
+NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
+    @go omit
+    @pb omit
+    @py omit
+    @cpp omit
+}
+
+Task struct<
+    Type extends string = string,
+    Config extends json = json,
+    StatusData extends json = json
+> {
+    key      Key                 @key
+    name     string
+    type     Type
+    config   Config
+    internal bool?
+    snapshot bool?
+    status   Status<StatusData>?
+
+    @ts {
+        name "Payload"
+        concrete_types
+    }
+    @py name       "Payload"
+    @ontology type "task"
+    @go omit
+    @pb omit
+    @cpp omit
+}
+
+GoTask struct extends Task<string, string, json> {
+    config string
+    status GoStatus??
+    -config
+    -status
+
+    @go name  "Task"
+    @pb name  "Task"
+    @cpp name "Payload"
+    @ts omit
+    @py omit
+}
+
+New struct<
+    Type extends string = string,
+    Config extends json = json,
+    StatusData extends json = json
+> extends Task<Type, Config, StatusData> {
+    key    Key?
+    config Config                 @ts stringify
+    status NewStatus<StatusData>?
+    -internal
+    -snapshot
+
+    @ts {
+        use_input
+        concrete_types
+    }
+    @go omit
+    @pb omit
+    @py omit
+    @cpp omit
+}
+
+Command struct {
+    task Key
+    type string
+    key  string
+    args json?
+}

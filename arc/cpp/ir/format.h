@@ -40,7 +40,7 @@ std::string format_params(const Params &params) {
         if (!first) ss << ", ";
         first = false;
         ss << p.name << " (" << p.type.to_string() << ")";
-        if (p.value.has_value()) ss << " = " << telem::to_string(*p.value);
+        if (p.value.has_value()) ss << " = " << x::telem::to_string(*p.value);
     }
     return ss.str();
 }

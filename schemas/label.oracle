@@ -1,0 +1,34 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "x/ts/src/label"
+
+Label struct {
+    key   uuid   @key
+    name  string @validate min_length 1
+    color color
+
+    @go output  "x/go/label"
+    @cpp output "x/cpp/label"
+    @pb
+}
+
+New struct extends Label {
+    key uuid?
+
+    @ts use_input
+    @go omit
+    @pb omit
+}
+
+GoSVCLabel = Label {
+    @go output "core/pkg/service/label"
+    @go name   "Label"
+    @ts omit
+}

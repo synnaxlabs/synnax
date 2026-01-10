@@ -11,30 +11,32 @@ import { z } from "zod";
 
 import {
   type AngularDirection,
-  type ClientXY,
-  clientXY,
   type CrudeDirection,
-  dimensions,
-  type Direction,
   type NumberCouple,
   numberCouple,
-  signedDimensions,
-  type XY,
-  xy,
 } from "@/spatial/base";
 import { direction as dir } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
+import {
+  type ClientXY,
+  clientXyZ,
+  dimensionsZ,
+  type Direction,
+  signedDimensionsZ,
+  type XY,
+  xyZ,
+} from "@/spatial/types.gen";
 
-export { type ClientXY as Client, clientXY, type XY, xy };
+export { type ClientXY as Client, clientXyZ, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
   z.number(),
-  xy,
+  xyZ,
   numberCouple,
-  dimensions,
-  signedDimensions,
-  clientXY,
+  dimensionsZ,
+  signedDimensionsZ,
+  clientXyZ,
 ]);
 
 /** A crude representation of a {@link XY} coordinate. */

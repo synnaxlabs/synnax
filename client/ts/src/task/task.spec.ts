@@ -46,17 +46,20 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
     it("should create a task with a custom status", async () => {
+      const customStatus: task.NewStatus = {
+        key: "",
+        name: "",
+        variant: "success",
+        message: "Custom task status",
+        description: "Task is running",
+        time: TimeStamp.now(),
+        details: { running: true, data: { customData: true } },
+      };
       const m = await testRack.createTask({
         name: "task-with-status",
         config: { test: true },
         type: "ni",
-        status: {
-          variant: "success",
-          message: "Custom task status",
-          description: "Task is running",
-          time: TimeStamp.now(),
-          details: { running: true, data: { customData: true } },
-        },
+        status: customStatus,
       });
       expect(m.key).not.toHaveLength(0);
       const retrieved = await client.tasks.retrieve({
@@ -78,8 +81,10 @@ describe("Task", async () => {
         config: { a: "dog" },
         type: "ni",
       });
+      // Exclude status, internal, snapshot when updating - these have different input/output types
+      const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
       const updated = await client.tasks.create({
-        ...m,
+        ...taskFields,
         name: "updated",
       });
       expect(updated.name).toBe("updated");
