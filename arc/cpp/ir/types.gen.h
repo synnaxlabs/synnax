@@ -26,8 +26,8 @@ namespace arc::ir {
 struct Handle;
 struct Body;
 struct Node;
-struct Edge;
 struct Function;
+struct Edge;
 struct Stage;
 struct Sequence;
 struct IR;
@@ -130,19 +130,6 @@ struct Strata : private std::vector<Stratum> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-struct Edge {
-    Handle source;
-    Handle target;
-    EdgeKind kind;
-
-    static Edge parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Edge;
-    [[nodiscard]] ::arc::ir::pb::Edge to_proto() const;
-    static std::pair<Edge, x::errors::Error> from_proto(const ::arc::ir::pb::Edge &pb);
-};
-
 struct Function {
     std::string key;
     Body body;
@@ -211,6 +198,19 @@ struct Nodes : private std::vector<Node> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+struct Edge {
+    Handle source;
+    Handle target;
+    EdgeKind kind;
+
+    static Edge parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Edge;
+    [[nodiscard]] ::arc::ir::pb::Edge to_proto() const;
+    static std::pair<Edge, x::errors::Error> from_proto(const ::arc::ir::pb::Edge &pb);
+};
+
 struct Stage {
     std::string key;
     std::vector<std::string> nodes;
@@ -223,57 +223,6 @@ struct Stage {
     [[nodiscard]] ::arc::ir::pb::Stage to_proto() const;
     static std::pair<Stage, x::errors::Error>
     from_proto(const ::arc::ir::pb::Stage &pb);
-};
-
-struct Edges : private std::vector<Edge> {
-    using Base = std::vector<Edge>;
-
-    // Inherit constructors - these are instantiated at point of use, not declaration
-    using Base::Base;
-    Edges() = default;
-
-    // Container interface
-    using Base::begin;
-    using Base::capacity;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reserve;
-    using Base::reverse_iterator;
-    using Base::shrink_to_fit;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::assign;
-    using Base::at;
-    using Base::back;
-    using Base::clear;
-    using Base::data;
-    using Base::emplace;
-    using Base::emplace_back;
-    using Base::erase;
-    using Base::front;
-    using Base::insert;
-    using Base::pop_back;
-    using Base::push_back;
-    using Base::resize;
-    using Base::swap;
-
-    static Edges parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
 };
 
 struct Functions : private std::vector<Function> {
@@ -324,6 +273,57 @@ struct Functions : private std::vector<Function> {
     using Base::swap;
 
     static Functions parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+struct Edges : private std::vector<Edge> {
+    using Base = std::vector<Edge>;
+
+    // Inherit constructors - these are instantiated at point of use, not declaration
+    using Base::Base;
+    Edges() = default;
+
+    // Container interface
+    using Base::begin;
+    using Base::capacity;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::const_iterator;
+    using Base::const_reference;
+    using Base::const_reverse_iterator;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::difference_type;
+    using Base::empty;
+    using Base::end;
+    using Base::iterator;
+    using Base::max_size;
+    using Base::rbegin;
+    using Base::reference;
+    using Base::rend;
+    using Base::reserve;
+    using Base::reverse_iterator;
+    using Base::shrink_to_fit;
+    using Base::size;
+    using Base::size_type;
+    using Base::value_type;
+    using Base::operator[];
+    using Base::assign;
+    using Base::at;
+    using Base::back;
+    using Base::clear;
+    using Base::data;
+    using Base::emplace;
+    using Base::emplace_back;
+    using Base::erase;
+    using Base::front;
+    using Base::insert;
+    using Base::pop_back;
+    using Base::push_back;
+    using Base::resize;
+    using Base::swap;
+
+    static Edges parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

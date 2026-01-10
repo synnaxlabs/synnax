@@ -604,55 +604,55 @@ const std::vector<float> FLOAT32_DATA = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f};
 const std::vector<double> FLOAT64_DATA = {1.0, 2.0, 3.0, 4.0, 5.0};
 
 #define TEST_ALL_CASTS_FROM_SOURCE(SOURCE_TYPE, SOURCE_DATA)                           \
-ASSERT_EQ(                                                                         \
-Series::cast(UINT8_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
-.values<uint8_t>(),                                                        \
-UINT8_DATA                                                                     \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(UINT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
-.values<uint16_t>(),                                                       \
-UINT16_DATA                                                                    \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(UINT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
-.values<uint32_t>(),                                                       \
-UINT32_DATA                                                                    \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(UINT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
-.values<uint64_t>(),                                                       \
-UINT64_DATA                                                                    \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(INT8_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<int8_t>(), \
-INT8_DATA                                                                      \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(INT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
-.values<int16_t>(),                                                        \
-INT16_DATA                                                                     \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(INT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
-.values<int32_t>(),                                                        \
-INT32_DATA                                                                     \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(INT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
-.values<int64_t>(),                                                        \
-INT64_DATA                                                                     \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(FLOAT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                \
-.values<float>(),                                                          \
-FLOAT32_DATA                                                                   \
-);                                                                                 \
-ASSERT_EQ(                                                                         \
-Series::cast(FLOAT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                \
-.values<double>(),                                                         \
-FLOAT64_DATA                                                                   \
-)
+    ASSERT_EQ(                                                                         \
+        Series::cast(UINT8_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+            .values<uint8_t>(),                                                        \
+        UINT8_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(UINT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
+            .values<uint16_t>(),                                                       \
+        UINT16_DATA                                                                    \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(UINT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
+            .values<uint32_t>(),                                                       \
+        UINT32_DATA                                                                    \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(UINT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                 \
+            .values<uint64_t>(),                                                       \
+        UINT64_DATA                                                                    \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(INT8_T, SOURCE_DATA.data(), SOURCE_DATA.size()).values<int8_t>(), \
+        INT8_DATA                                                                      \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(INT16_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+            .values<int16_t>(),                                                        \
+        INT16_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(INT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+            .values<int32_t>(),                                                        \
+        INT32_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(INT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                  \
+            .values<int64_t>(),                                                        \
+        INT64_DATA                                                                     \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(FLOAT32_T, SOURCE_DATA.data(), SOURCE_DATA.size())                \
+            .values<float>(),                                                          \
+        FLOAT32_DATA                                                                   \
+    );                                                                                 \
+    ASSERT_EQ(                                                                         \
+        Series::cast(FLOAT64_T, SOURCE_DATA.data(), SOURCE_DATA.size())                \
+            .values<double>(),                                                         \
+        FLOAT64_DATA                                                                   \
+    )
 
 /// @brief it should cast series data between all numeric types.
 TEST(TestSeries, testCast) {
@@ -669,60 +669,60 @@ TEST(TestSeries, testCast) {
 }
 
 #define TEST_CAST_FROM_VOID_POINTER(SOURCE_TYPE, SOURCE_DATA)                          \
-do {                                                                               \
-auto const_void_ptr = static_cast<const void *>(SOURCE_DATA.data());           \
-auto source_type = DataType::infer<SOURCE_TYPE>();                             \
-ASSERT_EQ(                                                                     \
-Series::cast(UINT8_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
-.values<uint8_t>(),                                                    \
-UINT8_DATA                                                                 \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(UINT16_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
-.values<uint16_t>(),                                                   \
-UINT16_DATA                                                                \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(UINT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
-.values<uint32_t>(),                                                   \
-UINT32_DATA                                                                \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(UINT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
-.values<uint64_t>(),                                                   \
-UINT64_DATA                                                                \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(INT8_T, const_void_ptr, SOURCE_DATA.size(), source_type)      \
-.values<int8_t>(),                                                     \
-INT8_DATA                                                                  \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(INT16_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
-.values<int16_t>(),                                                    \
-INT16_DATA                                                                 \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(INT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
-.values<int32_t>(),                                                    \
-INT32_DATA                                                                 \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(INT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
-.values<int64_t>(),                                                    \
-INT64_DATA                                                                 \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(FLOAT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)   \
-.values<float>(),                                                      \
-FLOAT32_DATA                                                               \
-);                                                                             \
-ASSERT_EQ(                                                                     \
-Series::cast(FLOAT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)   \
-.values<double>(),                                                     \
-FLOAT64_DATA                                                               \
-);                                                                             \
-} while (0)
+    do {                                                                               \
+        auto const_void_ptr = static_cast<const void *>(SOURCE_DATA.data());           \
+        auto source_type = DataType::infer<SOURCE_TYPE>();                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(UINT8_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+                .values<uint8_t>(),                                                    \
+            UINT8_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(UINT16_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
+                .values<uint16_t>(),                                                   \
+            UINT16_DATA                                                                \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(UINT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
+                .values<uint32_t>(),                                                   \
+            UINT32_DATA                                                                \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(UINT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)    \
+                .values<uint64_t>(),                                                   \
+            UINT64_DATA                                                                \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(INT8_T, const_void_ptr, SOURCE_DATA.size(), source_type)      \
+                .values<int8_t>(),                                                     \
+            INT8_DATA                                                                  \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(INT16_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+                .values<int16_t>(),                                                    \
+            INT16_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(INT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+                .values<int32_t>(),                                                    \
+            INT32_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(INT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)     \
+                .values<int64_t>(),                                                    \
+            INT64_DATA                                                                 \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(FLOAT32_T, const_void_ptr, SOURCE_DATA.size(), source_type)   \
+                .values<float>(),                                                      \
+            FLOAT32_DATA                                                               \
+        );                                                                             \
+        ASSERT_EQ(                                                                     \
+            Series::cast(FLOAT64_T, const_void_ptr, SOURCE_DATA.size(), source_type)   \
+                .values<double>(),                                                     \
+            FLOAT64_DATA                                                               \
+        );                                                                             \
+    } while (0)
 
 /// @brief it should cast series data from void pointer with source type.
 TEST(TestSeries, testCastVoidPointer) {

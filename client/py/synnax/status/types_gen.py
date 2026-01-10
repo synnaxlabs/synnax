@@ -11,16 +11,37 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.telem import TimeStamp
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
 
-class New(Status):
+class Base(BaseModel):
+    key: str
+    name: str = Field(default="")
+    variant: Any
+    message: str
+    description: str | None = None
+    time: TimeStamp
+    details: Any | None = None
+    labels: list[label.Label] | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class Status(Base):
+    variant: Variant = Field(exclude=True)
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class New(Base):
     key: str | None = None
     name: str | None = None
     time: TimeStamp | None = None

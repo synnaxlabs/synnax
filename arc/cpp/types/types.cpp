@@ -11,18 +11,18 @@
 
 namespace arc::types {
 
-bool Dimensions::operator==(const Dimensions& other) const {
+bool Dimensions::operator==(const Dimensions &other) const {
     return length == other.length && mass == other.mass && time == other.time &&
            current == other.current && temperature == other.temperature &&
            angle == other.angle && count == other.count && data == other.data;
 }
 
 bool Dimensions::is_zero() const {
-    return length == 0 && mass == 0 && time == 0 && current == 0 &&
-           temperature == 0 && angle == 0 && count == 0 && data == 0;
+    return length == 0 && mass == 0 && time == 0 && current == 0 && temperature == 0 &&
+           angle == 0 && count == 0 && data == 0;
 }
 
-bool Unit::operator==(const Unit& other) const {
+bool Unit::operator==(const Unit &other) const {
     return dimensions == other.dimensions && scale == other.scale && name == other.name;
 }
 
@@ -54,7 +54,9 @@ size_t Type::density() const {
     }
 }
 
-bool Type::is_valid() const { return kind != Kind::Invalid; }
+bool Type::is_valid() const {
+    return kind != Kind::Invalid;
+}
 
 bool Type::is_timestamp() const {
     return kind == Kind::I64 && unit && unit->is_timestamp();
@@ -138,6 +140,8 @@ x::telem::DataType Type::telem() const {
     }
 }
 
-std::ostream& operator<<(std::ostream& os, const Type& t) { return os << t.to_string(); }
+std::ostream &operator<<(std::ostream &os, const Type &t) {
+    return os << t.to_string();
+}
 
 }

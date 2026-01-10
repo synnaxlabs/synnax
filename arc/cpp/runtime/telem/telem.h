@@ -67,9 +67,7 @@ public:
             } else if (time_series.alignment != ser.alignment)
                 return xerrors::NIL;
 
-            state.output(0) = x::mem::make_local_shared<telem::Series>(
-                ser.deep_copy()
-            );
+            state.output(0) = x::mem::make_local_shared<telem::Series>(ser.deep_copy());
             state.output_time(0) = x::mem::make_local_shared<telem::Series>(
                 std::move(time_series)
             );

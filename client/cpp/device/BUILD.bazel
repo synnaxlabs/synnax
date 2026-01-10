@@ -3,7 +3,12 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 cc_library(
     name = "device",
     srcs = ["device.cpp"],
-    hdrs = ["device.h"],
+    hdrs = [
+        "device.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",

@@ -30,10 +30,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Arc struct {
-	arc.Arc
-	Status *status.Status[arc.StatusDetails] `json:"status,omitempty" msgpack:"status,omitempty"`
-}
+type Arc = arc.Arc
 
 type Service struct {
 	alamos.Instrumentation
@@ -64,17 +61,17 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: arc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
+		Objects: arc.OntologyIDsFromArcs(req.Arcs),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		for i, arc_ := range req.Arcs {
-			if err = w.Create(ctx, &arc_.Arc); err != nil {
+		for i, a := range req.Arcs {
+			if err = w.Create(ctx, &a); err != nil {
 				return err
 			}
-			req.Arcs[i] = arc_
+			req.Arcs[i] = a
 		}
 		res.Arcs = req.Arcs
 		return nil
@@ -142,7 +139,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 		return RetrieveResponse{}, err
 	}
 
-	res.Arcs = translateArcsFromService(svcArcs)
+	res.Arcs = svcArcs
 
 	// Compile Arcs to modules if requested
 	if req.Compile {
@@ -176,14 +173,6 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 		return RetrieveResponse{}, err
 	}
 	return res, nil
-}
-
-func translateArcsToService(arcs []Arc) []arc.Arc {
-	return lo.Map(arcs, func(a Arc, _ int) arc.Arc { return a.Arc })
-}
-
-func translateArcsFromService(arcs []arc.Arc) []Arc {
-	return lo.Map(arcs, func(a arc.Arc, _ int) Arc { return Arc{Arc: a} })
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP

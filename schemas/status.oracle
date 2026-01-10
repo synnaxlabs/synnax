@@ -37,20 +37,20 @@ Status struct<Details?, V extends Variant = Variant> {
     labels      label.Label[]?
 
     @ts concrete_types
-    @py omit
+    @py name           "Base"
     @go omit
     @pb omit
     @cpp omit
 }
 
-GoStatus struct<Details?> extends Status<Details, Variant> {
+FixedVariantStatus struct<Details?> extends Status<Details, Variant> {
     variant Variant
     -variant
 
     @ts omit
-    @py omit
     @go name    "Status"
     @pb name    "Status"
+    @py name    "Status"
     @cpp output "x/cpp/status"
     @cpp name   "Status"
 }

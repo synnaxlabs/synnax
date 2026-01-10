@@ -35,7 +35,7 @@ export const newZ = z.object({
 });
 export interface New extends z.input<typeof newZ> {}
 
-export const statusZ = status.goStatusZ(statusDetailsZ);
+export const statusZ = status.fixedVariantStatusZ(statusDetailsZ);
 export type Status = z.infer<typeof statusZ>;
 
 export const arcZ = z.object({

@@ -746,6 +746,15 @@ func (p *Plugin) generateDistinctConversion(
 ) (forward, backward string) {
 	cppName := domain.GetName(resolved, "cpp")
 
+	// Qualify with namespace if from a different namespace to avoid ambiguity
+	if resolved.Namespace != data.rawNs {
+		targetOutputPath := output.GetPath(resolved, "cpp")
+		if targetOutputPath != "" {
+			ns := deriveNamespace(targetOutputPath)
+			cppName = fmt.Sprintf("%s::%s", ns, cppName)
+		}
+	}
+
 	if resolution.IsPrimitive(form.Base.Name) {
 		protoType := primitiveToProtoType(form.Base.Name)
 		return fmt.Sprintf("%s(static_cast<%s>(this->%s))", pbSetter, protoType, fieldName),

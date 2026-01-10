@@ -11,21 +11,21 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias
+from typing import NewType, TypeAlias
 
 from pydantic import BaseModel, Field
 
 from synnax import status
 from synnax.ontology.payload import ID
 
-Key = int
+Key = NewType("Key", int)
 
 
 class StatusDetails(BaseModel):
     rack: Key
 
 
-Status: TypeAlias = status.GoStatus[StatusDetails]
+Status: TypeAlias = status.Status[StatusDetails]
 
 
 class Base(BaseModel):
@@ -48,5 +48,5 @@ class Rack(Base):
 ONTOLOGY_TYPE = ID(type="rack")
 
 
-def ontology_id(key: int) -> ID:
+def ontology_id(key: Key) -> ID:
     return ID(type="rack", key=str(key))

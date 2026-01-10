@@ -11,7 +11,6 @@
 
 #include <string>
 
+#include "arc/cpp/graph/types.gen.h"
 #include "arc/cpp/text/json.gen.h"
 #include "arc/cpp/text/proto.gen.h"
-#include "arc/cpp/graph/types.gen.h"
-

@@ -249,27 +249,40 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	// Combine typedefs, aliases and structs for topological sorting
-	// These are the types that can have cross-dependencies
+	// Combine typedefs, aliases and structs for topological sorting.
+	// We need to include omitted types (like parent structs) to maintain
+	// correct dependency ordering for child types.
 	var combinedTypes []resolution.Type
-	for _, td := range typeDefs {
-		if !omit.IsType(td, "cpp") {
-			combinedTypes = append(combinedTypes, td)
+	combinedTypes = append(combinedTypes, typeDefs...)
+	combinedTypes = append(combinedTypes, aliases...)
+	combinedTypes = append(combinedTypes, structs...)
+
+	// For structs that extend omitted parents, we need to add the parent types
+	// to the sort so their dependencies are considered. Get all structs in the
+	// same namespace from the resolution table.
+	if namespace != "" {
+		allNamespaceTypes := table.TypesInNamespace(namespace)
+		existingQNames := make(map[string]bool)
+		for _, t := range combinedTypes {
+			existingQNames[t.QualifiedName] = true
 		}
-	}
-	for _, alias := range aliases {
-		if !omit.IsType(alias, "cpp") {
-			combinedTypes = append(combinedTypes, alias)
-		}
-	}
-	for _, s := range structs {
-		if !omit.IsType(s, "cpp") {
-			combinedTypes = append(combinedTypes, s)
+		for _, t := range allNamespaceTypes {
+			if !existingQNames[t.QualifiedName] {
+				combinedTypes = append(combinedTypes, t)
+			}
 		}
 	}
 
 	// Sort topologically so dependencies come before dependents
-	sortedTypes := table.TopologicalSort(combinedTypes)
+	allSortedTypes := table.TopologicalSort(combinedTypes)
+
+	// Now filter out omitted types while preserving the sorted order
+	var sortedTypes []resolution.Type
+	for _, typ := range allSortedTypes {
+		if !omit.IsType(typ, "cpp") {
+			sortedTypes = append(sortedTypes, typ)
+		}
+	}
 
 	// Collect forward declarations for non-generic structs only.
 	// Template structs cannot use simple forward declarations - they require

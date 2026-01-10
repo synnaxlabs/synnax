@@ -11,8 +11,8 @@
 
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xmemory/local_shared.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/xmemory/local_shared.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/telem/telem.h"
@@ -644,9 +644,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     );
 
     auto upstream = ASSERT_NIL_P(s.node("upstream"));
-    upstream.output(0) = x::mem::make_local_shared<telem::Series>(
-        std::vector<float>{}
-    );
+    upstream.output(0) = x::mem::make_local_shared<telem::Series>(std::vector<float>{});
     upstream.output_time(0) = x::mem::make_local_shared<telem::Series>(
         std::vector<int64_t>{}
     );

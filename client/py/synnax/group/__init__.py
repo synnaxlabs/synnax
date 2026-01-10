@@ -7,18 +7,5 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-
-from uuid import UUID
-
-from freighter import Payload
-
-from synnax.ontology.payload import ID
-
-
-class Group(Payload):
-    key: UUID
-    name: str
-
-    @property
-    def ontology_id(self) -> ID:
-        return ID(key=str(self.key), type="group")
+from synnax.group.client import Client
+from synnax.group.types_gen import Group, ontology_id, ONTOLOGY_TYPE

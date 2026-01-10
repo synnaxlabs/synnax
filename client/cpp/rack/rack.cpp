@@ -13,9 +13,14 @@
 #include "x/cpp/errors/errors.h"
 
 namespace synnax::rack {
-Rack::Rack(const Key key, std::string name): key(key), name(std::move(name)) {}
+Rack::Rack(const Key key, std::string name) {
+    this->key = key;
+    this->name = std::move(name);
+}
 
-Rack::Rack(std::string name): name(std::move(name)) {}
+Rack::Rack(std::string name) {
+    this->name = std::move(name);
+}
 
 Client::Client(
     std::unique_ptr<CreateClient> rack_create_client,
@@ -35,8 +40,9 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
     if (err) return {Rack(), err};
     if (res.racks_size() == 0)
         return {Rack(), not_found_error("Rack", "key " + std::to_string(key))};
-    auto [pld, proto_err] = Rack::from_proto(res.racks(0));
+    auto [pld, proto_err] = Payload::from_proto(res.racks(0));
     if (proto_err) return {Rack(), proto_err};
+    Rack rack(std::move(pld));
     rack.tasks = this->tasks;
     return {rack, x::errors::NIL};
 }
@@ -49,15 +55,16 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) cons
     if (res.racks_size() == 0) return {Rack(), not_found_error("Rack", "name " + name)};
     if (res.racks_size() > 1)
         return {Rack(), multiple_found_error("racks", "name " + name)};
-    auto [rack, proto_err] = Rack::from_proto(res.racks(0));
+    auto [pld, proto_err] = Payload::from_proto(res.racks(0));
     if (proto_err) return {Rack(), proto_err};
+    Rack rack(std::move(pld));
     rack.tasks = this->tasks;
     return {rack, x::errors::NIL};
 }
 
 x::errors::Error Client::create(Rack &rack) const {
     auto req = grpc::rack::CreateRequest();
-    rack.to_proto(req.add_racks());
+    *req.add_racks() = rack.to_proto();
     auto [res, err] = rack_create_client->send("/rack/create", req);
     if (err) return err;
     if (res.racks_size() == 0) return unexpected_missing_error("rack");

@@ -31,7 +31,7 @@ StatusDetails struct<Data extends json = json> {
     @cpp omit
 }
 
-GoStatusDetails struct extends StatusDetails<json> {
+FixedVariantStatusDetails struct extends StatusDetails<json> {
     data json??
     -data
 
@@ -48,7 +48,7 @@ Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
     @cpp omit
 }
 
-GoStatus = status.GoStatus<GoStatusDetails> {
+FixedVariantStatus = status.FixedVariantStatus<FixedVariantStatusDetails> {
     @go name  "Status"
     @pb name  "Status"
     @cpp name "Status"
@@ -92,16 +92,16 @@ Task struct<
         name "Payload"
         concrete_types
     }
-    @py name       "Payload"
+    @py omit
     @ontology type "task"
     @go omit
     @pb omit
     @cpp omit
 }
 
-GoTask struct extends Task<string, string, json> {
+FixedVariantTask struct extends Task<string, string, json> {
     config string
-    status GoStatus??
+    status FixedVariantStatus??
     -config
     -status
 
@@ -109,7 +109,7 @@ GoTask struct extends Task<string, string, json> {
     @pb name  "Task"
     @cpp name "Payload"
     @ts omit
-    @py omit
+    @py name  "Payload"
 }
 
 New struct<

@@ -10,9 +10,10 @@
 import "schemas/status"
 import "schemas/rack"
 
-@ts output "client/ts/src/device"
-@py output "client/py/synnax/device"
-@go output "core/pkg/service/device"
+@ts output  "client/ts/src/device"
+@py output  "client/py/synnax/device"
+@go output  "core/pkg/service/device"
+@cpp output "client/cpp/device"
 @pb
 
 StatusDetails struct {
@@ -20,7 +21,7 @@ StatusDetails struct {
     device string
 }
 
-Status = status.GoStatus<StatusDetails>
+Status = status.FixedVariantStatus<StatusDetails>
 
 Key = string
 
@@ -42,14 +43,16 @@ Device struct<
     @ontology type "device"
     @go omit
     @pb omit
+    @cpp omit
 }
 
 GoDevice struct extends Device<json, string, string> {
     properties string
     -properties
 
-    @go name "Device"
-    @pb name "Device"
+    @go name  "Device"
+    @pb name  "Device"
+    @cpp name "Payload"
     @py omit
     @ts omit
 }
@@ -66,4 +69,5 @@ New struct<
     @ts use_input
     @go omit
     @pb omit
+    @cpp omit
 }

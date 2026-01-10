@@ -33,20 +33,20 @@ public:
     indirect() = default;
 
     /// @brief Nullptr constructor - creates empty indirect
-    indirect(std::nullptr_t) : ptr(nullptr) {}
+    indirect(std::nullptr_t): ptr(nullptr) {}
 
     /// @brief Value constructor - takes ownership of value
-    explicit indirect(T value) : ptr(std::make_unique<T>(std::move(value))) {}
+    explicit indirect(T value): ptr(std::make_unique<T>(std::move(value))) {}
 
     /// @brief Copy constructor - deep copies the value if present
-    indirect(const indirect& other)
-        : ptr(other.ptr ? std::make_unique<T>(*other.ptr) : nullptr) {}
+    indirect(const indirect &other):
+        ptr(other.ptr ? std::make_unique<T>(*other.ptr) : nullptr) {}
 
     /// @brief Move constructor
-    indirect(indirect&&) noexcept = default;
+    indirect(indirect &&) noexcept = default;
 
     /// @brief Copy assignment - deep copies the value if present
-    indirect& operator=(const indirect& other) {
+    indirect &operator=(const indirect &other) {
         if (this != &other) {
             ptr = other.ptr ? std::make_unique<T>(*other.ptr) : nullptr;
         }
@@ -54,16 +54,16 @@ public:
     }
 
     /// @brief Move assignment
-    indirect& operator=(indirect&&) noexcept = default;
+    indirect &operator=(indirect &&) noexcept = default;
 
     /// @brief Nullptr assignment - clears the value
-    indirect& operator=(std::nullptr_t) {
+    indirect &operator=(std::nullptr_t) {
         ptr = nullptr;
         return *this;
     }
 
     /// @brief Value assignment
-    indirect& operator=(T value) {
+    indirect &operator=(T value) {
         ptr = std::make_unique<T>(std::move(value));
         return *this;
     }
@@ -75,17 +75,17 @@ public:
     [[nodiscard]] bool has_value() const noexcept { return ptr != nullptr; }
 
     /// @brief Arrow operator for member access
-    [[nodiscard]] T* operator->() noexcept { return ptr.get(); }
-    [[nodiscard]] const T* operator->() const noexcept { return ptr.get(); }
+    [[nodiscard]] T *operator->() noexcept { return ptr.get(); }
+    [[nodiscard]] const T *operator->() const noexcept { return ptr.get(); }
 
     /// @brief Dereference operator
-    [[nodiscard]] T& operator*() & noexcept { return *ptr; }
-    [[nodiscard]] const T& operator*() const& noexcept { return *ptr; }
-    [[nodiscard]] T&& operator*() && noexcept { return std::move(*ptr); }
+    [[nodiscard]] T &operator*() & noexcept { return *ptr; }
+    [[nodiscard]] const T &operator*() const & noexcept { return *ptr; }
+    [[nodiscard]] T &&operator*() && noexcept { return std::move(*ptr); }
 
     /// @brief Get raw pointer
-    [[nodiscard]] T* get() noexcept { return ptr.get(); }
-    [[nodiscard]] const T* get() const noexcept { return ptr.get(); }
+    [[nodiscard]] T *get() noexcept { return ptr.get(); }
+    [[nodiscard]] const T *get() const noexcept { return ptr.get(); }
 
     /// @brief Get value or default
     [[nodiscard]] T value_or(T default_value) const {
@@ -96,16 +96,18 @@ public:
     void reset() noexcept { ptr.reset(); }
 
     /// @brief Swap with another indirect
-    void swap(indirect& other) noexcept { ptr.swap(other.ptr); }
+    void swap(indirect &other) noexcept { ptr.swap(other.ptr); }
 
     /// @brief Equality comparison
     [[nodiscard]] bool operator==(std::nullptr_t) const noexcept { return !ptr; }
-    [[nodiscard]] bool operator!=(std::nullptr_t) const noexcept { return ptr != nullptr; }
+    [[nodiscard]] bool operator!=(std::nullptr_t) const noexcept {
+        return ptr != nullptr;
+    }
 };
 
 /// @brief Factory function for in-place construction
 template<typename T, typename... Args>
-[[nodiscard]] indirect<T> make_indirect(Args&&... args) {
+[[nodiscard]] indirect<T> make_indirect(Args &&...args) {
     indirect<T> result;
     result = T(std::forward<Args>(args)...);
     return result;

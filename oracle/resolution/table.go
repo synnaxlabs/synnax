@@ -274,7 +274,14 @@ func (t *Table) collectDependencies(typ Type) []string {
 			}
 			return
 		}
-		if resolved, ok := t.Get(ref.Name); ok {
+		// Try to resolve the type - first by qualified name, then by looking up
+		// in the same namespace as the type we're collecting dependencies for
+		resolved, ok := t.Get(ref.Name)
+		if !ok {
+			// Try namespace-qualified lookup
+			resolved, ok = t.Lookup(typ.Namespace, ref.Name)
+		}
+		if ok {
 			if !seen[resolved.QualifiedName] {
 				seen[resolved.QualifiedName] = true
 				deps = append(deps, resolved.QualifiedName)

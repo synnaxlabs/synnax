@@ -18,8 +18,6 @@ from pydantic import BaseModel, Field
 from synnax import rack, status
 from synnax.ontology.payload import ID
 
-Key = Any
-
 Key: TypeAlias = str
 
 
@@ -28,7 +26,7 @@ class StatusDetails(BaseModel):
     device: str
 
 
-Status: TypeAlias = status.GoStatus[StatusDetails]
+Status: TypeAlias = status.Status[StatusDetails]
 
 
 class Device(BaseModel):
@@ -55,5 +53,5 @@ class New(Device):
 ONTOLOGY_TYPE = ID(type="device")
 
 
-def ontology_id(key: Any) -> ID:
+def ontology_id(key: Key) -> ID:
     return ID(type="device", key=str(key))

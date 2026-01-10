@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Literal, TypeAlias
+from typing import Literal, NewType, TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -20,7 +20,7 @@ from synnax.ontology.payload import ID
 from synnax.telem import DataType, TimeSpan
 from synnax.x import control
 
-Key = int
+Key = NewType("Key", int)
 
 
 OperationType = Literal["min", "max", "avg", "none"]
@@ -65,7 +65,7 @@ class New(Payload):
     is_index: bool | None = None
     internal: bool | None = None
     virtual: bool | None = None
-    expression: str | None = Field(default=None, default="")
+    expression: str | None = None
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
 
@@ -73,5 +73,5 @@ class New(Payload):
 ONTOLOGY_TYPE = ID(type="channel")
 
 
-def ontology_id(key: int) -> ID:
+def ontology_id(key: Key) -> ID:
     return ID(type="channel", key=str(key))

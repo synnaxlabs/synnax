@@ -21,11 +21,9 @@
 TEST(TestAuth, testLoginHappyPath) {
     auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<
-        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
-        res,
-        x::errors::NIL
-    );
+    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>(res, x::errors::NIL);
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
@@ -43,11 +41,9 @@ TEST(TestAuth, testLoginHappyPath) {
 TEST(TestAuth, testLoginInvalidCredentials) {
     auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<
-        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
-        res,
-        ERR_INVALID_CREDENTIALS
-    );
+    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>(res, ERR_INVALID_CREDENTIALS);
     const auto mw = std::make_shared<AuthMiddleware>(
         std::move(mock_login_client),
         "synnax",
@@ -65,8 +61,9 @@ TEST(TestAuth, testLoginInvalidCredentials) {
 TEST(TestAuth, testLoginRetry) {
     auto res = grpc::auth::LoginResponse();
     res.set_token("abc");
-    auto mock_login_client = std::make_unique<
-        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
+    auto mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>(
         std::vector<grpc::auth::LoginResponse>{res, res},
         std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
     );
@@ -89,8 +86,9 @@ TEST(TestAuth, testLoginRetry) {
 class TestAuthRetry : public ::testing::Test {
 protected:
     grpc::auth::LoginResponse res;
-    std::unique_ptr<
-        freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>
+    std::unique_ptr<freighter::mock::UnaryClient<
+        grpc::auth::LoginRequest,
+        grpc::auth::LoginResponse>>
         mock_login_client;
     std::shared_ptr<AuthMiddleware> mw;
     freighter::mock::UnaryClient<int, int> mock_client;
@@ -98,8 +96,9 @@ protected:
     void SetUp() override { res.set_token("abc"); }
 
     void setupTest(x::errors::Error first_error) {
-        mock_login_client = std::make_unique<
-            freighter::mock::UnaryClient<grpc::auth::LoginRequest, grpc::auth::LoginResponse>>(
+        mock_login_client = std::make_unique<freighter::mock::UnaryClient<
+            grpc::auth::LoginRequest,
+            grpc::auth::LoginResponse>>(
             std::vector<grpc::auth::LoginResponse>{res, res},
             std::vector<x::errors::Error>{x::errors::NIL, x::errors::NIL}
         );
@@ -109,7 +108,10 @@ protected:
             "seldon",
             5 * x::telem::SECOND
         );
-        mock_client = freighter::mock::UnaryClient<int, int>{{1, 1}, {first_error, x::errors::NIL}};
+        mock_client = freighter::mock::UnaryClient<int, int>{
+            {1, 1},
+            {first_error, x::errors::NIL}
+        };
         mock_client.use(mw);
     }
 };

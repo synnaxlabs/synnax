@@ -29,7 +29,9 @@ std::pair<Device, x::errors::Error> Client::retrieve(const std::string &key) con
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
         return {Device(), not_found_error("device", "key " + key)};
-    return Device::from_proto(res.devices(0));
+    auto [pld, proto_err] = Payload::from_proto(res.devices(0));
+    if (proto_err) return {Device(), proto_err};
+    return {Device(std::move(pld)), x::errors::NIL};
 }
 
 std::pair<Device, x::errors::Error>
@@ -41,7 +43,9 @@ Client::retrieve(const std::string &key, const RetrieveOptions &options) const {
     if (err) return {Device(), err};
     if (res.devices_size() == 0)
         return {Device(), not_found_error("device", "key " + key)};
-    return Device::from_proto(res.devices(0));
+    auto [pld, proto_err] = Payload::from_proto(res.devices(0));
+    if (proto_err) return {Device(), proto_err};
+    return {Device(std::move(pld)), x::errors::NIL};
 }
 
 std::pair<std::vector<Device>, x::errors::Error>
@@ -71,16 +75,16 @@ Client::retrieve(RetrieveRequest &req) const {
     std::vector<Device> devices;
     devices.reserve(res.devices_size());
     for (const auto &d: res.devices()) {
-        auto [device, proto_err] = Device::from_proto(d);
+        auto [pld, proto_err] = Payload::from_proto(d);
         if (proto_err) return {std::vector<Device>(), proto_err};
-        devices.push_back(std::move(device));
+        devices.push_back(Device(std::move(pld)));
     }
     return {devices, x::errors::NIL};
 }
 
 x::errors::Error Client::create(Device &device) const {
     auto req = grpc::device::CreateRequest();
-    device.to_proto(req.add_devices());
+    *req.add_devices() = device.to_proto();
     auto [res, err] = device_create_client->send("/device/create", req);
     if (err) return err;
     if (res.devices_size() == 0) return unexpected_missing_error("device");
@@ -91,8 +95,8 @@ x::errors::Error Client::create(Device &device) const {
 x::errors::Error Client::create(const std::vector<Device> &devs) const {
     auto req = grpc::device::CreateRequest();
     req.mutable_devices()->Reserve(static_cast<int>(devs.size()));
-    for (auto &device: devs)
-        device.to_proto(req.add_devices());
+    for (const auto &device: devs)
+        *req.add_devices() = device.to_proto();
     auto [res, err] = device_create_client->send("/device/create", req);
     return err;
 }
@@ -111,64 +115,21 @@ x::errors::Error Client::del(const std::vector<std::string> &keys) const {
     return err;
 }
 
-std::pair<Device, x::errors::Error>
-Device::from_proto(const service::device::pb::Device &device) {
-    Device d;
-    d.key = device.key();
-    d.name = device.name();
-    d.rack = device.rack();
-    d.location = device.location();
-    d.make = device.make();
-    d.model = device.model();
-    d.properties = device.properties();
-    d.configured = device.configured();
-    if (device.has_status()) {
-        auto [s, err] = DeviceStatus::from_proto(device.status());
-        if (err) return {d, err};
-        d.status = s;
-    }
-    return {d, x::errors::NIL};
-}
-
 Device::Device(
     std::string key,
     std::string name,
-    Key rack,
+    RackKey rack,
     std::string location,
     std::string make,
     std::string model,
     std::string properties
-):
-    key(std::move(key)),
-    name(std::move(name)),
-    rack(rack),
-    location(std::move(location)),
-    make(std::move(make)),
-    model(std::move(model)),
-    properties(std::move(properties)) {}
-
-void Device::to_proto(service::device::pb::Device *device) const {
-    device->set_key(key);
-    device->set_name(name);
-    device->set_rack(rack);
-    device->set_location(location);
-    device->set_make(make);
-    device->set_model(model);
-    device->set_properties(properties);
-    device->set_configured(configured);
-    if (!status.key.empty()) *device->mutable_status() = status.to_proto();
-}
-
-Device Device::parse(x::json::Parser &parser) {
-    Device d;
-    d.key = parser.field<std::string>("key", "");
-    d.name = parser.field<std::string>("name", "");
-    d.rack = parser.field<rack::Key>("rack", 0);
-    d.location = parser.field<std::string>("location", "");
-    d.make = parser.field<std::string>("make", "");
-    d.model = parser.field<std::string>("model", "");
-    d.configured = parser.field<bool>("configured", false);
-    d.properties = parser.field<std::string>("properties", "");
-    return d;
+) {
+    this->key = std::move(key);
+    this->name = std::move(name);
+    this->rack = rack;
+    this->location = std::move(location);
+    this->make = std::move(make);
+    this->model = std::move(model);
+    this->properties = std::move(properties);
 }
 }

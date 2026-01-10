@@ -22,6 +22,7 @@
 namespace x::label {
 
 struct Label;
+struct New;
 
 struct Label {
     std::string key;
@@ -36,4 +37,13 @@ struct Label {
     static std::pair<Label, x::errors::Error>
     from_proto(const ::x::label::pb::Label &pb);
 };
+
+struct New : public Label {
+    std::string key;
+
+    static New parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+using GoSVCLabel = Label;
 }

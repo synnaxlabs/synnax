@@ -103,7 +103,6 @@ func generatePyFile(
 	data := &templateData{
 		Namespace:   namespace,
 		OutputPath:  outputPath,
-		KeyFields:   make([]keyFieldData, 0),
 		Structs:     make([]structData, 0, len(structs)),
 		Enums:       make([]enumData, 0, len(enums)),
 		TypeDefs:    make([]typeDefData, 0, len(typeDefs)),
@@ -114,22 +113,12 @@ func generatePyFile(
 		data.imports.addPydantic("BaseModel")
 	}
 
-	// Track declared names to avoid duplicates
-	declaredNames := make(map[string]bool)
-
 	skip := func(typ resolution.Type) bool { return omit.IsType(typ, "py") }
 	rawKeyFields := key.Collect(structs, table, skip)
 	keyFields := convertKeyFields(rawKeyFields, data)
-	data.KeyFields = keyFields
 	data.Ontology = extractOntology(structs, rawKeyFields, keyFields, skip)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
-	}
-
-	// Mark key fields as declared
-	for _, kf := range keyFields {
-		name := lo.Capitalize(lo.CamelCase(kf.Name))
-		declaredNames[name] = true
 	}
 
 	// Separate distinct types from alias types
@@ -145,12 +134,8 @@ func generatePyFile(
 	}
 
 	// Process distinct types first (they don't depend on other schema types)
-	// Skip if already declared by key fields
 	for _, td := range distinctTypeDefs {
-		if !declaredNames[td.Name] {
-			declaredNames[td.Name] = true
-			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
-		}
+		data.TypeDefs = append(data.TypeDefs, processTypeDef(td, table, data))
 	}
 
 	for _, e := range enums {
@@ -206,7 +191,7 @@ func extractOntology(types []resolution.Type, rawFields []key.Field, keyFields [
 	}
 	return &ontologyData{
 		TypeName:   data.TypeName,
-		KeyType:    keyFields[0].PyType,
+		KeyType:    "Key",
 		StructName: data.StructName,
 	}
 }
@@ -466,9 +451,18 @@ func buildDefault(
 	constraints []string,
 	data *templateData,
 ) string {
+	isAnyOptional := field.IsOptional || field.IsHardOptional
+
+	// When field is optional, filter out any default= constraints from validation
+	// since we'll be using default=None for the optional field
+	if isAnyOptional {
+		constraints = lo.Filter(constraints, func(c string, _ int) bool {
+			return !strings.HasPrefix(c, "default=")
+		})
+	}
+
 	hasConstraints := len(constraints) > 0
 
-	isAnyOptional := field.IsOptional || field.IsHardOptional
 	if isAnyOptional {
 		if hasConstraints {
 			data.imports.addPydantic("Field")
@@ -644,6 +638,8 @@ func typeRefToPythonAlias(
 	}
 
 	// Get the base type name with proper import handling
+	// Use getPyName to respect @py name directives (e.g., GoStatus -> Status)
+	pyName := getPyName(resolved)
 	var baseName string
 	if resolved.Namespace != data.Namespace {
 		outputPath := output.GetPath(resolved, "py")
@@ -651,9 +647,9 @@ func typeRefToPythonAlias(
 			outputPath = resolved.Namespace
 		}
 		modulePath := toPythonModulePath(outputPath)
-		baseName = addCrossNamespaceImport(modulePath, resolved.Name, data)
+		baseName = addCrossNamespaceImport(modulePath, pyName, data)
 	} else {
-		baseName = resolved.Name
+		baseName = pyName
 	}
 
 	// If no type arguments, just return the base name
@@ -787,7 +783,6 @@ func (m *importManager) AddImport(category, path, name string) {
 type templateData struct {
 	Namespace   string
 	OutputPath  string
-	KeyFields   []keyFieldData
 	Structs     []structData
 	Enums       []enumData
 	TypeDefs    []typeDefData
@@ -912,10 +907,6 @@ from {{ .Path }} import {{ .Alias }}
 {{- end }}
 {{- range .ModuleImports }}
 from {{ .Parent }} import {{ .Module }}
-{{- end }}
-{{- range .KeyFields }}
-
-{{ .Name | title }} = {{ .PyType }}
 {{- end }}
 {{- range .TypeDefs }}
 {{- if .IsDistinct }}

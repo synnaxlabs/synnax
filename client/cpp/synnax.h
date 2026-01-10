@@ -154,13 +154,11 @@ public:
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg):
-        t(
-            cfg.port,
-            cfg.host,
-            cfg.ca_cert_file,
-            cfg.client_cert_file,
-            cfg.client_key_file
-        ),
+        t(cfg.port,
+          cfg.host,
+          cfg.ca_cert_file,
+          cfg.client_cert_file,
+          cfg.client_key_file),
         channels(this->t.chan_retrieve, this->t.chan_create),
         auth(
             std::make_shared<AuthMiddleware>(
@@ -173,17 +171,9 @@ public:
         ranges(
             std::move(this->t.range_retrieve),
             std::move(this->t.range_create),
-            kv::Client(
-                this->t.kv_get,
-                this->t.kv_set,
-                this->t.kv_delete
-            )
+            kv::Client(this->t.kv_get, this->t.kv_set, this->t.kv_delete)
         ),
-        tasks(
-            this->t.task_create,
-            this->t.task_retrieve,
-            this->t.task_delete
-        ),
+        tasks(this->t.task_create, this->t.task_retrieve, this->t.task_delete),
         telem(
             std::move(this->t.frame_stream),
             std::move(this->t.frame_write),
@@ -200,16 +190,8 @@ public:
             std::move(this->t.device_retrieve),
             std::move(this->t.device_delete)
         ),
-        statuses(
-            this->t.status_retrieve,
-            this->t.status_set,
-            this->t.status_delete
-        ),
-        arcs(
-            this->t.arc_retrieve,
-            this->t.arc_create,
-            this->t.arc_delete
-        ) {
+        statuses(this->t.status_retrieve, this->t.status_set, this->t.status_delete),
+        arcs(this->t.arc_retrieve, this->t.arc_create, this->t.arc_delete) {
         details::check_little_endian();
     }
 };

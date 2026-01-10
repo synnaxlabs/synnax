@@ -29,9 +29,7 @@ TEST(StreamerTests, testStreamBasic) {
     auto now = x::telem::TimeStamp::now();
 
     std::vector channels = {data.key};
-    auto [streamer, sErr] = client.telem.open_streamer(
-        StreamerConfig{channels}
-    );
+    auto [streamer, sErr] = client.telem.open_streamer(StreamerConfig{channels});
     auto writer = ASSERT_NIL_P(client.telem.open_writer(
         WriterConfig{
             channels,
@@ -266,7 +264,7 @@ void test_downsample_string(
 /// @brief it should correctly downsample string series data.
 TEST(StreamerTests, TestStreamDownsampleString) {
     const std::vector<std::string> data =
-    {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
+        {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};
     const std::vector<std::string> expected = {"a", "c", "e", "g", "i"};
     test_downsample_string(data, expected, 2);
 }

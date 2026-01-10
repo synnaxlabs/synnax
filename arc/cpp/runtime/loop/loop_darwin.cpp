@@ -19,9 +19,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/runtime/loop/loop.h"
 

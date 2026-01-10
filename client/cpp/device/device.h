@@ -18,6 +18,8 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/device/proto.gen.h"
+#include "client/cpp/device/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
@@ -25,14 +27,13 @@
 #include "x/cpp/status/status.h"
 
 #include "core/pkg/api/grpc/device/device.pb.h"
-#include "core/pkg/service/device/pb/device.pb.h"
 
 namespace synnax::device {
 const std::string DEVICE_SET_CHANNEL = "sy_device_set";
 const std::string DEVICE_DELETE_CHANNEL = "sy_device_delete";
 
-// Forward declaration for RackKey (needed for Device struct)
-using Key = std::uint32_t;
+/// @brief Type alias for rack keys used in device context.
+using RackKey = ::synnax::rack::Key;
 
 /// @brief Type alias for the transport used to create a device.
 using CreateClient = freighter::
@@ -64,53 +65,23 @@ inline std::vector<ontology::ID> ontology_ids(const std::vector<std::string> &ke
     return ids;
 }
 
-/// @brief specific status details for devices.
-struct StatusDetails {
-    /// @brief the rack that this device is connected to.
-    Key rack = 0;
-    /// @brief the device that this status is for.
-    std::string device;
-
-    /// @brief parses the device status details from a JSON parser.
-    static StatusDetails parse(x::json::Parser parser) {
-        return StatusDetails{
-            .rack = parser.field<Key>("rack"),
-            .device = parser.field<std::string>("device"),
-        };
-    }
-
-    /// @brief converts the device status details to JSON.
-    [[nodiscard]] json to_json() const {
-        json j;
-        j["rack"] = this->rack;
-        j["device"] = this->device;
-        return j;
-    }
-};
-
-/// @brief status information about a device.
-using DeviceStatus = x::status::Status<json>;
+// StatusDetails struct is now generated in types.gen.h
+// Status type alias is now generated in types.gen.h
 
 /// @brief A Device represents a physical hardware device connected to a rack.
-struct Device {
-    /// @brief The unique identifier for the device.
-    std::string key;
-    /// @brief A human-readable name for the device.
-    std::string name;
-    /// @brief The rack that this device is connected to.
-    Key rack = 0;
-    /// @brief The physical location of the device.
-    std::string location;
-    /// @brief The manufacturer of the device.
-    std::string make;
-    /// @brief The model of the device.
-    std::string model;
-    /// @brief Additional properties of the device, typically in JSON format.
-    std::string properties;
-    /// @brief whether the device has been configured.
-    bool configured = false;
-    /// @brief Status information about the device.
-    DeviceStatus status;
+/// Extends generated Payload struct with domain-specific methods.
+class Device : public Payload {
+public:
+    /// @brief Default constructor for an empty device.
+    Device() = default;
+
+    /// @brief Move constructor from generated Payload.
+    /// @param payload The payload to move from.
+    Device(Payload &&payload): Payload(std::move(payload)) {}
+
+    /// @brief Copy constructor from generated Payload.
+    /// @param payload The payload to copy from.
+    Device(const Payload &payload): Payload(payload) {}
 
     /// @brief Constructs a new device with the given properties.
     /// @param key The unique identifier for the device.
@@ -123,34 +94,17 @@ struct Device {
     Device(
         std::string key,
         std::string name,
-        Key rack,
+        RackKey rack,
         std::string location,
         std::string make,
         std::string model,
         std::string properties
     );
 
-    /// @brief Default constructor for an empty device.
-    Device() = default;
-
     /// @brief returns the key used for creating statuses associated with the task.
     [[nodiscard]] std::string status_key() const {
         return ontology_id(this->key).string();
     }
-
-    /// @brief Constructs a device from its protobuf representation.
-    /// @param device The protobuf representation of the device.
-    /// @returns A pair containing the device and an error if one occurred.
-    static std::pair<Device, x::errors::Error>
-    from_proto(const service::device::pb::Device &device);
-
-    /// @brief Parses a device from a JSON parser.
-    /// @param parser The JSON parser containing device data.
-    /// @returns The parsed device.
-    static Device parse(x::json::Parser &parser);
-
-private:
-    void to_proto(service::device::pb::Device *device) const;
 
     friend class Client;
 };
@@ -180,7 +134,7 @@ struct RetrieveRequest {
     std::vector<std::string> makes;
     std::vector<std::string> models;
     std::vector<std::string> locations;
-    std::vector<Key> racks;
+    std::vector<RackKey> racks;
     std::string search;
     std::uint32_t limit = 0;
     std::uint32_t offset = 0;

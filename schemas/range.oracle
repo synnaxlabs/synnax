@@ -9,10 +9,12 @@
 
 import "schemas/label"
 
-@ts output "client/ts/src/range"
+@ts output  "client/ts/src/range"
+@cpp output "client/cpp/ranger"
 
 Key = uuid {
     @go output "core/pkg/service/ranger"
+    @cpp omit
 }
 
 Range struct {
@@ -23,6 +25,7 @@ Range struct {
 
     @go output "core/pkg/service/ranger"
     @pb
+    @cpp omit
 }
 
 APIRange struct extends Range {
@@ -33,4 +36,5 @@ APIRange struct extends Range {
     @go name       "Range"
     @pb name       "Range"
     @ontology type "range"
+    @cpp name      "Payload"
 }

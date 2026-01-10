@@ -24,26 +24,11 @@
 
 namespace synnax::task {
 
-struct StatusDetails;
 struct Command;
+struct StatusDetails;
 struct Payload;
 
 using Key = std::uint64_t;
-
-struct StatusDetails {
-    Key task;
-    bool running;
-    std::string cmd;
-    std::optional<x::json::json> data;
-
-    static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::task::pb::StatusDetails;
-    [[nodiscard]] ::service::task::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error>
-    from_proto(const ::service::task::pb::StatusDetails &pb);
-};
 
 struct Command {
     Key task;
@@ -58,6 +43,21 @@ struct Command {
     [[nodiscard]] ::service::task::pb::Command to_proto() const;
     static std::pair<Command, x::errors::Error>
     from_proto(const ::service::task::pb::Command &pb);
+};
+
+struct StatusDetails {
+    Key task;
+    bool running;
+    std::string cmd;
+    std::optional<x::json::json> data;
+
+    static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::task::pb::StatusDetails;
+    [[nodiscard]] ::service::task::pb::StatusDetails to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::task::pb::StatusDetails &pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;

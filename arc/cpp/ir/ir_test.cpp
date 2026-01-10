@@ -27,7 +27,11 @@ TEST(IRTest, testHandleProtobufRoundTrip) {
 TEST(IRTest, testEdgeProtobufRoundTrip) {
     arc::ir::Handle src{.node = "src_node", .param = "output"};
     arc::ir::Handle tgt{.node = "tgt_node", .param = "input"};
-    arc::ir::Edge original{.source = src, .target = tgt, .kind = arc::ir::EdgeKind::Continuous};
+    arc::ir::Edge original{
+        .source = src,
+        .target = tgt,
+        .kind = arc::ir::EdgeKind::Continuous
+    };
     auto pb = original.to_proto();
     auto [reconstructed, err] = arc::ir::Edge::from_proto(pb);
     ASSERT_FALSE(err);
@@ -219,21 +223,21 @@ TEST(IRTest, testHandleInUnorderedSet) {
 /// @brief it should use Edge in unordered_set
 TEST(IRTest, testEdgeInUnorderedSet) {
     std::unordered_set<arc::ir::Edge> edges;
-    edges.insert({
-        .source = {.node = "n1", .param = "out"},
-        .target = {.node = "n2", .param = "in"},
-        .kind = arc::ir::EdgeKind::Continuous
-    });
-    edges.insert({
-        .source = {.node = "n1", .param = "out"},
-        .target = {.node = "n2", .param = "in"},
-        .kind = arc::ir::EdgeKind::Continuous
-    }); // duplicate
-    edges.insert({
-        .source = {.node = "n3", .param = "out"},
-        .target = {.node = "n4", .param = "in"},
-        .kind = arc::ir::EdgeKind::OneShot
-    });
+    edges.insert(
+        {.source = {.node = "n1", .param = "out"},
+         .target = {.node = "n2", .param = "in"},
+         .kind = arc::ir::EdgeKind::Continuous}
+    );
+    edges.insert(
+        {.source = {.node = "n1", .param = "out"},
+         .target = {.node = "n2", .param = "in"},
+         .kind = arc::ir::EdgeKind::Continuous}
+    ); // duplicate
+    edges.insert(
+        {.source = {.node = "n3", .param = "out"},
+         .target = {.node = "n4", .param = "in"},
+         .kind = arc::ir::EdgeKind::OneShot}
+    );
 
     ASSERT_EQ(edges.size(), 2);
 }

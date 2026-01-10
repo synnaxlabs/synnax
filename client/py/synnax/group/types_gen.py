@@ -14,34 +14,23 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
 
 
-class User(BaseModel):
+class Group(BaseModel):
     key: Key
-    username: str
-    first_name: str
-    last_name: str
-    root_user: bool = Field(default=False)
+    name: str
 
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-class New(User):
-    key: Key | None = None
-    password: str = Field(min_length=1)
-    first_name: str | None = None
-    last_name: str | None = None
-    root_user: bool = Field(exclude=True)
-
-
-ONTOLOGY_TYPE = ID(type="user")
+ONTOLOGY_TYPE = ID(type="group")
 
 
 def ontology_id(key: Key) -> ID:
-    return ID(type="user", key=str(key))
+    return ID(type="group", key=str(key))

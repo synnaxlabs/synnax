@@ -287,11 +287,12 @@ public:
     std::pair<std::vector<Task>, x::errors::Error>
     list(const RetrieveOptions &options) const;
 
-    Client scope_to_rack(const RackKey &rack_key)const {
+    Client scope_to_rack(const RackKey &rack_key) const {
         auto c = *this;
         c.rack = rack_key;
         return c;
     }
+
 private:
     /// @brief Key of rack that this client belongs to.
     RackKey rack;

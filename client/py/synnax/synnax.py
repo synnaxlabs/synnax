@@ -27,7 +27,7 @@ from synnax.framer import Client
 from synnax.framer.deleter import Deleter
 from synnax.kv import Client as KVClient
 from synnax.ontology import Client as OntologyClient
-from synnax.ontology.group import Client as GroupClient
+from synnax.group import Client as GroupClient
 from synnax.options import SynnaxOptions
 from synnax.rack import Client as RackClient
 from synnax.ranger import RangeRetriever, RangeWriter
@@ -75,6 +75,7 @@ class Synnax(Client):
     statuses: StatusClient
     kv: KVClient
     aliases: AliasClient
+    groups: GroupClient
 
     _transport: Transport
 
@@ -143,7 +144,7 @@ class Synnax(Client):
             instrumentation=instrumentation,
         )
         groups = GroupClient(self._transport.unary)
-        self.ontology = OntologyClient(client=self._transport.unary, groups=groups)
+        self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeWriter(self._transport.unary, instrumentation)
@@ -175,6 +176,7 @@ class Synnax(Client):
         )
         self.kv = KVClient(self._transport.unary)
         self.aliases = AliasClient(self._transport.unary)
+        self.groups = GroupClient(self._transport.unary)
 
     @property
     def hardware(self) -> "Synnax":

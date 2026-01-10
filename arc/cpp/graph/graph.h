@@ -12,4 +12,3 @@
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/graph/proto.gen.h"
 #include "arc/cpp/graph/types.gen.h"
-

@@ -17,6 +17,7 @@
 #include "google/protobuf/empty.pb.h"
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/rack/proto.gen.h"
 #include "client/cpp/rack/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "freighter/cpp/freighter.h"
@@ -75,6 +76,17 @@ public:
     /// Note: This will be initialized after construction by RackClient.
     task::Client tasks;
 
+    /// @brief Default constructor for an empty rack.
+    Rack() = default;
+
+    /// @brief Move constructor from generated Payload.
+    /// @param payload The payload to move from.
+    Rack(Payload &&payload): Payload(std::move(payload)) {}
+
+    /// @brief Copy constructor from generated Payload.
+    /// @param payload The payload to copy from.
+    Rack(const Payload &payload): Payload(payload) {}
+
     /// @brief Constructs a new rack with the given key and name.
     /// @param key The unique identifier for the rack.
     /// @param name A human-readable name for the rack.
@@ -83,9 +95,6 @@ public:
     /// @brief Constructs a new rack with the given name.
     /// @param name A human-readable name for the rack.
     explicit Rack(std::string name);
-
-    /// @brief Default constructor for an empty rack.
-    Rack() = default;
 
     /// @brief Equality operator for racks.
     /// @param rack The rack to compare with.

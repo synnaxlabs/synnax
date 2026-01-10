@@ -20,9 +20,9 @@
 #include <variant>
 #include <vector>
 
-#include "x/cpp/json/json.h"
-
 #include <google/protobuf/struct.pb.h>
+
+#include "x/cpp/json/json.h"
 
 namespace x::telem {
 // private namespace for internal constants

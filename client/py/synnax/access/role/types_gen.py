@@ -18,8 +18,6 @@ from pydantic import BaseModel
 
 from synnax.ontology.payload import ID
 
-Key = Any
-
 Key: TypeAlias = UUID
 
 
@@ -40,5 +38,5 @@ class Role(Base):
 ONTOLOGY_TYPE = ID(type="role")
 
 
-def ontology_id(key: Any) -> ID:
+def ontology_id(key: Key) -> ID:
     return ID(type="role", key=str(key))

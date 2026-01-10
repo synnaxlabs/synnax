@@ -10,6 +10,5 @@
 #pragma once
 
 #include "arc/cpp/module/json.gen.h"
-#include "arc/cpp/module/types.gen.h"
 #include "arc/cpp/module/proto.gen.h"
-
+#include "arc/cpp/module/types.gen.h"

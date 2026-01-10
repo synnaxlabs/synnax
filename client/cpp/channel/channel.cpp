@@ -99,8 +99,7 @@ x::errors::Error Client::create(std::vector<Channel> &channels) const {
     return exc;
 }
 
-std::pair<Channel, x::errors::Error>
-Client::retrieve(const Key key) const {
+std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
     auto req = grpc::channel::RetrieveRequest();
     req.add_keys(key);
     auto [res, err] = retrieve_client->send("/channel/retrieve", req);
@@ -110,8 +109,7 @@ Client::retrieve(const Key key) const {
     return {Channel(res.channels(0)), err};
 }
 
-std::pair<Channel, x::errors::Error>
-Client::retrieve(const std::string &name) const {
+std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
     auto payload = grpc::channel::RetrieveRequest();
     payload.add_names(name);
     auto [res, err] = retrieve_client->send("/channel/retrieve", payload);
