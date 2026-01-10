@@ -247,7 +247,7 @@ class TestModbusReadTask:
         created_task = client.tasks.create(
             name="test-modbus-read-task",
             type="modbus_read",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.modbus.ReadTask(created_task)
 
@@ -415,7 +415,7 @@ class TestModbusWriteTask:
         created_task = client.tasks.create(
             name="test-modbus-write-task",
             type="modbus_write",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.modbus.WriteTask(created_task)
 
@@ -445,7 +445,7 @@ class TestModbusWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
+        config_json = original_task.config
 
         # Create task in database
         created_task = client.tasks.create(

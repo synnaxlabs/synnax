@@ -25,36 +25,9 @@ StatusDetails struct<Data extends json = json> {
     running bool?
     cmd     string?
     data    Data??
-
-    @go omit
-    @pb omit
-    @cpp omit
 }
 
-FixedVariantStatusDetails struct extends StatusDetails<json> {
-    data json??
-    -data
-
-    @go name  "StatusDetails"
-    @pb name  "StatusDetails"
-    @ts omit
-    @py omit
-    @cpp name "StatusDetails"
-}
-
-Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
-    @go omit
-    @pb omit
-    @cpp omit
-}
-
-FixedVariantStatus = status.FixedVariantStatus<FixedVariantStatusDetails> {
-    @go name  "Status"
-    @pb name  "Status"
-    @cpp name "Status"
-    @ts omit
-    @py omit
-}
+Status<Data extends json = json> = status.Status<StatusDetails<Data>>
 
 NewStatusDetails struct<Data extends json = json> {
     task    Key?
@@ -80,36 +53,20 @@ Task struct<
     Config extends json = json,
     StatusData extends json = json
 > {
-    key      Key                 @key
+    key      Key                  @key
     name     string
     type     Type
     config   Config
     internal bool?
     snapshot bool?
-    status   Status<StatusData>?
+    status   Status<StatusData>??
 
     @ts {
         name "Payload"
         concrete_types
     }
-    @py omit
     @ontology type "task"
-    @go omit
-    @pb omit
-    @cpp omit
-}
-
-FixedVariantTask struct extends Task<string, string, json> {
-    config string
-    status FixedVariantStatus??
-    -config
-    -status
-
-    @go name  "Task"
-    @pb name  "Task"
-    @cpp name "Payload"
-    @ts omit
-    @py name  "Payload"
+    @py name       "Payload"
 }
 
 New struct<

@@ -139,7 +139,7 @@ func (w Writer) Copy(
 func (w Writer) SetData(
 	ctx context.Context,
 	key uuid.UUID,
-	data string,
+	data map[string]any,
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {

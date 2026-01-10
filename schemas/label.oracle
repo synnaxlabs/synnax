@@ -7,21 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output "x/ts/src/label"
+@ts output  "x/ts/src/label"
+@py output  "client/py/synnax/label"
+@go output  "x/go/label"
+@cpp output "x/cpp/label"
+@pb
 
 Label struct {
     key   uuid   @key
     name  string @validate min_length 1
     color color
-
-    @go output  "x/go/label"
-    @cpp output "x/cpp/label"
-    @pb
 }
 
 New struct extends Label {
     key uuid?
 
+    @py omit
     @ts use_input
     @go omit
     @pb omit

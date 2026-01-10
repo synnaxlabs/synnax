@@ -11,5 +11,8 @@
 
 import { type z } from "zod";
 
-export const moduleZ = irZ.extend(outputZ.shape);
+import { compiler } from "@/arc/compiler";
+import { ir } from "@/arc/ir";
+
+export const moduleZ = ir.irZ.extend(compiler.outputZ.shape);
 export interface Module extends z.infer<typeof moduleZ> {}

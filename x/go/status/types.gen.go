@@ -30,10 +30,10 @@ const (
 type Status[Details any] struct {
 	Key         string          `json:"key" msgpack:"key"`
 	Name        string          `json:"name" msgpack:"name"`
+	Variant     Variant         `json:"variant" msgpack:"variant"`
 	Message     string          `json:"message" msgpack:"message"`
 	Description string          `json:"description" msgpack:"description"`
 	Time        telem.TimeStamp `json:"time" msgpack:"time"`
 	Details     Details         `json:"details" msgpack:"details"`
 	Labels      []label.Label   `json:"labels" msgpack:"labels"`
-	Variant     Variant         `json:"variant" msgpack:"variant"`
 }

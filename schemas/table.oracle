@@ -19,17 +19,6 @@ Table struct {
     data json
 
     @ontology type "table"
-    @go omit
-    @pb omit
-}
-
-GoTable struct extends Table {
-    data string
-    -data
-
-    @go name "Table"
-    @pb name "Table"
-    @ts omit
 }
 
 New struct extends Table {

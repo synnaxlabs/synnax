@@ -15,14 +15,19 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // LogToPB converts Log to Log.
 func LogToPB(_ context.Context, r log.Log) (*Log, error) {
+	dataVal, err := structpb.NewStruct(r.Data)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Log{
 		Key:  r.Key.String(),
 		Name: r.Name,
-		Data: r.Data,
+		Data: dataVal,
 	}
 	return pb, nil
 }
@@ -33,9 +38,9 @@ func LogFromPB(_ context.Context, pb *Log) (log.Log, error) {
 	if pb == nil {
 		return r, nil
 	}
+	r.Data = pb.Data.AsMap()
 	r.Key = log.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.Data = pb.Data
 	return r, nil
 }
 

@@ -19,22 +19,10 @@ LinePlot struct {
     data json
 
     @ontology type "lineplot"
-    @go omit
-    @pb omit
-}
-
-GoLinePlot struct extends LinePlot {
-    data string
-    -data
-
-    @go name "LinePlot"
-    @pb name "LinePlot"
-    @ts omit
 }
 
 New struct extends LinePlot {
-    key  Key?
-    data json @ts stringify
+    key Key?
 
     @ts use_input
     @go omit

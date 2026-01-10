@@ -4,11 +4,13 @@ syntax = "proto3";
 
 package service.workspace.pb;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/pb";
 
 message Workspace {
   string key = 1;
   string name = 2;
   string author = 3;
-  string layout = 4;
+  google.protobuf.Struct layout = 4;
 }

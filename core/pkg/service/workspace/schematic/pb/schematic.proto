@@ -4,11 +4,13 @@ syntax = "proto3";
 
 package service.schematic.pb;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/pb";
 
 message Schematic {
   string key = 1;
   string name = 2;
-  bool snapshot = 3;
-  string data = 4;
+  google.protobuf.Struct data = 3;
+  bool snapshot = 4;
 }

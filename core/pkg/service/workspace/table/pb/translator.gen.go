@@ -15,14 +15,19 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // TableToPB converts Table to Table.
 func TableToPB(_ context.Context, r table.Table) (*Table, error) {
+	dataVal, err := structpb.NewStruct(r.Data)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Table{
 		Key:  r.Key.String(),
 		Name: r.Name,
-		Data: r.Data,
+		Data: dataVal,
 	}
 	return pb, nil
 }
@@ -33,9 +38,9 @@ func TableFromPB(_ context.Context, pb *Table) (table.Table, error) {
 	if pb == nil {
 		return r, nil
 	}
+	r.Data = pb.Data.AsMap()
 	r.Key = table.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.Data = pb.Data
 	return r, nil
 }
 

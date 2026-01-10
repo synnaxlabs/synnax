@@ -13,45 +13,17 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { types } from "@/arc/types";
-
-export const edgesZ = z.array(edgeZ);
-export type Edges = z.infer<typeof edgesZ>;
-
-export const stagesZ = z.array(stageZ);
-export type Stages = z.infer<typeof stagesZ>;
-
-export const sequencesZ = z.array(sequenceZ);
-export type Sequences = z.infer<typeof sequencesZ>;
-
-export const functionsZ = z.array(functionZ);
-export type Functions = z.infer<typeof functionsZ>;
-
-export const strataZ = z.array(stratumZ);
-export type Strata = z.infer<typeof strataZ>;
-
-export const nodesZ = z.array(nodeZ);
-export type Nodes = z.infer<typeof nodesZ>;
 export enum EdgeKind {
   continuous = 1,
   one_shot = 2,
 }
 export const edgeKindZ = z.enum(EdgeKind);
 
-export const stratumZ = z.array(z.string());
-export type Stratum = z.infer<typeof stratumZ>;
-
 export const handleZ = z.object({
   node: z.string(),
   param: z.string(),
 });
 export interface Handle extends z.infer<typeof handleZ> {}
-
-export const stageZ = z.object({
-  key: z.string(),
-  nodes: array.nullishToEmpty(z.string()),
-  strata: strataZ,
-});
-export interface Stage extends z.infer<typeof stageZ> {}
 
 export const bodyZ = z.object({
   raw: z.string(),
@@ -68,14 +40,8 @@ export const nodeZ = z.object({
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
-export const irZ = z.object({
-  functions: functionsZ.optional(),
-  nodes: nodesZ.optional(),
-  edges: edgesZ.optional(),
-  strata: strataZ.optional(),
-  sequences: sequencesZ.optional(),
-});
-export interface IR extends z.infer<typeof irZ> {}
+export const stratumZ = array.nullishToEmpty(z.string());
+export type Stratum = z.infer<typeof stratumZ>;
 
 export const edgeZ = z.object({
   source: handleZ,
@@ -83,12 +49,6 @@ export const edgeZ = z.object({
   kind: edgeKindZ.optional(),
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
-
-export const sequenceZ = z.object({
-  key: z.string(),
-  stages: array.nullishToEmpty(stageZ),
-});
-export interface Sequence extends z.infer<typeof sequenceZ> {}
 
 export const functionZ = z.object({
   key: z.string(),
@@ -99,3 +59,43 @@ export const functionZ = z.object({
   channels: types.channelsZ.optional(),
 });
 export interface Function extends z.infer<typeof functionZ> {}
+
+export const nodesZ = array.nullishToEmpty(nodeZ);
+export type Nodes = z.infer<typeof nodesZ>;
+
+export const strataZ = array.nullishToEmpty(stratumZ);
+export type Strata = z.infer<typeof strataZ>;
+
+export const edgesZ = array.nullishToEmpty(edgeZ);
+export type Edges = z.infer<typeof edgesZ>;
+
+export const functionsZ = array.nullishToEmpty(functionZ);
+export type Functions = z.infer<typeof functionsZ>;
+
+export const stageZ = z.object({
+  key: z.string(),
+  nodes: array.nullishToEmpty(z.string()),
+  strata: strataZ,
+});
+export interface Stage extends z.infer<typeof stageZ> {}
+
+export const sequenceZ = z.object({
+  key: z.string(),
+  stages: array.nullishToEmpty(stageZ),
+});
+export interface Sequence extends z.infer<typeof sequenceZ> {}
+
+export const stagesZ = array.nullishToEmpty(stageZ);
+export type Stages = z.infer<typeof stagesZ>;
+
+export const sequencesZ = array.nullishToEmpty(sequenceZ);
+export type Sequences = z.infer<typeof sequencesZ>;
+
+export const irZ = z.object({
+  functions: functionsZ.optional(),
+  nodes: nodesZ.optional(),
+  edges: edgesZ.optional(),
+  strata: strataZ.optional(),
+  sequences: sequencesZ.optional(),
+});
+export interface IR extends z.infer<typeof irZ> {}

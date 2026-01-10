@@ -38,12 +38,12 @@ struct Label {
     from_proto(const ::x::label::pb::Label &pb);
 };
 
+using GoSVCLabel = Label;
+
 struct New : public Label {
     std::string key;
 
     static New parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-using GoSVCLabel = Label;
 }

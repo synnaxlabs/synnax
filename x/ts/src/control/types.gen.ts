@@ -18,14 +18,14 @@ export enum Concurrency {
 }
 export const concurrencyZ = z.enum(Concurrency);
 
-export const authorityZ = zod.uint8Z;
-export type Authority = z.infer<typeof authorityZ>;
-
 export const subjectZ = z.object({
   key: z.string(),
   name: z.string(),
 });
 export interface Subject extends z.infer<typeof subjectZ> {}
+
+export const authorityZ = zod.uint8Z;
+export type Authority = z.infer<typeof authorityZ>;
 
 export const stateZ = <R extends z.ZodType>(r: R) =>
   z.object({

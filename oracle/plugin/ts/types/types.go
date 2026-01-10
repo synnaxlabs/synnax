@@ -208,6 +208,42 @@ func calculateRelativeImport(from, to string) string {
 	return rel
 }
 
+// hasNonPrimitiveDependency returns true if a type definition has dependencies
+// on non-primitive types (i.e., references other schema types that need to be
+// declared before this type). This is used to determine whether a distinct type
+// should be included in topological sorting.
+func hasNonPrimitiveDependency(typ resolution.Type, table *resolution.Table) bool {
+	var checkRef func(ref resolution.TypeRef) bool
+	checkRef = func(ref resolution.TypeRef) bool {
+		if ref.Name == "" || ref.IsTypeParam() {
+			return false
+		}
+		// Primitives have no schema dependencies
+		if resolution.IsPrimitive(ref.Name) {
+			return false
+		}
+		// For Array and Map, check if their type arguments have dependencies
+		if ref.Name == "Array" || ref.Name == "Map" {
+			for _, arg := range ref.TypeArgs {
+				if checkRef(arg) {
+					return true
+				}
+			}
+			return false
+		}
+		// Any other named type is a schema dependency
+		return true
+	}
+
+	switch form := typ.Form.(type) {
+	case resolution.DistinctForm:
+		return checkRef(form.Base)
+	case resolution.AliasForm:
+		return checkRef(form.Target)
+	}
+	return false
+}
+
 func (p *Plugin) generateFile(
 	namespace string,
 	outputPath string,
@@ -234,21 +270,29 @@ func (p *Plugin) generateFile(
 		data.addNamedImport("@/ontology", "ontology")
 	}
 
-	// Separate distinct types (which don't have dependencies on schema types)
-	// from alias types (which might depend on structs)
-	var distinctTypeDefs []resolution.Type
-	var aliasTypeDefs []resolution.Type
+	// Separate type definitions based on whether they have dependencies on schema types.
+	// Distinct types with only primitive bases can be output first (no sorting needed).
+	// Distinct types with non-primitive bases (e.g., Params Param[]) must be included
+	// in topological sorting along with aliases and structs.
+	var primitiveTypeDefs []resolution.Type
+	var dependentTypeDefs []resolution.Type
 	for _, td := range typeDefs {
 		switch td.Form.(type) {
 		case resolution.AliasForm:
-			aliasTypeDefs = append(aliasTypeDefs, td)
+			dependentTypeDefs = append(dependentTypeDefs, td)
+		case resolution.DistinctForm:
+			if hasNonPrimitiveDependency(td, req.Resolutions) {
+				dependentTypeDefs = append(dependentTypeDefs, td)
+			} else {
+				primitiveTypeDefs = append(primitiveTypeDefs, td)
+			}
 		default:
-			distinctTypeDefs = append(distinctTypeDefs, td)
+			primitiveTypeDefs = append(primitiveTypeDefs, td)
 		}
 	}
 
-	// Process distinct types first (they don't depend on other schema types)
-	for _, td := range distinctTypeDefs {
+	// Process primitive-only type defs first (they have no schema dependencies)
+	for _, td := range primitiveTypeDefs {
 		data.TypeDefs = append(data.TypeDefs, p.processTypeDef(td, data))
 	}
 
@@ -256,16 +300,29 @@ func (p *Plugin) generateFile(
 		data.Enums = append(data.Enums, p.processEnum(e))
 	}
 
-	// Combine aliases and structs for topological sorting
+	// Combine structs and dependent typedefs for topological sorting.
+	// IMPORTANT: Structs come first so that when there's a cycle, typedefs
+	// (like array types) are placed after their element types. Array typedefs
+	// can't use getters, so they must come after their element types are defined.
 	var combinedTypes []resolution.Type
-	combinedTypes = append(combinedTypes, aliasTypeDefs...)
 	combinedTypes = append(combinedTypes, structs...)
+	combinedTypes = append(combinedTypes, dependentTypeDefs...)
 
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := req.Resolutions.TopologicalSort(combinedTypes)
 
+	// Build declaration order map for forward reference detection.
+	// When a struct field references a type declared later, we need to use
+	// a getter for lazy evaluation.
+	declOrder := make(map[string]int, len(sortedTypes))
+	for i, typ := range sortedTypes {
+		declOrder[typ.QualifiedName] = i
+	}
+	data.DeclOrder = declOrder
+
 	// Process in sorted order
-	for _, typ := range sortedTypes {
+	for i, typ := range sortedTypes {
+		data.CurrentDeclIndex = i
 		switch form := typ.Form.(type) {
 		case resolution.AliasForm:
 			// Generic aliases need full struct treatment for type params
@@ -280,6 +337,12 @@ func (p *Plugin) generateFile(
 					TypeDef:   p.processTypeDef(typ, data),
 				})
 			}
+		case resolution.DistinctForm:
+			// Distinct types with non-primitive dependencies (e.g., Params Param[])
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsTypeDef: true,
+				TypeDef:   p.processTypeDef(typ, data),
+			})
 		case resolution.StructForm:
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
@@ -424,7 +487,17 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				ZodType: zodType,
 			}
 		}
-		zodType := p.typeDefBaseToZod(&form.Base, data)
+		var zodType string
+		// For array type definitions (e.g., Stages Stage[]), wrap with array.nullishToEmpty
+		// so that null/undefined coerces to [] rather than staying undefined.
+		// array.nullishToEmpty takes the element schema, not the array schema.
+		if isArrayTypeRef(form.Base) && len(form.Base.TypeArgs) > 0 {
+			addXImport(data, xImport{name: "array", submodule: "array"})
+			elemZod := p.typeRefToZod(&form.Base.TypeArgs[0], data.Request.Resolutions, data, false)
+			zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+		} else {
+			zodType = p.typeDefBaseToZod(&form.Base, data)
+		}
 		// Apply validation rules if present
 		if validateDomain, ok := td.Domains["validate"]; ok {
 			result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions)
@@ -445,7 +518,17 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			ZodType: zodType,
 		}
 	case resolution.AliasForm:
-		zodType := p.typeDefBaseToZod(&form.Target, data)
+		var zodType string
+		// For array type aliases (e.g., Stages = Stage[]), wrap with array.nullishToEmpty
+		// so that null/undefined coerces to [] rather than staying undefined.
+		// array.nullishToEmpty takes the element schema, not the array schema.
+		if isArrayTypeRef(form.Target) && len(form.Target.TypeArgs) > 0 {
+			addXImport(data, xImport{name: "array", submodule: "array"})
+			elemZod := p.typeRefToZod(&form.Target.TypeArgs[0], data.Request.Resolutions, data, false)
+			zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+		} else {
+			zodType = p.typeDefBaseToZod(&form.Target, data)
+		}
 		// Apply validation rules if present
 		if validateDomain, ok := td.Domains["validate"]; ok {
 			result := p.applyValidation(zodType, validateDomain, form.Target, td.Name, data.Request.Resolutions)
@@ -521,7 +604,16 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				break
 			}
 		}
-		sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data, sd.UseInput)
+		// For array type aliases (e.g., Stages = Stage[]), wrap with array.nullishToEmpty
+		// so that null/undefined coerces to [] rather than staying undefined.
+		// array.nullishToEmpty takes the element schema, not the array schema.
+		if isArrayTypeRef(aliasForm.Target) && len(aliasForm.Target.TypeArgs) > 0 {
+			addXImport(data, xImport{name: "array", submodule: "array"})
+			elemZod := p.typeRefToZod(&aliasForm.Target.TypeArgs[0], table, data, sd.UseInput)
+			sd.AliasOf = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+		} else {
+			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data, sd.UseInput)
+		}
 		// For non-generic aliases to parameterized generic types, generate an explicit type reference
 		// This is needed because z.infer doesn't work well with custom ZodObject types
 		// We check len(aliasForm.TypeParams) == 0 because IsGeneric() checks the target, not the alias
@@ -595,8 +687,21 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 
 			// Get parent's TSName (respecting @ts name domain)
 			parentTSName := domain.GetName(parentType, "ts")
+			schemaName := lo.CamelCase(parentTSName) + "Z"
+
+			// Handle cross-namespace parent: add import and qualify name
+			if parentType.Namespace != data.Namespace {
+				ns := parentType.Namespace
+				targetOutputPath := output.GetPath(parentType, "ts")
+				if targetOutputPath == "" {
+					targetOutputPath = ns
+				}
+				data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+				schemaName = ns + "." + schemaName
+			}
+
 			parentInfo := extendsParentInfo{
-				Name:     lo.CamelCase(parentTSName) + "Z",
+				Name:     schemaName,
 				TypeName: parentTSName,
 			}
 
@@ -790,7 +895,7 @@ var typeParamMappings = map[string]typeParamMapping{
 	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
 	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
 	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
-	"json":      {zodType: "z.ZodType", zodValue: ""},
+	"json":      {zodType: "z.ZodType", zodValue: "record.unknownZ"},
 }
 
 func defaultToTS(rawType string) string {
@@ -834,6 +939,57 @@ func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 	return false
 }
 
+// isForwardReference checks if a type reference points to a type that will be
+// declared later in the output. This is used to detect when we need getters
+// for lazy evaluation in circular dependency cycles.
+func isForwardReference(t resolution.TypeRef, data *templateData, table *resolution.Table) bool {
+	// Skip if we don't have declaration order info (e.g., processing TypeDefs section)
+	if data.DeclOrder == nil {
+		return false
+	}
+
+	var checkRef func(ref resolution.TypeRef) bool
+	checkRef = func(ref resolution.TypeRef) bool {
+		if ref.Name == "" || ref.IsTypeParam() {
+			return false
+		}
+		// Primitives and builtins are never forward references
+		if resolution.IsPrimitive(ref.Name) || ref.Name == "Array" || ref.Name == "Map" {
+			// But check type arguments
+			for _, arg := range ref.TypeArgs {
+				if checkRef(arg) {
+					return true
+				}
+			}
+			return false
+		}
+		// Try to resolve the type
+		resolved, ok := table.Get(ref.Name)
+		if !ok {
+			// Try namespace-qualified lookup
+			resolved, ok = table.Lookup(data.Namespace, ref.Name)
+		}
+		if !ok {
+			return false
+		}
+		// Check if this type is declared later in the output
+		if declIdx, exists := data.DeclOrder[resolved.QualifiedName]; exists {
+			if declIdx > data.CurrentDeclIndex {
+				return true
+			}
+		}
+		// Check type arguments
+		for _, arg := range ref.TypeArgs {
+			if checkRef(arg) {
+				return true
+			}
+		}
+		return false
+	}
+
+	return checkRef(t)
+}
+
 // isJSONTypedField checks if a field has a JSON type (either primitive json or
 // a type parameter constrained to json).
 func isJSONTypedField(field resolution.Field) bool {
@@ -864,13 +1020,20 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		}
 	}
 	shouldStringify := useInput && hasStringify
+
+	// Check if this field needs a getter for lazy evaluation.
+	// This is needed for:
+	// 1. Self-references (type refers to itself)
+	// 2. Forward references (type refers to something declared later in the output)
+	needsGetter := isSelfReference(field.Type, parentType) || isForwardReference(field.Type, data, table)
+
 	fd := fieldData{
 		Name:           field.Name,
 		TSName:         lo.CamelCase(field.Name),
 		IsOptional:     field.IsOptional,
 		IsHardOptional: field.IsHardOptional,
 		IsArray:        isArray,
-		IsSelfRef:      isSelfReference(field.Type, parentType),
+		IsSelfRef:      needsGetter,
 	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
 		fd.ZodType = primitiveToZod(typeOverride, data, shouldStringify)
@@ -885,7 +1048,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		}
 	} else {
 		// For arrays, process just the element type - the array wrapper is added later
-		// by array.nullishToEmpty() or array.nullToUndefined()
+		// by array.nullishToEmpty() or zod.nullToUndefined()
 		typeRefToProcess := &field.Type
 		if isArray && len(field.Type.TypeArgs) > 0 {
 			typeRefToProcess = &field.Type.TypeArgs[0]
@@ -917,14 +1080,15 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	if isArray {
-		addXImport(data, xImport{name: "array", submodule: "array"})
 		if isAnyOptional {
 			// Optional array: null/undefined -> undefined, [] stays []
 			// nullToUndefined already returns ZodOptional, so don't double-wrap
-			fd.ZodType = fmt.Sprintf("array.nullToUndefined(%s)", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullToUndefined<%s>>", fd.ZodSchemaType)
+			addXImport(data, xImport{name: "zod", submodule: "zod"})
+			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s.array())", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<z.ZodArray<%s>>>", fd.ZodSchemaType)
 		} else {
 			// Required array: coerce nullish -> []
+			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
 		}
@@ -1093,16 +1257,12 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 		if forStructArg {
 			return paramName
 		}
-		if typeRef.TypeParam.Constraint != nil && typeRef.TypeParam.Constraint.Name == "json" {
-			addXImport(data, xImport{name: "zod", submodule: "zod"})
-			// stringify is true only when BOTH struct has @ts use_input AND field has @ts stringify
-			if stringify {
-				return fmt.Sprintf("zod.jsonStringifier(%s)", paramName)
-			}
-			return fmt.Sprintf("zod.stringifiedJSON(%s)", paramName)
-		}
 		// Only add fallback if the type param has a default or is optional
 		if typeRef.TypeParam.Default != nil || typeRef.TypeParam.Optional {
+			// Add import for json constraint fallback
+			if typeRef.TypeParam.Constraint != nil && typeRef.TypeParam.Constraint.Name == "json" {
+				addXImport(data, xImport{name: "record", submodule: "record"})
+			}
 			return fmt.Sprintf("%s ?? %s", paramName, fallbackForConstraint(typeRef.TypeParam.Constraint, table))
 		}
 		return paramName
@@ -1519,16 +1679,9 @@ func addXImport(data *templateData, imp xImport) {
 }
 
 func primitiveToZod(primitive string, data *templateData, stringify bool) string {
-	// Special handling for JSON based on stringify flag
-	// stringify is true only when BOTH struct has @ts use_input AND field has @ts stringify
 	if primitive == "json" {
-		addXImport(data, xImport{name: "zod", submodule: "zod"})
-		if stringify {
-			// For fields marked with @ts stringify, convert JSON to string when sending to server
-			return "zod.jsonStringifier()"
-		}
-		// Default: parse JSON when receiving from server
-		return "zod.stringifiedJSON()"
+		addXImport(data, xImport{name: "record", submodule: "record"})
+		return "record.unknownZ"
 	}
 	if mapping, ok := primitiveZodTypes[primitive]; ok {
 		for _, imp := range mapping.xImports {
@@ -1629,6 +1782,11 @@ type templateData struct {
 	GenerateTypes         bool
 	Imports               map[string]*importSpec
 	Ontology              *ontologyData
+	// DeclOrder maps qualified type names to their declaration index in the output.
+	// Used to detect forward references that need getters for lazy evaluation.
+	DeclOrder map[string]int
+	// CurrentDeclIndex is the index of the type currently being processed.
+	CurrentDeclIndex int
 }
 
 type sortedDeclData struct {

@@ -46,7 +46,7 @@ func sugarDecodingErr(data []byte, value any, base error) error {
 		return base
 	}
 	val := reflect.ValueOf(value)
-	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), data)
+	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), string(data))
 	return errors.Combine(main, base)
 }
 

@@ -105,8 +105,8 @@ var _ = Describe("TS Types Plugin", func() {
 			// The array wrapper handles the array semantics
 			Expect(content).To(ContainSubstring(`labels: array.nullishToEmpty(z.uuid())`))
 			Expect(content).To(ContainSubstring(`parent: z.uuid().optional()`))
-			// Optional arrays use nullToUndefined with element schema
-			Expect(content).To(ContainSubstring(`tags: array.nullToUndefined(z.string())`))
+			// Optional arrays use nullToUndefined with array schema
+			Expect(content).To(ContainSubstring(`tags: zod.nullToUndefined(z.string().array())`))
 		})
 
 		It("Should apply validation rules", func() {
@@ -233,7 +233,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("float64", "float64", "z.number()"),
 				Entry("timestamp", "timestamp", "TimeStamp.z"),
 				Entry("timespan", "timespan", "TimeSpan.z"),
-				Entry("json", "json", "zod.stringifiedJSON()"),
+				Entry("json", "json", "record.unknownZ"),
 				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
 			)
 
@@ -420,7 +420,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`actions: array.nullishToEmpty(z.string())`))
 		})
 
-		It("Should handle optional arrays with array.nullToUndefined", func() {
+		It("Should handle optional arrays with zod.nullToUndefined", func() {
 			source := `
 				@ts output "out"
 
@@ -440,8 +440,8 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Optional arrays use nullToUndefined with element schema (not double-wrapped)
-			Expect(content).To(ContainSubstring(`operations: array.nullToUndefined(z.string())`))
+			// Optional arrays use nullToUndefined with array schema
+			Expect(content).To(ContainSubstring(`operations: zod.nullToUndefined(z.string().array())`))
 		})
 
 		It("Should generate error message for required validation", func() {
@@ -469,34 +469,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`firstName: z.string().min(1, "First Name is required")`))
 		})
 
-		It("Should use z.input and jsonStringifier when use_input and stringify are specified", func() {
-			source := `
-				@ts output "out"
-
-				New struct {
-					key uuid?
-					name string
-					data json @ts stringify
-
-					@ts use_input
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
-			Expect(content).To(ContainSubstring(`data: zod.jsonStringifier`))
-		})
-
-		It("Should use stringifiedJSON for json fields without @ts stringify even when use_input is specified", func() {
+		It("Should use z.input when use_input is specified", func() {
 			source := `
 				@ts output "out"
 
@@ -520,11 +493,10 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
-			// Without @ts stringify on the field, should use stringifiedJSON
-			Expect(content).To(ContainSubstring(`data: zod.stringifiedJSON()`))
+			Expect(content).To(ContainSubstring(`data: record.unknownZ`))
 		})
 
-		It("Should use jsonStringifier for overridden JSON fields with @ts stringify in child struct", func() {
+		It("Should use z.record for json fields in child struct with type param", func() {
 			source := `
 				@ts output "out"
 
@@ -535,7 +507,6 @@ var _ = Describe("TS Types Plugin", func() {
 
 				Child struct<Properties extends json = json> extends Parent<Properties> {
 					key uuid?
-					properties Properties @ts stringify
 					@ts use_input
 				}
 			`
@@ -550,41 +521,8 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Child should omit properties from parent and re-extend with jsonStringifier
-			Expect(content).To(ContainSubstring(`.omit({ properties: true })`))
-			Expect(content).To(ContainSubstring(`properties: zod.jsonStringifier(properties)`))
 			// Type should use z.input
 			Expect(content).To(ContainSubstring(`z.input<`))
-		})
-
-		It("Should NOT auto-stringify inherited JSON fields without @ts stringify", func() {
-			source := `
-				@ts output "out"
-
-				Parent struct<Properties extends json = json> {
-					name string
-					properties Properties
-				}
-
-				Child struct<Properties extends json = json> extends Parent<Properties> {
-					key uuid?
-					@ts use_input
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			// Child should NOT automatically omit and re-extend properties
-			// The inherited properties field should use parent's stringifiedJSON
-			Expect(content).NotTo(ContainSubstring(`properties: zod.jsonStringifier`))
 		})
 
 		It("Should use z.infer by default without use_input", func() {
@@ -664,8 +602,8 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const nodeZ = z.object({`))
 			Expect(content).To(ContainSubstring(`get children() {`))
-			// Optional arrays use array.nullToUndefined with element schema
-			Expect(content).To(ContainSubstring(`return array.nullToUndefined(nodeZ)`))
+			// Optional arrays use zod.nullToUndefined with array schema
+			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(nodeZ.array())`))
 		})
 
 		It("Should generate getter for struct with multiple recursive fields", func() {
@@ -717,8 +655,8 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const treeNodeZ = <K extends z.ZodType = z.ZodString>(k?: K) =>`))
 			Expect(content).To(ContainSubstring(`get children() {`))
-			// Optional arrays use array.nullToUndefined with element schema
-			Expect(content).To(ContainSubstring(`return array.nullToUndefined(treeNodeZ(k))`))
+			// Optional arrays use zod.nullToUndefined with array schema
+			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(treeNodeZ(k).array())`))
 		})
 
 		It("Should generate getter for generic recursive struct with multiple params", func() {
@@ -745,8 +683,8 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodString, V extends z.ZodType = z.ZodString>`))
 			Expect(content).To(ContainSubstring(`}: MapNodeSchemas<K, V> = {}) =>`))
 			Expect(content).To(ContainSubstring(`get children() {`))
-			// Optional arrays use array.nullToUndefined with element schema
-			Expect(content).To(ContainSubstring(`return array.nullToUndefined(mapNodeZ({k: k, v: v}))`))
+			// Optional arrays use zod.nullToUndefined with array schema
+			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(mapNodeZ({k: k, v: v}).array())`))
 		})
 
 		It("Should NOT generate getter for non-recursive struct", func() {
@@ -801,8 +739,8 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// The 'type' field should use: type ?? z.string() since Type extends string
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback")
-			// The 'config' field should use stringifiedJSON since Config extends json
-			Expect(content).To(ContainSubstring(`config: zod.stringifiedJSON(config)`), "config field should use zod.stringifiedJSON with type param")
+			// The 'config' field should use fallback pattern since Config extends json
+			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ`), "config field should use type param with fallback")
 			// The 'name' field should just be z.string() (not a type param)
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 		})
@@ -837,7 +775,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// Even with concrete_types, fields using type params should have the fallback pattern
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback even with concrete_types")
-			Expect(content).To(ContainSubstring(`config: zod.stringifiedJSON(config)`), "config field should use zod.stringifiedJSON with type param")
+			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ`), "config field should use type param with fallback")
 		})
 
 		It("Should preserve type params when extending generic parent with pass-through type args", func() {
@@ -1248,6 +1186,41 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`rackStatusZ = z.unknown()`))
 		})
 
+		It("Should wrap array type aliases with array.nullishToEmpty", func() {
+			// Type aliases that ARE arrays should use nullishToEmpty to coerce
+			// null/undefined to [] since the type itself is fundamentally an array
+			source := `
+				@ts output "out"
+
+				Stage struct {
+					key string
+					name string
+				}
+
+				Stages Stage[]
+
+				Stratum = string[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Array type aliases should use array.nullishToEmpty with element schema
+			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`export const stagesZ = array.nullishToEmpty(stageZ)`))
+			Expect(content).To(ContainSubstring(`export const stratumZ = array.nullishToEmpty(z.string())`))
+			// Should NOT be plain z.array()
+			Expect(content).NotTo(ContainSubstring(`stagesZ = z.array(stageZ)`))
+			Expect(content).NotTo(ContainSubstring(`stratumZ = z.array(z.string())`))
+		})
+
 		It("Should not double-wrap arrays when using array helpers", func() {
 			// Regression test: arrays should not be wrapped twice with z.array()
 			// The array helpers (nullishToEmpty, nullToUndefined) expect element schemas
@@ -1278,7 +1251,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// Should use operationZ directly, not z.array(operationZ)
 			Expect(content).To(ContainSubstring(`operations: array.nullishToEmpty(operationZ)`))
-			Expect(content).To(ContainSubstring(`optionalOps: array.nullToUndefined(operationZ)`))
+			Expect(content).To(ContainSubstring(`optionalOps: zod.nullToUndefined(operationZ.array())`))
 			// Make sure we don't have the double-wrapped version
 			Expect(content).NotTo(ContainSubstring(`z.array(operationZ)`))
 		})

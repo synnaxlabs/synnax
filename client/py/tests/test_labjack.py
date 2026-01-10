@@ -265,7 +265,7 @@ class TestLabJackReadTask:
         created_task = client.tasks.create(
             name="test-labjack-read-task",
             type="labjack_read",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.labjack.ReadTask(created_task)
 
@@ -443,7 +443,7 @@ class TestLabJackWriteTask:
         created_task = client.tasks.create(
             name="test-labjack-write-task",
             type="labjack_write",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.labjack.WriteTask(created_task)
 
@@ -476,7 +476,7 @@ class TestLabJackWriteTask:
         )
 
         # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
+        config_json = original_task.config
 
         # Create task in database
         created_task = client.tasks.create(

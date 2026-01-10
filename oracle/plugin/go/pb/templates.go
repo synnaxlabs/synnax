@@ -182,7 +182,7 @@ func {{.Name}}FromPB(v {{.PBType}}) {{.GoType}} {
 {{- range .GenericTranslators}}
 
 // {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}} using provided type converters.
-func {{.Name}}ToPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	{{if .UsesContext}}ctx{{else}}_{{end}} context.Context,
 	r {{.GoType}},
 {{- range .TypeParams}}
@@ -214,14 +214,22 @@ func {{.Name}}ToPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}
 	}
 {{- range .OptionalFields}}
 	if r.{{.GoName}} != nil {
+{{- if .HasError}}
+		var err error
+		pb.{{.PBName}}, err = {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+{{- else}}
 		pb.{{.PBName}} = {{.ForwardExpr}}
+{{- end}}
 	}
 {{- end}}
 	return pb, nil
 }
 
 // {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}} using provided type converters.
-func {{.Name}}FromPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}](
+func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
 	{{if .UsesContext}}ctx{{else}}_{{end}} context.Context,
 	pb *{{.PBType}},
 {{- range .TypeParams}}
@@ -259,10 +267,60 @@ func {{.Name}}FromPB[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Nam
 {{- end}}
 {{- range .OptionalFields}}
 	if pb.{{.PBName}} != nil {
+{{- if .IsOptionalStruct}}
+		val, err := {{.BackwardExpr}}
+		if err != nil {
+			return r, err
+		}
+{{- if .BackwardCast}}
+		r.{{.GoName}} = {{.BackwardCast}}(&val)
+{{- else}}
+		r.{{.GoName}} = &val
+{{- end}}
+{{- else}}
 		r.{{.GoName}} = {{.BackwardExpr}}
+{{- end}}
 	}
 {{- end}}
 	return r, nil
+}
+
+// {{.Name}}sToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.Name}}sToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
+	ctx context.Context,
+	rs []{{.GoType}},
+{{- range .TypeParams}}
+	translate{{.Name}} func(context.Context, {{.Name}}) (*anypb.Any, error),
+{{- end}}
+) ([]*{{.PBType}}, error) {
+	result := make([]*{{.PBType}}, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = {{.Name}}ToPB(ctx, rs[i]{{range .TypeParams}}, translate{{.Name}}{{end}})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// {{.Name}}sFromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.Name}}sFromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}}(
+	ctx context.Context,
+	pbs []*{{.PBType}},
+{{- range .TypeParams}}
+	translate{{.Name}} func(context.Context, *anypb.Any) ({{.Name}}, error),
+{{- end}}
+) ([]{{.GoType}}, error) {
+	result := make([]{{.GoType}}, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = {{.Name}}FromPB(ctx, pb{{range .TypeParams}}, translate{{.Name}}{{end}})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 {{- end}}
 {{- range .AnyHelpers}}

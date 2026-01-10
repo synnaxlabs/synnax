@@ -16,13 +16,15 @@
 
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/any.h"
 #include "x/cpp/json/struct.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
 
-inline ::service::task::pb::StatusDetails StatusDetails::to_proto() const {
+template<typename>
+inline ::service::task::pb::StatusDetails StatusDetails<>::to_proto() const {
     ::service::task::pb::StatusDetails pb;
     pb.set_task(static_cast<uint64_t>(this->task));
     pb.set_running(this->running);
@@ -32,9 +34,10 @@ inline ::service::task::pb::StatusDetails StatusDetails::to_proto() const {
     return pb;
 }
 
-inline std::pair<StatusDetails, x::errors::Error>
-StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
-    StatusDetails cpp;
+template<typename>
+inline std::pair<StatusDetails<>, x::errors::Error>
+StatusDetails<>::from_proto(const ::service::task::pb::StatusDetails &pb) {
+    StatusDetails<> cpp;
     cpp.task = Key(pb.task());
     cpp.running = pb.running();
     cpp.cmd = pb.cmd();
@@ -46,27 +49,33 @@ StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline ::service::task::pb::Task Payload::to_proto() const {
+template<typename>
+inline ::service::task::pb::Task Task<>::to_proto() const {
     ::service::task::pb::Task pb;
     pb.set_key(static_cast<uint64_t>(this->key));
     pb.set_name(this->name);
     pb.set_type(this->type);
+    *pb.mutable_config() = x::json::to_struct(this->config).first;
     pb.set_internal(this->internal);
     pb.set_snapshot(this->snapshot);
-    pb.set_config(this->config);
     if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
     return pb;
 }
 
-inline std::pair<Payload, x::errors::Error>
-Payload::from_proto(const ::service::task::pb::Task &pb) {
-    Payload cpp;
+template<typename>
+inline std::pair<Task<>, x::errors::Error>
+Task<>::from_proto(const ::service::task::pb::Task &pb) {
+    Task<> cpp;
     cpp.key = Key(pb.key());
     cpp.name = pb.name();
     cpp.type = pb.type();
+    {
+        auto [val, err] = x::json::from_struct(pb.config());
+        if (err) return {{}, err};
+        cpp.config = val;
+    }
     cpp.internal = pb.internal();
     cpp.snapshot = pb.snapshot();
-    cpp.config = pb.config();
     if (pb.has_status()) {
         auto [val, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};

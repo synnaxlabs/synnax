@@ -24,16 +24,16 @@ StatusDetails struct {
     running bool
 }
 
-Status = status.FixedVariantStatus<StatusDetails>
+Status = status.Status<StatusDetails>
 
 Key = uuid
 
 Arc struct {
-    key     Key           @key
+    key     Key             @key
     name    string
     graph   graph.Graph
     text    text.Text
-    module  module.Module
+    module  module.Module??
     deploy  bool
     version string
     status  Status??

@@ -422,7 +422,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ) -> None:
         if internal is not None:
             self._internal = internal
-            self.config = ReadTaskConfig.model_validate_json(internal.config)
+            self.config = ReadTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = ReadTaskConfig(
@@ -490,7 +490,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(

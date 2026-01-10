@@ -107,9 +107,9 @@ type Task struct {
 	Key           uint64                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	Internal      bool                   `protobuf:"varint,4,opt,name=internal,proto3" json:"internal,omitempty"`
-	Snapshot      bool                   `protobuf:"varint,5,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
-	Config        string                 `protobuf:"bytes,6,opt,name=config,proto3" json:"config,omitempty"`
+	Config        *structpb.Struct       `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
+	Internal      bool                   `protobuf:"varint,5,opt,name=internal,proto3" json:"internal,omitempty"`
+	Snapshot      bool                   `protobuf:"varint,6,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	Status        *pb.Status             `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -166,6 +166,13 @@ func (x *Task) GetType() string {
 	return ""
 }
 
+func (x *Task) GetConfig() *structpb.Struct {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
 func (x *Task) GetInternal() bool {
 	if x != nil {
 		return x.Internal
@@ -178,13 +185,6 @@ func (x *Task) GetSnapshot() bool {
 		return x.Snapshot
 	}
 	return false
-}
-
-func (x *Task) GetConfig() string {
-	if x != nil {
-		return x.Config
-	}
-	return ""
 }
 
 func (x *Task) GetStatus() *pb.Status {
@@ -272,14 +272,14 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
 	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x120\n" +
 	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\xcd\x01\n" +
+	"\x05_data\"\xe6\x01\n" +
 	"\x04Task\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\x04R\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1a\n" +
-	"\binternal\x18\x04 \x01(\bR\binternal\x12\x1a\n" +
-	"\bsnapshot\x18\x05 \x01(\bR\bsnapshot\x12\x16\n" +
-	"\x06config\x18\x06 \x01(\tR\x06config\x120\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12/\n" +
+	"\x06config\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1a\n" +
+	"\binternal\x18\x05 \x01(\bR\binternal\x12\x1a\n" +
+	"\bsnapshot\x18\x06 \x01(\bR\bsnapshot\x120\n" +
 	"\x06status\x18\a \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_status\"p\n" +
 	"\aCommand\x12\x12\n" +
@@ -311,13 +311,14 @@ var file_core_pkg_service_task_pb_task_proto_goTypes = []any{
 }
 var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
 	3, // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
-	4, // 1: service.task.pb.Task.status:type_name -> x.status.pb.Status
-	3, // 2: service.task.pb.Command.args:type_name -> google.protobuf.Struct
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	3, // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
+	4, // 2: service.task.pb.Task.status:type_name -> x.status.pb.Status
+	3, // 3: service.task.pb.Command.args:type_name -> google.protobuf.Struct
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_task_pb_task_proto_init() }

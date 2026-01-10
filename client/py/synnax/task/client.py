@@ -12,7 +12,8 @@ from __future__ import annotations
 import json
 import warnings
 from contextlib import contextmanager
-from typing import Protocol, overload
+from pickletools import stringnl_noescape_pair
+from typing import Any, Protocol, overload
 from uuid import uuid4
 
 from alamos import NOOP, Instrumentation
@@ -26,7 +27,7 @@ from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
-from synnax.task.types_gen import Payload as TaskPayload
+from synnax.task.types_gen import Payload as TaskPayload, Key
 from synnax.task.types_gen import Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from synnax.util.normalize import check_for_none, normalize, override
@@ -131,38 +132,35 @@ class BaseWriteTaskConfig(BaseTaskConfig):
     "The key of the Synnax device this task will communicate with."
 
 
-class Task:
-    key: int = 0
-    name: str = ""
-    type: str = ""
-    config: str = ""
-    snapshot: bool = False
-    internal: bool = False
-    status: Status | None = None
+class Task(TaskPayload):
     _frame_client: FrameClient | None = None
 
     def __init__(
         self,
         *,
-        key: int = 0,
+        key: Key = 0,
         rack: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config=None,
         snapshot: bool = False,
         internal: bool = False,
         status: Status | None = None,
         _frame_client: FrameClient | None = None,
     ):
+        if config is None:
+            config = dict()
         if key == 0:
             key = (rack << 32) + 0
-        self.key = key
-        self.name = name
-        self.type = type
-        self.config = config
-        self.snapshot = snapshot
-        self.internal = internal
-        self.status = status
+        super().__init__(
+            key=key,
+            name=name,
+            type=type,
+            config=config,
+            snapshot=snapshot,
+            internal=internal,
+            status=status,
+        )
         self._frame_client = _frame_client
 
     def to_payload(self) -> TaskPayload:
@@ -331,9 +329,7 @@ class JSONConfigMixin(TaskProtocol):
 
     def to_payload(self) -> TaskPayload:
         """Implements TaskProtocol protocol"""
-        pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.dict())
-        return pld
+        return self._internal.to_payload()
 
     def set_internal(self, task: Task):
         """Implements TaskProtocol protocol"""
@@ -370,15 +366,18 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: Any,
         rack: int = 0,
-    ): ...
+    ):
+        ...
 
     @overload
-    def create(self, tasks: Task) -> Task: ...
+    def create(self, tasks: Task) -> Task:
+        ...
 
     @overload
-    def create(self, tasks: list[Task]) -> list[Task]: ...
+    def create(self, tasks: list[Task]) -> list[Task]:
+        ...
 
     def create(
         self,
@@ -387,7 +386,7 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: str = "",
+        config: Any = None,
         rack: int = 0,
     ) -> Task | list[Task]:
         is_single = True
@@ -463,7 +462,8 @@ class Client:
         key: int | None = None,
         name: str | None = None,
         type: str | None = None,
-    ) -> Task: ...
+    ) -> Task:
+        ...
 
     @overload
     def retrieve(
@@ -471,7 +471,8 @@ class Client:
         names: list[str] | None = None,
         keys: list[int] | None = None,
         types: list[str] | None = None,
-    ) -> list[Task]: ...
+    ) -> list[Task]:
+        ...
 
     def retrieve(
         self,

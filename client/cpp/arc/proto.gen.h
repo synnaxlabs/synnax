@@ -43,7 +43,7 @@ inline ::service::arc::pb::Arc Arc::to_proto() const {
     pb.set_name(this->name);
     *pb.mutable_graph() = this->graph.to_proto();
     *pb.mutable_text() = this->text.to_proto();
-    *pb.mutable_module() = this->module.to_proto();
+    if (this->module.has_value()) *pb.mutable_module() = this->module->to_proto();
     pb.set_deploy(this->deploy);
     pb.set_version(this->version);
     if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
@@ -65,7 +65,7 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         if (err) return {{}, err};
         cpp.text = val;
     }
-    {
+    if (pb.has_module()) {
         auto [val, err] = arc::module::Module::from_proto(pb.module());
         if (err) return {{}, err};
         cpp.module = val;

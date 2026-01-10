@@ -423,20 +423,28 @@ func (p *Plugin) processGenericStructForTranslation(
 
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 
-	// Build type parameters
+	// Build type parameters, skipping defaulted ones
+	// (Go doesn't support advanced generics with defaults)
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue // Skip defaulted type params
+		}
 		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: "any"})
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
 
-	goTypeWithParams := fmt.Sprintf("%s.%s[%s]", data.parentAlias, goName, strings.Join(typeParamNames, ", "))
+	goTypeBase := fmt.Sprintf("%s.%s", data.parentAlias, goName)
+	goTypeWithParams := goTypeBase
+	if len(typeParamNames) > 0 {
+		goTypeWithParams = fmt.Sprintf("%s[%s]", goTypeBase, strings.Join(typeParamNames, ", "))
+	}
 
 	translator := &genericTranslatorData{
 		Name:            pbName,
 		GoType:          goTypeWithParams,
-		GoTypeBase:      fmt.Sprintf("%s.%s", data.parentAlias, goName),
+		GoTypeBase:      goTypeBase,
 		PBType:          pbName,
 		GoTypeShort:     goName,
 		PBTypeShort:     pbName,
@@ -491,6 +499,31 @@ func (p *Plugin) processGenericFieldForTranslation(
 
 	// Check if this field's type is a type parameter
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		// For defaulted type params, substitute the default type instead
+		if typeRef.TypeParam.HasDefault() {
+			// Treat as regular field with the default type
+			forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(
+				resolution.Field{
+					Name:           field.Name,
+					Type:           *typeRef.TypeParam.Default,
+					IsOptional:     field.IsOptional,
+					IsHardOptional: field.IsHardOptional,
+				},
+				data, parentStruct,
+			)
+			return fieldTranslatorData{
+				GoName:           goName,
+				PBName:           pbName,
+				ForwardExpr:      forwardExpr,
+				BackwardExpr:     backwardExpr,
+				BackwardCast:     backwardCast,
+				IsOptional:       isOptional,
+				IsOptionalStruct: isOptional && isStructType(*typeRef.TypeParam.Default, data.table),
+				HasError:         hasError,
+				HasBackwardError: hasBackwardError,
+			}, false // Not a type param field anymore
+		}
+
 		paramName := typeRef.TypeParam.Name
 		// Use the converter function: translateD(ctx, r.Details)
 		converterFunc := fmt.Sprintf("translate%s", paramName)
@@ -541,10 +574,13 @@ func (p *Plugin) processDelegationTranslator(
 		goName = td.Name
 	}
 
-	// Build type parameters
+	// Build type parameters, skipping defaulted ones
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue // Skip defaulted type params
+		}
 		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: "any"})
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
@@ -808,6 +844,22 @@ func (p *Plugin) generateFieldConversion(
 
 	// Handle type definitions (typedefs / distinct types)
 	if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+		// Check if this distinct type wraps a struct - if so, handle it like a struct
+		if baseResolved, ok := form.Base.Resolve(data.table); ok {
+			if _, isStruct := baseResolved.Form.(resolution.StructForm); isStruct {
+				f, b, c := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+				return f, b, c, true, true
+			}
+			// Also check if base is an alias to a struct
+			if aliasForm, isAlias := baseResolved.Form.(resolution.AliasForm); isAlias {
+				if target, ok := aliasForm.Target.Resolve(data.table); ok {
+					if _, isStruct := target.Form.(resolution.StructForm); isStruct {
+						f, b, c := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+						return f, b, c, true, true
+					}
+				}
+			}
+		}
 		f, b := p.generateTypeDefConversion(typeRef, resolved, form, data, goFieldName, pbFieldName)
 		return f, b, "", false, false
 	}
@@ -966,9 +1018,15 @@ func (p *Plugin) generateGenericStructConversion(
 	translatorPrefix, structName := p.resolvePBTranslatorInfo(actualStruct, data)
 
 	// Build converter function arguments and explicit type args for each type arg
+	// Skip type args that correspond to defaulted params
 	var forwardConverters, backwardConverters []string
 	var explicitTypeArgs []string
-	for _, typeArg := range typeArgs {
+	for i, typeArg := range typeArgs {
+		// Skip type args for defaulted params
+		if i < len(actualForm.TypeParams) && actualForm.TypeParams[i].HasDefault() {
+			continue
+		}
+
 		argResolved, ok := typeArg.Resolve(data.table)
 		if ok {
 			if _, isStruct := argResolved.Form.(resolution.StructForm); isStruct {

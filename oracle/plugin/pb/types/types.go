@@ -441,7 +441,11 @@ func (p *Plugin) generateNestedArrayWrapper(typeRef resolution.TypeRef, data *te
 
 func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (string, error) {
 	// Check if it's a type parameter
-	if typeRef.IsTypeParam() {
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		// For defaulted type params, use the default type instead of Any
+		if typeRef.TypeParam.HasDefault() {
+			return p.typeToProto(*typeRef.TypeParam.Default, data)
+		}
 		// Generic type parameter -> google.protobuf.Any
 		data.imports.add("google/protobuf/any.proto")
 		return "google.protobuf.Any", nil

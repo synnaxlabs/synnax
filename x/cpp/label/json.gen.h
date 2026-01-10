@@ -34,4 +34,19 @@ inline x::json::json Label::to_json() const {
     return j;
 }
 
+inline New New::parse(x::json::Parser parser) {
+    New result;
+    static_cast<Label &>(result) = Label::parse(parser);
+    result.key = parser.field<std::string>("key", "");
+    return result;
+}
+
+inline x::json::json New::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Label::to_json().items())
+        j[k] = v;
+    j["key"] = this->key;
+    return j;
+}
+
 }

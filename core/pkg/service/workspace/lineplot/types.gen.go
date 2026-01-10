@@ -18,7 +18,7 @@ import (
 type Key = uuid.UUID
 
 type LinePlot struct {
-	Key  Key    `json:"key" msgpack:"key"`
-	Name string `json:"name" msgpack:"name"`
-	Data string `json:"data" msgpack:"data"`
+	Key  Key            `json:"key" msgpack:"key"`
+	Name string         `json:"name" msgpack:"name"`
+	Data map[string]any `json:"data" msgpack:"data"`
 }

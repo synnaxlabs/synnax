@@ -21,7 +21,7 @@ StatusDetails struct {
     device string
 }
 
-Status = status.FixedVariantStatus<StatusDetails>
+Status = status.Status<StatusDetails>
 
 Key = string
 

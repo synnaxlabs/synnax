@@ -145,6 +145,14 @@ type TypeParam struct {
 	Optional   bool
 }
 
+// HasDefault returns true if the type parameter has a default value.
+// For languages that don't support literal type narrowing or advanced generics (Go, Python,
+// C++, Proto), type parameters with defaults should be skipped and substituted with
+// their default value instead.
+func (tp TypeParam) HasDefault() bool {
+	return tp.Default != nil
+}
+
 func UnifiedFields(typ Type, table *Table) []Field {
 	form, ok := typ.Form.(StructForm)
 	if !ok {

@@ -20,17 +20,6 @@ Schematic struct {
     snapshot bool
 
     @ontology type "schematic"
-    @go omit
-    @pb omit
-}
-
-GoSchematic struct extends Schematic {
-    data string
-    -data
-
-    @go name "Schematic"
-    @pb name "Schematic"
-    @ts omit
 }
 
 New struct extends Schematic {

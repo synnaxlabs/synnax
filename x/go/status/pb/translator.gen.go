@@ -76,10 +76,10 @@ func StatusToPB[Details any](
 	pb := &Status{
 		Key:         r.Key,
 		Name:        r.Name,
+		Variant:     VariantToPB(r.Variant),
 		Message:     r.Message,
 		Description: r.Description,
 		Time:        int64(r.Time),
-		Variant:     VariantToPB(r.Variant),
 		Details:     detailsAny,
 		Labels:      labelsVal,
 	}
@@ -107,9 +107,43 @@ func StatusFromPB[Details any](
 	}
 	r.Key = pb.Key
 	r.Name = pb.Name
+	r.Variant = VariantFromPB(pb.Variant)
 	r.Message = pb.Message
 	r.Description = pb.Description
 	r.Time = telem.TimeStamp(pb.Time)
-	r.Variant = VariantFromPB(pb.Variant)
 	return r, nil
+}
+
+// StatussToPB converts a slice of Status to Status.
+func StatussToPB[Details any](
+	ctx context.Context,
+	rs []status.Status[Details],
+	translateDetails func(context.Context, Details) (*anypb.Any, error),
+) ([]*Status, error) {
+	result := make([]*Status, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StatusToPB(ctx, rs[i], translateDetails)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatussFromPB converts a slice of Status to Status.
+func StatussFromPB[Details any](
+	ctx context.Context,
+	pbs []*Status,
+	translateDetails func(context.Context, *anypb.Any) (Details, error),
+) ([]status.Status[Details], error) {
+	result := make([]status.Status[Details], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StatusFromPB(ctx, pb, translateDetails)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }

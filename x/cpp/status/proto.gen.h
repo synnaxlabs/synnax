@@ -23,40 +23,12 @@
 
 namespace x::status {
 
-inline ::x::status::pb::Variant VariantToPB(const std::string &cpp) {
-    if (cpp == VARIANT_SUCCESS) return ::x::status::pb::VARIANT_SUCCESS;
-    if (cpp == VARIANT_INFO) return ::x::status::pb::VARIANT_INFO;
-    if (cpp == VARIANT_WARNING) return ::x::status::pb::VARIANT_WARNING;
-    if (cpp == VARIANT_ERROR) return ::x::status::pb::VARIANT_ERROR;
-    if (cpp == VARIANT_LOADING) return ::x::status::pb::VARIANT_LOADING;
-    if (cpp == VARIANT_DISABLED) return ::x::status::pb::VARIANT_DISABLED;
-    return ::x::status::pb::VARIANT_UNSPECIFIED;
-}
-
-inline std::string VariantFromPB(::x::status::pb::Variant pb) {
-    switch (pb) {
-        case ::x::status::pb::VARIANT_SUCCESS:
-            return VARIANT_SUCCESS;
-        case ::x::status::pb::VARIANT_INFO:
-            return VARIANT_INFO;
-        case ::x::status::pb::VARIANT_WARNING:
-            return VARIANT_WARNING;
-        case ::x::status::pb::VARIANT_ERROR:
-            return VARIANT_ERROR;
-        case ::x::status::pb::VARIANT_LOADING:
-            return VARIANT_LOADING;
-        case ::x::status::pb::VARIANT_DISABLED:
-            return VARIANT_DISABLED;
-        default:
-            return VARIANT_SUCCESS;
-    }
-}
-
 template<typename Details>
 inline ::x::status::pb::Status Status<Details>::to_proto() const {
     ::x::status::pb::Status pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
+    pb.set_variant(VariantToPB(this->variant));
     pb.set_message(this->message);
     pb.set_description(this->description);
     pb.set_time(this->time.nanoseconds());
@@ -67,7 +39,6 @@ inline ::x::status::pb::Status Status<Details>::to_proto() const {
     }
     for (const auto &item: this->labels)
         *pb.add_labels() = item.to_proto();
-    pb.set_variant(VariantToPB(this->variant));
     return pb;
 }
 
@@ -77,6 +48,7 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     Status<Details> cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
+    cpp.variant = VariantFromPB(pb.variant());
     cpp.message = pb.message();
     cpp.description = pb.description();
     cpp.time = x::telem::TimeStamp(pb.time());
@@ -101,7 +73,6 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
         if (err) return {{}, err};
         cpp.labels.push_back(v);
     }
-    cpp.variant = VariantFromPB(pb.variant());
     return {cpp, x::errors::NIL};
 }
 

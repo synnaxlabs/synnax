@@ -11,11 +11,11 @@
 
 import { z } from "zod";
 
-import { array } from "@/array";
 import { id } from "@/id";
 import { label } from "@/label";
 import { type optional } from "@/optional";
 import { TimeStamp } from "@/telem";
+import { zod } from "@/zod";
 export const VARIANTS = [
   "success",
   "info",
@@ -52,7 +52,7 @@ export type StatusZodObject<
     message: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
     time: z.ZodDefault<typeof TimeStamp.z>;
-    labels: ReturnType<typeof array.nullToUndefined<typeof label.labelZ>>;
+    labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
   } & ([Details] extends [z.ZodNever] ? {} : { details: Details })
 >;
 
@@ -86,7 +86,7 @@ export const statusZ: StatusZFunction = <
     description: z.string().optional(),
     time: TimeStamp.z.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
-    labels: array.nullToUndefined(label.labelZ),
+    labels: zod.nullToUndefined(label.labelZ.array()),
   });
 export type Status<
   Details extends z.ZodType = z.ZodNever,

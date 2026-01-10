@@ -86,7 +86,7 @@ type Arc struct {
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Graph         *pb.Graph              `protobuf:"bytes,3,opt,name=graph,proto3" json:"graph,omitempty"`
 	Text          *pb1.Text              `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
-	Module        *pb2.Module            `protobuf:"bytes,5,opt,name=module,proto3" json:"module,omitempty"`
+	Module        *pb2.Module            `protobuf:"bytes,5,opt,name=module,proto3,oneof" json:"module,omitempty"`
 	Deploy        bool                   `protobuf:"varint,6,opt,name=deploy,proto3" json:"deploy,omitempty"`
 	Version       string                 `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
 	Status        *pb3.Status            `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
@@ -184,18 +184,19 @@ var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1darc/go/module/pb/module.proto\x1a\x1bx/go/status/pb/status.proto\")\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1darc/go/module/pb/module.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/status/pb/status.proto\")\n" +
 	"\rStatusDetails\x12\x18\n" +
-	"\arunning\x18\x01 \x01(\bR\arunning\"\x9b\x02\n" +
+	"\arunning\x18\x01 \x01(\bR\arunning\"\xab\x02\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12)\n" +
 	"\x05graph\x18\x03 \x01(\v2\x13.arc.graph.pb.GraphR\x05graph\x12%\n" +
-	"\x04text\x18\x04 \x01(\v2\x11.arc.text.pb.TextR\x04text\x12-\n" +
-	"\x06module\x18\x05 \x01(\v2\x15.arc.module.pb.ModuleR\x06module\x12\x16\n" +
+	"\x04text\x18\x04 \x01(\v2\x11.arc.text.pb.TextR\x04text\x122\n" +
+	"\x06module\x18\x05 \x01(\v2\x15.arc.module.pb.ModuleH\x00R\x06module\x88\x01\x01\x12\x16\n" +
 	"\x06deploy\x18\x06 \x01(\bR\x06deploy\x12\x18\n" +
 	"\aversion\x18\a \x01(\tR\aversion\x120\n" +
-	"\x06status\x18\b \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\x06status\x18\b \x01(\v2\x13.x.status.pb.StatusH\x01R\x06status\x88\x01\x01B\t\n" +
+	"\a_moduleB\t\n" +
 	"\a_statusB\xa9\x01\n" +
 	"\x12com.service.arc.pbB\bArcProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/service/arc/pb\xa2\x02\x03SAP\xaa\x02\x0eService.Arc.Pb\xca\x02\x0eService\\Arc\\Pb\xe2\x02\x1aService\\Arc\\Pb\\GPBMetadata\xea\x02\x10Service::Arc::Pbb\x06proto3"
 

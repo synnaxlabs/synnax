@@ -37,7 +37,7 @@ const createReqZ = z.object({ workspaces: newZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const setLayoutReqZ = z.object({
   key: keyZ,
-  layout: record.unknownZ.transform((l) => JSON.stringify(l)),
+  layout: record.unknownZ,
 });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 

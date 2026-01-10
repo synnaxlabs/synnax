@@ -20,6 +20,7 @@ package pb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -36,7 +37,7 @@ type Table struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Data          string                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Data          *structpb.Struct       `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,22 +86,22 @@ func (x *Table) GetName() string {
 	return ""
 }
 
-func (x *Table) GetData() string {
+func (x *Table) GetData() *structpb.Struct {
 	if x != nil {
 		return x.Data
 	}
-	return ""
+	return nil
 }
 
 var File_core_pkg_service_workspace_table_pb_table_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_workspace_table_pb_table_proto_rawDesc = "" +
 	"\n" +
-	"/core/pkg/service/workspace/table/pb/table.proto\x12\x10service.table.pb\"A\n" +
+	"/core/pkg/service/workspace/table/pb/table.proto\x12\x10service.table.pb\x1a\x1cgoogle/protobuf/struct.proto\"Z\n" +
 	"\x05Table\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04data\x18\x03 \x01(\tR\x04dataB\xc1\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04dataB\xc1\x01\n" +
 	"\x14com.service.table.pbB\n" +
 	"TableProtoP\x01Z;github.com/synnaxlabs/synnax/pkg/service/workspace/table/pb\xa2\x02\x03STP\xaa\x02\x10Service.Table.Pb\xca\x02\x10Service\\Table\\Pb\xe2\x02\x1cService\\Table\\Pb\\GPBMetadata\xea\x02\x12Service::Table::Pbb\x06proto3"
 
@@ -118,14 +119,16 @@ func file_core_pkg_service_workspace_table_pb_table_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_workspace_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_workspace_table_pb_table_proto_goTypes = []any{
-	(*Table)(nil), // 0: service.table.pb.Table
+	(*Table)(nil),           // 0: service.table.pb.Table
+	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
 }
 var file_core_pkg_service_workspace_table_pb_table_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: service.table.pb.Table.data:type_name -> google.protobuf.Struct
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_workspace_table_pb_table_proto_init() }

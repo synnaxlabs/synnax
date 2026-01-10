@@ -20,132 +20,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// StatusDetailsToPB converts StatusDetails to StatusDetails.
-func StatusDetailsToPB(_ context.Context, r task.StatusDetails) (*StatusDetails, error) {
-	pb := &StatusDetails{
-		Task:    uint64(r.Task),
-		Running: r.Running,
-		Cmd:     r.Cmd,
-	}
-	if r.Data != nil {
-		var err error
-		pb.Data, err = structpb.NewStruct(r.Data)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pb, nil
-}
-
-// StatusDetailsFromPB converts StatusDetails to StatusDetails.
-func StatusDetailsFromPB(_ context.Context, pb *StatusDetails) (task.StatusDetails, error) {
-	var r task.StatusDetails
-	if pb == nil {
-		return r, nil
-	}
-	r.Task = task.Key(pb.Task)
-	r.Running = pb.Running
-	r.Cmd = pb.Cmd
-	if pb.Data != nil {
-		r.Data = pb.Data.AsMap()
-	}
-	return r, nil
-}
-
-// StatusDetailssToPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssToPB(ctx context.Context, rs []task.StatusDetails) ([]*StatusDetails, error) {
-	result := make([]*StatusDetails, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StatusDetailsToPB(ctx, rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StatusDetailssFromPB converts a slice of StatusDetails to StatusDetails.
-func StatusDetailssFromPB(ctx context.Context, pbs []*StatusDetails) ([]task.StatusDetails, error) {
-	result := make([]task.StatusDetails, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StatusDetailsFromPB(ctx, pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TaskToPB converts Task to Task.
-func TaskToPB(ctx context.Context, r task.Task) (*Task, error) {
-	pb := &Task{
-		Key:      uint64(r.Key),
-		Name:     r.Name,
-		Type:     r.Type,
-		Internal: r.Internal,
-		Snapshot: r.Snapshot,
-		Config:   r.Config,
-	}
-	if r.Status != nil {
-		var err error
-		pb.Status, err = statuspb.StatusToPB[task.StatusDetails](ctx, (status.Status[task.StatusDetails])(*r.Status), StatusDetailsToPBAny)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pb, nil
-}
-
-// TaskFromPB converts Task to Task.
-func TaskFromPB(ctx context.Context, pb *Task) (task.Task, error) {
-	var r task.Task
-	if pb == nil {
-		return r, nil
-	}
-	r.Key = task.Key(pb.Key)
-	r.Name = pb.Name
-	r.Type = pb.Type
-	r.Internal = pb.Internal
-	r.Snapshot = pb.Snapshot
-	r.Config = pb.Config
-	if pb.Status != nil {
-		val, err := statuspb.StatusFromPB[task.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
-		if err != nil {
-			return r, err
-		}
-		r.Status = (*task.Status)(&val)
-	}
-	return r, nil
-}
-
-// TasksToPB converts a slice of Task to Task.
-func TasksToPB(ctx context.Context, rs []task.Task) ([]*Task, error) {
-	result := make([]*Task, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = TaskToPB(ctx, rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TasksFromPB converts a slice of Task to Task.
-func TasksFromPB(ctx context.Context, pbs []*Task) ([]task.Task, error) {
-	result := make([]task.Task, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = TaskFromPB(ctx, pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // CommandToPB converts Command to Command.
 func CommandToPB(_ context.Context, r task.Command) (*Command, error) {
 	argsVal, err := structpb.NewStruct(r.Args)
@@ -193,6 +67,160 @@ func CommandsFromPB(ctx context.Context, pbs []*Command) ([]task.Command, error)
 	for i, pb := range pbs {
 		var err error
 		result[i], err = CommandFromPB(ctx, pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusDetailsToPB converts StatusDetails to StatusDetails using provided type converters.
+func StatusDetailsToPB(
+	_ context.Context,
+	r task.StatusDetails,
+) (*StatusDetails, error) {
+	pb := &StatusDetails{
+		Task:    uint64(r.Task),
+		Running: r.Running,
+		Cmd:     r.Cmd,
+	}
+	if r.Data != nil {
+		var err error
+		pb.Data, err = structpb.NewStruct(r.Data)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// StatusDetailsFromPB converts StatusDetails to StatusDetails using provided type converters.
+func StatusDetailsFromPB(
+	_ context.Context,
+	pb *StatusDetails,
+) (task.StatusDetails, error) {
+	var r task.StatusDetails
+	if pb == nil {
+		return r, nil
+	}
+	r.Task = task.Key(pb.Task)
+	r.Running = pb.Running
+	r.Cmd = pb.Cmd
+	if pb.Data != nil {
+		r.Data = pb.Data.AsMap()
+	}
+	return r, nil
+}
+
+// StatusDetailssToPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailssToPB(
+	ctx context.Context,
+	rs []task.StatusDetails,
+) ([]*StatusDetails, error) {
+	result := make([]*StatusDetails, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StatusDetailsToPB(ctx, rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatusDetailssFromPB converts a slice of StatusDetails to StatusDetails.
+func StatusDetailssFromPB(
+	ctx context.Context,
+	pbs []*StatusDetails,
+) ([]task.StatusDetails, error) {
+	result := make([]task.StatusDetails, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StatusDetailsFromPB(ctx, pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TaskToPB converts Task to Task using provided type converters.
+func TaskToPB(
+	ctx context.Context,
+	r task.Task,
+) (*Task, error) {
+	configVal, err := structpb.NewStruct(r.Config)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Task{
+		Key:      uint64(r.Key),
+		Name:     r.Name,
+		Type:     r.Type,
+		Internal: r.Internal,
+		Snapshot: r.Snapshot,
+		Config:   configVal,
+	}
+	if r.Status != nil {
+		var err error
+		pb.Status, err = statuspb.StatusToPB[task.StatusDetails](ctx, (status.Status[task.StatusDetails])(*r.Status), StatusDetailsToPBAny)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// TaskFromPB converts Task to Task using provided type converters.
+func TaskFromPB(
+	ctx context.Context,
+	pb *Task,
+) (task.Task, error) {
+	var r task.Task
+	if pb == nil {
+		return r, nil
+	}
+	r.Config = pb.Config.AsMap()
+	r.Key = task.Key(pb.Key)
+	r.Name = pb.Name
+	r.Type = pb.Type
+	r.Internal = pb.Internal
+	r.Snapshot = pb.Snapshot
+	if pb.Status != nil {
+		val, err := statuspb.StatusFromPB[task.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
+		if err != nil {
+			return r, err
+		}
+		r.Status = (*task.Status)(&val)
+	}
+	return r, nil
+}
+
+// TasksToPB converts a slice of Task to Task.
+func TasksToPB(
+	ctx context.Context,
+	rs []task.Task,
+) ([]*Task, error) {
+	result := make([]*Task, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TaskToPB(ctx, rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TasksFromPB converts a slice of Task to Task.
+func TasksFromPB(
+	ctx context.Context,
+	pbs []*Task,
+) ([]task.Task, error) {
+	result := make([]task.Task, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TaskFromPB(ctx, pb)
 		if err != nil {
 			return nil, err
 		}

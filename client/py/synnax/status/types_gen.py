@@ -15,12 +15,13 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from synnax import label
 from synnax.telem import TimeStamp
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
 
-class Base(BaseModel):
+class Status(BaseModel):
     key: str
     name: str = Field(default="")
     variant: Any
@@ -34,14 +35,7 @@ class Base(BaseModel):
         return hash(self.key)
 
 
-class Status(Base):
-    variant: Variant = Field(exclude=True)
-
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class New(Base):
+class New(Status):
     key: str | None = None
     name: str | None = None
     time: TimeStamp | None = None

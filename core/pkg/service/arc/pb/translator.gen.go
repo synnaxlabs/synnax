@@ -77,10 +77,6 @@ func ArcToPB(ctx context.Context, r arc.Arc) (*Arc, error) {
 	if err != nil {
 		return nil, err
 	}
-	moduleVal, err := modulepb.ModuleToPB(ctx, r.Module)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Arc{
 		Key:     r.Key.String(),
 		Name:    r.Name,
@@ -88,7 +84,13 @@ func ArcToPB(ctx context.Context, r arc.Arc) (*Arc, error) {
 		Version: r.Version,
 		Graph:   graphVal,
 		Text:    textVal,
-		Module:  moduleVal,
+	}
+	if r.Module != nil {
+		var err error
+		pb.Module, err = modulepb.ModuleToPB(ctx, *r.Module)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if r.Status != nil {
 		var err error
@@ -115,14 +117,17 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 	if err != nil {
 		return r, err
 	}
-	r.Module, err = modulepb.ModuleFromPB(ctx, pb.Module)
-	if err != nil {
-		return r, err
-	}
 	r.Key = arc.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Deploy = pb.Deploy
 	r.Version = pb.Version
+	if pb.Module != nil {
+		val, err := modulepb.ModuleFromPB(ctx, pb.Module)
+		if err != nil {
+			return r, err
+		}
+		r.Module = &val
+	}
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[arc.StatusDetails](ctx, pb.Status, StatusDetailsFromPBAny)
 		if err != nil {

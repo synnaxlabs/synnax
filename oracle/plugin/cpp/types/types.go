@@ -503,9 +503,12 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 	// Convert target type to C++ type string
 	target := p.aliasTargetToCpp(form.Target, data)
 
-	// Collect type parameters
+	// Collect type parameters, skipping defaulted ones
 	var typeParams []string
 	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue // Skip defaulted type params
+		}
 		typeParams = append(typeParams, tp.Name)
 	}
 
@@ -520,6 +523,10 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData) string {
 	// Handle type parameters
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		// For defaulted type params, use the default type instead
+		if typeRef.TypeParam.HasDefault() {
+			return p.aliasTargetToCpp(*typeRef.TypeParam.Default, data)
+		}
 		return typeRef.TypeParam.Name
 	}
 
@@ -623,16 +630,21 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	aliasForm, isAlias := entry.Form.(resolution.AliasForm)
 
 	sd := structData{
-		Name:      name,
-		Doc:       doc.Get(entry.Domains),
-		Fields:    make([]fieldData, 0, len(form.Fields)),
-		IsGeneric: form.IsGeneric(),
-		IsAlias:   isAlias,
+		Name:    name,
+		Doc:     doc.Get(entry.Domains),
+		Fields:  make([]fieldData, 0, len(form.Fields)),
+		IsAlias: isAlias,
 	}
 
+	// Process type parameters, skipping defaulted ones
+	// (C++ doesn't support advanced generics with defaults)
 	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue // Skip defaulted type params
+		}
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp))
 	}
+	sd.IsGeneric = len(sd.TypeParams) > 0
 
 	if isAlias {
 		sd.AliasOf = p.typeRefToCpp(aliasForm.Target, data)
@@ -768,6 +780,10 @@ func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
 	// Handle type parameters first
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		// For defaulted type params, use the default type instead
+		if typeRef.TypeParam.HasDefault() {
+			return p.typeRefToCpp(*typeRef.TypeParam.Default, data)
+		}
 		return typeRef.TypeParam.Name
 	}
 
@@ -884,7 +900,7 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 		}
 	}
 
-	return p.buildGenericType(name, typeArgs, data)
+	return p.buildGenericType(name, typeArgs, &resolved, data)
 }
 
 func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
@@ -935,17 +951,37 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolutio
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
-	return p.buildGenericType(name, typeArgs, data)
+	return p.buildGenericType(name, typeArgs, &resolved, data)
 }
 
-func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *templateData) string {
+func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType *resolution.Type, data *templateData) string {
 	if len(typeArgs) == 0 {
 		return baseName
 	}
 
-	args := make([]string, len(typeArgs))
-	for i, arg := range typeArgs {
-		args[i] = p.typeRefToCpp(arg, data)
+	// Filter type args, skipping those that correspond to defaulted params
+	var args []string
+	if targetType != nil {
+		if form, ok := targetType.Form.(resolution.StructForm); ok {
+			for i, arg := range typeArgs {
+				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
+					continue // Skip defaulted type args
+				}
+				args = append(args, p.typeRefToCpp(arg, data))
+			}
+		} else {
+			for _, arg := range typeArgs {
+				args = append(args, p.typeRefToCpp(arg, data))
+			}
+		}
+	} else {
+		for _, arg := range typeArgs {
+			args = append(args, p.typeRefToCpp(arg, data))
+		}
+	}
+
+	if len(args) == 0 {
+		return baseName
 	}
 	return fmt.Sprintf("%s<%s>", baseName, strings.Join(args, ", "))
 }
@@ -1156,7 +1192,7 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 	}
 
 	// Handle generic parents with type arguments
-	return p.buildGenericType(name, extendsRef.TypeArgs, data)
+	return p.buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 }
 
 var templateFuncs = template.FuncMap{

@@ -20,6 +20,7 @@ package pb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -36,8 +37,8 @@ type Schematic struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Snapshot      bool                   `protobuf:"varint,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
-	Data          string                 `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	Data          *structpb.Struct       `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Snapshot      bool                   `protobuf:"varint,4,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -86,6 +87,13 @@ func (x *Schematic) GetName() string {
 	return ""
 }
 
+func (x *Schematic) GetData() *structpb.Struct {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 func (x *Schematic) GetSnapshot() bool {
 	if x != nil {
 		return x.Snapshot
@@ -93,23 +101,16 @@ func (x *Schematic) GetSnapshot() bool {
 	return false
 }
 
-func (x *Schematic) GetData() string {
-	if x != nil {
-		return x.Data
-	}
-	return ""
-}
-
 var File_core_pkg_service_workspace_schematic_pb_schematic_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"7core/pkg/service/workspace/schematic/pb/schematic.proto\x12\x14service.schematic.pb\"a\n" +
+	"7core/pkg/service/workspace/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\"z\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\x12\x12\n" +
-	"\x04data\x18\x04 \x01(\tR\x04dataB\xdd\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04data\x12\x1a\n" +
+	"\bsnapshot\x18\x04 \x01(\bR\bsnapshotB\xdd\x01\n" +
 	"\x18com.service.schematic.pbB\x0eSchematicProtoP\x01Z?github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/pb\xa2\x02\x03SSP\xaa\x02\x14Service.Schematic.Pb\xca\x02\x14Service\\Schematic\\Pb\xe2\x02 Service\\Schematic\\Pb\\GPBMetadata\xea\x02\x16Service::Schematic::Pbb\x06proto3"
 
 var (
@@ -126,14 +127,16 @@ func file_core_pkg_service_workspace_schematic_pb_schematic_proto_rawDescGZIP() 
 
 var file_core_pkg_service_workspace_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_workspace_schematic_pb_schematic_proto_goTypes = []any{
-	(*Schematic)(nil), // 0: service.schematic.pb.Schematic
+	(*Schematic)(nil),       // 0: service.schematic.pb.Schematic
+	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
 }
 var file_core_pkg_service_workspace_schematic_pb_schematic_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: service.schematic.pb.Schematic.data:type_name -> google.protobuf.Struct
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_workspace_schematic_pb_schematic_proto_init() }

@@ -20,9 +20,9 @@ message Task {
   uint64 key = 1;
   string name = 2;
   string type = 3;
-  bool internal = 4;
-  bool snapshot = 5;
-  string config = 6;
+  google.protobuf.Struct config = 4;
+  bool internal = 5;
+  bool snapshot = 6;
   optional .x.status.pb.Status status = 7;
 }
 

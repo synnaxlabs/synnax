@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -25,25 +26,8 @@
 namespace synnax::task {
 
 struct Command;
-struct StatusDetails;
-struct Payload;
 
 using Key = std::uint64_t;
-
-struct Command {
-    Key task;
-    std::string type;
-    std::string key;
-    x::json::json args;
-
-    static Command parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::service::task::pb::Command;
-    [[nodiscard]] ::service::task::pb::Command to_proto() const;
-    static std::pair<Command, x::errors::Error>
-    from_proto(const ::service::task::pb::Command &pb);
-};
 
 struct StatusDetails {
     Key task;
@@ -60,23 +44,38 @@ struct StatusDetails {
     from_proto(const ::service::task::pb::StatusDetails &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+struct Command {
+    Key task;
+    std::string type;
+    std::string key;
+    x::json::json args;
 
-struct Payload {
+    static Command parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::task::pb::Command;
+    [[nodiscard]] ::service::task::pb::Command to_proto() const;
+    static std::pair<Command, x::errors::Error>
+    from_proto(const ::service::task::pb::Command &pb);
+};
+
+using Status = ::x::status::Status<StatusDetails<x::json::json>>;
+
+struct Task {
     Key key;
     std::string name;
     std::string type;
+    x::json::json config;
     bool internal;
     bool snapshot;
-    std::string config;
-    std::optional<Status> status;
+    std::optional<Status<x::json::json>> status;
 
-    static Payload parse(x::json::Parser parser);
+    static Task parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::service::task::pb::Task;
     [[nodiscard]] ::service::task::pb::Task to_proto() const;
-    static std::pair<Payload, x::errors::Error>
+    static std::pair<Task, x::errors::Error>
     from_proto(const ::service::task::pb::Task &pb);
 };
 }

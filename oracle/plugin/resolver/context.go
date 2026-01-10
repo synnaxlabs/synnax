@@ -30,6 +30,11 @@ type Context struct {
 	RepoRoot string
 	// DomainName is the language domain name (e.g., "go", "py", "ts", "cpp", "pb").
 	DomainName string
+	// SubstituteDefaultedTypeParams controls whether type parameters with default values
+	// should be substituted with their default. This is true for languages that
+	// don't support advanced generics (Go, Python, C++, Proto) and false for
+	// TypeScript which does support literal type narrowing.
+	SubstituteDefaultedTypeParams bool
 }
 
 // IsSameOutput checks if a resolved type is in the same output location as the current context.

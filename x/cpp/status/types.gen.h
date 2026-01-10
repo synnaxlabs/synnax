@@ -24,24 +24,16 @@
 #include "x/go/status/pb/status.pb.h"
 
 namespace x::status {
-
-constexpr const char *VARIANT_SUCCESS = "success";
-constexpr const char *VARIANT_INFO = "info";
-constexpr const char *VARIANT_WARNING = "warning";
-constexpr const char *VARIANT_ERROR = "error";
-constexpr const char *VARIANT_LOADING = "loading";
-constexpr const char *VARIANT_DISABLED = "disabled";
-
 template<typename Details>
 struct Status {
     std::string key;
     std::string name;
+    std::string variant;
     std::string message;
     std::string description;
     x::telem::TimeStamp time;
     Details details;
     std::vector<::x::label::Label> labels;
-    std::string variant;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

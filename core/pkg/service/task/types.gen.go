@@ -27,13 +27,13 @@ type StatusDetails struct {
 }
 
 type Task struct {
-	Key      Key     `json:"key" msgpack:"key"`
-	Name     string  `json:"name" msgpack:"name"`
-	Type     string  `json:"type" msgpack:"type"`
-	Internal bool    `json:"internal" msgpack:"internal"`
-	Snapshot bool    `json:"snapshot" msgpack:"snapshot"`
-	Config   string  `json:"config" msgpack:"config"`
-	Status   *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	Key      Key            `json:"key" msgpack:"key"`
+	Name     string         `json:"name" msgpack:"name"`
+	Type     string         `json:"type" msgpack:"type"`
+	Config   map[string]any `json:"config" msgpack:"config"`
+	Internal bool           `json:"internal" msgpack:"internal"`
+	Snapshot bool           `json:"snapshot" msgpack:"snapshot"`
+	Status   *Status        `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
 type Command struct {

@@ -15,15 +15,20 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // WorkspaceToPB converts Workspace to Workspace.
 func WorkspaceToPB(_ context.Context, r workspace.Workspace) (*Workspace, error) {
+	layoutVal, err := structpb.NewStruct(r.Layout)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Workspace{
 		Key:    r.Key.String(),
 		Name:   r.Name,
 		Author: r.Author.String(),
-		Layout: r.Layout,
+		Layout: layoutVal,
 	}
 	return pb, nil
 }
@@ -34,10 +39,10 @@ func WorkspaceFromPB(_ context.Context, pb *Workspace) (workspace.Workspace, err
 	if pb == nil {
 		return r, nil
 	}
+	r.Layout = pb.Layout.AsMap()
 	r.Key = workspace.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Author = uuid.MustParse(pb.Author)
-	r.Layout = pb.Layout
 	return r, nil
 }
 

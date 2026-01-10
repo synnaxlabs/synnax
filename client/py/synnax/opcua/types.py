@@ -342,7 +342,7 @@ class ReadTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
         if internal is not None:
             self._internal = internal
             self.config = WrappedReadTaskConfig.model_validate(
-                {"config": json.loads(internal.config)}
+                {"config": internal.config}
             ).config
             return
         self._internal = Task(name=name, type=self.TYPE)
@@ -437,7 +437,7 @@ class WriteTask(StarterStopperMixin, JSONConfigMixin, TaskProtocol):
     ):
         if internal is not None:
             self._internal = internal
-            self.config = WriteTaskConfig.model_validate_json(internal.config)
+            self.config = WriteTaskConfig.model_validate(internal.config)
             return
         self._internal = Task(name=name, type=self.TYPE)
         self.config = WriteTaskConfig(

@@ -17,13 +17,16 @@ import { module } from "@/arc/module";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
 export const statusDetailsZ = z.object({
   running: z.boolean(),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
+
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
+export const statusZ = status.statusZ({ details: statusDetailsZ });
+export type Status = z.infer<typeof statusZ>;
 
 export const newZ = z.object({
   key: keyZ.optional(),
@@ -35,15 +38,12 @@ export const newZ = z.object({
 });
 export interface New extends z.input<typeof newZ> {}
 
-export const statusZ = status.fixedVariantStatusZ(statusDetailsZ);
-export type Status = z.infer<typeof statusZ>;
-
 export const arcZ = z.object({
   key: keyZ,
   name: z.string(),
   graph: graph.graphZ,
   text: text.textZ,
-  module: module.moduleZ,
+  module: module.moduleZ.optional(),
   deploy: z.boolean(),
   version: z.string(),
   status: statusZ.optional(),

@@ -140,11 +140,12 @@ func generateGoFile(
 
 	// Create resolver context
 	ctx := &resolver.Context{
-		Table:      table,
-		OutputPath: outputPath,
-		Namespace:  namespace,
-		RepoRoot:   repoRoot,
-		DomainName: "go",
+		Table:                     table,
+		OutputPath:                outputPath,
+		Namespace:                 namespace,
+		RepoRoot:                  repoRoot,
+		DomainName:                "go",
+		SubstituteDefaultedTypeParams: true, // Go doesn't support advanced generics
 	}
 
 	// Create resolver with Go-specific components
@@ -241,26 +242,32 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 	switch form := td.Form.(type) {
 	case resolution.DistinctForm:
 		result := typeDefData{
-			Name:      name,
-			BaseType:  data.resolver.ResolveTypeRef(form.Base, data.ctx),
-			IsAlias:   false, // DistinctForm → "type X Y" (distinct type)
-			IsGeneric: len(form.TypeParams) > 0,
+			Name:     name,
+			BaseType: data.resolver.ResolveTypeRef(form.Base, data.ctx),
+			IsAlias:  false, // DistinctForm → "type X Y" (distinct type)
 		}
 		for _, tp := range form.TypeParams {
+			if tp.HasDefault() {
+				continue // Skip defaulted type params
+			}
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
+		result.IsGeneric = len(result.TypeParams) > 0
 		return result
 	case resolution.AliasForm:
 		baseType := data.resolver.ResolveTypeRef(form.Target, data.ctx)
 		result := typeDefData{
-			Name:      name,
-			BaseType:  baseType,
-			IsAlias:   true, // AliasForm → "type X = Y" (transparent alias)
-			IsGeneric: len(form.TypeParams) > 0,
+			Name:     name,
+			BaseType: baseType,
+			IsAlias:  true, // AliasForm → "type X = Y" (transparent alias)
 		}
 		for _, tp := range form.TypeParams {
+			if tp.HasDefault() {
+				continue // Skip defaulted type params
+			}
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
+		result.IsGeneric = len(result.TypeParams) > 0
 		return result
 	default:
 		return typeDefData{Name: name, BaseType: "any"}
@@ -270,11 +277,10 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 func processStruct(entry resolution.Type, data *templateData) structData {
 	form := entry.Form.(resolution.StructForm)
 	sd := structData{
-		Name:      entry.Name,
-		Doc:       doc.Get(entry.Domains),
-		Fields:    make([]fieldData, 0, len(form.Fields)),
-		IsGeneric: form.IsGeneric(),
-		IsAlias:   false,
+		Name:    entry.Name,
+		Doc:     doc.Get(entry.Domains),
+		Fields:  make([]fieldData, 0, len(form.Fields)),
+		IsAlias: false,
 	}
 
 	// Check for @go name override
@@ -282,10 +288,15 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		sd.Name = name
 	}
 
-	// Process type parameters
+	// Process type parameters, skipping defaulted ones
+	// (Go doesn't support advanced generics with defaults)
 	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue // Skip defaulted type params
+		}
 		sd.TypeParams = append(sd.TypeParams, processTypeParam(tp, data))
 	}
+	sd.IsGeneric = len(sd.TypeParams) > 0
 
 	// Handle struct extension
 	if len(form.Extends) > 0 {
@@ -404,14 +415,34 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	}
 }
 
-func buildGenericType(baseName string, typeArgs []resolution.TypeRef, data *templateData) string {
+func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType *resolution.Type, data *templateData) string {
 	if len(typeArgs) == 0 {
 		return baseName
 	}
 
-	args := make([]string, len(typeArgs))
-	for i, arg := range typeArgs {
-		args[i] = data.resolver.ResolveTypeRef(arg, data.ctx)
+	// Filter type args, skipping those that correspond to defaulted params
+	var args []string
+	if targetType != nil {
+		if form, ok := targetType.Form.(resolution.StructForm); ok {
+			for i, arg := range typeArgs {
+				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
+					continue // Skip defaulted type args
+				}
+				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
+			}
+		} else {
+			for _, arg := range typeArgs {
+				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
+			}
+		}
+	} else {
+		for _, arg := range typeArgs {
+			args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
+		}
+	}
+
+	if len(args) == 0 {
+		return baseName
 	}
 	return fmt.Sprintf("%s[%s]", baseName, strings.Join(args, ", "))
 }
@@ -427,7 +458,7 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 
 	// Same namespace AND same output path (or no output path) -> use unqualified name
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
-		return buildGenericType(name, extendsRef.TypeArgs, data)
+		return buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 	}
 
 	// Different output path -> need qualified name with import
@@ -437,7 +468,7 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
 	data.imports.AddInternal(alias, resolveGoImportPath(targetOutputPath, data.repoRoot))
-	return fmt.Sprintf("%s.%s", alias, buildGenericType(name, extendsRef.TypeArgs, data))
+	return fmt.Sprintf("%s.%s", alias, buildGenericType(name, extendsRef.TypeArgs, &parent, data))
 }
 
 // hasFieldConflicts checks if multiple parents have fields with the same name,

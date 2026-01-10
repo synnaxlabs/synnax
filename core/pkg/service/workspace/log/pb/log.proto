@@ -4,10 +4,12 @@ syntax = "proto3";
 
 package service.log.pb;
 
+import "google/protobuf/struct.proto";
+
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/log/pb";
 
 message Log {
   string key = 1;
   string name = 2;
-  string data = 3;
+  google.protobuf.Struct data = 3;
 }

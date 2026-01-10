@@ -74,7 +74,7 @@ func (w Writer) Rename(
 func (w Writer) SetLayout(
 	ctx context.Context,
 	key uuid.UUID,
-	layout string,
+	layout map[string]any,
 ) error {
 	return gorp.NewUpdate[uuid.UUID, Workspace]().
 		WhereKeys(key).

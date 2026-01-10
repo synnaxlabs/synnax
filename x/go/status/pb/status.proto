@@ -22,10 +22,10 @@ enum Variant {
 message Status {
   string key = 1;
   string name = 2;
-  string message = 3;
-  string description = 4;
-  int64 time = 5;
-  google.protobuf.Any details = 6;
-  repeated .x.label.pb.Label labels = 7;
-  Variant variant = 8;
+  Variant variant = 3;
+  string message = 4;
+  string description = 5;
+  int64 time = 6;
+  google.protobuf.Any details = 7;
+  repeated .x.label.pb.Label labels = 8;
 }

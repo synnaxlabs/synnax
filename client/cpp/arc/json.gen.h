@@ -53,7 +53,7 @@ inline x::json::json Arc::to_json() const {
     j["name"] = this->name;
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
-    j["module"] = this->module.to_json();
+    if (this->module.has_value()) j["module"] = this->module->to_json();
     j["deploy"] = this->deploy;
     j["version"] = this->version;
     j["status"] = this->status;

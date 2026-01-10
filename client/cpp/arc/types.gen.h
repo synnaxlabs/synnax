@@ -50,7 +50,7 @@ struct Arc {
     std::string name;
     ::arc::graph::Graph graph;
     ::arc::text::Text text;
-    ::arc::module::Module module;
+    std::optional<::arc::module::Module> module;
     bool deploy;
     std::string version;
     std::optional<Status> status;

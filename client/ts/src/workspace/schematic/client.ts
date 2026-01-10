@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type record } from "@synnaxlabs/x";
+import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -25,7 +25,7 @@ import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/typ
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({ key: keyZ, data: z.string() });
+const setDataReqZ = z.object({ key: keyZ, data: record.unknownZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -96,7 +96,7 @@ export class Client {
     await sendRequired(
       this.client,
       "/workspace/schematic/set-data",
-      { key, data: JSON.stringify(data) },
+      { key, data },
       setDataReqZ,
       emptyResZ,
     );

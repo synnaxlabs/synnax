@@ -369,10 +369,24 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 	// Handle generic parents with type arguments
 	if len(extendsRef.TypeArgs) > 0 {
 		args := make([]string, 0, len(extendsRef.TypeArgs))
-		for _, arg := range extendsRef.TypeArgs {
-			args = append(args, p.typeRefToCppForTranslator(arg, data))
+		// Get the parent's type params to filter defaulted ones
+		if parentForm, ok := parent.Form.(resolution.StructForm); ok {
+			for i, arg := range extendsRef.TypeArgs {
+				// Skip type args that correspond to defaulted params
+				if i < len(parentForm.TypeParams) && parentForm.TypeParams[i].HasDefault() {
+					continue
+				}
+				args = append(args, p.typeRefToCppForTranslator(arg, data))
+			}
+		} else {
+			// Not a struct form, resolve all args
+			for _, arg := range extendsRef.TypeArgs {
+				args = append(args, p.typeRefToCppForTranslator(arg, data))
+			}
 		}
-		name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+		if len(args) > 0 {
+			name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+		}
 	}
 
 	return name
@@ -393,6 +407,10 @@ func (p *Plugin) processStructForTranslation(
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range form.TypeParams {
+		// Skip defaulted type params - they're handled by substituting the default
+		if tp.HasDefault() {
+			continue
+		}
 		typeParams = append(typeParams, typeParamData{Name: tp.Name})
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
@@ -456,8 +474,11 @@ func (p *Plugin) processFieldForTranslation(
 	isGenericField := false
 	typeParamName := ""
 	if field.Type.TypeParam != nil {
-		isGenericField = true
-		typeParamName = field.Type.TypeParam.Name
+		// For defaulted type params, don't treat as generic - the default type is used directly
+		if !field.Type.TypeParam.HasDefault() {
+			isGenericField = true
+			typeParamName = field.Type.TypeParam.Name
+		}
 	}
 
 	forwardExpr, backwardExpr := p.generateFieldConversion(field, data)
@@ -501,6 +522,13 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if typeRef.TypeParam != nil {
+		// For defaulted type params, substitute the default and generate conversion
+		if typeRef.TypeParam.HasDefault() {
+			// Create a copy of the field with the substituted type
+			substitutedField := field
+			substitutedField.Type = *typeRef.TypeParam.Default
+			return p.generateFieldConversion(substitutedField, data)
+		}
 		return p.generateTypeParamConversion(field, data, fieldName)
 	}
 
@@ -651,6 +679,10 @@ func (p *Plugin) generateStructConversion(
 
 func (p *Plugin) typeRefToCppForTranslator(typeRef resolution.TypeRef, data *templateData) string {
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		// For defaulted type params, substitute the default
+		if typeRef.TypeParam.HasDefault() {
+			return p.typeRefToCppForTranslator(*typeRef.TypeParam.Default, data)
+		}
 		return typeRef.TypeParam.Name
 	}
 
@@ -677,11 +709,23 @@ func (p *Plugin) typeRefToCppForTranslator(typeRef resolution.TypeRef, data *tem
 	}
 
 	if len(typeRef.TypeArgs) > 0 {
-		args := make([]string, len(typeRef.TypeArgs))
-		for i, arg := range typeRef.TypeArgs {
-			args[i] = p.typeRefToCppForTranslator(arg, data)
+		var args []string
+		// Filter type args, skipping those for defaulted params
+		if form, ok := resolved.Form.(resolution.StructForm); ok {
+			for i, arg := range typeRef.TypeArgs {
+				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
+					continue
+				}
+				args = append(args, p.typeRefToCppForTranslator(arg, data))
+			}
+		} else {
+			for _, arg := range typeRef.TypeArgs {
+				args = append(args, p.typeRefToCppForTranslator(arg, data))
+			}
 		}
-		name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+		if len(args) > 0 {
+			name = fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
+		}
 	}
 
 	return name

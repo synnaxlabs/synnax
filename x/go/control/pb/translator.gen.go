@@ -131,3 +131,37 @@ func StateFromPB[R any](
 	r.Authority = control.Authority(pb.Authority)
 	return r, nil
 }
+
+// StatesToPB converts a slice of State to State.
+func StatesToPB[R any](
+	ctx context.Context,
+	rs []control.State[R],
+	translateR func(context.Context, R) (*anypb.Any, error),
+) ([]*State, error) {
+	result := make([]*State, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StateToPB(ctx, rs[i], translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StatesFromPB converts a slice of State to State.
+func StatesFromPB[R any](
+	ctx context.Context,
+	pbs []*State,
+	translateR func(context.Context, *anypb.Any) (R, error),
+) ([]control.State[R], error) {
+	result := make([]control.State[R], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StateFromPB(ctx, pb, translateR)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}

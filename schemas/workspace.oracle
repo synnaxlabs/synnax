@@ -20,22 +20,10 @@ Workspace struct {
     layout json
 
     @ontology type "workspace"
-    @go omit
-    @pb omit
-}
-
-GoWorkspace struct extends Workspace {
-    layout string
-    -layout
-
-    @go name "Workspace"
-    @pb name "Workspace"
-    @ts omit
 }
 
 New struct extends Workspace {
-    key    Key?
-    layout json @ts stringify
+    key Key?
     -author
 
     @ts use_input

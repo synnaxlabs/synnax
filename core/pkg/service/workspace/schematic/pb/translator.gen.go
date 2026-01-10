@@ -15,15 +15,20 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // SchematicToPB converts Schematic to Schematic.
 func SchematicToPB(_ context.Context, r schematic.Schematic) (*Schematic, error) {
+	dataVal, err := structpb.NewStruct(r.Data)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Schematic{
 		Key:      r.Key.String(),
 		Name:     r.Name,
 		Snapshot: r.Snapshot,
-		Data:     r.Data,
+		Data:     dataVal,
 	}
 	return pb, nil
 }
@@ -34,10 +39,10 @@ func SchematicFromPB(_ context.Context, pb *Schematic) (schematic.Schematic, err
 	if pb == nil {
 		return r, nil
 	}
+	r.Data = pb.Data.AsMap()
 	r.Key = schematic.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
-	r.Data = pb.Data
 	return r, nil
 }
 

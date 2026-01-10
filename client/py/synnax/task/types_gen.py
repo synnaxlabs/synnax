@@ -13,9 +13,10 @@ from __future__ import annotations
 
 from typing import Any, NewType, TypeAlias
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from synnax import status
+from synnax.ontology.payload import ID
 
 Key = NewType("Key", int)
 
@@ -27,14 +28,6 @@ class StatusDetails(BaseModel):
     data: Any | None = None
 
 
-class Payload(Task):
-    config: str = Field(exclude=True)
-    status: FixedVariantStatus | None = Field(default=None, exclude=True)
-
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class Command(BaseModel):
     task: Key
     type: str
@@ -42,4 +35,24 @@ class Command(BaseModel):
     args: dict[str, Any] | None = None
 
 
-Status: TypeAlias = status.Base[StatusDetails]
+Status: TypeAlias = status.Status[StatusDetails]
+
+
+class Payload(BaseModel):
+    key: Key
+    name: str
+    type: Any
+    config: Any
+    internal: bool | None = None
+    snapshot: bool | None = None
+    status: Status | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+ONTOLOGY_TYPE = ID(type="task")
+
+
+def ontology_id(key: Key) -> ID:
+    return ID(type="task", key=str(key))

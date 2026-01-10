@@ -54,6 +54,11 @@ type Resolver struct {
 func (r *Resolver) ResolveTypeRef(typeRef resolution.TypeRef, ctx *Context) string {
 	// Handle type parameters
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		// For languages that don't support advanced generics, substitute
+		// type parameters with defaults using their default value
+		if ctx.SubstituteDefaultedTypeParams && typeRef.TypeParam.HasDefault() {
+			return r.ResolveTypeRef(*typeRef.TypeParam.Default, ctx)
+		}
 		return typeRef.TypeParam.Name
 	}
 
@@ -103,10 +108,23 @@ func (r *Resolver) ResolveTypeRef(typeRef resolution.TypeRef, ctx *Context) stri
 func (r *Resolver) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, ctx *Context) string {
 	typeName := ctx.GetTypeName(resolved)
 
-	// Build type arguments
+	// Build type arguments, filtering out those that correspond to defaulted params
 	var args []string
-	for _, arg := range typeArgs {
-		args = append(args, r.ResolveTypeRef(arg, ctx))
+	if form, ok := resolved.Form.(resolution.StructForm); ok {
+		for i, arg := range typeArgs {
+			// Skip type args that correspond to defaulted params
+			if ctx.SubstituteDefaultedTypeParams && i < len(form.TypeParams) {
+				if form.TypeParams[i].HasDefault() {
+					continue
+				}
+			}
+			args = append(args, r.ResolveTypeRef(arg, ctx))
+		}
+	} else {
+		// Not a struct form, resolve all args
+		for _, arg := range typeArgs {
+			args = append(args, r.ResolveTypeRef(arg, ctx))
+		}
 	}
 	baseType := r.Formatter.FormatGeneric(typeName, args)
 

@@ -20,6 +20,7 @@ package pb
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -36,7 +37,7 @@ type LinePlot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Data          string                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Data          *structpb.Struct       `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,22 +86,22 @@ func (x *LinePlot) GetName() string {
 	return ""
 }
 
-func (x *LinePlot) GetData() string {
+func (x *LinePlot) GetData() *structpb.Struct {
 	if x != nil {
 		return x.Data
 	}
-	return ""
+	return nil
 }
 
 var File_core_pkg_service_workspace_lineplot_pb_lineplot_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDesc = "" +
 	"\n" +
-	"5core/pkg/service/workspace/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\"D\n" +
+	"5core/pkg/service/workspace/lineplot/pb/lineplot.proto\x12\x13service.lineplot.pb\x1a\x1cgoogle/protobuf/struct.proto\"]\n" +
 	"\bLinePlot\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04data\x18\x03 \x01(\tR\x04dataB\xd6\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04dataB\xd6\x01\n" +
 	"\x17com.service.lineplot.pbB\rLineplotProtoP\x01Z>github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot/pb\xa2\x02\x03SLP\xaa\x02\x13Service.Lineplot.Pb\xca\x02\x13Service\\Lineplot\\Pb\xe2\x02\x1fService\\Lineplot\\Pb\\GPBMetadata\xea\x02\x15Service::Lineplot::Pbb\x06proto3"
 
 var (
@@ -117,14 +118,16 @@ func file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_rawDescGZIP() []
 
 var file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_goTypes = []any{
-	(*LinePlot)(nil), // 0: service.lineplot.pb.LinePlot
+	(*LinePlot)(nil),        // 0: service.lineplot.pb.LinePlot
+	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
 }
 var file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: service.lineplot.pb.LinePlot.data:type_name -> google.protobuf.Struct
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_workspace_lineplot_pb_lineplot_proto_init() }
