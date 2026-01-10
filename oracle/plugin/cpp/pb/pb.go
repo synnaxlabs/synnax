@@ -338,6 +338,10 @@ func (p *Plugin) generateFieldConversion(
 		return p.generateArrayConversion(field, data)
 	}
 
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
+		return p.generateMapConversion(field, data)
+	}
+
 	if resolution.IsPrimitive(typeRef.Name) {
 		return p.generatePrimitiveConversion(typeRef.Name, fieldName, pbSetter, field.IsHardOptional, data)
 	}
@@ -421,6 +425,24 @@ func (p *Plugin) generatePrimitiveConversion(
 			forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_struct(this->%s).first", fieldName, fieldName)
 			backward = fmt.Sprintf(`{
         auto [val, err] = x::json::from_struct(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = val;
+    }`, fieldName, fieldName)
+		}
+		return forward, backward
+	case "any":
+		data.includes.addInternal("x/cpp/json/value.h")
+		if isOptional {
+			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_value(*this->%s).first", fieldName, fieldName, fieldName)
+			backward = fmt.Sprintf(`if (pb.has_%s()) {
+        auto [val, err] = x::json::from_value(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = val;
+    }`, fieldName, fieldName, fieldName)
+		} else {
+			forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_value(this->%s).first", fieldName, fieldName)
+			backward = fmt.Sprintf(`{
+        auto [val, err] = x::json::from_value(pb.%s());
         if (err) return {{}, err};
         cpp.%s = val;
     }`, fieldName, fieldName)
@@ -570,6 +592,12 @@ func (p *Plugin) generateDistinctConversion(
 			fmt.Sprintf("cpp.%s = %s(pb.%s());", fieldName, cppName, fieldName)
 	}
 
+	// Check if the distinct type is based on an Array (e.g., Params Param[])
+	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
+		elemType := form.Base.TypeArgs[0]
+		return p.generateArrayAliasConversion(fieldName, elemType, data)
+	}
+
 	return fmt.Sprintf("%s(this->%s)", pbSetter, fieldName),
 		fmt.Sprintf("cpp.%s = pb.%s();", fieldName, fieldName)
 }
@@ -583,6 +611,12 @@ func (p *Plugin) generateAliasConversion(
 ) (forward, backward string) {
 	if resolution.IsPrimitive(form.Target.Name) {
 		return p.generatePrimitiveConversion(form.Target.Name, fieldName, pbSetter, isOptional, data)
+	}
+
+	// Check if the alias target is an Array (e.g., Params -> Param[])
+	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
+		elemType := form.Target.TypeArgs[0]
+		return p.generateArrayAliasConversion(fieldName, elemType, data)
 	}
 
 	// Follow through to the target type
@@ -643,7 +677,24 @@ func (p *Plugin) generateArrayConversion(
 	}
 
 	elemType := typeRef.TypeArgs[0]
+	return p.generateArrayElementConversion(fieldName, elemType, data)
+}
 
+// generateArrayAliasConversion handles aliases that point to arrays (e.g., Params -> Param[])
+func (p *Plugin) generateArrayAliasConversion(
+	fieldName string,
+	elemType resolution.TypeRef,
+	data *templateData,
+) (forward, backward string) {
+	return p.generateArrayElementConversion(fieldName, elemType, data)
+}
+
+// generateArrayElementConversion generates conversion code for arrays, given the element type
+func (p *Plugin) generateArrayElementConversion(
+	fieldName string,
+	elemType resolution.TypeRef,
+	data *templateData,
+) (forward, backward string) {
 	if !resolution.IsPrimitive(elemType.Name) {
 		if resolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
@@ -666,6 +717,28 @@ func (p *Plugin) generateArrayConversion(
 
 	forward = fmt.Sprintf("for (const auto& item : this->%s) pb.add_%s(item)", fieldName, fieldName)
 	backward = fmt.Sprintf("for (const auto& item : pb.%s()) cpp.%s.push_back(item);", fieldName, fieldName)
+
+	return forward, backward
+}
+
+// generateMapConversion generates conversion code for Map types
+func (p *Plugin) generateMapConversion(
+	field resolution.Field,
+	data *templateData,
+) (forward, backward string) {
+	fieldName := field.Name
+	typeRef := field.Type
+
+	if len(typeRef.TypeArgs) < 2 {
+		return "// TODO: map without enough type args", "// TODO: map without enough type args"
+	}
+
+	// For protobuf maps, we need to iterate and insert elements
+	// Forward: copy from C++ unordered_map to protobuf map
+	forward = fmt.Sprintf("for (const auto& [k, v] : this->%s) (*pb.mutable_%s())[k] = v", fieldName, fieldName)
+
+	// Backward: copy from protobuf map to C++ unordered_map
+	backward = fmt.Sprintf("for (const auto& [k, v] : pb.%s()) cpp.%s[k] = v;", fieldName, fieldName)
 
 	return forward, backward
 }

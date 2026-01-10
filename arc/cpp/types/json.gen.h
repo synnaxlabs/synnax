@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 
 #include "x/cpp/json/json.h"
 
@@ -22,50 +23,83 @@ namespace arc::types {
 
 inline FunctionProperties FunctionProperties::parse(x::json::Parser parser) {
     return FunctionProperties{
-        .inputs = Params::parse(parser.child("inputs")),
-        .outputs = Params::parse(parser.child("outputs")),
-        .config = Params::parse(parser.child("config")),
+        .inputs = parser.field<std::vector<Param>>("inputs"),
+        .outputs = parser.field<std::vector<Param>>("outputs"),
+        .config = parser.field<std::vector<Param>>("config"),
     };
 }
 
 inline x::json::json FunctionProperties::to_json() const {
     x::json::json j;
-    j["inputs"] = this->inputs;
-    j["outputs"] = this->outputs;
-    j["config"] = this->config;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->inputs)
+            arr.push_back(item.to_json());
+        j["inputs"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->outputs)
+            arr.push_back(item.to_json());
+        j["outputs"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->config)
+            arr.push_back(item.to_json());
+        j["config"] = arr;
+    }
     return j;
 }
 
 inline Type Type::parse(x::json::Parser parser) {
     return Type{
-        .inputs = Params::parse(parser.child("inputs")),
-        .outputs = Params::parse(parser.child("outputs")),
-        .config = Params::parse(parser.child("config")),
-        .kind = Kind::parse(parser.child("kind")),
+        .inputs = parser.field<std::vector<Param>>("inputs"),
+        .outputs = parser.field<std::vector<Param>>("outputs"),
+        .config = parser.field<std::vector<Param>>("config"),
+        .kind = parser.field<Kind>("kind"),
         .name = parser.field<std::string>("name"),
-        .elem = Type::parse(parser.optional_child("elem")),
-        .unit = Unit::parse(parser.optional_child("unit")),
-        .constraint = Type::parse(parser.optional_child("constraint")),
+        .elem = parser.has("elem") ? x::mem::indirect<Type>(parser.field<Type>("elem"))
+                                   : nullptr,
+        .unit = parser.field<Unit>("unit"),
+        .constraint = parser.has("constraint")
+                        ? x::mem::indirect<Type>(parser.field<Type>("constraint"))
+                        : nullptr,
     };
 }
 
 inline x::json::json Type::to_json() const {
     x::json::json j;
-    j["inputs"] = this->inputs;
-    j["outputs"] = this->outputs;
-    j["config"] = this->config;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->inputs)
+            arr.push_back(item.to_json());
+        j["inputs"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->outputs)
+            arr.push_back(item.to_json());
+        j["outputs"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->config)
+            arr.push_back(item.to_json());
+        j["config"] = arr;
+    }
     j["kind"] = this->kind;
     j["name"] = this->name;
-    j["elem"] = this->elem.to_json();
-    j["unit"] = this->unit.to_json();
-    j["constraint"] = this->constraint.to_json();
+    if (this->elem.has_value()) j["elem"] = this->elem->to_json();
+    if (this->unit.has_value()) j["unit"] = this->unit->to_json();
+    if (this->constraint.has_value()) j["constraint"] = this->constraint->to_json();
     return j;
 }
 
 inline Param Param::parse(x::json::Parser parser) {
     return Param{
         .name = parser.field<std::string>("name"),
-        .type = Type::parse(parser.child("type")),
+        .type = parser.field<Type>("type"),
         .value = parser.field<x::json::json>("value", {}),
     };
 }
@@ -80,8 +114,8 @@ inline x::json::json Param::to_json() const {
 
 inline Channels Channels::parse(x::json::Parser parser) {
     return Channels{
-        .read = Map<std::uint32_t, std::string>::parse(parser.child("read")),
-        .write = Map<std::uint32_t, std::string>::parse(parser.child("write")),
+        .read = parser.field<std::unordered_map<std::uint32_t, std::string>>("read"),
+        .write = parser.field<std::unordered_map<std::uint32_t, std::string>>("write"),
     };
 }
 
@@ -120,7 +154,7 @@ inline x::json::json Dimensions::to_json() const {
 
 inline Unit Unit::parse(x::json::Parser parser) {
     return Unit{
-        .dimensions = Dimensions::parse(parser.child("dimensions")),
+        .dimensions = parser.field<Dimensions>("dimensions"),
         .scale = parser.field<double>("scale"),
         .name = parser.field<std::string>("name"),
     };

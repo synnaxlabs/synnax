@@ -19,6 +19,7 @@
 #include "x/cpp/spatial/proto.gen.h"
 
 #include "arc/cpp/graph/types.gen.h"
+#include "arc/cpp/ir/proto.gen.h"
 #include "arc/go/graph/pb/graph.pb.h"
 
 namespace arc::graph {
@@ -72,9 +73,12 @@ Viewport::from_proto(const ::arc::graph::pb::Viewport &pb) {
 inline ::arc::graph::pb::Graph Graph::to_proto() const {
     ::arc::graph::pb::Graph pb;
     *pb.mutable_viewport() = this->viewport.to_proto();
-    pb.set_functions(this->functions);
-    pb.set_edges(this->edges);
-    pb.set_nodes(this->nodes);
+    for (const auto &item: this->functions)
+        *pb.add_functions() = item.to_proto();
+    for (const auto &item: this->edges)
+        *pb.add_edges() = item.to_proto();
+    for (const auto &item: this->nodes)
+        *pb.add_nodes() = item.to_proto();
     return pb;
 }
 
@@ -86,9 +90,21 @@ Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
         if (err) return {{}, err};
         cpp.viewport = val;
     }
-    cpp.functions = pb.functions();
-    cpp.edges = pb.edges();
-    cpp.nodes = pb.nodes();
+    for (const auto &item: pb.functions()) {
+        auto [v, err] = arc::ir::Function::from_proto(item);
+        if (err) return {{}, err};
+        cpp.functions.push_back(v);
+    }
+    for (const auto &item: pb.edges()) {
+        auto [v, err] = arc::ir::Edge::from_proto(item);
+        if (err) return {{}, err};
+        cpp.edges.push_back(v);
+    }
+    for (const auto &item: pb.nodes()) {
+        auto [v, err] = Node::from_proto(item);
+        if (err) return {{}, err};
+        cpp.nodes.push_back(v);
+    }
     return {cpp, x::errors::NIL};
 }
 

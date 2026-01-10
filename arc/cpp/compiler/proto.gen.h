@@ -24,7 +24,8 @@ namespace arc::compiler {
 inline ::arc::compiler::pb::Output Output::to_proto() const {
     ::arc::compiler::pb::Output pb;
     pb.set_WASM(this->WASM);
-    pb.set_OutputMemoryBases(this->OutputMemoryBases);
+    for (const auto &[k, v]: this->OutputMemoryBases)
+        (*pb.mutable_OutputMemoryBases())[k] = v;
     return pb;
 }
 
@@ -32,7 +33,8 @@ inline std::pair<Output, x::errors::Error>
 Output::from_proto(const ::arc::compiler::pb::Output &pb) {
     Output cpp;
     cpp.WASM = pb.WASM();
-    cpp.OutputMemoryBases = pb.OutputMemoryBases();
+    for (const auto &[k, v]: pb.OutputMemoryBases())
+        cpp.OutputMemoryBases[k] = v;
     return {cpp, x::errors::NIL};
 }
 

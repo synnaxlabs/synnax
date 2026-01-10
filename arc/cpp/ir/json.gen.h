@@ -37,9 +37,9 @@ inline x::json::json Handle::to_json() const {
 
 inline Edge Edge::parse(x::json::Parser parser) {
     return Edge{
-        .source = Handle::parse(parser.child("source")),
-        .target = Handle::parse(parser.child("target")),
-        .kind = EdgeKind::parse(parser.child("kind")),
+        .source = parser.field<Handle>("source"),
+        .target = parser.field<Handle>("target"),
+        .kind = parser.field<EdgeKind>("kind"),
     };
 }
 
@@ -55,7 +55,7 @@ inline Stage Stage::parse(x::json::Parser parser) {
     return Stage{
         .key = parser.field<std::string>("key"),
         .nodes = parser.field<std::vector<std::string>>("nodes"),
-        .strata = Strata::parse(parser.child("strata")),
+        .strata = parser.field<std::vector<Stratum>>("strata"),
     };
 }
 
@@ -101,11 +101,11 @@ inline x::json::json Body::to_json() const {
 inline Function Function::parse(x::json::Parser parser) {
     return Function{
         .key = parser.field<std::string>("key"),
-        .body = Body::parse(parser.child("body")),
-        .config = arc::types::Params::parse(parser.child("config")),
-        .inputs = arc::types::Params::parse(parser.child("inputs")),
-        .outputs = arc::types::Params::parse(parser.child("outputs")),
-        .channels = arc::types::Channels::parse(parser.child("channels")),
+        .body = parser.field<Body>("body"),
+        .config = parser.field<std::vector<arc::types::Param>>("config"),
+        .inputs = parser.field<std::vector<arc::types::Param>>("inputs"),
+        .outputs = parser.field<std::vector<arc::types::Param>>("outputs"),
+        .channels = parser.field<arc::types::Channels>("channels"),
     };
 }
 
@@ -113,9 +113,24 @@ inline x::json::json Function::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["body"] = this->body.to_json();
-    j["config"] = this->config;
-    j["inputs"] = this->inputs;
-    j["outputs"] = this->outputs;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->config)
+            arr.push_back(item.to_json());
+        j["config"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->inputs)
+            arr.push_back(item.to_json());
+        j["inputs"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->outputs)
+            arr.push_back(item.to_json());
+        j["outputs"] = arr;
+    }
     j["channels"] = this->channels.to_json();
     return j;
 }
@@ -124,10 +139,10 @@ inline Node Node::parse(x::json::Parser parser) {
     return Node{
         .key = parser.field<std::string>("key"),
         .type = parser.field<std::string>("type"),
-        .config = arc::types::Params::parse(parser.child("config")),
-        .inputs = arc::types::Params::parse(parser.child("inputs")),
-        .outputs = arc::types::Params::parse(parser.child("outputs")),
-        .channels = arc::types::Channels::parse(parser.child("channels")),
+        .config = parser.field<std::vector<arc::types::Param>>("config"),
+        .inputs = parser.field<std::vector<arc::types::Param>>("inputs"),
+        .outputs = parser.field<std::vector<arc::types::Param>>("outputs"),
+        .channels = parser.field<arc::types::Channels>("channels"),
     };
 }
 
@@ -135,30 +150,65 @@ inline x::json::json Node::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["type"] = this->type;
-    j["config"] = this->config;
-    j["inputs"] = this->inputs;
-    j["outputs"] = this->outputs;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->config)
+            arr.push_back(item.to_json());
+        j["config"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->inputs)
+            arr.push_back(item.to_json());
+        j["inputs"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->outputs)
+            arr.push_back(item.to_json());
+        j["outputs"] = arr;
+    }
     j["channels"] = this->channels.to_json();
     return j;
 }
 
 inline IR IR::parse(x::json::Parser parser) {
     return IR{
-        .functions = Functions::parse(parser.child("functions")),
-        .nodes = Nodes::parse(parser.child("nodes")),
-        .edges = Edges::parse(parser.child("edges")),
-        .strata = Strata::parse(parser.child("strata")),
-        .sequences = Sequences::parse(parser.child("sequences")),
+        .functions = parser.field<std::vector<Function>>("functions"),
+        .nodes = parser.field<std::vector<Node>>("nodes"),
+        .edges = parser.field<std::vector<Edge>>("edges"),
+        .strata = parser.field<std::vector<Stratum>>("strata"),
+        .sequences = parser.field<std::vector<Sequence>>("sequences"),
     };
 }
 
 inline x::json::json IR::to_json() const {
     x::json::json j;
-    j["functions"] = this->functions;
-    j["nodes"] = this->nodes;
-    j["edges"] = this->edges;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->functions)
+            arr.push_back(item.to_json());
+        j["functions"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->nodes)
+            arr.push_back(item.to_json());
+        j["nodes"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->edges)
+            arr.push_back(item.to_json());
+        j["edges"] = arr;
+    }
     j["strata"] = this->strata;
-    j["sequences"] = this->sequences;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->sequences)
+            arr.push_back(item.to_json());
+        j["sequences"] = arr;
+    }
     return j;
 }
 

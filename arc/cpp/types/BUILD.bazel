@@ -5,10 +5,12 @@ cc_library(
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
+        "types.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//arc/go/types:types_grpc",
+        "//x/cpp/mem",
         "//x/cpp/telem",
     ],
 )

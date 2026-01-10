@@ -246,30 +246,6 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
-// DirectionToPB converts spatial.Direction to Direction.
-func DirectionToPB(v spatial.Direction) Direction {
-	switch v {
-	case spatial.DirectionX:
-		return Direction_DIRECTION_X
-	case spatial.DirectionY:
-		return Direction_DIRECTION_Y
-	default:
-		return Direction_DIRECTION_UNSPECIFIED
-	}
-}
-
-// DirectionFromPB converts Direction to spatial.Direction.
-func DirectionFromPB(v Direction) spatial.Direction {
-	switch v {
-	case Direction_DIRECTION_X:
-		return spatial.DirectionX
-	case Direction_DIRECTION_Y:
-		return spatial.DirectionY
-	default:
-		return spatial.DirectionX
-	}
-}
-
 // OuterLocationToPB converts spatial.OuterLocation to OuterLocation.
 func OuterLocationToPB(v spatial.OuterLocation) OuterLocation {
 	switch v {
@@ -455,5 +431,29 @@ func OrderFromPB(v Order) spatial.Order {
 		return spatial.OrderLast
 	default:
 		return spatial.OrderFirst
+	}
+}
+
+// DirectionToPB converts spatial.Direction to Direction.
+func DirectionToPB(v spatial.Direction) Direction {
+	switch v {
+	case spatial.DirectionX:
+		return Direction_DIRECTION_X
+	case spatial.DirectionY:
+		return Direction_DIRECTION_Y
+	default:
+		return Direction_DIRECTION_UNSPECIFIED
+	}
+}
+
+// DirectionFromPB converts Direction to spatial.Direction.
+func DirectionFromPB(v Direction) spatial.Direction {
+	switch v {
+	case Direction_DIRECTION_X:
+		return spatial.DirectionX
+	case Direction_DIRECTION_Y:
+		return spatial.DirectionY
+	default:
+		return spatial.DirectionX
 	}
 }

@@ -26,7 +26,7 @@ inline Node Node::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key"),
         .type = parser.field<std::string>("type"),
         .config = parser.field<x::json::json>("config"),
-        .position = x::spatial::XY::parse(parser.child("position")),
+        .position = parser.field<x::spatial::XY>("position"),
     };
 }
 
@@ -41,7 +41,7 @@ inline x::json::json Node::to_json() const {
 
 inline Viewport Viewport::parse(x::json::Parser parser) {
     return Viewport{
-        .position = x::spatial::XY::parse(parser.child("position")),
+        .position = parser.field<x::spatial::XY>("position"),
         .zoom = parser.field<double>("zoom"),
     };
 }
@@ -55,19 +55,34 @@ inline x::json::json Viewport::to_json() const {
 
 inline Graph Graph::parse(x::json::Parser parser) {
     return Graph{
-        .viewport = Viewport::parse(parser.child("viewport")),
-        .functions = arc::ir::Functions::parse(parser.child("functions")),
-        .edges = arc::ir::Edges::parse(parser.child("edges")),
-        .nodes = Nodes::parse(parser.child("nodes")),
+        .viewport = parser.field<Viewport>("viewport"),
+        .functions = parser.field<std::vector<arc::ir::Function>>("functions"),
+        .edges = parser.field<std::vector<arc::ir::Edge>>("edges"),
+        .nodes = parser.field<std::vector<Node>>("nodes"),
     };
 }
 
 inline x::json::json Graph::to_json() const {
     x::json::json j;
     j["viewport"] = this->viewport.to_json();
-    j["functions"] = this->functions;
-    j["edges"] = this->edges;
-    j["nodes"] = this->nodes;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->functions)
+            arr.push_back(item.to_json());
+        j["functions"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->edges)
+            arr.push_back(item.to_json());
+        j["edges"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->nodes)
+            arr.push_back(item.to_json());
+        j["nodes"] = arr;
+    }
     return j;
 }
 

@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 
+
 export const outputZ = z.object({
   wasm: z.instanceof(Uint8Array),
   outputMemoryBases: z.record(z.string(), z.uint32()),

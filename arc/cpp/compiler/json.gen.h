@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -24,9 +25,10 @@ namespace arc::compiler {
 inline Output Output::parse(x::json::Parser parser) {
     return Output{
         .WASM = parser.field<std::vector<std::uint8_t>>("WASM"),
-        .OutputMemoryBases = Map<std::string, std::uint32_t>::parse(
-            parser.child("OutputMemoryBases")
-        ),
+        .OutputMemoryBases = parser
+                                 .field<std::unordered_map<std::string, std::uint32_t>>(
+                                     "OutputMemoryBases"
+                                 ),
     };
 }
 

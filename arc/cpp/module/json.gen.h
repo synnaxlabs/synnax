@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -24,25 +25,46 @@ namespace arc::module {
 
 inline Module Module::parse(x::json::Parser parser) {
     return Module{
-        .functions = arc::ir::Functions::parse(parser.child("functions")),
-        .nodes = arc::ir::Nodes::parse(parser.child("nodes")),
-        .edges = arc::ir::Edges::parse(parser.child("edges")),
-        .strata = arc::ir::Strata::parse(parser.child("strata")),
-        .sequences = arc::ir::Sequences::parse(parser.child("sequences")),
+        .functions = parser.field<std::vector<arc::ir::Function>>("functions"),
+        .nodes = parser.field<std::vector<arc::ir::Node>>("nodes"),
+        .edges = parser.field<std::vector<arc::ir::Edge>>("edges"),
+        .strata = parser.field<std::vector<arc::ir::Stratum>>("strata"),
+        .sequences = parser.field<std::vector<arc::ir::Sequence>>("sequences"),
         .WASM = parser.field<std::vector<std::uint8_t>>("WASM"),
-        .OutputMemoryBases = Map<std::string, std::uint32_t>::parse(
-            parser.child("OutputMemoryBases")
-        ),
+        .OutputMemoryBases = parser
+                                 .field<std::unordered_map<std::string, std::uint32_t>>(
+                                     "OutputMemoryBases"
+                                 ),
     };
 }
 
 inline x::json::json Module::to_json() const {
     x::json::json j;
-    j["functions"] = this->functions;
-    j["nodes"] = this->nodes;
-    j["edges"] = this->edges;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->functions)
+            arr.push_back(item.to_json());
+        j["functions"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->nodes)
+            arr.push_back(item.to_json());
+        j["nodes"] = arr;
+    }
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->edges)
+            arr.push_back(item.to_json());
+        j["edges"] = arr;
+    }
     j["strata"] = this->strata;
-    j["sequences"] = this->sequences;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->sequences)
+            arr.push_back(item.to_json());
+        j["sequences"] = arr;
+    }
     j["WASM"] = this->WASM;
     j["OutputMemoryBases"] = this->OutputMemoryBases;
     return j;

@@ -16,6 +16,7 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "arc/cpp/ir/proto.gen.h"
 #include "arc/cpp/module/types.gen.h"
 #include "arc/go/module/pb/module.pb.h"
 
@@ -23,26 +24,50 @@ namespace arc::module {
 
 inline ::arc::module::pb::Module Module::to_proto() const {
     ::arc::module::pb::Module pb;
-    pb.set_functions(this->functions);
-    pb.set_nodes(this->nodes);
-    pb.set_edges(this->edges);
-    pb.set_strata(this->strata);
-    pb.set_sequences(this->sequences);
+    for (const auto &item: this->functions)
+        *pb.add_functions() = item.to_proto();
+    for (const auto &item: this->nodes)
+        *pb.add_nodes() = item.to_proto();
+    for (const auto &item: this->edges)
+        *pb.add_edges() = item.to_proto();
+    for (const auto &item: this->strata)
+        pb.add_strata(item);
+    for (const auto &item: this->sequences)
+        *pb.add_sequences() = item.to_proto();
     pb.set_WASM(this->WASM);
-    pb.set_OutputMemoryBases(this->OutputMemoryBases);
+    for (const auto &[k, v]: this->OutputMemoryBases)
+        (*pb.mutable_OutputMemoryBases())[k] = v;
     return pb;
 }
 
 inline std::pair<Module, x::errors::Error>
 Module::from_proto(const ::arc::module::pb::Module &pb) {
     Module cpp;
-    cpp.functions = pb.functions();
-    cpp.nodes = pb.nodes();
-    cpp.edges = pb.edges();
-    cpp.strata = pb.strata();
-    cpp.sequences = pb.sequences();
+    for (const auto &item: pb.functions()) {
+        auto [v, err] = arc::ir::Function::from_proto(item);
+        if (err) return {{}, err};
+        cpp.functions.push_back(v);
+    }
+    for (const auto &item: pb.nodes()) {
+        auto [v, err] = arc::ir::Node::from_proto(item);
+        if (err) return {{}, err};
+        cpp.nodes.push_back(v);
+    }
+    for (const auto &item: pb.edges()) {
+        auto [v, err] = arc::ir::Edge::from_proto(item);
+        if (err) return {{}, err};
+        cpp.edges.push_back(v);
+    }
+    for (const auto &item: pb.strata())
+        cpp.strata.push_back(item);
+    for (const auto &item: pb.sequences()) {
+        auto [v, err] = arc::ir::Sequence::from_proto(item);
+        if (err) return {{}, err};
+        cpp.sequences.push_back(v);
+    }
     cpp.WASM = pb.WASM();
-    cpp.OutputMemoryBases = pb.OutputMemoryBases();
+    for (const auto &[k, v]: pb.OutputMemoryBases())
+        cpp.OutputMemoryBases[k] = v;
     return {cpp, x::errors::NIL};
 }
 

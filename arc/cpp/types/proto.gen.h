@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/value.h"
 
 #include "arc/cpp/types/types.gen.h"
 #include "arc/go/types/pb/types.pb.h"
@@ -23,26 +24,44 @@ namespace arc::types {
 
 inline ::arc::types::pb::FunctionProperties FunctionProperties::to_proto() const {
     ::arc::types::pb::FunctionProperties pb;
-    pb.set_inputs(this->inputs);
-    pb.set_outputs(this->outputs);
-    pb.set_config(this->config);
+    for (const auto &item: this->inputs)
+        *pb.add_inputs() = item.to_proto();
+    for (const auto &item: this->outputs)
+        *pb.add_outputs() = item.to_proto();
+    for (const auto &item: this->config)
+        *pb.add_config() = item.to_proto();
     return pb;
 }
 
 inline std::pair<FunctionProperties, x::errors::Error>
 FunctionProperties::from_proto(const ::arc::types::pb::FunctionProperties &pb) {
     FunctionProperties cpp;
-    cpp.inputs = pb.inputs();
-    cpp.outputs = pb.outputs();
-    cpp.config = pb.config();
+    for (const auto &item: pb.inputs()) {
+        auto [v, err] = Param::from_proto(item);
+        if (err) return {{}, err};
+        cpp.inputs.push_back(v);
+    }
+    for (const auto &item: pb.outputs()) {
+        auto [v, err] = Param::from_proto(item);
+        if (err) return {{}, err};
+        cpp.outputs.push_back(v);
+    }
+    for (const auto &item: pb.config()) {
+        auto [v, err] = Param::from_proto(item);
+        if (err) return {{}, err};
+        cpp.config.push_back(v);
+    }
     return {cpp, x::errors::NIL};
 }
 
 inline ::arc::types::pb::Type Type::to_proto() const {
     ::arc::types::pb::Type pb;
-    pb.set_inputs(this->inputs);
-    pb.set_outputs(this->outputs);
-    pb.set_config(this->config);
+    for (const auto &item: this->inputs)
+        *pb.add_inputs() = item.to_proto();
+    for (const auto &item: this->outputs)
+        *pb.add_outputs() = item.to_proto();
+    for (const auto &item: this->config)
+        *pb.add_config() = item.to_proto();
     pb.set_kind(static_cast<::arc::types::pb::Kind>(this->kind));
     pb.set_name(this->name);
     if (this->elem.has_value()) *pb.mutable_elem() = this->elem->to_proto();
@@ -55,9 +74,21 @@ inline ::arc::types::pb::Type Type::to_proto() const {
 inline std::pair<Type, x::errors::Error>
 Type::from_proto(const ::arc::types::pb::Type &pb) {
     Type cpp;
-    cpp.inputs = pb.inputs();
-    cpp.outputs = pb.outputs();
-    cpp.config = pb.config();
+    for (const auto &item: pb.inputs()) {
+        auto [v, err] = Param::from_proto(item);
+        if (err) return {{}, err};
+        cpp.inputs.push_back(v);
+    }
+    for (const auto &item: pb.outputs()) {
+        auto [v, err] = Param::from_proto(item);
+        if (err) return {{}, err};
+        cpp.outputs.push_back(v);
+    }
+    for (const auto &item: pb.config()) {
+        auto [v, err] = Param::from_proto(item);
+        if (err) return {{}, err};
+        cpp.config.push_back(v);
+    }
     cpp.kind = static_cast<Kind>(pb.kind());
     cpp.name = pb.name();
     if (pb.has_elem()) {
@@ -82,7 +113,7 @@ inline ::arc::types::pb::Param Param::to_proto() const {
     ::arc::types::pb::Param pb;
     pb.set_name(this->name);
     *pb.mutable_type() = this->type.to_proto();
-    pb.set_value(this->value);
+    *pb.mutable_value() = x::json::to_value(this->value).first;
     return pb;
 }
 
@@ -95,22 +126,30 @@ Param::from_proto(const ::arc::types::pb::Param &pb) {
         if (err) return {{}, err};
         cpp.type = val;
     }
-    cpp.value = pb.value();
+    {
+        auto [val, err] = x::json::from_value(pb.value());
+        if (err) return {{}, err};
+        cpp.value = val;
+    }
     return {cpp, x::errors::NIL};
 }
 
 inline ::arc::types::pb::Channels Channels::to_proto() const {
     ::arc::types::pb::Channels pb;
-    pb.set_read(this->read);
-    pb.set_write(this->write);
+    for (const auto &[k, v]: this->read)
+        (*pb.mutable_read())[k] = v;
+    for (const auto &[k, v]: this->write)
+        (*pb.mutable_write())[k] = v;
     return pb;
 }
 
 inline std::pair<Channels, x::errors::Error>
 Channels::from_proto(const ::arc::types::pb::Channels &pb) {
     Channels cpp;
-    cpp.read = pb.read();
-    cpp.write = pb.write();
+    for (const auto &[k, v]: pb.read())
+        cpp.read[k] = v;
+    for (const auto &[k, v]: pb.write())
+        cpp.write[k] = v;
     return {cpp, x::errors::NIL};
 }
 

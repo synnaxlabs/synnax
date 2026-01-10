@@ -24,7 +24,8 @@ export const roleZ = z.object({
 });
 export interface Role extends z.infer<typeof roleZ> {}
 
-export const newZ = roleZ.partial({ key: true });
+export const newZ = roleZ
+  .partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("role");

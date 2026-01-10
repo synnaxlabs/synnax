@@ -14,16 +14,9 @@ import { z } from "zod";
 import { array } from "@/array";
 import { id } from "@/id";
 import { label } from "@/label";
-import { type optional } from "@/optional";
+import { optional } from "@/optional";
 import { TimeStamp } from "@/telem";
-export const VARIANTS = [
-  "success",
-  "info",
-  "warning",
-  "error",
-  "loading",
-  "disabled",
-] as const;
+export const VARIANTS = ["success", "info", "warning", "error", "loading", "disabled"] as const;
 export const variantZ = z.enum([...VARIANTS]);
 export const successVariantZ = z.literal("success");
 export const infoVariantZ = z.literal("info");
@@ -33,18 +26,12 @@ export const loadingVariantZ = z.literal("loading");
 export const disabledVariantZ = z.literal("disabled");
 export type Variant = z.infer<typeof variantZ>;
 
-export interface StatusSchemas<
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
-> {
+export interface StatusSchemas<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> {
   details?: Details;
   v?: V;
 }
 
-export type StatusZodObject<
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
-> = z.ZodObject<
+export type StatusZodObject<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> = z.ZodObject<
   {
     key: z.ZodDefault<z.ZodString>;
     name: z.ZodDefault<z.ZodString>;
@@ -57,27 +44,18 @@ export type StatusZodObject<
 >;
 
 export interface StatusZFunction {
-  <
-    Details extends z.ZodType = z.ZodNever,
-    V extends z.ZodType<Variant> = typeof variantZ,
-  >(args: {
-    details?: Details;
-    v?: V;
-  }): StatusZodObject<Details, V>;
-  <
-    Details extends z.ZodType = z.ZodNever,
-    V extends z.ZodType<Variant> = typeof variantZ,
-  >(
-    args?: StatusSchemas<Details, V>,
+  <Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ>(
+    args: { details?: Details; v?: V }
+  ): StatusZodObject<Details, V>;
+  <Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ>(
+    args?: StatusSchemas<Details, V>
   ): StatusZodObject<Details, V>;
 }
 
-export const statusZ: StatusZFunction = <
-  Details extends z.ZodType,
-  V extends z.ZodType<Variant>,
->(
-  { details, v }: StatusSchemas<Details, V> = {} as StatusSchemas<Details, V>,
-) =>
+export const statusZ: StatusZFunction = <Details extends z.ZodType, V extends z.ZodType<Variant>>({
+  details,
+  v,
+}: StatusSchemas<Details, V> = {} as StatusSchemas<Details, V>) =>
   z.object({
     key: z.string().default(() => id.create()),
     name: z.string().default(""),
@@ -88,10 +66,7 @@ export const statusZ: StatusZFunction = <
     details: details ?? z.unknown().optional(),
     labels: array.nullToUndefined(label.labelZ),
   });
-export type Status<
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
-> = {
+export type Status<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> = {
   key: string;
   name: string;
   variant: z.infer<V>;
@@ -101,20 +76,15 @@ export type Status<
   labels?: label.Label[];
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
 
-export interface NewSchemas<
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
-> {
+export interface NewSchemas<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> {
   details?: Details;
   v?: V;
 }
 
-export const newZ = <
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
->({ details, v }: NewSchemas<Details, V> = {}) =>
-  statusZ({ details, v }).partial({ key: true, name: true, time: true });
-export type New<
-  Details extends z.ZodType = z.ZodNever,
-  V extends z.ZodType<Variant> = typeof variantZ,
-> = optional.Optional<Status<Details, V>, "key" | "name" | "time">;
+export const newZ = <Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ>({
+  details,
+  v,
+}: NewSchemas<Details, V> = {}) =>
+  statusZ({ details, v })
+    .partial({ key: true, name: true, time: true });
+export type New<Details extends z.ZodType = z.ZodNever, V extends z.ZodType<Variant> = typeof variantZ> = optional.Optional<Status<Details, V>, "key" | "name" | "time">;

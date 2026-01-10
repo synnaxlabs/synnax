@@ -62,7 +62,7 @@ struct Channels {
     std::unordered_map<std::uint32_t, std::string> write;
 
     static Channels parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const
+    [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::arc::types::pb::Channels;
     [[nodiscard]] ::arc::types::pb::Channels to_proto() const;
