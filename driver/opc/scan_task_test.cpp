@@ -35,9 +35,7 @@ protected:
 
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
-        task = synnax::task::Task{
-            .name = "OPC UA Scan Task Test", .type = "opc_scan"
-        };
+        task = synnax::task::Task{.name = "OPC UA Scan Task Test", .type = "opc_scan"};
 
         auto server_cfg = mock::ServerConfig::create_default();
         server = std::make_unique<mock::Server>(server_cfg);
@@ -263,7 +261,9 @@ TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
 TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
     driver::opc::Scanner scanner(ctx, task, conn_pool);
     synnax::task::Command cmd{
-        .task = task.key, .type = "unknown_command", .args = json{}
+        .task = task.key,
+        .type = "unknown_command",
+        .args = json{}
     };
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);

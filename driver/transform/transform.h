@@ -20,8 +20,8 @@
 #include "glog/logging.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 namespace driver::transform {
 class Transform {
@@ -174,12 +174,14 @@ public:
 };
 
 class Scale final : public Transform {
-    std::map<synnax::channel::Key, std::variant<UnaryLinearScale, UnaryMapScale>> scales;
+    std::map<synnax::channel::Key, std::variant<UnaryLinearScale, UnaryMapScale>>
+        scales;
 
 public:
     explicit Scale(
         const x::json::Parser &parser,
-        const std::unordered_map<synnax::channel::Key, synnax::channel::Channel> &channels
+        const std::unordered_map<synnax::channel::Key, synnax::channel::Channel>
+            &channels
     ) {
         parser.iter("channels", [this, &channels](x::json::Parser &channel_parser) {
             const auto key = channel_parser.field<synnax::channel::Key>("channel");

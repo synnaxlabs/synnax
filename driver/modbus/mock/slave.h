@@ -32,8 +32,8 @@
 
 #include "modbus/modbus.h"
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/modbus/util/util.h"
 

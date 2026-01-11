@@ -433,7 +433,14 @@ TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
     constexpr size_t n_read = 3;
     constexpr size_t offset = 1; // Index starts after data channel
 
-    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+    driver::task::common::generate_index_data(
+        fr,
+        index_keys,
+        start,
+        end,
+        n_read,
+        offset
+    );
 
     // Check index values are evenly spaced
     EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(0), x::telem::TimeStamp(1000));
@@ -455,12 +462,28 @@ TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
     constexpr size_t n_read = 3;
     constexpr size_t offset = 1;
 
-    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+    driver::task::common::generate_index_data(
+        fr,
+        index_keys,
+        start,
+        end,
+        n_read,
+        offset
+    );
 
     for (size_t i = 1; i <= 2; i++) {
-        EXPECT_EQ(fr.series->at(i).at<x::telem::TimeStamp>(0), x::telem::TimeStamp(1000));
-        EXPECT_EQ(fr.series->at(i).at<x::telem::TimeStamp>(1), x::telem::TimeStamp(2000));
-        EXPECT_EQ(fr.series->at(i).at<x::telem::TimeStamp>(2), x::telem::TimeStamp(3000));
+        EXPECT_EQ(
+            fr.series->at(i).at<x::telem::TimeStamp>(0),
+            x::telem::TimeStamp(1000)
+        );
+        EXPECT_EQ(
+            fr.series->at(i).at<x::telem::TimeStamp>(1),
+            x::telem::TimeStamp(2000)
+        );
+        EXPECT_EQ(
+            fr.series->at(i).at<x::telem::TimeStamp>(2),
+            x::telem::TimeStamp(3000)
+        );
     }
 }
 
@@ -476,7 +499,14 @@ TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
     constexpr size_t n_read = 3;
     constexpr size_t offset = 0;
 
-    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset);
+    driver::task::common::generate_index_data(
+        fr,
+        index_keys,
+        start,
+        end,
+        n_read,
+        offset
+    );
     EXPECT_EQ(fr.size(), 1);
 }
 
@@ -494,7 +524,15 @@ TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
     constexpr size_t offset = 1;
     constexpr bool inclusive = true;
 
-    driver::task::common::generate_index_data(fr, index_keys, start, end, n_read, offset, inclusive);
+    driver::task::common::generate_index_data(
+        fr,
+        index_keys,
+        start,
+        end,
+        n_read,
+        offset,
+        inclusive
+    );
 
     // Check inclusive spacing (end point included in equal intervals)
     EXPECT_EQ(fr.series->at(1).at<x::telem::TimeStamp>(0), x::telem::TimeStamp(1000));

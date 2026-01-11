@@ -45,7 +45,9 @@ public:
 /// first frame written.
 TEST(AcquisitionPipeline, testStartResolution) {
     auto writes = std::make_shared<std::vector<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
+        writes
+    );
     auto start_ts = x::telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
     synnax::framer::WriterConfig writer_config{.channels = {1}};
@@ -67,7 +69,11 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
     auto writes = std::make_shared<std::vector<x::telem::Frame>>();
     const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
         writes,
-        std::vector{freighter::ERR_UNREACHABLE, freighter::ERR_UNREACHABLE, x::errors::NIL}
+        std::vector{
+            freighter::ERR_UNREACHABLE,
+            freighter::ERR_UNREACHABLE,
+            x::errors::NIL
+        }
     );
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
@@ -167,7 +173,9 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
 /// @brief it should not restart the pipeline if it has already been started.
 TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
     auto writes = std::make_shared<std::vector<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
+        writes
+    );
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
@@ -184,7 +192,9 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
 /// @brief it should not stop the pipeline if it has already been stopped.
 TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
     auto writes = std::make_shared<std::vector<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
+        writes
+    );
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
@@ -202,7 +212,9 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
 /// and communicate the error back to the source.
 TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
     auto writes = std::make_shared<std::vector<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
+        writes
+    );
     auto critical_error = x::errors::Error(driver::CRITICAL_HARDWARE_ERROR);
     const auto source = std::make_shared<MockSource>(
         x::telem::TimeStamp::now(),
@@ -224,7 +236,9 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
 /// @brief it should not stop the pipeline if it was never started.
 TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
     auto writes = std::make_shared<std::vector<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
+    const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(
+        writes
+    );
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,

@@ -17,9 +17,9 @@
 #include "open62541/types.h"
 
 /// module
-#include "x/cpp/telem/series.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/series.h"
 
 namespace driver::opc {
 struct Node {
@@ -222,7 +222,8 @@ public:
         return *this;
     }
 
-    x::errors::Error add_value(const UA_NodeId &node_id, const ::x::telem::Series &series);
+    x::errors::Error
+    add_value(const UA_NodeId &node_id, const ::x::telem::Series &series);
 
     UA_WriteRequest build() const {
         UA_WriteRequest req;

@@ -74,7 +74,11 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     j["channels"][0]["channel"] = ch.key;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 }
 
@@ -93,7 +97,11 @@ TEST(ReadTaskConfigTest, testNonExistingAnalogReadDevice) {
     j["channels"][0]["channel"] = ch.key;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
@@ -116,7 +124,11 @@ TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
     j["channels"][0]["channel"] = 12121212;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
@@ -147,7 +159,11 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     j["sample_rate"] = 10;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
@@ -176,7 +192,11 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     j["channels"][0]["enabled"] = false;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
@@ -205,7 +225,11 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
     j["channels"][0]["type"] = "unknown_channel_type"; // Set an invalid channel type
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
@@ -336,9 +360,10 @@ TEST_F(AnalogReadTest, testBasicAnalogRead) {
 TEST_F(AnalogReadTest, testErrorOnStart) {
     parse_config();
     const auto rt = create_task(
-        std::make_unique<hardware::mock::Reader<double>>(std::vector{
-            x::errors::Error(driver::CRITICAL_HARDWARE_ERROR, "Failed to start hardware")
-        })
+        std::make_unique<hardware::mock::Reader<double>>(std::vector{x::errors::Error(
+            driver::CRITICAL_HARDWARE_ERROR,
+            "Failed to start hardware"
+        )})
     );
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
@@ -567,7 +592,11 @@ protected:
         };
 
         auto p = x::json::Parser(j);
-        cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_digital_read");
+        cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+            client,
+            p,
+            "ni_digital_read"
+        );
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<driver::task::MockContext>(client);
@@ -656,7 +685,11 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     j["channels"][0]["channel"] = ch.key;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify that channels have dev_loc populated after configuration
@@ -731,7 +764,11 @@ protected:
         };
 
         auto p = x::json::Parser(j);
-        cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_counter_read");
+        cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+            client,
+            p,
+            "ni_counter_read"
+        );
         ASSERT_NIL(p.error());
 
         ctx = std::make_shared<driver::task::MockContext>(client);
@@ -853,7 +890,10 @@ TEST_F(CounterReadTest, testCounterErrorOnRead) {
             std::vector{x::errors::NIL},
             std::vector<std::pair<std::vector<double>, x::errors::Error>>{
                 {{},
-                 x::errors::Error(driver::CRITICAL_HARDWARE_ERROR, "Counter read failed")}
+                 x::errors::Error(
+                     driver::CRITICAL_HARDWARE_ERROR,
+                     "Counter read failed"
+                 )}
             }
         )
     );
@@ -974,7 +1014,11 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
     };
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_counter_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_counter_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify channel configuration
@@ -996,7 +1040,9 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
         .name = "test_period_device"
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(client->channels.create("period", x::telem::FLOAT64_T, true));
+    auto ch = ASSERT_NIL_P(
+        client->channels.create("period", x::telem::FLOAT64_T, true)
+    );
 
     json j{
         {"data_saving", false},
@@ -1023,7 +1069,11 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
     };
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_counter_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_counter_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify channel configuration
@@ -1056,12 +1106,16 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     };
     ASSERT_NIL(client->devices.create(dev2));
 
-    auto ch1 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("ch1"), x::telem::FLOAT64_T, true)
-    );
-    auto ch2 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("ch2"), x::telem::FLOAT64_T, true)
-    );
+    auto ch1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch1"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    auto ch2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("ch2"),
+        x::telem::FLOAT64_T,
+        true
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("period"),
         x::telem::FLOAT64_T,
@@ -1099,7 +1153,11 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     };
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify both channels have their respective device locations
@@ -1164,7 +1222,11 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     j["channels"][0]["channel"] = ch.key;
 
     auto p = x::json::Parser(j);
-    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(client, p, "ni_analog_read");
+    auto cfg = std::make_unique<driver::ni::ReadTaskConfig>(
+        client,
+        p,
+        "ni_analog_read"
+    );
     ASSERT_NIL(p.error());
 
     // Verify that writer_config has enable_auto_commit set to true

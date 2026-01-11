@@ -210,10 +210,12 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     ASSERT_NIL(client->devices.create(dev));
 
     // Create state and command channels
-    auto state_idx_ch = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("state_idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
+    auto state_idx_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("state_idx"),
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    ));
     auto state_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("state_ch"),
         x::telem::FLOAT64_T,

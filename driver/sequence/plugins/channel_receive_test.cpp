@@ -29,7 +29,10 @@ TEST(ChannelReceive, Basic) {
     fr_1.emplace(1, x::telem::Series(1.0, x::telem::FLOAT64_T));
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
-    const auto factory = driver::pipeline::mock::simple_streamer_factory({ch.key}, reads);
+    const auto factory = driver::pipeline::mock::simple_streamer_factory(
+        {ch.key},
+        reads
+    );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);

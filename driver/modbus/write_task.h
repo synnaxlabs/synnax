@@ -72,8 +72,10 @@ public:
         );
     }
 
-    x::errors::Error
-    write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) override {
+    x::errors::Error write(
+        const std::shared_ptr<device::Device> &dev,
+        const x::telem::Frame &fr
+    ) override {
         if (channels.empty()) return x::errors::NIL;
         this->initialize_state(dev);
         const int start_addr = channels.front().address;
@@ -111,8 +113,10 @@ public:
         );
     }
 
-    x::errors::Error
-    write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) override {
+    x::errors::Error write(
+        const std::shared_ptr<device::Device> &dev,
+        const x::telem::Frame &fr
+    ) override {
         if (channels.empty()) return x::errors::NIL;
         this->initialize_state(dev);
         const int start_addr = channels.front().address;
@@ -144,7 +148,10 @@ struct WriteTaskConfig {
     /// @brief whether to automatically start the task after configuration.
     bool auto_start;
 
-    WriteTaskConfig(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &cfg):
+    WriteTaskConfig(
+        const std::shared_ptr<synnax::Synnax> &client,
+        x::json::Parser &cfg
+    ):
         device_key(cfg.field<std::string>("device")),
         auto_start(cfg.field<bool>("auto_start", false)) {
         auto [dev_info, dev_err] = client->devices.retrieve(this->device_key);
@@ -190,8 +197,10 @@ struct WriteTaskConfig {
     /// information.
     /// @param task the task to parse.
     /// @returns a pair containing the parsed configuration and any error that occurred.
-    static std::pair<WriteTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::task::Task &task) {
+    static std::pair<WriteTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
         auto parser = x::json::Parser(task.config);
         WriteTaskConfig cfg(client, parser);
         return {std::move(cfg), parser.error()};

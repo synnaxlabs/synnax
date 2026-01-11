@@ -39,7 +39,8 @@ struct BaseReadTaskConfig : BaseTaskConfig {
 
     explicit BaseReadTaskConfig(
         x::json::Parser &cfg,
-        const driver::task::common::TimingConfig timing_cfg = driver::task::common::TimingConfig(),
+        const driver::task::common::TimingConfig timing_cfg =
+            driver::task::common::TimingConfig(),
         const bool stream_rate_required = true
     ):
         BaseTaskConfig(cfg),
@@ -69,7 +70,10 @@ void initialize_frame(
     if (fr.size() == channels.size() + index_keys.size()) return;
     fr.reserve(channels.size() + index_keys.size());
     for (const auto &ch: channels)
-        fr.emplace(ch->synnax_key, x::telem::Series(ch->ch.data_type, samples_per_chan));
+        fr.emplace(
+            ch->synnax_key,
+            x::telem::Series(ch->ch.data_type, samples_per_chan)
+        );
     for (const auto &idx: index_keys)
         fr.emplace(idx, x::telem::Series(x::telem::TIMESTAMP_T, samples_per_chan));
 }
@@ -117,7 +121,10 @@ class ReadTask final : public driver::task::Task {
         /// @brief the wrapped, hardware-specific source.
         std::unique_ptr<driver::task::common::Source> internal;
 
-        InternalSource(ReadTask &p, std::unique_ptr<driver::task::common::Source> internal):
+        InternalSource(
+            ReadTask &p,
+            std::unique_ptr<driver::task::common::Source> internal
+        ):
             p(p), internal(std::move(internal)) {}
 
         void stopped_with_err(const x::errors::Error &err) override {
@@ -125,7 +132,8 @@ class ReadTask final : public driver::task::Task {
             this->p.stop("", true);
         }
 
-        x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+        x::errors::Error
+        read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
             auto [err, warning] = this->internal->read(breaker, fr);
             // Three cases.
             // 1. We have an error, but it's temporary, so we trigger the breaker

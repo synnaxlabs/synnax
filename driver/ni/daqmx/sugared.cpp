@@ -1285,11 +1285,13 @@ x::errors::Error SugaredAPI::SetScaleAttributeString(
     return process_error(dmx->SetScaleAttributeString(scaleName, attribute, value));
 }
 
-x::errors::Error SugaredAPI::SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
+x::errors::Error
+SugaredAPI::SetStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime data) {
     return process_error(dmx->SetStartTrigTrigWhen(task, data));
 }
 
-x::errors::Error SugaredAPI::SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data) {
+x::errors::Error
+SugaredAPI::SetSyncPulseTimeWhen(TaskHandle task, CVIAbsoluteTime data) {
     return process_error(dmx->SetSyncPulseTimeWhen(task, data));
 }
 
@@ -2702,11 +2704,13 @@ x::errors::Error SugaredAPI::GetExtCalLastDateAndTime(
     );
 }
 
-x::errors::Error SugaredAPI::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
+x::errors::Error
+SugaredAPI::GetExtendedErrorInfo(char errorString[], uInt32 bufferSize) {
     return process_error(dmx->GetExtendedErrorInfo(errorString, bufferSize));
 }
 
-x::errors::Error SugaredAPI::GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data) {
+x::errors::Error
+SugaredAPI::GetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime *data) {
     return process_error(dmx->GetFirstSampClkWhen(task, data));
 }
 
@@ -4194,7 +4198,8 @@ x::errors::Error SugaredAPI::SetExportedSignalAttributeUInt32(
     return process_error(dmx->SetExportedSignalAttributeUInt32(task, attribute, value));
 }
 
-x::errors::Error SugaredAPI::SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) {
+x::errors::Error
+SugaredAPI::SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data) {
     return process_error(dmx->SetFirstSampClkWhen(task, data));
 }
 

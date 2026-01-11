@@ -306,7 +306,8 @@ struct Input : virtual Base {
         Base(cfg), synnax_key(cfg.field<synnax::channel::Key>("channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
-    void bind_remote_info(const synnax::channel::Channel &ch, const std::string &dev_loc) {
+    void
+    bind_remote_info(const synnax::channel::Channel &ch, const std::string &dev_loc) {
         this->ch = ch;
         this->dev_loc = dev_loc;
     }
@@ -330,7 +331,10 @@ struct Output : virtual Base {
         state_ch_key(cfg.field<synnax::channel::Key>("state_channel")) {}
 
     /// @brief binds remotely fetched information to the channel.
-    void bind_remote_info(const synnax::channel::Channel &state_ch, const std::string &dev_loc) {
+    void bind_remote_info(
+        const synnax::channel::Channel &state_ch,
+        const std::string &dev_loc
+    ) {
         this->state_ch = state_ch;
         this->dev_loc = dev_loc;
     }
@@ -537,7 +541,8 @@ struct AIVoltage : AICustomScale {
 };
 
 struct AIVoltageRMS final : AIVoltage {
-    explicit AIVoltageRMS(x::json::Parser &cfg): Base(cfg), Analog(cfg), AIVoltage(cfg) {}
+    explicit AIVoltageRMS(x::json::Parser &cfg):
+        Base(cfg), Analog(cfg), AIVoltage(cfg) {}
 
     x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
@@ -636,7 +641,8 @@ struct AICurrent : AICustomScale {
 };
 
 struct AICurrentRMS final : AICurrent {
-    explicit AICurrentRMS(x::json::Parser &cfg): Base(cfg), Analog(cfg), AICurrent(cfg) {}
+    explicit AICurrentRMS(x::json::Parser &cfg):
+        Base(cfg), Analog(cfg), AICurrent(cfg) {}
 
     x::errors::Error apply(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,

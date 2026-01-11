@@ -15,17 +15,18 @@
 
 std::mt19937 gen_rand_task = random_generator("Task Tests");
 
-namespace synnax::task  {
+namespace synnax::task {
 /// @brief it should correctly create a module on the rack.
 TEST(TaskTests, testCreateTask) {
     auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto m = Task{
-        .name="test_module",
-        .type="mock", .config="config",
-        .internal=false,
-        .snapshot=true
+        .name = "test_module",
+        .type = "mock",
+        .config = "config",
+        .internal = false,
+        .snapshot = true
     };
     ASSERT_NIL(r.tasks.create(m));
     ASSERT_EQ(m.name, "test_module");
@@ -36,14 +37,14 @@ TEST(TaskTests, testCreateTask) {
 /// @brief it should correctly retrieve a module from the rack.
 TEST(TaskTests, testRetrieveTask) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto t = Task{
-        .name="test_module",
-        .type="mock",
-        .config={{"key", "value"}},
-        .internal=false,
-        .snapshot=true
+        .name = "test_module",
+        .type = "mock",
+        .config = {{"key", "value"}},
+        .internal = false,
+        .snapshot = true
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key));
@@ -56,14 +57,10 @@ TEST(TaskTests, testRetrieveTask) {
 /// @brief it should retrieve a task by its name
 TEST(TaskTests, testRetrieveTaskByName) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand_name = std::to_string(gen_rand_task());
-    auto t = Task{
-        .name=rand_name,
-        .type="mock",
-        .config={{"key", "value"}}
-    };
+    auto t = Task{.name = rand_name, .type = "mock", .config = {{"key", "value"}}};
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name));
     ASSERT_EQ(t2.name, rand_name);
@@ -73,12 +70,13 @@ TEST(TaskTests, testRetrieveTaskByName) {
 /// @brief it should retrieve a task by its type
 TEST(TaskTests, testRetrieveTaskByType) {
     const auto client = new_test_client();
-    auto r = rack::Rack {.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand_type = std::to_string(gen_rand_task());
     auto t = Task{
-        .name="test_module",
-        .type=rand_type, .config={{"key", "value"}}
+        .name = "test_module",
+        .type = rand_type,
+        .config = {{"key", "value"}}
     };
     ASSERT_NIL(r.tasks.create(t));
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type(rand_type));
@@ -89,13 +87,9 @@ TEST(TaskTests, testRetrieveTaskByType) {
 /// @brief it should correctly list the tasks on a rack.
 TEST(TaskTests, testListTasks) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    auto m = Task{
-        .name="test_module",
-        .type="mock",
-        .config={{"key", "value"}}
-    };
+    auto m = Task{.name = "test_module", .type = "mock", .config = {{"key", "value"}}};
     ASSERT_NIL(r.tasks.create(m));
     const auto tasks = ASSERT_NIL_P(r.tasks.list());
     ASSERT_EQ(tasks.size(), 1);
@@ -107,13 +101,9 @@ TEST(TaskTests, testListTasks) {
 /// @brief it should correctly delete a task from the rack.
 TEST(TaskTests, testDeleteTask) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
-    auto t = Task{
-        .name="test_module",
-        .type="mock",
-        .config={{"key", "value"}}
-    };
+    auto t = Task{.name = "test_module", .type = "mock", .config = {{"key", "value"}}};
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.del(t.key));
     ASSERT_OCCURRED_AS_P(r.tasks.retrieve(t.key), x::errors::NOT_FOUND);
@@ -150,22 +140,18 @@ TEST(TaskTests, testTaskOntologyIdsEmpty) {
 /// @brief it should correctly create and retrieve a task with a status.
 TEST(TaskTests, testCreateTaskWithStatus) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto t = Task{
-        .name="test_task_with_status",
-        .type="mock",
-        .config={{"key", "value"}},
+        .name = "test_task_with_status",
+        .type = "mock",
+        .config = {{"key", "value"}},
         .status = Status{
             .key = "task-status-key",
             .variant = x::status::VARIANT_SUCCESS,
             .message = "Task is running",
             .time = x::telem::TimeStamp::now(),
-            .details = task::StatusDetails{
-                .task = 0,
-                .running = true,
-                .cmd = "start"
-            }
+            .details = task::StatusDetails{.task = 0, .running = true, .cmd = "start"}
         }
     };
     ASSERT_NIL(r.tasks.create(t));
@@ -181,13 +167,13 @@ TEST(TaskTests, testCreateTaskWithStatus) {
 /// @brief it should correctly retrieve a task with status by name.
 TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand_name = std::to_string(gen_rand_task());
     auto t = Task{
-        .name=rand_name,
-        .type="mock",
-        .config={{"key", "value"}},
+        .name = rand_name,
+        .type = "mock",
+        .config = {{"key", "value"}},
         .status = Status{
             .key = "task-status-by-name",
             .variant = x::status::VARIANT_WARNING,
@@ -206,12 +192,12 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
 /// @brief it should correctly list tasks with statuses.
 TEST(TaskTests, testListTasksWithStatus) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto t = Task{
-        .name="test_task_list_status",
-        .type="mock",
-        .config={{"key", "value"}},
+        .name = "test_task_list_status",
+        .type = "mock",
+        .config = {{"key", "value"}},
         .status = Status{
             .key = "task-list-status",
             .variant = x::status::VARIANT_INFO,
@@ -229,12 +215,12 @@ TEST(TaskTests, testListTasksWithStatus) {
 /// @brief it should retrieve multiple tasks by their names.
 TEST(TaskTests, testRetrieveTasksByNames) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand1 = std::to_string(gen_rand_task());
     const auto rand2 = std::to_string(gen_rand_task());
-    auto t1 = Task{.name=rand1, .type="mock", .config={{"config1", "value1"}}};
-    auto t2 = Task{.name=rand2, .type="mock", .config={{"config2", "value1"}}};
+    auto t1 = Task{.name = rand1, .type = "mock", .config = {{"config1", "value1"}}};
+    auto t2 = Task{.name = rand2, .type = "mock", .config = {{"config2", "value1"}}};
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
     const std::vector<std::string> names = {rand1, rand2};
@@ -251,12 +237,20 @@ TEST(TaskTests, testRetrieveTasksByNames) {
 /// @brief it should retrieve multiple tasks by their types.
 TEST(TaskTests, testRetrieveTasksByTypes) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto type1 = std::to_string(gen_rand_task());
     const auto type2 = std::to_string(gen_rand_task());
-    auto t1 = Task{.name="task_by_type_1", .type=type1, .config={{"config1", "config2"}}};
-    auto t2 = Task{.name= "task_by_type_2", .type=type2, .config={{"config2", "value2"}}};
+    auto t1 = Task{
+        .name = "task_by_type_1",
+        .type = type1,
+        .config = {{"config1", "config2"}}
+    };
+    auto t2 = Task{
+        .name = "task_by_type_2",
+        .type = type2,
+        .config = {{"config2", "value2"}}
+    };
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
     const std::vector<std::string> types = {type1, type2};

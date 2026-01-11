@@ -46,7 +46,10 @@ class Scanner final : public driver::task::common::Scanner {
     std::shared_ptr<device::Manager> device_manager;
 
     driver::task::common::ScannerConfig config() const override {
-        return driver::task::common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
+        return driver::task::common::ScannerConfig{
+            .make = MAKE,
+            .log_prefix = SCAN_LOG_PREFIX
+        };
     }
 
     /// @brief scans for devices with the given type and connection

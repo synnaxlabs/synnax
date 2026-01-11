@@ -128,7 +128,8 @@ public:
 /// @brief a write task that can write to both digital and analog output channels,
 /// and communicate their state back to Synnax.
 class WriteTask final : public driver::task::Task {
-    class WrappedSink final : public driver::pipeline::Sink, public driver::pipeline::Source {
+    class WrappedSink final : public driver::pipeline::Sink,
+                              public driver::pipeline::Source {
     public:
         /// @brief the parent write task.
         WriteTask &p;
@@ -145,7 +146,8 @@ class WriteTask final : public driver::task::Task {
             this->p.stop("", true);
         }
 
-        x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+        x::errors::Error
+        read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
             return this->internal->read(breaker, fr);
         }
 
@@ -222,7 +224,8 @@ public:
             std::make_shared<driver::pipeline::SynnaxStreamerFactory>(ctx->client)
         ) {}
 
-    /// @brief implements driver::task::Task to execute the provided command on the task.
+    /// @brief implements driver::task::Task to execute the provided command on the
+    /// task.
     void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);

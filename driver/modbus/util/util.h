@@ -9,8 +9,8 @@
 
 #pragma once
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 namespace util {
 /// @brief parses data from a modbus register into a compatible x::telem::SampleValue.
@@ -31,7 +31,8 @@ inline std::pair<x::telem::SampleValue, x::errors::Error> parse_register_value(
         return value;
     };
     try {
-        if (dt == x::telem::UINT16_T) return {swap_bytes_if_needed(data[0]), x::errors::NIL};
+        if (dt == x::telem::UINT16_T)
+            return {swap_bytes_if_needed(data[0]), x::errors::NIL};
         if (dt == x::telem::INT16_T) {
             const uint16_t raw = swap_bytes_if_needed(data[0]);
             return {static_cast<int16_t>(raw), x::errors::NIL};
@@ -125,7 +126,10 @@ inline std::pair<x::telem::SampleValue, x::errors::Error> parse_register_value(
         }
         return {
             x::telem::SampleValue(),
-            x::errors::Error(x::errors::VALIDATION, "unsupported data type: " + dt.name())
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "unsupported data type: " + dt.name()
+            )
         };
     } catch (const std::exception &e) {
         return {

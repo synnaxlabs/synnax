@@ -84,7 +84,10 @@ std::pair<NodeId, x::errors::Error> NodeId::parse(const std::string &node_id_str
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
     if (!std::regex_search(node_id_str, matches, regex))
-        return {NodeId(), x::errors::Error(x::errors::VALIDATION, "Invalid NodeId format")};
+        return {
+            NodeId(),
+            x::errors::Error(x::errors::VALIDATION, "Invalid NodeId format")
+        };
 
     int nsIndex = std::stoi(matches[1].str());
     std::string type = matches[2].str();

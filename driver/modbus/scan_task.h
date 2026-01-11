@@ -17,8 +17,8 @@
 #include "glog/logging.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/modbus.h"
@@ -33,7 +33,8 @@ const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 /// @brief Configuration for the Modbus scanner.
 struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     ScanTaskConfig() = default;
-    explicit ScanTaskConfig(x::json::Parser &cfg): driver::task::common::ScanTaskConfig(cfg) {}
+    explicit ScanTaskConfig(x::json::Parser &cfg):
+        driver::task::common::ScanTaskConfig(cfg) {}
 };
 
 /// @brief Arguments for testing connection to a Modbus server.

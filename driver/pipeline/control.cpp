@@ -71,7 +71,8 @@ void Control::run() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (close_err.matches(freighter::ERR_UNREACHABLE) && breaker.wait()) return this->run();
+    if (close_err.matches(freighter::ERR_UNREACHABLE) && breaker.wait())
+        return this->run();
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)

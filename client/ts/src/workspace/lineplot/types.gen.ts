@@ -20,7 +20,7 @@ export type Key = z.infer<typeof keyZ>;
 export const linePlotZ = z.object({
   key: keyZ,
   name: z.string(),
-  data: record.unknownZ,
+  data: record.nullishToEmpty,
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}
 

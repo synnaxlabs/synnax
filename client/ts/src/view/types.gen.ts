@@ -21,12 +21,12 @@ export const viewZ = z.object({
   key: keyZ,
   name: z.string(),
   type: z.string(),
-  query: record.unknownZ,
+  query: record.nullishToEmpty,
 });
 export interface View extends z.infer<typeof viewZ> {}
 
 export const newZ = viewZ.omit({ query: true }).partial({ key: true }).extend({
-  query: record.unknownZ,
+  query: record.nullishToEmpty,
 });
 export interface New extends z.input<typeof newZ> {}
 

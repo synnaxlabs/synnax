@@ -199,17 +199,22 @@ x::errors::Error install_binary() {
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
-        return x::errors::Error("failed to get current executable path: " + ec.message());
+        return x::errors::Error(
+            "failed to get current executable path: " + ec.message()
+        );
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec) return x::errors::Error("failed to create binary directory: " + ec.message());
+    if (ec)
+        return x::errors::Error("failed to create binary directory: " + ec.message());
 
     const fs::path target_path = BINARY_INSTALL_DIR + "/" + BINARY_NAME;
 
     if (fs::exists(target_path)) {
         fs::remove(target_path, ec);
         if (ec)
-            return x::errors::Error("failed to remove existing binary: " + ec.message());
+            return x::errors::Error(
+                "failed to remove existing binary: " + ec.message()
+            );
     }
 
     fs::copy_file(curr_bin_path, target_path, fs::copy_options::overwrite_existing, ec);
@@ -320,7 +325,8 @@ x::errors::Error install_service() {
     LOG(INFO) << "Creating init script at " << INIT_SCRIPT_PATH;
     std::error_code ec;
     fs::create_directories(fs::path(INIT_SCRIPT_PATH).parent_path(), ec);
-    if (ec) return x::errors::Error("failed to create init.d directory: " + ec.message());
+    if (ec)
+        return x::errors::Error("failed to create init.d directory: " + ec.message());
 
     std::ofstream init_file(INIT_SCRIPT_PATH);
     if (!init_file) return x::errors::Error("failed to create init script");

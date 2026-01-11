@@ -64,8 +64,10 @@ public:
         dev_manager(dev_manager), timing_cfg(timing_cfg) {}
 
     /// @brief creates a new LabJack factory, loading the LJM library.
-    static std::unique_ptr<Factory>
-    create(driver::task::common::TimingConfig timing_cfg = driver::task::common::TimingConfig());
+    static std::unique_ptr<Factory> create(
+        driver::task::common::TimingConfig timing_cfg =
+            driver::task::common::TimingConfig()
+    );
 
     std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
         const std::shared_ptr<driver::task::Context> &ctx,

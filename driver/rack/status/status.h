@@ -77,9 +77,8 @@ public:
                 .time = x::telem::TimeStamp::now(),
                 .details = synnax::rack::StatusDetails{.rack = this->rack.key}
             };
-            if (const auto err = this->client->statuses.set<synnax::rack::StatusDetails>(
-                    status
-                );
+            if (const auto err = this->client->statuses
+                                     .set<synnax::rack::StatusDetails>(status);
                 err)
                 LOG(ERROR) << "[rack_status] error updating status: " << err;
             else
@@ -110,8 +109,10 @@ public:
     void stop(bool will_reconfigure) override { this->pipe.stop(); }
 
     /// @brief configures the heartbeat task.
-    static std::unique_ptr<driver::task::Task>
-    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task) {
+    static std::unique_ptr<driver::task::Task> configure(
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const synnax::task::Task &task
+    ) {
         auto rack_key = synnax::task::rack_key_from_task_key(task.key);
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {

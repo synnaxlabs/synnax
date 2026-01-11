@@ -41,10 +41,12 @@ protected:
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
-        this->index_channel = ASSERT_NIL_P(
-            client->channels
-                .create(make_unique_channel_name("index"), x::telem::TIMESTAMP_T, 0, true)
-        );
+        this->index_channel = ASSERT_NIL_P(client->channels.create(
+            make_unique_channel_name("index"),
+            x::telem::TIMESTAMP_T,
+            0,
+            true
+        ));
         this->bool_channel = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("bool_test"),
             x::telem::UINT8_T,
@@ -217,9 +219,7 @@ protected:
             {"stream_rate", 25}
         };
 
-        task = synnax::task::Task{
-            .name = "OPC UA Read Task Test", .type = "opc_read"
-        };
+        task = synnax::task::Task{.name = "OPC UA Read Task Test", .type = "opc_read"};
 
         task_cfg_json = task_cfg;
 
@@ -251,7 +251,10 @@ protected:
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+            std::make_unique<driver::opc::UnaryReadTaskSource>(
+                conn_pool,
+                std::move(*cfg)
+            ),
             mock_factory
         );
     }
@@ -337,7 +340,10 @@ TEST_F(TestReadTask, testInvalidNodeId) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<driver::opc::UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
+        std::make_unique<driver::opc::UnaryReadTaskSource>(
+            conn_pool,
+            std::move(*bad_cfg)
+        ),
         mock_factory
     );
 
@@ -417,7 +423,10 @@ TEST_F(TestReadTask, testDisabledChannels) {
     };
 
     auto p = x::json::Parser(disabled_cfg);
-    auto disabled_config = std::make_unique<driver::opc::ReadTaskConfig>(ctx->client, p);
+    auto disabled_config = std::make_unique<driver::opc::ReadTaskConfig>(
+        ctx->client,
+        p
+    );
     EXPECT_TRUE(p.error());
 }
 
@@ -853,7 +862,9 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         .make = "opc",
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Data Test Server",
-        .properties = x::json::json::object({{"connection", invalid_conn_cfg.to_json()}}),
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
     };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
@@ -933,7 +944,9 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         .make = "opc",
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Float Server",
-        .properties = x::json::json::object({{"connection", invalid_conn_cfg.to_json()}}),
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
     };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 
@@ -1012,7 +1025,9 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         .make = "opc",
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Double Server",
-        .properties = x::json::json::object({{"connection", invalid_conn_cfg.to_json()}}),
+        .properties = x::json::json::object(
+            {{"connection", invalid_conn_cfg.to_json()}}
+        ),
     };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
 

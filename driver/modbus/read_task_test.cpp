@@ -100,9 +100,11 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
     auto cfg = create_base_config();
     cfg["device"] = "non_existent_device";
 
-    auto ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("test"), x::telem::UINT8_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test"),
+        x::telem::UINT8_T,
+        true
+    ));
     cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
 
     auto p = x::json::Parser(cfg);
@@ -125,9 +127,11 @@ TEST_F(ModbusReadTest, testInvalidChannelConfig) {
 TEST_F(ModbusReadTest, testInvalidChannelType) {
     auto cfg = create_base_config();
 
-    auto ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("test"), x::telem::UINT8_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test"),
+        x::telem::UINT8_T,
+        true
+    ));
     cfg["channels"].push_back(
         {{"type", "invalid_type"},
          {"enabled", true},
@@ -145,9 +149,11 @@ TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("coil"), x::telem::UINT8_T, true)
-    );
+    auto coil_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("coil"),
+        x::telem::UINT8_T,
+        true
+    ));
     auto discrete_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("discrete"),
         x::telem::UINT8_T,
@@ -328,7 +334,10 @@ TEST_F(ModbusReadTest, testDiscreteInputRead) {
         synnax::task::Task(rack.key, "discrete_test", "modbus_read", ""),
         ctx,
         x::breaker::default_config("discrete_test"),
-        std::make_unique<driver::modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<driver::modbus::ReadTaskSource>(
+            modbus_dev,
+            std::move(*task_cfg)
+        ),
         mock_factory
     );
 
@@ -382,7 +391,10 @@ TEST_F(ModbusReadTest, testHoldingRegisterRead) {
         synnax::task::Task(rack.key, "holding_test", "modbus_read", ""),
         ctx,
         x::breaker::default_config("holding_test"),
-        std::make_unique<driver::modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<driver::modbus::ReadTaskSource>(
+            modbus_dev,
+            std::move(*task_cfg)
+        ),
         mock_factory
     );
 
@@ -412,9 +424,11 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     // Create channels for different types
-    auto coil_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("coil"), x::telem::UINT8_T, true)
-    );
+    auto coil_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("coil"),
+        x::telem::UINT8_T,
+        true
+    ));
     auto discrete_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("discrete"),
         x::telem::UINT8_T,
@@ -453,7 +467,10 @@ TEST_F(ModbusReadTest, testMultiChannelRead) {
         synnax::task::Task(rack.key, "multi_test", "modbus_read", ""),
         ctx,
         x::breaker::default_config("multi_test"),
-        std::make_unique<driver::modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<driver::modbus::ReadTaskSource>(
+            modbus_dev,
+            std::move(*task_cfg)
+        ),
         mock_factory
     );
 
@@ -546,7 +563,10 @@ TEST_F(ModbusReadTest, testMultipleUint8InputRegisters) {
         synnax::task::Task(rack.key, "uint8_test", "modbus_read", ""),
         ctx,
         x::breaker::default_config("uint8_test"),
-        std::make_unique<driver::modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<driver::modbus::ReadTaskSource>(
+            modbus_dev,
+            std::move(*task_cfg)
+        ),
         mock_factory
     );
 
@@ -620,7 +640,10 @@ TEST_F(ModbusReadTest, testMultipleUint8HoldingRegisters) {
         synnax::task::Task(rack.key, "uint8_holding_test", "modbus_read", ""),
         ctx,
         x::breaker::default_config("uint8_holding_test"),
-        std::make_unique<driver::modbus::ReadTaskSource>(modbus_dev, std::move(*task_cfg)),
+        std::make_unique<driver::modbus::ReadTaskSource>(
+            modbus_dev,
+            std::move(*task_cfg)
+        ),
         mock_factory
     );
 

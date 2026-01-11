@@ -702,7 +702,9 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
 };
 
 const x::errors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("labjack");
-const x::errors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("labjack");
+const x::errors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub(
+    "labjack"
+);
 const x::errors::Error RECONNECT_FAILED = CRITICAL_ERROR.sub("LJME_RECONNECT_FAILED");
 const x::errors::Error NO_RESPONSE_BYTES_RECEIVED = CRITICAL_ERROR.sub(
     "LJME_NO_RESPONSE_BYTES_RECEIVED"
@@ -721,7 +723,8 @@ const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
     "The device is temporarily unreachable. Will keep trying"
 );
 
-inline x::errors::Error parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
+inline x::errors::Error
+parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
     if (err == 0) return x::errors::NIL;
 
     char err_msg[LJM_MAX_NAME_SIZE];

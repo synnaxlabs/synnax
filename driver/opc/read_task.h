@@ -15,8 +15,8 @@
 #include "open62541/types.h"
 
 /// module
-#include "x/cpp/loop/loop.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/loop/loop.h"
 
 /// internal
 #include "x/cpp/defer/defer.h"
@@ -118,7 +118,9 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             return;
         }
         const auto properties = x::json::Parser(dev.properties);
-        this->connection = driver::opc::connection::Config(properties.child("connection"));
+        this->connection = driver::opc::connection::Config(
+            properties.child("connection")
+        );
         if (properties.error()) {
             parser.field_err("device", properties.error().message());
             return;
@@ -168,8 +170,10 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         };
     }
 
-    static std::pair<ReadTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::task::Task &task) {
+    static std::pair<ReadTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
         auto parser = x::json::Parser(task.config);
         return {ReadTaskConfig(client, parser), parser.error()};
     }
@@ -238,14 +242,17 @@ public:
         return this->cfg.sy_channels();
     }
 
-    driver::task::common::ReadResult read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
+    driver::task::common::ReadResult
+    read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         driver::task::common::ReadResult res;
         this->timer.wait(breaker);
         driver::opc::ReadResponse ua_res(UA_Client_Service_read(
             this->connection.get(),
             this->request_builder.build()
         ));
-        if (res.error = driver::opc::errors::parse(ua_res.get().responseHeader.serviceResult);
+        if (res.error = driver::opc::errors::parse(
+                ua_res.get().responseHeader.serviceResult
+            );
             res.error)
             return res;
         driver::task::common::initialize_frame(
@@ -316,7 +323,8 @@ public:
     ):
         BaseReadTaskSource(std::move(pool), std::move(cfg), cfg.sample_rate) {}
 
-    driver::task::common::ReadResult read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
+    driver::task::common::ReadResult
+    read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         driver::task::common::ReadResult res;
         driver::task::common::initialize_frame(
             fr,

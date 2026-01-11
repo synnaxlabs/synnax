@@ -23,17 +23,24 @@ TEST(ControlPipeline, testHappyPath) {
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    const auto read_errors = std::make_shared<std::vector<x::errors::Error>>(std::vector{
-        x::errors::NIL,
-        x::errors::NIL,
-    });
-    const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
-        std::vector<x::errors::Error>{},
-        std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(std::vector{
-            driver::pipeline::mock::StreamerConfig{reads, read_errors, x::errors::NIL}
-        })
+    const auto read_errors = std::make_shared<std::vector<x::errors::Error>>(
+        std::vector{
+            x::errors::NIL,
+            x::errors::NIL,
+        }
     );
+    const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
+    const auto
+        streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
+            std::vector<x::errors::Error>{},
+            std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(
+                std::vector{driver::pipeline::mock::StreamerConfig{
+                    reads,
+                    read_errors,
+                    x::errors::NIL
+                }}
+            )
+        );
     const auto sink = std::make_shared<driver::pipeline::mock::Sink>();
     auto control = driver::pipeline::Control(
         streamer_factory,
@@ -48,10 +55,11 @@ TEST(ControlPipeline, testHappyPath) {
 
 /// @brief it should stop and report error when streamer open fails with unknown error.
 TEST(ControlPipeline, testUnknownErrOnOpen) {
-    const auto streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
-        std::vector{x::errors::UNKNOWN},
-        std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>()
-    );
+    const auto
+        streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
+            std::vector{x::errors::UNKNOWN},
+            std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>()
+        );
     const auto sink = std::make_shared<driver::pipeline::mock::Sink>();
     auto control = driver::pipeline::Control(
         streamer_factory,
@@ -74,14 +82,22 @@ TEST(ControlPipeline, testOpenRetrySuccessful) {
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
-    const auto read_errors = std::make_shared<std::vector<x::errors::Error>>(std::vector{
-        x::errors::NIL,
-        x::errors::NIL,
-    });
+    const auto read_errors = std::make_shared<std::vector<x::errors::Error>>(
+        std::vector{
+            x::errors::NIL,
+            x::errors::NIL,
+        }
+    );
     const auto streamer_config = synnax::framer::StreamerConfig{.channels = {1}};
-    const auto streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
-        std::vector{freighter::ERR_UNREACHABLE, freighter::ERR_UNREACHABLE, x::errors::NIL},
-        std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(std::vector{
+    const auto streamer_factory = std::make_shared<
+        driver::pipeline::mock::StreamerFactory>(
+        std::vector{
+            freighter::ERR_UNREACHABLE,
+            freighter::ERR_UNREACHABLE,
+            x::errors::NIL
+        },
+        std::make_shared<
+            std::vector<driver::pipeline::mock::StreamerConfig>>(std::vector{
             driver::pipeline::mock::StreamerConfig{
                 reads,
                 read_errors,

@@ -18,8 +18,8 @@
 #include "open62541/types.h"
 
 #include "client/cpp/synnax.h"
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/telem.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/types/types.h"
@@ -34,7 +34,8 @@ inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task]
 /// @brief Configuration for the OPC UA scanner.
 struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     ScanTaskConfig() = default;
-    explicit ScanTaskConfig(x::json::Parser &cfg): driver::task::common::ScanTaskConfig(cfg) {}
+    explicit ScanTaskConfig(x::json::Parser &cfg):
+        driver::task::common::ScanTaskConfig(cfg) {}
 };
 
 ///@brief The parameters for connecting to and iterating through nodes in the OPC UA

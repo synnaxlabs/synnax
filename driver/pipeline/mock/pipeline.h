@@ -63,7 +63,8 @@ public:
 
     void close_send() override {
         if (this->config.read_errors == nullptr)
-            this->config.read_errors = std::make_shared<std::vector<x::errors::Error>>();
+            this->config
+                .read_errors = std::make_shared<std::vector<x::errors::Error>>();
         this->config.read_errors->push_back(freighter::ERR_STREAM_CLOSED);
     }
 };
@@ -201,7 +202,8 @@ public:
     open_writer(const synnax::framer::WriterConfig &config) override {
         this->writer_opens++;
         this->config = config;
-        auto err = this->open_errors.empty() ? x::errors::NIL : this->open_errors.front();
+        auto err = this->open_errors.empty() ? x::errors::NIL
+                                             : this->open_errors.front();
         if (!this->open_errors.empty())
             this->open_errors.erase(this->open_errors.begin());
         auto close_err = this->close_errors.empty() ? x::errors::NIL
@@ -255,7 +257,9 @@ public:
         return err;
     }
 
-    void stopped_with_err(const x::errors::Error &err) override { this->stop_err = err; }
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stop_err = err;
+    }
 };
 
 // Mock implementation of pipeline::Source for testing.
@@ -307,7 +311,9 @@ public:
         return err;
     }
 
-    void stopped_with_err(const x::errors::Error &err) override { this->stop_err = err; }
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->stop_err = err;
+    }
 };
 
 // Helper function to create a simple Source with predefined frames

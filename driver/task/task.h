@@ -114,8 +114,10 @@ public:
 
     virtual std::string name() { return ""; }
 
-    virtual std::pair<std::unique_ptr<Task>, bool>
-    configure_task(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) = 0;
+    virtual std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task
+    ) = 0;
 
     virtual ~Factory() = default;
 };
@@ -127,7 +129,8 @@ public:
     explicit MultiFactory(std::vector<std::unique_ptr<Factory>> &&factories):
         factories(std::move(factories)) {}
 
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> configure_initial_tasks(
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
+    configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::rack::Rack &rack
     ) override {

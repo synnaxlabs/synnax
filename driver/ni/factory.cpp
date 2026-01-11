@@ -54,7 +54,8 @@ bool driver::ni::Factory::check_health(
     return false;
 }
 
-std::unique_ptr<driver::ni::Factory> driver::ni::Factory::create(driver::task::common::TimingConfig timing_cfg) {
+std::unique_ptr<driver::ni::Factory>
+driver::ni::Factory::create(driver::task::common::TimingConfig timing_cfg) {
     if (x::os::get() == x::os::MACOS_NAME)
         LOG(WARNING) << "[ni] integration is not supported on macOS";
     auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
@@ -68,7 +69,8 @@ std::unique_ptr<driver::ni::Factory> driver::ni::Factory::create(driver::task::c
     );
 }
 
-std::pair<std::unique_ptr<driver::task::Task>, bool> driver::ni::Factory::configure_task(
+std::pair<std::unique_ptr<driver::task::Task>, bool>
+driver::ni::Factory::configure_task(
     const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -125,7 +127,8 @@ driver::ni::Factory::configure_initial_tasks(
     );
 }
 
-std::pair<driver::task::common::ConfigureResult, x::errors::Error> driver::ni::Factory::configure_scan(
+std::pair<driver::task::common::ConfigureResult, x::errors::Error>
+driver::ni::Factory::configure_scan(
     const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::task::Task &task
 ) {

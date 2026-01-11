@@ -19,7 +19,8 @@
 using json = x::json::json;
 
 namespace driver::pipeline {
-SynnaxWriter::SynnaxWriter(synnax::framer::Writer internal): internal(std::move(internal)) {}
+SynnaxWriter::SynnaxWriter(synnax::framer::Writer internal):
+    internal(std::move(internal)) {}
 
 x::errors::Error SynnaxWriter::write(const x::telem::Frame &fr) {
     return this->internal.write(fr);

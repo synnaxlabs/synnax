@@ -207,13 +207,17 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->cjc_slope, 1);
     ASSERT_EQ(tc_chan->cjc_offset, 0);
 
-    const auto di_chan = dynamic_cast<driver::labjack::DIChan *>(cfg->channels[1].get());
+    const auto di_chan = dynamic_cast<driver::labjack::DIChan *>(
+        cfg->channels[1].get()
+    );
     ASSERT_NE(di_chan, nullptr);
     ASSERT_EQ(di_chan->port, "DIO4");
     ASSERT_EQ(di_chan->enabled, true);
     ASSERT_EQ(di_chan->synnax_key, di_ch.key);
 
-    const auto ai_chan = dynamic_cast<driver::labjack::AIChan *>(cfg->channels[2].get());
+    const auto ai_chan = dynamic_cast<driver::labjack::AIChan *>(
+        cfg->channels[2].get()
+    );
     ASSERT_NE(ai_chan, nullptr);
     ASSERT_EQ(ai_chan->port, "AIN6");
     ASSERT_EQ(ai_chan->enabled, true);

@@ -13,7 +13,6 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
-
 namespace synnax::status {
 /// @brief it should set a single status in the cluster.
 TEST(StatusTest, SetSingleStatus) {

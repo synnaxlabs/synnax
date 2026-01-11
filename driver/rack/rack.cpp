@@ -17,7 +17,8 @@ bool driver::rack::Rack::should_exit(
 ) {
     this->run_err = err;
     if (!err) return false;
-    const auto breaker_ok = err.matches(freighter::ERR_UNREACHABLE) && breaker.wait(err);
+    const auto breaker_ok = err.matches(freighter::ERR_UNREACHABLE) &&
+                            breaker.wait(err);
     if (!breaker_ok && on_shutdown) on_shutdown();
     return !breaker_ok;
 }
@@ -26,7 +27,10 @@ driver::rack::Rack::~Rack() {
     stop();
 }
 
-void driver::rack::Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) {
+void driver::rack::Rack::run(
+    x::args::Parser &args,
+    const std::function<void()> &on_shutdown
+) {
     x::thread::set_name("rack");
     while (this->breaker.running()) {
         auto [cfg, err] = Config::load(args, this->breaker);
@@ -49,7 +53,10 @@ void driver::rack::Rack::run(x::args::Parser &args, const std::function<void()> 
     this->run_err = x::errors::NIL;
 }
 
-void driver::rack::Rack::start(x::args::Parser &args, std::function<void()> on_shutdown) {
+void driver::rack::Rack::start(
+    x::args::Parser &args,
+    std::function<void()> on_shutdown
+) {
     this->breaker.start();
     this->run_thread = std::thread(
         [this, args, callback = std::move(on_shutdown)]() mutable {

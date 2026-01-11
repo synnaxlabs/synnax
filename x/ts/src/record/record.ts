@@ -140,3 +140,17 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
   for (const key of keys) delete result[key];
   return result;
 };
+
+/**
+ * For required JSON/record fields: coerces null/undefined to empty object {}.
+ * Use when the record must always be present and iterable.
+ *
+ * - null → {}
+ * - undefined → {}
+ * - {} → {}
+ * - {data} → {data}
+ */
+export const nullishToEmpty = z.union([
+  z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
+  unknownZ,
+]);

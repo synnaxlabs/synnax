@@ -42,7 +42,8 @@ public:
     [[nodiscard]] virtual x::errors::Error
     start_interval(int interval_handle, int microseconds) const = 0;
 
-    [[nodiscard]] virtual x::errors::Error clean_interval(int interval_handle) const = 0;
+    [[nodiscard]] virtual x::errors::Error
+    clean_interval(int interval_handle) const = 0;
 
     [[nodiscard]] virtual x::errors::Error
     e_write_name(const char *Name, double value) const = 0;

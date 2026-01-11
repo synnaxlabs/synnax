@@ -324,7 +324,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     explicit ReadTaskConfig(
         const std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &parser,
-        const driver::task::common::TimingConfig timing_cfg = driver::task::common::TimingConfig()
+        const driver::task::common::TimingConfig timing_cfg =
+            driver::task::common::TimingConfig()
     ):
         driver::task::common::BaseReadTaskConfig(parser, timing_cfg),
         device_key(parser.field<std::string>("device", "cross-device")),
@@ -332,7 +333,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         samples_per_chan(sample_rate / stream_rate),
         channels(parser.map<std::unique_ptr<InputChan>>(
             "channels",
-            [&](x::json::Parser &ch_cfg) -> std::pair<std::unique_ptr<InputChan>, bool> {
+            [&](x::json::Parser &ch_cfg)
+                -> std::pair<std::unique_ptr<InputChan>, bool> {
                 auto ch = parse_input_chan(ch_cfg);
                 if (ch == nullptr) return {nullptr, false};
                 return {std::move(ch), ch->enabled};
@@ -374,7 +376,10 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             this->channels[i++]->ch = ch;
         }
         const auto channel_map = map_channel_Keys(sy_channels);
-        auto scale_transform = std::make_unique<driver::transform::Scale>(parser, channel_map);
+        auto scale_transform = std::make_unique<driver::transform::Scale>(
+            parser,
+            channel_map
+        );
         this->transform.add(std::move(scale_transform));
     }
 
@@ -461,9 +466,15 @@ public:
         return this->dev->clean_interval(this->interval_handle);
     }
 
-    driver::task::common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
+    driver::task::common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
         driver::task::common::ReadResult res;
-        driver::task::common::initialize_frame(data, this->cfg.channels, this->cfg.indexes, 1);
+        driver::task::common::initialize_frame(
+            data,
+            this->cfg.channels,
+            this->cfg.indexes,
+            1
+        );
         int err_addr;
         std::vector<const char *> locations;
         std::vector<double> values;
@@ -594,11 +605,17 @@ public:
 
     x::errors::Error stop() override { return this->dev->e_stream_stop(); }
 
-    driver::task::common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+    driver::task::common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         driver::task::common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
-        driver::task::common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
+        driver::task::common::initialize_frame(
+            fr,
+            this->cfg.channels,
+            this->cfg.indexes,
+            n_samples
+        );
 
         const auto start = this->sample_clock.wait(breaker);
         int device_scan_backlog;
@@ -619,7 +636,12 @@ public:
             this->cfg.ljm_scan_backlog_warn_on_count)
             res.warning = driver::task::common::skew_warning(ljm_scan_backlog);
         const auto end = this->sample_clock.end();
-        driver::task::common::transfer_buf(this->deinterleave(), fr, n_channels, n_samples);
+        driver::task::common::transfer_buf(
+            this->deinterleave(),
+            fr,
+            n_channels,
+            n_samples
+        );
         driver::task::common::generate_index_data(
             fr,
             this->cfg.indexes,

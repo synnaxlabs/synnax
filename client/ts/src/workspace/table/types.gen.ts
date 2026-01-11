@@ -20,12 +20,12 @@ export type Key = z.infer<typeof keyZ>;
 export const tableZ = z.object({
   key: keyZ,
   name: z.string(),
-  data: record.unknownZ,
+  data: record.nullishToEmpty,
 });
 export interface Table extends z.infer<typeof tableZ> {}
 
 export const newZ = tableZ.omit({ data: true }).partial({ key: true }).extend({
-  data: record.unknownZ,
+  data: record.nullishToEmpty,
 });
 export interface New extends z.input<typeof newZ> {}
 

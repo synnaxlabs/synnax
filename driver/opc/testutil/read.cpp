@@ -16,8 +16,8 @@
 #include "open62541/client_highlevel.h"
 #include "open62541/common.h"
 
-#include "x/cpp/telem/series.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/series.h"
 
 #include "driver/opc/errors/errors.h"
 #include "driver/opc/telem/telem.h"
@@ -46,7 +46,9 @@ simple_read(std::shared_ptr<UA_Client> client, const std::string &node_id) {
     }
 
     // Convert the value to a telemetry series
-    ::x::telem::DataType data_type = driver::opc::telem::ua_to_data_type(value.get().type);
+    ::x::telem::DataType data_type = driver::opc::telem::ua_to_data_type(
+        value.get().type
+    );
     ::x::telem::Series series(data_type, 1);
 
     // Write the value to the series

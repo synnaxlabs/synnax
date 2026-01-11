@@ -20,12 +20,12 @@ export type Key = z.infer<typeof keyZ>;
 export const logZ = z.object({
   key: keyZ,
   name: z.string(),
-  data: record.unknownZ,
+  data: record.nullishToEmpty,
 });
 export interface Log extends z.infer<typeof logZ> {}
 
 export const newZ = logZ.omit({ data: true }).partial({ key: true }).extend({
-  data: record.unknownZ,
+  data: record.nullishToEmpty,
 });
 export interface New extends z.input<typeof newZ> {}
 

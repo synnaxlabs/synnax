@@ -219,7 +219,9 @@ TEST(ConnectionTest, readAfterDisconnect) {
 
     auto client = ASSERT_NIL_P(driver::opc::connection::connect(cfg, "test"));
 
-    auto ser1 = ASSERT_NIL_P(driver::opc::testutil::simple_read(client, "NS=1;S=TestFloat"));
+    auto ser1 = ASSERT_NIL_P(
+        driver::opc::testutil::simple_read(client, "NS=1;S=TestFloat")
+    );
 
     UA_Client_disconnect(client.get());
 

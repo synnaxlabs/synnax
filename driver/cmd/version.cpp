@@ -15,6 +15,7 @@ std::string driver::cmd::version() {
 }
 
 int driver::cmd::sub::version(x::args::Parser &args) {
-    LOG(INFO) << x::log::BLUE() << "Synnax Driver " << driver::cmd::version() << x::log::RESET();
+    LOG(INFO) << x::log::BLUE() << "Synnax Driver " << driver::cmd::version()
+              << x::log::RESET();
     return 0;
 }

@@ -92,7 +92,9 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
             return;
         }
         const auto properties = x::json::Parser(dev.properties);
-        this->connection = driver::opc::connection::Config(properties.child("connection"));
+        this->connection = driver::opc::connection::Config(
+            properties.child("connection")
+        );
         if (properties.error())
             parser.field_err("device", properties.error().message());
     }
@@ -105,8 +107,10 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
         return keys;
     }
 
-    static std::pair<WriteTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::task::Task &task) {
+    static std::pair<WriteTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
         auto parser = x::json::Parser(task.config);
         return {WriteTaskConfig(client, parser), parser.error()};
     }
@@ -120,7 +124,10 @@ class WriteTaskSink final : public driver::task::common::Sink {
     std::vector<synnax::channel::Key> written_keys;
 
 public:
-    WriteTaskSink(std::shared_ptr<driver::opc::connection::Pool> pool, WriteTaskConfig cfg):
+    WriteTaskSink(
+        std::shared_ptr<driver::opc::connection::Pool> pool,
+        WriteTaskConfig cfg
+    ):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
         pool(std::move(pool)),
@@ -145,7 +152,11 @@ public:
             WARNING
         ) << "[opc.write_task] connection error detected, attempting reconnect: "
           << err;
-        this->connection = driver::opc::connection::Pool::Connection(nullptr, nullptr, "");
+        this->connection = driver::opc::connection::Pool::Connection(
+            nullptr,
+            nullptr,
+            ""
+        );
         auto [c, conn_err] = this->pool->acquire(this->cfg.connection, "[opc.write] ");
         if (conn_err) {
             LOG(ERROR) << "[opc.write_task] failed to reconnect: " << conn_err;
@@ -174,7 +185,10 @@ private:
         driver::opc::WriteResponse res(
             UA_Client_Service_write(this->connection.get(), this->builder.build())
         );
-        if (auto err = driver::opc::errors::parse(res.get().responseHeader.serviceResult); err)
+        if (auto err = driver::opc::errors::parse(
+                res.get().responseHeader.serviceResult
+            );
+            err)
             return err;
         for (std::size_t i = 0; i < res.get().resultsSize; ++i) {
             if (auto err = driver::opc::errors::parse(res.get().results[i]); err) {

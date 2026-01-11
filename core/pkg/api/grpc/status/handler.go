@@ -17,14 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"github.com/synnaxlabs/x/uuid"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type (
@@ -61,66 +56,11 @@ var (
 	_ fgrpc.Translator[apistatus.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 )
 
-func translateDetailsToAny(ctx context.Context, details any) (*anypb.Any, error) {
-	if details == nil {
-		return nil, nil
-	}
-	// Try to convert to proto message if possible
-	if pm, ok := details.(proto.Message); ok {
-		return anypb.New(pm)
-	}
-	// Otherwise wrap in structpb.Value
-	val, err := structpb.NewValue(details)
-	if err != nil {
-		return nil, err
-	}
-	return anypb.New(val)
-}
-
-func translateDetailsFromAny(ctx context.Context, a *anypb.Any) (any, error) {
-	if a == nil {
-		return nil, nil
-	}
-	// Try to unmarshal as structpb.Value (common case for any)
-	val := &structpb.Value{}
-	if err := a.UnmarshalTo(val); err == nil {
-		return val.AsInterface(), nil
-	}
-	return nil, nil
-}
-
-func translateStatusesForward(ctx context.Context, s []apistatus.Status) ([]*statuspb.Status, error) {
-	out := make([]*statuspb.Status, len(s))
-	for i, stat := range s {
-		// Convert service/status.Status[any] to x/status.Status[any]
-		xstat := status.Status[any](stat.Status)
-		pb, err := statuspb.StatusToPB(ctx, xstat, translateDetailsToAny)
-		if err != nil {
-			return nil, err
-		}
-		out[i] = pb
-	}
-	return out, nil
-}
-
-func translateStatusesBackward(ctx context.Context, s []*statuspb.Status) ([]apistatus.Status, error) {
-	out := make([]apistatus.Status, len(s))
-	for i, pb := range s {
-		xstat, err := statuspb.StatusFromPB(ctx, pb, translateDetailsFromAny)
-		if err != nil {
-			return nil, err
-		}
-		// Convert x/status.Status[any] to service/status.Status[any]
-		out[i] = apistatus.Status{Status: svcstatus.Status[any](xstat)}
-	}
-	return out, nil
-}
-
 func (t setRequestTranslator) Forward(
 	ctx context.Context,
 	msg apistatus.SetRequest,
 ) (*SetRequest, error) {
-	statuses, err := translateStatusesForward(ctx, msg.Statuses)
+	statuses, err := statuspb.StatussToPB(ctx, msg.Statuses, statuspb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +79,7 @@ func (t setRequestTranslator) Backward(
 			return apistatus.SetRequest{}, err
 		}
 	}
-	statuses, err := translateStatusesBackward(ctx, msg.Statuses)
+	statuses, err := statuspb.StatussFromPB(ctx, msg.Statuses, statuspb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetRequest{}, err
 	}
@@ -150,7 +90,7 @@ func (t setResponseTranslator) Forward(
 	ctx context.Context,
 	msg apistatus.SetResponse,
 ) (*SetResponse, error) {
-	statuses, err := translateStatusesForward(ctx, msg.Statuses)
+	statuses, err := statuspb.StatussToPB(ctx, msg.Statuses, statuspb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +101,7 @@ func (t setResponseTranslator) Backward(
 	ctx context.Context,
 	msg *SetResponse,
 ) (apistatus.SetResponse, error) {
-	statuses, err := translateStatusesBackward(ctx, msg.Statuses)
+	statuses, err := statuspb.StatussFromPB(ctx, msg.Statuses, statuspb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetResponse{}, err
 	}
@@ -214,7 +154,7 @@ func (t retrieveResponseTranslator) Forward(
 	ctx context.Context,
 	msg apistatus.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	statuses, err := translateStatusesForward(ctx, msg.Statuses)
+	statuses, err := statuspb.StatussToPB(ctx, msg.Statuses, statuspb.AnyToPBAny)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +165,7 @@ func (t retrieveResponseTranslator) Backward(
 	ctx context.Context,
 	msg *RetrieveResponse,
 ) (apistatus.RetrieveResponse, error) {
-	statuses, err := translateStatusesBackward(ctx, msg.Statuses)
+	statuses, err := statuspb.StatussFromPB(ctx, msg.Statuses, statuspb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.RetrieveResponse{}, err
 	}

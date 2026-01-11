@@ -67,7 +67,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         std::shared_ptr<synnax::Synnax> &client,
         x::json::Parser &cfg,
         const std::string &task_type,
-        driver::task::common::TimingConfig timing_cfg = driver::task::common::TimingConfig()
+        driver::task::common::TimingConfig timing_cfg =
+            driver::task::common::TimingConfig()
     ):
         BaseReadTaskConfig(cfg, timing_cfg),
         device_key(cfg.field<std::string>("device", "cross-device")),
@@ -230,7 +231,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         };
     }
 
-    [[nodiscard]] std::unique_ptr<driver::task::common::SampleClock> sample_clock() const {
+    [[nodiscard]] std::unique_ptr<driver::task::common::SampleClock>
+    sample_clock() const {
         if (this->software_timed)
             return std::make_unique<driver::task::common::SoftwareTimedSampleClock>(
                 this->stream_rate
@@ -299,11 +301,17 @@ private:
         return this->cfg.writer();
     }
 
-    driver::task::common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+    driver::task::common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         driver::task::common::ReadResult res;
         const auto n_channels = this->cfg.channels.size();
         const auto n_samples = this->cfg.samples_per_chan;
-        driver::task::common::initialize_frame(fr, this->cfg.channels, this->cfg.indexes, n_samples);
+        driver::task::common::initialize_frame(
+            fr,
+            this->cfg.channels,
+            this->cfg.indexes,
+            n_samples
+        );
 
         auto start = this->sample_clock->wait(breaker);
         const auto hw_res = this->hw_reader->read(n_samples, this->buf);

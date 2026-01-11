@@ -62,7 +62,7 @@ x::errors::Error Client::create(Rack &rack) const {
 }
 
 std::pair<Rack, x::errors::Error> Client::create(const std::string &name) const {
-    auto rack = Rack{.name=name};
+    auto rack = Rack{.name = name};
     auto err = create(rack);
     return {rack, err};
 }

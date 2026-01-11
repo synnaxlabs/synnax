@@ -114,7 +114,8 @@ struct Config {
         os << "configuration:\n"
            << cfg.connection << cfg.timing << "\n"
            << cfg.manager << "\n"
-           << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET() << ": ";
+           << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
+           << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
             os << cfg.integrations[i];
             if (i < cfg.integrations.size() - 1) os << ", ";

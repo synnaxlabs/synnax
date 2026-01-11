@@ -25,7 +25,11 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_rea
     const driver::task::common::TimingConfig timing_cfg
 ) {
     driver::task::common::ConfigureResult result;
-    auto [cfg, err] = driver::labjack::ReadTaskConfig::parse(ctx->client, task, timing_cfg);
+    auto [cfg, err] = driver::labjack::ReadTaskConfig::parse(
+        ctx->client,
+        task,
+        timing_cfg
+    );
     if (err) return {std::move(result), err};
     auto [dev, d_err] = devs->acquire(cfg.device_key);
     if (d_err) return {std::move(result), d_err};
@@ -100,7 +104,8 @@ bool driver::labjack::Factory::check_health(
     return false;
 }
 
-std::pair<std::unique_ptr<driver::task::Task>, bool> driver::labjack::Factory::configure_task(
+std::pair<std::unique_ptr<driver::task::Task>, bool>
+driver::labjack::Factory::configure_task(
     const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::task::Task &task
 ) {

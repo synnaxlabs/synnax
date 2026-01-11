@@ -36,7 +36,10 @@ protected:
     /// @brief a breaker for managing the lifecycle of the pipeline thread.
     x::breaker::Breaker breaker;
 
-    explicit Base(const x::breaker::Config &breaker_config, std::string thread_name = ""):
+    explicit Base(
+        const x::breaker::Config &breaker_config,
+        std::string thread_name = ""
+    ):
         thread_name(std::move(thread_name)), breaker(breaker_config) {}
 
 public:

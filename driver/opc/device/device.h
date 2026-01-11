@@ -18,8 +18,8 @@
 #include "open62541/client.h"
 
 /// module
-#include "x/cpp/telem/series.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/series.h"
 
 /// internal
 #include "driver/opc/connection/connection.h"
@@ -41,7 +41,9 @@ struct Properties {
     explicit Properties(const x::json::Parser &parser):
         connection(parser.child("connection")) {
         if (!parser.has("channels")) return;
-        parser.iter("channels", [&](x::json::Parser &cb) { channels.emplace_back(cb); });
+        parser.iter("channels", [&](x::json::Parser &cb) {
+            channels.emplace_back(cb);
+        });
     }
 
     x::json::json to_json() const {

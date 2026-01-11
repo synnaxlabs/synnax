@@ -19,7 +19,7 @@ namespace synnax::device {
 /// @brief it should correctly create a device.
 TEST(DeviceTests, testCreateDevice) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto d = Device{
         .key = "asdfjahsdfkasjdfhaks",
@@ -37,7 +37,7 @@ TEST(DeviceTests, testCreateDevice) {
 /// @brief it should correctly retrieve a device.
 TEST(DeviceTests, testRetrieveDevice) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto d = Device{
         .key = "asdfjahsdfkasjdfhaks",
@@ -57,7 +57,7 @@ TEST(DeviceTests, testRetrieveDevice) {
 /// @brief it should correctly retrieve multiple devices.
 TEST(DeviceTests, testRetrieveDevices) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
@@ -107,7 +107,7 @@ TEST(DeviceTests, testRetrieveDevices) {
 /// @brief it should correctly create multiple devices at once.
 TEST(DeviceTests, testCreateDevices) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     // Create a vector of devices to add
@@ -180,7 +180,7 @@ TEST(DeviceTests, testCreateDevices) {
 /// @brief it should correctly handle the configured field.
 TEST(DeviceTests, testDeviceConfigured) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
@@ -224,7 +224,7 @@ TEST(DeviceTests, testDeviceConfigured) {
 /// @brief it should correctly handle retrieving devices after deletion.
 TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     // Create two devices
@@ -265,7 +265,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
 /// @brief it should correctly delete a device.
 TEST(DeviceTests, testDeleteDevice) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     auto d = Device{
@@ -286,7 +286,7 @@ TEST(DeviceTests, testDeleteDevice) {
 /// @brief it should correctly delete multiple devices.
 TEST(DeviceTests, testDeleteDevices) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
@@ -317,10 +317,11 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_OCCURRED_AS_P(client.devices.retrieve(keys), x::errors::NOT_FOUND);
 }
 
-/// @brief it should retrieve devices using a device::RetrieveRequest with keys and names.
+/// @brief it should retrieve devices using a device::RetrieveRequest with keys and
+/// names.
 TEST(DeviceTests, testRetrieveWithRequest) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
     auto d1 = Device{
@@ -368,7 +369,7 @@ TEST(DeviceTests, testRetrieveWithRequest) {
 /// @brief it should retrieve devices with limit and offset pagination.
 TEST(DeviceTests, testRetrieveWithLimitOffset) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
     const auto make = "limit_make_" + rand;
@@ -406,7 +407,7 @@ TEST(DeviceTests, testRetrieveWithLimitOffset) {
 /// @brief it should correctly create and retrieve a device with a status.
 TEST(DeviceTests, testCreateDeviceWithStatus) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
     auto d = Device{
@@ -418,14 +419,11 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
         .name = "device_with_status",
         .properties = "properties",
     };
-    d.status = device::Status {
+    d.status = device::Status{
         .variant = x::status::VARIANT_SUCCESS,
         .message = "Device is connected",
         .time = x::telem::TimeStamp::now(),
-        .details = device::StatusDetails{
-            .rack = r.key,
-            .device = d.key
-        }
+        .details = device::StatusDetails{.rack = r.key, .device = d.key}
     };
     ASSERT_NIL(client.devices.create(d));
     const auto d2 = ASSERT_NIL_P(
@@ -441,7 +439,7 @@ TEST(DeviceTests, testCreateDeviceWithStatus) {
 /// @brief it should correctly retrieve multiple devices with statuses.
 TEST(DeviceTests, testRetrieveDevicesWithStatus) {
     const auto client = new_test_client();
-    auto r = rack::Rack{.name="test_rack"};
+    auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     const auto rand = std::to_string(gen_rand_device());
     auto d1 = Device{

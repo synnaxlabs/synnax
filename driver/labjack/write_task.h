@@ -121,8 +121,10 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     /// @brief parses the configuration from the given Synnax task.
     /// @returns a configuration and error if one occurs. If x::errors::Error is not
     /// NIL, then validation failed and the configuration is invalid.
-    static std::pair<WriteTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::task::Task &task) {
+    static std::pair<WriteTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
         auto parser = x::json::Parser(task.config);
         return {WriteTaskConfig(client, parser), parser.error()};
     }

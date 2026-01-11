@@ -23,7 +23,10 @@ class MockEchoTask final : public task::Task {
     const synnax::task::Task sy_task;
 
 public:
-    MockEchoTask(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task):
+    MockEchoTask(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    ):
         ctx(ctx), sy_task(task) {
         synnax::task::Status status{
             .key = synnax::task::status_key(task),
@@ -133,7 +136,10 @@ public:
     std::atomic<bool> stopped{false};
     std::atomic<bool> stop_will_reconfigure{false};
 
-    TrackingTask(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task):
+    TrackingTask(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    ):
         sy_task(task) {
         synnax::task::Status status{
             .key = synnax::task::status_key(task),
@@ -258,21 +264,21 @@ synnax::task::Status wait_for_task_status(
 }
 
 #define WAIT_FOR_TASK_STATUS(streamer, task, predicate, ...)                           \
-wait_for_task_status(                                                              \
-streamer,                                                                      \
-task,                                                                          \
-predicate,                                                                     \
-__FILE__,                                                                      \
-__LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
-)
+    wait_for_task_status(                                                              \
+        streamer,                                                                      \
+        task,                                                                          \
+        predicate,                                                                     \
+        __FILE__,                                                                      \
+        __LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
+    )
 
 #define EVENTUALLY(condition, failure_message, ...)                                    \
-::x::test::eventually(                                                               \
-condition,                                                                     \
-failure_message,                                                               \
-__FILE__,                                                                      \
-__LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
-)
+    ::x::test::eventually(                                                             \
+        condition,                                                                     \
+        failure_message,                                                               \
+        __FILE__,                                                                      \
+        __LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
+    )
 
 class TaskManagerTest : public testing::Test {
 protected:
@@ -359,9 +365,14 @@ TEST_F(TaskManagerTest, Command) {
     });
 
     auto cmd = synnax::task::Command{
-        .task = task.key, .type = "test", .key = "cmd1", .args = json{{"msg", "hi"}}
+        .task = task.key,
+        .type = "test",
+        .key = "cmd1",
+        .args = json{{"msg", "hi"}}
     };
-    ASSERT_NIL(writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json()))));
+    ASSERT_NIL(
+        writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
+    );
     ASSERT_NIL(writer.close());
 
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
@@ -458,7 +469,9 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
 
     auto fake_key = synnax::task::create_task_key(rack.key, 99999);
     auto cmd = synnax::task::Command{.task = fake_key, .type = "test", .args = json{}};
-    ASSERT_NIL(writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json()))));
+    ASSERT_NIL(
+        writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
+    );
     ASSERT_NIL(writer.close());
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
@@ -488,9 +501,14 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
         {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
     ));
     auto cmd = synnax::task::Command{
-        .task = task.key, .type = "test", .key = "final", .args = json{}
+        .task = task.key,
+        .type = "test",
+        .key = "final",
+        .args = json{}
     };
-    ASSERT_NIL(writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json()))));
+    ASSERT_NIL(
+        writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
+    );
     ASSERT_NIL(writer.close());
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "final";
@@ -546,7 +564,12 @@ TEST_F(TaskManagerTest, CommandFIFO) {
 
     std::vector<std::string> expected = {"c1", "c2", "c3", "c4", "c5"};
     for (const auto &k: expected) {
-        auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = k, .args = json{}};
+        auto cmd = synnax::task::Command{
+            .task = task.key,
+            .type = "test",
+            .key = k,
+            .args = json{}
+        };
         ASSERT_NIL(
             writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
         );
@@ -622,7 +645,10 @@ TEST_F(ShutdownTest, DuringConfiguration) {
     f->release();
 
     auto join = std::async(std::launch::async, [&] { thread.join(); });
-    ASSERT_EQ(join.wait_for((5 * x::telem::SECOND).chrono()), std::future_status::ready);
+    ASSERT_EQ(
+        join.wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
 }
 
 TEST_F(ShutdownTest, WithPendingOps) {
@@ -635,7 +661,10 @@ TEST_F(ShutdownTest, WithPendingOps) {
     started.get_future().wait_for((5 * x::telem::SECOND).chrono());
 
     for (int i = 0; i < 3; i++) {
-        auto task = synnax::task::Task{.name = "t" + std::to_string(i), .type = "blocking"};
+        auto task = synnax::task::Task{
+            .name = "t" + std::to_string(i),
+            .type = "blocking"
+        };
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
@@ -644,7 +673,10 @@ TEST_F(ShutdownTest, WithPendingOps) {
     f->release();
 
     auto join = std::async(std::launch::async, [&] { thread.join(); });
-    ASSERT_EQ(join.wait_for((5 * x::telem::SECOND).chrono()), std::future_status::ready);
+    ASSERT_EQ(
+        join.wait_for((5 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
 }
 
 /// @brief Task that blocks forever on stop() - used to test shutdown timeout.
@@ -725,7 +757,10 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
 
     // Manager should shut down within ~1s even though stop() blocks forever
     auto join = std::async(std::launch::async, [&] { thread.join(); });
-    ASSERT_EQ(join.wait_for((3 * x::telem::SECOND).chrono()), std::future_status::ready);
+    ASSERT_EQ(
+        join.wait_for((3 * x::telem::SECOND).chrono()),
+        std::future_status::ready
+    );
 
     // Release the blocking stop so the detached thread can exit cleanly
     f->release_all();
@@ -788,7 +823,10 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
 
     // Create 4 tasks that each take 200ms to stop
     for (int i = 0; i < 4; i++) {
-        auto task = synnax::task::Task{.name = "t" + std::to_string(i), .type = "slow_stop"};
+        auto task = synnax::task::Task{
+            .name = "t" + std::to_string(i),
+            .type = "slow_stop"
+        };
         ASSERT_NIL(rack.tasks.create(task));
     }
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());

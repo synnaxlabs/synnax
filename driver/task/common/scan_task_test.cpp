@@ -97,7 +97,8 @@ public:
         return {synnax::device::Device{}, x::errors::Error("device not found")};
     }
 
-    x::errors::Error create_devices(std::vector<synnax::device::Device> &devs) override {
+    x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) override {
         created->insert(created->end(), devs.begin(), devs.end());
         return x::errors::NIL;
     }
@@ -139,7 +140,9 @@ public:
     ):
         scanner_config(config), devices(devices_), scan_errors(scan_errors_) {}
 
-    driver::task::common::ScannerConfig config() const override { return scanner_config; }
+    driver::task::common::ScannerConfig config() const override {
+        return scanner_config;
+    }
 
     x::errors::Error start() override { return x::errors::NIL; }
 
@@ -294,7 +297,10 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     dev1_moved_2.configured = false;
 
     // Setup scanner with devices to be discovered
-    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_moved}, {dev1_moved_2}};
+    std::vector<std::vector<synnax::device::Device>> devices = {
+        {dev1_moved},
+        {dev1_moved_2}
+    };
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -502,12 +508,15 @@ class DeviceCapturingScanner final : public driver::task::common::Scanner {
 public:
     driver::task::common::ScannerConfig scanner_config;
     mutable std::mutex mu;
-    std::vector<std::unordered_map<std::string, synnax::device::Device>> captured_devices;
+    std::vector<std::unordered_map<std::string, synnax::device::Device>>
+        captured_devices;
 
     explicit DeviceCapturingScanner(const driver::task::common::ScannerConfig &config):
         scanner_config(config) {}
 
-    driver::task::common::ScannerConfig config() const override { return scanner_config; }
+    driver::task::common::ScannerConfig config() const override {
+        return scanner_config;
+    }
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &ctx) override {
@@ -564,7 +573,9 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     auto streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{},
         std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(
-            std::vector{driver::pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}}
+            std::vector{
+                driver::pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}
+            }
         )
     );
 
@@ -579,7 +590,10 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     cluster_api->streamer_factory = streamer_factory;
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
-    driver::task::common::ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
+    driver::task::common::ScannerConfig cfg{
+        .make = "test_make",
+        .log_prefix = "[test] "
+    };
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
@@ -629,7 +643,9 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     auto streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{},
         std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(
-            std::vector{driver::pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}}
+            std::vector{
+                driver::pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}
+            }
         )
     );
 
@@ -651,7 +667,10 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     cluster_api->streamer_factory = streamer_factory;
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
-    driver::task::common::ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
+    driver::task::common::ScannerConfig cfg{
+        .make = "test_make",
+        .log_prefix = "[test] "
+    };
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
@@ -704,7 +723,9 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     auto streamer_factory = std::make_shared<driver::pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{},
         std::make_shared<std::vector<driver::pipeline::mock::StreamerConfig>>(
-            std::vector{driver::pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}}
+            std::vector{
+                driver::pipeline::mock::StreamerConfig{reads, nullptr, x::errors::NIL}
+            }
         )
     );
 
@@ -720,7 +741,10 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
     // Scanner expects "test_make" but device has "other_make"
-    driver::task::common::ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
+    driver::task::common::ScannerConfig cfg{
+        .make = "test_make",
+        .log_prefix = "[test] "
+    };
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 

@@ -895,7 +895,7 @@ var typeParamMappings = map[string]typeParamMapping{
 	"uuid":      {zodType: "z.ZodString", zodValue: "z.string()"},
 	"timestamp": {zodType: "z.ZodNumber", zodValue: "z.number()"},
 	"timespan":  {zodType: "z.ZodNumber", zodValue: "z.number()"},
-	"json":      {zodType: "z.ZodType", zodValue: "record.unknownZ"},
+	"json":      {zodType: "z.ZodType", zodValue: "record.nullishToEmpty"},
 }
 
 func defaultToTS(rawType string) string {
@@ -1079,6 +1079,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		}
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
+	typeOverride := getFieldTypeOverride(field, "ts")
+	isJson := field.Type.Name == "json" || typeOverride == "json"
 	if isArray {
 		if isAnyOptional {
 			// Optional array: null/undefined -> undefined, [] stays []
@@ -1091,6 +1093,19 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
+		}
+	} else if isJson {
+		if isAnyOptional {
+			// Optional json: null/undefined -> undefined, {} stays {}
+			// nullToUndefined already returns ZodOptional, so don't double-wrap
+			addXImport(data, xImport{name: "zod", submodule: "zod"})
+			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s)", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<%s>>", fd.ZodSchemaType)
+		} else {
+			// Required json: coerce nullish -> {}
+			addXImport(data, xImport{name: "record", submodule: "record"})
+			fd.ZodType = "record.nullishToEmpty"
+			fd.ZodSchemaType = "typeof record.nullishToEmpty"
 		}
 	} else if isAnyOptional {
 		fd.ZodType += ".optional()"

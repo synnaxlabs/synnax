@@ -165,7 +165,7 @@ TEST(TestChannel, testRetrieveMany) {
     };
     ASSERT_NIL(client.channels.create(channels));
     auto retrieved = ASSERT_NIL_P(
-        client.channels.retrieve(synnax::channel::Channel::keys_from_channels(channels))
+        client.channels.retrieve(synnax::channel::keys_from_channels(channels))
     );
     ASSERT_EQ(channels.size(), retrieved.size());
     for (auto &channel: channels) {
@@ -199,7 +199,7 @@ TEST(TestChannel, testRetrieveManyNotFound) {
 /// @brief it should convert a channel key to an ontology ID
 TEST(TestChannel, testOntologyId) {
     constexpr synnax::channel::Key key = 42;
-    const auto id = synnax::channel::Channel::ontology_id(key);
+    const auto id = synnax::channel::ontology_id(key);
     ASSERT_EQ(id.type, "channel");
     ASSERT_EQ(id.key, "42");
 }
@@ -207,7 +207,7 @@ TEST(TestChannel, testOntologyId) {
 /// @brief it should convert multiple channel keys to ontology IDs
 TEST(TestChannel, testOntologyIds) {
     const std::vector<synnax::channel::Key> keys = {1, 2, 3};
-    const auto ids = synnax::channel::Channel::ontology_ids(keys);
+    const auto ids = synnax::channel::ontology_ids(keys);
     ASSERT_EQ(ids.size(), 3);
     ASSERT_EQ(ids[0].type, "channel");
     ASSERT_EQ(ids[0].key, "1");
@@ -220,6 +220,6 @@ TEST(TestChannel, testOntologyIds) {
 /// @brief it should return empty vector for empty input
 TEST(TestChannel, testOntologyIdsEmpty) {
     const std::vector<synnax::channel::Key> keys;
-    const auto ids = synnax::channel::Channel::ontology_ids(keys);
+    const auto ids = synnax::channel::ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }

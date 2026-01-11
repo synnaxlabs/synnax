@@ -139,17 +139,21 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto int16_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("int16"), x::telem::INT16_T, true)
-    );
+    auto int16_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("int16"),
+        x::telem::INT16_T,
+        true
+    ));
     auto uint32_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("uint32"),
         x::telem::UINT32_T,
         true
     ));
-    auto int32_ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("int32"), x::telem::INT32_T, true)
-    );
+    auto int32_ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("int32"),
+        x::telem::INT32_T,
+        true
+    ));
     auto float32_ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("float32"),
         x::telem::FLOAT32_T,
@@ -281,18 +285,26 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto coil1 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("coil1"), x::telem::UINT8_T, true)
-    );
-    auto coil2 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("coil2"), x::telem::UINT8_T, true)
-    );
-    auto reg1 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("reg1"), x::telem::UINT16_T, true)
-    );
-    auto reg2 = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("reg2"), x::telem::UINT16_T, true)
-    );
+    auto coil1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("coil1"),
+        x::telem::UINT8_T,
+        true
+    ));
+    auto coil2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("coil2"),
+        x::telem::UINT8_T,
+        true
+    ));
+    auto reg1 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("reg1"),
+        x::telem::UINT16_T,
+        true
+    ));
+    auto reg2 = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("reg2"),
+        x::telem::UINT16_T,
+        true
+    ));
 
     json task_cfg{
         {"device", "modbus_test_dev"},

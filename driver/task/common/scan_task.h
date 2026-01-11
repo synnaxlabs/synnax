@@ -15,8 +15,8 @@
 #include "glog/logging.h"
 
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/loop/loop.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/loop/loop.h"
 #include "x/cpp/thread/thread.h"
 
 #include "driver/pipeline/base.h"
@@ -98,7 +98,8 @@ struct ClusterAPI {
     virtual std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) = 0;
 
-    virtual x::errors::Error create_devices(std::vector<synnax::device::Device> &devs) = 0;
+    virtual x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) = 0;
 
     virtual x::errors::Error
     update_statuses(std::vector<synnax::device::Status> statuses) = 0;
@@ -137,7 +138,8 @@ struct SynnaxClusterAPI final : ClusterAPI {
         );
     }
 
-    x::errors::Error create_devices(std::vector<synnax::device::Device> &devs) override {
+    x::errors::Error
+    create_devices(std::vector<synnax::device::Device> &devs) override {
         if (devs.empty()) return x::errors::NIL;
         return this->client->devices.create(devs);
     }
@@ -152,7 +154,10 @@ struct SynnaxClusterAPI final : ClusterAPI {
     open_streamer(synnax::framer::StreamerConfig config) override {
         auto [s, err] = this->client->telem.open_streamer(config);
         if (err) return {nullptr, err};
-        return {std::make_unique<driver::pipeline::SynnaxStreamer>(std::move(s)), x::errors::NIL};
+        return {
+            std::make_unique<driver::pipeline::SynnaxStreamer>(std::move(s)),
+            x::errors::NIL
+        };
     }
 
     std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
@@ -182,7 +187,8 @@ class ScanTask final : public driver::task::Task, public driver::pipeline::Base 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
-            dev_state != this->dev_states.end() && dev_state->second.status.has_value()) {
+            dev_state != this->dev_states.end() &&
+            dev_state->second.status.has_value()) {
             last_updated = dev_state->second.status->time;
         }
         const auto delta = x::telem::TimeStamp::now() - last_updated;
@@ -435,16 +441,14 @@ public:
 
             for (auto &[key, dev]: this->dev_states) {
                 if (present.find(key) != present.end()) continue;
-                if (!dev.status.has_value())
-                    dev.status = synnax::device::Status{};
+                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
                 dev.status->variant = x::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
             }
 
             statuses.reserve(this->dev_states.size());
             for (auto &[key, info]: this->dev_states) {
-                if (info.status.has_value())
-                    statuses.push_back(*info.status);
+                if (info.status.has_value()) statuses.push_back(*info.status);
             }
         }
 

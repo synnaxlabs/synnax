@@ -26,12 +26,27 @@ TEST(ArcTests, testCalcDoubling) {
     auto output_idx_name = make_unique_channel_name("ox_pt_doubled_idx");
     auto output_name = make_unique_channel_name("ox_pt_doubled");
 
-    auto input_idx = synnax::channel::Channel(input_idx_name, x::telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(input_name, x::telem::FLOAT32_T, input_idx.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
     auto output_ch = synnax::channel::Channel(
         output_name,
         x::telem::FLOAT32_T,
@@ -41,7 +56,7 @@ TEST(ArcTests, testCalcDoubling) {
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("calc_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("calc_test")};
     arc_prog.text = arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"
@@ -145,7 +160,7 @@ TEST(ArcTests, testBasicSequence) {
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with the sequence
-    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("sequence_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("sequence_test")};
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -267,7 +282,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a sequence triggered by one-shot edge
-    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("truthiness_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("truthiness_test")};
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -400,7 +415,12 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create pressure sensor channel
     auto pressure_idx_name = make_unique_channel_name("two_stage_pressure_idx");
     auto pressure_name = make_unique_channel_name("two_stage_pressure");
-    auto pressure_idx = synnax::channel::Channel(pressure_idx_name, x::telem::TIMESTAMP_T, 0, true);
+    auto pressure_idx = synnax::channel::Channel(
+        pressure_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client->channels.create(pressure_idx));
     auto pressure_ch = synnax::channel::Channel(
         pressure_name,
@@ -431,7 +451,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create Arc program with a two-stage sequence
     // Stage "pressurize": outputs 1, transitions to "idle" when pressure > 50
     // Stage "idle": outputs 0 (terminal stage)
-    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("two_stage_test")};
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("two_stage_test")};
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage pressurize {\n"

@@ -20,7 +20,7 @@ export type Key = z.infer<typeof keyZ>;
 export const schematicZ = z.object({
   key: keyZ,
   name: z.string(),
-  data: record.unknownZ,
+  data: record.nullishToEmpty,
   snapshot: z.boolean(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
@@ -29,7 +29,7 @@ export const newZ = schematicZ
   .omit({ data: true })
   .partial({ key: true, snapshot: true })
   .extend({
-    data: record.unknownZ,
+    data: record.nullishToEmpty,
   });
 export interface New extends z.input<typeof newZ> {}
 

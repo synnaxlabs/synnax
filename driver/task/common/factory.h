@@ -24,8 +24,10 @@ namespace driver::task::common {
 ///         - Error: any error that occurred during the operation
 /// @note If a task of the specified type already exists, returns {false, err} where err
 ///       is the error from the retrieval operation
-inline std::pair<bool, x::errors::Error>
-create_if_type_not_exists_on_rack(const synnax::rack::Rack &rack, synnax::task::Task &task) {
+inline std::pair<bool, x::errors::Error> create_if_type_not_exists_on_rack(
+    const synnax::rack::Rack &rack,
+    synnax::task::Task &task
+) {
     auto [_, err] = rack.tasks.retrieve_by_type(task.type);
     if (err.matches(x::errors::NOT_FOUND)) return {true, rack.tasks.create(task)};
     return {false, err};
@@ -33,7 +35,8 @@ create_if_type_not_exists_on_rack(const synnax::rack::Rack &rack, synnax::task::
 
 /// @brief Creates and configures initial tasks for a factory
 /// @tparam F A factory type that implements the configure_task method with signature:
-///           std::pair<std::unique_ptr<driver::task::Task>, x::errors::Error> configure_task(
+///           std::pair<std::unique_ptr<driver::task::Task>, x::errors::Error>
+///           configure_task(
 ///               const std::shared_ptr<driver::task::Context> &ctx,
 ///               const synnax::task::Task &task)
 /// @param factory Pointer to the factory instance that will configure the tasks
@@ -61,8 +64,13 @@ configure_initial_factory_tasks(
     const std::string &task_type,
     const std::string &integration_name
 ) {
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>> tasks;
-    auto sy_task = synnax::task::Task{.name = task_name, .type = task_type, .internal = true};
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
+        tasks;
+    auto sy_task = synnax::task::Task{
+        .name = task_name,
+        .type = task_type,
+        .internal = true
+    };
     auto [created, err] = create_if_type_not_exists_on_rack(rack, sy_task);
     if (err) {
         LOG(ERROR) << "[" << integration_name << "] failed to create" << task_name

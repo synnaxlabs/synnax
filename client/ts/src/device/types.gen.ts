@@ -50,7 +50,7 @@ export const deviceZ = <
     model: model ?? z.string(),
     name: z.string().min(1, "Name is required"),
     configured: z.boolean().optional(),
-    properties: properties ?? record.unknownZ,
+    properties: properties ?? record.nullishToEmpty,
     status: statusZ.optional(),
   });
 export type Device<
@@ -78,7 +78,7 @@ export const newZ = <
     .omit({ configured: true, properties: true })
     .partial({ key: true })
     .extend({
-      properties: properties ?? record.unknownZ,
+      properties: properties ?? record.nullishToEmpty,
     });
 export type New<
   Properties extends z.ZodType = z.ZodType,

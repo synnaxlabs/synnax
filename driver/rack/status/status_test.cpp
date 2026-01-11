@@ -19,7 +19,9 @@
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto ch = ASSERT_NIL_P(client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME));
+    auto ch = ASSERT_NIL_P(
+        client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
+    );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
     auto task = synnax::task::Task{.name = "state", .type = "state", .internal = true};
     ASSERT_NIL(rack.tasks.create(task));

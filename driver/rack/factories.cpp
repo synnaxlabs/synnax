@@ -53,9 +53,12 @@ void configure_sequences(const driver::rack::Config &config, FactoryList &factor
 }
 
 void configure_labjack(const driver::rack::Config &config, FactoryList &factories) {
-    configure_integration(config, factories, driver::labjack::INTEGRATION_NAME, [&config]() {
-        return driver::labjack::Factory::create(config.timing);
-    });
+    configure_integration(
+        config,
+        factories,
+        driver::labjack::INTEGRATION_NAME,
+        [&config]() { return driver::labjack::Factory::create(config.timing); }
+    );
 }
 
 void configure_state(FactoryList &factories) {

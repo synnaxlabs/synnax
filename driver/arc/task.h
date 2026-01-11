@@ -135,7 +135,8 @@ public:
     explicit Source(const std::shared_ptr<runtime::Runtime> &runtime):
         runtime(runtime) {}
 
-    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
+    x::errors::Error
+    read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
         this->runtime->read(data);
         return x::errors::NIL;
     }
@@ -183,9 +184,8 @@ public:
                 ctx->client
             );
         if (!streamer_factory)
-            streamer_factory = std::make_shared<driver::pipeline::SynnaxStreamerFactory>(
-                ctx->client
-            );
+            streamer_factory = std::make_shared<
+                driver::pipeline::SynnaxStreamerFactory>(ctx->client);
         this->acquisition = std::make_unique<driver::pipeline::Acquisition>(
             writer_factory,
             synnax::framer::WriterConfig{

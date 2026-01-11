@@ -133,8 +133,10 @@ public:
     /// @returns the configured sequence if configuration was successful, otherwise
     /// returns a nullptr. Configuration errors are communicated through the task
     /// context.
-    static std::unique_ptr<driver::task::Task>
-    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task);
+    static std::unique_ptr<driver::task::Task> configure(
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const synnax::task::Task &task
+    );
 
     Task(
         const std::shared_ptr<driver::task::Context> &ctx,

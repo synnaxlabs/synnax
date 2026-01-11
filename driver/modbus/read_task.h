@@ -285,8 +285,10 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// information.
     /// @param task the task to parse.
     /// @returns a pair containing the parsed configuration and any error that occurred.
-    static std::pair<ReadTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::task::Task &task) {
+    static std::pair<ReadTaskConfig, x::errors::Error> parse(
+        const std::shared_ptr<synnax::Synnax> &client,
+        const synnax::task::Task &task
+    ) {
         auto parser = x::json::Parser(task.config);
         ReadTaskConfig cfg(client, parser);
         return {std::move(cfg), parser.error()};
@@ -334,7 +336,8 @@ public:
     ):
         config(std::move(cfg)), dev(dev), sample_clock(this->config.sample_rate) {}
 
-    driver::task::common::ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+    driver::task::common::ReadResult
+    read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         driver::task::common::ReadResult res;
         const auto n_channels = this->config.data_channel_count;
         const auto n_samples = this->config.samples_per_chan;

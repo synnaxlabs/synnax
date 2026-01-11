@@ -12,8 +12,10 @@
 
 #include "driver/rack/rack.h"
 
-x::errors::Error
-driver::rack::Config::load_config_file(x::args::Parser &args, x::breaker::Breaker &breaker) {
+x::errors::Error driver::rack::Config::load_config_file(
+    x::args::Parser &args,
+    x::breaker::Breaker &breaker
+) {
     std::string config_path = args.field("--config", "");
     if (config_path.empty()) {
         if (breaker.retry_count() == 0) LOG(INFO) << "no config file specified";

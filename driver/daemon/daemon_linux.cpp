@@ -103,10 +103,13 @@ x::errors::Error install_binary() {
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
-        return x::errors::Error("Failed to get current executable path: " + ec.message());
+        return x::errors::Error(
+            "Failed to get current executable path: " + ec.message()
+        );
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec) return x::errors::Error("Failed to create binary directory: " + ec.message());
+    if (ec)
+        return x::errors::Error("Failed to create binary directory: " + ec.message());
 
     // Copy the binary
     const fs::path target_path = "/usr/local/bin/synnax-driver";

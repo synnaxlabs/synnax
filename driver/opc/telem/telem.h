@@ -13,9 +13,9 @@
 #include "open62541/types.h"
 
 /// module
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/errors/errors.h"
 
 namespace driver::opc::telem {
 /// @brief converts an OPC UA data type to a Synnax telemetry data type.

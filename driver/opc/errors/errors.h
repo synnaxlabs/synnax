@@ -32,7 +32,9 @@ const x::errors::Error ENCRYPTION_CONFIG_FAILED = SECURITY.sub("encryption_confi
 
 /// @brief specific OPC UA error codes mapped to error types
 const x::errors::Error INVALID_ENDPOINT = CRITICAL.sub("BadTcpEndpointUrlInvalid");
-const x::errors::Error IDENTITY_TOKEN_REJECTED = CRITICAL.sub("BadIdentityTokenRejected");
+const x::errors::Error IDENTITY_TOKEN_REJECTED = CRITICAL.sub(
+    "BadIdentityTokenRejected"
+);
 
 x::errors::Error parse(const UA_StatusCode &status);
 }

@@ -17,7 +17,7 @@ import { ir } from "@/arc/ir";
 export const nodeZ = z.object({
   key: z.string(),
   type: z.string(),
-  config: record.unknownZ,
+  config: record.nullishToEmpty,
   position: spatial.xyZ,
 });
 export interface Node extends z.infer<typeof nodeZ> {}

@@ -195,7 +195,8 @@ protected:
         };
 
         task = synnax::task::Task{
-            .name = "opc_ua_write_task_test", .type = "opc_write"
+            .name = "opc_ua_write_task_test",
+            .type = "opc_write"
         };
 
         auto p = x::json::Parser(task_cfg);
@@ -355,7 +356,10 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     // Save connection config before moving cfg
     auto conn_cfg = cfg->connection;
 
-    auto sink = std::make_unique<driver::opc::WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto sink = std::make_unique<driver::opc::WriteTaskSink>(
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // First write should succeed
@@ -396,7 +400,9 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->write(fr3));
 
     // Verify the third value was written
-    auto client = ASSERT_NIL_P(driver::opc::connection::connect(conn_cfg, "[test.reconnect] "));
+    auto client = ASSERT_NIL_P(
+        driver::opc::connection::connect(conn_cfg, "[test.reconnect] ")
+    );
     const auto result = ASSERT_NIL_P(
         driver::opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
@@ -409,7 +415,10 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     // Save connection config before moving cfg
     auto conn_cfg = cfg->connection;
 
-    auto sink = std::make_unique<driver::opc::WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto sink = std::make_unique<driver::opc::WriteTaskSink>(
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // Perform multiple writes with different values
@@ -478,7 +487,10 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     auto invalid_cfg = driver::opc::WriteTaskConfig(client, p);
     ASSERT_FALSE(p.error()) << p.error().message();
 
-    auto sink = std::make_unique<driver::opc::WriteTaskSink>(conn_pool, std::move(invalid_cfg));
+    auto sink = std::make_unique<driver::opc::WriteTaskSink>(
+        conn_pool,
+        std::move(invalid_cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // Attempt to write to the invalid node

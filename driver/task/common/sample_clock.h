@@ -46,8 +46,8 @@ struct TimingConfig {
     }
 
     friend std::ostream &operator<<(std::ostream &os, const TimingConfig &cfg) {
-        os << "  " << x::log::SHALE() << "clock skew correction" << x::log::RESET() << ": "
-           << (cfg.correct_skew ? "enabled" : "disabled");
+        os << "  " << x::log::SHALE() << "clock skew correction" << x::log::RESET()
+           << ": " << (cfg.correct_skew ? "enabled" : "disabled");
         return os;
     }
 };

@@ -344,10 +344,7 @@ void Manager::monitor_loop() {
     }
 }
 
-void Manager::execute_op(
-    const Op &op,
-    const std::shared_ptr<Entry> &entry
-) const {
+void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) const {
     switch (op.type) {
         case Op::Type::CONFIGURE: {
             if (entry->task != nullptr) entry->task->stop(true);

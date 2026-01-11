@@ -14,7 +14,8 @@
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/write_task.h"
 
-class MockSink final : public driver::task::common::Sink, public driver::pipeline::mock::Sink {
+class MockSink final : public driver::task::common::Sink,
+                       public driver::pipeline::mock::Sink {
 public:
     MockSink(
         const x::telem::Rate state_rate,
@@ -43,7 +44,8 @@ public:
 
 /// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
-    auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
     cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));

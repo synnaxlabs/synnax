@@ -26,7 +26,8 @@ int driver::cmd::sub::login(x::args::Parser &args) {
     LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;
     const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << x::log::RED() << "failed to authenticate: " << err << x::log::RESET();
+        LOG(ERROR) << x::log::RED() << "failed to authenticate: " << err
+                   << x::log::RESET();
         return 1;
     }
     LOG(INFO) << x::log::GREEN() << "successfully logged in!" << x::log::RESET();
@@ -35,6 +36,7 @@ int driver::cmd::sub::login(x::args::Parser &args) {
                    << x::log::RESET();
         return 1;
     }
-    LOG(INFO) << x::log::GREEN() << "credentials saved successfully!" << x::log::RESET();
+    LOG(INFO) << x::log::GREEN() << "credentials saved successfully!"
+              << x::log::RESET();
     return 0;
 }

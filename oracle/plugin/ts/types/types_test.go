@@ -233,7 +233,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("float64", "float64", "z.number()"),
 				Entry("timestamp", "timestamp", "TimeStamp.z"),
 				Entry("timespan", "timespan", "TimeSpan.z"),
-				Entry("json", "json", "record.unknownZ"),
+				Entry("json", "json", "record.nullishToEmpty"),
 				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
 			)
 
@@ -444,6 +444,78 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`operations: zod.nullToUndefined(z.string().array())`))
 		})
 
+		It("Should handle required json fields with record.nullishToEmpty", func() {
+			source := `
+				@ts output "out"
+
+				Workspace struct {
+					key uuid
+					layout json
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Required json fields use record.nullishToEmpty to coerce null -> {}
+			Expect(content).To(ContainSubstring(`layout: record.nullishToEmpty`))
+		})
+
+		It("Should handle optional json fields with zod.nullToUndefined", func() {
+			source := `
+				@ts output "out"
+
+				Workspace struct {
+					key uuid
+					layout json?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Optional json fields use zod.nullToUndefined to convert null -> undefined
+			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ)`))
+		})
+
+		It("Should handle hard optional json fields with zod.nullToUndefined", func() {
+			source := `
+				@ts output "out"
+
+				Workspace struct {
+					key uuid
+					layout json??
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Hard optional json fields also use zod.nullToUndefined
+			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ)`))
+		})
+
 		It("Should generate error message for required validation", func() {
 			source := `
 				@ts output "out"
@@ -493,7 +565,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
-			Expect(content).To(ContainSubstring(`data: record.unknownZ`))
+			Expect(content).To(ContainSubstring(`data: record.nullishToEmpty`))
 		})
 
 		It("Should use z.record for json fields in child struct with type param", func() {
@@ -740,7 +812,7 @@ var _ = Describe("TS Types Plugin", func() {
 			// The 'type' field should use: type ?? z.string() since Type extends string
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback")
 			// The 'config' field should use fallback pattern since Config extends json
-			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ`), "config field should use type param with fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty`), "config field should use type param with fallback")
 			// The 'name' field should just be z.string() (not a type param)
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 		})
@@ -775,7 +847,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// Even with concrete_types, fields using type params should have the fallback pattern
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback even with concrete_types")
-			Expect(content).To(ContainSubstring(`config: config ?? record.unknownZ`), "config field should use type param with fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty`), "config field should use type param with fallback")
 		})
 
 		It("Should preserve type params when extending generic parent with pass-through type args", func() {

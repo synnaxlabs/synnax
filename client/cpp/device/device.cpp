@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include "client/cpp/device/device.h"
-#include "client/cpp/device/types.gen.h"
 #include "client/cpp/device/proto.gen.h"
+#include "client/cpp/device/types.gen.h"
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/rack/rack.h"
 #include "x/cpp/errors/errors.h"

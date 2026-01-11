@@ -80,7 +80,8 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_sca
     return {std::move(result), x::errors::NIL};
 }
 
-std::pair<std::unique_ptr<driver::task::Task>, bool> driver::opc::Factory::configure_task(
+std::pair<std::unique_ptr<driver::task::Task>, bool>
+driver::opc::Factory::configure_task(
     const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -100,7 +101,11 @@ driver::opc::Factory::configure_initial_tasks(
     const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::rack::Rack &rack
 ) {
-    driver::task::common::delete_legacy_task_by_type(rack, "opcScanner", INTEGRATION_NAME);
+    driver::task::common::delete_legacy_task_by_type(
+        rack,
+        "opcScanner",
+        INTEGRATION_NAME
+    );
     return driver::task::common::configure_initial_factory_tasks(
         this,
         ctx,

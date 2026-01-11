@@ -73,10 +73,11 @@ struct Device : synnax::device::Device {
             .model = this->model,
             .name = this->name,
             .configured = this->configured,
-            .properties = json{
-                {"is_simulated", this->is_simulated},
-                {"resource_name", this->resource_name}
-            },
+            .properties =
+                json{
+                    {"is_simulated", this->is_simulated},
+                    {"resource_name", this->resource_name}
+                },
             .status = this->status,
         };
         return dev;
@@ -90,7 +91,8 @@ struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
     /// @brief a set of regex patterns to ignore certain devices when scanning.
     std::vector<std::regex> ignored_models;
 
-    explicit ScanTaskConfig(x::json::Parser &cfg): driver::task::common::ScanTaskConfig(cfg) {
+    explicit ScanTaskConfig(x::json::Parser &cfg):
+        driver::task::common::ScanTaskConfig(cfg) {
         const auto i = cfg.field<std::vector<std::string>>(
             "ignored_models",
             DEFAULT_IGNORED_MODELS
@@ -128,7 +130,10 @@ class Scanner final : public driver::task::common::Scanner {
     parse_device(NISysCfgResourceHandle resource) const;
 
     driver::task::common::ScannerConfig config() const override {
-        return driver::task::common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
+        return driver::task::common::ScannerConfig{
+            .make = MAKE,
+            .log_prefix = SCAN_LOG_PREFIX
+        };
     }
 
 public:

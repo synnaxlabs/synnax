@@ -41,7 +41,9 @@ struct Input : virtual Channel {
         Channel(parser), synnax_key(parser.field<synnax::channel::Key>("channel")) {}
 
     /// @brief Binds remote channel information
-    void bind_remote_info(const synnax::channel::Channel &remote_ch) { this->ch = remote_ch; }
+    void bind_remote_info(const synnax::channel::Channel &remote_ch) {
+        this->ch = remote_ch;
+    }
 };
 
 /// @brief configuration to read from a discrete input.

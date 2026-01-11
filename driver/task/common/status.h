@@ -30,7 +30,10 @@ struct StatusHandler {
     /// @brief the wrapped raw task state that will be sent back to Synnax.
     synnax::task::Status status;
 
-    StatusHandler(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task):
+    StatusHandler(
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const synnax::task::Task &task
+    ):
         ctx(ctx), task(task) {
         this->status.name = task.name;
         this->status.details.task = task.key;

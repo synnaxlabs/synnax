@@ -82,8 +82,10 @@ public:
 
     /// @brief creates a new NI factory, loading the DAQmx and system configuration
     /// libraries.
-    static std::unique_ptr<Factory>
-    create(driver::task::common::TimingConfig timing_cfg = driver::task::common::TimingConfig{});
+    static std::unique_ptr<Factory> create(
+        driver::task::common::TimingConfig timing_cfg =
+            driver::task::common::TimingConfig{}
+    );
 
     /// @brief implements driver::task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
@@ -100,8 +102,10 @@ public:
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-    std::pair<driver::task::common::ConfigureResult, x::errors::Error>
-    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task) {
+    std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure(
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const synnax::task::Task &task
+    ) {
         driver::task::common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
@@ -134,7 +138,9 @@ public:
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::pair<driver::task::common::ConfigureResult, x::errors::Error>
-    configure_scan(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task);
+    std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_scan(
+        const std::shared_ptr<driver::task::Context> &ctx,
+        const synnax::task::Task &task
+    );
 };
 }

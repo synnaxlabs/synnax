@@ -11,7 +11,7 @@
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 
-namespace synnax::task  {
+namespace synnax::task {
 std::pair<Task, x::errors::Error> Client::retrieve(const Key key) const {
     return retrieve(key, RetrieveOptions{});
 }
