@@ -110,7 +110,7 @@ x::errors::Error Client::create(Range &range) const {
     if (res.ranges_size() == 0) return unexpected_missing_error("range");
     const auto rng = res.ranges(0);
     range.key = rng.key();
-    range.kv = this->kv;
+    range.kv = this->kv.scope_to_range(range.key);
     return err;
 }
 
