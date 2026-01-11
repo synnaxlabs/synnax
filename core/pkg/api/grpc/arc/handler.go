@@ -13,12 +13,12 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	"github.com/synnaxlabs/x/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

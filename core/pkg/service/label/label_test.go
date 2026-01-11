@@ -10,7 +10,6 @@
 package label_test
 
 import (
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -22,6 +21,7 @@ import (
 	xlabel "github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 var _ = Describe("Label", Ordered, func() {

@@ -416,7 +416,7 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				testutil.ExpectContent(resp, "translator.gen.go").
-					ToContain(`"github.com/google/uuid"`)
+					ToContain(`"github.com/synnaxlabs/x/uuid"`)
 			})
 
 			It("Should import telem package when timestamp fields present", func() {

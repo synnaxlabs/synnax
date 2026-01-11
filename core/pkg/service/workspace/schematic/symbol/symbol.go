@@ -10,8 +10,8 @@
 package symbol
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Symbol represents a schematic symbol specification with its visual states and regions.

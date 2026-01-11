@@ -12,7 +12,6 @@ package arc_test
 import (
 	"fmt"
 
-	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -23,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 var _ = Describe("Writer", func() {

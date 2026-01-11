@@ -19,7 +19,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -32,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	xslices "github.com/synnaxlabs/x/slices"
+	"github.com/synnaxlabs/x/uuid"
 	"go.uber.org/zap"
 )
 

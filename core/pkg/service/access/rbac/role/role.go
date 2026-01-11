@@ -10,9 +10,9 @@
 package role
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Role is a named collection of policies that can be assigned to users.

@@ -13,13 +13,13 @@ package pb
 
 import (
 	"context"
-	"github.com/google/uuid"
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	modulepb "github.com/synnaxlabs/arc/module/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
+	"github.com/synnaxlabs/x/uuid"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 

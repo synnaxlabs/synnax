@@ -12,8 +12,8 @@
 package ranger
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type Key = uuid.UUID

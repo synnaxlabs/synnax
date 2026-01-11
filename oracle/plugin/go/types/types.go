@@ -140,11 +140,11 @@ func generateGoFile(
 
 	// Create resolver context
 	ctx := &resolver.Context{
-		Table:                     table,
-		OutputPath:                outputPath,
-		Namespace:                 namespace,
-		RepoRoot:                  repoRoot,
-		DomainName:                "go",
+		Table:                         table,
+		OutputPath:                    outputPath,
+		Namespace:                     namespace,
+		RepoRoot:                      repoRoot,
+		DomainName:                    "go",
 		SubstituteDefaultedTypeParams: true, // Go doesn't support advanced generics
 	}
 

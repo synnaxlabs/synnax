@@ -633,7 +633,6 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
 }
 
-
 func (p *Plugin) processStruct(entry resolution.Type, data *templateData) structData {
 	form, ok := entry.Form.(resolution.StructForm)
 	if !ok {

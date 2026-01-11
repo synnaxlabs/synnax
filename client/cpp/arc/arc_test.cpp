@@ -50,9 +50,9 @@ TEST(TestArc, testCreateConvenience) {
 TEST(TestArc, testCreateMany) {
     const auto client = new_test_client();
     auto arcs = std::vector<Arc>{
-        Arc("arc1"),
-        Arc("arc2"),
-        Arc("arc3"),
+        Arc{.name="arc1"},
+        Arc{.name="arc2"},
+        Arc{.name="arc3"},
     };
 
     ASSERT_NIL(client.arcs.create(arcs));
@@ -98,8 +98,8 @@ TEST(TestArc, testRetrieveMany) {
     auto name1 = random_arc_name("multi1");
     auto name2 = random_arc_name("multi2");
     auto arcs = std::vector<Arc>{
-        Arc(name1),
-        Arc(name2),
+        Arc{.name=name1},
+        Arc{.name=name2}
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
@@ -168,8 +168,7 @@ TEST(TestArc, testModuleField) {
 
     ASSERT_NIL(err);
     ASSERT_EQ(retrieved.key, arc.key);
-    // Module field exists but WASM is empty when not compiled
-    ASSERT_TRUE(retrieved.module->wasm.empty());
+    ASSERT_FALSE(retrieved.module.has_value());
 }
 
 /// @brief it should compile an Arc program when retrieved with compile=true.

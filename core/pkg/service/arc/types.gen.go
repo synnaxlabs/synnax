@@ -12,11 +12,11 @@
 package arc
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/module"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type Status = status.Status[StatusDetails]

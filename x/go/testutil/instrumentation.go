@@ -13,12 +13,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/git"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/uuid"
 	"github.com/uptrace/uptrace-go/uptrace"
 	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"

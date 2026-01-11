@@ -13,9 +13,9 @@ import (
 	"context"
 	"slices"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Retrieve is used to retrieve views from the cluster using a builder pattern.

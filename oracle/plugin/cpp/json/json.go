@@ -129,13 +129,13 @@ func (p *Plugin) generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
-		OutputPath:     outputPath,
-		Namespace:      deriveNamespace(outputPath),
-		Serializers:    make([]serializerData, 0, len(structs)),
-		ArrayWrappers:  make([]arrayWrapperData, 0),
-		includes:       newIncludeManager(),
-		table:          req.Resolutions,
-		rawNs:          namespace,
+		OutputPath:    outputPath,
+		Namespace:     deriveNamespace(outputPath),
+		Serializers:   make([]serializerData, 0, len(structs)),
+		ArrayWrappers: make([]arrayWrapperData, 0),
+		includes:      newIncludeManager(),
+		table:         req.Resolutions,
+		rawNs:         namespace,
 	}
 
 	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))

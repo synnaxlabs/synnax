@@ -12,8 +12,8 @@ package kv
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Writer is used to create and delete key-value pairs.

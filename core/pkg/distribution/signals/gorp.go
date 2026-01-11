@@ -15,7 +15,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
@@ -26,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )

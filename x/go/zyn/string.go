@@ -13,9 +13,9 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 )
 

@@ -14,11 +14,11 @@ package store
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/store"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type Change struct {

@@ -12,7 +12,7 @@
 package table
 
 import (
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type Key = uuid.UUID

@@ -12,9 +12,9 @@ package override
 import (
 	"reflect"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // If returns the override value if the condition is true, otherwise it returns the

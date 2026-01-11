@@ -884,7 +884,7 @@ func (p *Plugin) generatePrimitiveConversion(
 ) (forward, backward string, hasError, hasBackwardError bool) {
 	switch primitive {
 	case "uuid":
-		data.imports.AddExternal("github.com/google/uuid")
+		data.imports.AddExternal("github.com/synnaxlabs/x/uuid")
 		return fmt.Sprintf("%s.String()", goField),
 			fmt.Sprintf("uuid.MustParse(%s)", pbField), false, false
 	case "timestamp":
@@ -1217,7 +1217,7 @@ func (p *Plugin) generateTypeDefConversion(
 
 	// Handle uuid specially - needs String() for forward, MustParse for backward
 	if baseType.Name == "uuid" {
-		data.imports.AddExternal("github.com/google/uuid")
+		data.imports.AddExternal("github.com/synnaxlabs/x/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("%s%s(uuid.MustParse(%s))", typedefPrefix, resolved.Name, pbField)
 		return forward, backward
@@ -1265,7 +1265,7 @@ func (p *Plugin) generateAliasConversion(
 
 	// Handle uuid specially
 	if primitiveName == "uuid" {
-		data.imports.AddExternal("github.com/google/uuid")
+		data.imports.AddExternal("github.com/synnaxlabs/x/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("%s%s(uuid.MustParse(%s))", aliasPrefix, resolved.Name, pbField)
 		return forward, backward
@@ -1316,7 +1316,7 @@ func (p *Plugin) generateArrayConversion(
 	if resolution.IsPrimitive(elemType.Name) {
 		switch elemType.Name {
 		case "uuid":
-			data.imports.AddExternal("github.com/google/uuid")
+			data.imports.AddExternal("github.com/synnaxlabs/x/uuid")
 			data.imports.AddExternal("github.com/samber/lo")
 			return fmt.Sprintf("lo.Map(%s, func(u uuid.UUID, _ int) string { return u.String() })", goField),
 				fmt.Sprintf("lo.Map(%s, func(s string, _ int) uuid.UUID { return uuid.MustParse(s) })", pbField),

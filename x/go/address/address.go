@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // Address represents an addressable item in a network.

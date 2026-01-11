@@ -13,8 +13,8 @@ import (
 	"context"
 	"slices"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // A Retrieve is used to retrieve users from the key-value store.

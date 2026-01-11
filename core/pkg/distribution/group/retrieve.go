@@ -12,9 +12,9 @@ package group
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 type Retrieve struct {

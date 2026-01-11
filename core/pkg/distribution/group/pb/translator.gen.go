@@ -13,8 +13,8 @@ package pb
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/x/uuid"
 )
 
 // GroupToPB converts Group to Group.
