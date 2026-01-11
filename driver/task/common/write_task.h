@@ -35,11 +35,11 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
 };
 class Sink : public driver::pipeline::Sink, public driver::pipeline::Source {
     /// @brief the vector of channels to stream for commands.
-    const std::vector<synnax::channel::Key> cmd_channels;
+    const std::vector<synnax::channel::Channel::Key> cmd_channels;
     /// @brief the vector of channels to write state updates for.
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> state_channels;
     /// @brief the index keys of the state channels.
-    const std::set<synnax::channel::Key> state_indexes;
+    const std::set<synnax::channel::Channel::Key> state_indexes;
     /// @brief whether data saving is enabled for the task.
     bool data_saving;
 
@@ -53,9 +53,9 @@ public:
     std::condition_variable chan_state_cv;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
-    std::unordered_map<synnax::channel::Key, x::telem::SampleValue> chan_state;
+    std::unordered_map<synnax::channel::Channel::Key, x::telem::SampleValue> chan_state;
 
-    explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
+    explicit Sink(std::vector<synnax::channel::Channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
         data_saving(true),
@@ -63,9 +63,9 @@ public:
 
     Sink(
         const x::telem::Rate state_rate,
-        std::set<synnax::channel::Key> state_indexes,
-        const std::vector<synnax::channel::Channel> &state_channels,
-        std::vector<synnax::channel::Key> cmd_channels,
+        std::set<synnax::channel::Channel::Key> state_indexes,
+        const std::vector<synnax::channel::Channel::Channel> &state_channels,
+        std::vector<synnax::channel::Channel::Key> cmd_channels,
         const bool data_saving
     ):
         cmd_channels(std::move(cmd_channels)),
@@ -89,7 +89,7 @@ public:
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::channel::Key> keys;
+        std::vector<synnax::channel::Channel::Key> keys;
         for (const auto &[_, ch]: this->state_channels)
             keys.push_back(ch.key);
         for (const auto idx: this->state_indexes)
@@ -181,7 +181,7 @@ public:
     /// @brief base constructor that takes in pipeline factories to allow the
     /// caller to stub cluster communication during tests.
     explicit WriteTask(
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const std::shared_ptr<driver::task::Context> &ctx,
         const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink,
@@ -208,7 +208,7 @@ public:
     /// @brief primary constructor that uses the task context's Synnax client for
     /// cluster communication.
     explicit WriteTask(
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const std::shared_ptr<driver::task::Context> &ctx,
         const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Sink> sink

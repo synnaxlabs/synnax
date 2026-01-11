@@ -217,17 +217,17 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
 class AnalogReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
+    synnax::task::Task task;
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
+    synnax::channel::Channel::Channel index_channel = synnax::channel::Channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
+    synnax::channel::Channel::Channel data_channel = synnax::channel::Channel::Channel(
         make_unique_channel_name("data_channel"),
         x::telem::FLOAT64_T,
         index_channel.key,
@@ -249,7 +249,7 @@ protected:
 
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "my_task", "ni_analog_read", "");
+        task = synnax::task::Task(rack.key, "my_task", "ni_analog_read", "");
 
         json j{
             {"data_saving", false},
@@ -510,17 +510,17 @@ TEST_F(AnalogReadTest, testDoubleStop) {
 class DigitalReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
+    synnax::task::Task task;
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
+    synnax::channel::Channel::Channel index_channel = synnax::channel::Channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
+    synnax::channel::Channel::Channel data_channel = synnax::channel::Channel::Channel(
         make_unique_channel_name("digital_channel"),
         x::telem::UINT8_T, // Digital data is typically boolean/uint8
         index_channel.key,
@@ -548,7 +548,7 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "digital_task", "ni_digital_read", "");
+        task = synnax::task::Task(rack.key, "digital_task", "ni_digital_read", "");
 
         json j{
             {"data_saving", true},
@@ -668,17 +668,17 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
 class CounterReadTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
+    synnax::task::Task task;
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
+    synnax::channel::Channel::Channel index_channel = synnax::channel::Channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
+    synnax::channel::Channel::Channel data_channel = synnax::channel::Channel::Channel(
         make_unique_channel_name("counter_channel"),
         x::telem::FLOAT64_T, // Counter frequency data
         index_channel.key,
@@ -706,7 +706,7 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "counter_task", "ni_counter_read", "");
+        task = synnax::task::Task(rack.key, "counter_task", "ni_counter_read", "");
 
         json j{
             {"data_saving", true},

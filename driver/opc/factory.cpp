@@ -21,7 +21,7 @@
 
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task,
+    const synnax::task::Task &task,
     const std::shared_ptr<driver::opc::connection::Pool> &pool
 ) {
     driver::task::common::ConfigureResult result;
@@ -44,7 +44,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_rea
 
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task,
+    const synnax::task::Task &task,
     const std::shared_ptr<driver::opc::connection::Pool> &pool
 ) {
     driver::task::common::ConfigureResult result;
@@ -62,7 +62,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_wri
 
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_scan(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task,
+    const synnax::task::Task &task,
     const std::shared_ptr<driver::opc::connection::Pool> &pool
 ) {
     driver::task::common::ConfigureResult result;
@@ -82,7 +82,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_sca
 
 std::pair<std::unique_ptr<driver::task::Task>, bool> driver::opc::Factory::configure_task(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     std::pair<driver::task::common::ConfigureResult, x::errors::Error> res;
@@ -95,10 +95,10 @@ std::pair<std::unique_ptr<driver::task::Task>, bool> driver::opc::Factory::confi
     return driver::task::common::handle_config_err(ctx, task, std::move(res));
 }
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
+std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
 driver::opc::Factory::configure_initial_tasks(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Rack &rack
+    const synnax::rack::Rack &rack
 ) {
     driver::task::common::delete_legacy_task_by_type(rack, "opcScanner", INTEGRATION_NAME);
     return driver::task::common::configure_initial_factory_tasks(

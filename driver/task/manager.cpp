@@ -13,9 +13,9 @@
 
 #include "glog/logging.h"
 
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xlog/xlog.h"
-#include "x/cpp/xos/xos.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/log/log.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/task/task.h"
 
@@ -23,14 +23,14 @@ const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
-xerrors::Error task::Manager::open_streamer() {
+x::errors::Error task::Manager::open_streamer() {
     VLOG(1) << "opening streamer";
     auto [channels, task_set_err] = this->ctx->client->channels.retrieve(
         {TASK_SET_CHANNEL, TASK_DELETE_CHANNEL, TASK_CMD_CHANNEL}
     );
     if (task_set_err) return task_set_err;
     if (channels.size() != 3)
-        return xerrors::Error(
+        return x::errors::Error(
             "expected 3 channels, got " + std::to_string(channels.size())
         );
     for (const auto &channel: channels)
@@ -41,10 +41,10 @@ xerrors::Error task::Manager::open_streamer() {
         else if (channel.name == TASK_CMD_CHANNEL)
             this->channels.task_cmd = channel;
 
-    if (this->exit_early) return xerrors::NIL;
+    if (this->exit_early) return x::errors::NIL;
     std::lock_guard<std::mutex> lock{this->mu};
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
-        synnax::StreamerConfig{
+        synnax::framer::StreamerConfig{
             .channels = {
                 this->channels.task_set.key,
                 this->channels.task_delete.key,
@@ -53,11 +53,11 @@ xerrors::Error task::Manager::open_streamer() {
         }
     );
     if (open_err) return open_err;
-    this->streamer = std::make_unique<synnax::Streamer>(std::move(s));
-    return xerrors::NIL;
+    this->streamer = std::make_unique<synnax::framer::Streamer>(std::move(s));
+    return x::errors::NIL;
 }
 
-xerrors::Error task::Manager::configure_initial_tasks() {
+x::errors::Error task::Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
     auto [tasks, tasks_err] = this->rack.tasks.list();
     if (tasks_err) return tasks_err;
@@ -94,7 +94,7 @@ xerrors::Error task::Manager::configure_initial_tasks() {
         }
     }
     VLOG(1) << "queued " << queued << " initial tasks";
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
 void task::Manager::stop() {
@@ -105,18 +105,18 @@ void task::Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-bool task::Manager::skip_foreign_rack(const synnax::TaskKey &task_key) const {
-    if (synnax::rack_key_from_task_key(task_key) != this->rack.key) {
+bool task::Manager::skip_foreign_rack(const synnax::task::Key &task_key) const {
+    if (synnax::task::rack_key_from_task_key(task_key) != this->rack.key) {
         VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
         return true;
     }
     return false;
 }
 
-xerrors::Error task::Manager::run(std::function<void()> on_started) {
+x::errors::Error task::Manager::run(std::function<void()> on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
     this->start_workers();
     if (const auto err = this->configure_initial_tasks()) {
@@ -127,13 +127,13 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
         VLOG(1) << "exiting early";
         this->stop_workers();
         this->stop_all_tasks();
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
     if (const auto err = this->open_streamer()) {
         this->stop_workers();
         return err;
     }
-    LOG(INFO) << xlog::GREEN() << "started successfully" << xlog::RESET();
+    LOG(INFO) << x::log::GREEN() << "started successfully" << x::log::RESET();
     if (on_started) on_started();
     do {
         auto [frame, read_err] = this->streamer->read();
@@ -157,7 +157,7 @@ xerrors::Error task::Manager::run(std::function<void()> on_started) {
     return c_err;
 }
 
-void task::Manager::process_task_set(const telem::Series &series) {
+void task::Manager::process_task_set(const x::telem::Series &series) {
     const auto task_keys = series.values<std::uint64_t>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
@@ -179,10 +179,10 @@ void task::Manager::process_task_set(const telem::Series &series) {
     }
 }
 
-void task::Manager::process_task_cmd(const telem::Series &series) {
+void task::Manager::process_task_cmd(const x::telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
-        auto parser = xjson::Parser(cmd_str);
+        auto parser = x::json::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
@@ -208,8 +208,8 @@ void task::Manager::stop_all_tasks() {
         }
     }
     this->cv.notify_all();
-    const auto deadline = telem::TimeStamp::now() + this->shutdown_timeout;
-    while (telem::TimeStamp::now() < deadline) {
+    const auto deadline = x::telem::TimeStamp::now() + this->shutdown_timeout;
+    while (x::telem::TimeStamp::now() < deadline) {
         {
             std::lock_guard<std::mutex> lock(this->mu);
             if (this->op_queue.empty()) {
@@ -223,13 +223,13 @@ void task::Manager::stop_all_tasks() {
                 if (!any_processing) break;
             }
         }
-        std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
+        std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
     }
     this->entries.clear();
 }
 
-void task::Manager::process_task_delete(const telem::Series &series) {
-    const auto task_keys = series.values<synnax::TaskKey>();
+void task::Manager::process_task_delete(const x::telem::Series &series) {
+    const auto task_keys = series.values<synnax::task::Key>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
         std::lock_guard<std::mutex> lock(this->mu);
@@ -258,11 +258,11 @@ void task::Manager::start_workers() {
 void task::Manager::stop_workers() {
     this->breaker.stop();
     this->cv.notify_all();
-    const auto deadline = telem::TimeStamp::now() + this->shutdown_timeout;
+    const auto deadline = x::telem::TimeStamp::now() + this->shutdown_timeout;
     for (auto &w: this->workers) {
         if (!w.thread.joinable()) continue;
-        while (!w.done->load() && telem::TimeStamp::now() < deadline)
-            std::this_thread::sleep_for((50 * telem::MILLISECOND).chrono());
+        while (!w.done->load() && x::telem::TimeStamp::now() < deadline)
+            std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
         if (w.done->load())
             w.thread.join();
         else {
@@ -312,10 +312,10 @@ void task::Manager::worker_loop() {
         }
         if (!entry) continue;
 
-        entry->op_started = telem::TimeStamp::now();
+        entry->op_started = x::telem::TimeStamp::now();
         lock.unlock();
         this->execute_op(op, entry);
-        entry->op_started = telem::TimeStamp(0);
+        entry->op_started = x::telem::TimeStamp(0);
         entry->processing = false;
         this->cv.notify_all();
     }
@@ -330,11 +330,11 @@ void task::Manager::monitor_loop() {
             if (!entry->processing) continue;
             auto started = entry->op_started.load();
             if (started.nanoseconds() == 0) continue;
-            if (telem::TimeStamp::now() - started > this->op_timeout) {
+            if (x::telem::TimeStamp::now() - started > this->op_timeout) {
                 LOG(ERROR) << "task " << key << " operation timed out";
-                synnax::TaskStatus status;
-                status.key = synnax::task_ontology_id(key).string();
-                status.variant = status::variant::ERR;
+                synnax::task::Status status;
+                status.key = synnax::task::ontology_id(key).string();
+                status.variant = x::status::VARIANT_ERROR;
                 status.message = "operation timed out";
                 status.details.task = key;
                 this->ctx->set_status(status);

@@ -20,7 +20,7 @@
 namespace driver::modbus {
 Scanner::Scanner(
     std::shared_ptr<driver::task::Context> ctx,
-    synnax::Task task,
+    synnax::task::Task task,
     std::shared_ptr<device::Manager> devices
 ):
     ctx(std::move(ctx)), task(std::move(task)), devices(std::move(devices)) {}
@@ -45,7 +45,7 @@ Scanner::scan(const driver::task::common::ScannerContext &scan_ctx) {
 
 bool Scanner::exec(
     driver::task::Command &cmd,
-    const synnax::Task &,
+    const synnax::task::Task &,
     const std::shared_ptr<driver::task::Context> &
 ) {
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) {
@@ -97,11 +97,11 @@ void Scanner::check_device_health(synnax::Device &dev) const {
 void Scanner::test_connection(const driver::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::TaskStatus status{
+    synnax::task::Status status{
         .key = this->task.status_key(),
         .name = this->task.name,
         .variant = status::variant::ERR,
-        .details = synnax::TaskStatusDetails{
+        .details = synnax::task::StatusDetails{
             .task = task.key,
             .cmd = cmd.key,
             .running = true,

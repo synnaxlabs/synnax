@@ -25,10 +25,10 @@ struct StreamerConfig {
     // A sequence of errors to return alongside frames during read() calls.
     // If provided, each read will return the corresponding error at the same index.
     // If nullptr or index exceeds size, returns NIL error.
-    std::shared_ptr<std::vector<xerrors::Error>> read_errors;
+    std::shared_ptr<std::vector<x::errors::Error>> read_errors;
 
     // Error to return when close() is called on the Streamer.
-    xerrors::Error close_err;
+    x::errors::Error close_err;
 };
 
 // Mock implementation of pipeline::Streamer for testing.
@@ -42,28 +42,28 @@ public:
 
     explicit Streamer(StreamerConfig config): config(std::move(config)) {}
 
-    std::pair<telem::Frame, xerrors::Error> read() override {
+    std::pair<telem::Frame, x::errors::Error> read() override {
         if (current_read >= config.reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             if (this->config.read_errors != nullptr &&
                 !this->config.read_errors->empty())
                 return {telem::Frame{}, this->config.read_errors->at(0)};
-            return {telem::Frame(0), xerrors::NIL};
+            return {telem::Frame(0), x::errors::NIL};
         }
         auto fr = std::move(config.reads->at(current_read));
-        auto err = xerrors::NIL;
+        auto err = x::errors::NIL;
         if (config.read_errors != nullptr && config.read_errors->size() > current_read)
             err = config.read_errors->at(current_read);
         current_read++;
         return {std::move(fr), err};
     }
 
-    xerrors::Error close() override { return config.close_err; }
+    x::errors::Error close() override { return config.close_err; }
 
     void close_send() override {
         if (this->config.read_errors == nullptr)
-            this->config.read_errors = std::make_shared<std::vector<xerrors::Error>>();
+            this->config.read_errors = std::make_shared<std::vector<x::errors::Error>>();
         this->config.read_errors->push_back(freighter::STREAM_CLOSED);
     }
 };
@@ -73,7 +73,7 @@ class StreamerFactory final : public pipeline::StreamerFactory {
 public:
     // Sequence of errors to return when opening new Streamers.
     // Each call to open_streamer consumes the next error.
-    std::vector<xerrors::Error> open_errors;
+    std::vector<x::errors::Error> open_errors;
 
     // Sequence of configurations for created Streamers.
     // Each new Streamer takes the next config, or the last config if exhausted.
@@ -86,12 +86,12 @@ public:
     size_t streamer_opens = 0;
 
     StreamerFactory(
-        std::vector<xerrors::Error> open_errors,
+        std::vector<x::errors::Error> open_errors,
         std::shared_ptr<std::vector<StreamerConfig>> configs
     ):
         open_errors(std::move(open_errors)), configs(std::move(configs)) {}
 
-    std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(const synnax::StreamerConfig config) override {
         this->streamer_opens++;
         this->config = config;
@@ -101,10 +101,10 @@ public:
             idx = this->configs->size() - 1;
         // try to grab the first error. if not, freighter nil
         auto err = this->streamer_opens > this->open_errors.size()
-                     ? xerrors::NIL
+                     ? x::errors::NIL
                      : this->open_errors.at(this->streamer_opens - 1);
         if (err) return {nullptr, err};
-        return {std::make_unique<Streamer>((*this->configs)[idx]), xerrors::NIL};
+        return {std::make_unique<Streamer>((*this->configs)[idx]), x::errors::NIL};
     }
 };
 
@@ -114,9 +114,9 @@ inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
 ) {
     const auto cfg = synnax::StreamerConfig{.channels = keys};
     const auto factory = std::make_shared<pipeline::mock::StreamerFactory>(
-        std::vector<xerrors::Error>{},
+        std::vector<x::errors::Error>{},
         std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
-            std::vector{pipeline::mock::StreamerConfig{reads, {}, xerrors::NIL}}
+            std::vector{pipeline::mock::StreamerConfig{reads, {}, x::errors::NIL}}
         )
     );
     return factory;
@@ -129,7 +129,7 @@ public:
     std::shared_ptr<std::vector<telem::Frame>> writes;
 
     // Error to return when close() is called
-    xerrors::Error close_err;
+    x::errors::Error close_err;
 
     // Index at which write() should return false to simulate failure
     // -1 means never return false
@@ -137,22 +137,22 @@ public:
 
     explicit Writer(
         std::shared_ptr<std::vector<telem::Frame>> writes,
-        const xerrors::Error &close_err = xerrors::NIL,
+        const x::errors::Error &close_err = x::errors::NIL,
         const int return_false_ok_on = -1
     ):
         writes(std::move(writes)),
         close_err(close_err),
         return_false_ok_on(return_false_ok_on) {}
 
-    xerrors::Error write(const telem::Frame &fr) override {
+    x::errors::Error write(const telem::Frame &fr) override {
         if (this->return_false_ok_on != -1 &&
             this->writes->size() == static_cast<size_t>(this->return_false_ok_on))
-            return xerrors::VALIDATION;
+            return x::errors::VALIDATION;
         this->writes->push_back(fr.deep_copy());
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error close() override { return this->close_err; }
+    x::errors::Error close() override { return this->close_err; }
 };
 
 class WriterFactory final : public pipeline::WriterFactory {
@@ -164,11 +164,11 @@ public:
     // A queue of errors to return when opening writers. Each call to open_writer
     // will consume and return the next error in this vector. Empty vector means no
     // errors.
-    std::vector<xerrors::Error> open_errors;
+    std::vector<x::errors::Error> open_errors;
 
     // A queue of errors for writers to return when closed. Each new writer created
     // will consume and use the next error in this vector for its close() method.
-    std::vector<xerrors::Error> close_errors;
+    std::vector<x::errors::Error> close_errors;
 
     // A queue of indices at which writers should return false for write operations.
     // Each new writer will consume the next value. When a writer's writes->size()
@@ -186,8 +186,8 @@ public:
     explicit WriterFactory(
         std::shared_ptr<std::vector<telem::Frame>> writes =
             std::make_shared<std::vector<telem::Frame>>(),
-        std::vector<xerrors::Error> open_errors = {},
-        std::vector<xerrors::Error> close_errors = {},
+        std::vector<x::errors::Error> open_errors = {},
+        std::vector<x::errors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
     ):
         writes(std::move(writes)),
@@ -197,14 +197,14 @@ public:
         config(),
         writer_opens(0) {}
 
-    std::pair<std::unique_ptr<pipeline::Writer>, xerrors::Error>
+    std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::WriterConfig &config) override {
         this->writer_opens++;
         this->config = config;
-        auto err = this->open_errors.empty() ? xerrors::NIL : this->open_errors.front();
+        auto err = this->open_errors.empty() ? x::errors::NIL : this->open_errors.front();
         if (!this->open_errors.empty())
             this->open_errors.erase(this->open_errors.begin());
-        auto close_err = this->close_errors.empty() ? xerrors::NIL
+        auto close_err = this->close_errors.empty() ? x::errors::NIL
                                                     : this->close_errors.front();
         if (!this->close_errors.empty())
             this->close_errors.erase(this->close_errors.begin());
@@ -230,32 +230,32 @@ public:
 
     // Sequence of errors to return for write operations
     // Each write consumes the next error in the sequence
-    std::shared_ptr<std::vector<xerrors::Error>> write_errors;
+    std::shared_ptr<std::vector<x::errors::Error>> write_errors;
 
     // Stores the error passed to stopped_with_err
-    xerrors::Error stop_err;
+    x::errors::Error stop_err;
 
     Sink():
         writes(std::make_shared<std::vector<telem::Frame>>()),
-        write_errors(std::make_shared<std::vector<xerrors::Error>>()) {}
+        write_errors(std::make_shared<std::vector<x::errors::Error>>()) {}
 
     Sink(
         const std::shared_ptr<std::vector<telem::Frame>> &writes,
-        const std::shared_ptr<std::vector<xerrors::Error>> &write_errors
+        const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
     ):
         writes(writes), write_errors(write_errors) {}
 
-    xerrors::Error write(telem::Frame &frame) override {
-        if (frame.empty()) return xerrors::NIL;
+    x::errors::Error write(telem::Frame &frame) override {
+        if (frame.empty()) return x::errors::NIL;
         this->writes->emplace_back(frame.deep_copy());
         // try to grab and remove the first error. if not, freighter nil
-        if (this->write_errors->empty()) return xerrors::NIL;
+        if (this->write_errors->empty()) return x::errors::NIL;
         auto err = this->write_errors->front();
         this->write_errors->erase(this->write_errors->begin());
         return err;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override { this->stop_err = err; }
+    void stopped_with_err(const x::errors::Error &err) override { this->stop_err = err; }
 };
 
 // Mock implementation of pipeline::Source for testing.
@@ -269,10 +269,10 @@ public:
     // A sequence of errors to return alongside frames during read() calls.
     // If provided, each read will return the corresponding error at the same index.
     // If nullptr or index exceeds size, returns NIL error.
-    std::shared_ptr<std::vector<xerrors::Error>> read_errors;
+    std::shared_ptr<std::vector<x::errors::Error>> read_errors;
 
     // Stores the error passed to stopped_with_err
-    xerrors::Error stop_err;
+    x::errors::Error stop_err;
 
     // Tracks the current position in the reads sequence
     size_t current_read = 0;
@@ -283,31 +283,31 @@ public:
     explicit Source(
         std::shared_ptr<std::vector<telem::Frame>> reads =
             std::make_shared<std::vector<telem::Frame>>(),
-        std::shared_ptr<std::vector<xerrors::Error>> read_errors = nullptr
+        std::shared_ptr<std::vector<x::errors::Error>> read_errors = nullptr
     ):
         reads(std::move(reads)), read_errors(std::move(read_errors)) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    x::errors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
         if (current_read >= reads->size()) {
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            return xerrors::NIL;
+            return x::errors::NIL;
         }
 
         fr.clear();
         const auto &curr_read = reads->at(current_read);
         for (auto [k, s]: curr_read)
             fr.emplace(k, std::move(s));
-        auto err = xerrors::NIL;
+        auto err = x::errors::NIL;
         if (read_errors != nullptr && read_errors->size() > current_read)
             err = read_errors->at(current_read);
         current_read++;
         return err;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override { this->stop_err = err; }
+    void stopped_with_err(const x::errors::Error &err) override { this->stop_err = err; }
 };
 
 // Helper function to create a simple Source with predefined frames

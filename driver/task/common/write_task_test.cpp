@@ -18,9 +18,9 @@ class MockSink final : public driver::task::common::Sink, public driver::pipelin
 public:
     MockSink(
         const x::telem::Rate state_rate,
-        const std::set<synnax::channel::Key> &state_indexes,
-        const std::vector<synnax::channel::Channel> &state_channels,
-        const std::vector<synnax::channel::Key> &cmd_channels,
+        const std::set<synnax::channel::Channel::Key> &state_indexes,
+        const std::vector<synnax::channel::Channel::Channel> &state_channels,
+        const std::vector<synnax::channel::Channel::Key> &cmd_channels,
         const bool data_saving,
         const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
@@ -48,20 +48,20 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
     cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
     auto mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
-        std::vector<synnax::channel::Key>{1},
+        std::vector<synnax::channel::Channel::Key>{1},
         cmd_reads
     );
-    synnax::channel::Channel cmd_channel;
+    synnax::channel::Channel::Channel cmd_channel;
     cmd_channel.key = 1;
     cmd_channel.data_type = x::telem::UINT8_T;
     cmd_channel.is_virtual = true;
 
-    synnax::channel::Channel state_index;
+    synnax::channel::Channel::Channel state_index;
     state_index.key = 2;
     state_index.data_type = x::telem::TIMESTAMP_T;
     state_index.index = 2;
 
-    synnax::channel::Channel state;
+    synnax::channel::Channel::Channel state;
     state.key = 3;
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
@@ -71,15 +71,15 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
-        std::set<synnax::channel::Key>{2},
+        std::set<synnax::channel::Channel::Key>{2},
         std::vector{state},
-        std::vector<synnax::channel::Key>{1},
+        std::vector<synnax::channel::Channel::Key>{1},
         false,
         writes,
         errors
     );
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);

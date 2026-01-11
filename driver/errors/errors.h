@@ -34,7 +34,7 @@ inline x::errors::Error missing_lib(const LibraryInfo &lib) {
         message += " Download here: " + lib.url +
                    ". Restart Driver after installation.";
     }
-    return x::errors::Error(x::lib::LOAD_ERROR, message);
+    return x::errors::Error(x::lib::ERR_LOAD, message);
 }
 
 /// @brief wraps an error with channel name and hardware location context for easier

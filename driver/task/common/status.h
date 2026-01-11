@@ -24,13 +24,13 @@ struct StatusHandler {
     /// @brief the task context used to communicate state changes back to Synnax.
     const std::shared_ptr<driver::task::Context> ctx;
     /// @brief the raw synnax task.
-    const synnax::Task task;
+    const synnax::task::Task task;
     /// @brief the accumulated error in the task state.
     x::errors::Error accumulated_err = x::errors::NIL;
     /// @brief the wrapped raw task state that will be sent back to Synnax.
-    synnax::TaskStatus status;
+    synnax::task::Status status;
 
-    StatusHandler(const std::shared_ptr<driver::task::Context> &ctx, const synnax::Task &task):
+    StatusHandler(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task):
         ctx(ctx), task(task) {
         this->status.name = task.name;
         this->status.details.task = task.key;
@@ -114,10 +114,10 @@ struct StatusHandler {
 /// communicates them back to Synnax in the standard format.
 inline std::pair<std::unique_ptr<driver::task::Task>, bool> handle_config_err(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task,
+    const synnax::task::Task &task,
     std::pair<driver::task::common::ConfigureResult, x::errors::Error> res
 ) {
-    synnax::TaskStatus status;
+    synnax::task::Status status;
     status.key = task.status_key();
     status.name = task.name;
     status.details.task = task.key;

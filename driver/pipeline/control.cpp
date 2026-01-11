@@ -78,7 +78,7 @@ void Control::run() {
         this->sink->stopped_with_err(close_err);
 }
 
-SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal):
+SynnaxStreamer::SynnaxStreamer(synnax::framer::Streamer internal):
     internal(std::move(internal)) {}
 
 std::pair<x::telem::Frame, x::errors::Error> SynnaxStreamer::read() {

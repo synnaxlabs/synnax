@@ -13,7 +13,7 @@
 #include <string>
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/xmemory/local_shared.h"
 
 #include "arc/cpp/ir/ir.h"
@@ -34,9 +34,9 @@ public:
     On(state::Node &&state, types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
-    xerrors::Error next(node::Context &ctx) override {
+    x::errors::Error next(node::Context &ctx) override {
         auto [data, index_data, ok] = state.read_chan(channel_key);
-        if (!ok) return xerrors::NIL;
+        if (!ok) return x::errors::NIL;
 
         for (size_t i = 0; i < data.series.size(); i++) {
             auto &ser = data.series[i];
@@ -48,7 +48,7 @@ public:
 
             const bool generate_synthetic = index_data.empty();
             if (!generate_synthetic && i >= index_data.series.size())
-                return xerrors::NIL;
+                return x::errors::NIL;
 
             telem::Series time_series = generate_synthetic
                                           ? telem::Series(
@@ -65,7 +65,7 @@ public:
                     );
                 time_series.alignment = ser.alignment;
             } else if (time_series.alignment != ser.alignment)
-                return xerrors::NIL;
+                return x::errors::NIL;
 
             state.output(0) = x::mem::make_local_shared<telem::Series>(ser.deep_copy());
             state.output_time(0) = x::mem::make_local_shared<telem::Series>(
@@ -73,9 +73,9 @@ public:
             );
             high_water_mark = telem::Alignment(upper_val + 1);
             ctx.mark_changed(ir::default_output_param);
-            return xerrors::NIL;
+            return x::errors::NIL;
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
@@ -92,10 +92,10 @@ public:
     Write(state::Node &&state, types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
-    xerrors::Error next(node::Context & /*ctx*/) override {
-        if (!state.refresh_inputs()) return xerrors::NIL;
+    x::errors::Error next(node::Context & /*ctx*/) override {
+        if (!state.refresh_inputs()) return x::errors::NIL;
         const auto &data = state.input(0);
-        if (data->empty()) return xerrors::NIL;
+        if (data->empty()) return x::errors::NIL;
         // TODO: Fix this hacky code
         const auto start = telem::TimeStamp::now();
         const auto time = x::mem::local_shared(
@@ -106,7 +106,7 @@ public:
             )
         );
         state.write_chan(channel_key, data, time);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
@@ -121,18 +121,18 @@ public:
         return node_type == "on" || node_type == "write";
     }
 
-    std::pair<std::unique_ptr<node::Node>, xerrors::Error>
+    std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
-        if (!this->handles(cfg.node.type)) return {nullptr, xerrors::NOT_FOUND};
+        if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
         if (cfg.node.type == "on")
             return {
                 std::make_unique<On>(std::move(cfg.state), channel_key),
-                xerrors::NIL
+                x::errors::NIL
             };
         return {
             std::make_unique<Write>(std::move(cfg.state), channel_key),
-            xerrors::NIL
+            x::errors::NIL
         };
     }
 };

@@ -11,7 +11,9 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -455,5 +457,11 @@ struct IR {
     using proto_type = ::arc::ir::pb::IR;
     [[nodiscard]] ::arc::ir::pb::IR to_proto() const;
     static std::pair<IR, x::errors::Error> from_proto(const ::arc::ir::pb::IR &pb);
+
+    // Custom methods
+    [[nodiscard]] const Node &node(const std::string &key) const;
+    [[nodiscard]] std::optional<Edge> edge_to(const Handle &target) const;
+    [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
+    edges_from(const std::string &node_key) const;
 };
 }

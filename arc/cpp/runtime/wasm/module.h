@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -156,12 +156,12 @@ public:
         memory(std::move(memory)),
         instance(std::move(instance)) {}
 
-    static std::pair<std::shared_ptr<Module>, xerrors::Error>
+    static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
         if (cfg.module.wasm.empty())
             return {
                 nullptr,
-                xerrors::Error(xerrors::VALIDATION, "wasm bytes are empty")
+                x::errors::Error(x::errors::VALIDATION, "wasm bytes are empty")
             };
 
         wasmtime::Engine engine;
@@ -175,7 +175,7 @@ public:
         if (!mod_result)
             return {
                 nullptr,
-                xerrors::Error(xerrors::VALIDATION, "failed to compile module")
+                x::errors::Error(x::errors::VALIDATION, "failed to compile module")
             };
         const auto mod = mod_result.ok();
         const auto imports = create_imports(store, cfg.bindings);
@@ -184,8 +184,8 @@ public:
         if (!mem_opt)
             return {
                 nullptr,
-                xerrors::Error(
-                    xerrors::VALIDATION,
+                x::errors::Error(
+                    x::errors::VALIDATION,
                     "WASM module does not export 'memory'"
                 )
             };
@@ -194,8 +194,8 @@ public:
         if (!mem_ptr)
             return {
                 nullptr,
-                xerrors::Error(
-                    xerrors::VALIDATION,
+                x::errors::Error(
+                    x::errors::VALIDATION,
                     "export 'memory' is not a Memory type"
                 )
             };
@@ -211,7 +211,7 @@ public:
                 std::move(mem),
                 std::move(instance)
             ),
-            xerrors::NIL
+            x::errors::NIL
         };
     }
 
@@ -252,7 +252,7 @@ public:
             }
         }
 
-        std::pair<std::vector<Result>, xerrors::Error>
+        std::pair<std::vector<Result>, x::errors::Error>
         call(const std::vector<telem::SampleValue> &params) {
             for (auto &[_, changed]: this->output_values)
                 changed = false;
@@ -266,7 +266,7 @@ public:
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
                 std::fprintf(stderr, "WASM trap: %s\n", trap_msg.c_str());
-                return {{}, xerrors::Error("WASM execution failed: " + trap_msg)};
+                return {{}, x::errors::Error("WASM execution failed: " + trap_msg)};
             }
 
             const auto results = result.ok();
@@ -277,7 +277,7 @@ public:
                         .value = sample_from_wasm(results[0], this->outputs[0].type),
                         .changed = true
                     };
-                return {this->output_values, xerrors::NIL};
+                return {this->output_values, x::errors::NIL};
             }
 
             const auto mem_span = this->module.memory.data(this->module.store);
@@ -285,7 +285,7 @@ public:
             const size_t mem_size = mem_span.size();
 
             if (this->base + sizeof(uint64_t) > mem_size)
-                return {{}, xerrors::Error("base address out of memory bounds")};
+                return {{}, x::errors::Error("base address out of memory bounds")};
 
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
@@ -302,7 +302,7 @@ public:
                 };
             }
 
-            return {this->output_values, xerrors::NIL};
+            return {this->output_values, x::errors::NIL};
         }
     };
 
@@ -312,16 +312,16 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    std::pair<Function, xerrors::Error> func(const std::string &name) {
+    std::pair<Function, x::errors::Error> func(const std::string &name) {
         const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
-        if (!export_opt) return {zero_func, xerrors::NOT_FOUND};
+        if (!export_opt) return {zero_func, x::errors::NOT_FOUND};
 
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
         if (!func_ptr)
             return {
                 zero_func,
-                xerrors::Error(xerrors::VALIDATION, "export is not a function")
+                x::errors::Error(x::errors::VALIDATION, "export is not a function")
             };
 
         const auto &func = this->cfg.module.function(name);
@@ -334,7 +334,7 @@ public:
 
         return {
             Function(*this, *func_ptr, func.outputs, func.inputs, base),
-            xerrors::NIL
+            x::errors::NIL
         };
     }
 };

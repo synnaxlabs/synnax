@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/lua/xlua.h"
+#include "x/cpp/lua/lua.h"
 
 #include "driver/sequence/plugins/plugins.h"
 
@@ -32,7 +32,7 @@ x::errors::Error plugins::SynnaxFrameSink::write(x::telem::Frame &frame) {
 }
 
 x::errors::Error plugins::SynnaxFrameSink::set_authority(
-    const std::vector<synnax::channel::Key> &keys,
+    const std::vector<synnax::channel::Channel::Key> &keys,
     const std::vector<x::telem::Authority> &authorities
 ) {
     return this->writer->set_authority(keys, authorities);
@@ -47,7 +47,7 @@ x::errors::Error plugins::SynnaxFrameSink::close() {
 
 plugins::ChannelWrite::ChannelWrite(
     std::shared_ptr<plugins::FrameSink> sink,
-    const std::vector<synnax::channel::Channel> &channels
+    const std::vector<synnax::channel::Channel::Channel> &channels
 ):
     frame(x::telem::Frame(channels.size())),
     sink(std::move(sink)),
@@ -59,10 +59,10 @@ plugins::ChannelWrite::ChannelWrite(
     }
 }
 
-std::pair<synnax::channel::Channel, bool>
+std::pair<synnax::channel::Channel::Channel, bool>
 plugins::ChannelWrite::resolve(const std::string &name) {
     const auto it = this->names_to_keys.find(name);
-    if (it == this->names_to_keys.end()) return {synnax::channel::Channel(), false};
+    if (it == this->names_to_keys.end()) return {synnax::channel::Channel::Channel(), false};
     return {this->channels[it->second], true};
 }
 
@@ -121,7 +121,7 @@ x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 lua_touserdata(cL, lua_upvalueindex(1))
             );
 
-            std::vector<synnax::channel::Key> keys;
+            std::vector<synnax::channel::Channel::Key> keys;
             std::vector<x::telem::Authority> authorities;
 
             // Switching against the various possible overloads.
@@ -217,12 +217,12 @@ x::errors::Error plugins::ChannelWrite::before_next(lua_State *L) {
 x::errors::Error plugins::ChannelWrite::after_next(lua_State *L) {
     if (this->frame.empty()) return x::errors::NIL;
     const auto now = x::telem::TimeStamp::now();
-    std::vector<synnax::channel::Key> index_keys;
+    std::vector<synnax::channel::Channel::Key> index_keys;
     for (const auto key: *this->frame.channels) {
         auto it = this->channels.find(key);
         if (it == this->channels.end())
             return x::errors::Error(x::errors::NOT_FOUND, "channel not found");
-        synnax::channel::Channel ch = it->second;
+        synnax::channel::Channel::Channel ch = it->second;
         if (!ch.is_virtual) index_keys.push_back(ch.index);
     }
     for (const auto index: index_keys)

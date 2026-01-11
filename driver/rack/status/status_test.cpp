@@ -23,7 +23,7 @@ TEST(stateTests, testNominal) {
     auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
     auto hb = driver::rack::status::Task::configure(
         ctx,
-        synnax::Task(rack.key, "state", "state", "", true)
+        synnax::task::Task(rack.key, "state", "state", "", true)
     );
     auto cmd = driver::task::Command(0, "start", {});
     hb->exec(cmd);

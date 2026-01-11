@@ -24,7 +24,7 @@
 
 class TestWriteTask : public ::testing::Test {
 protected:
-    synnax::Task task;
+    synnax::task::Task task;
     std::unique_ptr<driver::opc::WriteTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_factory;
@@ -32,16 +32,16 @@ protected:
     std::shared_ptr<driver::opc::connection::Pool> conn_pool;
 
     // Command channels for different data types
-    synnax::channel::Channel bool_cmd_channel;
-    synnax::channel::Channel uint16_cmd_channel;
-    synnax::channel::Channel uint32_cmd_channel;
-    synnax::channel::Channel uint64_cmd_channel;
-    synnax::channel::Channel int8_cmd_channel;
-    synnax::channel::Channel int16_cmd_channel;
-    synnax::channel::Channel int32_cmd_channel;
-    synnax::channel::Channel int64_cmd_channel;
-    synnax::channel::Channel float_cmd_channel;
-    synnax::channel::Channel double_cmd_channel;
+    synnax::channel::Channel::Channel bool_cmd_channel;
+    synnax::channel::Channel::Channel uint16_cmd_channel;
+    synnax::channel::Channel::Channel uint32_cmd_channel;
+    synnax::channel::Channel::Channel uint64_cmd_channel;
+    synnax::channel::Channel::Channel int8_cmd_channel;
+    synnax::channel::Channel::Channel int16_cmd_channel;
+    synnax::channel::Channel::Channel int32_cmd_channel;
+    synnax::channel::Channel::Channel int64_cmd_channel;
+    synnax::channel::Channel::Channel float_cmd_channel;
+    synnax::channel::Channel::Channel double_cmd_channel;
 
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -194,7 +194,7 @@ protected:
              )}
         };
 
-        task = synnax::Task(rack.key, "opc_ua_write_task_test", "opc_write", "");
+        task = synnax::task::Task(rack.key, "opc_ua_write_task_test", "opc_write", "");
 
         auto p = x::json::Parser(task_cfg);
         this->cfg = std::make_unique<driver::opc::WriteTaskConfig>(client, p);

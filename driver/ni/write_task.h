@@ -31,14 +31,14 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     const x::telem::Rate state_rate;
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
-    std::map<synnax::channel::Key, std::unique_ptr<channel::Output>> channels;
+    std::map<synnax::channel::Channel::Key, std::unique_ptr<channel::Output>> channels;
     /// @brief the index channel keys for all the state channels. This is used
     /// to make sure we write correct timestamps for each state channel.
-    std::set<synnax::channel::Key> state_index_keys;
+    std::set<synnax::channel::Channel::Key> state_index_keys;
     /// @brief a map of channel keys to their index positions within the tasks
     /// write buffer. This map is only valid after apply() has been called on the
     /// configuration.
-    std::unordered_map<synnax::channel::Key, std::size_t> buf_indexes;
+    std::unordered_map<synnax::channel::Channel::Key, std::size_t> buf_indexes;
 
     /// @brief move constructor to deal with output channel unique pointers.
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
@@ -82,9 +82,9 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
             return;
         }
 
-        std::vector<synnax::channel::Key> state_keys;
+        std::vector<synnax::channel::Channel::Key> state_keys;
         state_keys.reserve(this->channels.size());
-        std::unordered_map<synnax::channel::Key, synnax::channel::Key> state_to_cmd;
+        std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Key> state_to_cmd;
         size_t index = 0;
         for (const auto &[_, ch]: this->channels) {
             state_keys.push_back(ch->state_ch_key);
@@ -108,16 +108,16 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
 
     /// @brief returns the configuration necessary for opening the writer
     /// to communicate state values back to Synnax.
-    [[nodiscard]] std::vector<synnax::channel::Channel> state_channels() {
-        std::vector<synnax::channel::Channel> state_channels;
+    [[nodiscard]] std::vector<synnax::channel::Channel::Channel> state_channels() {
+        std::vector<synnax::channel::Channel::Channel> state_channels;
         state_channels.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels)
             state_channels.push_back(ch->state_ch);
         return state_channels;
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Key> cmd_channels() {
-        std::vector<synnax::channel::Key> keys;
+    [[nodiscard]] std::vector<synnax::channel::Channel::Key> cmd_channels() {
+        std::vector<synnax::channel::Channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &[_, ch]: this->channels)
             keys.push_back(ch->cmd_ch_key);
@@ -126,7 +126,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
 
     /// @brief returns the configuration necessary for opening a streamer to
     /// receive values form Synnax.
-    [[nodiscard]] std::set<synnax::channel::Key> state_indexes() {
+    [[nodiscard]] std::set<synnax::channel::Channel::Key> state_indexes() {
         return this->state_index_keys;
     }
 
@@ -134,7 +134,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     /// if the task could not be parsed.
     static std::pair<WriteTaskConfig, x::errors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         /// We include this ignored parameter to make the parse method have the
         /// same signature as the read task, so we can save code duplication in
         /// the factory.

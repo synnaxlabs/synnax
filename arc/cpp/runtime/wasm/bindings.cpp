@@ -164,7 +164,7 @@ auto Bindings::series_slice(const uint32_t handle, const uint32_t start, uint32_
     const auto src_size = src.size();
     if (start >= src_size || end > src_size || start >= end) return 0;
     const auto slice_len = end - start;
-    auto sliced = telem::Series(src.data_type(), slice_len);
+    auto sliced = x::telem::Series(src.data_type(), slice_len);
     const auto density = src.data_type().density();
     std::memcpy(sliced.data(), src.data() + start * density, slice_len * density);
     sliced.resize(slice_len);
@@ -262,7 +262,7 @@ std::string Bindings::string_get(const uint32_t handle) {
 
 #define IMPL_SERIES_OPS(suffix, cpptype, data_type_const)                              \
     uint32_t Bindings::series_create_empty_##suffix(uint32_t length) {                 \
-        auto s = telem::Series(data_type_const, static_cast<size_t>(length));          \
+        auto s = x::telem::Series(data_type_const, static_cast<size_t>(length));          \
         s.resize(length);                                                              \
         const uint32_t handle = series_handle_counter++;                               \
         series.emplace(handle, std::move(s));                                          \
@@ -410,16 +410,16 @@ std::string Bindings::string_get(const uint32_t handle) {
         }                                                                              \
     }
 
-IMPL_SERIES_OPS(u8, uint8_t, telem::UINT8_T)
-IMPL_SERIES_OPS(u16, uint16_t, telem::UINT16_T)
-IMPL_SERIES_OPS(u32, uint32_t, telem::UINT32_T)
-IMPL_SERIES_OPS(u64, uint64_t, telem::UINT64_T)
-IMPL_SERIES_OPS(i8, int8_t, telem::INT8_T)
-IMPL_SERIES_OPS(i16, int16_t, telem::INT16_T)
-IMPL_SERIES_OPS(i32, int32_t, telem::INT32_T)
-IMPL_SERIES_OPS(i64, int64_t, telem::INT64_T)
-IMPL_SERIES_OPS(f32, float, telem::FLOAT32_T)
-IMPL_SERIES_OPS(f64, double, telem::FLOAT64_T)
+IMPL_SERIES_OPS(u8, uint8_t, x::telem::UINT8_T)
+IMPL_SERIES_OPS(u16, uint16_t, x::telem::UINT16_T)
+IMPL_SERIES_OPS(u32, uint32_t, x::telem::UINT32_T)
+IMPL_SERIES_OPS(u64, uint64_t, x::telem::UINT64_T)
+IMPL_SERIES_OPS(i8, int8_t, x::telem::INT8_T)
+IMPL_SERIES_OPS(i16, int16_t, x::telem::INT16_T)
+IMPL_SERIES_OPS(i32, int32_t, x::telem::INT32_T)
+IMPL_SERIES_OPS(i64, int64_t, x::telem::INT64_T)
+IMPL_SERIES_OPS(f32, float, x::telem::FLOAT32_T)
+IMPL_SERIES_OPS(f64, double, x::telem::FLOAT64_T)
 
 #undef IMPL_SERIES_OPS
 #undef IMPL_SERIES_SCALAR_OP
@@ -456,7 +456,7 @@ uint32_t Bindings::series_not_u8(uint32_t handle) {
 }
 
 uint64_t Bindings::now() {
-    return static_cast<uint64_t>(telem::TimeStamp::now().nanoseconds());
+    return static_cast<uint64_t>(x::telem::TimeStamp::now().nanoseconds());
 }
 
 uint64_t Bindings::len(const uint32_t handle) {

@@ -29,13 +29,13 @@ class Factory final : public task::Factory {
 public:
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 
     [[nodiscard]] std::string name() override;

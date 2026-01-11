@@ -25,7 +25,7 @@ class MockSource final : public driver::task::common::Source {
         return synnax::WriterConfig();
     }
 
-    std::vector<synnax::channel::Channel> channels() const override { return {}; }
+    std::vector<synnax::channel::Channel::Channel> channels() const override { return {}; }
 
 public:
     explicit MockSource(
@@ -56,7 +56,7 @@ public:
 /// @brief it should start and stop the read task with successful status.
 TEST(TestCommonReadTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -92,7 +92,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
 /// @brief it should report error status when source fails to start.
 TEST(TestCommonReadTask, testErrorOnStart) {
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -124,7 +124,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
 /// @brief it should report error status when source fails to stop.
 TEST(TestCommonReadTask, testErrorOnStop) {
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -166,7 +166,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
 /// @brief it should support multiple start-stop cycles.
 TEST(TestCommonReadTask, testMultiStartStop) {
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -230,7 +230,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 /// @brief it should report error status when read fails during operation.
 TEST(TestCommonReadTask, testReadError) {
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -283,7 +283,7 @@ TEST(TestCommonReadTask, testReadError) {
 /// @brief it should recover on second start after first start failure.
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -343,7 +343,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 /// @brief it should recover on second stop after first stop failure.
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -419,7 +419,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 /// @brief it should report warning status on temporary hardware error and recover.
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     const auto mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();

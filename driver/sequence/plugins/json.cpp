@@ -11,7 +11,7 @@
 #include <cstdint>
 
 /// internal.
-#include "x/cpp/lua/xlua.h"
+#include "x/cpp/lua/lua.h"
 
 #include "driver/sequence/plugins/plugins.h"
 

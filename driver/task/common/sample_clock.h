@@ -218,7 +218,7 @@ public:
 
 inline void generate_index_data(
     const x::telem::Frame &f,
-    const std::set<synnax::channel::Key> &index_keys,
+    const std::set<synnax::channel::Channel::Key> &index_keys,
     const x::telem::TimeStamp &start,
     const x::telem::TimeStamp &end,
     const size_t n_read,

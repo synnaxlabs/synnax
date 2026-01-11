@@ -29,10 +29,10 @@ extern std::mt19937 random_generator(const std::string &suite_name);
 /// @return a unique channel name.
 extern std::string make_unique_channel_name(const std::string &base_name);
 
-synnax::channel::Channel create_virtual_channel(
+synnax::channel::Channel::Channel create_virtual_channel(
     const synnax::Synnax &client,
     const x::telem::DataType &data_type = x::telem::FLOAT32_T
 );
 
-std::pair<synnax::channel::Channel, synnax::channel::Channel>
+std::pair<synnax::channel::Channel::Channel, synnax::channel::Channel::Channel>
 create_indexed_pair(synnax::Synnax &client);

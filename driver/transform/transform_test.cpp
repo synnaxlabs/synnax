@@ -78,12 +78,12 @@ TEST(TransformTests, EmptyChain) {
 class TareTests : public ::testing::Test {
 protected:
     void SetUp() override {
-        synnax::channel::Channel ch1;
+        synnax::channel::Channel::Channel ch1;
         ch1.key = 1;
         ch1.name = "test1";
         ch1.data_type = x::telem::FLOAT64_T;
 
-        synnax::channel::Channel ch2;
+        synnax::channel::Channel::Channel ch2;
         ch2.key = 2;
         ch2.name = "test2";
         ch2.data_type = x::telem::FLOAT32_T;
@@ -101,7 +101,7 @@ protected:
         frame.emplace(2, std::move(series2));
     }
 
-    std::vector<synnax::channel::Channel> channels;
+    std::vector<synnax::channel::Channel::Channel> channels;
     x::telem::Frame frame;
 };
 
@@ -205,8 +205,8 @@ TEST(ScaleTests, LinearScale) {
     };
 
     // Create channel map
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> channels;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
@@ -239,8 +239,8 @@ TEST(ScaleTests, MapScale) {
              {"scaled_max", 1.0}}}}}}
     };
 
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> channels;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
@@ -277,13 +277,13 @@ TEST(ScaleTests, MultipleChannels) {
              {"scaled_max", 100.0}}}}}}
     };
 
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> channels;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
 
-    synnax::channel::Channel ch2;
+    synnax::channel::Channel::Channel ch2;
     ch2.key = 2;
     ch2.data_type = x::telem::FLOAT64_T;
     channels[2] = ch2;
@@ -312,8 +312,8 @@ TEST(ScaleTests, IgnoreUnknownChannels) {
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 0.0}}}}}}
     };
 
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> channels;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
@@ -349,9 +349,9 @@ TEST(ScaleTests, DisabledChannel) {
            {"scale", {{"type", "linear"}, {"slope", 3.0}, {"offset", 10.0}}}}}}
     };
 
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> channels;
 
-    synnax::channel::Channel ch1;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
@@ -383,8 +383,8 @@ TEST(ScaleTests, TransformInplaceUsage) {
            {"scale", {{"type", "linear"}, {"slope", 3.0}, {"offset", 2.0}}}}}}
     };
 
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
-    synnax::channel::Channel ch1;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> channels;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.data_type = x::telem::FLOAT64_T;
     channels[1] = ch1;
@@ -421,19 +421,19 @@ TEST(ScaleTests, TransformInplaceUsage) {
 
 /// @brief it should correctly tare channels with different data types.
 TEST_F(TareTests, TareWithDifferentDataTypes) {
-    std::vector<synnax::channel::Channel> channels;
+    std::vector<synnax::channel::Channel::Channel> channels;
 
-    synnax::channel::Channel ch1;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.name = "int32";
     ch1.data_type = x::telem::INT32_T;
 
-    synnax::channel::Channel ch2;
+    synnax::channel::Channel::Channel ch2;
     ch2.key = 2;
     ch2.name = "float32";
     ch2.data_type = x::telem::FLOAT32_T;
 
-    synnax::channel::Channel ch3;
+    synnax::channel::Channel::Channel ch3;
     ch3.key = 3;
     ch3.name = "float64";
     ch3.data_type = x::telem::FLOAT64_T;
@@ -518,9 +518,9 @@ TEST_F(TareTests, TareWithDifferentDataTypes) {
 
 /// @brief it should correctly execute a chain with a tare and scale transform.
 TEST(ChainTests, ComplexTransformChain) {
-    std::vector<synnax::channel::Channel> channels;
+    std::vector<synnax::channel::Channel::Channel> channels;
 
-    synnax::channel::Channel ch1;
+    synnax::channel::Channel::Channel ch1;
     ch1.key = 1;
     ch1.name = "test";
     ch1.data_type = x::telem::FLOAT64_T;
@@ -535,7 +535,7 @@ TEST(ChainTests, ComplexTransformChain) {
            {"scale", {{"type", "linear"}, {"slope", 2.0}, {"offset", 10.0}}}}}}
     };
 
-    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channel_map;
+    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> channel_map;
     channel_map[1] = ch1;
 
     x::json::Parser parser(config);

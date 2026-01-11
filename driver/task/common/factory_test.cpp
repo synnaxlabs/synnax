@@ -29,14 +29,14 @@ class MockFactory {
 public:
     std::pair<std::unique_ptr<driver::task::Task>, x::errors::Error> configure_task(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) {
         configured_tasks.push_back(task);
         if (should_fail) { return {nullptr, x::errors::Error("mock", "mock error")}; }
         return {std::make_unique<MockTask>(), x::errors::NIL};
     }
 
-    std::vector<synnax::Task> configured_tasks;
+    std::vector<synnax::task::Task> configured_tasks;
     bool should_fail = false;
 };
 
@@ -44,7 +44,7 @@ public:
 TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_NewTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    synnax::Task task(rack.key, "test_task", "test_type", "");
+    synnax::task::Task task(rack.key, "test_task", "test_type", "");
     auto created = ASSERT_NIL_P(create_if_type_not_exists_on_rack(rack, task));
     ASSERT_TRUE(created);
     ASSERT_NE(task.key, 0);
@@ -57,9 +57,9 @@ TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_NewTask) {
 TEST(TestFactory, TestCreateIfTypeNotExistsOnRack_ExistingTask) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    synnax::Task existing_task(rack.key, "existing_task", "test_type", "");
+    synnax::task::Task existing_task(rack.key, "existing_task", "test_type", "");
     ASSERT_NIL(rack.tasks.create(existing_task));
-    synnax::Task new_task(rack.key, "new_task", "test_type", "");
+    synnax::task::Task new_task(rack.key, "new_task", "test_type", "");
     auto created = ASSERT_NIL_P(create_if_type_not_exists_on_rack(rack, new_task));
     ASSERT_FALSE(created);
     ASSERT_EQ(synnax::local_task_key(new_task.key), 0);
@@ -92,7 +92,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_ExistingTask) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto ctx = std::make_shared<driver::task::MockContext>(client);
     auto factory = std::make_unique<MockFactory>();
-    synnax::Task existing_task(rack.key, "existing_task", "test_type", "");
+    synnax::task::Task existing_task(rack.key, "existing_task", "test_type", "");
     ASSERT_NIL(rack.tasks.create(existing_task));
     auto tasks = configure_initial_factory_tasks(
         factory.get(),
@@ -160,7 +160,7 @@ TEST(TestFactory, TestConfigureInitialFactoryTasks_MultipleConfigurations) {
 TEST(TestFactory, TestDeleteLegacyTaskByType_Success) {
     const auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    synnax::Task legacy_task(rack.key, "legacy_task", "legacy_type", "");
+    synnax::task::Task legacy_task(rack.key, "legacy_task", "legacy_type", "");
     ASSERT_NIL(rack.tasks.create(legacy_task));
     ASSERT_NIL(delete_legacy_task_by_type(rack, "legacy_type", "test_integration"));
     ASSERT_OCCURRED_AS_P(

@@ -39,7 +39,7 @@ struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
 
 class Scanner final : public driver::task::common::Scanner {
     /// @brief the raw synnax task configuration
-    const synnax::Task task;
+    const synnax::task::Task task;
     /// @brief configuration for the scan task
     const ScanTaskConfig cfg;
     /// @brief the device manager for handling LabJack connections
@@ -121,7 +121,7 @@ class Scanner final : public driver::task::common::Scanner {
 
 public:
     explicit Scanner(
-        synnax::Task task,
+        synnax::task::Task task,
         ScanTaskConfig cfg,
         std::shared_ptr<device::Manager> device_manager
     ):

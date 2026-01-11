@@ -52,7 +52,7 @@ TEST(ModuleOpenTest, ReturnsErrorForEmptyWasmBytes) {
     mod.wasm = {};
     const ModuleConfig cfg{.module = mod};
     const auto [module, err] = Module::open(cfg);
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("empty"), std::string::npos);
 }
 
@@ -62,7 +62,7 @@ TEST(ModuleOpenTest, ReturnsErrorForInvalidWasmBytes) {
     mod.wasm = {0x00, 0x01, 0x02, 0x03};
     const ModuleConfig cfg{.module = mod};
     const auto [module, err] = Module::open(cfg);
-    ASSERT_TRUE(err.matches(xerrors::VALIDATION));
+    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
     ASSERT_NE(err.message().find("compile"), std::string::npos);
 }
 
@@ -105,7 +105,7 @@ func double(val f32) f32 {
     auto module = ASSERT_NIL_P(Module::open(cfg));
 
     auto [func, func_err] = module->func("nonexistent");
-    ASSERT_TRUE(func_err.matches(xerrors::NOT_FOUND));
+    ASSERT_TRUE(func_err.matches(x::errors::NOT_FOUND));
 }
 
 /// @brief Module::func returns valid function for existing export.

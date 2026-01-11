@@ -22,7 +22,7 @@ node::Context make_context(const telem::TimeSpan elapsed) {
     return node::Context{
         .elapsed = elapsed,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
@@ -75,7 +75,7 @@ TEST(TimeFactoryTest, ReturnsNotFoundForWrongType) {
     time::Factory factory;
     ASSERT_OCCURRED_AS_P(
         factory.create(node::Config(ir_node, setup.make_node())),
-        xerrors::NOT_FOUND
+        x::errors::NOT_FOUND
     );
 }
 

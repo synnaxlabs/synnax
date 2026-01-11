@@ -52,7 +52,7 @@ class Scanner final : public driver::task::common::Scanner {
 public:
     Scanner(
         std::shared_ptr<driver::task::Context> ctx,
-        synnax::Task task,
+        synnax::task::Task task,
         std::shared_ptr<device::Manager> devices
     );
 
@@ -66,13 +66,13 @@ public:
     /// @brief Handle Modbus-specific commands (test connection).
     bool exec(
         driver::task::Command &cmd,
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const std::shared_ptr<driver::task::Context> &ctx
     ) override;
 
 private:
     std::shared_ptr<driver::task::Context> ctx;
-    synnax::Task task;
+    synnax::task::Task task;
     std::shared_ptr<device::Manager> devices;
 
     /// @brief Test connection to a Modbus server.

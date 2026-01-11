@@ -13,7 +13,7 @@
 #include <memory>
 #include <numeric>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/factory.h"
@@ -39,8 +39,8 @@ public:
     explicit Interval(const IntervalConfig &cfg, state::Node &&state):
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
-    xerrors::Error next(node::Context &ctx) override {
-        if (ctx.elapsed - this->last_fired < this->cfg.interval) return xerrors::NIL;
+    x::errors::Error next(node::Context &ctx) override {
+        if (ctx.elapsed - this->last_fired < this->cfg.interval) return x::errors::NIL;
         this->last_fired = ctx.elapsed;
         ctx.mark_changed(ir::default_output_param);
         const auto &o = this->state.output(0);
@@ -49,7 +49,7 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void reset() override { last_fired = -1 * cfg.interval; }
@@ -80,10 +80,10 @@ public:
     explicit Wait(const WaitConfig &cfg, state::Node &&state):
         state(std::move(state)), cfg(cfg) {}
 
-    xerrors::Error next(node::Context &ctx) override {
-        if (this->fired) return xerrors::NIL;
+    x::errors::Error next(node::Context &ctx) override {
+        if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;
+        if (ctx.elapsed - start_time < cfg.duration) return x::errors::NIL;
         this->fired = true;
         ctx.mark_changed(ir::default_output_param);
         const auto &o = state.output(0);
@@ -92,7 +92,7 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// Reset the timer. Called when a stage containing this node is entered.
@@ -114,14 +114,14 @@ public:
         return node_type == "interval" || node_type == "wait";
     }
 
-    std::pair<std::unique_ptr<node::Node>, xerrors::Error>
+    std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
             IntervalConfig node_cfg(cfg.node.config);
             this->update_timing_base(node_cfg.interval);
             return {
                 std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
-                xerrors::NIL
+                x::errors::NIL
             };
         }
         if (cfg.node.type == "wait") {
@@ -129,10 +129,10 @@ public:
             this->update_timing_base(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
-                xerrors::NIL
+                x::errors::NIL
             };
         }
-        return {nullptr, xerrors::NOT_FOUND};
+        return {nullptr, x::errors::NOT_FOUND};
     }
 
 private:

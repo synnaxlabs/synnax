@@ -36,15 +36,15 @@ struct InputChan {
     driver::opc::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
-    const synnax::channel::Key synnax_key;
+    const synnax::channel::Channel::Key synnax_key;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
-    synnax::channel::Channel ch;
+    synnax::channel::Channel::Channel ch;
 
     explicit InputChan(x::json::Parser &parser):
         enabled(parser.field<bool>("enabled", true)),
         node(driver::opc::NodeId::parse("node_id", parser)),
-        synnax_key(parser.field<synnax::channel::Key>("channel")) {}
+        synnax_key(parser.field<synnax::channel::Channel::Key>("channel")) {}
 
     // Move constructor - needed because NodeId is move-only
     InputChan(InputChan &&other) noexcept:
@@ -69,7 +69,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// @brief the config for connecting to the OPC UA server.
     driver::opc::connection::Config connection;
     /// @brief keys of the index channels for the input channels.
-    std::set<synnax::channel::Key> index_keys;
+    std::set<synnax::channel::Channel::Key> index_keys;
     /// @brief the list of channels to read from the server.
     std::vector<std::unique_ptr<InputChan>> channels;
     /// @brief the number of samples to read on each iteration.
@@ -123,7 +123,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             parser.field_err("device", properties.error().message());
             return;
         }
-        std::vector<synnax::channel::Key> keys;
+        std::vector<synnax::channel::Channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             keys.push_back(ch->synnax_key);
@@ -147,8 +147,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         }
     }
 
-    std::vector<synnax::channel::Channel> sy_channels() const {
-        std::vector<synnax::channel::Channel> chs;
+    std::vector<synnax::channel::Channel::Channel> sy_channels() const {
+        std::vector<synnax::channel::Channel::Channel> chs;
         chs.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             chs.push_back(ch->ch);
@@ -156,7 +156,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     }
 
     [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::channel::Key> channel_keys;
+        std::vector<synnax::channel::Channel::Key> channel_keys;
         channel_keys.reserve(this->channels.size() + this->index_keys.size());
         for (const auto &ch: this->channels)
             channel_keys.push_back(ch->synnax_key);
@@ -169,7 +169,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     }
 
     static std::pair<ReadTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
+    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::task::Task &task) {
         auto parser = x::json::Parser(task.config);
         return {ReadTaskConfig(client, parser), parser.error()};
     }
@@ -234,7 +234,7 @@ public:
             cfg.sample_rate / cfg.array_size
         ) {}
 
-    std::vector<synnax::channel::Channel> channels() const override {
+    std::vector<synnax::channel::Channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
@@ -376,7 +376,7 @@ public:
         return res;
     }
 
-    std::vector<synnax::channel::Channel> channels() const override {
+    std::vector<synnax::channel::Channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 };

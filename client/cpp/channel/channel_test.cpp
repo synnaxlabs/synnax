@@ -66,7 +66,7 @@ TEST(TestChannel, testCreateIndex) {
 /// @brief it should create a virtual channel and assign it a non-zero key.
 TEST(TestChannel, testCreateVirtual) {
     const auto name = make_unique_channel_name("virtual");
-    auto ch = synnax::channel::Channel(name, x::telem::FLOAT64_T, true);
+    auto ch = synnax::channel::Channel::Channel(name, x::telem::FLOAT64_T, true);
     const auto client = new_test_client();
     ASSERT_NIL(client.channels.create(ch));
     ASSERT_EQ(ch.name, name);
@@ -77,7 +77,7 @@ TEST(TestChannel, testCreateVirtual) {
 /// @brief it should create many channels and assign them all non-zero keys.
 TEST(TestChannel, testCreateMany) {
     const auto client = new_test_client();
-    auto channels = std::vector<synnax::channel::Channel>{
+    auto channels = std::vector<synnax::channel::Channel::Channel>{
         {
             make_unique_channel_name("test1"),
             x::telem::FLOAT64_T,
@@ -150,7 +150,7 @@ TEST(TestChannel, testRetrieveByNameNotFound) {
 /// @brief it should retrieve many channels by their key.
 TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
-    auto channels = std::vector<synnax::channel::Channel>{
+    auto channels = std::vector<synnax::channel::Channel::Channel>{
         {
             make_unique_channel_name("retrieve_many_1"),
             x::telem::FLOAT64_T,
@@ -165,7 +165,7 @@ TEST(TestChannel, testRetrieveMany) {
     };
     ASSERT_NIL(client.channels.create(channels));
     auto retrieved = ASSERT_NIL_P(
-        client.channels.retrieve(synnax::channel::keys_from_channels(channels))
+        client.channels.retrieve(synnax::channel::Channel::keys_from_channels(channels))
     );
     ASSERT_EQ(channels.size(), retrieved.size());
     for (auto &channel: channels) {
@@ -191,23 +191,23 @@ TEST(TestChannel, testRetrieveMany) {
 TEST(TestChannel, testRetrieveManyNotFound) {
     const auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
-        client.channels.retrieve(std::vector<synnax::channel::Key>{1, 2, 3}),
+        client.channels.retrieve(std::vector<synnax::channel::Channel::Key>{1, 2, 3}),
         x::errors::NOT_FOUND
     );
 }
 
 /// @brief it should convert a channel key to an ontology ID
 TEST(TestChannel, testOntologyId) {
-    constexpr synnax::channel::Key key = 42;
-    const auto id = synnax::channel::ontology_id(key);
+    constexpr synnax::channel::Channel::Key key = 42;
+    const auto id = synnax::channel::Channel::ontology_id(key);
     ASSERT_EQ(id.type, "channel");
     ASSERT_EQ(id.key, "42");
 }
 
 /// @brief it should convert multiple channel keys to ontology IDs
 TEST(TestChannel, testOntologyIds) {
-    const std::vector<synnax::channel::Key> keys = {1, 2, 3};
-    const auto ids = synnax::channel::ontology_ids(keys);
+    const std::vector<synnax::channel::Channel::Key> keys = {1, 2, 3};
+    const auto ids = synnax::channel::Channel::ontology_ids(keys);
     ASSERT_EQ(ids.size(), 3);
     ASSERT_EQ(ids[0].type, "channel");
     ASSERT_EQ(ids[0].key, "1");
@@ -219,7 +219,7 @@ TEST(TestChannel, testOntologyIds) {
 
 /// @brief it should return empty vector for empty input
 TEST(TestChannel, testOntologyIdsEmpty) {
-    const std::vector<synnax::channel::Key> keys;
-    const auto ids = synnax::channel::ontology_ids(keys);
+    const std::vector<synnax::channel::Channel::Key> keys;
+    const auto ids = synnax::channel::Channel::ontology_ids(keys);
     ASSERT_TRUE(ids.empty());
 }

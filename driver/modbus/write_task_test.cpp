@@ -21,13 +21,13 @@
 class ModbusWriteTest : public ::testing::Test {
 protected:
     std::shared_ptr<synnax::Synnax> client;
-    synnax::Task task;
+    synnax::task::Task task;
     std::unique_ptr<driver::modbus::WriteTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_streamer_factory;
     std::shared_ptr<driver::modbus::device::Manager> devs;
-    synnax::channel::Channel coil_ch;
-    synnax::channel::Channel reg_ch;
+    synnax::channel::Channel::Channel coil_ch;
+    synnax::channel::Channel::Channel reg_ch;
 
     void setup_task_config() {
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -65,7 +65,7 @@ protected:
         );
         ASSERT_NIL(client->devices.create(dev));
 
-        task = synnax::Task(rack.key, "modbus_write_test", "modbus_write", "");
+        task = synnax::task::Task(rack.key, "modbus_write_test", "modbus_write", "");
     }
 };
 

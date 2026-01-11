@@ -29,7 +29,7 @@
 namespace driver::opc {
 Scanner::Scanner(
     std::shared_ptr<driver::task::Context> ctx,
-    synnax::Task task,
+    synnax::task::Task task,
     std::shared_ptr<connection::Pool> conn_pool
 ):
     ctx(std::move(ctx)), task(std::move(task)), conn_pool(std::move(conn_pool)) {}
@@ -56,7 +56,7 @@ Scanner::scan(const driver::task::common::ScannerContext &scan_ctx) {
 
 bool Scanner::exec(
     driver::task::Command &cmd,
-    const synnax::Task &,
+    const synnax::task::Task &,
     const std::shared_ptr<driver::task::Context> &
 ) {
     if (cmd.type == BROWSE_CMD_TYPE) {
@@ -168,11 +168,11 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
 void Scanner::browse_nodes(const driver::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::TaskStatus status{
+    synnax::task::Status status{
         .key = this->task.status_key(),
         .name = this->task.name,
         .variant = status::variant::ERR,
-        .details = synnax::TaskStatusDetails{.task = task.key, .cmd = cmd.key}
+        .details = synnax::task::StatusDetails{.task = task.key, .cmd = cmd.key}
     };
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
@@ -208,11 +208,11 @@ void Scanner::browse_nodes(const driver::task::Command &cmd) const {
 void Scanner::test_connection(const driver::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::TaskStatus status{
+    synnax::task::Status status{
         .key = this->task.status_key(),
         .name = this->task.name,
         .variant = status::variant::ERR,
-        .details = synnax::TaskStatusDetails{
+        .details = synnax::task::StatusDetails{
             .task = task.key,
             .cmd = cmd.key,
             .running = true,

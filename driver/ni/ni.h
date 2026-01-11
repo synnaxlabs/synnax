@@ -70,7 +70,7 @@ class Factory final : public driver::task::Factory {
     /// task state and return false.
     [[nodiscard]] bool check_health(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) const;
 
 public:
@@ -88,20 +88,20 @@ public:
     /// @brief implements driver::task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
     /// @brief implements driver::task::Factory to configure initial tasks such as the
     /// device scanner.
-    std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
     std::pair<driver::task::common::ConfigureResult, x::errors::Error>
-    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::Task &task) {
+    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task) {
         driver::task::common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
@@ -135,6 +135,6 @@ public:
     std::string name() override { return INTEGRATION_NAME; }
 
     std::pair<driver::task::common::ConfigureResult, x::errors::Error>
-    configure_scan(const std::shared_ptr<driver::task::Context> &ctx, const synnax::Task &task);
+    configure_scan(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task);
 };
 }

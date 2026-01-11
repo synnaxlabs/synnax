@@ -27,7 +27,7 @@ node::Context make_context(bool *changed = nullptr) {
             [changed](const std::string &) {
                 if (changed) *changed = true;
             },
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
@@ -115,7 +115,7 @@ TEST(TelemFactoryTest, UnknownNodeType) {
     auto [node, create_err] = factory.create(
         node::Config(ir_node, std::move(state_node))
     );
-    ASSERT_OCCURRED_AS(create_err, xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS(create_err, x::errors::NOT_FOUND);
     EXPECT_EQ(node, nullptr);
 }
 
@@ -316,7 +316,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     auto ctx = node::Context{
         .elapsed = telem::SECOND,
         .mark_changed = [&call_count](const std::string &) { call_count++; },
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 
@@ -375,7 +375,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     auto ctx = node::Context{
         .elapsed = telem::SECOND,
         .mark_changed = [&call_count](const std::string &) { call_count++; },
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 
@@ -424,7 +424,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     auto ctx = node::Context{
         .elapsed = telem::SECOND,
         .mark_changed = [&call_count](const std::string &) { call_count++; },
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 
@@ -471,7 +471,7 @@ TEST(OnTest, NextCallsMarkChanged) {
     auto ctx = node::Context{
         .elapsed = telem::SECOND,
         .mark_changed = [&changed_param](const std::string &p) { changed_param = p; },
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 

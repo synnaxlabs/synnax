@@ -26,7 +26,7 @@ const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     driver::task::common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
@@ -46,7 +46,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_rea
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_scan(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     driver::task::common::ConfigureResult result;
     x::json::Parser parser(task.config);
@@ -66,7 +66,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_sca
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     driver::task::common::ConfigureResult result;
     auto [cfg, err] = WriteTaskConfig::parse(ctx->client, task);
@@ -85,7 +85,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_wri
 
 std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     std::pair<driver::task::common::ConfigureResult, x::errors::Error> res;
@@ -98,10 +98,10 @@ std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
     return driver::task::common::handle_config_err(ctx, task, std::move(res));
 }
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
+std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
 Factory::configure_initial_tasks(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Rack &rack
+    const synnax::rack::Rack &rack
 ) {
     return driver::task::common::configure_initial_factory_tasks(
         this,

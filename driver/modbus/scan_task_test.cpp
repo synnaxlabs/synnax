@@ -25,7 +25,7 @@ TEST(ScanTask, testConnection) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
 
@@ -57,7 +57,7 @@ TEST(ScanTask, testConnection) {
 
 TEST(ScanTask, testConfigReturnsCorrectValues) {
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
@@ -70,7 +70,7 @@ TEST(ScanTask, testConfigReturnsCorrectValues) {
 
 TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
@@ -87,7 +87,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
@@ -122,7 +122,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    synnax::Task t;
+    synnax::task::Task t;
     t.key = 12345;
     t.type = "modbus_scan";
     auto dev_manager = std::make_shared<driver::modbus::device::Manager>();

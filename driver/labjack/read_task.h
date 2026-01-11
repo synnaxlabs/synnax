@@ -106,11 +106,11 @@ struct InputChan {
     /// @brief the port for the channel ex. AIN1
     std::string port;
     /// @brief the synnax key to write channel data to.
-    const synnax::channel::Key synnax_key;
+    const synnax::channel::Channel::Key synnax_key;
     const int neg_chan;
     const int pos_chan;
 
-    synnax::channel::Channel ch;
+    synnax::channel::Channel::Channel ch;
 
     explicit InputChan(x::json::Parser &parser):
         enabled(parser.field<bool>("enabled", true)),
@@ -290,7 +290,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     const std::string device_key;
     /// @brief the connection method used to communicate with the device.
     std::string conn_method;
-    std::set<synnax::channel::Key> indexes;
+    std::set<synnax::channel::Channel::Key> indexes;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
     /// @brief the configurations for each channel in the task.
@@ -356,7 +356,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             return;
         }
         this->dev_model = dev.model;
-        std::vector<synnax::channel::Key> keys;
+        std::vector<synnax::channel::Channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             keys.push_back(ch->synnax_key);
@@ -378,8 +378,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         this->transform.add(std::move(scale_transform));
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const {
-        std::vector<synnax::channel::Channel> chs;
+    [[nodiscard]] std::vector<synnax::channel::Channel::Channel> sy_channels() const {
+        std::vector<synnax::channel::Channel::Channel> chs;
         chs.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             chs.push_back(ch->ch);
@@ -388,7 +388,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
 
     /// @brief returns configuration for opening a writer to write data to Synnax.
     [[nodiscard]] synnax::WriterConfig writer() const {
-        std::vector<synnax::channel::Key> keys;
+        std::vector<synnax::channel::Channel::Key> keys;
         keys.reserve(this->channels.size() + this->indexes.size());
         for (const auto &ch: this->channels)
             keys.push_back(ch->ch.key);
@@ -408,7 +408,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// configuration is invalid and should not be used.
     static std::pair<ReadTaskConfig, x::errors::Error> parse(
         const std::shared_ptr<synnax::Synnax> &client,
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const driver::task::common::TimingConfig timing_cfg
     ) {
         auto parser = x::json::Parser(task.config);
@@ -453,7 +453,7 @@ public:
         );
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
@@ -560,7 +560,7 @@ public:
 
     x::errors::Error start() override { return this->restart(false); }
 
-    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 

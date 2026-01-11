@@ -26,13 +26,13 @@ TEST(ArcTests, testCalcDoubling) {
     auto output_idx_name = make_unique_channel_name("ox_pt_doubled_idx");
     auto output_name = make_unique_channel_name("ox_pt_doubled");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
-    auto output_ch = synnax::Channel(
+    auto input_ch = synnax::channel::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
+    auto output_ch = synnax::channel::Channel(
         output_name,
         telem::FLOAT32_T,
         output_idx.key,
@@ -54,11 +54,11 @@ TEST(ArcTests, testCalcDoubling) {
         client->racks.create(make_unique_channel_name("arc_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_calc_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_calc_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
@@ -112,14 +112,14 @@ TEST(ArcTests, testBasicSequence) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("start_cmd");
-    auto start_cmd_idx = synnax::Channel(
+    auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
         telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::Channel(
+    auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
         telem::UINT8_T,
         start_cmd_idx.key,
@@ -130,14 +130,14 @@ TEST(ArcTests, testBasicSequence) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(
+    auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
         telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::Channel(
+    auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
         telem::INT64_T,
         valve_cmd_idx.key,
@@ -165,11 +165,11 @@ TEST(ArcTests, testBasicSequence) {
         client->racks.create(make_unique_channel_name("arc_sequence_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_sequence_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_sequence_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
@@ -235,14 +235,14 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("truthiness_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("truthiness_start_cmd");
-    auto start_cmd_idx = synnax::Channel(
+    auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
         telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::Channel(
+    auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
         telem::UINT8_T,
         start_cmd_idx.key,
@@ -253,14 +253,14 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("truthiness_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("truthiness_valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(
+    auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
         telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::Channel(
+    auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
         telem::INT64_T,
         valve_cmd_idx.key,
@@ -288,11 +288,11 @@ TEST(ArcTests, testOneShotTruthiness) {
         client->racks.create(make_unique_channel_name("arc_truthiness_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_truthiness_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_truthiness_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
@@ -385,14 +385,14 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("two_stage_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("two_stage_start_cmd");
-    auto start_cmd_idx = synnax::Channel(
+    auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
         telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::Channel(
+    auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
         telem::UINT8_T,
         start_cmd_idx.key,
@@ -403,9 +403,9 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create pressure sensor channel
     auto pressure_idx_name = make_unique_channel_name("two_stage_pressure_idx");
     auto pressure_name = make_unique_channel_name("two_stage_pressure");
-    auto pressure_idx = synnax::Channel(pressure_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto pressure_idx = synnax::channel::Channel(pressure_idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client->channels.create(pressure_idx));
-    auto pressure_ch = synnax::Channel(
+    auto pressure_ch = synnax::channel::Channel(
         pressure_name,
         telem::FLOAT32_T,
         pressure_idx.key,
@@ -416,14 +416,14 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("two_stage_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("two_stage_valve_cmd");
-    auto valve_cmd_idx = synnax::Channel(
+    auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
         telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::Channel(
+    auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
         telem::INT64_T,
         valve_cmd_idx.key,
@@ -461,11 +461,11 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         client->racks.create(make_unique_channel_name("arc_two_stage_test_rack"))
     );
 
-    synnax::Task task_meta(rack.key, "arc_two_stage_test", "arc_runtime", "");
+    synnax::task::Task task_meta(rack.key, "arc_two_stage_test", "arc_runtime", "");
     nlohmann::json cfg{{"arc_key", arc_prog.key}};
     task_meta.config = nlohmann::to_string(cfg);
 
-    auto parser = xjson::Parser(task_meta.config);
+    auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));

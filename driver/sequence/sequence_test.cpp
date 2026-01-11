@@ -20,7 +20,7 @@
 
 /// @brief it should executed a basic sequence.
 TEST(Sequence, nominal) {
-    synnax::channel::Channel read_channel;
+    synnax::channel::Channel::Channel read_channel;
     read_channel.key = 2;
     read_channel.name = "read_channel";
     read_channel.data_type = x::telem::FLOAT64_T;
@@ -37,7 +37,7 @@ TEST(Sequence, nominal) {
     );
 
     // Write pipeline
-    synnax::channel::Channel write_channel;
+    synnax::channel::Channel::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
     write_channel.data_type = x::telem::FLOAT64_T;
@@ -111,7 +111,7 @@ TEST(Sequence, compareNil) {
 
 /// @brief it should return an error when trying to set a non-existent channel
 TEST(Sequence, channelNotFound) {
-    synnax::channel::Channel write_channel;
+    synnax::channel::Channel::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
     write_channel.data_type = x::telem::FLOAT64_T;
@@ -139,7 +139,7 @@ TEST(Sequence, channelNotFound) {
 /// @brief it should correctly restart and re-execute a sequence several times,
 /// including binding correct variable names and functions.
 TEST(Sequence, restart) {
-    synnax::channel::Channel read_channel;
+    synnax::channel::Channel::Channel read_channel;
     read_channel.key = 2;
     read_channel.name = "read_channel";
     read_channel.data_type = x::telem::FLOAT64_T;
@@ -159,7 +159,7 @@ TEST(Sequence, restart) {
         std::vector{read_channel}
     );
 
-    synnax::channel::Channel write_channel;
+    synnax::channel::Channel::Channel write_channel;
     write_channel.key = 1;
     write_channel.name = "write_channel";
     write_channel.data_type = x::telem::FLOAT64_T;

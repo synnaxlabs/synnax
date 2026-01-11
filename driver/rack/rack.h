@@ -84,7 +84,7 @@ struct Config {
     /// @brief this is the rack that the driver will attach to on the server. If not
     /// provided, the driver will automatically create a new rack and persist it in
     /// state.
-    synnax::Rack rack;
+    synnax::rack::Rack rack;
     /// @brief important info used to determine the identity of the driver when
     /// connecting to a cluster. This is cached on the local file system to compare
     /// and contrast.
@@ -114,7 +114,7 @@ struct Config {
         os << "configuration:\n"
            << cfg.connection << cfg.timing << "\n"
            << cfg.manager << "\n"
-           << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() << ": ";
+           << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET() << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
             os << cfg.integrations[i];
             if (i < cfg.integrations.size() - 1) os << ", ";

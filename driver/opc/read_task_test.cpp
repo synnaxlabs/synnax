@@ -20,23 +20,23 @@
 
 class TestReadTask : public ::testing::Test {
 protected:
-    synnax::Task task;
+    synnax::task::Task task;
     json task_cfg_json;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
     std::unique_ptr<mock::Server> server;
     std::shared_ptr<driver::opc::connection::Pool> conn_pool;
-    synnax::channel::Channel index_channel;
-    synnax::channel::Channel bool_channel;
-    synnax::channel::Channel uint16_channel;
-    synnax::channel::Channel uint32_channel;
-    synnax::channel::Channel uint64_channel;
-    synnax::channel::Channel int8_channel;
-    synnax::channel::Channel int16_channel;
-    synnax::channel::Channel int32_channel;
-    synnax::channel::Channel int64_channel;
-    synnax::channel::Channel float_channel;
-    synnax::channel::Channel double_channel;
+    synnax::channel::Channel::Channel index_channel;
+    synnax::channel::Channel::Channel bool_channel;
+    synnax::channel::Channel::Channel uint16_channel;
+    synnax::channel::Channel::Channel uint32_channel;
+    synnax::channel::Channel::Channel uint64_channel;
+    synnax::channel::Channel::Channel int8_channel;
+    synnax::channel::Channel::Channel int16_channel;
+    synnax::channel::Channel::Channel int32_channel;
+    synnax::channel::Channel::Channel int64_channel;
+    synnax::channel::Channel::Channel float_channel;
+    synnax::channel::Channel::Channel double_channel;
 
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -217,7 +217,7 @@ protected:
             {"stream_rate", 25}
         };
 
-        task = synnax::Task(rack.key, "OPC UA Read Task Test", "opc_read", "");
+        task = synnax::task::Task(rack.key, "OPC UA Read Task Test", "opc_read", "");
 
         task_cfg_json = task_cfg;
 

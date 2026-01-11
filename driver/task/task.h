@@ -24,8 +24,8 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xjson/xjson.h"
-#include "x/cpp/xlog/xlog.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/log/log.h"
 
 using json = nlohmann::json;
 
@@ -33,7 +33,7 @@ namespace task {
 /// @brief A command that can be executed on a task in order to change its state.
 struct Command {
     /// @brief the key of the task to be commanded.
-    synnax::TaskKey task = 0;
+    synnax::task::Key task = 0;
     /// @brief the type of the command to execute.
     std::string type;
     /// @brief an optional key to assign to the command. This is useful for tracking
@@ -45,14 +45,14 @@ struct Command {
     Command() = default;
 
     /// @brief constructs the command from the provided configuration parser.
-    explicit Command(xjson::Parser parser):
-        task(parser.field<synnax::TaskKey>("task")),
+    explicit Command(x::json::Parser parser):
+        task(parser.field<synnax::task::Key>("task")),
         type(parser.field<std::string>("type")),
         key(parser.field<std::string>("key", "")),
         args(parser.field<json>("args", json{})) {}
 
     /// @brief Construct a new Task Command object
-    Command(const synnax::TaskKey task, std::string type, json args):
+    Command(const synnax::task::Key task, std::string type, json args):
         task(task), type(std::move(type)), args(std::move(args)) {}
 
     [[nodiscard]] json to_json() const {
@@ -70,7 +70,7 @@ struct Command {
 class Task {
 public:
     /// @brief the key of the task
-    synnax::TaskKey key = 0;
+    synnax::task::Key key = 0;
 
     [[nodiscard]] virtual std::string name() const { return ""; }
 
@@ -102,7 +102,7 @@ public:
         client(std::move(client)) {}
 
     /// @brief updates the state of the task in the Synnax cluster.
-    virtual void set_status(synnax::TaskStatus &status) = 0;
+    virtual void set_status(synnax::task::Status &status) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -110,12 +110,12 @@ class MockContext final : public Context {
     std::mutex mu;
 
 public:
-    std::vector<synnax::TaskStatus> statuses{};
+    std::vector<synnax::task::Status> statuses{};
 
     explicit MockContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_status(synnax::TaskStatus &status) override {
+    void set_status(synnax::task::Status &status) override {
         mu.lock();
         statuses.push_back(status);
         mu.unlock();
@@ -127,9 +127,9 @@ public:
     explicit SynnaxContext(const std::shared_ptr<synnax::Synnax> &client):
         Context(client) {}
 
-    void set_status(synnax::TaskStatus &status) override {
-        if (status.time == 0) status.time = telem::TimeStamp::now();
-        if (const auto err = this->client->statuses.set<synnax::TaskStatusDetails>(
+    void set_status(synnax::task::Status &status) override {
+        if (status.time == 0) status.time = x::telem::TimeStamp::now();
+        if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
                 status
             );
             err)
@@ -139,10 +139,10 @@ public:
 
 class Factory {
 public:
-    virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>>
+    virtual std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) {
         return {};
     }
@@ -150,7 +150,7 @@ public:
     virtual std::string name() { return ""; }
 
     virtual std::pair<std::unique_ptr<Task>, bool>
-    configure_task(const std::shared_ptr<Context> &ctx, const synnax::Task &task) = 0;
+    configure_task(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task) = 0;
 
     virtual ~Factory() = default;
 };
@@ -162,11 +162,11 @@ public:
     explicit MultiFactory(std::vector<std::unique_ptr<Factory>> &&factories):
         factories(std::move(factories)) {}
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>> configure_initial_tasks(
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override {
-        std::vector<std::pair<synnax::Task, std::unique_ptr<Task>>> tasks;
+        std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> tasks;
         for (const auto &factory: factories) {
             const std::string factory_name = factory->name();
             VLOG(1) << "[" << factory_name << "] configuring initial tasks";
@@ -181,7 +181,7 @@ public:
 
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override {
         for (const auto &factory: factories) {
             auto [t, ok] = factory->configure_task(ctx, task);
@@ -194,11 +194,11 @@ public:
 /// @brief configuration for the task manager.
 struct ManagerConfig {
     /// @brief duration before reporting stuck operations.
-    telem::TimeSpan op_timeout = 60 * telem::SECOND;
+    x::telem::TimeSpan op_timeout = 60 * x::telem::SECOND;
     /// @brief interval between timeout checks.
-    telem::TimeSpan poll_interval = 1 * telem::SECOND;
+    x::telem::TimeSpan poll_interval = 1 * x::telem::SECOND;
     /// @brief max time to wait for workers during shutdown before detaching.
-    telem::TimeSpan shutdown_timeout = 30 * telem::SECOND;
+    x::telem::TimeSpan shutdown_timeout = 30 * x::telem::SECOND;
     /// @brief number of worker threads for task operations.
     size_t worker_count = 4;
 
@@ -208,19 +208,19 @@ struct ManagerConfig {
             "op_timeout",
             static_cast<double>(this->op_timeout.seconds())
         );
-        this->op_timeout = telem::TimeSpan(static_cast<int64_t>(op_timeout_s * 1e9));
+        this->op_timeout = x::telem::TimeSpan(static_cast<int64_t>(op_timeout_s * 1e9));
         const auto poll_interval_s = p.field(
             "poll_interval",
             static_cast<double>(this->poll_interval.seconds())
         );
-        this->poll_interval = telem::TimeSpan(
+        this->poll_interval = x::telem::TimeSpan(
             static_cast<int64_t>(poll_interval_s * 1e9)
         );
         const auto shutdown_timeout_s = p.field(
             "shutdown_timeout",
             static_cast<double>(this->shutdown_timeout.seconds())
         );
-        this->shutdown_timeout = telem::TimeSpan(
+        this->shutdown_timeout = x::telem::TimeSpan(
             static_cast<int64_t>(shutdown_timeout_s * 1e9)
         );
         this->worker_count = p.field(
@@ -232,13 +232,13 @@ struct ManagerConfig {
     }
 
     friend std::ostream &operator<<(std::ostream &os, const ManagerConfig &cfg) {
-        os << "  " << xlog::SHALE() << "op timeout" << xlog::RESET() << ": "
+        os << "  " << x::log::SHALE() << "op timeout" << x::log::RESET() << ": "
            << cfg.op_timeout.seconds() << "s\n"
-           << "  " << xlog::SHALE() << "poll interval" << xlog::RESET() << ": "
+           << "  " << x::log::SHALE() << "poll interval" << x::log::RESET() << ": "
            << cfg.poll_interval.seconds() << "s\n"
-           << "  " << xlog::SHALE() << "shutdown timeout" << xlog::RESET() << ": "
+           << "  " << x::log::SHALE() << "shutdown timeout" << x::log::RESET() << ": "
            << cfg.shutdown_timeout.seconds() << "s\n"
-           << "  " << xlog::SHALE() << "worker count" << xlog::RESET() << ": "
+           << "  " << x::log::SHALE() << "worker count" << x::log::RESET() << ": "
            << cfg.worker_count;
         return os;
     }
@@ -249,7 +249,7 @@ struct ManagerConfig {
 class Manager {
 public:
     Manager(
-        synnax::Rack rack,
+        synnax::rack::Rack rack,
         const std::shared_ptr<synnax::Synnax> &client,
         std::unique_ptr<task::Factory> factory,
         const ManagerConfig &cfg = {}
@@ -264,24 +264,24 @@ public:
 
     /// @brief runs the main task manager loop, blocking until stop() is called.
     /// Safe to call stop() from another thread.
-    xerrors::Error run(std::function<void()> on_started = nullptr);
+    x::errors::Error run(std::function<void()> on_started = nullptr);
 
     /// @brief stops the task manager, halting all tasks and freeing resources.
     void stop();
 
 private:
     /// @brief the rack this manager belongs to.
-    synnax::Rack rack;
+    synnax::rack::Rack rack;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
     std::unique_ptr<Factory> factory;
     /// @brief duration before reporting stuck operations.
-    telem::TimeSpan op_timeout;
+    x::telem::TimeSpan op_timeout;
     /// @brief interval between timeout checks.
-    telem::TimeSpan poll_interval;
+    x::telem::TimeSpan poll_interval;
     /// @brief max time to wait for workers during shutdown before detaching.
-    telem::TimeSpan shutdown_timeout;
+    x::telem::TimeSpan shutdown_timeout;
     /// @brief number of worker threads for task operations.
     size_t worker_count;
 
@@ -290,8 +290,8 @@ private:
         /// @brief types of operations that can be queued.
         enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE };
         Type type;
-        synnax::TaskKey task_key;
-        synnax::Task task;
+        synnax::task::Key task_key;
+        synnax::task::Task task;
         Command cmd;
     };
 
@@ -301,11 +301,11 @@ private:
         /// @brief true while a worker is processing an operation for this task.
         std::atomic<bool> processing{false};
         /// @brief when the current operation started (0 if idle).
-        std::atomic<telem::TimeStamp> op_started{telem::TimeStamp(0)};
+        std::atomic<x::telem::TimeStamp> op_started{x::telem::TimeStamp(0)};
     };
 
     /// @brief maps task keys to their state. Uses shared_ptr for stable references.
-    std::unordered_map<synnax::TaskKey, std::shared_ptr<Entry>> entries;
+    std::unordered_map<synnax::task::Key, std::shared_ptr<Entry>> entries;
     /// @brief pending operations to be processed by workers.
     std::list<Op> op_queue;
     /// @brief notified when ops are queued or workers should wake.
@@ -320,36 +320,36 @@ private:
     /// @brief thread that checks for stuck operations.
     std::thread monitor_thread;
     /// @brief controls worker and monitor thread lifecycle.
-    breaker::Breaker breaker{breaker::Config{.name = "task.manager"}};
+    x::breaker::Breaker breaker{x::breaker::Config{.name = "task.manager"}};
 
     /// @brief protects entries, op_queue, and streamer.
     std::mutex mu;
     /// @brief receives task set/delete/cmd events from the cluster.
-    std::unique_ptr<synnax::Streamer> streamer;
+    std::unique_ptr<synnax::framer::Streamer> streamer;
     /// @brief signals early shutdown before streamer is opened.
     std::atomic<bool> exit_early{false};
 
     /// @brief channels used to receive task events.
     struct {
-        synnax::Channel task_set;
-        synnax::Channel task_delete;
-        synnax::Channel task_cmd;
+        synnax::channel::Channel task_set;
+        synnax::channel::Channel task_delete;
+        synnax::channel::Channel task_cmd;
     } channels;
 
     /// @brief returns true if the task belongs to a different rack.
-    [[nodiscard]] bool skip_foreign_rack(const synnax::TaskKey &task_key) const;
+    [[nodiscard]] bool skip_foreign_rack(const synnax::task::Key &task_key) const;
     /// @brief opens the streamer for task set/delete/cmd channels.
-    xerrors::Error open_streamer();
+    x::errors::Error open_streamer();
     /// @brief loads and queues all existing tasks from the cluster.
-    xerrors::Error configure_initial_tasks();
+    x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
     /// @brief handles task create/update events.
-    void process_task_set(const telem::Series &series);
+    void process_task_set(const x::telem::Series &series);
     /// @brief handles task deletion events.
-    void process_task_delete(const telem::Series &series);
+    void process_task_delete(const x::telem::Series &series);
     /// @brief handles task command events.
-    void process_task_cmd(const telem::Series &series);
+    void process_task_cmd(const x::telem::Series &series);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.

@@ -63,7 +63,7 @@ template<typename ChannelContainer>
 void initialize_frame(
     x::telem::Frame &fr,
     const ChannelContainer &channels,
-    const std::set<synnax::channel::Key> &index_keys,
+    const std::set<synnax::channel::Channel::Key> &index_keys,
     const size_t samples_per_chan
 ) {
     if (fr.size() == channels.size() + index_keys.size()) return;
@@ -84,7 +84,7 @@ struct Source {
     /// @brief the configuration used to open a writer for the source.
     [[nodiscard]] virtual synnax::WriterConfig writer_config() const = 0;
 
-    [[nodiscard]] virtual std::vector<synnax::channel::Channel> channels() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::channel::Channel::Channel> channels() const = 0;
 
     /// @brief an optional function called to start the source.
     /// @returns an error if the source fails to start, at which point the task
@@ -166,7 +166,7 @@ public:
     /// @brief base constructor that takes in a pipeline writer factory to allow the
     /// caller to stub cluster communication during tests.
     explicit ReadTask(
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const std::shared_ptr<driver::task::Context> &ctx,
         const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Source> source,
@@ -186,7 +186,7 @@ public:
     /// @brief primary constructor that uses the task context's Synnax client in
     /// order to communicate with the cluster.
     explicit ReadTask(
-        const synnax::Task &task,
+        const synnax::task::Task &task,
         const std::shared_ptr<driver::task::Context> &ctx,
         const x::breaker::Config &breaker_cfg,
         std::unique_ptr<Source> source

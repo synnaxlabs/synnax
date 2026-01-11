@@ -13,7 +13,7 @@
 #include "driver/rack/rack.h"
 
 x::errors::Error driver::rack::Config::load_remote(x::breaker::Breaker &breaker) {
-    std::pair<synnax::Rack, x::errors::Error> res;
+    std::pair<synnax::rack::Rack, x::errors::Error> res;
     auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
     if (this->remote_info.cluster_key != client.auth->cluster_info.cluster_key &&

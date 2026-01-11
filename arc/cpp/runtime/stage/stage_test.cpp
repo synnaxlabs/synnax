@@ -22,7 +22,7 @@ node::Context make_context() {
     return node::Context{
         .elapsed = telem::SECOND,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }

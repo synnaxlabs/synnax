@@ -16,7 +16,7 @@
 driver::ni::Scanner::Scanner(
     const std::shared_ptr<::syscfg::SugaredAPI> &syscfg,
     ScanTaskConfig cfg,
-    synnax::Task task
+    synnax::task::Task task
 ):
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 

@@ -87,12 +87,12 @@ public:
 /// by a Synnax streamer that receives data from a cluster.
 class SynnaxStreamer final : public Streamer {
     /// @brief the wrapped synnax streamer.
-    synnax::Streamer internal;
+    synnax::framer::Streamer internal;
 
 public:
     /// @brief constructs a new Synnax streamer that wraps the given internal
     /// streamer.
-    explicit SynnaxStreamer(synnax::Streamer internal);
+    explicit SynnaxStreamer(synnax::framer::Streamer internal);
 
     /// @brief implements driver::pipeline::Streamer to read the next frame from the
     /// streamer.

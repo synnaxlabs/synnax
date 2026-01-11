@@ -40,15 +40,15 @@ bool driver::ni::Factory::check_health() const {
 
 bool driver::ni::Factory::check_health(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) const {
     if (this->check_health()) return true;
-    synnax::TaskStatus status{
+    synnax::task::Status status{
         .key = task.status_key(),
         .name = task.name,
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details = synnax::TaskStatusDetails{.task = task.key, .running = false},
+        .details = synnax::task::StatusDetails{.task = task.key, .running = false},
     };
     ctx->set_status(status);
     return false;
@@ -70,7 +70,7 @@ std::unique_ptr<driver::ni::Factory> driver::ni::Factory::create(driver::task::c
 
 std::pair<std::unique_ptr<driver::task::Task>, bool> driver::ni::Factory::configure_task(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
@@ -110,10 +110,10 @@ std::pair<std::unique_ptr<driver::task::Task>, bool> driver::ni::Factory::config
     return driver::task::common::handle_config_err(ctx, task, std::move(res));
 }
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
+std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
 driver::ni::Factory::configure_initial_tasks(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Rack &rack
+    const synnax::rack::Rack &rack
 ) {
     return driver::task::common::configure_initial_factory_tasks(
         this,
@@ -127,7 +127,7 @@ driver::ni::Factory::configure_initial_tasks(
 
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> driver::ni::Factory::configure_scan(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     auto parser = x::json::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);

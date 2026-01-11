@@ -15,7 +15,7 @@
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -47,8 +47,8 @@ struct TaskConfig {
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
 
-    static std::pair<TaskConfig, xerrors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &parser) {
+    static std::pair<TaskConfig, x::errors::Error>
+    parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         TaskConfig cfg;
 
         cfg.arc_key = parser.field<std::string>("arc_key");
@@ -92,7 +92,7 @@ struct TaskConfig {
             .cpu_affinity = parser.field<int>("cpu_affinity", -1),
         };
 
-        return {std::move(cfg), xerrors::NIL};
+        return {std::move(cfg), x::errors::NIL};
     }
 };
 
@@ -100,13 +100,13 @@ struct TaskConfig {
 /// @param config the task configuration containing the module and loop config.
 /// @param client the Synnax client for channel retrieval.
 /// @returns a pair containing the runtime instance and any error that occurred.
-inline std::pair<std::shared_ptr<runtime::Runtime>, xerrors::Error>
+inline std::pair<std::shared_ptr<runtime::Runtime>, x::errors::Error>
 load_runtime(const TaskConfig &config, const std::shared_ptr<synnax::Synnax> &client) {
     const runtime::Config runtime_cfg{
         .mod = config.module,
         .breaker = breaker::default_config("arc_runtime"),
         .retrieve_channels = [client](const std::vector<types::ChannelKey> &keys)
-            -> std::pair<std::vector<runtime::state::ChannelDigest>, xerrors::Error> {
+            -> std::pair<std::vector<runtime::state::ChannelDigest>, x::errors::Error> {
             auto [channels, err] = client->channels.retrieve(keys);
             if (err) return {{}, err};
             std::vector<runtime::state::ChannelDigest> digests;
@@ -119,7 +119,7 @@ load_runtime(const TaskConfig &config, const std::shared_ptr<synnax::Synnax> &cl
                     }
                 );
             }
-            return {digests, xerrors::NIL};
+            return {digests, x::errors::NIL};
         }
     };
     return runtime::load(runtime_cfg);
@@ -133,12 +133,12 @@ public:
     explicit Source(const std::shared_ptr<runtime::Runtime> &runtime):
         runtime(runtime) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
+    x::errors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
         this->runtime->read(data);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override {
+    void stopped_with_err(const x::errors::Error &err) override {
         LOG(ERROR) << "[arc] runtime stopped with error: " << err.message();
     }
 };
@@ -150,8 +150,8 @@ class Sink final : public pipeline::Sink {
 public:
     explicit Sink(const std::shared_ptr<runtime::Runtime> &runtime): runtime(runtime) {}
 
-    xerrors::Error write(telem::Frame &frame) override {
-        if (frame.empty()) return xerrors::NIL;
+    x::errors::Error write(telem::Frame &frame) override {
+        if (frame.empty()) return x::errors::NIL;
         VLOG(1) << "[arc.sink] writing to runtime " << frame;
         return this->runtime->write(std::move(frame));
     }
@@ -166,7 +166,7 @@ class Task final : public task::Task {
 
 public:
     explicit Task(
-        const synnax::Task &task_meta,
+        const synnax::task::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx,
         std::shared_ptr<runtime::Runtime> runtime,
         const TaskConfig &cfg,

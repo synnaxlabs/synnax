@@ -314,7 +314,7 @@ TEST(DeviceTest, ReconnectAfterServerRestart) {
 TEST(ConnectionConfigTest, ToJsonWorks) {
     driver::modbus::device::ConnectionConfig config{"192.168.1.100", 502, true, false};
 
-    json j = config.to_json();
+    x::json::json j = config.to_json();
 
     EXPECT_EQ(j["host"], "192.168.1.100");
     EXPECT_EQ(j["port"], 502);
@@ -323,7 +323,7 @@ TEST(ConnectionConfigTest, ToJsonWorks) {
 }
 
 TEST(ConnectionConfigTest, FromJsonWorks) {
-    json j = {
+    x::json::json j = {
         {"host", "10.0.0.50"},
         {"port", 1502},
         {"swap_bytes", false},

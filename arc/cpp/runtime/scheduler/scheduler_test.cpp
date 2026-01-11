@@ -16,7 +16,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/ir/testutil/testutil.h"
@@ -34,10 +34,10 @@ struct MockNode final : public node::Node {
     // ─── Configurable Behavior ────────────────────────────────────────────────
     std::unordered_map<std::string, bool> param_truthy;
     std::function<void(node::Context &)> on_next;
-    xerrors::Error next_error = xerrors::NIL;
+    x::errors::Error next_error = x::errors::NIL;
 
     // ─── Interface Implementation ─────────────────────────────────────────────
-    xerrors::Error next(node::Context &ctx) override {
+    x::errors::Error next(node::Context &ctx) override {
         next_called++;
         elapsed_values.push_back(ctx.elapsed);
         if (on_next) on_next(ctx);
@@ -64,7 +64,7 @@ struct MockNode final : public node::Node {
     }
 
     /// @brief Configure node to report an error when next() is called.
-    void error_on_next(const xerrors::Error &err) {
+    void error_on_next(const x::errors::Error &err) {
         on_next = [err](const node::Context &ctx) { ctx.report_error(err); };
     }
 };
@@ -1051,7 +1051,7 @@ TEST_F(SchedulerTest, testConvergenceDetectsTransition) {
 TEST_F(SchedulerTest, testErrorHandlerReceivesErrors) {
     auto &nodeA = mock("A");
 
-    nodeA.error_on_next(xerrors::Error("test", "test error"));
+    nodeA.error_on_next(x::errors::Error("test", "test error"));
 
     auto ir = ir::testutil::Builder().node("A").strata({{"A"}}).build();
 
@@ -1065,7 +1065,7 @@ TEST_F(SchedulerTest, testExecutionContinuesAfterError) {
     auto &nodeA = mock("A");
     const auto &nodeB = mock("B");
 
-    nodeA.error_on_next(xerrors::Error("test", "error from A"));
+    nodeA.error_on_next(x::errors::Error("test", "error from A"));
     nodeA.mark_on_next("output");
 
     auto ir = ir::testutil::Builder()
@@ -1084,7 +1084,7 @@ TEST_F(SchedulerTest, testExecutionContinuesAfterError) {
 TEST_F(SchedulerTest, testNextReturnsNormally) {
     auto &nodeA = mock("A");
 
-    nodeA.next_error = xerrors::Error("test", "node error");
+    nodeA.next_error = x::errors::Error("test", "node error");
 
     auto ir = ir::testutil::Builder().node("A").strata({{"A"}}).build();
 

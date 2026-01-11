@@ -25,8 +25,8 @@ protected:
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::opc::connection::Pool> conn_pool;
     std::unique_ptr<mock::Server> server;
-    synnax::Task task;
-    synnax::Rack rack;
+    synnax::task::Task task;
+    synnax::rack::Rack rack;
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -35,7 +35,7 @@ protected:
 
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
-        task = synnax::Task(rack.key, "OPC UA Scan Task Test", "opc_scan", "");
+        task = synnax::task::Task(rack.key, "OPC UA Scan Task Test", "opc_scan", "");
 
         auto server_cfg = mock::ServerConfig::create_default();
         server = std::make_unique<mock::Server>(server_cfg);

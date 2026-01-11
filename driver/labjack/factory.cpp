@@ -21,7 +21,7 @@ const std::string NO_LIBS_MSG = "Cannot create task because the LJM Libraries ar
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task,
+    const synnax::task::Task &task,
     const driver::task::common::TimingConfig timing_cfg
 ) {
     driver::task::common::ConfigureResult result;
@@ -47,7 +47,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_rea
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     driver::task::common::ConfigureResult result;
     auto [cfg, err] = driver::labjack::WriteTaskConfig::parse(ctx->client, task);
@@ -67,7 +67,7 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_wri
 std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_scan(
     const std::shared_ptr<device::Manager> &devs,
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     auto parser = x::json::Parser(task.config);
     auto cfg = driver::labjack::ScanTaskConfig(parser);
@@ -86,15 +86,15 @@ std::pair<driver::task::common::ConfigureResult, x::errors::Error> configure_sca
 
 bool driver::labjack::Factory::check_health(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) const {
     if (this->dev_manager != nullptr) return true;
-    synnax::TaskStatus status{
+    synnax::task::Status status{
         .key = task.status_key(),
         .name = task.name,
         .variant = status::variant::ERR,
         .message = NO_LIBS_MSG,
-        .details = synnax::TaskStatusDetails{.task = task.key}
+        .details = synnax::task::StatusDetails{.task = task.key}
     };
     ctx->set_status(status);
     return false;
@@ -102,7 +102,7 @@ bool driver::labjack::Factory::check_health(
 
 std::pair<std::unique_ptr<driver::task::Task>, bool> driver::labjack::Factory::configure_task(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
     if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
     if (!this->check_health(ctx, task)) return {nullptr, true};
@@ -125,10 +125,10 @@ driver::labjack::Factory::create(driver::task::common::TimingConfig timing_cfg) 
     );
 }
 
-std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
+std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
 driver::labjack::Factory::configure_initial_tasks(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Rack &rack
+    const synnax::rack::Rack &rack
 ) {
     return driver::task::common::configure_initial_factory_tasks(
         this,

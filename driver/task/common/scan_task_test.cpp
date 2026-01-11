@@ -73,7 +73,7 @@ public:
     std::shared_ptr<std::vector<synnax::Device>> created;
     std::vector<std::vector<synnax::DeviceStatus>> propagated_statuses;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> streamer_factory;
-    std::vector<synnax::channel::Channel> signal_channels;
+    std::vector<synnax::channel::Channel::Channel> signal_channels;
 
     MockClusterAPI(
         const std::shared_ptr<std::vector<synnax::Device>> &remote_,
@@ -114,7 +114,7 @@ public:
         return {nullptr, x::errors::NIL};
     }
 
-    std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
+    std::pair<std::vector<synnax::channel::Channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) override {
         return {signal_channels, x::errors::NIL};
     }
@@ -159,7 +159,7 @@ public:
 
     bool exec(
         driver::task::Command &cmd,
-        const synnax::Task &,
+        const synnax::task::Task &,
         const std::shared_ptr<driver::task::Context> &
     ) override {
         std::lock_guard lock(mu);
@@ -195,7 +195,7 @@ TEST(TestScanTask, testSingleScan) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
@@ -249,7 +249,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
@@ -314,7 +314,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
@@ -383,7 +383,7 @@ TEST(TestScanTask, TestStatePropagation) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
@@ -453,7 +453,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
@@ -531,11 +531,11 @@ public:
 
 /// @brief it should add devices to context when device set signal arrives.
 TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
-    synnax::channel::Channel device_set_ch;
+    synnax::channel::Channel::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
-    synnax::channel::Channel device_delete_ch;
+    synnax::channel::Channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
     device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
@@ -577,7 +577,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
@@ -601,11 +601,11 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
 
 /// @brief it should remove devices from context when device delete signal arrives.
 TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
-    synnax::channel::Channel device_set_ch;
+    synnax::channel::Channel::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
-    synnax::channel::Channel device_delete_ch;
+    synnax::channel::Channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
     device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
@@ -649,7 +649,7 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
@@ -672,11 +672,11 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
 
 /// @brief it should filter devices by make and not add mismatched devices.
 TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
-    synnax::channel::Channel device_set_ch;
+    synnax::channel::Channel::Channel device_set_ch;
     device_set_ch.key = 100;
     device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
 
-    synnax::channel::Channel device_delete_ch;
+    synnax::channel::Channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
     device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
 
@@ -718,7 +718,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = synnax::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 

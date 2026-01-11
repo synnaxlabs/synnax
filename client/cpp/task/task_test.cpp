@@ -15,7 +15,7 @@
 
 std::mt19937 gen_rand_task = random_generator("Task Tests");
 
-namespace synnax::task {
+namespace synnax::task  {
 /// @brief it should correctly create a module on the rack.
 TEST(TaskTests, testCreateTask) {
     auto client = new_test_client();

@@ -30,7 +30,7 @@ public:
     write(const std::shared_ptr<device::Device> &dev, const x::telem::Frame &fr) = 0;
 
     /// @returns the keys of all the command channels the writer is responsible for.
-    [[nodiscard]] virtual std::vector<synnax::channel::Key> cmd_keys() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::channel::Channel::Key> cmd_keys() const = 0;
 };
 
 /// @brief base class for all writer types.
@@ -42,8 +42,8 @@ struct BaseWriter : Writer {
         channel::sort_by_address(this->channels);
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const override {
-        std::vector<synnax::channel::Key> keys;
+    [[nodiscard]] std::vector<synnax::channel::Channel::Key> cmd_keys() const override {
+        std::vector<synnax::channel::Channel::Key> keys;
         keys.reserve(channels.size());
         for (const auto &ch: channels)
             keys.push_back(ch.channel);
@@ -176,8 +176,8 @@ struct WriteTaskConfig {
     }
 
     /// @returns the keys of all command channels used by the writer.
-    [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const {
-        std::vector<synnax::channel::Key> keys;
+    [[nodiscard]] std::vector<synnax::channel::Channel::Key> cmd_keys() const {
+        std::vector<synnax::channel::Channel::Key> keys;
         for (const auto &writer: writers)
             for (const auto &key: writer->cmd_keys())
                 keys.push_back(key);
@@ -191,7 +191,7 @@ struct WriteTaskConfig {
     /// @param task the task to parse.
     /// @returns a pair containing the parsed configuration and any error that occurred.
     static std::pair<WriteTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::Task &task) {
+    parse(const std::shared_ptr<synnax::Synnax> &client, const synnax::task::Task &task) {
         auto parser = x::json::Parser(task.config);
         WriteTaskConfig cfg(client, parser);
         return {std::move(cfg), parser.error()};

@@ -59,7 +59,7 @@ node::Context make_context() {
     return node::Context{
         .elapsed = telem::SECOND,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
@@ -113,7 +113,7 @@ func double(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(mod.nodes[0].key));
 
     node::Config cfg(fake_node, std::move(node_state));
-    ASSERT_OCCURRED_AS_P(factory.create(std::move(cfg)), xerrors::NOT_FOUND);
+    ASSERT_OCCURRED_AS_P(factory.create(std::move(cfg)), x::errors::NOT_FOUND);
 }
 
 /// @brief Factory::create succeeds with valid function.
@@ -191,14 +191,14 @@ TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output_val");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
+    auto input_ch = synnax::channel::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::Channel(
+    auto output_ch = synnax::channel::Channel(
         output_name,
         telem::FLOAT32_T,
         output_idx.key,
@@ -288,12 +288,12 @@ TEST(NodeTest, NextReportsErrorOnWasmTrap) {
     auto input_name = random_name("input");
     auto output_name = random_name("output");
 
-    auto index_ch = synnax::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
+    auto index_ch = synnax::channel::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto input_ch = synnax::Channel(input_name, telem::INT32_T, index_ch.key, false);
+    auto input_ch = synnax::channel::Channel(input_name, telem::INT32_T, index_ch.key, false);
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::Channel(output_name, telem::INT32_T, index_ch.key, false);
+    auto output_ch = synnax::channel::Channel(output_name, telem::INT32_T, index_ch.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -341,8 +341,8 @@ func divide_by_zero(val i32) i32 {
     wasm::Node node(*func_node, std::move(node_state), func);
 
     auto ctx = make_context();
-    std::vector<xerrors::Error> reported_errors;
-    ctx.report_error = [&](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    ctx.report_error = [&](const x::errors::Error &err) {
         reported_errors.push_back(err);
     };
 
@@ -386,13 +386,13 @@ TEST(NodeTest, IsOutputTruthyEvaluatesOutputValues) {
     auto input_name = random_name("input");
     auto output_name = random_name("output");
 
-    auto index_ch = synnax::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
+    auto index_ch = synnax::channel::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto input_ch = synnax::Channel(input_name, telem::FLOAT32_T, index_ch.key, false);
+    auto input_ch = synnax::channel::Channel(input_name, telem::FLOAT32_T, index_ch.key, false);
     ASSERT_NIL(client.channels.create(input_ch));
     auto
-        output_ch = synnax::Channel(output_name, telem::FLOAT32_T, index_ch.key, false);
+        output_ch = synnax::channel::Channel(output_name, telem::FLOAT32_T, index_ch.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(

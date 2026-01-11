@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -80,6 +81,14 @@ inline RackKey rack_key_from_task_key(const Key key) {
 /// @returns The local task key portion of the task key.
 inline std::uint32_t local_task_key(const Key key) {
     return key & 0xFFFFFFFF;
+}
+
+/// @brief Stream output operator for Task.
+/// @param os The output stream.
+/// @param task The task to output.
+/// @returns The output stream.
+inline std::ostream &operator<<(std::ostream &os, const Task &task) {
+    return os << task.name << " (key=" << task.key << ",type=" << task.type << ")";
 }
 
 /// @brief Options for retrieving tasks.

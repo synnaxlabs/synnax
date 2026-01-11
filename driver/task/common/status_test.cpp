@@ -16,7 +16,7 @@
 /// @brief it should correctly communicate the starting state of a task.
 TEST(TestTaskStateHandler, testStartCommunication) {
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    const synnax::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task("task1", "ni_analog_read", "");
     auto handler = driver::task::common::StatusHandler(ctx, task);
 
     handler.send_start("cmd_key");
@@ -46,7 +46,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
 /// @brief it should correctly communicate a warning to the context.
 TEST(TestTaskStateHandler, testSendWarning) {
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    const synnax::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task("task1", "ni_analog_read", "");
     auto handler = driver::task::common::StatusHandler(ctx, task);
 
     handler.send_warning("Test warning message");
@@ -69,7 +69,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
 /// @brief it should correctly move the task back to a nominal running state.
 TEST(TestTaskStateHandle, testClearWarning) {
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    const synnax::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task("task1", "ni_analog_read", "");
     auto handler = driver::task::common::StatusHandler(ctx, task);
 
     // First send a warning
@@ -104,7 +104,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
 /// @brief it should correctly communicate the stopping state of a task.
 TEST(TestTaskStateHandler, testStopCommunication) {
     const auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
-    const synnax::Task task("task1", "ni_analog_read", "");
+    const synnax::task::Task task("task1", "ni_analog_read", "");
     auto handler = driver::task::common::StatusHandler(ctx, task);
 
     handler.send_stop("cmd_key");

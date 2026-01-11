@@ -12,3 +12,7 @@
 #include "arc/cpp/types/json.gen.h"
 #include "arc/cpp/types/proto.gen.h"
 #include "arc/cpp/types/types.gen.h"
+
+namespace arc::types {
+using ChannelKey = std::uint32_t;
+}

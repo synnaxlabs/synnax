@@ -15,7 +15,7 @@
 
 driver::sequence::Task::Task(
     const std::shared_ptr<driver::task::Context> &ctx,
-    synnax::Task task,
+    synnax::task::Task task,
     TaskConfig cfg,
     std::unique_ptr<driver::sequence::Sequence> seq,
     const x::breaker::Config &breaker_config
@@ -26,10 +26,10 @@ driver::sequence::Task::Task(
     ctx(ctx),
     seq(std::move(seq)),
     status(
-        synnax::TaskStatus{
+        synnax::task::Status{
             .key = task.status_key(),
             .variant = status::variant::SUCCESS,
-            .details = synnax::TaskStatusDetails{
+            .details = synnax::task::StatusDetails{
                 .task = task.key,
                 .running = false,
             }
@@ -105,9 +105,9 @@ void driver::sequence::Task::stop(const std::string &key, bool will_reconfigure)
 
 std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
     const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::Task &task
+    const synnax::task::Task &task
 ) {
-    synnax::TaskStatus cfg_status;
+    synnax::task::Status cfg_status;
     cfg_status.details.task = task.key;
 
     auto parser = x::json::Parser(task.config);

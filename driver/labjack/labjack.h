@@ -53,7 +53,7 @@ class Factory final : public driver::task::Factory {
     /// task state and return false.
     [[nodiscard]] bool check_health(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) const;
 
 public:
@@ -69,15 +69,15 @@ public:
 
     std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<driver::task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 };
 }

@@ -1,5 +1,6 @@
 cc_library(
     name = "ir",
+    srcs = ["ir.cpp"],
     hdrs = [
         "format.h",
         "ir.h",

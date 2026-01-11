@@ -24,7 +24,7 @@ node::Context make_context() {
     return node::Context{
         .elapsed = telem::SECOND,
         .mark_changed = [](const std::string &) {},
-        .report_error = [](const xerrors::Error &) {},
+        .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
     };
 }
@@ -76,7 +76,7 @@ TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
     constant::Factory factory;
     ASSERT_OCCURRED_AS_P(
         factory.create(node::Config(ir_node, setup.make_node())),
-        xerrors::NOT_FOUND
+        x::errors::NOT_FOUND
     );
 }
 

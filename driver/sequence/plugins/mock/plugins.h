@@ -23,16 +23,16 @@ public:
         std::pair<std::vector<synnax::ChannelKey>, std::vector<telem::Authority>>>
         authority_calls;
 
-    xerrors::Error write(telem::Frame &frame) override {
+    x::errors::Error write(telem::Frame &frame) override {
         return pipeline::mock::Sink::write(frame);
     }
 
-    xerrors::Error set_authority(
+    x::errors::Error set_authority(
         const std::vector<synnax::ChannelKey> &keys,
         const std::vector<telem::Authority> &authorities
     ) override {
         this->authority_calls.emplace_back(keys, authorities);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 };
 }

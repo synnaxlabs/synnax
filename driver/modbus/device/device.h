@@ -146,7 +146,7 @@ struct ConnectionConfig {
         swap_words(parser.field<bool>("swap_words")) {}
 
     /// @brief returns the JSON representation of the configuration.
-    [[nodiscard]] json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"host", host},
             {"port", port},

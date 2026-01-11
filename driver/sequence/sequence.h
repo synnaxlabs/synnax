@@ -49,10 +49,10 @@ struct TaskConfig {
     std::string script;
     /// @brief read is the list of channels that the task will need to read from in
     /// real-time.
-    std::vector<synnax::channel::Key> read;
+    std::vector<synnax::channel::Channel::Key> read;
     /// @brief write_to is the channels that the task will need write access to for
     /// control.
-    std::vector<synnax::channel::Key> write;
+    std::vector<synnax::channel::Channel::Key> write;
     /// @brief globals is a JSON object whose keys are global variables that will be
     /// available within the Lua script.
     json globals;
@@ -63,8 +63,8 @@ struct TaskConfig {
         // this comment keeps the formatter happy
         rate(x::telem::Rate(parser.field<float>("rate"))),
         script(parser.field<std::string>("script")),
-        read(parser.field<std::vector<synnax::channel::Key>>("read")),
-        write(parser.field<std::vector<synnax::channel::Key>>("write")),
+        read(parser.field<std::vector<synnax::channel::Channel::Key>>("read")),
+        write(parser.field<std::vector<synnax::channel::Channel::Key>>("write")),
         globals(parser.field<json>("globals", json::object())),
         authority(parser.field<x::telem::Authority>("authority", 150)) {}
 };
@@ -115,7 +115,7 @@ class Task final : public driver::task::Task {
     /// @brief cfg is the configuration for the task.
     const TaskConfig cfg;
     /// @brief task is the synnax task configuration.
-    const synnax::Task task;
+    const synnax::task::Task task;
     /// @brief the list of channels that the task will write to.
     x::breaker::Breaker breaker;
     /// @brief thread is the thread that will execute the sequence.
@@ -126,7 +126,7 @@ class Task final : public driver::task::Task {
     /// @brief the compiled sequence that will be executed within the task.
     std::unique_ptr<driver::sequence::Sequence> seq;
     /// @brief the current task state.
-    synnax::TaskStatus status;
+    synnax::task::Status status;
 
 public:
     /// @brief static helper function used to configure the sequence.
@@ -134,11 +134,11 @@ public:
     /// returns a nullptr. Configuration errors are communicated through the task
     /// context.
     static std::unique_ptr<driver::task::Task>
-    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::Task &task);
+    configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task);
 
     Task(
         const std::shared_ptr<driver::task::Context> &ctx,
-        synnax::Task task,
+        synnax::task::Task task,
         TaskConfig cfg,
         std::unique_ptr<driver::sequence::Sequence> seq,
         const x::breaker::Config &breaker_config
@@ -173,7 +173,7 @@ public:
 
     std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
         const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override {
         if (task.type != TASK_TYPE) return {nullptr, false};
         return {driver::sequence::Task::configure(ctx, task), true};

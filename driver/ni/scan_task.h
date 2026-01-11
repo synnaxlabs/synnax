@@ -112,7 +112,7 @@ struct ScanTaskConfig : driver::task::common::ScanTaskConfig {
 class Scanner final : public driver::task::common::Scanner {
     /// @brief configuration for the scan task.
     const ScanTaskConfig cfg;
-    const synnax::Task task;
+    const synnax::task::Task task;
     /// @brief the NI system configuration library.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
     /// @brief ni system configuration session handle.
@@ -136,7 +136,7 @@ public:
     explicit Scanner(
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
         ScanTaskConfig cfg,
-        synnax::Task task
+        synnax::task::Task task
     );
 
     x::errors::Error start() override;
