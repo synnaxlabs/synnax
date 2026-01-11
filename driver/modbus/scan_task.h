@@ -60,12 +60,12 @@ public:
     [[nodiscard]] driver::task::common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle Modbus-specific commands (test connection).
     bool exec(
-        driver::task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<driver::task::Context> &ctx
     ) override;
@@ -76,10 +76,10 @@ private:
     std::shared_ptr<device::Manager> devices;
 
     /// @brief Test connection to a Modbus server.
-    void test_connection(const driver::task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
     /// Sets dev.status based on connection result.
-    void check_device_health(synnax::Device &dev) const;
+    void check_device_health(synnax::device::Device &dev) const;
 };
 }

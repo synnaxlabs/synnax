@@ -26,15 +26,15 @@ protected:
     synnax::task::Task task;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel::Channel index_channel;
-    synnax::Device device;
+    synnax::channel::Channel index_channel;
+    synnax::device::Device device;
     synnax::rack::Rack rack;
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
 
         // Create index channel
-        index_channel = synnax::channel::Channel::Channel(
+        index_channel = synnax::channel::Channel(
             make_unique_channel_name("time_channel"),
             x::telem::TIMESTAMP_T,
             0,
@@ -48,15 +48,15 @@ protected:
         auto conn_cfg = driver::modbus::device::ConnectionConfig{"127.0.0.1", 1502};
         json properties{{"connection", conn_cfg.to_json()}};
 
-        device = synnax::Device(
-            "modbus_test_device",
-            "modbus_test_device",
-            rack.key,
-            "dev1",
-            "modbus",
-            "Modbus Device",
-            nlohmann::to_string(properties)
-        );
+        device = synnax::device::Device{
+            .key = "modbus_test_device",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "modbus",
+            .model = "Modbus Device",
+            .name = "modbus_test_device",
+            .properties = properties
+        };
         ASSERT_NIL(client->devices.create(device));
 
         ctx = std::make_shared<driver::task::MockContext>(client);
@@ -76,7 +76,7 @@ protected:
 
     static json create_channel_config(
         const std::string &type,
-        const synnax::channel::Channel::Channel &channel,
+        const synnax::channel::Channel &channel,
         uint16_t address,
         bool enabled = true
     ) {
@@ -113,7 +113,7 @@ TEST_F(ModbusReadTest, testInvalidDeviceConfig) {
 /// @brief it should return validation error for non-existent channel.
 TEST_F(ModbusReadTest, testInvalidChannelConfig) {
     auto cfg = create_base_config();
-    synnax::channel::Channel::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 12345;
     cfg["channels"].push_back(create_channel_config("coil_input", ch, 0));
     auto p = x::json::Parser(cfg);
@@ -190,14 +190,14 @@ TEST(ReadTask, testBasicReadTask) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto index_channel = synnax::channel::Channel::Channel(
+    auto index_channel = synnax::channel::Channel(
         make_unique_channel_name("time_channel"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
 
-    auto data_channel = synnax::channel::Channel::Channel(
+    auto data_channel = synnax::channel::Channel(
         make_unique_channel_name("data_channel"),
         x::telem::UINT8_T,
         index_channel.key,
@@ -214,15 +214,15 @@ TEST(ReadTask, testBasicReadTask) {
 
     auto conn_cfg = driver::modbus::device::ConnectionConfig{"127.0.0.1", 1502};
     json properties{{"connection", conn_cfg.to_json()}};
-    synnax::Device dev(
-        "my_modbus_lover",
-        "my_mobdus_lover",
-        rack.key,
-        "dev1",
-        "modbus",
-        "Modbus Device",
-        nlohmann::to_string(properties)
-    );
+    synnax::device::Device dev{
+        .key = "my_modbus_lover",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "modbus",
+        .model = "Modbus Device",
+        .name = "my_mobdus_lover",
+        .properties = properties
+    };
 
     ASSERT_NIL(client->devices.create(dev));
 
@@ -265,18 +265,18 @@ TEST(ReadTask, testBasicReadTask) {
     task.start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, tsk.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(tsk));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(factory->writer_opens, 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, tsk.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(tsk));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.details.task, tsk.key);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 
@@ -677,7 +677,12 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
          )}
     };
 
-    task = synnax::task::Task(rack.key, "test_task", "modbus_read", config.dump(), false);
+    task = synnax::task::Task{
+        .key = rack.key,
+        .name = "test_task",
+        .type = "modbus_read",
+        .config = config,
+    };
 
     // Configure task through factory
     auto factory = driver::modbus::Factory();
@@ -690,7 +695,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == status::variant::SUCCESS) {
+        if (s.details.running && s.variant == x::status::VARIANT_SUCCESS) {
             found_start = true;
             break;
         }
@@ -698,7 +703,7 @@ TEST_F(ModbusReadTest, testAutoStartTrue) {
     ASSERT_TRUE(found_start);
 
     // Stop the task to clean up
-    driver::task::Command stop_cmd(task.key, "stop", {});
+    synnax::task::Command stop_cmd(task.key, "stop", {});
     configured_task->exec(stop_cmd);
 }
 
@@ -739,13 +744,12 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
          )}
     };
 
-    task = synnax::task::Task(
-        rack.key,
-        "test_task_no_auto",
-        "modbus_read",
-        config.dump(),
-        false
-    );
+    task = synnax::task::Task{
+        .key = rack.key,
+        .name = "test_task_no_auto",
+        .type = "modbus_read",
+        .config = config,
+    };
 
     // Configure task through factory
     auto factory = driver::modbus::Factory();
@@ -759,18 +763,18 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &initial_state = ctx->statuses[0];
     ASSERT_FALSE(initial_state.details.running);
-    ASSERT_EQ(initial_state.variant, status::variant::SUCCESS);
+    ASSERT_EQ(initial_state.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(initial_state.message, "Task configured successfully");
 
     // Manually start the task
-    driver::task::Command start_cmd(task.key, "start", {});
+    synnax::task::Command start_cmd(task.key, "start", {});
     configured_task->exec(start_cmd);
 
     // Now task should be running
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     bool found_start = false;
     for (const auto &s: ctx->statuses) {
-        if (s.details.running && s.variant == status::variant::SUCCESS) {
+        if (s.details.running && s.variant == x::status::VARIANT_SUCCESS) {
             found_start = true;
             break;
         }
@@ -778,6 +782,6 @@ TEST_F(ModbusReadTest, testAutoStartFalse) {
     ASSERT_TRUE(found_start);
 
     // Stop the task to clean up
-    driver::task::Command stop_cmd(task.key, "stop", {});
+    synnax::task::Command stop_cmd(task.key, "stop", {});
     configured_task->exec(stop_cmd);
 }

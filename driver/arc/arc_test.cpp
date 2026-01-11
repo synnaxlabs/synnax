@@ -26,22 +26,22 @@ TEST(ArcTests, testCalcDoubling) {
     auto output_idx_name = make_unique_channel_name("ox_pt_doubled_idx");
     auto output_name = make_unique_channel_name("ox_pt_doubled");
 
-    auto input_idx = synnax::channel::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(input_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
+    auto input_ch = synnax::channel::Channel(input_name, x::telem::FLOAT32_T, input_idx.key, false);
     auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::Arc arc_prog(make_unique_channel_name("calc_test"));
+    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("calc_test")};
     arc_prog.text = arc::text::Text(
         "func calc(val f32) f32 {\n"
         "    return val * 2\n"
@@ -54,34 +54,33 @@ TEST(ArcTests, testCalcDoubling) {
         client->racks.create(make_unique_channel_name("arc_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_calc_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
-    task_meta.config = nlohmann::to_string(cfg);
+    synnax::task::Task task_meta{.name = "arc_calc_test", .type = "arc_runtime"};
+    task_meta.config = json{{"arc_key", arc_prog.key}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
 
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame input_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto input_idx_series = telem::Series(now);
-    input_idx_series.alignment = telem::Alignment(1, 0);
-    auto input_val_series = telem::Series(5.0f);
-    input_val_series.alignment = telem::Alignment(1, 0);
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame input_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto input_idx_series = x::telem::Series(now);
+    input_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto input_val_series = x::telem::Series(5.0f);
+    input_val_series.alignment = x::telem::Alignment(1, 0);
     input_fr.emplace(input_idx.key, std::move(input_idx_series));
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
 
     auto task = std::make_unique<arc::Task>(
         task_meta,
@@ -114,14 +113,14 @@ TEST(ArcTests, testBasicSequence) {
     auto start_cmd_name = make_unique_channel_name("start_cmd");
     auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
     auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         start_cmd_idx.key,
         false
     );
@@ -132,21 +131,21 @@ TEST(ArcTests, testBasicSequence) {
     auto valve_cmd_name = make_unique_channel_name("valve_cmd");
     auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
     auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
-        telem::INT64_T,
+        x::telem::INT64_T,
         valve_cmd_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with the sequence
-    synnax::Arc arc_prog(make_unique_channel_name("sequence_test"));
+    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("sequence_test")};
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -165,9 +164,8 @@ TEST(ArcTests, testBasicSequence) {
         client->racks.create(make_unique_channel_name("arc_sequence_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_sequence_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
-    task_meta.config = nlohmann::to_string(cfg);
+    synnax::task::Task task_meta{.name = "arc_sequence_test", .type = "arc_runtime"};
+    task_meta.config = json{{"arc_key", arc_prog.key}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -175,26 +173,26 @@ TEST(ArcTests, testBasicSequence) {
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
 
     // Setup mock writer to capture outputs
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
 
     // Setup mock streamer to send trigger frame
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
-    telem::Frame trigger_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto trigger_idx_series = telem::Series(now);
-    trigger_idx_series.alignment = telem::Alignment(1, 0);
-    auto trigger_val_series = telem::Series(static_cast<uint8_t>(1));
-    trigger_val_series.alignment = telem::Alignment(1, 0);
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto trigger_idx_series = x::telem::Series(now);
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(start_cmd_idx.key, std::move(trigger_idx_series));
     trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key},
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
 
     auto task = std::make_unique<arc::Task>(
         task_meta,
@@ -237,14 +235,14 @@ TEST(ArcTests, testOneShotTruthiness) {
     auto start_cmd_name = make_unique_channel_name("truthiness_start_cmd");
     auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
     auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         start_cmd_idx.key,
         false
     );
@@ -255,21 +253,21 @@ TEST(ArcTests, testOneShotTruthiness) {
     auto valve_cmd_name = make_unique_channel_name("truthiness_valve_cmd");
     auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
     auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
-        telem::INT64_T,
+        x::telem::INT64_T,
         valve_cmd_idx.key,
         false
     );
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a sequence triggered by one-shot edge
-    synnax::Arc arc_prog(make_unique_channel_name("truthiness_test"));
+    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("truthiness_test")};
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage run {\n"
@@ -288,9 +286,8 @@ TEST(ArcTests, testOneShotTruthiness) {
         client->racks.create(make_unique_channel_name("arc_truthiness_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_truthiness_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
-    task_meta.config = nlohmann::to_string(cfg);
+    synnax::task::Task task_meta{.name = "arc_truthiness_test", .type = "arc_runtime"};
+    task_meta.config = json{{"arc_key", arc_prog.key}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -298,41 +295,41 @@ TEST(ArcTests, testOneShotTruthiness) {
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
 
     // Setup mock writer to capture outputs
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
 
     // Setup mock streamer to send TWO frames:
     // 1. First frame with value 0 (should NOT trigger)
     // 2. Second frame with value 1 (should trigger)
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     // Frame 1: falsy trigger (0) - should NOT trigger the sequence
-    telem::Frame falsy_trigger_fr(2);
-    auto now = telem::TimeStamp::now();
-    auto falsy_idx_series = telem::Series(now);
-    falsy_idx_series.alignment = telem::Alignment(1, 0);
-    auto falsy_val_series = telem::Series(static_cast<uint8_t>(0));
-    falsy_val_series.alignment = telem::Alignment(1, 0);
+    x::telem::Frame falsy_trigger_fr(2);
+    auto now = x::telem::TimeStamp::now();
+    auto falsy_idx_series = x::telem::Series(now);
+    falsy_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto falsy_val_series = x::telem::Series(static_cast<uint8_t>(0));
+    falsy_val_series.alignment = x::telem::Alignment(1, 0);
     falsy_trigger_fr.emplace(start_cmd_idx.key, std::move(falsy_idx_series));
     falsy_trigger_fr.emplace(start_cmd_ch.key, std::move(falsy_val_series));
     input_frames->push_back(std::move(falsy_trigger_fr));
 
     // Frame 2: truthy trigger (1) - should trigger the sequence
-    telem::Frame truthy_trigger_fr(2);
-    auto later = telem::TimeStamp::now() + telem::SECOND;
-    auto truthy_idx_series = telem::Series(later);
-    truthy_idx_series.alignment = telem::Alignment(1, 1);
-    auto truthy_val_series = telem::Series(static_cast<uint8_t>(1));
-    truthy_val_series.alignment = telem::Alignment(1, 1);
+    x::telem::Frame truthy_trigger_fr(2);
+    auto later = x::telem::TimeStamp::now() + x::telem::SECOND;
+    auto truthy_idx_series = x::telem::Series(later);
+    truthy_idx_series.alignment = x::telem::Alignment(1, 1);
+    auto truthy_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    truthy_val_series.alignment = x::telem::Alignment(1, 1);
     truthy_trigger_fr.emplace(start_cmd_idx.key, std::move(truthy_idx_series));
     truthy_trigger_fr.emplace(start_cmd_ch.key, std::move(truthy_val_series));
     input_frames->push_back(std::move(truthy_trigger_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key},
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
 
     auto task = std::make_unique<arc::Task>(
         task_meta,
@@ -387,14 +384,14 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     auto start_cmd_name = make_unique_channel_name("two_stage_start_cmd");
     auto start_cmd_idx = synnax::channel::Channel(
         start_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(start_cmd_idx));
     auto start_cmd_ch = synnax::channel::Channel(
         start_cmd_name,
-        telem::UINT8_T,
+        x::telem::UINT8_T,
         start_cmd_idx.key,
         false
     );
@@ -403,11 +400,11 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create pressure sensor channel
     auto pressure_idx_name = make_unique_channel_name("two_stage_pressure_idx");
     auto pressure_name = make_unique_channel_name("two_stage_pressure");
-    auto pressure_idx = synnax::channel::Channel(pressure_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto pressure_idx = synnax::channel::Channel(pressure_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client->channels.create(pressure_idx));
     auto pressure_ch = synnax::channel::Channel(
         pressure_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         pressure_idx.key,
         false
     );
@@ -418,14 +415,14 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     auto valve_cmd_name = make_unique_channel_name("two_stage_valve_cmd");
     auto valve_cmd_idx = synnax::channel::Channel(
         valve_cmd_idx_name,
-        telem::TIMESTAMP_T,
+        x::telem::TIMESTAMP_T,
         0,
         true
     );
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
     auto valve_cmd_ch = synnax::channel::Channel(
         valve_cmd_name,
-        telem::INT64_T,
+        x::telem::INT64_T,
         valve_cmd_idx.key,
         false
     );
@@ -434,7 +431,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create Arc program with a two-stage sequence
     // Stage "pressurize": outputs 1, transitions to "idle" when pressure > 50
     // Stage "idle": outputs 0 (terminal stage)
-    synnax::Arc arc_prog(make_unique_channel_name("two_stage_test"));
+    synnax::arc::Arc arc_prog{.name=make_unique_channel_name("two_stage_test")};
     arc_prog.text = arc::text::Text(
         "sequence main {\n"
         "    stage pressurize {\n"
@@ -461,9 +458,8 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         client->racks.create(make_unique_channel_name("arc_two_stage_test_rack"))
     );
 
-    synnax::task::Task task_meta(rack.key, "arc_two_stage_test", "arc_runtime", "");
-    nlohmann::json cfg{{"arc_key", arc_prog.key}};
-    task_meta.config = nlohmann::to_string(cfg);
+    synnax::task::Task task_meta{.name = "arc_two_stage_test", .type = "arc_runtime"};
+    task_meta.config = json{{"arc_key", arc_prog.key}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -471,59 +467,59 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
 
     // Setup mock writer to capture outputs
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
 
     // Setup mock streamer to send frames:
     // 1. Trigger frame to start the sequence
     // 2. Pressure frame with value < 50 (should stay in pressurize stage)
     // 3. Pressure frame with value > 50 (should transition to idle stage)
-    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     // Frame 1: Trigger the sequence
-    telem::Frame trigger_fr(4);
-    auto now = telem::TimeStamp::now();
-    auto sequence_trigger_idx = telem::Series(now);
-    sequence_trigger_idx.alignment = telem::Alignment(1, 0);
+    x::telem::Frame trigger_fr(4);
+    auto now = x::telem::TimeStamp::now();
+    auto sequence_trigger_idx = x::telem::Series(now);
+    sequence_trigger_idx.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(start_cmd_idx.key, std::move(sequence_trigger_idx));
-    auto sequence_trigger_data = telem::Series(static_cast<std::uint8_t>(1));
-    sequence_trigger_data.alignment = telem::Alignment(1, 0);
+    auto sequence_trigger_data = x::telem::Series(static_cast<std::uint8_t>(1));
+    sequence_trigger_data.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(start_cmd_ch.key, std::move(sequence_trigger_data));
-    auto pressure_idx_series = telem::Series(now);
-    pressure_idx_series.alignment = telem::Alignment(1, 0);
+    auto pressure_idx_series = x::telem::Series(now);
+    pressure_idx_series.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(pressure_idx.key, std::move(pressure_idx_series));
-    auto pressure_val_series = telem::Series(10.0f);
-    pressure_val_series.alignment = telem::Alignment(1, 0);
+    auto pressure_val_series = x::telem::Series(10.0f);
+    pressure_val_series.alignment = x::telem::Alignment(1, 0);
     trigger_fr.emplace(pressure_ch.key, std::move(pressure_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
     // Frame 2: Pressure still low - should stay in pressurize, output 1
-    telem::Frame low_pressure_fr(2);
-    auto t2 = now + telem::MILLISECOND * 100;
-    auto low_pressure_idx_series = telem::Series(t2);
-    low_pressure_idx_series.alignment = telem::Alignment(1, 1);
-    auto low_pressure_val_series = telem::Series(30.0f);
-    low_pressure_val_series.alignment = telem::Alignment(1, 1);
+    x::telem::Frame low_pressure_fr(2);
+    auto t2 = now + x::telem::MILLISECOND * 100;
+    auto low_pressure_idx_series = x::telem::Series(t2);
+    low_pressure_idx_series.alignment = x::telem::Alignment(1, 1);
+    auto low_pressure_val_series = x::telem::Series(30.0f);
+    low_pressure_val_series.alignment = x::telem::Alignment(1, 1);
     low_pressure_fr.emplace(pressure_idx.key, std::move(low_pressure_idx_series));
     low_pressure_fr.emplace(pressure_ch.key, std::move(low_pressure_val_series));
     input_frames->push_back(std::move(low_pressure_fr));
 
     // Frame 3: Pressure exceeds threshold - should transition to idle, output 0
-    telem::Frame high_pressure_fr(2);
-    auto t3 = now + telem::MILLISECOND * 200;
-    auto high_pressure_idx_series = telem::Series(t3);
-    high_pressure_idx_series.alignment = telem::Alignment(1, 2);
-    auto high_pressure_val_series = telem::Series(60.0f);
-    high_pressure_val_series.alignment = telem::Alignment(1, 2);
+    x::telem::Frame high_pressure_fr(2);
+    auto t3 = now + x::telem::MILLISECOND * 200;
+    auto high_pressure_idx_series = x::telem::Series(t3);
+    high_pressure_idx_series.alignment = x::telem::Alignment(1, 2);
+    auto high_pressure_val_series = x::telem::Series(60.0f);
+    high_pressure_val_series.alignment = x::telem::Alignment(1, 2);
     high_pressure_fr.emplace(pressure_idx.key, std::move(high_pressure_idx_series));
     high_pressure_fr.emplace(pressure_ch.key, std::move(high_pressure_val_series));
     input_frames->push_back(std::move(high_pressure_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key, pressure_idx.key, pressure_ch.key},
         input_frames
     );
 
-    auto ctx = std::make_shared<task::MockContext>(client);
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
 
     auto task = std::make_unique<arc::Task>(
         task_meta,

@@ -28,7 +28,7 @@ driver::ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     char property_value_buf[1024];
     Device dev;
     dev.make = MAKE;
-    dev.rack = synnax::rack_key_from_task_key(this->task.key);
+    dev.rack = synnax::task::rack_key_from_task_key(this->task.key);
     dev.configured = false;
     NISysCfgBool is_simulated;
     if (const auto err = this->syscfg->GetResourceProperty(
@@ -100,13 +100,13 @@ driver::ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         dev.resource_name = dev.resource_name.substr(1, dev.resource_name.size() - 2);
     if (is_simulated) dev.key = dev.resource_name;
 
-    dev.status = synnax::DeviceStatus{
-        .key = dev.status_key(),
+    dev.status = synnax::device::Status{
+        .key = synnax::device::status_key(dev),
         .name = dev.name,
-        .variant = status::variant::SUCCESS,
+        .variant = x::status::VARIANT_SUCCESS,
         .message = "Device present",
         .time = x::telem::TimeStamp::now(),
-        .details = synnax::DeviceStatusDetails{
+        .details = synnax::device::StatusDetails{
             .rack = dev.rack,
             .device = dev.key,
         }
@@ -124,9 +124,9 @@ driver::ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     return {dev, err};
 }
 
-std::pair<std::vector<synnax::Device>, x::errors::Error>
+std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 driver::ni::Scanner::scan(const driver::task::common::ScannerContext &ctx) {
-    std::vector<synnax::Device> devices;
+    std::vector<synnax::device::Device> devices;
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
 

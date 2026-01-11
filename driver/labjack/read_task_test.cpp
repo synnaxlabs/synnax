@@ -151,15 +151,14 @@ json basic_read_task_config() {
 TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::Device(
-        "230227d9-02aa-47e4-b370-0d590add1bc1",
-        "my_device",
-        rack.key,
-        "dev1",
-        "labjack",
-        "T7",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "labjack",
+        .model = "T7",
+        .name = "my_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create channels for each input type
@@ -226,15 +225,14 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::Device(
-        "230227d9-02aa-47e4-b370-0d590add1bc1",
-        "my_device",
-        rack.key,
-        "dev1",
-        "labjack",
-        "T7",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "labjack",
+        .model = "T7",
+        .name = "my_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create a channel
@@ -265,15 +263,14 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto dev = synnax::Device(
-        "230227d9-02aa-47e4-b370-0d590add1bc1",
-        "test_device",
-        rack.key,
-        "dev1",
-        "labjack",
-        "T7",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "labjack",
+        .model = "T7",
+        .name = "test_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("test_channel"),

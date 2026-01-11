@@ -18,22 +18,24 @@
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::runtime::time {
 
 struct IntervalConfig {
-    telem::TimeSpan interval;
+    x::telem::TimeSpan interval;
 
-    explicit IntervalConfig(const ir::Params &params) {
-        const auto interval_ns = params["period"].get<std::int64_t>();
-        this->interval = telem::TimeSpan(interval_ns);
+    explicit IntervalConfig(const types::Params &params) {
+        const auto param = types::find_param(params, "period");
+        const auto interval_ns = param ? param->get().value.get<std::int64_t>() : 0;
+        this->interval = x::telem::TimeSpan(interval_ns);
     }
 };
 
 class Interval : public node::Node {
     state::Node state;
     IntervalConfig cfg;
-    telem::TimeSpan last_fired;
+    x::telem::TimeSpan last_fired;
 
 public:
     explicit Interval(const IntervalConfig &cfg, state::Node &&state):
@@ -60,11 +62,12 @@ public:
 };
 
 struct WaitConfig {
-    telem::TimeSpan duration;
+    x::telem::TimeSpan duration;
 
-    explicit WaitConfig(const ir::Params &params) {
-        const auto duration_ns = params["duration"].get<std::int64_t>();
-        this->duration = telem::TimeSpan(duration_ns);
+    explicit WaitConfig(const types::Params &params) {
+        const auto param = types::find_param(params, "duration");
+        const auto duration_ns = param ? param->get().value.get<std::int64_t>() : 0;
+        this->duration = x::telem::TimeSpan(duration_ns);
     }
 };
 
@@ -73,7 +76,7 @@ struct WaitConfig {
 class Wait : public node::Node {
     state::Node state;
     WaitConfig cfg;
-    telem::TimeSpan start_time = telem::TimeSpan(-1);
+    x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
 
 public:
@@ -97,7 +100,7 @@ public:
 
     /// Reset the timer. Called when a stage containing this node is entered.
     void reset() override {
-        start_time = telem::TimeSpan(-1);
+        start_time = x::telem::TimeSpan(-1);
         fired = false;
     }
 
@@ -108,7 +111,7 @@ public:
 
 class Factory : public node::Factory {
 public:
-    telem::TimeSpan timing_base = telem::TimeSpan(std::numeric_limits<int64_t>::max());
+    x::telem::TimeSpan timing_base = x::telem::TimeSpan(std::numeric_limits<int64_t>::max());
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
@@ -136,11 +139,11 @@ public:
     }
 
 private:
-    void update_timing_base(const telem::TimeSpan span) {
+    void update_timing_base(const x::telem::TimeSpan span) {
         if (this->timing_base.nanoseconds() == std::numeric_limits<int64_t>::max())
             this->timing_base = span;
         else
-            this->timing_base = telem::TimeSpan(
+            this->timing_base = x::telem::TimeSpan(
                 std::gcd(this->timing_base.nanoseconds(), span.nanoseconds())
             );
     }

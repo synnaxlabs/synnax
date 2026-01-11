@@ -34,11 +34,11 @@
 #include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 namespace driver::rack {
 struct RemoteInfo {
-    synnax::RackKey rack_key = 0;
+    synnax::rack::Key rack_key = 0;
     std::string cluster_key;
 
     template<typename Parser>
@@ -61,7 +61,7 @@ inline std::vector<std::string> default_integrations() {
         driver::ni::INTEGRATION_NAME,
         driver::sequence::INTEGRATION_NAME,
         driver::labjack::INTEGRATION_NAME,
-        driver::arc::INTEGRATION_NAME,
+        ::arc::INTEGRATION_NAME,
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(driver::modbus::INTEGRATION_NAME);

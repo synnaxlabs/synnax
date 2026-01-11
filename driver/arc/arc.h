@@ -25,16 +25,16 @@ const std::string INTEGRATION_NAME = "arc";
 const std::string TASK_TYPE = INTEGRATION_NAME;
 
 /// @brief factory for creating arc runtime tasks.
-class Factory final : public task::Factory {
+class Factory final : public driver::task::Factory {
 public:
-    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
-        const std::shared_ptr<task::Context> &ctx,
+    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::task::Task &task
     ) override;
 
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
     configure_initial_tasks(
-        const std::shared_ptr<task::Context> &ctx,
+        const std::shared_ptr<driver::task::Context> &ctx,
         const synnax::rack::Rack &rack
     ) override;
 

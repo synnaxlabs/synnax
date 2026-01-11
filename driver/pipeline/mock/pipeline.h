@@ -14,13 +14,13 @@
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
 
-namespace pipeline::mock {
+namespace driver::pipeline::mock {
 // Configuration for a mock Streamer that allows controlling its behavior in tests.
 struct StreamerConfig {
     // A sequence of frames that the Streamer will return on each read() call.
     // When all frames are consumed, the Streamer will block briefly and return
     // empty frames.
-    std::shared_ptr<std::vector<telem::Frame>> reads;
+    std::shared_ptr<std::vector<x::telem::Frame>> reads;
 
     // A sequence of errors to return alongside frames during read() calls.
     // If provided, each read will return the corresponding error at the same index.
@@ -42,14 +42,14 @@ public:
 
     explicit Streamer(StreamerConfig config): config(std::move(config)) {}
 
-    std::pair<telem::Frame, x::errors::Error> read() override {
+    std::pair<x::telem::Frame, x::errors::Error> read() override {
         if (current_read >= config.reads->size()) {
             // block "indefinitely"
             std::this_thread::sleep_for(std::chrono::milliseconds(5));
             if (this->config.read_errors != nullptr &&
                 !this->config.read_errors->empty())
-                return {telem::Frame{}, this->config.read_errors->at(0)};
-            return {telem::Frame(0), x::errors::NIL};
+                return {x::telem::Frame{}, this->config.read_errors->at(0)};
+            return {x::telem::Frame(0), x::errors::NIL};
         }
         auto fr = std::move(config.reads->at(current_read));
         auto err = x::errors::NIL;
@@ -64,7 +64,7 @@ public:
     void close_send() override {
         if (this->config.read_errors == nullptr)
             this->config.read_errors = std::make_shared<std::vector<x::errors::Error>>();
-        this->config.read_errors->push_back(freighter::STREAM_CLOSED);
+        this->config.read_errors->push_back(freighter::ERR_STREAM_CLOSED);
     }
 };
 
@@ -80,7 +80,7 @@ public:
     std::shared_ptr<std::vector<StreamerConfig>> configs;
 
     // Stores the most recent streamer configuration passed to open_streamer
-    synnax::StreamerConfig config;
+    synnax::framer::StreamerConfig config;
 
     // Counts how many times open_streamer has been called
     size_t streamer_opens = 0;
@@ -91,8 +91,8 @@ public:
     ):
         open_errors(std::move(open_errors)), configs(std::move(configs)) {}
 
-    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
-    open_streamer(const synnax::StreamerConfig config) override {
+    std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
+    open_streamer(const synnax::framer::StreamerConfig config) override {
         this->streamer_opens++;
         this->config = config;
         /// try to grab the next config
@@ -109,10 +109,10 @@ public:
 };
 
 inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
-    const std::vector<synnax::ChannelKey> &keys,
-    const std::shared_ptr<std::vector<telem::Frame>> &reads
+    const std::vector<synnax::channel::Key> &keys,
+    const std::shared_ptr<std::vector<x::telem::Frame>> &reads
 ) {
-    const auto cfg = synnax::StreamerConfig{.channels = keys};
+    const auto cfg = synnax::framer::StreamerConfig{.channels = keys};
     const auto factory = std::make_shared<pipeline::mock::StreamerFactory>(
         std::vector<x::errors::Error>{},
         std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
@@ -126,7 +126,7 @@ inline std::shared_ptr<pipeline::mock::StreamerFactory> simple_streamer_factory(
 class Writer final : public pipeline::Writer {
 public:
     // Stores all frames written through this writer
-    std::shared_ptr<std::vector<telem::Frame>> writes;
+    std::shared_ptr<std::vector<x::telem::Frame>> writes;
 
     // Error to return when close() is called
     x::errors::Error close_err;
@@ -136,7 +136,7 @@ public:
     int return_false_ok_on;
 
     explicit Writer(
-        std::shared_ptr<std::vector<telem::Frame>> writes,
+        std::shared_ptr<std::vector<x::telem::Frame>> writes,
         const x::errors::Error &close_err = x::errors::NIL,
         const int return_false_ok_on = -1
     ):
@@ -144,7 +144,7 @@ public:
         close_err(close_err),
         return_false_ok_on(return_false_ok_on) {}
 
-    x::errors::Error write(const telem::Frame &fr) override {
+    x::errors::Error write(const x::telem::Frame &fr) override {
         if (this->return_false_ok_on != -1 &&
             this->writes->size() == static_cast<size_t>(this->return_false_ok_on))
             return x::errors::VALIDATION;
@@ -159,7 +159,7 @@ class WriterFactory final : public pipeline::WriterFactory {
 public:
     // Stores all frames written through this factory's writers. Shared across all
     // writers created by this factory to allow test verification of written data.
-    std::shared_ptr<std::vector<telem::Frame>> writes;
+    std::shared_ptr<std::vector<x::telem::Frame>> writes;
 
     // A queue of errors to return when opening writers. Each call to open_writer
     // will consume and return the next error in this vector. Empty vector means no
@@ -177,15 +177,15 @@ public:
     std::vector<int> return_false_ok_on;
 
     // Stores the most recent writer configuration passed to open_writer
-    synnax::WriterConfig config;
+    synnax::framer::WriterConfig config;
 
     // Counts how many times open_writer has been called, useful for testing retry
     // behavior
     size_t writer_opens;
 
     explicit WriterFactory(
-        std::shared_ptr<std::vector<telem::Frame>> writes =
-            std::make_shared<std::vector<telem::Frame>>(),
+        std::shared_ptr<std::vector<x::telem::Frame>> writes =
+            std::make_shared<std::vector<x::telem::Frame>>(),
         std::vector<x::errors::Error> open_errors = {},
         std::vector<x::errors::Error> close_errors = {},
         std::vector<int> return_false_ok_on = {}
@@ -198,7 +198,7 @@ public:
         writer_opens(0) {}
 
     std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
-    open_writer(const synnax::WriterConfig &config) override {
+    open_writer(const synnax::framer::WriterConfig &config) override {
         this->writer_opens++;
         this->config = config;
         auto err = this->open_errors.empty() ? x::errors::NIL : this->open_errors.front();
@@ -226,7 +226,7 @@ public:
 class Sink : public pipeline::Sink {
 public:
     // Stores all frames written through this sink
-    std::shared_ptr<std::vector<telem::Frame>> writes;
+    std::shared_ptr<std::vector<x::telem::Frame>> writes;
 
     // Sequence of errors to return for write operations
     // Each write consumes the next error in the sequence
@@ -236,16 +236,16 @@ public:
     x::errors::Error stop_err;
 
     Sink():
-        writes(std::make_shared<std::vector<telem::Frame>>()),
+        writes(std::make_shared<std::vector<x::telem::Frame>>()),
         write_errors(std::make_shared<std::vector<x::errors::Error>>()) {}
 
     Sink(
-        const std::shared_ptr<std::vector<telem::Frame>> &writes,
+        const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &write_errors
     ):
         writes(writes), write_errors(write_errors) {}
 
-    x::errors::Error write(telem::Frame &frame) override {
+    x::errors::Error write(x::telem::Frame &frame) override {
         if (frame.empty()) return x::errors::NIL;
         this->writes->emplace_back(frame.deep_copy());
         // try to grab and remove the first error. if not, freighter nil
@@ -264,7 +264,7 @@ public:
     // A sequence of frames that the Source will return on each read() call.
     // When all frames are consumed, the Source will block briefly and return empty
     // frames.
-    std::shared_ptr<std::vector<telem::Frame>> reads;
+    std::shared_ptr<std::vector<x::telem::Frame>> reads;
 
     // A sequence of errors to return alongside frames during read() calls.
     // If provided, each read will return the corresponding error at the same index.
@@ -281,13 +281,13 @@ public:
     size_t read_count = 0;
 
     explicit Source(
-        std::shared_ptr<std::vector<telem::Frame>> reads =
-            std::make_shared<std::vector<telem::Frame>>(),
+        std::shared_ptr<std::vector<x::telem::Frame>> reads =
+            std::make_shared<std::vector<x::telem::Frame>>(),
         std::shared_ptr<std::vector<x::errors::Error>> read_errors = nullptr
     ):
         reads(std::move(reads)), read_errors(std::move(read_errors)) {}
 
-    x::errors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         read_count++;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
@@ -312,7 +312,7 @@ public:
 
 // Helper function to create a simple Source with predefined frames
 inline std::shared_ptr<pipeline::mock::Source>
-simple_source(const std::shared_ptr<std::vector<telem::Frame>> &reads) {
+simple_source(const std::shared_ptr<std::vector<x::telem::Frame>> &reads) {
     return std::make_shared<pipeline::mock::Source>(reads);
 }
 }

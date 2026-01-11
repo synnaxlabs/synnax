@@ -35,7 +35,9 @@ protected:
 
         rack = ASSERT_NIL_P(client->racks.create("opc_scan_task_test_rack"));
 
-        task = synnax::task::Task(rack.key, "OPC UA Scan Task Test", "opc_scan", "");
+        task = synnax::task::Task{
+            .name = "OPC UA Scan Task Test", .type = "opc_scan"
+        };
 
         auto server_cfg = mock::ServerConfig::create_default();
         server = std::make_unique<mock::Server>(server_cfg);
@@ -75,18 +77,23 @@ TEST_F(TestScanTask, testBasicScan) {
         {"connection", conn_cfg.to_json()},
     };
 
-    driver::task::Command cmd(task.key, driver::opc::BROWSE_CMD_TYPE, scan_cmd);
-    cmd.key = "scan_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = driver::opc::BROWSE_CMD_TYPE,
+        .key = "scan_cmd",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "scan_cmd");
-    EXPECT_EQ(state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
 
-    auto data = state.details.data;
+    ASSERT_TRUE(state.details.data.has_value());
+    auto &data = *state.details.data;
     ASSERT_TRUE(data.contains("channels"));
     auto channels = data["channels"];
     ASSERT_TRUE(channels.is_array());
@@ -149,19 +156,27 @@ TEST_F(TestScanTask, testConnectionPooling) {
         {"connection", conn_cfg.to_json()},
     };
 
-    driver::task::Command cmd1(task.key, driver::opc::BROWSE_CMD_TYPE, scan_cmd);
-    cmd1.key = "scan_cmd_1";
+    synnax::task::Command cmd1{
+        .task = task.key,
+        .type = driver::opc::BROWSE_CMD_TYPE,
+        .key = "scan_cmd_1",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd1);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
 
-    driver::task::Command cmd2(task.key, driver::opc::BROWSE_CMD_TYPE, scan_cmd);
-    cmd2.key = "scan_cmd_2";
+    synnax::task::Command cmd2{
+        .task = task.key,
+        .type = driver::opc::BROWSE_CMD_TYPE,
+        .key = "scan_cmd_2",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd2);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should successfully test connection to OPC UA server.
@@ -184,16 +199,20 @@ TEST_F(TestScanTask, testTestConnection) {
         {"connection", conn_cfg.to_json()},
     };
 
-    driver::task::Command cmd(task.key, driver::opc::TEST_CONNECTION_CMD_TYPE, test_conn_cmd);
-    cmd.key = "test_conn_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = driver::opc::TEST_CONNECTION_CMD_TYPE,
+        .key = "test_conn_cmd",
+        .args = test_conn_cmd
+    };
 
     scan_task->exec(cmd);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "test_conn_cmd");
-    EXPECT_EQ(state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(state.message, "Connection successful");
 }
 
@@ -217,16 +236,20 @@ TEST_F(TestScanTask, testInvalidConnection) {
         {"connection", conn_cfg.to_json()},
     };
 
-    driver::task::Command cmd(task.key, driver::opc::BROWSE_CMD_TYPE, scan_cmd);
-    cmd.key = "invalid_scan_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = driver::opc::BROWSE_CMD_TYPE,
+        .key = "invalid_scan_cmd",
+        .args = scan_cmd
+    };
 
     scan_task->exec(cmd);
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
-    EXPECT_EQ(state.key, task.status_key());
+    EXPECT_EQ(state.key, synnax::task::status_key(task));
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
-    EXPECT_EQ(state.variant, status::variant::ERR);
+    EXPECT_EQ(state.variant, x::status::VARIANT_ERROR);
 }
 
 /// @brief Tests that driver::opc::Scanner::config() returns correct values.
@@ -239,7 +262,9 @@ TEST_F(TestScanTask, testConfigReturnsCorrectValues) {
 /// @brief Tests that exec() returns false for unknown commands.
 TEST_F(TestScanTask, testExecReturnsFalseForUnknownCommand) {
     driver::opc::Scanner scanner(ctx, task, conn_pool);
-    driver::task::Command cmd(task.key, "unknown_command", json{});
+    synnax::task::Command cmd{
+        .task = task.key, .type = "unknown_command", .args = json{}
+    };
     bool handled = scanner.exec(cmd, task, ctx);
     EXPECT_FALSE(handled);
 }
@@ -249,7 +274,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     driver::opc::Scanner scanner(ctx, task, conn_pool);
 
     // Create device with valid OPC connection properties
-    synnax::Device dev;
+    synnax::device::Device dev;
     dev.key = "health-test-device";
     dev.name = "Health Test Device";
     dev.make = "opc";
@@ -260,10 +285,10 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", json::array()}
-    }.dump();
+    };
 
     // Pass devices via ScannerContext
-    std::unordered_map<std::string, synnax::Device> devices_map;
+    std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
     driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
@@ -271,14 +296,14 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     auto [devices, err] = scanner.scan(scan_ctx);
     ASSERT_NIL(err);
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
-    EXPECT_EQ(devices[0].status.message, "Server connected");
+    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status->message, "Server connected");
 }
 
 /// @brief Tests that health check detects connection state changes (server up/down/up).
 TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     // Create device with connection properties
-    synnax::Device dev;
+    synnax::device::Device dev;
     dev.key = "connection-state-device";
     dev.name = "Connection State Test Device";
     dev.make = "opc";
@@ -289,9 +314,9 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", json::array()}
-    }.dump();
+    };
 
-    std::unordered_map<std::string, synnax::Device> devices_map;
+    std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
     driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
@@ -305,8 +330,8 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         auto [devices, err] = scanner.scan(scan_ctx);
         ASSERT_NIL(err);
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
-        EXPECT_EQ(devices[0].status.message, "Server connected");
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status->message, "Server connected");
     }
 
     // Step 2: Stop the server - health should be bad
@@ -321,12 +346,12 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         ASSERT_NIL(err);
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
-        EXPECT_EQ(devices[0].status.variant, status::variant::WARNING);
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
         // The message should indicate a connection failure (not empty)
-        EXPECT_FALSE(devices[0].status.message.empty());
-        EXPECT_NE(devices[0].status.message, "Server connected");
-        LOG(INFO) << "[test] Server down - status: " << devices[0].status.variant
-                  << ", message: " << devices[0].status.message;
+        EXPECT_FALSE(devices[0].status->message.empty());
+        EXPECT_NE(devices[0].status->message, "Server connected");
+        LOG(INFO) << "[test] Server down - status: " << devices[0].status->variant
+                  << ", message: " << devices[0].status->message;
     }
 
     // Step 3: Restart the server - health should be good again
@@ -354,7 +379,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
         auto [devices, err] = scanner3.scan(scan_ctx);
         ASSERT_NIL(err);
         ASSERT_EQ(devices.size(), 1);
-        EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
-        EXPECT_EQ(devices[0].status.message, "Server connected");
+        EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+        EXPECT_EQ(devices[0].status->message, "Server connected");
     }
 }

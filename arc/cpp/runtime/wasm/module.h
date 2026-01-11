@@ -24,7 +24,7 @@
 namespace arc::runtime::wasm {
 
 /// Convert SampleValue to wasmtime::Val for WASM function calls
-inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
+inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
     return std::visit(
         []<typename T0>(T0 &&arg) -> wasmtime::Val {
             using T = std::decay_t<T0>;
@@ -36,7 +36,7 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
                 return wasmtime::Val(arg);
             } else if constexpr (std::is_same_v<T, uint64_t>) {
                 return wasmtime::Val(static_cast<int64_t>(arg));
-            } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
+            } else if constexpr (std::is_same_v<T, x::telem::TimeStamp>) {
                 return wasmtime::Val(static_cast<int64_t>(arg.nanoseconds()));
             } else if constexpr (std::is_same_v<T, std::string>) {
                 // Strings are passed as handles (uint32_t) which should already be
@@ -52,73 +52,73 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
 }
 
 /// Convert wasmtime::Val to SampleValue after WASM function returns
-inline telem::SampleValue
+inline x::telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
     // Check for timestamp (i64 with nanosecond time units)
-    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(val.i64()));
+    if (type.is_timestamp()) return x::telem::SampleValue(x::telem::TimeStamp(val.i64()));
 
     switch (type.kind) {
         case types::Kind::U8:
-            return telem::SampleValue(static_cast<uint8_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<uint8_t>(val.i32()));
         case types::Kind::U16:
-            return telem::SampleValue(static_cast<uint16_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<uint16_t>(val.i32()));
         case types::Kind::U32:
-            return telem::SampleValue(static_cast<uint32_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<uint32_t>(val.i32()));
         case types::Kind::U64:
-            return telem::SampleValue(static_cast<uint64_t>(val.i64()));
+            return x::telem::SampleValue(static_cast<uint64_t>(val.i64()));
         case types::Kind::I8:
-            return telem::SampleValue(static_cast<int8_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<int8_t>(val.i32()));
         case types::Kind::I16:
-            return telem::SampleValue(static_cast<int16_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<int16_t>(val.i32()));
         case types::Kind::I32:
-            return telem::SampleValue(val.i32());
+            return x::telem::SampleValue(val.i32());
         case types::Kind::I64:
-            return telem::SampleValue(val.i64());
+            return x::telem::SampleValue(val.i64());
         case types::Kind::F32:
-            return telem::SampleValue(val.f32());
+            return x::telem::SampleValue(val.f32());
         case types::Kind::F64:
-            return telem::SampleValue(val.f64());
+            return x::telem::SampleValue(val.f64());
         default:
-            return telem::SampleValue(0);
+            return x::telem::SampleValue(0);
     }
 }
 
 /// Convert raw memory bits to SampleValue based on Arc type
-inline telem::SampleValue
+inline x::telem::SampleValue
 sample_from_bits(const uint64_t bits, const types::Type &type) {
     // Check for timestamp (i64 with nanosecond time units)
-    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(bits));
+    if (type.is_timestamp()) return x::telem::SampleValue(x::telem::TimeStamp(bits));
 
     switch (type.kind) {
         case types::Kind::U8:
-            return telem::SampleValue(static_cast<uint8_t>(bits));
+            return x::telem::SampleValue(static_cast<uint8_t>(bits));
         case types::Kind::U16:
-            return telem::SampleValue(static_cast<uint16_t>(bits));
+            return x::telem::SampleValue(static_cast<uint16_t>(bits));
         case types::Kind::U32:
-            return telem::SampleValue(static_cast<uint32_t>(bits));
+            return x::telem::SampleValue(static_cast<uint32_t>(bits));
         case types::Kind::U64:
-            return telem::SampleValue(static_cast<uint64_t>(bits));
+            return x::telem::SampleValue(static_cast<uint64_t>(bits));
         case types::Kind::I8:
-            return telem::SampleValue(static_cast<int8_t>(bits));
+            return x::telem::SampleValue(static_cast<int8_t>(bits));
         case types::Kind::I16:
-            return telem::SampleValue(static_cast<int16_t>(bits));
+            return x::telem::SampleValue(static_cast<int16_t>(bits));
         case types::Kind::I32:
-            return telem::SampleValue(static_cast<int32_t>(bits));
+            return x::telem::SampleValue(static_cast<int32_t>(bits));
         case types::Kind::I64:
-            return telem::SampleValue(static_cast<int64_t>(bits));
+            return x::telem::SampleValue(static_cast<int64_t>(bits));
         case types::Kind::F32: {
             const auto bits32 = static_cast<uint32_t>(bits);
             float f;
             memcpy(&f, &bits32, sizeof(float));
-            return telem::SampleValue(f);
+            return x::telem::SampleValue(f);
         }
         case types::Kind::F64: {
             double d;
             memcpy(&d, &bits, sizeof(double));
-            return telem::SampleValue(d);
+            return x::telem::SampleValue(d);
         }
         default:
-            return telem::SampleValue(static_cast<int32_t>(0));
+            return x::telem::SampleValue(static_cast<int32_t>(0));
     }
 }
 
@@ -224,12 +224,12 @@ public:
     class Function {
         Module &module;
         wasmtime::Func fn;
-        ir::Params outputs;
+        types::Params outputs;
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
         struct Result {
-            telem::SampleValue value;
+            x::telem::SampleValue value;
             bool changed = false;
         };
         std::vector<Result> output_values;
@@ -238,8 +238,8 @@ public:
         Function(
             Module &module,
             wasmtime::Func fn,
-            const ir::Params &outputs,
-            const ir::Params &inputs,
+            const types::Params &outputs,
+            const types::Params &inputs,
             const uint32_t base
         ):
             module(module), fn(std::move(fn)), outputs(outputs), base(base) {
@@ -253,7 +253,7 @@ public:
         }
 
         std::pair<std::vector<Result>, x::errors::Error>
-        call(const std::vector<telem::SampleValue> &params) {
+        call(const std::vector<x::telem::SampleValue> &params) {
             for (auto &[_, changed]: this->output_values)
                 changed = false;
 

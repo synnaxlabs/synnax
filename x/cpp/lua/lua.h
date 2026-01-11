@@ -12,7 +12,7 @@
 #include <string>
 
 extern "C" {
-#include "lua.h"
+#include <lua.h>
 }
 
 #include "x/cpp/errors/errors.h"

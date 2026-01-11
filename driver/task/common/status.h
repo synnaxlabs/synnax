@@ -34,12 +34,12 @@ struct StatusHandler {
         ctx(ctx), task(task) {
         this->status.name = task.name;
         this->status.details.task = task.key;
-        this->status.variant = status::variant::SUCCESS;
+        this->status.variant = x::status::VARIANT_SUCCESS;
     }
 
     /// @brief resets the state handler to its initial state.
     void reset() {
-        this->status.variant = status::variant::SUCCESS;
+        this->status.variant = x::status::VARIANT_SUCCESS;
         this->accumulated_err = x::errors::NIL;
     }
 
@@ -48,7 +48,7 @@ struct StatusHandler {
     /// will override any other accumulated errors.
     bool error(const x::errors::Error &err) {
         if (!err) return false;
-        this->status.variant = status::variant::ERR;
+        this->status.variant = x::status::VARIANT_ERROR;
         this->accumulated_err = err;
         return true;
     }
@@ -58,10 +58,10 @@ struct StatusHandler {
     /// @brief sends the provided warning string to the task. If the task is in
     /// error state, the warning will not be sent.
     void send_warning(const std::string &warning) {
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         // If there's already an error bound, communicate it instead.
         if (!this->accumulated_err) {
-            this->status.variant = status::variant::WARNING;
+            this->status.variant = x::status::VARIANT_WARNING;
             this->status.message = warning;
         } else
             this->status.message = this->accumulated_err.data;
@@ -69,8 +69,8 @@ struct StatusHandler {
     }
 
     void clear_warning() {
-        if (this->status.variant != status::variant::WARNING) return;
-        this->status.variant = status::variant::SUCCESS;
+        if (this->status.variant != x::status::VARIANT_WARNING) return;
+        this->status.variant = x::status::VARIANT_SUCCESS;
         this->status.message = "Task running";
         this->ctx->set_status(this->status);
     }
@@ -80,13 +80,13 @@ struct StatusHandler {
     /// will be sent as part of the state. If the error is nil, then the task will
     /// be marked as running.
     void send_start(const std::string &cmd_key) {
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         this->status.details.cmd = cmd_key;
         if (!this->accumulated_err) {
             this->status.details.running = true;
             this->status.message = "Task started successfully";
         } else {
-            this->status.variant = status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.details.running = false;
             this->status.message = this->accumulated_err.data;
         }
@@ -98,11 +98,11 @@ struct StatusHandler {
     /// will be sent as part of the state. Regardless of the error state, the task
     /// will be marked as not running.
     void send_stop(const std::string &cmd_key) {
-        this->status.key = this->task.status_key();
+        this->status.key = synnax::task::status_key(this->task);
         this->status.details.cmd = cmd_key;
         this->status.details.running = false;
         if (this->accumulated_err) {
-            this->status.variant = status::variant::ERR;
+            this->status.variant = x::status::VARIANT_ERROR;
             this->status.message = this->accumulated_err.data;
         } else
             this->status.message = "Task stopped successfully";
@@ -118,19 +118,22 @@ inline std::pair<std::unique_ptr<driver::task::Task>, bool> handle_config_err(
     std::pair<driver::task::common::ConfigureResult, x::errors::Error> res
 ) {
     synnax::task::Status status;
-    status.key = task.status_key();
+    status.key = synnax::task::status_key(task);
     status.name = task.name;
     status.details.task = task.key;
     status.details.running = false;
     if (res.second) {
-        status.variant = status::variant::ERR;
+        status.variant = x::status::VARIANT_ERROR;
         status.message = res.second.message();
     } else {
-        status.variant = status::variant::SUCCESS;
+        status.variant = x::status::VARIANT_SUCCESS;
         if (!res.first.auto_start) { status.message = "Task configured successfully"; }
     }
     if (res.first.auto_start) {
-        driver::task::Command start_cmd(task.key, START_CMD_TYPE, {});
+        synnax::task::Command start_cmd{
+            .task = task.key,
+            .type = START_CMD_TYPE,
+        };
         res.first.task->exec(start_cmd);
     } else
         ctx->set_status(status);

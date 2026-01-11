@@ -32,16 +32,16 @@ protected:
     std::shared_ptr<driver::opc::connection::Pool> conn_pool;
 
     // Command channels for different data types
-    synnax::channel::Channel::Channel bool_cmd_channel;
-    synnax::channel::Channel::Channel uint16_cmd_channel;
-    synnax::channel::Channel::Channel uint32_cmd_channel;
-    synnax::channel::Channel::Channel uint64_cmd_channel;
-    synnax::channel::Channel::Channel int8_cmd_channel;
-    synnax::channel::Channel::Channel int16_cmd_channel;
-    synnax::channel::Channel::Channel int32_cmd_channel;
-    synnax::channel::Channel::Channel int64_cmd_channel;
-    synnax::channel::Channel::Channel float_cmd_channel;
-    synnax::channel::Channel::Channel double_cmd_channel;
+    synnax::channel::Channel bool_cmd_channel;
+    synnax::channel::Channel uint16_cmd_channel;
+    synnax::channel::Channel uint32_cmd_channel;
+    synnax::channel::Channel uint64_cmd_channel;
+    synnax::channel::Channel int8_cmd_channel;
+    synnax::channel::Channel int16_cmd_channel;
+    synnax::channel::Channel int32_cmd_channel;
+    synnax::channel::Channel int64_cmd_channel;
+    synnax::channel::Channel float_cmd_channel;
+    synnax::channel::Channel double_cmd_channel;
 
     void SetUp() override {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -105,15 +105,15 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::Device dev(
-            "abc123",
-            "my_device",
-            rack.key,
-            "dev1",
-            "ni",
-            "PXI-6255",
-            nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
-        );
+        synnax::device::Device dev{
+            .key = "abc123",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device",
+            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         json task_cfg = {
@@ -194,7 +194,9 @@ protected:
              )}
         };
 
-        task = synnax::task::Task(rack.key, "opc_ua_write_task_test", "opc_write", "");
+        task = synnax::task::Task{
+            .name = "opc_ua_write_task_test", .type = "opc_write"
+        };
 
         auto p = x::json::Parser(task_cfg);
         this->cfg = std::make_unique<driver::opc::WriteTaskConfig>(client, p);
@@ -296,20 +298,20 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->streamer_opens, 1);
 
     wt->stop("stop_cmd", true);
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
 }
 
@@ -449,15 +451,15 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
-    synnax::Device dev(
-        "invalid_node_dev",
-        "invalid_node_device",
-        rack.key,
-        "dev_invalid",
-        "ni",
-        "PXI-6255",
-        nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
-    );
+    synnax::device::Device dev{
+        .key = "invalid_node_dev",
+        .rack = rack.key,
+        .location = "dev_invalid",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "invalid_node_device",
+        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create config with an invalid node ID that doesn't exist on the server

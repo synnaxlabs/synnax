@@ -11,13 +11,13 @@
 #include "driver/arc/task.h"
 
 namespace arc {
-std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
-    const std::shared_ptr<task::Context> &ctx,
+std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
+    const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::task::Task &task
 ) {
     if (task.type != TASK_TYPE) return {nullptr, false};
     synnax::task::Status stat{
-        .key = task.status_key(),
+        .key = synnax::task::status_key(task),
         .name = task.name,
         .variant = "error",
         .details = synnax::task::StatusDetails{
@@ -43,9 +43,9 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     return {std::make_unique<Task>(task, ctx, std::move(runtime), cfg), true};
 }
 
-std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
+std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
 Factory::configure_initial_tasks(
-    const std::shared_ptr<task::Context> &ctx,
+    const std::shared_ptr<driver::task::Context> &ctx,
     const synnax::rack::Rack &rack
 ) {
     return {};

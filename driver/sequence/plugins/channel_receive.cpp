@@ -15,20 +15,20 @@
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<driver::pipeline::StreamerFactory> &factory,
-    const std::vector<synnax::channel::Channel::Channel> &read_from
+    const std::vector<synnax::channel::Channel> &read_from
 ):
     pipe(
         factory,
-        synnax::StreamerConfig{.channels = synnax::keys_from_channels(read_from)},
+        synnax::framer::StreamerConfig{.channels = synnax::channel::keys_from_channels(read_from)},
         std::make_shared<Sink>(Sink(*this)),
         x::breaker::default_config("sequence.plugins.channel_receive")
     ),
     latest_values(read_from.size()),
-    channels(synnax::map_channel_Keys(read_from)) {}
+    channels(synnax::channel::map_channel_Keys(read_from)) {}
 
 plugins::ChannelReceive::ChannelReceive(
     const std::shared_ptr<synnax::Synnax> &client,
-    const std::vector<synnax::channel::Channel::Channel> &read_from
+    const std::vector<synnax::channel::Channel> &read_from
 ):
     ChannelReceive(
         std::make_shared<driver::pipeline::SynnaxStreamerFactory>(client),

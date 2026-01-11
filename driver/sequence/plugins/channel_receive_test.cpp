@@ -21,7 +21,7 @@ extern "C" {
 
 /// @brief it should receive channel values and expose them as Lua globals.
 TEST(ChannelReceive, Basic) {
-    synnax::channel::Channel::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = x::telem::FLOAT64_T;
@@ -46,7 +46,7 @@ TEST(ChannelReceive, Basic) {
 
 /// @brief it should safely handle stop being called before start.
 TEST(ChannelReceive, StopBeforeStart) {
-    synnax::channel::Channel::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = x::telem::FLOAT64_T;
@@ -64,7 +64,7 @@ TEST(ChannelReceive, StopBeforeStart) {
 
 /// @brief it should safely handle being started twice.
 TEST(ChannelReceive, DoubleStart) {
-    synnax::channel::Channel::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = x::telem::FLOAT64_T;
@@ -84,7 +84,7 @@ TEST(ChannelReceive, DoubleStart) {
 
 /// @brief it should safely handle being stopped twice.
 TEST(ChannelReceive, DoubleStop) {
-    synnax::channel::Channel::Channel ch;
+    synnax::channel::Channel ch;
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = x::telem::FLOAT64_T;

@@ -35,11 +35,11 @@ struct BaseWriteTaskConfig : BaseTaskConfig {
 };
 class Sink : public driver::pipeline::Sink, public driver::pipeline::Source {
     /// @brief the vector of channels to stream for commands.
-    const std::vector<synnax::channel::Channel::Key> cmd_channels;
+    const std::vector<synnax::channel::Key> cmd_channels;
     /// @brief the vector of channels to write state updates for.
-    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> state_channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> state_channels;
     /// @brief the index keys of the state channels.
-    const std::set<synnax::channel::Channel::Key> state_indexes;
+    const std::set<synnax::channel::Key> state_indexes;
     /// @brief whether data saving is enabled for the task.
     bool data_saving;
 
@@ -53,9 +53,9 @@ public:
     std::condition_variable chan_state_cv;
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
-    std::unordered_map<synnax::channel::Channel::Key, x::telem::SampleValue> chan_state;
+    std::unordered_map<synnax::channel::Key, x::telem::SampleValue> chan_state;
 
-    explicit Sink(std::vector<synnax::channel::Channel::Key> cmd_channels):
+    explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
         state_indexes({}),
         data_saving(true),
@@ -63,9 +63,9 @@ public:
 
     Sink(
         const x::telem::Rate state_rate,
-        std::set<synnax::channel::Channel::Key> state_indexes,
-        const std::vector<synnax::channel::Channel::Channel> &state_channels,
-        std::vector<synnax::channel::Channel::Key> cmd_channels,
+        std::set<synnax::channel::Key> state_indexes,
+        const std::vector<synnax::channel::Channel> &state_channels,
+        std::vector<synnax::channel::Key> cmd_channels,
         const bool data_saving
     ):
         cmd_channels(std::move(cmd_channels)),
@@ -84,17 +84,17 @@ public:
 
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
-    [[nodiscard]] synnax::StreamerConfig streamer_config() const {
-        return synnax::StreamerConfig{.channels = this->cmd_channels};
+    [[nodiscard]] synnax::framer::StreamerConfig streamer_config() const {
+        return synnax::framer::StreamerConfig{.channels = this->cmd_channels};
     }
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const {
-        std::vector<synnax::channel::Channel::Key> keys;
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
+        std::vector<synnax::channel::Key> keys;
         for (const auto &[_, ch]: this->state_channels)
             keys.push_back(ch.key);
         for (const auto idx: this->state_indexes)
             keys.push_back(idx);
-        return synnax::WriterConfig{
+        return synnax::framer::WriterConfig{
             .channels = keys,
             .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
         };
@@ -159,7 +159,7 @@ class WriteTask final : public driver::task::Task {
             return err;
         }
 
-        [[nodiscard]] synnax::WriterConfig writer_config() const {
+        [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
@@ -223,7 +223,7 @@ public:
         ) {}
 
     /// @brief implements driver::task::Task to execute the provided command on the task.
-    void exec(driver::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")

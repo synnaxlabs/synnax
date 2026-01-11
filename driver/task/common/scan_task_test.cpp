@@ -20,7 +20,7 @@
 class MockScanner final : public driver::task::common::Scanner {
 public:
     size_t scan_count = 0;
-    std::vector<std::vector<synnax::Device>> devices;
+    std::vector<std::vector<synnax::device::Device>> devices;
     std::vector<x::errors::Error> scan_errors;
 
     size_t start_count = 0;
@@ -34,7 +34,7 @@ public:
     }
 
     MockScanner(
-        const std::vector<std::vector<synnax::Device>> &devices_,
+        const std::vector<std::vector<synnax::device::Device>> &devices_,
         const std::vector<x::errors::Error> &scan_errors_,
         const std::vector<x::errors::Error> &start_errors_,
         const std::vector<x::errors::Error> &stop_errors_
@@ -54,9 +54,9 @@ public:
         return stop_errors[this->stop_count++];
     }
 
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &ctx) override {
-        std::vector<synnax::Device> devs = {};
+        std::vector<synnax::device::Device> devs = {};
         auto err = x::errors::NIL;
         if (this->scan_count < this->devices.size())
             devs = this->devices[this->scan_count];
@@ -69,52 +69,52 @@ public:
 
 class MockClusterAPI : public driver::task::common::ClusterAPI {
 public:
-    std::shared_ptr<std::vector<synnax::Device>> remote;
-    std::shared_ptr<std::vector<synnax::Device>> created;
-    std::vector<std::vector<synnax::DeviceStatus>> propagated_statuses;
+    std::shared_ptr<std::vector<synnax::device::Device>> remote;
+    std::shared_ptr<std::vector<synnax::device::Device>> created;
+    std::vector<std::vector<synnax::device::Status>> propagated_statuses;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> streamer_factory;
-    std::vector<synnax::channel::Channel::Channel> signal_channels;
+    std::vector<synnax::channel::Channel> signal_channels;
 
     MockClusterAPI(
-        const std::shared_ptr<std::vector<synnax::Device>> &remote_,
-        const std::shared_ptr<std::vector<synnax::Device>> &created_
+        const std::shared_ptr<std::vector<synnax::device::Device>> &remote_,
+        const std::shared_ptr<std::vector<synnax::device::Device>> &created_
     ):
         remote(remote_), created(created_) {}
 
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
-    retrieve_devices(const synnax::RackKey &rack, const std::string &make) override {
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
         // Filter by make like the real implementation
-        std::vector<synnax::Device> filtered;
+        std::vector<synnax::device::Device> filtered;
         for (const auto &dev: *remote)
             if (dev.make == make) filtered.push_back(dev);
         return {filtered, x::errors::NIL};
     }
 
-    std::pair<synnax::Device, x::errors::Error>
+    std::pair<synnax::device::Device, x::errors::Error>
     retrieve_device(const std::string &key) override {
         for (const auto &dev: *remote)
             if (dev.key == key) return {dev, x::errors::NIL};
-        return {synnax::Device{}, x::errors::Error("device not found")};
+        return {synnax::device::Device{}, x::errors::Error("device not found")};
     }
 
-    x::errors::Error create_devices(std::vector<synnax::Device> &devs) override {
+    x::errors::Error create_devices(std::vector<synnax::device::Device> &devs) override {
         created->insert(created->end(), devs.begin(), devs.end());
         return x::errors::NIL;
     }
 
     x::errors::Error
-    update_statuses(std::vector<synnax::DeviceStatus> statuses) override {
+    update_statuses(std::vector<synnax::device::Status> statuses) override {
         propagated_statuses.push_back(statuses);
         return x::errors::NIL;
     }
 
     std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
-    open_streamer(synnax::StreamerConfig config) override {
+    open_streamer(synnax::framer::StreamerConfig config) override {
         if (streamer_factory) return streamer_factory->open_streamer(config);
         return {nullptr, x::errors::NIL};
     }
 
-    std::pair<std::vector<synnax::channel::Channel::Channel>, x::errors::Error>
+    std::pair<std::vector<synnax::channel::Channel>, x::errors::Error>
     retrieve_channels(const std::vector<std::string> &names) override {
         return {signal_channels, x::errors::NIL};
     }
@@ -124,17 +124,17 @@ public:
 class MockScannerWithSignals final : public driver::task::common::Scanner {
 public:
     driver::task::common::ScannerConfig scanner_config;
-    std::vector<driver::task::Command> exec_commands;
+    std::vector<synnax::task::Command> exec_commands;
     bool exec_return_value = false;
     std::mutex mu;
 
     size_t scan_count = 0;
-    std::vector<std::vector<synnax::Device>> devices;
+    std::vector<std::vector<synnax::device::Device>> devices;
     std::vector<x::errors::Error> scan_errors;
 
     explicit MockScannerWithSignals(
         const driver::task::common::ScannerConfig &config,
-        const std::vector<std::vector<synnax::Device>> &devices_ = {},
+        const std::vector<std::vector<synnax::device::Device>> &devices_ = {},
         const std::vector<x::errors::Error> &scan_errors_ = {}
     ):
         scanner_config(config), devices(devices_), scan_errors(scan_errors_) {}
@@ -145,9 +145,9 @@ public:
 
     x::errors::Error stop() override { return x::errors::NIL; }
 
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &) override {
-        std::vector<synnax::Device> devs = {};
+        std::vector<synnax::device::Device> devs = {};
         auto err = x::errors::NIL;
         if (this->scan_count < this->devices.size())
             devs = this->devices[this->scan_count];
@@ -158,7 +158,7 @@ public:
     }
 
     bool exec(
-        driver::task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &,
         const std::shared_ptr<driver::task::Context> &
     ) override {
@@ -170,15 +170,15 @@ public:
 
 /// @brief it should scan and create new devices in the cluster.
 TEST(TestScanTask, testSingleScan) {
-    synnax::Device dev1;
+    synnax::device::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
 
-    synnax::Device dev2;
+    synnax::device::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
 
-    std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -186,8 +186,8 @@ TEST(TestScanTask, testSingleScan) {
         std::vector<x::errors::Error>{}
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -222,15 +222,15 @@ TEST(TestScanTask, testSingleScan) {
 
 /// @brief it should not recreate devices that already exist on remote.
 TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
-    synnax::Device dev1;
+    synnax::device::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
 
-    synnax::Device dev2;
+    synnax::device::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
 
-    std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -238,10 +238,10 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         std::vector<x::errors::Error>{}
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(dev1);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -274,27 +274,27 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
 
 /// @brief it should recreate device when rack key changes.
 TEST(TestScanTask, TestRecreateWhenRackChanges) {
-    synnax::Device dev1;
+    synnax::device::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.properties = "test_properties";
+    dev1.properties = (json{{"test", "properties"}});
     dev1.configured = true;
 
-    synnax::Device dev1_moved = dev1;
+    synnax::device::Device dev1_moved = dev1;
     dev1_moved.rack = 2;
     dev1_moved.name = "cat";
-    dev1_moved.properties = "";
+    dev1_moved.properties = json{};
     dev1_moved.configured = false;
 
-    synnax::Device dev1_moved_2 = dev1;
+    synnax::device::Device dev1_moved_2 = dev1;
     dev1_moved_2.rack = 3;
     dev1_moved_2.name = "dog";
-    dev1_moved_2.properties = "test_properties";
+    dev1_moved_2.properties = (json{{"test", "properties"}});
     dev1_moved_2.configured = false;
 
     // Setup scanner with devices to be discovered
-    std::vector<std::vector<synnax::Device>> devices = {{dev1_moved}, {dev1_moved_2}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_moved}, {dev1_moved_2}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -303,10 +303,10 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     );
 
     // Setup remote devices - device1 already exists on the remote with rack1
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(dev1);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -335,37 +335,41 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_EQ(created_devices->at(0).properties, (json{{"test", "properties"}}));
     EXPECT_TRUE(created_devices->at(0).configured);
 
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(created_devices->size(), 1);
     EXPECT_EQ(created_devices->at(0).key, "device1");
     EXPECT_EQ(created_devices->at(0).rack, 2);
-    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_EQ(created_devices->at(0).properties, (json{{"test", "properties"}}));
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
 /// @brief it should propagate device status to cluster.
 TEST(TestScanTask, TestStatePropagation) {
-    synnax::Device dev1;
+    synnax::device::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
-    dev1.status.key = dev1.status_key();
-    dev1.status.variant = status::variant::SUCCESS;
-    dev1.status.details.rack = 1;
+    dev1.status = synnax::device::Status{
+        .key = synnax::device::status_key(dev1),
+        .variant = x::status::VARIANT_SUCCESS,
+        .details = synnax::device::StatusDetails{.rack = 1},
+    };
 
-    synnax::Device dev2;
+    synnax::device::Device dev2;
     dev2.key = "device2";
     dev2.name = "Device 2";
     dev2.rack = 2;
-    dev2.status.key = dev2.status_key();
-    dev2.status.variant = status::variant::WARNING;
-    dev2.status.details.rack = 2;
+    dev2.status = synnax::device::Status{
+        .key = synnax::device::status_key(dev2),
+        .variant = x::status::VARIANT_WARNING,
+        .details = synnax::device::StatusDetails{.rack = 2},
+    };
 
     // First scan will find both devices, second scan only dev1
-    std::vector<std::vector<synnax::Device>> devices = {{dev1, dev2}, {dev1}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1, dev2}, {dev1}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
         std::vector<x::errors::Error>{},
@@ -373,8 +377,8 @@ TEST(TestScanTask, TestStatePropagation) {
         std::vector<x::errors::Error>{}
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -409,10 +413,10 @@ TEST(TestScanTask, TestStatePropagation) {
     for (size_t i = 0; i < first_states.size(); i++) {
         auto status = first_states.at(i);
         if (status.key == "device:device1") {
-            ASSERT_EQ(status.variant, status::variant::SUCCESS);
+            ASSERT_EQ(status.variant, x::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
         } else if (status.key == "device:device2") {
-            ASSERT_EQ(status.variant, status::variant::WARNING);
+            ASSERT_EQ(status.variant, x::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
         } else
             FAIL() << "Unexpected device key: " << status.key;
@@ -426,10 +430,10 @@ TEST(TestScanTask, TestStatePropagation) {
     for (size_t i = 0; i < second_states.size(); i++) {
         auto status = second_states.at(i);
         if (status.key == "device:device1") {
-            ASSERT_EQ(status.variant, status::variant::SUCCESS);
+            ASSERT_EQ(status.variant, x::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
         } else if (status.key == "device:device2") {
-            ASSERT_EQ(status.variant, status::variant::WARNING);
+            ASSERT_EQ(status.variant, x::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
         } else
@@ -444,8 +448,8 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     auto scanner_ptr = scanner.get();
     scanner_ptr->exec_return_value = true;
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -470,8 +474,12 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     );
 
     // Execute a custom command that should be delegated to the scanner
-    driver::task::Command cmd(task.key, "custom_command", nlohmann::json{{"arg", "value"}});
-    cmd.key = "test_cmd";
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = "custom_command",
+        .key = "test_cmd",
+        .args = x::json::json{{"arg", "value"}}
+    };
     scan_task.exec(cmd);
 
     // Verify the scanner received the command
@@ -494,14 +502,14 @@ class DeviceCapturingScanner final : public driver::task::common::Scanner {
 public:
     driver::task::common::ScannerConfig scanner_config;
     mutable std::mutex mu;
-    std::vector<std::unordered_map<std::string, synnax::Device>> captured_devices;
+    std::vector<std::unordered_map<std::string, synnax::device::Device>> captured_devices;
 
     explicit DeviceCapturingScanner(const driver::task::common::ScannerConfig &config):
         scanner_config(config) {}
 
     driver::task::common::ScannerConfig config() const override { return scanner_config; }
 
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &ctx) override {
         std::lock_guard lock(mu);
         if (ctx.devices != nullptr)
@@ -509,7 +517,7 @@ public:
         else
             captured_devices.push_back({});
         // Return devices from context (like OPC scanner does)
-        std::vector<synnax::Device> result;
+        std::vector<synnax::device::Device> result;
         if (ctx.devices != nullptr)
             for (const auto &[key, dev]: *ctx.devices)
                 result.push_back(dev);
@@ -531,16 +539,16 @@ public:
 
 /// @brief it should add devices to context when device set signal arrives.
 TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
-    synnax::channel::Channel::Channel device_set_ch;
+    synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
-    device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
+    device_set_ch.name = synnax::device::DEVICE_SET_CHANNEL;
 
-    synnax::channel::Channel::Channel device_delete_ch;
+    synnax::channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
-    device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
+    device_delete_ch.name = synnax::device::DEVICE_DELETE_CHANNEL;
 
     // Create a device that will be "signaled" and retrieved
-    synnax::Device signaled_dev;
+    synnax::device::Device signaled_dev;
     signaled_dev.key = "signaled-device";
     signaled_dev.name = "Signaled Device";
     signaled_dev.make = "test_make";
@@ -560,10 +568,10 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
         )
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(signaled_dev);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -578,7 +586,7 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::create_task_key(1, 12345);
+    task.key = synnax::task::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
     driver::task::common::ScanTask scan_task(
@@ -601,13 +609,13 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
 
 /// @brief it should remove devices from context when device delete signal arrives.
 TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
-    synnax::channel::Channel::Channel device_set_ch;
+    synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
-    device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
+    device_set_ch.name = synnax::device::DEVICE_SET_CHANNEL;
 
-    synnax::channel::Channel::Channel device_delete_ch;
+    synnax::channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
-    device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
+    device_delete_ch.name = synnax::device::DEVICE_DELETE_CHANNEL;
 
     // Create the frame with device key on the device_delete channel
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
@@ -626,16 +634,16 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     );
 
     // Pre-populate remote devices so init() loads them into dev_states
-    synnax::Device existing_dev;
+    synnax::device::Device existing_dev;
     existing_dev.key = "device-to-delete";
     existing_dev.name = "Device to Delete";
     existing_dev.make = "test_make";
     existing_dev.rack = 1;
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(existing_dev);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -650,7 +658,7 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::create_task_key(1, 12345);
+    task.key = synnax::task::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
     driver::task::common::ScanTask scan_task(
@@ -672,16 +680,16 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
 
 /// @brief it should filter devices by make and not add mismatched devices.
 TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
-    synnax::channel::Channel::Channel device_set_ch;
+    synnax::channel::Channel device_set_ch;
     device_set_ch.key = 100;
-    device_set_ch.name = synnax::DEVICE_SET_CHANNEL;
+    device_set_ch.name = synnax::device::DEVICE_SET_CHANNEL;
 
-    synnax::channel::Channel::Channel device_delete_ch;
+    synnax::channel::Channel device_delete_ch;
     device_delete_ch.key = 101;
-    device_delete_ch.name = synnax::DEVICE_DELETE_CHANNEL;
+    device_delete_ch.name = synnax::device::DEVICE_DELETE_CHANNEL;
 
     // Create a device with DIFFERENT make than the scanner
-    synnax::Device wrong_make_dev;
+    synnax::device::Device wrong_make_dev;
     wrong_make_dev.key = "wrong-make-device";
     wrong_make_dev.name = "Wrong Make Device";
     wrong_make_dev.make = "other_make";
@@ -700,10 +708,10 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
         )
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(wrong_make_dev);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -719,7 +727,7 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
     synnax::task::Task task;
-    task.key = synnax::create_task_key(1, 12345);
+    task.key = synnax::task::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
     driver::task::common::ScanTask scan_task(

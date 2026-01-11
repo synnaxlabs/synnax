@@ -17,19 +17,19 @@
 #include "driver/sequence/plugins/plugins.h"
 
 namespace plugins::mock {
-class FrameSink final : public plugins::FrameSink, public pipeline::mock::Sink {
+class FrameSink final : public plugins::FrameSink, public driver::pipeline::mock::Sink {
 public:
     std::vector<
-        std::pair<std::vector<synnax::ChannelKey>, std::vector<telem::Authority>>>
+        std::pair<std::vector<synnax::channel::Key>, std::vector<x::telem::Authority>>>
         authority_calls;
 
-    x::errors::Error write(telem::Frame &frame) override {
-        return pipeline::mock::Sink::write(frame);
+    x::errors::Error write(x::telem::Frame &frame) override {
+        return driver::pipeline::mock::Sink::write(frame);
     }
 
     x::errors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<telem::Authority> &authorities
+        const std::vector<synnax::channel::Key> &keys,
+        const std::vector<x::telem::Authority> &authorities
     ) override {
         this->authority_calls.emplace_back(keys, authorities);
         return x::errors::NIL;

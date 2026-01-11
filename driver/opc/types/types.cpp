@@ -174,7 +174,7 @@ x::errors::Error WriteRequestBuilder::add_value(
     const UA_NodeId &node_id,
     const ::x::telem::Series &series
 ) {
-    auto [variant, err] = driver::opc::x::telem::series_to_variant(series);
+    auto [variant, err] = driver::opc::telem::series_to_variant(series);
     if (err) return err;
     add_value(node_id, variant);
     return x::errors::NIL;

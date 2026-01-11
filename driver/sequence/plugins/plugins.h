@@ -21,7 +21,7 @@ extern "C" {
 
 #include "driver/pipeline/control.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 namespace plugins {
 /// @brief an interface that allows for plugins to inject custom functions
@@ -112,7 +112,7 @@ public:
 
     /// @brief sets the authority of the channels being written to.
     virtual x::errors::Error set_authority(
-        const std::vector<synnax::channel::Channel::Key> &keys,
+        const std::vector<synnax::channel::Key> &keys,
         const std::vector<x::telem::Authority> &authorities
     ) = 0;
 
@@ -126,21 +126,21 @@ class SynnaxFrameSink final : public FrameSink {
     /// needed.
     const std::shared_ptr<synnax::Synnax> client;
     /// @brief the configuration for opening the writer.
-    const synnax::WriterConfig cfg;
+    const synnax::framer::WriterConfig cfg;
     /// @brief the current writer to write to.
-    std::unique_ptr<synnax::Writer> writer;
+    std::unique_ptr<synnax::framer::Writer> writer;
 
 public:
     explicit SynnaxFrameSink(
         const std::shared_ptr<synnax::Synnax> &client,
-        synnax::WriterConfig cfg
+        synnax::framer::WriterConfig cfg
     );
 
-    x::errors::Error write(telem::Frame &frame) override;
+    x::errors::Error write(x::telem::Frame &frame) override;
 
     x::errors::Error set_authority(
-        const std::vector<synnax::ChannelKey> &keys,
-        const std::vector<telem::Authority> &authorities
+        const std::vector<synnax::channel::Key> &keys,
+        const std::vector<x::telem::Authority> &authorities
     ) override;
 
     [[nodiscard]] x::errors::Error close() override;
@@ -151,14 +151,14 @@ public:
 /// @brief a plugin implementation that lets the sequence write to Synnax channels.
 class ChannelWrite final : public Plugin {
     /// @brief the current output frame to write.
-    telem::Frame frame;
+    x::telem::Frame frame;
     /// @brief the sink to write the frame to. This is typically backed by a Synnax
     /// writer.
     std::shared_ptr<FrameSink> sink;
     /// @brief a map of channel names to info on the channel.
-    std::unordered_map<synnax::ChannelKey, synnax::channel::Channel> channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
     /// @brief a map that allows the user to resolve a channel by its name.
-    std::unordered_map<std::string, synnax::ChannelKey> names_to_keys;
+    std::unordered_map<std::string, synnax::channel::Key> names_to_keys;
 
 public:
     ChannelWrite(
@@ -178,7 +178,7 @@ public:
 };
 
 struct LatestValue {
-    telem::SampleValue value;
+    x::telem::SampleValue value;
     bool changed;
 };
 
@@ -189,20 +189,20 @@ class ChannelReceive final : public Plugin {
     /// receiving.
     std::mutex mu;
     /// @brief the pipeline used to manage the lifecycle of the receiver.
-    pipeline::Control pipe;
+    driver::pipeline::Control pipe;
     /// @brief keeps all the latest sample values for the channels.
-    std::unordered_map<synnax::ChannelKey, LatestValue> latest_values;
+    std::unordered_map<synnax::channel::Key, LatestValue> latest_values;
     /// @brief maps channel keys to channels in order to bind variable names
     /// appropriately.
-    std::unordered_map<synnax::ChannelKey, synnax::channel::Channel> channels;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> channels;
 
-    class Sink final : public pipeline::Sink {
+    class Sink final : public driver::pipeline::Sink {
         ChannelReceive &receiver;
 
     public:
         explicit Sink(ChannelReceive &receiver): receiver(receiver) {}
 
-        x::errors::Error write(telem::Frame &frame) override;
+        x::errors::Error write(x::telem::Frame &frame) override;
     };
 
 public:
@@ -214,7 +214,7 @@ public:
     /// @brief alternative constructor that can be used to stub Synnax for test
     /// cases.
     explicit ChannelReceive(
-        const std::shared_ptr<pipeline::StreamerFactory> &factory,
+        const std::shared_ptr<driver::pipeline::StreamerFactory> &factory,
         const std::vector<synnax::channel::Channel> &read_from
     );
 
@@ -238,17 +238,17 @@ public:
 /// @brief a plugin that adds timing utilities to the sequence.
 class Time final : public Plugin {
     /// @brief a function that returns the current time.
-    const telem::NowFunc now;
+    const x::telem::NowFunc now;
     /// @brief the start time for the sequence.
-    telem::TimeStamp start_time;
+    x::telem::TimeStamp start_time;
     /// @brief the total elapsed time since the sequence started.
-    telem::TimeSpan elapsed;
+    x::telem::TimeSpan elapsed;
     /// @brief the current iteration of the sequence. We use an int64 as it's the
     /// highest precision integer lua supports.
     int64_t iteration;
 
 public:
-    explicit Time(telem::NowFunc now = telem::TimeStamp::now):
+    explicit Time(x::telem::NowFunc now = x::telem::TimeStamp::now):
         now(std::move(now)), start_time(0), elapsed(0), iteration(0) {}
 
     x::errors::Error before_all(lua_State *L) override;

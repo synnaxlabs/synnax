@@ -460,6 +460,7 @@ struct IR {
 
     // Custom methods
     [[nodiscard]] const Node &node(const std::string &key) const;
+    [[nodiscard]] const Function &function(const std::string &key) const;
     [[nodiscard]] std::optional<Edge> edge_to(const Handle &target) const;
     [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
     edges_from(const std::string &node_key) const;

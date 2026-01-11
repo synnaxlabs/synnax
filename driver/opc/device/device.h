@@ -44,10 +44,10 @@ struct Properties {
         parser.iter("channels", [&](x::json::Parser &cb) { channels.emplace_back(cb); });
     }
 
-    json to_json() const {
-        json j;
+    x::json::json to_json() const {
+        x::json::json j;
         j["connection"] = connection.to_json();
-        j["channels"] = json::array();
+        j["channels"] = x::json::json::array();
         for (const auto &ch: channels)
             j["channels"].push_back(ch.to_json());
         return j;

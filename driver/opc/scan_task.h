@@ -27,7 +27,7 @@
 #include "driver/task/task.h"
 #include "opc.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 namespace driver::opc {
 inline const std::string SCAN_LOG_PREFIX = "[" + INTEGRATION_NAME + ".scan_task] ";
@@ -71,12 +71,12 @@ public:
     [[nodiscard]] driver::task::common::ScannerConfig config() const override;
 
     /// @brief Periodic scan method - checks health of all tracked devices.
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &scan_ctx) override;
 
     /// @brief Handle OPC-specific commands (scan nodes, test connection).
     bool exec(
-        driver::task::Command &cmd,
+        synnax::task::Command &cmd,
         const synnax::task::Task &task,
         const std::shared_ptr<driver::task::Context> &ctx
     ) override;
@@ -88,12 +88,12 @@ private:
     ScanTaskConfig cfg;
 
     /// @brief Browse child nodes of a given OPC UA node.
-    void browse_nodes(const driver::task::Command &cmd) const;
+    void browse_nodes(const synnax::task::Command &cmd) const;
 
     /// @brief Test connection to an OPC UA server.
-    void test_connection(const driver::task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd) const;
 
     /// @brief Check health of a single device by testing its connection.
-    [[nodiscard]] x::errors::Error check_device_health(synnax::Device &dev);
+    [[nodiscard]] x::errors::Error check_device_health(synnax::device::Device &dev);
 };
 }

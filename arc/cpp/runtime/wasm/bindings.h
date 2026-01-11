@@ -31,7 +31,7 @@ class Bindings {
 
     std::unordered_map<uint32_t, std::string> strings;
     uint32_t string_handle_counter;
-    std::unordered_map<uint32_t, telem::Series> series;
+    std::unordered_map<uint32_t, x::telem::Series> series;
     uint32_t series_handle_counter;
 
     std::unordered_map<uint64_t, uint8_t> state_u8;
@@ -45,7 +45,7 @@ class Bindings {
     std::unordered_map<uint64_t, float> state_f32;
     std::unordered_map<uint64_t, double> state_f64;
     std::unordered_map<uint64_t, std::string> state_string;
-    std::unordered_map<uint64_t, telem::Series> state_series;
+    std::unordered_map<uint64_t, x::telem::Series> state_series;
 
     static uint64_t state_key(const uint32_t func_id, const uint32_t var_id) {
         return static_cast<uint64_t>(func_id) << 32 | static_cast<uint64_t>(var_id);

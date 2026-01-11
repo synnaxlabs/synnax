@@ -51,7 +51,7 @@ class Scanner final : public driver::task::common::Scanner {
 
     /// @brief scans for devices with the given type and connection
     x::errors::Error
-    scan_for(int connection_type, std::vector<synnax::Device> &devices) const {
+    scan_for(int connection_type, std::vector<synnax::device::Device> &devices) const {
         int device_types[LJM_LIST_ALL_SIZE];
         int connection_types[LJM_LIST_ALL_SIZE];
         int serial_numbers[LJM_LIST_ALL_SIZE];
@@ -83,23 +83,22 @@ class Scanner final : public driver::task::common::Scanner {
                                : serial_str;
             auto name = device_type_str + "-" + last_four;
 
-            auto rack = synnax::rack_key_from_task_key(this->task.key);
-            auto sy_dev = synnax::Device(
-                serial_str,
-                name,
-                rack,
-                conn_type_str,
-                MAKE,
-                device_type_str,
-                "" // Properties will be set in Device constructor
-            );
-            sy_dev.status = synnax::DeviceStatus{
-                .key = sy_dev.status_key(),
+            auto rack = synnax::task::rack_key_from_task_key(this->task.key);
+            auto sy_dev = synnax::device::Device{
+                .key = serial_str,
+                .rack = rack,
+                .location = conn_type_str,
+                .make = MAKE,
+                .model = device_type_str,
                 .name = name,
-                .variant = status::variant::SUCCESS,
+            };
+            sy_dev.status = synnax::device::Status{
+                .key = synnax::device::status_key(sy_dev),
+                .name = name,
+                .variant = x::status::VARIANT_SUCCESS,
                 .message = "Device present",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::DeviceStatusDetails{
+                .details = synnax::device::StatusDetails{
                     .rack = rack,
                     .device = sy_dev.key,
                 }
@@ -109,9 +108,9 @@ class Scanner final : public driver::task::common::Scanner {
         return x::errors::NIL;
     }
 
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &ctx) override {
-        std::vector<synnax::Device> devs;
+        std::vector<synnax::device::Device> devs;
         x::errors::Error err;
         if (err = this->scan_for(LJM_ctUSB, devs); err) return {devs, err};
         if (ctx.count % this->cfg.tcp_scan_multiplier == 0)

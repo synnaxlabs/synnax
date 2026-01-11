@@ -44,9 +44,9 @@ bool driver::ni::Factory::check_health(
 ) const {
     if (this->check_health()) return true;
     synnax::task::Status status{
-        .key = task.status_key(),
+        .key = synnax::task::status_key(task),
         .name = task.name,
-        .variant = status::variant::ERR,
+        .variant = x::status::VARIANT_ERROR,
         .message = NO_LIBS_MSG,
         .details = synnax::task::StatusDetails{.task = task.key, .running = false},
     };

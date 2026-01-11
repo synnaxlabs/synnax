@@ -16,18 +16,18 @@
 /// @brief it should return PersistStream when data_saving is true.
 TEST(DataSavingWriterMode, testDataSavingTrue) {
     const auto mode = driver::task::common::data_saving_writer_mode(true);
-    EXPECT_EQ(mode, synnax::WriterMode::PersistStream);
+    EXPECT_EQ(mode, synnax::framer::WriterMode::PersistStream);
 }
 
 /// @brief it should return StreamOnly when data_saving is false.
 TEST(DataSavingWriterMode, testDataSavingFalse) {
     const auto mode = driver::task::common::data_saving_writer_mode(false);
-    EXPECT_EQ(mode, synnax::WriterMode::StreamOnly);
+    EXPECT_EQ(mode, synnax::framer::WriterMode::StreamOnly);
 }
 
 /// @brief it should parse BaseTaskConfig with both fields present.
 TEST(BaseTaskConfig, testParseWithBothFields) {
-    const auto json = nlohmann::json{{"data_saving", false}, {"auto_start", true}};
+    const auto json = x::json::json{{"data_saving", false}, {"auto_start", true}};
     auto parser = x::json::Parser(json);
     const auto config = driver::task::common::BaseTaskConfig(parser);
 
@@ -37,7 +37,7 @@ TEST(BaseTaskConfig, testParseWithBothFields) {
 
 /// @brief it should use default values when fields are missing.
 TEST(BaseTaskConfig, testParseWithDefaults) {
-    const auto json = nlohmann::json{};
+    const auto json = x::json::json{};
     auto parser = x::json::Parser(json);
     const auto config = driver::task::common::BaseTaskConfig(parser);
 
@@ -47,7 +47,7 @@ TEST(BaseTaskConfig, testParseWithDefaults) {
 
 /// @brief it should parse with only data_saving present.
 TEST(BaseTaskConfig, testParseWithDataSavingOnly) {
-    const auto json = nlohmann::json{{"data_saving", false}};
+    const auto json = x::json::json{{"data_saving", false}};
     auto parser = x::json::Parser(json);
     const auto config = driver::task::common::BaseTaskConfig(parser);
 
@@ -57,7 +57,7 @@ TEST(BaseTaskConfig, testParseWithDataSavingOnly) {
 
 /// @brief it should parse with only auto_start present.
 TEST(BaseTaskConfig, testParseWithAutoStartOnly) {
-    const auto json = nlohmann::json{{"auto_start", true}};
+    const auto json = x::json::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);
     const auto config = driver::task::common::BaseTaskConfig(parser);
 
@@ -67,7 +67,7 @@ TEST(BaseTaskConfig, testParseWithAutoStartOnly) {
 
 /// @brief it should support move construction.
 TEST(BaseTaskConfig, testMoveConstruction) {
-    const auto json = nlohmann::json{{"data_saving", false}, {"auto_start", true}};
+    const auto json = x::json::json{{"data_saving", false}, {"auto_start", true}};
     auto parser = x::json::Parser(json);
     auto config1 = driver::task::common::BaseTaskConfig(parser);
 

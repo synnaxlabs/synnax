@@ -17,7 +17,7 @@
 namespace driver::pipeline {
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
-    synnax::StreamerConfig streamer_config,
+    synnax::framer::StreamerConfig streamer_config,
     std::shared_ptr<driver::pipeline::Sink> sink,
     const x::breaker::Config &breaker_config,
     std::string thread_name
@@ -32,7 +32,7 @@ Control::Control(
 
 Control::Control(
     std::shared_ptr<StreamerFactory> streamer_factory,
-    synnax::StreamerConfig streamer_config,
+    synnax::framer::StreamerConfig streamer_config,
     std::shared_ptr<Sink> sink,
     const x::breaker::Config &breaker_config,
     std::string thread_name
@@ -99,7 +99,7 @@ SynnaxStreamerFactory::SynnaxStreamerFactory(
     client(std::move(client)) {}
 
 std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
-SynnaxStreamerFactory::open_streamer(synnax::StreamerConfig config) {
+SynnaxStreamerFactory::open_streamer(synnax::framer::StreamerConfig config) {
     auto [ss, err] = client->telem.open_streamer(config);
     if (err) return {nullptr, err};
     return {std::make_unique<SynnaxStreamer>(std::move(ss)), x::errors::NIL};

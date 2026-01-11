@@ -19,6 +19,12 @@ const Node &IR::node(const std::string &key) const {
     throw std::runtime_error("node not found: " + key);
 }
 
+const Function &IR::function(const std::string &key) const {
+    for (const auto &f : functions)
+        if (f.key == key) return f;
+    throw std::runtime_error("function not found: " + key);
+}
+
 std::optional<Edge> IR::edge_to(const Handle &target) const {
     for (const auto &e : edges)
         if (e.target == target) return e;

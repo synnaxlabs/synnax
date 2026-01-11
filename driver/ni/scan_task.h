@@ -45,7 +45,7 @@ struct ResetDeviceCommandArgs {
 
 /// @brief an extension of the default synnax device that also includes NI related
 /// properties.
-struct Device : synnax::Device {
+struct Device : synnax::device::Device {
     /// @brief the raw NI resource name.
     std::string resource_name;
     /// @brief whether the device is simulated.
@@ -54,32 +54,31 @@ struct Device : synnax::Device {
     Device() = default;
 
     explicit Device(
-        const synnax::Device &device,
+        const synnax::device::Device &device,
         std::string resource_name,
         const bool is_simulated
     ):
-        synnax::Device(device),
+        synnax::device::Device(device),
         resource_name(std::move(resource_name)),
         is_simulated(is_simulated) {}
 
     /// @brief returns the synnax device representation along with json serialized
     /// properties.
-    synnax::Device to_synnax() {
-        auto dev = synnax::Device(
-            this->key,
-            this->name,
-            this->rack,
-            this->location,
-            this->make,
-            this->model,
-            nlohmann::to_string(
-                json{
-                    {"is_simulated", this->is_simulated},
-                    {"resource_name", this->resource_name}
-                }
-            )
-        );
-        dev.status = this->status;
+    synnax::device::Device to_synnax() {
+        auto dev = synnax::device::Device{
+            .key = this->key,
+            .rack = this->rack,
+            .location = this->location,
+            .make = this->make,
+            .model = this->model,
+            .name = this->name,
+            .configured = this->configured,
+            .properties = json{
+                {"is_simulated", this->is_simulated},
+                {"resource_name", this->resource_name}
+            },
+            .status = this->status,
+        };
         return dev;
     }
 };
@@ -141,7 +140,7 @@ public:
 
     x::errors::Error start() override;
 
-    std::pair<std::vector<synnax::Device>, x::errors::Error>
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const driver::task::common::ScannerContext &ctx) override;
 
     x::errors::Error stop() override;

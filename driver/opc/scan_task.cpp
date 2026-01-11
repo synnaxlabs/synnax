@@ -41,9 +41,9 @@ driver::task::common::ScannerConfig Scanner::config() const {
     };
 }
 
-std::pair<std::vector<synnax::Device>, x::errors::Error>
+std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const driver::task::common::ScannerContext &scan_ctx) {
-    std::vector<synnax::Device> devices;
+    std::vector<synnax::device::Device> devices;
     if (scan_ctx.devices == nullptr) return {devices, x::errors::NIL};
     for (auto [key, dev]: *scan_ctx.devices) {
         if (const auto err = this->check_device_health(dev); err)
@@ -55,7 +55,7 @@ Scanner::scan(const driver::task::common::ScannerContext &scan_ctx) {
 }
 
 bool Scanner::exec(
-    driver::task::Command &cmd,
+    synnax::task::Command &cmd,
     const synnax::task::Task &,
     const std::shared_ptr<driver::task::Context> &
 ) {
@@ -70,15 +70,15 @@ bool Scanner::exec(
     return false; // Not handled
 }
 
-x::errors::Error Scanner::check_device_health(synnax::Device &dev) {
-    const auto rack_key = synnax::rack_key_from_task_key(this->task.key);
+x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
+    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
     if (parser.error()) {
-        dev.status = synnax::DeviceStatus{
-            .key = dev.status_key(),
+        dev.status = synnax::device::Status{
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = status::variant::WARNING,
+            .variant = x::status::VARIANT_WARNING,
             .message = "Invalid device properties",
             .description = parser.error().message(),
             .time = ::x::telem::TimeStamp::now(),
@@ -89,20 +89,20 @@ x::errors::Error Scanner::check_device_health(synnax::Device &dev) {
 
     auto [conn, conn_err] = this->conn_pool->acquire(props.connection, SCAN_LOG_PREFIX);
     if (conn_err)
-        dev.status = synnax::DeviceStatus{
-            .key = dev.status_key(),
+        dev.status = synnax::device::Status{
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = status::variant::WARNING,
+            .variant = x::status::VARIANT_WARNING,
             .message = "Failed to reach server",
             .description = conn_err.message(),
             .time = ::x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
     else
-        dev.status = synnax::DeviceStatus{
-            .key = dev.status_key(),
+        dev.status = synnax::device::Status{
+            .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = status::variant::SUCCESS,
+            .variant = x::status::VARIANT_SUCCESS,
             .message = "Server connected",
             .time = ::x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
@@ -151,7 +151,7 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     bool is_array = false;
     if (cls == UA_NODECLASS_VARIABLE && res.get().results[2].hasValue) {
         const auto &value = res.get().results[2].value;
-        data_type = x::telem::ua_to_data_type(value.type);
+        data_type = telem::ua_to_data_type(value.type);
         is_array = !UA_Variant_isScalar(&value);
     } else if (cls == UA_NODECLASS_VARIABLE)
         LOG(ERROR) << "[opc.scan_task] no value for " << name;
@@ -165,13 +165,13 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
     return status;
 }
 
-void Scanner::browse_nodes(const driver::task::Command &cmd) const {
+void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = this->task.status_key(),
+        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
-        .variant = status::variant::ERR,
+        .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{.task = task.key, .cmd = cmd.key}
     };
     if (!parser.ok()) {
@@ -182,7 +182,7 @@ void Scanner::browse_nodes(const driver::task::Command &cmd) const {
 
     auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
     if (err) {
-        status.variant = status::variant::ERR;
+        status.variant = x::status::VARIANT_ERROR;
         status.message = err.message();
         return ctx->set_status(status);
     }
@@ -199,19 +199,19 @@ void Scanner::browse_nodes(const driver::task::Command &cmd) const {
     );
 
     status.message = "Scan successful";
-    status.variant = status::variant::SUCCESS;
+    status.variant = x::status::VARIANT_SUCCESS;
     status.details.data = device::Properties(args.connection, *scan_ctx->channels)
                               .to_json();
     ctx->set_status(status);
 }
 
-void Scanner::test_connection(const driver::task::Command &cmd) const {
+void Scanner::test_connection(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
-        .key = this->task.status_key(),
+        .key = synnax::task::status_key(this->task),
         .name = this->task.name,
-        .variant = status::variant::ERR,
+        .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
             .cmd = cmd.key,
@@ -228,7 +228,7 @@ void Scanner::test_connection(const driver::task::Command &cmd) const {
         status.message = err.data;
         return ctx->set_status(status);
     }
-    status.variant = status::variant::SUCCESS;
+    status.variant = x::status::VARIANT_SUCCESS;
     status.message = "Connection successful";
     return ctx->set_status(status);
 }

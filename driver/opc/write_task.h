@@ -34,17 +34,17 @@ struct OutputChan {
     driver::opc::NodeId node;
     /// @brief the corresponding channel key to write the variable for the node
     /// from.
-    const synnax::channel::Channel::Key cmd_channel;
+    const synnax::channel::Key cmd_channel;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
-    synnax::channel::Channel::Channel ch;
+    synnax::channel::Channel ch;
 
     explicit OutputChan(x::json::Parser &parser):
         enabled(parser.field<bool>("enabled", true)),
         node(driver::opc::NodeId::parse("node_id", parser)),
         cmd_channel([&parser] {
-            auto ch = parser.field<synnax::channel::Channel::Key>("cmd_channel", 0);
-            if (ch == 0) ch = parser.field<synnax::channel::Channel::Key>("channel", 0);
+            auto ch = parser.field<synnax::channel::Key>("cmd_channel", 0);
+            if (ch == 0) ch = parser.field<synnax::channel::Key>("channel", 0);
             if (ch == 0) parser.field_err("cmd_channel", "channel must be specified");
             return ch;
         }()) {}
@@ -52,7 +52,7 @@ struct OutputChan {
 
 struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
     /// @brief the list of channels to read from the server.
-    std::unordered_map<synnax::channel::Channel::Key, std::unique_ptr<OutputChan>> channels;
+    std::unordered_map<synnax::channel::Key, std::unique_ptr<OutputChan>> channels;
     /// @brief the config for connecting to the OPC UA server.
     driver::opc::connection::Config connection;
 
@@ -70,7 +70,7 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
             return;
         }
 
-        std::vector<synnax::channel::Channel::Key> keys;
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &[key, _]: this->channels)
             keys.push_back(key);
@@ -97,8 +97,8 @@ struct WriteTaskConfig : driver::task::common::BaseWriteTaskConfig {
             parser.field_err("device", properties.error().message());
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Channel::Key> cmd_keys() const {
-        std::vector<synnax::channel::Channel::Key> keys;
+    [[nodiscard]] std::vector<synnax::channel::Key> cmd_keys() const {
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size());
         for (const auto &[key, _]: channels)
             keys.push_back(key);
@@ -117,7 +117,7 @@ class WriteTaskSink final : public driver::task::common::Sink {
     std::shared_ptr<driver::opc::connection::Pool> pool;
     driver::opc::connection::Pool::Connection connection;
     driver::opc::WriteRequestBuilder builder;
-    std::vector<synnax::channel::Channel::Key> written_keys;
+    std::vector<synnax::channel::Key> written_keys;
 
 public:
     WriteTaskSink(std::shared_ptr<driver::opc::connection::Pool> pool, WriteTaskConfig cfg):

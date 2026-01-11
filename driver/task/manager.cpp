@@ -19,11 +19,12 @@
 
 #include "driver/task/task.h"
 
+namespace driver::task {
 const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
-x::errors::Error task::Manager::open_streamer() {
+x::errors::Error Manager::open_streamer() {
     VLOG(1) << "opening streamer";
     auto [channels, task_set_err] = this->ctx->client->channels.retrieve(
         {TASK_SET_CHANNEL, TASK_DELETE_CHANNEL, TASK_CMD_CHANNEL}
@@ -57,7 +58,7 @@ x::errors::Error task::Manager::open_streamer() {
     return x::errors::NIL;
 }
 
-x::errors::Error task::Manager::configure_initial_tasks() {
+x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
     auto [tasks, tasks_err] = this->rack.tasks.list();
     if (tasks_err) return tasks_err;
@@ -97,7 +98,7 @@ x::errors::Error task::Manager::configure_initial_tasks() {
     return x::errors::NIL;
 }
 
-void task::Manager::stop() {
+void Manager::stop() {
     this->exit_early = true;
     std::lock_guard<std::mutex> lock{this->mu};
     // Very important that we do NOT set the streamer to a nullptr here, as the run()
@@ -105,7 +106,7 @@ void task::Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-bool task::Manager::skip_foreign_rack(const synnax::task::Key &task_key) const {
+bool Manager::skip_foreign_rack(const synnax::task::Key &task_key) const {
     if (synnax::task::rack_key_from_task_key(task_key) != this->rack.key) {
         VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
         return true;
@@ -113,7 +114,7 @@ bool task::Manager::skip_foreign_rack(const synnax::task::Key &task_key) const {
     return false;
 }
 
-x::errors::Error task::Manager::run(std::function<void()> on_started) {
+x::errors::Error Manager::run(std::function<void()> on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
         return x::errors::NIL;
@@ -157,7 +158,7 @@ x::errors::Error task::Manager::run(std::function<void()> on_started) {
     return c_err;
 }
 
-void task::Manager::process_task_set(const x::telem::Series &series) {
+void Manager::process_task_set(const x::telem::Series &series) {
     const auto task_keys = series.values<std::uint64_t>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
@@ -179,11 +180,11 @@ void task::Manager::process_task_set(const x::telem::Series &series) {
     }
 }
 
-void task::Manager::process_task_cmd(const x::telem::Series &series) {
+void Manager::process_task_cmd(const x::telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
         auto parser = x::json::Parser(cmd_str);
-        auto cmd = task::Command(parser);
+        auto cmd = synnax::task::Command::parse(parser);
         if (!parser.ok()) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;
@@ -198,7 +199,7 @@ void task::Manager::process_task_cmd(const x::telem::Series &series) {
     }
 }
 
-void task::Manager::stop_all_tasks() {
+void Manager::stop_all_tasks() {
     {
         std::lock_guard<std::mutex> lock(this->mu);
         this->op_queue.clear();
@@ -228,7 +229,7 @@ void task::Manager::stop_all_tasks() {
     this->entries.clear();
 }
 
-void task::Manager::process_task_delete(const x::telem::Series &series) {
+void Manager::process_task_delete(const x::telem::Series &series) {
     const auto task_keys = series.values<synnax::task::Key>();
     for (const auto task_key: task_keys) {
         if (this->skip_foreign_rack(task_key)) continue;
@@ -240,7 +241,7 @@ void task::Manager::process_task_delete(const x::telem::Series &series) {
     }
 }
 
-void task::Manager::start_workers() {
+void Manager::start_workers() {
     this->breaker.start();
     for (size_t i = 0; i < this->worker_count; i++) {
         auto done = std::make_shared<std::atomic<bool>>(false);
@@ -255,7 +256,7 @@ void task::Manager::start_workers() {
     this->monitor_thread = std::thread([this] { this->monitor_loop(); });
 }
 
-void task::Manager::stop_workers() {
+void Manager::stop_workers() {
     this->breaker.stop();
     this->cv.notify_all();
     const auto deadline = x::telem::TimeStamp::now() + this->shutdown_timeout;
@@ -283,7 +284,7 @@ void task::Manager::stop_workers() {
     if (this->monitor_thread.joinable()) this->monitor_thread.join();
 }
 
-void task::Manager::worker_loop() {
+void Manager::worker_loop() {
     while (this->breaker.running()) {
         std::unique_lock<std::mutex> lock(this->mu);
         // Wait until there's work we can actually process - not just ops in the queue,
@@ -321,7 +322,7 @@ void task::Manager::worker_loop() {
     }
 }
 
-void task::Manager::monitor_loop() {
+void Manager::monitor_loop() {
     while (this->breaker.running()) {
         this->breaker.wait_for(this->poll_interval);
         if (!this->breaker.running()) break;
@@ -343,7 +344,7 @@ void task::Manager::monitor_loop() {
     }
 }
 
-void task::Manager::execute_op(
+void Manager::execute_op(
     const Op &op,
     const std::shared_ptr<Entry> &entry
 ) const {
@@ -388,4 +389,5 @@ void task::Manager::execute_op(
             break;
         }
     }
+}
 }

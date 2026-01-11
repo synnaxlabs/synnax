@@ -56,7 +56,7 @@ public:
 
     void run() override {
         synnax::task::Status stat{
-            .key = this->task.status_key(),
+            .key = synnax::task::status_key(this->task),
             .name = this->task.name,
             .variant = x::status::VARIANT_SUCCESS,
             .message = "Started",
@@ -69,15 +69,15 @@ public:
             LOG(ERROR) << "[rack_status] failed to update task status" << err;
         while (breaker.running()) {
             this->loop.wait(breaker);
-            synnax::RackStatus status{
-                .key = synnax::rack_ontology_id(this->rack.key).string(),
+            synnax::rack::Status status{
+                .key = synnax::rack::rack_ontology_id(this->rack.key).string(),
                 .name = this->rack.name,
                 .variant = x::status::VARIANT_SUCCESS,
                 .message = "Driver is running",
                 .time = x::telem::TimeStamp::now(),
-                .details = synnax::RackStatusDetails{.rack = this->rack.key}
+                .details = synnax::rack::StatusDetails{.rack = this->rack.key}
             };
-            if (const auto err = this->client->statuses.set<synnax::RackStatusDetails>(
+            if (const auto err = this->client->statuses.set<synnax::rack::StatusDetails>(
                     status
                 );
                 err)
@@ -112,11 +112,11 @@ public:
     /// @brief configures the heartbeat task.
     static std::unique_ptr<driver::task::Task>
     configure(const std::shared_ptr<driver::task::Context> &ctx, const synnax::task::Task &task) {
-        auto rack_key = synnax::rack_key_from_task_key(task.key);
+        auto rack_key = synnax::task::rack_key_from_task_key(task.key);
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
             synnax::task::Status stat{
-                .key = task.status_key(),
+                .key = synnax::task::status_key(task),
                 .name = TASK_NAME,
                 .variant = x::status::VARIANT_ERROR,
                 .message = "Failed to retrieve rack for status task",

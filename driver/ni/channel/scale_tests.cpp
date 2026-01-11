@@ -15,7 +15,7 @@
 
 #include "driver/ni/channel/scale.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 TEST(Scale, None) {
     const json j = {{"scale", {{"type", "none"}}}};

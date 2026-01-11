@@ -75,7 +75,7 @@ public:
     /// number of maximum retries is exceeded. Any other error will be considered
     /// permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Writer>, x::errors::Error>
-    open_writer(const synnax::WriterConfig &config) = 0;
+    open_writer(const synnax::framer::WriterConfig &config) = 0;
 
     virtual ~WriterFactory() = default;
 };
@@ -84,10 +84,10 @@ public:
 /// by a Synnax writer that writes data to a cluster.
 class SynnaxWriter final : public driver::pipeline::Writer {
     /// @brief the internal Synnax writer that this writer wraps.
-    synnax::Writer internal;
+    synnax::framer::Writer internal;
 
 public:
-    explicit SynnaxWriter(synnax::Writer internal);
+    explicit SynnaxWriter(synnax::framer::Writer internal);
 
     /// @brief implements driver::pipeline::Writer to write the frame to Synnax.
     [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override;
@@ -107,7 +107,7 @@ public:
 
     /// @brief implements driver::pipeline::WriterFactory to open a Synnax writer.
     [[nodiscard]] std::pair<std::unique_ptr<driver::pipeline::Writer>, x::errors::Error>
-    open_writer(const synnax::WriterConfig &config) override;
+    open_writer(const synnax::framer::WriterConfig &config) override;
 };
 
 /// @brief A pipeline that reads from a source and writes it's data to Synnax. The
@@ -123,7 +123,7 @@ class Acquisition final : public Base {
     /// new frames to synnax.
     const std::shared_ptr<Source> source;
     /// @brief the configuration for the Synnax writer.
-    synnax::WriterConfig writer_config;
+    synnax::framer::WriterConfig writer_config;
 
     /// @brief the run function passed to the pipeline thread. Automatically catches
     /// standard exceptions to ensure the pipeline does not cause the application to
@@ -146,7 +146,7 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
-        synnax::WriterConfig writer_config,
+        synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
@@ -167,7 +167,7 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<WriterFactory> factory,
-        synnax::WriterConfig writer_config,
+        synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""

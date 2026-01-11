@@ -41,15 +41,18 @@ TEST(ScanTask, testConnection) {
     );
 
     auto conn_cfg = driver::modbus::device::ConnectionConfig{"127.0.0.1", 1502};
-    auto cmd_args = json{{"connection", conn_cfg.to_json()}};
-    auto cmd = driver::task::Command(t.key, driver::modbus::TEST_CONNECTION_CMD_TYPE, cmd_args);
-    cmd.key = "electric_boogaloo";
+    auto cmd = synnax::task::Command{
+        .task = t.key,
+        .type = driver::modbus::TEST_CONNECTION_CMD_TYPE,
+        .key = "electric_boogaloo",
+        .args = json{{"connection", conn_cfg.to_json()}},
+    };
 
     scan_task->exec(cmd);
     ASSERT_EQ(ctx->statuses.size(), 1);
     auto first = ctx->statuses[0];
-    EXPECT_EQ(first.variant, status::variant::SUCCESS);
-    EXPECT_EQ(first.key, t.status_key());
+    EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first.key, synnax::task::status_key(t));
     EXPECT_EQ(first.details.cmd, cmd.key);
     EXPECT_EQ(first.details.task, t.key);
     EXPECT_EQ(first.message, "Connection successful");
@@ -76,7 +79,10 @@ TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
     auto dev_manager = std::make_shared<driver::modbus::device::Manager>();
 
     driver::modbus::Scanner scanner(ctx, t, dev_manager);
-    driver::task::Command cmd(t.key, "unknown_command", json{});
+    synnax::task::Command cmd{
+        .task = t.key,
+        .type = "unknown_command",
+    };
     bool handled = scanner.exec(cmd, t, ctx);
     EXPECT_FALSE(handled);
 }
@@ -95,20 +101,20 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     driver::modbus::Scanner scanner(ctx, t, dev_manager);
 
     // Create device with valid Modbus connection properties
-    synnax::Device dev;
+    synnax::device::Device dev;
     dev.key = "health-test-device";
     dev.name = "Health Test Device";
     dev.make = "modbus";
-    dev.rack = synnax::rack_key_from_task_key(t.key);
+    dev.rack = synnax::task::rack_key_from_task_key(t.key);
     dev.properties = json{
         {"connection",
          {{"host", "127.0.0.1"},
           {"port", 1502},
           {"swap_bytes", false},
           {"swap_words", false}}}
-    }.dump();
+    };
 
-    std::unordered_map<std::string, synnax::Device> devices_map;
+    std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
     driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
@@ -116,8 +122,8 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     auto [devices, err] = scanner.scan(scan_ctx);
     ASSERT_NIL(err);
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
-    EXPECT_EQ(devices[0].status.message, "Device connected");
+    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(devices[0].status->message, "Device connected");
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
@@ -130,20 +136,20 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     driver::modbus::Scanner scanner(ctx, t, dev_manager);
 
     // Create device with invalid connection (no server running on this port)
-    synnax::Device dev;
+    synnax::device::Device dev;
     dev.key = "disconnected-device";
     dev.name = "Disconnected Device";
     dev.make = "modbus";
-    dev.rack = synnax::rack_key_from_task_key(t.key);
+    dev.rack = synnax::task::rack_key_from_task_key(t.key);
     dev.properties = json{
         {"connection",
          {{"host", "127.0.0.1"},
           {"port", 9999},
           {"swap_bytes", false},
           {"swap_words", false}}}
-    }.dump();
+    };
 
-    std::unordered_map<std::string, synnax::Device> devices_map;
+    std::unordered_map<std::string, synnax::device::Device> devices_map;
     devices_map[dev.key] = dev;
     driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
@@ -151,6 +157,6 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     auto [devices, err] = scanner.scan(scan_ctx);
     ASSERT_NIL(err);
     ASSERT_EQ(devices.size(), 1);
-    EXPECT_EQ(devices[0].status.variant, status::variant::WARNING);
-    EXPECT_EQ(devices[0].status.message, "Failed to reach device");
+    EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(devices[0].status->message, "Failed to reach device");
 }

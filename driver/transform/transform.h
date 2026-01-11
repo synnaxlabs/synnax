@@ -53,21 +53,21 @@ private:
 /// middleware chain first so that it can tare the data before any other middleware
 /// can process it.
 class Tare final : public Transform {
-    std::unordered_map<synnax::channel::Channel::Key, double> tare_values;
-    std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> tare_channels;
-    std::unordered_set<synnax::channel::Channel::Key> channels_to_tare;
+    std::unordered_map<synnax::channel::Key, double> tare_values;
+    std::unordered_map<synnax::channel::Key, synnax::channel::Channel> tare_channels;
+    std::unordered_set<synnax::channel::Key> channels_to_tare;
     bool tare_all;
     std::mutex mutex;
 
 public:
-    explicit Tare(const std::vector<synnax::channel::Channel::Channel> &channels):
+    explicit Tare(const std::vector<synnax::channel::Channel> &channels):
         tare_channels(map_channel_Keys(channels)), tare_all(false) {}
 
     x::errors::Error tare(json &arg) {
         x::json::Parser parser(arg);
-        const auto channels = parser.field<std::vector<synnax::channel::Channel::Key>>(
+        const auto channels = parser.field<std::vector<synnax::channel::Key>>(
             "keys",
-            std::vector<synnax::channel::Channel::Key>{}
+            std::vector<synnax::channel::Key>{}
         );
         if (parser.error()) return parser.error();
 
@@ -174,15 +174,15 @@ public:
 };
 
 class Scale final : public Transform {
-    std::map<synnax::channel::Channel::Key, std::variant<UnaryLinearScale, UnaryMapScale>> scales;
+    std::map<synnax::channel::Key, std::variant<UnaryLinearScale, UnaryMapScale>> scales;
 
 public:
     explicit Scale(
         const x::json::Parser &parser,
-        const std::unordered_map<synnax::channel::Channel::Key, synnax::channel::Channel::Channel> &channels
+        const std::unordered_map<synnax::channel::Key, synnax::channel::Channel> &channels
     ) {
         parser.iter("channels", [this, &channels](x::json::Parser &channel_parser) {
-            const auto key = channel_parser.field<synnax::channel::Channel::Key>("channel");
+            const auto key = channel_parser.field<synnax::channel::Key>("channel");
             const auto enabled = channel_parser.field<bool>("enabled", true);
             auto scale_parser = channel_parser.optional_child("scale");
             if (!channel_parser.ok() || !enabled) return;

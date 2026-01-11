@@ -28,30 +28,30 @@ protected:
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_writer_factory;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_streamer_factory;
-    synnax::channel::Channel::Channel state_idx_ch = synnax::channel::Channel::Channel(
+    synnax::channel::Channel state_idx_ch = synnax::channel::Channel(
         make_unique_channel_name("state_idx_ch"),
         x::telem::TIMESTAMP_T,
         0,
         true
     );
-    synnax::channel::Channel::Channel state_ch_1 = synnax::channel::Channel::Channel(
+    synnax::channel::Channel state_ch_1 = synnax::channel::Channel(
         make_unique_channel_name("state_ch_1"),
         x::telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::channel::Channel::Channel cmd_ch_1 = synnax::channel::Channel::Channel(
+    synnax::channel::Channel cmd_ch_1 = synnax::channel::Channel(
         make_unique_channel_name("cmd_ch_1"),
         x::telem::FLOAT64_T,
         true
     );
-    synnax::channel::Channel::Channel state_ch_2 = synnax::channel::Channel::Channel(
+    synnax::channel::Channel state_ch_2 = synnax::channel::Channel(
         make_unique_channel_name("state_ch_2"),
         x::telem::FLOAT64_T,
         state_idx_ch.key,
         false
     );
-    synnax::channel::Channel::Channel cmd_ch_2 = synnax::channel::Channel::Channel(
+    synnax::channel::Channel cmd_ch_2 = synnax::channel::Channel(
         make_unique_channel_name("cmd_ch_2"),
         x::telem::FLOAT64_T,
         true
@@ -71,8 +71,14 @@ protected:
 
         const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        synnax::Device
-            dev("abc123", "my_device", rack.key, "dev1", "ni", "PXI-6255", "");
+        synnax::device::Device dev{
+            .key = "abc123",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "ni",
+            .model = "PXI-6255",
+            .name = "my_device"
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task(rack.key, "my_task", "ni_analog_write", "");
@@ -151,10 +157,10 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     wt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_streamer_factory->streamer_opens, 1);
@@ -163,10 +169,10 @@ TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     wt->stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(second_state.message, "Task stopped successfully");
 
     auto first = std::move(
@@ -193,15 +199,14 @@ TEST(WriteTaskConfigTest, testInvalidChannelType) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     // Create a device
-    auto dev = synnax::Device(
-        "abc123",
-        "test_device",
-        rack.key,
-        "dev1",
-        "ni",
-        "PXI-6255",
-        ""
-    );
+    auto dev = synnax::device::Device{
+        .key = "abc123",
+        .rack = rack.key,
+        .location = "dev1",
+        .make = "ni",
+        .model = "PXI-6255",
+        .name = "test_device"
+    };
     ASSERT_NIL(client->devices.create(dev));
 
     // Create state and command channels

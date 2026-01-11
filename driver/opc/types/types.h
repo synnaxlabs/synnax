@@ -48,7 +48,7 @@ struct Node {
         node_id(p.field<std::string>("node_id")),
         is_array(p.field<bool>("is_array", false)) {}
 
-    json to_json() const {
+    x::json::json to_json() const {
         return {
             {"data_type", data_type.name()},
             {"name", name},

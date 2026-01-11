@@ -63,7 +63,7 @@ template<typename ChannelContainer>
 void initialize_frame(
     x::telem::Frame &fr,
     const ChannelContainer &channels,
-    const std::set<synnax::channel::Channel::Key> &index_keys,
+    const std::set<synnax::channel::Key> &index_keys,
     const size_t samples_per_chan
 ) {
     if (fr.size() == channels.size() + index_keys.size()) return;
@@ -82,9 +82,9 @@ struct ReadResult {
 /// @brief a source that can be used to read data from a hardware device.
 struct Source {
     /// @brief the configuration used to open a writer for the source.
-    [[nodiscard]] virtual synnax::WriterConfig writer_config() const = 0;
+    [[nodiscard]] virtual synnax::framer::WriterConfig writer_config() const = 0;
 
-    [[nodiscard]] virtual std::vector<synnax::channel::Channel::Channel> channels() const = 0;
+    [[nodiscard]] virtual std::vector<synnax::channel::Channel> channels() const = 0;
 
     /// @brief an optional function called to start the source.
     /// @returns an error if the source fails to start, at which point the task
@@ -149,7 +149,7 @@ class ReadTask final : public driver::task::Task {
             return this->p.tare.transform(fr);
         }
 
-        [[nodiscard]] synnax::WriterConfig writer_config() const {
+        [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
@@ -200,7 +200,7 @@ public:
         ) {}
 
     /// @brief executes the given command on the task.
-    void exec(driver::task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")

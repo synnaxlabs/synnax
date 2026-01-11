@@ -69,9 +69,9 @@ void configure_modbus(const driver::rack::Config &config, FactoryList &factories
 }
 #endif
 
-void configure_arc(const rack::Config &config, FactoryList &factories) {
-    configure_integration(config, factories, arc::INTEGRATION_NAME, []() {
-        return std::make_unique<arc::Factory>();
+void configure_arc(const driver::rack::Config &config, FactoryList &factories) {
+    configure_integration(config, factories, ::arc::INTEGRATION_NAME, []() {
+        return std::make_unique<::arc::Factory>();
     });
 }
 

@@ -21,7 +21,7 @@ extern "C" {
 /// internal.
 #include "driver/sequence/plugins/plugins.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 /// @brief it should apply JSON variables as Lua globals.
 TEST(JSONPluginTest, BasicVariableApplication) {

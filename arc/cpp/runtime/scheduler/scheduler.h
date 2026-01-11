@@ -110,7 +110,7 @@ public:
     }
 
     /// @brief Advances the scheduler by executing global and stage strata.
-    void next(const telem::TimeSpan elapsed) {
+    void next(const x::telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
         // Reset execution context for global strata (no active sequence/stage)
         this->curr_seq_idx = std::string::npos;

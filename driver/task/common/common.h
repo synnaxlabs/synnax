@@ -44,8 +44,8 @@ struct ConfigureResult {
 };
 
 /// @brief converts a data_saving boolean to the appropriate WriterMode.
-inline synnax::WriterMode data_saving_writer_mode(const bool data_saving) {
-    if (data_saving) return synnax::WriterMode::PersistStream;
-    return synnax::WriterMode::StreamOnly;
+inline synnax::framer::WriterMode data_saving_writer_mode(const bool data_saving) {
+    if (data_saving) return synnax::framer::WriterMode::PersistStream;
+    return synnax::framer::WriterMode::StreamOnly;
 }
 }

@@ -48,10 +48,10 @@ TEST(AcquisitionPipeline, testStartResolution) {
     const auto mock_factory = std::make_shared<driver::pipeline::mock::WriterFactory>(writes);
     auto start_ts = x::telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
-    synnax::WriterConfig writer_config{.channels = {1}};
+    synnax::framer::WriterConfig writer_config{.channels = {1}};
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config()
     );
@@ -72,7 +72,7 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config{
             .name = "pipeline",
@@ -96,7 +96,7 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
@@ -123,7 +123,7 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
@@ -150,7 +150,7 @@ TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
@@ -171,7 +171,7 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config()
     );
@@ -188,7 +188,7 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config()
     );
@@ -210,7 +210,7 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
     );
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config()
     );
@@ -228,7 +228,7 @@ TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipeline = driver::pipeline::Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
         x::breaker::Config()
     );

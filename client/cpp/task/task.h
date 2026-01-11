@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/task/json.gen.h"
 #include "client/cpp/task/proto.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "freighter/cpp/freighter.h"
@@ -83,12 +84,34 @@ inline std::uint32_t local_task_key(const Key key) {
     return key & 0xFFFFFFFF;
 }
 
+/// @brief Returns the rack key for a task.
+/// @param task The task.
+/// @returns The rack key portion of the task's key.
+inline RackKey rack(const Task &task) {
+    return rack_key_from_task_key(task.key);
+}
+
+/// @brief Returns a unique status key for a task.
+/// @param task The task.
+/// @returns A unique key for status updates, derived from the task key.
+inline std::string status_key(const Task &task) {
+    return std::to_string(task.key);
+}
+
 /// @brief Stream output operator for Task.
 /// @param os The output stream.
 /// @param task The task to output.
 /// @returns The output stream.
 inline std::ostream &operator<<(std::ostream &os, const Task &task) {
     return os << task.name << " (key=" << task.key << ",type=" << task.type << ")";
+}
+
+/// @brief Stream output operator for Command.
+/// @param os The output stream.
+/// @param cmd The command to output.
+/// @returns The output stream.
+inline std::ostream &operator<<(std::ostream &os, const Command &cmd) {
+    return os << cmd.type << " (task=" << cmd.task << ",key=" << cmd.key << ")";
 }
 
 /// @brief Options for retrieving tasks.

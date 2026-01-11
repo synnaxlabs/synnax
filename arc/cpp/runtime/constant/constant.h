@@ -12,13 +12,14 @@
 #include <memory>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/memory/local_shared.h"
+#include "x/cpp/mem/local_shared.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::runtime::constant {
 /// @brief Constant is a node that outputs a constant value once on initialization,
@@ -65,11 +66,14 @@ public:
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto &param = cfg.node.config["value"];
-        assert(param.value.has_value() && "constant node requires a value");
+        const auto param_opt = types::find_param(cfg.node.config, "value");
+        assert(param_opt.has_value() && "constant node requires a value config param");
+        const auto &param = param_opt->get();
+        auto sample_value = types::to_sample_value(param.value, param.type);
+        assert(sample_value.has_value() && "constant node requires a value");
         auto data_type = cfg.node.outputs[0].type.telem();
         return {
-            std::make_unique<Constant>(std::move(cfg.state), *param.value, data_type),
+            std::make_unique<Constant>(std::move(cfg.state), *sample_value, data_type),
             x::errors::NIL
         };
     }

@@ -78,7 +78,7 @@ public:
     /// retry until the configured number of maximum retries is exceeded. Any other
     /// error is considered permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
-    open_streamer(synnax::StreamerConfig config) = 0;
+    open_streamer(synnax::framer::StreamerConfig config) = 0;
 
     virtual ~StreamerFactory() = default;
 };
@@ -118,7 +118,7 @@ public:
 
     /// @brief implements driver::pipeline::StreamerFactory to open a Synnax streamer.
     std::pair<std::unique_ptr<Streamer>, x::errors::Error>
-    open_streamer(synnax::StreamerConfig config) override;
+    open_streamer(synnax::framer::StreamerConfig config) override;
 };
 
 /// @brief A pipeline that reads incoming data over the network and writes to a
@@ -131,7 +131,7 @@ class Control final : public Base {
     /// This is typically backed by a Synnax client, but can be mocked.
     std::shared_ptr<StreamerFactory> factory;
     /// @brief the configuration for the Synnax streamer.
-    synnax::StreamerConfig config;
+    synnax::framer::StreamerConfig config;
     /// @brief the sink that the control pipeline will write frames to.
     std::shared_ptr<Sink> sink;
     /// @brief the current open streamer reading data from the network.
@@ -150,7 +150,7 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<synnax::Synnax> client,
-        synnax::StreamerConfig streamer_config,
+        synnax::framer::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""
@@ -169,7 +169,7 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<StreamerFactory> streamer_factory,
-        synnax::StreamerConfig streamer_config,
+        synnax::framer::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
         const x::breaker::Config &breaker_config,
         std::string thread_name = ""

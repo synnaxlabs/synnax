@@ -56,11 +56,13 @@ struct TaskConfig {
 
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
             cfg.arc_key,
-            synnax::RetrieveOptions{.compile = true}
+            synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
 
-        cfg.module = module::Module(arc_data.module);
+        if (!arc_data.module.has_value())
+            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+        cfg.module = module::Module(*arc_data.module);
 
         const auto mode_str = parser.field<std::string>("execution_mode", "HIGH_RATE");
         auto mode = runtime::loop::ExecutionMode::HIGH_RATE;
@@ -85,7 +87,7 @@ struct TaskConfig {
 
         cfg.loop_config = runtime::loop::Config{
             .mode = mode,
-            .interval = telem::TimeSpan(
+            .interval = x::telem::TimeSpan(
                 parser.field<uint64_t>("interval_ns", 10000000ULL)
             ),
             .rt_priority = parser.field<int>("rt_priority", 47),
@@ -104,7 +106,7 @@ inline std::pair<std::shared_ptr<runtime::Runtime>, x::errors::Error>
 load_runtime(const TaskConfig &config, const std::shared_ptr<synnax::Synnax> &client) {
     const runtime::Config runtime_cfg{
         .mod = config.module,
-        .breaker = breaker::default_config("arc_runtime"),
+        .breaker = x::breaker::default_config("arc_runtime"),
         .retrieve_channels = [client](const std::vector<types::ChannelKey> &keys)
             -> std::pair<std::vector<runtime::state::ChannelDigest>, x::errors::Error> {
             auto [channels, err] = client->channels.retrieve(keys);
@@ -126,14 +128,14 @@ load_runtime(const TaskConfig &config, const std::shared_ptr<synnax::Synnax> &cl
 }
 
 /// @brief source that reads output data from the arc runtime and sends it to Synnax.
-class Source final : public pipeline::Source {
+class Source final : public driver::pipeline::Source {
     std::shared_ptr<runtime::Runtime> runtime;
 
 public:
     explicit Source(const std::shared_ptr<runtime::Runtime> &runtime):
         runtime(runtime) {}
 
-    x::errors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
         this->runtime->read(data);
         return x::errors::NIL;
     }
@@ -144,13 +146,13 @@ public:
 };
 
 /// @brief sink that receives input data from Synnax and sends it to the arc runtime.
-class Sink final : public pipeline::Sink {
+class Sink final : public driver::pipeline::Sink {
     std::shared_ptr<runtime::Runtime> runtime;
 
 public:
     explicit Sink(const std::shared_ptr<runtime::Runtime> &runtime): runtime(runtime) {}
 
-    x::errors::Error write(telem::Frame &frame) override {
+    x::errors::Error write(x::telem::Frame &frame) override {
         if (frame.empty()) return x::errors::NIL;
         VLOG(1) << "[arc.sink] writing to runtime " << frame;
         return this->runtime->write(std::move(frame));
@@ -158,48 +160,48 @@ public:
 };
 
 /// @brief arc runtime task that manages both read and write pipelines.
-class Task final : public task::Task {
+class Task final : public driver::task::Task {
     std::shared_ptr<runtime::Runtime> runtime;
-    std::unique_ptr<pipeline::Acquisition> acquisition;
-    std::unique_ptr<pipeline::Control> control;
-    common::StatusHandler state;
+    std::unique_ptr<driver::pipeline::Acquisition> acquisition;
+    std::unique_ptr<driver::pipeline::Control> control;
+    driver::task::common::StatusHandler state;
 
 public:
     explicit Task(
         const synnax::task::Task &task_meta,
-        const std::shared_ptr<task::Context> &ctx,
+        const std::shared_ptr<driver::task::Context> &ctx,
         std::shared_ptr<runtime::Runtime> runtime,
         const TaskConfig &cfg,
-        std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
-        std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr
+        std::shared_ptr<driver::pipeline::WriterFactory> writer_factory = nullptr,
+        std::shared_ptr<driver::pipeline::StreamerFactory> streamer_factory = nullptr
     ):
         runtime(std::move(runtime)), state(ctx, task_meta) {
         auto source = std::make_unique<Source>(this->runtime);
         auto sink = std::make_unique<Sink>(this->runtime);
         if (!writer_factory)
-            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
+            writer_factory = std::make_shared<driver::pipeline::SynnaxWriterFactory>(
                 ctx->client
             );
         if (!streamer_factory)
-            streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
+            streamer_factory = std::make_shared<driver::pipeline::SynnaxStreamerFactory>(
                 ctx->client
             );
-        this->acquisition = std::make_unique<pipeline::Acquisition>(
+        this->acquisition = std::make_unique<driver::pipeline::Acquisition>(
             writer_factory,
-            synnax::WriterConfig{
+            synnax::framer::WriterConfig{
                 .channels = this->runtime->write_channels,
-                .start = telem::TimeStamp::now(),
-                .mode = synnax::WriterMode::PersistStream,
+                .start = x::telem::TimeStamp::now(),
+                .mode = synnax::framer::WriterMode::PersistStream,
             },
             std::move(source),
-            breaker::default_config("arc_acquisition"),
+            x::breaker::default_config("arc_acquisition"),
             "arc_acquisition"
         );
-        this->control = std::make_unique<pipeline::Control>(
+        this->control = std::make_unique<driver::pipeline::Control>(
             streamer_factory,
-            synnax::StreamerConfig{.channels = this->runtime->read_channels},
+            synnax::framer::StreamerConfig{.channels = this->runtime->read_channels},
             std::move(sink),
-            breaker::default_config("arc_control"),
+            x::breaker::default_config("arc_control"),
             "arc_control"
         );
     }
@@ -228,7 +230,7 @@ public:
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")

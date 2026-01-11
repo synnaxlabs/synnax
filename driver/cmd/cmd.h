@@ -26,7 +26,7 @@
 
 #include "client/cpp/synnax.h"
 #include "x/cpp/log/log.h"
-#include "x/cpp/shutdown/xshutdown.h"
+#include "x/cpp/shutdown/shutdown.h"
 
 #include "core/pkg/version/version.h"
 #include "driver/cmd/cmd.h"

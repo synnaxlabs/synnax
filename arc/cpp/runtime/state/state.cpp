@@ -122,7 +122,8 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             ir::Handle synthetic_handle("__default_" + key + "_" + param.name, "out");
             inputs[i] = ir::Edge(synthetic_handle, target_handle);
 
-            auto data_series = parse_default_value(param.value, param.type);
+            auto sample_value = types::to_sample_value(param.value, param.type);
+            auto data_series = parse_default_value(sample_value, param.type);
             auto time_series = x::mem::make_local_shared<x::telem::Series>(
                 x::telem::TIMESTAMP_T,
                 1

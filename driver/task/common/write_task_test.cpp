@@ -18,9 +18,9 @@ class MockSink final : public driver::task::common::Sink, public driver::pipelin
 public:
     MockSink(
         const x::telem::Rate state_rate,
-        const std::set<synnax::channel::Channel::Key> &state_indexes,
-        const std::vector<synnax::channel::Channel::Channel> &state_channels,
-        const std::vector<synnax::channel::Channel::Key> &cmd_channels,
+        const std::set<synnax::channel::Key> &state_indexes,
+        const std::vector<synnax::channel::Channel> &state_channels,
+        const std::vector<synnax::channel::Key> &cmd_channels,
         const bool data_saving,
         const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
@@ -48,20 +48,20 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
     cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
     auto mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
-        std::vector<synnax::channel::Channel::Key>{1},
+        std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
-    synnax::channel::Channel::Channel cmd_channel;
+    synnax::channel::Channel cmd_channel;
     cmd_channel.key = 1;
     cmd_channel.data_type = x::telem::UINT8_T;
     cmd_channel.is_virtual = true;
 
-    synnax::channel::Channel::Channel state_index;
+    synnax::channel::Channel state_index;
     state_index.key = 2;
     state_index.data_type = x::telem::TIMESTAMP_T;
     state_index.index = 2;
 
-    synnax::channel::Channel::Channel state;
+    synnax::channel::Channel state;
     state.key = 3;
     state.data_type = x::telem::UINT8_T;
     state.index = 2;
@@ -71,9 +71,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
-        std::set<synnax::channel::Channel::Key>{2},
+        std::set<synnax::channel::Key>{2},
         std::vector{state},
-        std::vector<synnax::channel::Channel::Key>{1},
+        std::vector<synnax::channel::Key>{1},
         false,
         writes,
         errors
@@ -99,10 +99,10 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.start(cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
@@ -125,10 +125,10 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
 
     auto write_fr = std::move(writes->at(0));

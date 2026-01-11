@@ -26,7 +26,7 @@ extern "C" {
 #include "driver/sequence/plugins/plugins.h"
 #include "driver/task/task.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 namespace driver::sequence {
 /// @brief integration name for use in driver configuration.
@@ -49,10 +49,10 @@ struct TaskConfig {
     std::string script;
     /// @brief read is the list of channels that the task will need to read from in
     /// real-time.
-    std::vector<synnax::channel::Channel::Key> read;
+    std::vector<synnax::channel::Key> read;
     /// @brief write_to is the channels that the task will need write access to for
     /// control.
-    std::vector<synnax::channel::Channel::Key> write;
+    std::vector<synnax::channel::Key> write;
     /// @brief globals is a JSON object whose keys are global variables that will be
     /// available within the Lua script.
     json globals;
@@ -63,8 +63,8 @@ struct TaskConfig {
         // this comment keeps the formatter happy
         rate(x::telem::Rate(parser.field<float>("rate"))),
         script(parser.field<std::string>("script")),
-        read(parser.field<std::vector<synnax::channel::Channel::Key>>("read")),
-        write(parser.field<std::vector<synnax::channel::Channel::Key>>("write")),
+        read(parser.field<std::vector<synnax::channel::Key>>("read")),
+        write(parser.field<std::vector<synnax::channel::Key>>("write")),
         globals(parser.field<json>("globals", json::object())),
         authority(parser.field<x::telem::Authority>("authority", 150)) {}
 };
@@ -158,7 +158,7 @@ public:
     void stop(const std::string &key, bool will_reconfigure);
 
     /// @brief executes a command on the task, implementing driver::task::Task.
-    void exec(driver::task::Command &cmd) override;
+    void exec(synnax::task::Command &cmd) override;
 
     /// @brief starts the task, using the provided key as the key of the command
     /// that was executed.

@@ -26,8 +26,8 @@ protected:
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::StreamerFactory> mock_streamer_factory;
     std::shared_ptr<driver::modbus::device::Manager> devs;
-    synnax::channel::Channel::Channel coil_ch;
-    synnax::channel::Channel::Channel reg_ch;
+    synnax::channel::Channel coil_ch;
+    synnax::channel::Channel reg_ch;
 
     void setup_task_config() {
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -54,15 +54,15 @@ protected:
               {"swap_words", false}}}
         };
 
-        synnax::Device dev(
-            "modbus_test_dev",
-            "modbus_test_dev",
-            rack.key,
-            "dev1",
-            "modbus",
-            "Modbus Device",
-            nlohmann::to_string(properties)
-        );
+        synnax::device::Device dev{
+            .key = "modbus_test_dev",
+            .rack = rack.key,
+            .location = "dev1",
+            .make = "modbus",
+            .model = "Modbus Device",
+            .name = "modbus_test_dev",
+            .properties = properties,
+        };
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task(rack.key, "modbus_write_test", "modbus_write", "");
@@ -423,19 +423,19 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, task.status_key());
+    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
 
     wt->stop("stop_cmd", true);
 
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, task.status_key());
+    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
 }
 
 /// Regression test for buffer size calculation bug with UINT8 holding registers.

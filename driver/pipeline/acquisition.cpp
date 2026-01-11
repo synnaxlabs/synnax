@@ -16,10 +16,10 @@
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 namespace driver::pipeline {
-SynnaxWriter::SynnaxWriter(synnax::Writer internal): internal(std::move(internal)) {}
+SynnaxWriter::SynnaxWriter(synnax::framer::Writer internal): internal(std::move(internal)) {}
 
 x::errors::Error SynnaxWriter::write(const x::telem::Frame &fr) {
     return this->internal.write(fr);
@@ -33,7 +33,7 @@ SynnaxWriterFactory::SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client)
     client(std::move(client)) {}
 
 std::pair<std::unique_ptr<driver::pipeline::Writer>, x::errors::Error>
-SynnaxWriterFactory::open_writer(const synnax::WriterConfig &config) {
+SynnaxWriterFactory::open_writer(const synnax::framer::WriterConfig &config) {
     auto [sw, err] = client->telem.open_writer(config);
     if (err) return {nullptr, err};
     return {std::make_unique<SynnaxWriter>(std::move(sw)), x::errors::NIL};
@@ -41,7 +41,7 @@ SynnaxWriterFactory::open_writer(const synnax::WriterConfig &config) {
 
 Acquisition::Acquisition(
     std::shared_ptr<synnax::Synnax> client,
-    synnax::WriterConfig writer_config,
+    synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
     std::string thread_name
@@ -56,7 +56,7 @@ Acquisition::Acquisition(
 
 Acquisition::Acquisition(
     std::shared_ptr<WriterFactory> factory,
-    synnax::WriterConfig writer_config,
+    synnax::framer::WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const x::breaker::Config &breaker_config,
     std::string thread_name

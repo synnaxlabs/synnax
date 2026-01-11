@@ -70,7 +70,7 @@ struct Config {
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
         client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {}
 
-    json to_json() const {
+    x::json::json to_json() const {
         return {
             {"endpoint", endpoint},
             {"username", username},

@@ -39,7 +39,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
     /// @brief whether the task should be software timed.
     const bool software_timed;
     /// @brief the indexes of the channels in the task.
-    std::set<synnax::channel::Channel::Key> indexes;
+    std::set<synnax::channel::Key> indexes;
     /// @brief the configurations for each channel in the task.
     std::vector<std::unique_ptr<channel::Input>> channels;
     /// @brief the amount of sample skew needed to trigger a warning that the Synnax
@@ -98,7 +98,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             );
             return;
         }
-        std::vector<synnax::channel::Channel::Key> channel_keys;
+        std::vector<synnax::channel::Key> channel_keys;
         for (const auto &ch: this->channels)
             channel_keys.push_back(ch->synnax_key);
         auto [channel_vec, err] = client->channels.retrieve(channel_keys);
@@ -110,7 +110,7 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
             return;
         }
         auto remote_channels = map_channel_Keys(channel_vec);
-        std::unordered_map<std::string, synnax::Device> devices;
+        std::unordered_map<std::string, synnax::device::Device> devices;
         if (this->device_key != "cross-device") {
             auto [device, err] = client->devices.retrieve(this->device_key);
             if (err) {
@@ -154,8 +154,8 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         return {ReadTaskConfig(client, parser, task.type, timing_cfg), parser.error()};
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Channel::Channel> sy_channels() const {
-        std::vector<synnax::channel::Channel::Channel> chs;
+    [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const {
+        std::vector<synnax::channel::Channel> chs;
         chs.reserve(this->channels.size());
         for (const auto &ch: this->channels)
             chs.push_back(ch->ch);
@@ -217,14 +217,14 @@ struct ReadTaskConfig : driver::task::common::BaseReadTaskConfig {
         );
     }
 
-    [[nodiscard]] synnax::WriterConfig writer() const {
-        std::vector<synnax::channel::Channel::Key> keys;
+    [[nodiscard]] synnax::framer::WriterConfig writer() const {
+        std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size() + this->indexes.size());
         for (const auto &ch: this->channels)
             keys.push_back(ch->ch.key);
         for (const auto &idx: this->indexes)
             keys.push_back(idx);
-        return synnax::WriterConfig{
+        return synnax::framer::WriterConfig{
             .channels = keys,
             .mode = driver::task::common::data_saving_writer_mode(this->data_saving),
         };
@@ -276,7 +276,7 @@ private:
     /// determine whether we've just recovered from an error state.
     x::errors::Error curr_read_err = x::errors::NIL;
 
-    [[nodiscard]] std::vector<synnax::channel::Channel::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
@@ -295,7 +295,7 @@ private:
         return x::errors::NIL;
     }
 
-    [[nodiscard]] synnax::WriterConfig writer_config() const override {
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return this->cfg.writer();
     }
 
