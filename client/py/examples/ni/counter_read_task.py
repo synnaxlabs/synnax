@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -21,7 +21,7 @@ via the NI-MAX software.
 """
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
-# See https://docs.synnaxlabs.com/reference/python-client/get-started for more information.
+# See https://docs.synnaxlabs.com/reference/client/quick-start for more information.
 client = sy.Synnax()
 
 dev = client.devices.retrieve(model="NI 9326")

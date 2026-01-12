@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,7 +31,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Config struct {
+type ServiceConfig struct {
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 	// Channel is used to create and retrieve metric collection channels.
@@ -58,19 +58,19 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultConfig is the default configuration for a metrics service.
-	DefaultConfig = Config{CollectionInterval: 2 * time.Second}
+	DefaultConfig = ServiceConfig{CollectionInterval: 2 * time.Second}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.CollectionInterval = override.Numeric(
-		c.CollectionInterval, 
+		c.CollectionInterval,
 		other.CollectionInterval,
 	)
 	c.Storage = override.Nil(c.Storage, other.Storage)
@@ -78,7 +78,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("service.metrics")
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "framer", c.Framer)
@@ -91,7 +91,7 @@ func (c Config) Validate() error {
 // Service is used to collect metrics from the host machine (cpu, memory, disk) and
 // write them to channels.
 type Service struct {
-	cfg           Config
+	cfg           ServiceConfig
 	stopCollector chan struct{}
 	shutdown      io.Closer
 }
@@ -104,10 +104,10 @@ const (
 )
 
 // OpenService opens a new metric.Service using the provided configuration. See the
-// Config struct for details on the required configuration values. If OpenService
+// ServiceConfig struct for details on the required configuration values. If OpenService
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
 // shut down by calling Close after use.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err

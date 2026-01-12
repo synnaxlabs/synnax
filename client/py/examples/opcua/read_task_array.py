@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -12,7 +12,7 @@ This example demonstrates how to read array data from the test OPC UA server (se
 
 Before running this example:
 1. Start the test server:
-   poetry run python driver/opc/dev/server_extended.py
+   uv run python driver/opc/dev/server_extended.py
 
 2. Connect the OPC UA server device in Synnax:
    - Endpoint: opc.tcp://127.0.0.1:4841/
@@ -25,7 +25,7 @@ Before running this example:
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax

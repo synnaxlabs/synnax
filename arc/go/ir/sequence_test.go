@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,6 +19,33 @@ import (
 )
 
 var _ = Describe("Stage", func() {
+	Describe("String", func() {
+		It("Should format stage with nodes", func() {
+			stage := ir.Stage{
+				Key:   "pressurization",
+				Nodes: []string{"timer_1", "controller_1"},
+			}
+			Expect(stage.String()).To(Equal("pressurization: [timer_1, controller_1]"))
+		})
+
+		It("Should format stage with empty nodes", func() {
+			stage := ir.Stage{Key: "terminal", Nodes: nil}
+			Expect(stage.String()).To(Equal("terminal: []"))
+		})
+
+		It("Should format stage with strata", func() {
+			stage := ir.Stage{
+				Key:    "main",
+				Nodes:  []string{"a", "b"},
+				Strata: ir.Strata{{"a"}, {"b"}},
+			}
+			str := stage.String()
+			Expect(str).To(ContainSubstring("main: [a, b]"))
+			Expect(str).To(ContainSubstring("[0]: a"))
+			Expect(str).To(ContainSubstring("[1]: b"))
+		})
+	})
+
 	Describe("JSON Serialization", func() {
 		It("Should marshal and unmarshal stage with nodes", func() {
 			stage := ir.Stage{
@@ -80,6 +107,27 @@ var _ = Describe("Sequence", func() {
 				{Key: "complete", Nodes: nil},
 			},
 		}
+	})
+
+	Describe("String", func() {
+		It("Should format sequence with tree structure", func() {
+			str := seq.String()
+			Expect(str).To(HavePrefix("main\n"))
+			Expect(str).To(ContainSubstring("├── precheck:"))
+			Expect(str).To(ContainSubstring("├── pressurization:"))
+			Expect(str).To(ContainSubstring("├── ignition:"))
+			Expect(str).To(ContainSubstring("└── complete:"))
+		})
+
+		It("Should format single-stage sequence", func() {
+			single := ir.Sequence{
+				Key:    "single",
+				Stages: []ir.Stage{{Key: "only", Nodes: []string{"node_1"}}},
+			}
+			str := single.String()
+			Expect(str).To(HavePrefix("single\n"))
+			Expect(str).To(ContainSubstring("└── only: [node_1]"))
+		})
 	})
 
 	Describe("Entry", func() {

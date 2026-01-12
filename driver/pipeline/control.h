@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,7 +25,7 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then
     /// retry the read operation. Any other error type will be considered a
     /// permanent error and the pipeline will exit.
-    virtual xerrors::Error write(const telem::Frame &frame) = 0;
+    virtual xerrors::Error write(telem::Frame &frame) = 0;
 
     /// @brief communicates an error encountered by the control pipeline that
     /// occurred during shut down or occurred during a commanded shutdown.
@@ -117,7 +117,7 @@ public:
     explicit SynnaxStreamerFactory(const std::shared_ptr<synnax::Synnax> &client);
 
     /// @brief implements pipeline::StreamerFactory to open a Synnax streamer.
-    std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
+    std::pair<std::unique_ptr<Streamer>, xerrors::Error>
     open_streamer(synnax::StreamerConfig config) override;
 };
 

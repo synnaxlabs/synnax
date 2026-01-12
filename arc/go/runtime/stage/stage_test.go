@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -89,14 +89,14 @@ var _ = Describe("Stage", func() {
 		})
 	})
 
-	Describe("StageEntry.Next", func() {
+	Describe("entry.Next", func() {
 		var factory *stage.Factory
 		var s *state.State
-		var activatedNodes []string
+		var activationCount int
 
 		BeforeEach(func() {
 			factory = stage.NewFactory()
-			activatedNodes = []string{}
+			activationCount = 0
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},
@@ -139,19 +139,18 @@ var _ = Describe("Stage", func() {
 			*sourceNode.Output(0) = telem.NewSeriesV[uint8](1)
 			*sourceNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 
-			// Execute stage entry node with context that tracks activations
+			activationCount := 0
 			nodeCtx := node.Context{
 				Context:     ctx,
 				MarkChanged: func(string) {},
-				ActivateStage: func(nodeKey string) {
-					activatedNodes = append(activatedNodes, nodeKey)
+				ActivateStage: func() {
+					activationCount++
 				},
 			}
 			n.Next(nodeCtx)
 
-			// Should have called ActivateStage with the node key
-			Expect(activatedNodes).To(HaveLen(1))
-			Expect(activatedNodes[0]).To(Equal("test_seq_test_stage_entry"))
+			// Should have called ActivateStage
+			Expect(activationCount).To(Equal(1))
 		})
 
 		It("Should not call ActivateStage when receiving non-activation signal (0)", func() {
@@ -167,18 +166,18 @@ var _ = Describe("Stage", func() {
 			*sourceNode.Output(0) = telem.NewSeriesV[uint8](0)
 			*sourceNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 
-			// Execute stage entry node
+			activationCount := 0
 			nodeCtx := node.Context{
 				Context:     ctx,
 				MarkChanged: func(string) {},
-				ActivateStage: func(nodeKey string) {
-					activatedNodes = append(activatedNodes, nodeKey)
+				ActivateStage: func() {
+					activationCount++
 				},
 			}
 			n.Next(nodeCtx)
 
 			// Should not have called ActivateStage
-			Expect(activatedNodes).To(BeEmpty())
+			Expect(activationCount).To(Equal(0))
 		})
 
 		It("Should not call ActivateStage when input is empty", func() {
@@ -188,19 +187,13 @@ var _ = Describe("Stage", func() {
 			}
 			n, err := factory.Create(ctx, cfg)
 			Expect(err).ToNot(HaveOccurred())
-
-			// Execute without setting any input
 			nodeCtx := node.Context{
-				Context:     ctx,
-				MarkChanged: func(string) {},
-				ActivateStage: func(nodeKey string) {
-					activatedNodes = append(activatedNodes, nodeKey)
-				},
+				Context:       ctx,
+				MarkChanged:   func(string) {},
+				ActivateStage: func() { activationCount++ },
 			}
 			n.Next(nodeCtx)
-
-			// Should not have called ActivateStage
-			Expect(activatedNodes).To(BeEmpty())
+			Expect(activationCount).To(Equal(0))
 		})
 	})
 

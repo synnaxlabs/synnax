@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,7 +49,7 @@ xerrors::Error plugins::ChannelReceive::after_all(lua_State *L) {
 
 /// @brief implements pipeline::Sink to receive values from a streamer and bind them
 /// into the latest values state.
-xerrors::Error plugins::ChannelReceive::Sink::write(const telem::Frame &frame) {
+xerrors::Error plugins::ChannelReceive::Sink::write(telem::Frame &frame) {
     std::lock_guard lock(this->receiver.mu);
     for (size_t i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);

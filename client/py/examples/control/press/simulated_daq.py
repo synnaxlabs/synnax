@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -22,7 +22,7 @@ import random
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 daq_time_ch = client.channels.create(
@@ -78,7 +78,14 @@ vent_vlv_state = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-loop = sy.Loop(sy.Rate.HZ * 100)
+start_seq_cmd = client.channels.create(
+    name="start_seq_cmd",
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+    virtual=True,
+)
+
+loop = sy.Loop(sy.Rate.HZ * 3)
 
 state = {
     "daq_time": sy.TimeStamp.now(),

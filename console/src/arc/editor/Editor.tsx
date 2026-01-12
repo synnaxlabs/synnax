@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -133,7 +133,7 @@ const statusDetailsSchema = z.object({
 
 const { useRetrieve } = Status.createRetrieve(statusDetailsSchema);
 
-const Controls = ({ arc }: StatusChipProps) => {
+export const Controls = ({ arc }: StatusChipProps) => {
   const name = Layout.useSelectRequiredName(arc.key);
   const status = useRetrieve({ key: arc.key }, { addStatusOnFailure: false });
   const { update: create } = Arc.useCreate();
@@ -143,7 +143,7 @@ const Controls = ({ arc }: StatusChipProps) => {
       key: arc.key,
       name,
       graph: translateGraphToServer(arc.graph),
-      text: { raw: "" },
+      text: arc.text,
       deploy: !isRunning,
       version: arc.version,
     });
@@ -419,7 +419,7 @@ export const create =
     };
   };
 
-const useLoadRemote = createLoadRemote<arc.Arc>({
+export const useLoadRemote = createLoadRemote<arc.Arc>({
   useRetrieve: Core.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
@@ -430,6 +430,7 @@ const useLoadRemote = createLoadRemote<arc.Arc>({
       type: TYPE,
       remoteCreated: false,
       graph: translateGraphToConsole(v.graph),
+      text: { raw: "" },
     }),
 });
 

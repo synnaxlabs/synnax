@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -100,6 +100,31 @@ var _ = Describe("Literal Compilation", func() {
 			types.F64(),
 			OpF64Const,
 			float64(3.14),
+		),
+
+		// Boolean Literals (parsed as identifiers in the grammar)
+		Entry(
+			"boolean true",
+			"true",
+			types.U8(),
+			OpI32Const,
+			int32(1),
+		),
+
+		Entry(
+			"boolean false",
+			"false",
+			types.U8(),
+			OpI32Const,
+			int32(0),
+		),
+
+		Entry(
+			"parenthesized boolean",
+			"(true)",
+			types.U8(),
+			OpI32Const,
+			int32(1),
 		),
 	)
 })

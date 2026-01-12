@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -245,7 +245,7 @@ public:
     ):
         writes(writes), write_errors(write_errors) {}
 
-    xerrors::Error write(const telem::Frame &frame) override {
+    xerrors::Error write(telem::Frame &frame) override {
         if (frame.empty()) return xerrors::NIL;
         this->writes->emplace_back(frame.deep_copy());
         // try to grab and remove the first error. if not, freighter nil

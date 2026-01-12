@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -108,6 +108,8 @@ var _ = Describe("Expression func Conversion", func() {
 			Expect(fnSym.Type.Config).To(BeEmpty())
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output.Type).To(Equal(types.U8()))
+			Expect(fnSym.Channels.Read).To(HaveLen(1))
+			Expect(fnSym.Channels.Read).To(HaveKey(uint32(12)))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
@@ -143,7 +145,8 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown"))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: unknown_channel"))
 		})
 	})
 

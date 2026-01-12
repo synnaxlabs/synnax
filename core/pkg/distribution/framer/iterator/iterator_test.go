@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,11 +18,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,19 +44,19 @@ var _ = Describe("Iterator", func() {
 						Start: 10 * telem.SecondTS,
 						Sync:  config.True(),
 					}))
-					MustSucceed(writer.Write(core.MultiFrame(
+					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(10, 11, 12),
 						},
 					)))
-					MustSucceed(writer.Write(core.MultiFrame(
+					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(13, 14, 15, 16, 17),
 						},
 					)))
-					MustSucceed(writer.Write(core.MultiFrame(
+					MustSucceed(writer.Write(frame.NewMulti(
 						s.keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(18, 19, 20, 21, 22),

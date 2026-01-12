@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -59,6 +59,25 @@ func NotNil(v *Validator, field string, value any) bool {
 
 func Positive[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternary(field, value <= 0, "must be positive")
+}
+
+func InBounds[T types.Numeric](v *Validator, field string, value, lower, upper T) bool {
+	return v.Ternaryf(
+		field,
+		value < lower || value >= upper,
+		"must be in bounds [%v, %v)",
+		lower,
+		upper,
+	)
+}
+
+func GreaterThan[T types.Numeric](
+	v *Validator,
+	field string,
+	value T,
+	threshold T,
+) bool {
+	return v.Ternaryf(field, value <= threshold, "must be greater than %v", threshold)
 }
 
 func GreaterThanEq[T types.Numeric](

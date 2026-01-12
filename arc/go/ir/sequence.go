@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,6 +25,11 @@ type Stage struct {
 	// Nodes contains the keys of nodes that belong to this stage.
 	// These nodes are active only when this stage is active.
 	Nodes []string `json:"nodes"`
+	// Strata contains the per-stage execution stratification. Stage-local source
+	// nodes (constants, channel reads) are at stratum 0, and downstream nodes
+	// are in higher strata. This enables independent execution ordering within
+	// each stage without implicit dependencies on entry nodes.
+	Strata Strata `json:"strata,omitempty"`
 }
 
 // Sequence represents a state machine containing ordered stages. A sequence defines
@@ -95,7 +100,17 @@ func (s Sequences) FindStage(stageKey string) (Stage, Sequence, bool) {
 // String returns the string representation of the stage.
 // Format: "key: [node1, node2, ...]"
 func (s Stage) String() string {
-	return fmt.Sprintf("%s: [%s]", s.Key, strings.Join(s.Nodes, ", "))
+	return s.stringWithPrefix("")
+}
+
+// stringWithPrefix returns the string representation with tree formatting.
+func (s Stage) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+	lo.Must(fmt.Fprintf(&b, "%s: [%s]", s.Key, strings.Join(s.Nodes, ", ")))
+	if len(s.Strata) > 0 {
+		lo.Must(fmt.Fprintf(&b, "\n%s", s.Strata.stringWithPrefix(prefix)))
+	}
+	return b.String()
 }
 
 // String returns the string representation of the sequence.
@@ -112,8 +127,11 @@ func (s Sequence) stringWithPrefix(prefix string) string {
 		isLast := i == len(s.Stages)-1
 		b.WriteString(prefix)
 		b.WriteString(treePrefix(isLast))
-		b.WriteString(stage.String())
-		b.WriteString("\n")
+		stageChildPrefix := prefix + treeIndent(isLast)
+		b.WriteString(stage.stringWithPrefix(stageChildPrefix))
+		if len(stage.Strata) == 0 {
+			b.WriteString("\n")
+		}
 	}
 	return b.String()
 }

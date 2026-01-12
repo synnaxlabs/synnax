@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -103,6 +103,11 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableServiceSignals *bool
+	// ValidateChannelNames disables channel name validation when true.
+	// This allows channels with special characters, spaces, etc.
+	//
+	// [OPTIONAL] - Defaults to true (validation enabled)
+	ValidateChannelNames *bool
 }
 
 var (
@@ -114,6 +119,7 @@ var (
 		EnableSearch:         config.True(),
 		GorpCodec:            &binary.MsgPackCodec{},
 		EnableServiceSignals: config.True(),
+		ValidateChannelNames: config.True(),
 	}
 )
 
@@ -132,6 +138,7 @@ func (c Config) Override(other Config) Config {
 	c.EnableSearch = override.Nil(c.EnableSearch, other.EnableSearch)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	c.EnableServiceSignals = override.Nil(c.EnableServiceSignals, other.EnableServiceSignals)
+	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
 	return c
 }
 
@@ -147,6 +154,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enable_search", c.EnableSearch)
 	validate.NotNil(v, "codec", c.GorpCodec)
 	validate.NotNil(v, "enable_channel_signals", c.EnableServiceSignals)
+	validate.NotNil(v, "disable_channel_name_validation", c.ValidateChannelNames)
 	return v.Error()
 }
 
@@ -240,7 +248,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 
 	if l.Group, err = group.OpenService(
 		ctx,
-		group.Config{
+		group.ServiceConfig{
 			DB:       l.DB,
 			Ontology: l.Ontology,
 		},
@@ -258,7 +266,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 
 	nodeOntologySvc.ListenForChanges(ctx)
 
-	if l.Verification, err = verification.OpenService(ctx, verification.Config{
+	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
 		Verifier:        cfg.Verifier,
 		DB:              l.DB.KV(),
 		Instrumentation: cfg.Instrumentation,
@@ -266,7 +274,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.NewService(ctx, channel.Config{
+	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		HostResolver: l.Cluster,
 		ClusterDB:    l.DB,
 		TSChannel:    cfg.Storage.TS,
@@ -278,6 +286,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			cfg.TestingIntOverflowCheck,
 			l.Verification.IsOverflowed,
 		),
+		ValidateNames: cfg.ValidateChannelNames,
 	}); !ok(err, nil) {
 		return nil, err
 	}

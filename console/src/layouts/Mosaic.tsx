@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -210,7 +210,6 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
-      console.log("handleCreate", mosaicKey, location, tabKeys);
       if (tabKeys == null) {
         placeLayout(createSelectorLayout({ tab: { mosaicKey, location } }));
         return;

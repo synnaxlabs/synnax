@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,7 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // A complete Visitor for a parse tree produced by ArcParser.
@@ -133,6 +134,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#type.
 	VisitType(ctx *TypeContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#unitSuffix.
+	VisitUnitSuffix(ctx *UnitSuffixContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#primitiveType.
 	VisitPrimitiveType(ctx *PrimitiveTypeContext) interface{}
 
@@ -144,9 +148,6 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#floatType.
 	VisitFloatType(ctx *FloatTypeContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#temporalType.
-	VisitTemporalType(ctx *TemporalTypeContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#channelType.
 	VisitChannelType(ctx *ChannelTypeContext) interface{}
@@ -201,9 +202,6 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#numericLiteral.
 	VisitNumericLiteral(ctx *NumericLiteralContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#temporalLiteral.
-	VisitTemporalLiteral(ctx *TemporalLiteralContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#seriesLiteral.
 	VisitSeriesLiteral(ctx *SeriesLiteralContext) interface{}

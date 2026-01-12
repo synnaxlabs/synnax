@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,6 +17,7 @@ xerrors::Error rack::Config::load_env() {
     xenv::Parser p(ENV_PREFIX);
     this->connection.override(p);
     this->timing.override(p);
+    this->manager.override(p);
     this->remote_info.override(p);
     return xerrors::NIL;
 }

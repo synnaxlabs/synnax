@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,9 @@
 
 namespace arc::types {
 telem::DataType Type::telem() const {
+    // Check for timestamp (i64 with nanosecond time units)
+    if (is_timestamp()) return telem::TIMESTAMP_T;
+
     switch (this->kind) {
         case Kind::U8:
             return telem::UINT8_T;
@@ -34,11 +37,10 @@ telem::DataType Type::telem() const {
             return telem::FLOAT64_T;
         case Kind::String:
             return telem::STRING_T;
-        case Kind::TimeStamp:
-            return telem::TIMESTAMP_T;
         case Kind::Series:
         case Kind::Chan:
             if (this->elem) return elem->telem();
+            [[fallthrough]];
         default:
             return telem::UNKNOWN_T;
     }

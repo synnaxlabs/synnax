@@ -1,0 +1,28 @@
+cc_library(
+    name = "scheduler",
+    hdrs = [
+        "scheduler.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//arc/cpp/runtime/time",
+        "//x/cpp/xerrors",
+        "@glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "scheduler_test",
+    srcs = ["scheduler_test.cpp"],
+    deps = [
+        ":scheduler",
+        "//arc/cpp/ir",
+        "//arc/cpp/ir/testutil",
+        "//arc/cpp/runtime/node",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "@googletest//:gtest_main",
+    ],
+)

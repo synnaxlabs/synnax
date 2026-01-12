@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -42,24 +41,20 @@ var _ ontology.Service = (*sampleService)(nil)
 
 const sampleType ontology.Type = "sample"
 
-type Sample struct {
-	Key string
-}
+type Sample struct{ Key string }
 
 func newSampleType(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: sampleType}
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{
-	"key": zyn.String(),
-})
+var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
 func (s *sampleService) Type() ontology.Type { return sampleType }
 
 func (s *sampleService) Schema() zyn.Schema { return schema }
 
 func (s *sampleService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
-	return core.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil
+	return ontology.NewResource(s.Schema(), newSampleType(key), "empty", Sample{Key: key}), nil
 }
 
 func (s *sampleService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {

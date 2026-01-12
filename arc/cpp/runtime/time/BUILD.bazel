@@ -1,0 +1,23 @@
+cc_library(
+    name = "time",
+    hdrs = ["time.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "time_test",
+    srcs = ["time_test.cpp"],
+    deps = [
+        ":time",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

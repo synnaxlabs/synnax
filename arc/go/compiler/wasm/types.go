@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,6 +25,7 @@ const (
 	SectionMemory = 0x05
 	SectionExport = 0x07
 	SectionCode   = 0x0a
+	SectionData   = 0x0b
 	FuncType      = 0x60
 )
 

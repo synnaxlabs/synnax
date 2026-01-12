@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,9 +11,10 @@ package types
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -76,14 +77,38 @@ func InferAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) types
 		return types.Type{}
 	}
 	if len(multiplicatives) > 1 {
-		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0])).Unwrap()
+		firstType := InferMultiplicative(context.Child(ctx, multiplicatives[0]))
+		// Track if any operand is a series - if so, result is a series
+		isSeries := firstType.Kind == types.KindSeries
+		// Use series element type when available, as it's more concrete than scalar type variables
+		elemType := firstType.Unwrap()
+
 		for i := 1; i < len(multiplicatives); i++ {
-			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i])).Unwrap()
-			if !Compatible(firstType, nextType) {
-				return firstType
+			nextType := InferMultiplicative(context.Child(ctx, multiplicatives[i]))
+			if nextType.Kind == types.KindSeries {
+				isSeries = true
+				// Prefer series element type over scalar type variable
+				nextElem := nextType.Unwrap()
+				if nextElem.Kind != types.KindVariable {
+					elemType = nextElem
+				}
+				if !Compatible(elemType, nextElem) {
+					if isSeries {
+						return types.Series(elemType)
+					}
+					return elemType
+				}
+			} else if !Compatible(elemType, nextType.Unwrap()) {
+				if isSeries {
+					return types.Series(elemType)
+				}
+				return elemType
 			}
 		}
-		return firstType
+		if isSeries {
+			return types.Series(elemType)
+		}
+		return elemType
 	}
 	return InferMultiplicative(context.Child(ctx, multiplicatives[0]))
 }
@@ -94,16 +119,35 @@ func InferMultiplicative(ctx context.Context[parser.IMultiplicativeExpressionCon
 		return types.Type{}
 	}
 	if len(powers) > 1 {
-		firstType := InferPower(context.Child(ctx, powers[0])).Unwrap()
+		firstType := InferPower(context.Child(ctx, powers[0]))
+		// Track if any operand is a series - if so, result is a series
+		isSeries := firstType.Kind == types.KindSeries
+		// Use series element type when available, as it's more concrete than scalar type variables
+		elemType := firstType.Unwrap()
+
 		for i := 1; i < len(powers); i++ {
-			nextType := InferPower(context.Child(ctx, powers[i])).Unwrap()
-			if !Compatible(firstType, nextType) {
-				ctx.TypeMap[ctx.AST] = firstType
-				return firstType
+			nextType := InferPower(context.Child(ctx, powers[i]))
+			if nextType.Kind == types.KindSeries {
+				isSeries = true
+				// Prefer series element type over scalar type variable
+				nextElem := nextType.Unwrap()
+				if nextElem.Kind != types.KindVariable {
+					elemType = nextElem
+				}
+				if !Compatible(elemType, nextElem) {
+					resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+					ctx.TypeMap[ctx.AST] = resultType
+					return resultType
+				}
+			} else if !Compatible(elemType, nextType.Unwrap()) {
+				resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+				ctx.TypeMap[ctx.AST] = resultType
+				return resultType
 			}
 		}
-		ctx.TypeMap[ctx.AST] = firstType
-		return firstType
+		resultType := lo.Ternary(isSeries, types.Series(elemType), elemType)
+		ctx.TypeMap[ctx.AST] = resultType
+		return resultType
 	}
 	resultType := InferPower(context.Child(ctx, powers[0]))
 	ctx.TypeMap[ctx.AST] = resultType
@@ -122,16 +166,17 @@ func InferPower(ctx context.Context[parser.IPowerExpressionContext]) types.Type 
 		// Recursively infer exponent type (right-associative)
 		_ = InferPower(context.Child(ctx, ctx.AST.PowerExpression()))
 
-		// Power operation returns the base type
-		// (e.g., i32 ^ i32 = i32, f64 ^ f64 = f64)
-		return baseType
+		// Power operation returns the unwrapped base type
+		// (e.g., chan f32 ^ i32 = f32, f64 ^ f64 = f64)
+		return baseType.Unwrap()
 	}
 	return types.Type{}
 }
 
 func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext]) types.Type {
 	if ctx.AST.UnaryExpression() != nil {
-		return InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression()))
+		// Unary operator (- or not) - unwrap channels in the operand
+		return InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
 	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return inferPostfixType(context.Child(ctx, postfix))
@@ -141,16 +186,40 @@ func InferFromUnaryExpression(ctx context.Context[parser.IUnaryExpressionContext
 
 func inferPostfixType(ctx context.Context[parser.IPostfixExpressionContext]) types.Type {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
-		// TODO: Handle function calls and indexing which might change the type
-		// See https://linear.app/synnax/issue/SY-3177/handle-function-calls-in-arc
-		return inferPrimaryType(context.Child(ctx, primary))
+		primaryType := inferPrimaryType(context.Child(ctx, primary))
+
+		// Handle function call suffixes - return the function's return type
+		funcCalls := ctx.AST.AllFunctionCallSuffix()
+		if len(funcCalls) > 0 && primaryType.Kind == types.KindFunction {
+			// Get the return type of the function
+			if len(primaryType.Outputs) > 0 {
+				return primaryType.Outputs[0].Type
+			}
+			// Function with no return type
+			return types.Type{}
+		}
+
+		// Handle index/slice operations - return the element type for series
+		indexOps := ctx.AST.AllIndexOrSlice()
+		if len(indexOps) > 0 && primaryType.Kind == types.KindSeries {
+			if primaryType.Elem != nil {
+				return *primaryType.Elem
+			}
+		}
+
+		return primaryType
 	}
 	return types.Type{}
 }
 
 func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) types.Type {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		if varScope, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil {
+		text := id.GetText()
+		// Handle boolean literals (parsed as identifiers in the grammar)
+		if text == "true" || text == "false" {
+			return types.U8()
+		}
+		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
 				return varScope.Type
 			}
@@ -173,80 +242,45 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 }
 
 func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
+	if numLit := ctx.AST.NumericLiteral(); numLit != nil {
+		return inferNumericLiteralType(ctx, numLit)
+	}
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		t := types.String()
 		ctx.TypeMap[ctx.AST] = t
 		return t
 	}
-	if text == "true" || text == "false" {
-		t := types.U8()
-		ctx.TypeMap[ctx.AST] = t
-		return t
-	}
-	// For numeric literals, create a type variable with appropriate constraint
-	// This allows the literal to adapt to the context
-	if isDecimalLiteral(text) {
-		// Float literal - create type variable with float constraint
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("lit_%d_%d", line, col)
-
-		constraint := types.FloatConstraint()
-		tv := types.Variable(tvName, &constraint)
-
-		// Record the type variable in the constraint system
-		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
-
-		// Store type variable in map (will be substituted later)
-		ctx.TypeMap[ctx.AST] = tv
-		return tv
-	}
-	if isIntegerLiteral(text) {
-		// Integer literal - create type variable with integer constraint
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("lit_%d_%d", line, col)
-
-		constraint := types.IntegerConstraint()
-		tv := types.Variable(tvName, &constraint)
-
-		// Record the type variable in the constraint system
-		ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
-
-		// Store type variable in map (will be substituted later)
-		ctx.TypeMap[ctx.AST] = tv
-		return tv
-	}
-	// Fallback for non-numeric literals
+	// Fallback for unknown literals
 	t := types.I64()
 	ctx.TypeMap[ctx.AST] = t
 	return t
 }
 
-func isIntegerLiteral(text string) bool {
-	if len(text) == 0 {
-		return false
-	}
-	// Not a decimal literal means it's an integer
-	return !isDecimalLiteral(text) && isNumericText(text)
-}
+func inferNumericLiteralType(
+	ctx context.Context[parser.ILiteralContext],
+	numLit parser.INumericLiteralContext,
+) types.Type {
+	// Determine constraint based on literal form (integer vs float)
+	// This applies to both plain numeric literals AND unit literals
+	var (
+		isFloat    = numLit.FLOAT_LITERAL() != nil
+		line       = ctx.AST.GetStart().GetLine()
+		col        = ctx.AST.GetStart().GetColumn()
+		tvName     = fmt.Sprintf("lit_%d_%d", line, col)
+		constraint = lo.Ternary(isFloat, types.FloatConstraint(), types.IntegerConstraint())
+		tv         = types.Variable(tvName, &constraint)
+	)
 
-func isNumericText(text string) bool {
-	if len(text) == 0 {
-		return false
-	}
-	for _, c := range text {
-		if c < '0' || c > '9' {
-			return false
+	// Check for unit suffix (e.g., 5psi, 3s, 100Hz)
+	if unitID := numLit.IDENTIFIER(); unitID != nil {
+		unitName := unitID.GetText()
+		if unit, ok := units.Resolve(unitName); ok {
+			tv.Unit = unit
 		}
 	}
-	return true
-}
 
-func isDecimalLiteral(text string) bool {
-	if len(text) == 0 {
-		return false
-	}
-	return strings.ContainsAny(text, ".eE")
+	ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
+	ctx.TypeMap[ctx.AST] = tv
+	return tv
 }

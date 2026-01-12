@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -55,8 +55,6 @@ TEST(TypesTest, testAllKindValues) {
         arc::types::Kind::F32,
         arc::types::Kind::F64,
         arc::types::Kind::String,
-        arc::types::Kind::TimeStamp,
-        arc::types::Kind::TimeSpan,
         arc::types::Kind::Chan,
         arc::types::Kind::Series,
     };
@@ -68,4 +66,24 @@ TEST(TypesTest, testAllKindValues) {
         arc::types::Type reconstructed(pb);
         ASSERT_EQ(reconstructed.kind, kind);
     }
+}
+
+/// @brief it should correctly round-trip a Type with unit through protobuf
+TEST(TypesTest, testTypeWithUnitProtobufRoundTrip) {
+    arc::types::Dimensions dims;
+    dims.time = 1;
+    arc::types::Unit unit(dims, 1.0, "ns");
+    arc::types::Type original(arc::types::Kind::I64, std::move(unit));
+
+    arc::v1::types::PBType pb;
+    original.to_proto(&pb);
+
+    arc::types::Type reconstructed(pb);
+
+    ASSERT_EQ(reconstructed.kind, arc::types::Kind::I64);
+    ASSERT_NE(reconstructed.unit, nullptr);
+    ASSERT_EQ(reconstructed.unit->name, "ns");
+    ASSERT_EQ(reconstructed.unit->scale, 1.0);
+    ASSERT_EQ(reconstructed.unit->dimensions.time, 1);
+    ASSERT_TRUE(reconstructed.is_timestamp());
 }

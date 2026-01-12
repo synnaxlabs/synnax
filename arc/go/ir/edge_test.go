@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,61 +20,49 @@ import (
 
 var _ = Describe("EdgeKind", func() {
 	Describe("Constants", func() {
-		It("Should have Continuous as zero value", func() {
-			var kind ir.EdgeKind
-			Expect(kind).To(Equal(ir.Continuous))
-		})
-
 		It("Should distinguish Continuous and OneShot", func() {
 			Expect(ir.Continuous).ToNot(Equal(ir.OneShot))
 		})
 
-		It("Should have Continuous = 0 and OneShot = 1", func() {
-			Expect(int(ir.Continuous)).To(Equal(0))
-			Expect(int(ir.OneShot)).To(Equal(1))
+		It("Should have Continuous = 1 and OneShot = 2 to match protobuf", func() {
+			Expect(int(ir.Continuous)).To(Equal(1))
+			Expect(int(ir.OneShot)).To(Equal(2))
 		})
 	})
 
 	Describe("JSON Serialization", func() {
-		It("Should marshal Continuous as 0", func() {
+		It("Should marshal Continuous as 1", func() {
 			edge := ir.Edge{
 				Source: ir.Handle{Node: "a", Param: "out"},
 				Target: ir.Handle{Node: "b", Param: "in"},
 				Kind:   ir.Continuous,
 			}
 			data := MustSucceed(json.Marshal(edge))
-			Expect(string(data)).To(ContainSubstring(`"kind":0`))
+			Expect(string(data)).To(ContainSubstring(`"kind":1`))
 		})
 
-		It("Should marshal OneShot as 1", func() {
+		It("Should marshal OneShot as 2", func() {
 			edge := ir.Edge{
 				Source: ir.Handle{Node: "a", Param: "out"},
 				Target: ir.Handle{Node: "b", Param: "in"},
 				Kind:   ir.OneShot,
 			}
 			data := MustSucceed(json.Marshal(edge))
-			Expect(string(data)).To(ContainSubstring(`"kind":1`))
+			Expect(string(data)).To(ContainSubstring(`"kind":2`))
 		})
 
 		It("Should unmarshal Continuous edge", func() {
-			data := []byte(`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"},"kind":0}`)
+			data := []byte(`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"},"kind":1}`)
 			var edge ir.Edge
 			Expect(json.Unmarshal(data, &edge)).To(Succeed())
 			Expect(edge.Kind).To(Equal(ir.Continuous))
 		})
 
 		It("Should unmarshal OneShot edge", func() {
-			data := []byte(`{"source":{"node":"cond","param":"output"},"target":{"node":"stage_entry","param":"activate"},"kind":1}`)
+			data := []byte(`{"source":{"node":"cond","param":"output"},"target":{"node":"stage_entry","param":"activate"},"kind":2}`)
 			var edge ir.Edge
 			Expect(json.Unmarshal(data, &edge)).To(Succeed())
 			Expect(edge.Kind).To(Equal(ir.OneShot))
-		})
-
-		It("Should default to Continuous when kind is omitted", func() {
-			data := []byte(`{"source":{"node":"a","param":"out"},"target":{"node":"b","param":"in"}}`)
-			var edge ir.Edge
-			Expect(json.Unmarshal(data, &edge)).To(Succeed())
-			Expect(edge.Kind).To(Equal(ir.Continuous))
 		})
 	})
 })

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -312,19 +312,6 @@ var _ = Describe("Telem", func() {
 				Expect(outputCount).To(Equal(0))
 			})
 		})
-
-		Describe("Lifecycle", func() {
-			It("Should initialize without error", func() {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
-					},
-					State: s.Node("source"),
-				}))
-				source.Init(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
-			})
-		})
 	})
 
 	Describe("Sink Node", func() {
@@ -441,18 +428,6 @@ var _ = Describe("Telem", func() {
 				fr2, changed := s.FlushWrites(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(fr2.Get(100).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
-			})
-		})
-		Describe("Lifecycle", func() {
-			It("Should initialize without error", func() {
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
-					},
-					State: s.Node("sink"),
-				}))
-				sink.Init(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
 			})
 		})
 	})

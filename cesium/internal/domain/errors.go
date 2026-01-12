@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 package domain
 
 import (
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -24,7 +24,7 @@ var (
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = core.NewErrResourceClosed("domain.db")
+	ErrDBClosed = resource.NewErrClosed("domain.db")
 )
 
 // NewErrRangeWriteConflict creates a new error returned when existing data in the

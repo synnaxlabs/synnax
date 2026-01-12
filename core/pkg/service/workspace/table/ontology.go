@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,8 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -41,23 +40,18 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 
 // OntologyIDsFromTables returns the ontology IDs of the tables.
 func OntologyIDsFromTables(tables []Table) []ontology.ID {
-	return lo.Map(tables, func(l Table, _ int) ontology.ID {
-		return OntologyID(l.Key)
-	})
+	return lo.Map(tables, func(t Table, _ int) ontology.ID { return OntologyID(t.Key) })
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.UUID(),
-	"name": zyn.String(),
-})
+var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(t Table) ontology.Resource {
-	return core.NewResource(schema, OntologyID(t.Key), t.Name, t)
+	return ontology.NewResource(schema, OntologyID(t.Key), t.Name, t)
 }
 
 var _ ontology.Service = (*Service)(nil)
 
-type change = changex.Change[uuid.UUID, Table]
+type change = xchange.Change[uuid.UUID, Table]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 
@@ -66,10 +60,15 @@ func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	k := uuid.MustParse(key)
+	k, err := uuid.Parse(key)
+	if err != nil {
+		return ontology.Resource{}, nil
+	}
 	var table Table
-	err := s.NewRetrieve().WhereKeys(k).Entry(&table).Exec(ctx, tx)
-	return newResource(table), err
+	if err = s.NewRetrieve().WhereKeys(k).Entry(&table).Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(table), nil
 }
 
 func translateChange(c change) ontology.Change {
@@ -91,5 +90,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Table](s.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

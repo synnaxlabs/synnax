@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,7 @@
 package types
 
 import (
+	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -21,7 +22,17 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 		return types.Type{}, nil
 	}
 	if primitive := ctx.PrimitiveType(); primitive != nil {
-		return inferPrimitiveType(primitive)
+		t, err := inferPrimitiveType(primitive)
+		if err != nil {
+			return types.Type{}, err
+		}
+		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
+			t, err = applyUnitSuffix(t, unitSuffix)
+			if err != nil {
+				return types.Type{}, err
+			}
+		}
+		return t, nil
 	}
 	if channel := ctx.ChannelType(); channel != nil {
 		return inferChannelType(channel)
@@ -30,6 +41,16 @@ func InferFromTypeContext(ctx parser.ITypeContext) (types.Type, error) {
 		return inferSeriesType(series)
 	}
 	return types.Type{}, errors.New("unknown type")
+}
+
+func applyUnitSuffix(t types.Type, ctx parser.IUnitSuffixContext) (types.Type, error) {
+	unitName := ctx.IDENTIFIER().GetText()
+	unit, ok := units.Resolve(unitName)
+	if !ok {
+		return types.Type{}, errors.Newf("unknown unit: %s", unitName)
+	}
+	t.Unit = unit
+	return t, nil
 }
 
 func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
@@ -49,22 +70,7 @@ func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
 	if float := ctx.FloatType(); float != nil {
 		return inferFloatType(float)
 	}
-	if temporal := ctx.TemporalType(); temporal != nil {
-		return inferTemporalType(temporal)
-	}
 	return types.Type{}, errors.New("unknown numeric type")
-}
-
-func inferTemporalType(ctx parser.ITemporalTypeContext) (types.Type, error) {
-	text := ctx.GetText()
-	switch text {
-	case "timestamp":
-		return types.TimeStamp(), nil
-	case "timespan":
-		return types.TimeSpan(), nil
-	default:
-		return types.Type{}, errors.New("unknown temporal type")
-	}
 }
 
 func inferIntegerType(ctx parser.IIntegerTypeContext) (types.Type, error) {
@@ -108,11 +114,20 @@ func inferChannelType(ctx parser.IChannelTypeContext) (types.Type, error) {
 	var err error
 	if primitive := ctx.PrimitiveType(); primitive != nil {
 		valueType, err = inferPrimitiveType(primitive)
+		if err != nil {
+			return types.Type{}, err
+		}
+		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
+			valueType, err = applyUnitSuffix(valueType, unitSuffix)
+			if err != nil {
+				return types.Type{}, err
+			}
+		}
 	} else if series := ctx.SeriesType(); series != nil {
 		valueType, err = inferSeriesType(series)
-	}
-	if err != nil {
-		return types.Type{}, err
+		if err != nil {
+			return types.Type{}, err
+		}
 	}
 	return types.Chan(valueType), nil
 }
@@ -123,30 +138,20 @@ func inferSeriesType(ctx parser.ISeriesTypeContext) (types.Type, error) {
 		if err != nil {
 			return types.Type{}, err
 		}
+		if unitSuffix := ctx.UnitSuffix(); unitSuffix != nil {
+			valueType, err = applyUnitSuffix(valueType, unitSuffix)
+			if err != nil {
+				return types.Type{}, err
+			}
+		}
 		return types.Series(valueType), nil
 	}
 	return types.Type{}, errors.New("series must have primitive type")
 }
 
-// Compatible returns true if t1 and t2 are structurally compatible after unwrapping
-// one level of channel or series wrapper. This is used during expression type inference
-// where channels are automatically read to access their value type.
-//
-// The function ensures that wrapper types are preserved - channels only match channels,
-// and series only match series. After unwrapping, the underlying types are compared
-// using structural equality.
-//
-// This function should NOT be used for:
-//   - Type variables (use the constraint system instead)
-//   - Strict type checking (use Check function)
-//
-// Examples:
-//
-//	chan<int> ~ chan<int>    -> true
-//	chan<int> ~ int          -> true (one is wrapped, one is not)
-//	series<f32> ~ series<f32> -> true
-//	chan<int> ~ series<int>  -> false (different wrapper types)
-//	f32 ~ f64                -> false (incompatible base types)
+// Compatible returns true if t1 and t2 have compatible base types after unwrapping
+// one level of channel or series wrapper. This checks type structure only, not units.
+// Unit compatibility is operation-specific and handled separately by units.ValidateBinaryOp.
 func Compatible(t1, t2 types.Type) bool {
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return false
@@ -167,7 +172,8 @@ func Compatible(t1, t2 types.Type) bool {
 
 	t1 = t1.Unwrap()
 	t2 = t2.Unwrap()
-	return types.Equal(t1, t2)
+	// Check base type kind only, not units (units handled by units.ValidateBinaryOp)
+	return t1.Kind == t2.Kind
 }
 
 // LiteralAssignmentCompatible returns true if a literal of literalType can be assigned

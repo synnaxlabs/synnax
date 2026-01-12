@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -149,7 +149,7 @@ class WriteTask final : public task::Task {
             return this->internal->read(breaker, fr);
         }
 
-        xerrors::Error write(const telem::Frame &frame) override {
+        xerrors::Error write(telem::Frame &frame) override {
             if (frame.empty()) return xerrors::NIL;
             auto err = this->internal->write(frame);
             if (!err)

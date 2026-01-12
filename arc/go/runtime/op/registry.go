@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -147,6 +147,18 @@ var (
 			telem.Uint32T:  op.DivideU32,
 			telem.Uint16T:  op.DivideU16,
 			telem.Uint8T:   op.DivideU8,
+		},
+		modSymbolName: {
+			telem.Float64T: op.ModuloF64,
+			telem.Float32T: op.ModuloF32,
+			telem.Int64T:   op.ModuloI64,
+			telem.Int32T:   op.ModuloI32,
+			telem.Int16T:   op.ModuloI16,
+			telem.Int8T:    op.ModuloI8,
+			telem.Uint64T:  op.ModuloU64,
+			telem.Uint32T:  op.ModuloU32,
+			telem.Uint16T:  op.ModuloU16,
+			telem.Uint8T:   op.ModuloU8,
 		},
 	}
 )

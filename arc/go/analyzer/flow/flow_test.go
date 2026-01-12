@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -227,17 +227,9 @@ var _ = Describe("Flow Statements", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			// Should have at least one type mismatch error
-			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
-			// Check that at least one error mentions type mismatch
-			hasTypeMismatch := false
-			for _, diag := range *ctx.Diagnostics {
-				if matched, _ := ContainSubstring("type mismatch").Match(diag.Message); matched {
-					hasTypeMismatch = true
-					break
-				}
-			}
-			Expect(hasTypeMismatch).To(BeTrue(), "Expected at least one type mismatch error")
+			// Should have at least one type mismatch error (stops at first error)
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
 		It("Should accept correct types for func config parameters", func() {
@@ -415,16 +407,8 @@ sensor_chan > threshold -> alarm{}
 
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			// Should have an error about undefined symbol 'threshold'
-			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
-			foundError := false
-			for _, diag := range *ctx.Diagnostics {
-				if matched, _ := ContainSubstring("undefined symbol: threshold").Match(diag.Message); matched {
-					foundError = true
-					break
-				}
-			}
-			Expect(foundError).To(BeTrue(), "Expected error about undefined symbol 'threshold'")
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: threshold"))
 		})
 	})
 
@@ -444,21 +428,17 @@ sensor_chan > threshold -> alarm{}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 
-			demuxSymbol, err := ctx.Scope.Resolve(ctx, "demux")
-			Expect(err).To(BeNil())
-			hasNamedOutputs := len(demuxSymbol.Type.Outputs) > 1 || (len(demuxSymbol.Type.Outputs) == 1 && func() bool {
-				_, exists := demuxSymbol.Type.Outputs.Get(ir.DefaultOutputParam)
-				return !exists
-			}())
+			demuxSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "demux"))
+			// Verify this has named outputs (not a default output)
+			_, hasDefaultOutput := demuxSymbol.Type.Outputs.Get(ir.DefaultOutputParam)
+			hasNamedOutputs := len(demuxSymbol.Type.Outputs) > 1 || (len(demuxSymbol.Type.Outputs) == 1 && !hasDefaultOutput)
 			Expect(hasNamedOutputs).To(BeTrue())
 			Expect(demuxSymbol.Type.Outputs).To(HaveLen(2))
 
-			highParam, exists := demuxSymbol.Type.Outputs.Get("high")
-			Expect(exists).To(BeTrue())
+			highParam := MustBeOk(demuxSymbol.Type.Outputs.Get("high"))
 			Expect(highParam.Type).To(Equal(types.F32()))
 
-			lowParam, exists := demuxSymbol.Type.Outputs.Get("low")
-			Expect(exists).To(BeTrue())
+			lowParam := MustBeOk(demuxSymbol.Type.Outputs.Get("low"))
 			Expect(lowParam.Type).To(Equal(types.F32()))
 		})
 
@@ -762,35 +742,78 @@ sensor_chan > threshold -> alarm{}
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("parameter mapping requires a func after the routing table"))
 		})
+
+		Context("Input routing tables", func() {
+			It("Should analyze input routing table mapping sources to parameters", func() {
+				ast := MustSucceed(parser.Parse(`
+				func combiner{} (a f64, b f64) f64 {
+					return a + b
+				}
+
+				{ sensor_chan: a, output_chan: b } -> combiner{}
+				`))
+				ctx := context.CreateRoot(bCtx, ast, resolver)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("Should detect when input routing table has invalid parameter name", func() {
+				ast := MustSucceed(parser.Parse(`
+				func combiner{} (a f64, b f64) f64 {
+					return a + b
+				}
+
+				{ sensor_chan: invalid_param } -> combiner{}
+				`))
+				ctx := context.CreateRoot(bCtx, ast, resolver)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have parameter 'invalid_param'"))
+			})
+
+			It("Should detect when input routing table is not followed by a func", func() {
+				ast := MustSucceed(parser.Parse(`
+				{ sensor_chan: a } -> output_chan
+				`))
+				ctx := context.CreateRoot(bCtx, ast, resolver)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("input routing table must precede a func invocation"))
+			})
+
+			It("Should detect when input routing entry does not end with identifier", func() {
+				ast := MustSucceed(parser.Parse(`
+				func combiner{} (a f64, b f64) f64 {
+					return a + b
+				}
+
+				func processor{} () f64 {
+					return 1.0
+				}
+
+				{ sensor_chan: processor{} } -> combiner{}
+				`))
+				ctx := context.CreateRoot(bCtx, ast, resolver)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("last element in input routing entry must be a parameter name"))
+			})
+		})
 	})
 
 	Describe("Literal Type Inference", func() {
-		It("Should infer integer literal as f32 when target channel is f32", func() {
-			literalResolver := symbol.MapResolver{
-				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
-			}
-			ast := MustSucceed(parser.Parse(`1 -> output`))
-			ctx := context.CreateRoot(bCtx, ast, literalResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should infer integer literal as i32 when target channel is i32", func() {
-			literalResolver := symbol.MapResolver{
-				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I32())},
-			}
-			ast := MustSucceed(parser.Parse(`1 -> output`))
-			ctx := context.CreateRoot(bCtx, ast, literalResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should infer float literal as f64 when target channel is f64", func() {
-			literalResolver := symbol.MapResolver{
-				"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
-			}
-			ast := MustSucceed(parser.Parse(`1.5 -> output`))
-			ctx := context.CreateRoot(bCtx, ast, literalResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
+		DescribeTable("Should infer literal types from target channel",
+			func(source string, chanType types.Type) {
+				literalResolver := symbol.MapResolver{
+					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(chanType)},
+				}
+				ast := MustSucceed(parser.Parse(source))
+				ctx := context.CreateRoot(bCtx, ast, literalResolver)
+				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			},
+			Entry("integer literal to f32 channel", `1 -> output`, types.F32()),
+			Entry("integer literal to i32 channel", `1 -> output`, types.I32()),
+			Entry("float literal to f64 channel", `1.5 -> output`, types.F64()),
+		)
 	})
 
 	Describe("Sequence Stages and Flow Operators", func() {

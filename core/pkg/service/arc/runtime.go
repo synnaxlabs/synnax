@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,10 +15,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -37,21 +36,21 @@ func (s *Service) handleChange(
 	for e := range reader {
 		a := e.Value
 		existing, found := s.mu.entries[e.Key]
-		isDelete := e.Variant == changex.Delete
+		isDelete := e.Variant == xchange.Delete
 		if found {
 			if err := existing.runtime.Close(); err != nil {
 				s.cfg.L.Error("arc shut down with error", zap.Error(err))
 			}
 			if !isDelete {
-				if err := status.NewWriter[core.StatusDetails](s.cfg.Status, nil).SetWithParent(
+				if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).SetWithParent(
 					ctx,
-					&status.Status[core.StatusDetails]{
+					&status.Status[StatusDetails]{
 						Name:    existing.arc.Name,
 						Key:     a.Key.String(),
-						Variant: xstatus.DisabledVariant,
+						Variant: xstatus.VariantDisabled,
 						Message: "Stopped",
 						Time:    telem.Now(),
-						Details: core.StatusDetails{Running: false},
+						Details: StatusDetails{Running: false},
 					},
 					OntologyID(a.Key),
 				); err != nil {
@@ -64,16 +63,16 @@ func (s *Service) handleChange(
 		}
 		mod, err := arc.CompileGraph(ctx, e.Value.Graph, arc.WithResolver(s.symbolResolver))
 		if err != nil {
-			if err := status.NewWriter[core.StatusDetails](s.cfg.Status, nil).SetWithParent(
+			if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).SetWithParent(
 				ctx,
-				&status.Status[core.StatusDetails]{
+				&status.Status[StatusDetails]{
 					Name:        fmt.Sprintf("%s Status", a.Name),
 					Key:         a.Key.String(),
-					Variant:     xstatus.ErrorVariant,
+					Variant:     xstatus.VariantError,
 					Message:     "Deployment Failed",
 					Description: err.Error(),
 					Time:        telem.Now(),
-					Details:     core.StatusDetails{Running: false},
+					Details:     StatusDetails{Running: false},
 				},
 				OntologyID(a.Key),
 			); err != nil {
@@ -86,16 +85,16 @@ func (s *Service) handleChange(
 		baseCfg.Name = a.Name
 		r, err := runtime.Open(ctx, baseCfg)
 		if err != nil {
-			if err := status.NewWriter[core.StatusDetails](s.cfg.Status, nil).SetWithParent(
+			if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).SetWithParent(
 				ctx,
-				&status.Status[core.StatusDetails]{
+				&status.Status[StatusDetails]{
 					Name:        fmt.Sprintf("%s Status", a.Name),
 					Key:         a.Key.String(),
 					Message:     "Deployment Failed",
-					Variant:     xstatus.ErrorVariant,
+					Variant:     xstatus.VariantError,
 					Description: err.Error(),
 					Time:        telem.Now(),
-					Details:     core.StatusDetails{Running: false},
+					Details:     StatusDetails{Running: false},
 				},
 				OntologyID(a.Key),
 			); err != nil {
@@ -104,15 +103,15 @@ func (s *Service) handleChange(
 			continue
 		}
 		s.mu.entries[e.Key] = &entry{runtime: r, arc: a}
-		if err := status.NewWriter[core.StatusDetails](s.cfg.Status, nil).SetWithParent(
+		if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).SetWithParent(
 			ctx,
-			&status.Status[core.StatusDetails]{
+			&status.Status[StatusDetails]{
 				Name:    fmt.Sprintf("%s Status", a.Name),
 				Key:     a.Key.String(),
 				Message: "Deployment Successful",
-				Variant: xstatus.SuccessVariant,
+				Variant: xstatus.VariantSuccess,
 				Time:    telem.Now(),
-				Details: core.StatusDetails{Running: true},
+				Details: StatusDetails{Running: true},
 			},
 			OntologyID(a.Key),
 		); err != nil {

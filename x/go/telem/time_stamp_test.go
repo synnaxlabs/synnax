@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -148,6 +148,29 @@ var _ = Describe("TimeStamp", func() {
 			err := json.Unmarshal([]byte("1000000000"), &ts)
 			Expect(err).To(BeNil())
 			Expect(ts).To(Equal(telem.TimeStamp(telem.Second)))
+		})
+	})
+
+	Describe("Since", func() {
+		It("Should return a positive TimeSpan for a timestamp in the past", func() {
+			past := telem.Now().Sub(telem.Second)
+			elapsed := telem.Since(past)
+			Expect(elapsed).To(BeNumerically(">=", telem.Second))
+			Expect(elapsed).To(BeNumerically("<", 2*telem.Second))
+		})
+
+		It("Should return approximately zero for a timestamp equal to now", func() {
+			now := telem.Now()
+			elapsed := telem.Since(now)
+			Expect(elapsed).To(BeNumerically(">=", 0))
+			Expect(elapsed).To(BeNumerically("<", telem.Millisecond))
+		})
+
+		It("Should return a negative TimeSpan for a timestamp in the future", func() {
+			future := telem.Now().Add(telem.Second)
+			elapsed := telem.Since(future)
+			Expect(elapsed).To(BeNumerically("<", 0))
+			Expect(elapsed).To(BeNumerically(">", -2*telem.Second))
 		})
 	})
 })

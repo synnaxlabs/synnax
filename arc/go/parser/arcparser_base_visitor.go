@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,7 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 type BaseArcParserVisitor struct {
@@ -172,6 +173,10 @@ func (v *BaseArcParserVisitor) VisitType(ctx *TypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitUnitSuffix(ctx *UnitSuffixContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitPrimitiveType(ctx *PrimitiveTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -185,10 +190,6 @@ func (v *BaseArcParserVisitor) VisitIntegerType(ctx *IntegerTypeContext) interfa
 }
 
 func (v *BaseArcParserVisitor) VisitFloatType(ctx *FloatTypeContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitTemporalType(ctx *TemporalTypeContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -261,10 +262,6 @@ func (v *BaseArcParserVisitor) VisitLiteral(ctx *LiteralContext) interface{} {
 }
 
 func (v *BaseArcParserVisitor) VisitNumericLiteral(ctx *NumericLiteralContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitTemporalLiteral(ctx *TemporalLiteralContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

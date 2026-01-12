@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,113 +25,89 @@ var resolver = symbol.MapResolver{
 		Name: "interval",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "duration", Type: types.TimeSpan()},
-			},
-			Outputs: types.Params{
-				{Name: "output", Type: types.U8()},
-			},
+			Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
+			Outputs: types.Params{{Name: "output", Type: types.U8()}},
 		}),
 	},
 	"wait": symbol.Symbol{
 		Name: "wait",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "duration", Type: types.TimeSpan()},
-			},
-			Outputs: types.Params{
-				{Name: "output", Type: types.U8()},
-			},
+			Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
+			Outputs: types.Params{{Name: "output", Type: types.U8()}},
 		}),
 	},
 	"log": symbol.Symbol{
 		Name: "log",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "message", Type: types.String()},
-			},
+			Config: types.Params{{Name: "message", Type: types.String()}},
 		}),
 	},
 	"control": symbol.Symbol{
 		Name: "control",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "target", Type: types.F64()},
-			},
+			Config: types.Params{{Name: "target", Type: types.F64()}},
 		}),
 	},
-	"start_cmd": symbol.Symbol{
-		Name: "start_cmd",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
-	},
-	"abort_btn": symbol.Symbol{
-		Name: "abort_btn",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.U8()),
-	},
-	"pressure": symbol.Symbol{
-		Name: "pressure",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.F64()),
-	},
-	"valve_cmd": symbol.Symbol{
-		Name: "valve_cmd",
-		Kind: symbol.KindChannel,
-		Type: types.Chan(types.F64()),
-	},
+	"start_cmd": symbol.Symbol{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+	"abort_btn": symbol.Symbol{Name: "abort_btn", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+	"pressure":  symbol.Symbol{Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+	"valve_cmd": symbol.Symbol{Name: "valve_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.F64())},
+}
+
+// analyzeAndExpectSuccess parses the source, analyzes it, and expects success.
+func analyzeAndExpectSuccess(source string) {
+	ast := MustSucceed(parser.Parse(source))
+	ctx := context.CreateRoot(bCtx, ast, resolver)
+	Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+}
+
+// analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the error message.
+func analyzeAndExpectError(source string) string {
+	ast := MustSucceed(parser.Parse(source))
+	ctx := context.CreateRoot(bCtx, ast, resolver)
+	Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+	Expect(*ctx.Diagnostics).To(HaveLen(1))
+	return (*ctx.Diagnostics)[0].Message
 }
 
 var _ = Describe("Sequence Analyzer", func() {
-	Describe("Simple Sequences", func() {
-		It("Should analyze a simple sequence with one stage", func() {
-			ast := MustSucceed(parser.Parse(`
-				sequence main {
-					stage start {
-					}
+	DescribeTable("Valid Sequences",
+		analyzeAndExpectSuccess,
+		Entry("single stage sequence", `
+			sequence main {
+				stage start {
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should analyze a sequence with multiple stages", func() {
-			ast := MustSucceed(parser.Parse(`
-				sequence main {
-					stage step1 {
-					}
-					stage step2 {
-					}
-					stage step3 {
-					}
+			}
+		`),
+		Entry("multiple stages in sequence", `
+			sequence main {
+				stage step1 {
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should analyze multiple sequences", func() {
-			ast := MustSucceed(parser.Parse(`
-				sequence main {
-					stage start {
-					}
+				stage step2 {
 				}
-				sequence abort {
-					stage safed {
-					}
+				stage step3 {
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-	})
+			}
+		`),
+		Entry("multiple sequences", `
+			sequence main {
+				stage start {
+				}
+			}
+			sequence abort {
+				stage safed {
+				}
+			}
+		`),
+	)
 
 	Describe("Transitions", func() {
-		It("Should validate next transitions", func() {
-			ast := MustSucceed(parser.Parse(`
+		DescribeTable("Valid Transitions",
+			analyzeAndExpectSuccess,
+			Entry("next transition", `
 				sequence main {
 					stage step1 {
 						1 => next
@@ -139,13 +115,8 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage step2 {
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should validate stage name transitions", func() {
-			ast := MustSucceed(parser.Parse(`
+			`),
+			Entry("named stage transitions", `
 				sequence main {
 					stage step1 {
 						1 => step2
@@ -154,27 +125,8 @@ var _ = Describe("Sequence Analyzer", func() {
 						1 => step1
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should error on unknown stage name", func() {
-			ast := MustSucceed(parser.Parse(`
-				sequence main {
-					stage step1 {
-						1 => unknown_stage
-					}
-				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknown_stage"))
-		})
-
-		It("Should validate cross-sequence transitions", func() {
-			ast := MustSucceed(parser.Parse(`
+			`),
+			Entry("cross-sequence transitions", `
 				sequence main {
 					stage step1 {
 						1 => abort
@@ -184,29 +136,38 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage safed {
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-		})
+			`),
+		)
 
-		It("Should error on unknown sequence name", func() {
-			ast := MustSucceed(parser.Parse(`
+		DescribeTable("Invalid Transitions",
+			func(source, expectedError string) {
+				msg := analyzeAndExpectError(source)
+				Expect(msg).To(Equal(expectedError))
+			},
+			Entry("unknown stage name", `
+				sequence main {
+					stage step1 {
+						1 => unknown_stage
+					}
+				}
+			`, "undefined symbol: unknown_stage"),
+			Entry("unknown sequence name", `
 				sequence main {
 					stage step1 {
 						1 => unknown_sequence
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknown_sequence"))
-		})
+			`, "undefined symbol: unknown_sequence"),
+		)
 	})
 
 	Describe("Name Collisions", func() {
-		It("Should error when stage name conflicts with sequence name", func() {
-			ast := MustSucceed(parser.Parse(`
+		DescribeTable("Should detect name conflicts",
+			func(source, expectedError string) {
+				msg := analyzeAndExpectError(source)
+				Expect(msg).To(ContainSubstring(expectedError))
+			},
+			Entry("stage name conflicts with sequence name", `
 				sequence main {
 					stage abort {
 					}
@@ -215,15 +176,8 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage safed {
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
-		})
-
-		It("Should error on duplicate sequence names", func() {
-			ast := MustSucceed(parser.Parse(`
+			`, "conflicts with existing symbol"),
+			Entry("duplicate sequence names", `
 				sequence main {
 					stage step1 {
 					}
@@ -232,50 +186,34 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage step1 {
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
-		})
-
-		It("Should error on duplicate stage names within a sequence", func() {
-			ast := MustSucceed(parser.Parse(`
+			`, "conflicts with existing symbol"),
+			Entry("duplicate stage names within sequence", `
 				sequence main {
 					stage step1 {
 					}
 					stage step1 {
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
-		})
+			`, "conflicts with existing symbol"),
+		)
 	})
 
 	Describe("Top-Level Transitions", func() {
 		It("Should validate top-level entry points", func() {
-			ast := MustSucceed(parser.Parse(`
+			analyzeAndExpectSuccess(`
 				start_cmd => main
 				sequence main {
 					stage step1 {
 					}
 				}
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			`)
 		})
 
 		It("Should error when target sequence doesn't exist", func() {
-			ast := MustSucceed(parser.Parse(`
+			msg := analyzeAndExpectError(`
 				start_cmd => unknown_sequence
-			`))
-			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknown_sequence"))
+			`)
+			Expect(msg).To(Equal("undefined symbol: unknown_sequence"))
 		})
 	})
 })

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -42,8 +42,6 @@ var (
 )
 
 type selectNode struct{ *state.Node }
-
-func (s *selectNode) Init(ctx node.Context) {}
 
 func (s *selectNode) Next(ctx node.Context) {
 	if !s.RefreshInputs() {

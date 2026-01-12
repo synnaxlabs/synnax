@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -54,11 +54,8 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 	if expr := ctx.AST.Expression(); expr != nil {
 		return analyzeExpression(context.Child(ctx, expr))
 	}
-	if ctx.AST.NEXT() != nil {
-		// NEXT is always valid - it will be resolved during sequence analysis
-		return true
-	}
-	ctx.Diagnostics.AddError(errors.New("invalid flow source"), ctx.AST)
+	// NEXT is always valid - it will be resolved during sequence analysis.
+	// The grammar guarantees flowNode is one of: identifier | function | expression | NEXT
 	return true
 }
 
@@ -210,7 +207,7 @@ func analyzeIdentifier(ctx context.Context[parser.IIdentifierContext], prevNode 
 		if prevExpr := prevNode.Expression(); prevExpr != nil {
 			exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))
 			chanValueType := sym.Type.Unwrap()
-			if err := atypes.Check(
+			if err = atypes.Check(
 				ctx.Constraints,
 				exprType,
 				chanValueType,

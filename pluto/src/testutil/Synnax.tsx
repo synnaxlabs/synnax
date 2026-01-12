@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,7 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
+import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { Pluto } from "@/pluto";
@@ -17,9 +18,8 @@ import { status } from "@/status/aether";
 import { Status } from "@/status/core";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
-import { createAetherProvider } from "@/testutil/Aether";
 
-const AetherProvider = createAetherProvider({
+const AetherProvider = aetherTest.createProvider({
   ...synnax.REGISTRY,
   ...status.REGISTRY,
   ...flux.createRegistry({ storeConfig: {} }),

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -203,10 +203,10 @@ protected:
         auto server_cfg = mock::ServerConfig::create_default();
 
         ctx = std::make_shared<task::MockContext>(client);
-        auto reads = std::make_shared<std::vector<telem::Frame>>();
+        auto reads = std::make_shared<std::vector<::telem::Frame>>();
 
         // Create test frames with different data types
-        auto fr = telem::Frame(10);
+        auto fr = ::telem::Frame(10);
 
         // Create Series with single values using the value constructor
         fr.emplace(
@@ -357,7 +357,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->start());
 
     // First write should succeed
-    auto fr1 = telem::Frame(1);
+    auto fr1 = ::telem::Frame(1);
     fr1.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(11111), telem::UINT32_T)
@@ -369,7 +369,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Write while server is down - should fail
-    auto fr2 = telem::Frame(1);
+    auto fr2 = ::telem::Frame(1);
     fr2.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(22222), telem::UINT32_T)
@@ -386,7 +386,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     UA_Client_disconnect(test_client.get());
 
     // Write after server restart - should trigger reconnect and succeed
-    auto fr3 = telem::Frame(1);
+    auto fr3 = ::telem::Frame(1);
     fr3.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(33333), telem::UINT32_T)
@@ -412,7 +412,7 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
 
     // Perform multiple writes with different values
     for (int i = 0; i < 5; i++) {
-        auto fr = telem::Frame(1);
+        auto fr = ::telem::Frame(1);
         fr.emplace(
             this->uint32_cmd_channel.key,
             telem::Series(static_cast<uint32_t>(i * 1000), telem::UINT32_T)
@@ -429,6 +429,71 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
         opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
     EXPECT_EQ(result.at<uint32_t>(0), 4000);
+
+    ASSERT_NIL(sink->stop());
+}
+
+TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto invalid_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("invalid_node_cmd"),
+        telem::UINT32_T,
+        true
+    ));
+
+    auto rack = ASSERT_NIL_P(client->racks.create("invalid_node_test_rack"));
+
+    opc::connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
+    conn_cfg.security_mode = "None";
+    conn_cfg.security_policy = "None";
+
+    synnax::Device dev(
+        "invalid_node_dev",
+        "invalid_node_device",
+        rack.key,
+        "dev_invalid",
+        "ni",
+        "PXI-6255",
+        nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
+    );
+    ASSERT_NIL(client->devices.create(dev));
+
+    // Create config with an invalid node ID that doesn't exist on the server
+    json task_cfg = {
+        {"data_saving", true},
+        {"device", dev.key},
+        {"channels",
+         json::array(
+             {{{"node_id", "NS=99;I=99999"},
+               {"cmd_channel", invalid_cmd_channel.key},
+               {"enabled", true}}}
+         )}
+    };
+
+    auto p = xjson::Parser(task_cfg);
+    auto invalid_cfg = opc::WriteTaskConfig(client, p);
+    ASSERT_FALSE(p.error()) << p.error().message();
+
+    auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(invalid_cfg));
+    ASSERT_NIL(sink->start());
+
+    // Attempt to write to the invalid node
+    auto fr = telem::Frame(1);
+    fr.emplace(
+        invalid_cmd_channel.key,
+        telem::Series(static_cast<uint32_t>(12345), telem::UINT32_T)
+    );
+
+    auto err = sink->write(fr);
+    ASSERT_TRUE(err) << "Expected error for invalid node ID";
+
+    const std::string err_msg = err.data;
+    EXPECT_TRUE(err_msg.find(invalid_cmd_channel.name) != std::string::npos)
+        << "Error message should contain channel name. Got: " << err_msg;
+    EXPECT_TRUE(err_msg.find("NS=99;I=99999") != std::string::npos)
+        << "Error message should contain node ID. Got: " << err_msg;
 
     ASSERT_NIL(sink->stop());
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -64,7 +64,14 @@ const ChannelListItem = <C extends Channel>({
         gap="small"
         className={CSS.BE("channel-name", "container")}
       >
-        <ChannelName weight={500} color={10} level="p" channel={channel} id={id} />
+        <ChannelName
+          weight={500}
+          color={10}
+          level="p"
+          channel={channel}
+          id={id}
+          namePath={`${path}.name`}
+        />
         <Flex.Box x align="center" gap="tiny">
           <Icon.Variable color={7} />
           <Text.Text

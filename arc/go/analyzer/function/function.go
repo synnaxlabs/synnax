@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,8 +25,6 @@
 package function
 
 import (
-	"context"
-
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -39,18 +37,36 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// CollectDeclarations registers all function declarations in the symbol table.
-// This is called during the first pass of AnalyzeProgram to establish scopes before
+// CollectDeclarations registers all function declarations in the symbol table,
+// including their full signatures (config, inputs, outputs). This is called during
+// the first pass of AnalyzeProgram to establish scopes and signatures before
 // analyzing function bodies that may reference other functions.
 func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
+
+			// Collect signature (config, inputs, outputs) without adding params to scope
+			var config, inputs, outputs types.Params
+			if !collectConfig(ctx, fn.ConfigBlock(), &config) {
+				return false
+			}
+			if !collectInputs(acontext.Child(ctx, fn.InputList()), &inputs) {
+				return false
+			}
+			if !collectOutputs(ctx, fn.OutputType(), &outputs) {
+				return false
+			}
+
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: name,
 				Kind: symbol.KindFunction,
-				Type: types.Function(types.FunctionProperties{}),
-				AST:  fn,
+				Type: types.Function(types.FunctionProperties{
+					Config:  config,
+					Inputs:  inputs,
+					Outputs: outputs,
+				}),
+				AST: fn,
 			}); err != nil {
 				ctx.Diagnostics.AddError(err, fn)
 				return false
@@ -60,8 +76,118 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) bool {
 	return true
 }
 
+// collectConfig extracts config parameter types without adding them to scope.
+func collectConfig[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	configBlock parser.IConfigBlockContext,
+	config *types.Params,
+) bool {
+	if configBlock == nil {
+		return true
+	}
+	for _, cfg := range configBlock.AllConfig() {
+		configName := cfg.IDENTIFIER().GetText()
+		var configType types.Type
+		if typeCtx := cfg.Type_(); typeCtx != nil {
+			configType, _ = atypes.InferFromTypeContext(typeCtx)
+		}
+		*config = append(*config, types.Param{Name: configName, Type: configType})
+	}
+	return true
+}
+
+// collectInputs extracts input parameter types without adding them to scope.
+func collectInputs(
+	ctx acontext.Context[parser.IInputListContext],
+	inputs *types.Params,
+) bool {
+	if ctx.AST == nil {
+		return true
+	}
+	seenOptional := false
+	for _, input := range ctx.AST.AllInput() {
+		var inputType types.Type
+		if typeCtx := input.Type_(); typeCtx != nil {
+			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+		}
+		inputName := input.IDENTIFIER().GetText()
+
+		var defaultValue any
+		if lit := input.Literal(); lit != nil {
+			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
+			if err != nil {
+				ctx.Diagnostics.AddError(errors.Wrapf(
+					err,
+					"invalid default value for parameter %s",
+					inputName,
+				), lit)
+				return false
+			}
+			defaultValue = value.Value
+			seenOptional = true
+		} else if seenOptional {
+			ctx.Diagnostics.AddError(
+				errors.Newf(
+					"required parameter %s cannot follow optional parameters",
+					inputName,
+				),
+				input,
+			)
+			return false
+		}
+
+		*inputs = append(*inputs, types.Param{
+			Name:  inputName,
+			Type:  inputType,
+			Value: defaultValue,
+		})
+	}
+	return true
+}
+
+// collectOutputs extracts output types without adding them to scope.
+func collectOutputs[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	outputType parser.IOutputTypeContext,
+	outputs *types.Params,
+) bool {
+	if outputType == nil {
+		return true
+	}
+
+	// Case 1: Single named output without parens (e.g., "result f64")
+	if identifier := outputType.IDENTIFIER(); identifier != nil && outputType.Type_() != nil {
+		outputName := identifier.GetText()
+		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
+		return true
+	}
+
+	// Case 2: Unnamed single output (e.g., "f64")
+	if typeCtx := outputType.Type_(); typeCtx != nil {
+		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
+		*outputs = append(*outputs, types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal})
+		return true
+	}
+
+	// Case 3: Multiple or parenthesized outputs (e.g., "(result f64)" or "(a f64, b f64)")
+	if multiOutputBlock := outputType.MultiOutputBlock(); multiOutputBlock != nil {
+		for _, namedOutput := range multiOutputBlock.AllNamedOutput() {
+			outputName := namedOutput.IDENTIFIER().GetText()
+			var outputTypeVal types.Type
+			if typeCtx := namedOutput.Type_(); typeCtx != nil {
+				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
+			}
+			*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
+		}
+	}
+	return true
+}
+
 // Analyze performs semantic analysis on a function declaration.
 // This is called during the second pass after all declarations have been collected.
+// The function signature (config, inputs, outputs) is already populated by CollectDeclarations;
+// this function adds the parameters to the function's scope and analyzes the body.
 func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 	name := ctx.AST.IDENTIFIER().GetText()
 	fn, err := ctx.Scope.Resolve(ctx, name)
@@ -69,26 +195,21 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 		ctx.Diagnostics.AddError(err, ctx.AST)
 		return false
 	}
-	if !analyzeConfig(ctx, ctx.AST.ConfigBlock(), fn, &fn.Type.Config) {
+
+	// Add config, inputs, and outputs to the function's scope
+	// (types are already populated by CollectDeclarations)
+	if !addConfigToScope(ctx, ctx.AST.ConfigBlock(), fn) {
 		return false
 	}
-	if !analyzeInputs(
-		acontext.Child(ctx, ctx.AST.InputList()).WithScope(fn),
-		&fn.Type.Inputs,
-	) {
+	if !addInputsToScope(acontext.Child(ctx, ctx.AST.InputList()).WithScope(fn)) {
 		return false
 	}
-	if !analyzeOutputs(ctx, ctx.AST.OutputType(), fn, &fn.Type.Outputs) {
+	if !addOutputsToScope(ctx, ctx.AST.OutputType(), fn) {
 		return false
 	}
+
 	if block := ctx.AST.Block(); block != nil {
-		fn.Channels = symbol.NewChannels()
-		fn.OnResolve = func(ctx context.Context, s *symbol.Scope) error {
-			if s.Kind == symbol.KindChannel || s.Type.Kind == types.KindChan {
-				fn.Channels.Read[uint32(s.ID)] = s.Name
-			}
-			return nil
-		}
+		fn.AccumulateReadChannels()
 		if !statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn)) {
 			return false
 		}
@@ -114,11 +235,12 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) bool {
 	return true
 }
 
-func analyzeOutputs[T antlr.ParserRuleContext](
+// addOutputsToScope adds named output parameters to the function's scope.
+// The output types are already collected in fn.Type.Outputs by CollectDeclarations.
+func addOutputsToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	outputType parser.IOutputTypeContext,
 	scope *symbol.Scope,
-	outputs *types.Params,
 ) bool {
 	if outputType == nil {
 		return true
@@ -128,7 +250,6 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 	if identifier := outputType.IDENTIFIER(); identifier != nil && outputType.Type_() != nil {
 		outputName := identifier.GetText()
 		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
-		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
 		if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: outputType}); err != nil {
 			ctx.Diagnostics.AddError(err, outputType)
 			return false
@@ -136,10 +257,8 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 		return true
 	}
 
-	// Case 2: Unnamed single output (e.g., "f64")
+	// Case 2: Unnamed single output (e.g., "f64") - nothing to add to scope
 	if typeCtx := outputType.Type_(); typeCtx != nil {
-		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
-		*outputs = append(*outputs, types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal})
 		return true
 	}
 
@@ -151,7 +270,6 @@ func analyzeOutputs[T antlr.ParserRuleContext](
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
 				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
 			}
-			*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
 			if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: namedOutput}); err != nil {
 				ctx.Diagnostics.AddError(err, namedOutput)
 				return false
@@ -191,16 +309,15 @@ func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName s
 	return false
 }
 
-func analyzeInputs(
+// addInputsToScope adds input parameters to the function's scope.
+// The input types are already collected in fn.Type.Inputs by CollectDeclarations.
+func addInputsToScope(
 	ctx acontext.Context[parser.IInputListContext],
-	inputTypes *types.Params,
 ) bool {
 	if ctx.AST == nil {
 		return true
 	}
 
-	// Track whether we've seen an optional parameter for trailing-only validation
-	seenOptional := false
 	for _, input := range ctx.AST.AllInput() {
 		var inputType types.Type
 		if typeCtx := input.Type_(); typeCtx != nil {
@@ -208,36 +325,16 @@ func analyzeInputs(
 		}
 		inputName := input.IDENTIFIER().GetText()
 
-		// Parse default value if present
 		var defaultValue any
 		if lit := input.Literal(); lit != nil {
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.AddError(errors.Wrapf(
-					err,
-					"invalid default value for parameter %s",
-					inputName,
-				), lit)
+				// This error was already reported in collectInputs
 				return false
 			}
 			defaultValue = value.Value
-			seenOptional = true
-		} else if seenOptional {
-			ctx.Diagnostics.AddError(
-				errors.Newf(
-					"required parameter %s cannot follow optional parameters",
-					inputName,
-				),
-				input,
-			)
-			return false
 		}
 
-		*inputTypes = append(*inputTypes, types.Param{
-			Name:  inputName,
-			Type:  inputType,
-			Value: defaultValue,
-		})
 		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 			Name:         inputName,
 			Kind:         symbol.KindInput,
@@ -280,11 +377,12 @@ func ifStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 	return blockAlwaysReturns(ifStmt.ElseClause().Block())
 }
 
-func analyzeConfig[T antlr.ParserRuleContext](
+// addConfigToScope adds config parameters to the function's scope.
+// The config types are already collected in fn.Type.Config by CollectDeclarations.
+func addConfigToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	configBlock parser.IConfigBlockContext,
 	scope *symbol.Scope,
-	config *types.Params,
 ) bool {
 	if configBlock == nil {
 		return true
@@ -295,7 +393,6 @@ func analyzeConfig[T antlr.ParserRuleContext](
 		if typeCtx := cfg.Type_(); typeCtx != nil {
 			configType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
-		*config = append(*config, types.Param{Name: configName, Type: configType})
 		if _, err := scope.Add(ctx, symbol.Symbol{
 			Name: configName,
 			Kind: symbol.KindConfig,

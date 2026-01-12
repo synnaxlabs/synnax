@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -209,7 +209,7 @@ public:
     WriteTaskSink(const std::shared_ptr<device::Device> &dev, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()), config(std::move(cfg)), dev(dev) {}
 
-    xerrors::Error write(const telem::Frame &frame) override {
+    xerrors::Error write(telem::Frame &frame) override {
         for (const auto &writer: config.writers)
             if (auto err = writer->write(dev, frame)) return err;
         return xerrors::NIL;

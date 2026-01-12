@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -141,4 +141,21 @@ func (e *errorListener) SyntaxError(
 		Column:   column,
 		Message:  msg,
 	})
+}
+
+// TokensAdjacent returns true if two tokens are adjacent with no whitespace between them.
+// This is used by the numericLiteral grammar rule to determine if an IDENTIFIER
+// immediately follows a numeric literal (making it a unit suffix like "300ms")
+// versus being separated by whitespace (making them separate tokens).
+//
+// The check uses character positions: if prev token ends at position X,
+// and next token starts at position X+1, they are adjacent.
+func (p *ArcParser) TokensAdjacent(prev, next antlr.Token) bool {
+	if prev == nil || next == nil {
+		return false
+	}
+	// GetStop() returns the last character index of the token (inclusive)
+	// GetStart() returns the first character index of the token
+	// Adjacent means next starts exactly where prev ends + 1
+	return prev.GetStop()+1 == next.GetStart()
 }

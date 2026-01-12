@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -123,6 +123,28 @@ func (d *Diagnostics) AddHint(
 		diag.Column = ctx.GetStart().GetColumn()
 	}
 	*d = append(*d, diag)
+}
+
+// Errors returns only error-level diagnostics.
+func (d Diagnostics) Errors() []Diagnostic {
+	var errors []Diagnostic
+	for _, diag := range d {
+		if diag.Severity == Error {
+			errors = append(errors, diag)
+		}
+	}
+	return errors
+}
+
+// Warnings returns only warning-level diagnostics.
+func (d Diagnostics) Warnings() []Diagnostic {
+	var warnings []Diagnostic
+	for _, diag := range d {
+		if diag.Severity == Warning {
+			warnings = append(warnings, diag)
+		}
+	}
+	return warnings
 }
 
 // String formats all diagnostics as a human-readable string with line:column severity: message format.

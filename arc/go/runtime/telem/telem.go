@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -91,18 +91,6 @@ func (s *source) Next(ctx node.Context) {
 type sink struct {
 	*state.Node
 	key uint32
-}
-
-func (s *sink) Init(node.Context) {
-	if !s.RefreshInputs() {
-		return
-	}
-	data := s.Input(0)
-	time := s.InputTime(0)
-	if data.Len() == 0 {
-		return
-	}
-	s.WriteChan(s.key, data, time)
 }
 
 func (s *sink) Next(node.Context) {

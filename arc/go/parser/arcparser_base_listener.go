@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,6 +10,7 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
+
 import "github.com/antlr4-go/antlr/v4"
 
 // BaseArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -227,6 +228,12 @@ func (s *BaseArcParserListener) EnterAssignment(ctx *AssignmentContext) {}
 // ExitAssignment is called when production assignment is exited.
 func (s *BaseArcParserListener) ExitAssignment(ctx *AssignmentContext) {}
 
+// EnterCompoundOp is called when production compoundOp is entered.
+func (s *BaseArcParserListener) EnterCompoundOp(ctx *CompoundOpContext) {}
+
+// ExitCompoundOp is called when production compoundOp is exited.
+func (s *BaseArcParserListener) ExitCompoundOp(ctx *CompoundOpContext) {}
+
 // EnterIfStatement is called when production ifStatement is entered.
 func (s *BaseArcParserListener) EnterIfStatement(ctx *IfStatementContext) {}
 
@@ -263,6 +270,12 @@ func (s *BaseArcParserListener) EnterType(ctx *TypeContext) {}
 // ExitType is called when production type is exited.
 func (s *BaseArcParserListener) ExitType(ctx *TypeContext) {}
 
+// EnterUnitSuffix is called when production unitSuffix is entered.
+func (s *BaseArcParserListener) EnterUnitSuffix(ctx *UnitSuffixContext) {}
+
+// ExitUnitSuffix is called when production unitSuffix is exited.
+func (s *BaseArcParserListener) ExitUnitSuffix(ctx *UnitSuffixContext) {}
+
 // EnterPrimitiveType is called when production primitiveType is entered.
 func (s *BaseArcParserListener) EnterPrimitiveType(ctx *PrimitiveTypeContext) {}
 
@@ -286,12 +299,6 @@ func (s *BaseArcParserListener) EnterFloatType(ctx *FloatTypeContext) {}
 
 // ExitFloatType is called when production floatType is exited.
 func (s *BaseArcParserListener) ExitFloatType(ctx *FloatTypeContext) {}
-
-// EnterTemporalType is called when production temporalType is entered.
-func (s *BaseArcParserListener) EnterTemporalType(ctx *TemporalTypeContext) {}
-
-// ExitTemporalType is called when production temporalType is exited.
-func (s *BaseArcParserListener) ExitTemporalType(ctx *TemporalTypeContext) {}
 
 // EnterChannelType is called when production channelType is entered.
 func (s *BaseArcParserListener) EnterChannelType(ctx *ChannelTypeContext) {}
@@ -400,12 +407,6 @@ func (s *BaseArcParserListener) EnterNumericLiteral(ctx *NumericLiteralContext) 
 
 // ExitNumericLiteral is called when production numericLiteral is exited.
 func (s *BaseArcParserListener) ExitNumericLiteral(ctx *NumericLiteralContext) {}
-
-// EnterTemporalLiteral is called when production temporalLiteral is entered.
-func (s *BaseArcParserListener) EnterTemporalLiteral(ctx *TemporalLiteralContext) {}
-
-// ExitTemporalLiteral is called when production temporalLiteral is exited.
-func (s *BaseArcParserListener) ExitTemporalLiteral(ctx *TemporalLiteralContext) {}
 
 // EnterSeriesLiteral is called when production seriesLiteral is entered.
 func (s *BaseArcParserListener) EnterSeriesLiteral(ctx *SeriesLiteralContext) {}

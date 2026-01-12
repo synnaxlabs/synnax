@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,5 +49,5 @@ type FactoryConfig struct {
 }
 
 func NewFactory(mod *Module) (node2.Factory, error) {
-	return &factory{wasm: mod.module}, nil
+	return &factory{wasm: mod.wasmModule}, nil
 }

@@ -11,9 +11,10 @@ if [ "$BUILD_WINDOWS" = "true" ]; then
     OS_LIST="{\"os\":\"windows-build-bot\",\"os-name\":\"windows\",\"executable\":\".exe\"}"
 fi
 
+# TODO: Revert to macos-build-bot when self-hosted runner is available
 if [ "$BUILD_MACOS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"macos-build-bot\",\"os-name\":\"macos\",\"executable\":\"\"}"
+    OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"os-name\":\"macos\",\"executable\":\"\"}"
 fi
 
 if [ "$BUILD_UBUNTU" = "true" ]; then

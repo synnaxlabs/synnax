@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,6 @@
 #include "x/cpp/spatial/spatial.h"
 
 #include "arc/cpp/ir/ir.h"
-#include "arc/cpp/proto/proto.h"
 #include "arc/go/graph/arc/go/graph/graph.pb.h"
 
 namespace arc::graph {
@@ -41,14 +40,14 @@ struct Viewport {
 struct Node {
     std::string key;
     std::string type;
-    std::map<std::string, nlohmann::json> config;
+    std::map<std::string, telem::SampleValue> config;
     spatial::XY position;
 
     Node() = default;
 
     explicit Node(const v1::graph::PBNode &pb): key(pb.key()), type(pb.type()) {
         for (const auto &[config_key, config_value]: pb.config())
-            this->config[config_key] = proto::pb_value_to_json(config_value);
+            this->config[config_key] = telem::from_proto(config_value);
         if (pb.has_position()) this->position = spatial::XY(pb.position());
     }
 
@@ -57,7 +56,7 @@ struct Node {
         pb->set_type(this->type);
         auto *config_map = pb->mutable_config();
         for (const auto &[k, v]: this->config)
-            proto::json_to_pb_value(v, &(*config_map)[k]);
+            telem::to_proto(v, &(*config_map)[k]);
         this->position.to_proto(pb->mutable_position());
     }
 };

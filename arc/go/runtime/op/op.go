@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,8 +24,6 @@ type binary struct {
 	*state.Node
 	op op.Binary
 }
-
-func (n *binary) Init(node.Context) {}
 
 func (n *binary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {
@@ -55,7 +53,7 @@ type unary struct {
 	op op.Unary
 }
 
-func (n *unary) Init(node.Context) {}
+var _ node.Node = (*unary)(nil)
 
 func (n *unary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {

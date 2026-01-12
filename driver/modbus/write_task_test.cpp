@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
+#include "x/cpp/telem/frame.h"
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/modbus/mock/slave.h"

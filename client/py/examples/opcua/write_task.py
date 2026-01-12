@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -13,7 +13,7 @@ to an OPC UA server.
 
 Before running this example:
 1. Start the OPC UA test server:
-   poetry run python driver/opc/dev/server_extended.py
+   uv run python driver/opc/dev/server_extended.py
 
 2. Connect the OPC UA server device in Synnax:
    See: https://docs.synnaxlabs.com/reference/driver/opc-ua/connect-server
@@ -29,7 +29,7 @@ import synnax as sy
 from synnax import opcua
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Retrieve the OPC UA server from Synnax

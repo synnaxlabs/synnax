@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,6 +39,13 @@ const (
 	configFlag          = "--config"
 	debugFlag           = "--debug"
 	startedMessage      = "started successfully"
+)
+
+var errStartTimeout = errors.New(
+	`timed out waiting for embedded Driver to start. This occurs either because
+the Driver could not reach the Core or a task took an unusual amount of time to
+start. Check logs above categorized 'driver' for more information.
+`,
 )
 
 const (
@@ -175,8 +182,13 @@ func (d *Driver) start(ctx context.Context) error {
 		return err
 	}
 	sCtx.Go(mf)
-	_, err = signal.RecvUnderContext(ctx, d.started)
-	return err
+	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return errStartTimeout
+		}
+		return errors.Wrap(err, "failed to start Embedded Driver")
+	}
+	return nil
 }
 
 const stopKeyword = "STOP\n"

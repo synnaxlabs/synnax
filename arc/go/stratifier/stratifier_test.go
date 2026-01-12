@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -901,6 +901,163 @@ var _ = Describe("Stratification", func() {
 			Expect(strata.Get("critical_alarm")).To(Equal(2))
 			Expect(strata.Get("alarm_manager")).To(Equal(3))
 			Expect(strata.Get("alarm_output")).To(Equal(4))
+		})
+	})
+
+	Describe("Per-Stage Stratification (Two-Tier Model)", func() {
+		It("Should not detect cycles in cyclic state machines", func() {
+			// This is a valid state machine where stages transition to each other
+			// stage first -> second, stage second -> first
+			// This should NOT produce a cycle error because stages are stratified independently
+			var (
+				nodes = []ir.Node{
+					{Key: "start_cmd", Type: "on"},
+					{Key: "entry_main_first", Type: "entry"},
+					{Key: "entry_main_second", Type: "entry"},
+					{Key: "first_node", Type: "process"},
+					{Key: "second_node", Type: "process"},
+				}
+				edges = []ir.Edge{
+					// Global: start_cmd triggers main sequence
+					{
+						Source: ir.Handle{Node: "start_cmd", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_main_first", Param: "input"},
+					},
+					// Stage first: first_node triggers second stage
+					{
+						Source: ir.Handle{Node: "first_node", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_main_second", Param: "input"},
+					},
+					// Stage second: second_node triggers first stage (cyclic transition)
+					{
+						Source: ir.Handle{Node: "second_node", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_main_first", Param: "input"},
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "main",
+						Stages: []ir.Stage{
+							{Key: "first", Nodes: []string{"first_node"}},
+							{Key: "second", Nodes: []string{"second_node"}},
+						},
+					},
+				}
+				diag   = &diagnostics.Diagnostics{}
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			)
+			// Should not produce a cycle error
+			Expect(diag.Ok()).To(BeTrue())
+			// Global strata should contain start_cmd and entry nodes
+			Expect(strata.NodeCount()).To(BeNumerically(">", 0))
+		})
+
+		It("Should populate per-stage strata independently", func() {
+			var (
+				nodes = []ir.Node{
+					{Key: "global_source", Type: "on"},
+					{Key: "entry_main_first", Type: "entry"},
+					{Key: "stage_source", Type: "constant"}, // Stage-local source
+					{Key: "stage_process", Type: "process"},
+				}
+				edges = []ir.Edge{
+					// Global: global_source triggers first stage
+					{
+						Source: ir.Handle{Node: "global_source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_main_first", Param: "input"},
+					},
+					// Stage first: stage_source -> stage_process
+					{
+						Source: ir.Handle{Node: "stage_source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "stage_process", Param: "input"},
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "main",
+						Stages: []ir.Stage{
+							{Key: "first", Nodes: []string{"stage_source", "stage_process"}},
+						},
+					},
+				}
+				diag   = &diagnostics.Diagnostics{}
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			)
+			// Global strata should contain global_source and entry node
+			Expect(strata.Get("global_source")).To(Equal(0))
+			Expect(strata.Get("entry_main_first")).To(Equal(1))
+
+			// Per-stage strata should have stage_source at stratum 0
+			Expect(sequences[0].Stages[0].Strata.Get("stage_source")).To(Equal(0))
+			Expect(sequences[0].Stages[0].Strata.Get("stage_process")).To(Equal(1))
+		})
+
+		It("Should stratify multiple stages independently", func() {
+			var (
+				nodes = []ir.Node{
+					{Key: "global_src", Type: "on"},
+					{Key: "entry_seq_s1", Type: "entry"},
+					{Key: "entry_seq_s2", Type: "entry"},
+					// Stage s1 nodes
+					{Key: "s1_const", Type: "constant"},
+					{Key: "s1_proc", Type: "process"},
+					// Stage s2 nodes
+					{Key: "s2_const", Type: "constant"},
+					{Key: "s2_proc1", Type: "process"},
+					{Key: "s2_proc2", Type: "process"},
+				}
+				edges = []ir.Edge{
+					// Global edges
+					{
+						Source: ir.Handle{Node: "global_src", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s1", Param: "input"},
+					},
+					// Stage s1 edges
+					{
+						Source: ir.Handle{Node: "s1_const", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "s1_proc", Param: "input"},
+					},
+					{
+						Source: ir.Handle{Node: "s1_proc", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "entry_seq_s2", Param: "input"},
+					},
+					// Stage s2 edges
+					{
+						Source: ir.Handle{Node: "s2_const", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "s2_proc1", Param: "input"},
+					},
+					{
+						Source: ir.Handle{Node: "s2_proc1", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "s2_proc2", Param: "input"},
+					},
+				}
+				sequences = []ir.Sequence{
+					{
+						Key: "seq",
+						Stages: []ir.Stage{
+							{Key: "s1", Nodes: []string{"s1_const", "s1_proc"}},
+							{Key: "s2", Nodes: []string{"s2_const", "s2_proc1", "s2_proc2"}},
+						},
+					},
+				}
+				diag   = &diagnostics.Diagnostics{}
+				strata = MustSucceed(stratifier.Stratify(ctx, nodes, edges, sequences, diag))
+			)
+			// Global strata should contain entry nodes and global source
+			// stratum 0: global_src (source)
+			// stratum 1: entry_seq_s1 (depends on global_src)
+			// entry_seq_s2 depends on s1_proc which is in a stage, so it may be at stratum 0
+			// since it has no incoming edges from global nodes
+			Expect(strata.Get("global_src")).To(Equal(0))
+			Expect(strata.Get("entry_seq_s1")).To(Equal(1))
+			// Stage s1: const at 0, proc at 1
+			Expect(sequences[0].Stages[0].Strata.Get("s1_const")).To(Equal(0))
+			Expect(sequences[0].Stages[0].Strata.Get("s1_proc")).To(Equal(1))
+
+			// Stage s2: const at 0, proc1 at 1, proc2 at 2
+			Expect(sequences[0].Stages[1].Strata.Get("s2_const")).To(Equal(0))
+			Expect(sequences[0].Stages[1].Strata.Get("s2_proc1")).To(Equal(1))
+			Expect(sequences[0].Stages[1].Strata.Get("s2_proc2")).To(Equal(2))
 		})
 	})
 

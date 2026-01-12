@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,7 +38,7 @@ var (
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: periodConfigParam, Type: types.I64()}},
+			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
 	}
 	waitSymbol = symbol.Symbol{
@@ -46,7 +46,7 @@ var (
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: durationConfigParam, Type: types.I64()}},
+			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
 	}
 	// SymbolResolver provides the interval and wait symbols for the Arc analyzer.

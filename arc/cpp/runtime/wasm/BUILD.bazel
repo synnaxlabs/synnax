@@ -1,0 +1,59 @@
+cc_library(
+    name = "wasm",
+    srcs = ["bindings.cpp"],
+    hdrs = [
+        "bindings.h",
+        "factory.h",
+        "module.h",
+        "node.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/module",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//vendor/wasmtime",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_test(
+    name = "bindings_test",
+    srcs = ["bindings_test.cpp"],
+    deps = [
+        ":wasm",
+        "//x/cpp/telem",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "module_test",
+    srcs = ["module_test.cpp"],
+    deps = [
+        ":wasm",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/telem",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "node_test",
+    srcs = ["node_test.cpp"],
+    deps = [
+        ":wasm",
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/state",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/telem",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

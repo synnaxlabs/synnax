@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
+#include "driver/arc/arc.h"
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -60,6 +61,7 @@ inline std::vector<std::string> default_integrations() {
         ni::INTEGRATION_NAME,
         sequence::INTEGRATION_NAME,
         labjack::INTEGRATION_NAME,
+        arc::INTEGRATION_NAME,
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);
@@ -89,6 +91,8 @@ struct Config {
     RemoteInfo remote_info;
     /// @brief timing options for tasks in the driver.
     common::TimingConfig timing;
+    /// @brief configuration for the task manager.
+    task::ManagerConfig manager;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
     /// @brief the list of integrations enabled for the driver.
@@ -109,6 +113,7 @@ struct Config {
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"
            << cfg.connection << cfg.timing << "\n"
+           << cfg.manager << "\n"
            << "  " << xlog::SHALE() << "enabled integrations" << xlog::RESET() << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
             os << cfg.integrations[i];

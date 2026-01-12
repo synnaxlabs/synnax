@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -139,10 +139,6 @@ TEST(TimeStampTests, testModuloAssignment) {
     ts %= ts2;
     ASSERT_EQ(ts.nanoseconds(), 1);
 }
-
-////////////////////////////////////////////////////////////
-// TimeSpan Tests
-////////////////////////////////////////////////////////////
 
 /// @brief it should initialize a timespan from a long.
 TEST(TimeSpanTests, testConstructor) {
@@ -363,10 +359,6 @@ TEST(TimeSpanTests, testAbs) {
     ASSERT_EQ(zero.abs().nanoseconds(), 0);
 }
 
-////////////////////////////////////////////////////////////
-// TimeRange Tests
-////////////////////////////////////////////////////////////
-
 /// @brief it should check if a timestamp is contained within a time range.
 TEST(TimeRangeTests, testContains) {
     const auto tr = TimeRange(5, 10);
@@ -408,10 +400,6 @@ TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
     const auto tr2 = TimeRange(5, 11);
     ASSERT_TRUE(tr != tr2);
 }
-
-////////////////////////////////////////////////////////////
-// Rate Tests
-////////////////////////////////////////////////////////////
 
 /// @brief it should calculate the period from a rate.
 TEST(RateTests, testPeriod) {
@@ -564,16 +552,12 @@ TEST(RateTests, testRateStreamOperator) {
 
 /// @brief Test that Rate operator<< works in error messages
 TEST(RateTests, testRateInErrorMessage) {
-    Rate configured_rate(25.0);
+    const Rate configured_rate(25.0);
     std::ostringstream msg;
     msg << "configured sample rate (" << configured_rate << ") is below device minimum";
     EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
     EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
 }
-
-////////////////////////////////////////////////////////////
-// DataType Tests
-////////////////////////////////////////////////////////////
 
 class DataTypeTests : public ::testing::Test {};
 
@@ -690,28 +674,28 @@ TEST(DataTypeTests, testStreamOperator) {
 
 /// @brief it should return the domain index from an alignment.
 TEST(AlignmentTests, testDomainIndex) {
-    telem::Alignment a(1, 0);
+    const Alignment a(1, 0);
     ASSERT_EQ(a.domain_index(), 1);
 }
 
 /// @brief it should return the sample index from an alignment.
 TEST(AlignmentTests, testSampleIndex) {
-    telem::Alignment a(0, 1);
+    const Alignment a(0, 1);
     ASSERT_EQ(a.sample_index(), 1);
 }
 
 /// @brief it should construct an alignment from a uint64.
 TEST(AlignmentTests, testConstructionFromUint64) {
-    telem::Alignment a(20);
+    const Alignment a(20);
     ASSERT_EQ(a.domain_index(), 0);
     ASSERT_EQ(a.sample_index(), 20);
 }
 
 /// @brief it should compare two alignments for equality.
 TEST(AlignmentTests, testEquality) {
-    auto a = telem::Alignment(1, 2);
-    auto b = telem::Alignment(1, 2);
-    auto c = telem::Alignment(2, 1);
+    const auto a = Alignment(1, 2);
+    const auto b = Alignment(1, 2);
+    const auto c = Alignment(2, 1);
     ASSERT_TRUE(a == b);
     ASSERT_FALSE(a != b);
     ASSERT_FALSE(a == c);
@@ -720,16 +704,12 @@ TEST(AlignmentTests, testEquality) {
 
 /// @brief it should compare an alignment with a uint64 value.
 TEST(AlignmentTests, testUint64Equality) {
-    auto a = telem::Alignment(1, 2);
+    const auto a = Alignment(1, 2);
     ASSERT_TRUE(a == 4294967298);
     ASSERT_FALSE(a != 4294967298);
     ASSERT_FALSE(a == 4294967292);
     ASSERT_TRUE(a != 4294967294);
 }
-
-////////////////////////////////////////////////////////////
-// to_string Tests
-////////////////////////////////////////////////////////////
 
 /// @brief it should convert a double to a string.
 TEST(ToStringTests, testDoubleConversion) {
@@ -843,5 +823,99 @@ TEST(ToStringTests, testZeroValues) {
 TEST(ToStringTests, testEmptyString) {
     const SampleValue value = std::string("");
     ASSERT_EQ(to_string(value), "");
+}
+
+/// @brief it should convert a protobuf number value to SampleValue.
+TEST(ProtoConversionTests, testFromProtoNumber) {
+    google::protobuf::Value pb;
+    pb.set_number_value(42.5);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 42.5);
+}
+
+/// @brief it should convert a protobuf string value to SampleValue.
+TEST(ProtoConversionTests, testFromProtoString) {
+    google::protobuf::Value pb;
+    pb.set_string_value("hello");
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<std::string>(sv), "hello");
+}
+
+/// @brief it should convert a protobuf bool true to uint8_t 1.
+TEST(ProtoConversionTests, testFromProtoBoolTrue) {
+    google::protobuf::Value pb;
+    pb.set_bool_value(true);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<uint8_t>(sv), 1);
+}
+
+/// @brief it should convert a protobuf bool false to uint8_t 0.
+TEST(ProtoConversionTests, testFromProtoBoolFalse) {
+    google::protobuf::Value pb;
+    pb.set_bool_value(false);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<uint8_t>(sv), 0);
+}
+
+/// @brief it should convert a protobuf null value to default double 0.
+TEST(ProtoConversionTests, testFromProtoNull) {
+    google::protobuf::Value pb;
+    pb.set_null_value(google::protobuf::NULL_VALUE);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 0.0);
+}
+
+/// @brief it should convert a double SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoDouble) {
+    const SampleValue sv = 123.456;
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 123.456);
+}
+
+/// @brief it should convert an int64 SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoInt64) {
+    const SampleValue sv = static_cast<int64_t>(9876543210);
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 9876543210.0);
+}
+
+/// @brief it should convert a string SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoString) {
+    const SampleValue sv = std::string("world");
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kStringValue);
+    ASSERT_EQ(pb.string_value(), "world");
+}
+
+/// @brief it should convert a TimeStamp SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoTimeStamp) {
+    const SampleValue sv = TimeStamp(1234567890);
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 1234567890.0);
+}
+
+/// @brief it should round-trip a double through protobuf.
+TEST(ProtoConversionTests, testRoundTripDouble) {
+    const SampleValue original = 99.99;
+    google::protobuf::Value pb;
+    to_proto(original, &pb);
+    const SampleValue result = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(result), 99.99);
+}
+
+/// @brief it should round-trip a string through protobuf.
+TEST(ProtoConversionTests, testRoundTripString) {
+    const SampleValue original = std::string("test string");
+    google::protobuf::Value pb;
+    to_proto(original, &pb);
+    const SampleValue result = from_proto(pb);
+    ASSERT_EQ(std::get<std::string>(result), "test string");
 }
 }

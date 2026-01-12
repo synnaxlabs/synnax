@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,7 +23,7 @@ public:
         std::pair<std::vector<synnax::ChannelKey>, std::vector<telem::Authority>>>
         authority_calls;
 
-    xerrors::Error write(const telem::Frame &frame) override {
+    xerrors::Error write(telem::Frame &frame) override {
         return pipeline::mock::Sink::write(frame);
     }
 

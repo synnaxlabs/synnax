@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -136,6 +136,7 @@ type Runtime struct {
 	writer    *writerSeg
 	state     *state.State
 	closer    io.Closer
+	start     telem.TimeStamp
 }
 
 func (r *Runtime) Close() error {
@@ -150,12 +151,12 @@ func (r *Runtime) Close() error {
 
 func (r *Runtime) processFrame(ctx context.Context, res framer.StreamerResponse) error {
 	r.state.Ingest(res.Frame.ToStorage())
-	r.scheduler.Next(ctx)
+	r.scheduler.Next(ctx, telem.Since(r.start))
 	fr, changed := r.state.FlushWrites(telem.Frame[uint32]{})
 	if !changed {
 		return nil
 	}
-	return r.writer.Write(ctx, core.NewFrameFromStorage(fr))
+	return r.writer.Write(ctx, frame.NewFromStorage(fr))
 }
 
 func retrieveChannels(
@@ -295,12 +296,13 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	// Create scheduler with time wheel
-	sched := scheduler.New(ctx, cfg.Module.IR, nodes)
+	sched := scheduler.New(cfg.Module.IR, nodes)
 	r := &Runtime{
 		scheduler: sched,
 		state:     progState,
 		streamer:  &streamerSeg{},
 		writer:    &writerSeg{},
+		start:     telem.Now(),
 	}
 
 	streamPipeline, requests, err := createStreamPipeline(
@@ -328,7 +330,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Runtime, error) {
 	}
 
 	sCtx, cancel := signal.Isolated()
-	r.scheduler.Init(ctx)
 	streamPipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),

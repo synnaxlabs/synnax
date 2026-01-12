@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -326,4 +326,18 @@ func (s *Scope) stringWithIndent(indent string) string {
 		}
 	}
 	return builder.String()
+}
+
+// AccumulateReadChannels initializes channel tracking for this scope.
+// It sets up an OnResolve callback that records any channel references
+// in the Channels.Read map. This is used by functions and expressions
+// to track their channel dependencies.
+func (s *Scope) AccumulateReadChannels() {
+	s.Channels = NewChannels()
+	s.OnResolve = func(_ context.Context, resolved *Scope) error {
+		if resolved.Kind == KindChannel || resolved.Type.Kind == types.KindChan {
+			s.Channels.Read[uint32(resolved.ID)] = resolved.Name
+		}
+		return nil
+	}
 }

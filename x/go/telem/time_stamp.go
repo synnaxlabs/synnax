@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -81,6 +81,12 @@ func (ts TimeStamp) BeforeEq(t TimeStamp) bool { return ts <= t }
 // Add returns a new TimeStamp with the provided TimeSpan added to it.
 func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
 	return TimeStamp(clamp.AddInt64(int64(ts), int64(tspan)))
+}
+
+// Since returns a TimeSpan representing the amount of time that has passed
+// since the provided TimeStamp.
+func Since(time TimeStamp) TimeSpan {
+	return TimeSpan(Now() - time)
 }
 
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,24 +18,63 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Metrics", func() {
-	var ctx context.Context
-	BeforeEach(func() {
-		ctx = context.Background()
-
+var _ = Describe("Metrics", Ordered, func() {
+	var (
+		builder   = mock.NewCluster()
+		dist      mock.Node
+		ctx       = context.Background()
+		svcFramer *framer.Service
+	)
+	BeforeAll(func() {
+		dist = builder.Provision(ctx)
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			DB:       dist.DB,
+			Label:    labelSvc,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+			Channel:  dist.Channel,
+			Ontology: dist.Ontology,
+			DB:       dist.DB,
+			Framer:   dist.Framer,
+			Status:   statusSvc,
+			Signals:  dist.Signals,
+		}))
+		svcFramer = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
+			DB:      dist.DB,
+			Framer:  dist.Framer,
+			Channel: dist.Channel,
+			Arc:     arcSvc,
+		}))
+	})
+	AfterAll(func() {
+		Expect(svcFramer.Close()).To(Succeed())
+		Expect(builder.Close()).To(Succeed())
 	})
 	Describe("Service Creation", func() {
 		It("Should create a service with valid configuration", func() {
-			svc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -46,35 +85,35 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should fail with missing Channel service", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 		It("Should fail with missing Framer service", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				HostProvider: dist.Cluster,
 				Storage:      dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("framer: must be non-nil")))
 		})
 		It("Should fail with missing HostProvider", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel: dist.Channel,
 				Framer:  svcFramer,
 				Storage: dist.Storage,
 			})).Error().To(MatchError(ContainSubstring("host_provider: must be non-nil")))
 		})
 		It("Should fail with missing Storage", func() {
-			Expect(metrics.OpenService(ctx, metrics.Config{
+			Expect(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func() {
-			cfg := metrics.DefaultConfig.Override(metrics.Config{
+			cfg := metrics.DefaultConfig.Override(metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,
@@ -86,7 +125,7 @@ var _ = Describe("Metrics", func() {
 	Describe("Channel Creation", func() {
 		var svc *metrics.Service
 		JustBeforeEach(func() {
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -201,7 +240,7 @@ var _ = Describe("Metrics", func() {
 			}).Should(Succeed())
 		})
 		It("Should reuse existing channels", func() {
-			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc2 := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -223,7 +262,7 @@ var _ = Describe("Metrics", func() {
 	})
 	Describe("Restarting nodes", Focus, func() {
 		It("Should not recreate channels if they are renamed", func() {
-			svc := MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -245,7 +284,7 @@ var _ = Describe("Metrics", func() {
 				"renamed_mem_percentage",
 			}
 			Expect(dist.Channel.RenameMany(ctx, chKeys, newNames, false)).To(Succeed())
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
@@ -294,12 +333,12 @@ var _ = Describe("Metrics", func() {
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},
 			}))
 			now := telem.Now()
-			fr := core.UnaryFrame(indexCh.Key(), telem.NewSeriesV[telem.TimeStamp](now, now+telem.MillisecondTS, now+2*telem.MillisecondTS)).
+			fr := frame.NewUnary(indexCh.Key(), telem.NewSeriesV(now, now+telem.MillisecondTS, now+2*telem.MillisecondTS)).
 				Append(dataCh.Key(), telem.NewSeriesV[float32](1.0, 2.0, 3.0))
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.Config{
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            dist.Channel,
 				Framer:             svcFramer,
 				HostProvider:       dist.Cluster,
