@@ -664,6 +664,7 @@ template<typename T>
         case google::protobuf::Value::kNullValue:
         case google::protobuf::Value::kStructValue:
         case google::protobuf::Value::kListValue:
+        case google::protobuf::Value::KIND_NOT_SET:
         default:
             return 0.0;
     }

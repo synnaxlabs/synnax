@@ -190,7 +190,7 @@ private:
         while (!!breaker.running()) {
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
 
-            if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
+            if (result < WAIT_OBJECT_0 + count) {
                 ResetEvent(this->data_event_);
                 this->data_available_.store(false, std::memory_order_release);
                 return;
@@ -239,7 +239,7 @@ private:
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
 
-        if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
+        if (result < WAIT_OBJECT_0 + count) {
             ResetEvent(this->data_event_);
         } else if (result == WAIT_FAILED) {
             LOG(ERROR) << "[loop] WaitForMultipleObjects failed: " << GetLastError();
@@ -268,7 +268,7 @@ private:
 
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
 
-            if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
+            if (result < WAIT_OBJECT_0 + count) {
                 ResetEvent(this->data_event_);
                 this->data_available_.store(false, std::memory_order_release);
                 return;
@@ -285,7 +285,7 @@ private:
             timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
         );
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
-        if (result >= WAIT_OBJECT_0 && result < WAIT_OBJECT_0 + count) {
+        if (result < WAIT_OBJECT_0 + count) {
             ResetEvent(this->data_event_);
         }
 
