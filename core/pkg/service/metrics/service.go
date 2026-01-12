@@ -183,6 +183,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	); err != nil {
 		return nil, err
 	}
+	// delete any existing relationships between the parent Channels group and the
+	// metrics channels
+	for _, ch := range metricChannels {
+		if err := cfg.Ontology.NewWriter(nil).DeleteRelationship(ctx, cfg.Channel.Group().OntologyID(), ontology.ParentOf, ch.OntologyID()); err != nil {
+			return nil, err
+		}
+	}
 	for i, ch := range metricChannels {
 		c.metrics[i] = metric{ch: ch, collect: allMetrics[i].collect}
 	}
