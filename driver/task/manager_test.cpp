@@ -124,18 +124,25 @@ public:
     }
 };
 
-class TrackingTask final : public task::Task {
-    std::mutex mu;
-
-public:
-    synnax::Task sy_task;
+struct TrackingTaskState {
     std::atomic<int> exec_count{0};
     std::vector<std::string> cmd_order;
+    std::mutex cmd_order_mu;
     std::atomic<bool> stopped{false};
     std::atomic<bool> stop_will_reconfigure{false};
+};
 
-    TrackingTask(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task):
-        sy_task(task) {
+class TrackingTask final : public task::Task {
+public:
+    synnax::Task sy_task;
+    std::shared_ptr<TrackingTaskState> state;
+
+    TrackingTask(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task,
+        std::shared_ptr<TrackingTaskState> state
+    ):
+        sy_task(task), state(std::move(state)) {
         synnax::TaskStatus status{
             .key = task.status_key(),
             .variant = status::variant::SUCCESS,
@@ -148,25 +155,25 @@ public:
     std::string name() const override { return "tracking"; }
 
     void exec(task::Command &cmd) override {
-        exec_count++;
-        std::lock_guard lock(mu);
-        cmd_order.push_back(cmd.key);
+        state->exec_count++;
+        std::lock_guard lock(state->cmd_order_mu);
+        state->cmd_order.push_back(cmd.key);
     }
 
     void stop(bool will_reconfigure) override {
-        stopped = true;
-        stop_will_reconfigure = will_reconfigure;
+        state->stopped = true;
+        state->stop_will_reconfigure = will_reconfigure;
     }
 
     std::vector<std::string> get_cmd_order() {
-        std::lock_guard lock(mu);
-        return cmd_order;
+        std::lock_guard lock(state->cmd_order_mu);
+        return state->cmd_order;
     }
 };
 
 class TrackingTaskFactory final : public task::Factory {
 public:
-    std::vector<TrackingTask *> tasks;
+    std::vector<std::shared_ptr<TrackingTaskState>> task_states;
     std::mutex mu;
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
@@ -174,9 +181,10 @@ public:
         const synnax::Task &task
     ) override {
         if (task.type == "tracking") {
-            auto t = std::make_unique<TrackingTask>(ctx, task);
+            auto state = std::make_shared<TrackingTaskState>();
+            auto t = std::make_unique<TrackingTask>(ctx, task, state);
             std::lock_guard lock(mu);
-            tasks.push_back(t.get());
+            task_states.push_back(state);
             return {std::move(t), true};
         }
         return {nullptr, false};
@@ -504,7 +512,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     xtest::eventually(
         [&] {
             std::lock_guard lock(f->mu);
-            return !f->tasks.empty();
+            return !f->task_states.empty();
         },
         [] { return "task not created"; }
     );
@@ -519,11 +527,13 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     }
     ASSERT_NIL(writer.close());
 
+    auto state = f->task_states[0];
     xtest::eventually(
-        [&] { return f->tasks[0]->exec_count.load() >= 5; },
+        [&] { return state->exec_count.load() >= 5; },
         [] { return "cmds not executed"; }
     );
-    ASSERT_EQ(f->tasks[0]->get_cmd_order(), expected);
+    std::lock_guard lock(state->cmd_order_mu);
+    ASSERT_EQ(state->cmd_order, expected);
 }
 
 TEST_F(TaskManagerTest, ReconfigureStopsOld) {
@@ -534,12 +544,12 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     auto task = synnax::Task(rack.key, "t", "tracking", "");
     ASSERT_NIL(rack.tasks.create(task));
 
-    TrackingTask *first = nullptr;
+    std::shared_ptr<TrackingTaskState> first_state;
     xtest::eventually(
         [&] {
             std::lock_guard lock(f->mu);
-            if (f->tasks.empty()) return false;
-            first = f->tasks[0];
+            if (f->task_states.empty()) return false;
+            first_state = f->task_states[0];
             return true;
         },
         [] { return "first not created"; }
@@ -549,18 +559,97 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     ASSERT_NIL(rack.tasks.create(task));
 
     xtest::eventually(
-        [&] { return first->stopped.load(); },
+        [&] { return first_state->stopped.load(); },
         [] { return "not stopped"; }
     );
-    ASSERT_TRUE(first->stop_will_reconfigure.load());
+    ASSERT_TRUE(first_state->stop_will_reconfigure.load());
 
     xtest::eventually(
         [&] {
             std::lock_guard lock(f->mu);
-            return f->tasks.size() >= 2;
+            return f->task_states.size() >= 2;
         },
         [] { return "second not created"; }
     );
+}
+
+class DestructorTrackingTask final : public task::Task {
+public:
+    synnax::Task sy_task;
+    std::atomic<bool> *destroyed;
+    std::atomic<bool> stopped{false};
+
+    DestructorTrackingTask(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task,
+        std::atomic<bool> *destroyed
+    ):
+        sy_task(task), destroyed(destroyed) {
+        synnax::TaskStatus status{
+            .key = task.status_key(),
+            .variant = status::variant::SUCCESS,
+            .message = "configured",
+            .details = {.task = task.key}
+        };
+        ctx->set_status(status);
+    }
+
+    ~DestructorTrackingTask() override {
+        if (destroyed != nullptr) *destroyed = true;
+    }
+
+    std::string name() const override { return "destructor_tracking"; }
+
+    void exec(task::Command &) override {}
+
+    void stop(bool) override { stopped = true; }
+};
+
+class DestructorTrackingFactory final : public task::Factory {
+public:
+    std::atomic<bool> first_destroyed{false};
+    std::atomic<bool> second_destroyed{false};
+    std::atomic<int> configure_count{0};
+
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    ) override {
+        if (task.type != "destructor_tracking") return {nullptr, false};
+        int count = configure_count.fetch_add(1);
+        std::atomic<bool> *destroyed = (count == 0) ? &first_destroyed
+                                                    : &second_destroyed;
+        return {std::make_unique<DestructorTrackingTask>(ctx, task, destroyed), true};
+    }
+};
+
+TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
+    auto factory = std::make_unique<DestructorTrackingFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::Task(rack.key, "t", "destructor_tracking", "");
+    ASSERT_NIL(rack.tasks.create(task));
+
+    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+
+    ASSERT_EQ(f->configure_count.load(), 1);
+    ASSERT_FALSE(f->first_destroyed.load());
+
+    task.config = "{\"v\":2}";
+    ASSERT_NIL(rack.tasks.create(task));
+
+    xtest::eventually(
+        [&] { return f->configure_count.load() >= 2; },
+        [] { return "second task not configured"; }
+    );
+
+    xtest::eventually(
+        [&] { return f->first_destroyed.load(); },
+        [] { return "first task destructor not called"; }
+    );
+
+    ASSERT_FALSE(f->second_destroyed.load());
 }
 
 class ShutdownTest : public testing::Test {
