@@ -45,6 +45,13 @@ type Constraint interface {
 	Type() Type
 }
 
+// TODO: think about serializing these as an interface vs. just a struct that has
+// kind-specific fields that go unused for other kinds.
+type Constraint2[Params any] struct {
+	ConstraintType string
+	Params         Params
+}
+
 // registry maps constraint types to factory functions for deserialization.
 var registry = make(map[Type]func() Constraint)
 

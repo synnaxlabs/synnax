@@ -48,6 +48,9 @@ type Policy struct {
 	Actions []access.Action `json:"actions" msgpack:"actions"`
 	// Effect determines whether this policy allows or denies access.
 	Effect Effect `json:"effect" msgpack:"effect"`
+
+	// TODO: maybe move to only one constraint, and add in OR and AND constraints?
+
 	// Constraints specifies additional conditions that must all be met for this policy
 	// to apply. If empty, the policy applies unconditionally (based on objects/actions
 	// match).

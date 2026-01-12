@@ -86,11 +86,14 @@ var PolicyDenyBuiltinStatusNameKeyEdit = policy.Policy{
 	Actions: []access.Action{access.ActionUpdate},
 	Effect:  policy.EffectDeny,
 	Constraints: []constraint.Constraint{
+		// todo: serialization + storage of the constraints.
 		constraint.Relationship{
 			Relationship: ontology.CreatedBy,
 			Operator:     constraint.OpContainsAny,
 			Value:        []ontology.ID{{Type: ontology.TypeBuiltIn}},
 		},
+		// TODO: consider perf implications of checking properties for every request via
+		// reflection.
 		constraint.Field{
 			Target:   "request",
 			Field:    []string{"properties"},
