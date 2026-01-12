@@ -262,3 +262,5 @@ core/synnax
 # ||| VSCODE EXTENSIONS |||
 *.vsix
 .bazelrc.user
+
+.claude

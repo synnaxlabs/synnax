@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+var AllIntegrations = cpp.AllIntegrations
+
 type Config struct {
 	Go  godriver.Config
 	CPP cpp.Config
