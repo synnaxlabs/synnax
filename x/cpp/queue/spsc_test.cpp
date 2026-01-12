@@ -111,7 +111,8 @@ TEST(SPSCQueueTest, ProducerConsumerThreads) {
 
     std::thread producer([&]() {
         for (int i = 0; i < num_items; i++) {
-            queue.push(i);
+            while (!queue.push(i))
+                std::this_thread::yield();
         }
     });
 
