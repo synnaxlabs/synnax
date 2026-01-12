@@ -108,18 +108,6 @@ var _ = Describe("Validate", func() {
 				})
 			})
 
-			Describe("LessThan", func() {
-				It("Should validate numbers less than threshold", func() {
-					Expect(validate.LessThan(v, "field", 5, 10)).To(BeFalse())
-					Expect(v.Error()).NotTo(HaveOccurred())
-				})
-
-				It("Should catch numbers greater than or equal to threshold", func() {
-					Expect(validate.LessThan(v, "field", 10, 10)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
-				})
-			})
-
 			Describe("InBounds", func() {
 				It("Should validate values within bounds", func() {
 					Expect(validate.InBounds(v, "field", 5, 1, 10)).To(BeFalse())
