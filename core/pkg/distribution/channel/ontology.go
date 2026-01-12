@@ -25,9 +25,8 @@ import (
 
 const OntologyType ontology.Type = "channel"
 
-func (c Channel) OntologyID() ontology.ID {
-	return OntologyID(c.Key())
-}
+// OntologyID returns the ontology.ID for the specified channel.
+func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
 
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.

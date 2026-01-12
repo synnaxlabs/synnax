@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -59,6 +60,24 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCh.DataType).To(Equal(telem.TimeStampT))
 				Expect(cesiumCh.IsIndex).To(BeTrue())
 			})
+			It("Should create the channel without error", func() {
+				ch.Leaseholder = 1
+				ch.Name = channel.NewRandomName()
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.CreateWithoutGroupRelationship())).To(Succeed())
+				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
+				entries := []ontology.Resource{}
+				Expect(mockCluster.
+					Nodes[1].
+					Ontology.
+					NewRetrieve().
+					WhereIDs(ch.OntologyID()).
+					TraverseTo(ontology.Parents).
+					Entries(&entries).
+					Exec(ctx, nil),
+				).To(Succeed())
+				Expect(entries).To(BeEmpty())
+			})
+
 		})
 		Context("Node is remote", func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
@@ -86,7 +105,7 @@ var _ = Describe("Create", Ordered, func() {
 					}
 					Expect(mockCluster.Nodes[1].Channel.NewWriter(nil).Create(ctx, ch2)).To(Succeed())
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
-					Expect(ch2.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
+					Expect(ch2.Key().LocalKey()).To(Equal(channel.LocalKey(7)))
 				})
 			It("Should correctly create a virtual channel", func() {
 				ch3 := &channel.Channel{
@@ -133,6 +152,7 @@ var _ = Describe("Create", Ordered, func() {
 					Error().To(MatchError(query.NotFound))
 			})
 		})
+
 		Context("error cases", func() {
 			It("Should return an error if the name is invalid", func() {
 				ch.Name = "invalid name"

@@ -31,6 +31,13 @@ var _ = Describe("Ontology", Ordered, func() {
 	AfterAll(func() {
 		Expect(mockCluster.Close()).To(Succeed())
 	})
+	Describe("OntologyID", func() {
+		It("Should correctly return the ontology.ID for the specified channel", func() {
+			ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch)).To(Succeed())
+			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
+		})
+	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func() {
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &channel.Channel{Name: "SG01", DataType: telem.Int64T, Virtual: true})).To(Succeed())

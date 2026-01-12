@@ -209,57 +209,6 @@ var _ = Describe("Metrics", func() {
 			Expect(svc2.Close()).To(Succeed())
 		})
 	})
-	Describe("Restarting nodes", Pending, func() {
-		It("Should not recreate channels if they are renamed", func() {
-			svc := MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
-				Group:              dist.Group,
-				Ontology:           dist.Ontology,
-				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
-				CollectionInterval: 100 * time.Millisecond,
-			}))
-			Expect(svc.Close()).To(Succeed())
-			originalNames := getNames(dist.Cluster.HostKey())
-			var channels []channel.Channel
-			Expect(dist.Channel.NewRetrieve().
-				WhereNames(originalNames...).
-				Entries(&channels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(channels).To(HaveLen(3))
-			chKeys := channel.KeysFromChannels(channels)
-			newNames := []string{
-				"renamed_time",
-				"renamed_cpu_percentage",
-				"renamed_mem_percentage",
-			}
-			Expect(dist.Channel.RenameMany(ctx, chKeys, newNames, false)).To(Succeed())
-			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
-				Channel:            dist.Channel,
-				Group:              dist.Group,
-				Ontology:           dist.Ontology,
-				Framer:             framerSvc,
-				HostProvider:       dist.Cluster,
-				CollectionInterval: 100 * time.Millisecond,
-			}))
-			Expect(svc.Close()).To(Succeed())
-			var newChannels []channel.Channel
-			Expect(dist.Channel.NewRetrieve().
-				WhereNames(originalNames...).
-				Entries(&newChannels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(newChannels).To(BeEmpty())
-			Expect(dist.Channel.NewRetrieve().
-				WhereNames(newNames...).
-				Entries(&channels).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(channels).To(HaveLen(3))
-		})
-
-	})
 	Describe("Metric Collection", func() {
 		var (
 			svc       *metrics.Service
