@@ -211,19 +211,19 @@ type FunctionProperties struct {
 
 // Type represents a type in the Arc type system using a tagged union.
 type Type struct {
-	// Kind is the discriminator that determines which type this represents.
-	Kind Kind `json:"kind" msgpack:"kind"`
 	// Elem is the element type for compound types (chan, series).
 	Elem *Type `json:"elem,omitempty" msgpack:"elem"`
 	// Constraint is the optional constraint for type variables.
 	Constraint *Type `json:"constraint,omitempty" msgpack:"constraint"`
-	// Name is the identifier for type variables.
-	Name string `json:"name,omitempty" msgpack:"name"`
 	// Unit holds optional unit metadata for numeric types.
 	// When non-nil, this type represents a quantity with physical dimensions.
 	Unit *Unit `json:"unit,omitempty" msgpack:"unit"`
+	// Name is the identifier for type variables.
+	Name string `json:"name,omitempty" msgpack:"name"`
 	// FunctionProperties contains inputs, outputs, and config for function types.
 	FunctionProperties
+	// Kind is the discriminator that determines which type this represents.
+	Kind Kind `json:"kind" msgpack:"kind"`
 }
 
 // IntegerMaxValue returns the maximum value representable by this integer type.

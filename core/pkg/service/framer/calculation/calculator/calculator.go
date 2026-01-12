@@ -39,8 +39,8 @@ import (
 type Calculator struct {
 	state     *state.State
 	scheduler *scheduler.Scheduler
-	cfg       Config
 	stateCfg  arcruntime.ExtendedStateConfig
+	cfg       Config
 	start     telem.TimeStamp
 }
 

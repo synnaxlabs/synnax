@@ -25,11 +25,11 @@ type Context struct {
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
-	// Elapsed is the time elapsed since the runtime started.
-	// Used by time-based nodes (interval, wait) to track timing.
-	Elapsed telem.TimeSpan
 	// ActivateStage transitions to the stage associated with the currently
 	// executing node. Used by stage_entry nodes to trigger stage transitions.
 	// The scheduler uses the current node key to look up the target stage.
 	ActivateStage func()
+	// Elapsed is the time elapsed since the runtime started.
+	// Used by time-based nodes (interval, wait) to track timing.
+	Elapsed telem.TimeSpan
 }

@@ -66,9 +66,9 @@ var (
 
 type stat struct {
 	*state.Node
+	reductionFn func(telem.Series, int64, *telem.Series) int64
 	cfg         ConfigValues
 	resetIdx    int
-	reductionFn func(telem.Series, int64, *telem.Series) int64
 	sampleCount int64
 	startTime   telem.TimeStamp
 	// lastResetTime tracks last processed reset timestamp to avoid re-processing.

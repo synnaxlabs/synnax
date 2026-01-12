@@ -28,12 +28,12 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Writer  *wasm.Writer
 	Module  *wasm.Module
 	TypeMap map[antlr.ParserRuleContext]types.Type
+	// FunctionIndices maps function names to their WASM function indices for call resolution
+	FunctionIndices map[string]uint32
 	// Outputs and OutputMemoryBase are set for multi-output functions
 	Outputs          types.Params
 	Hint             types.Type
 	OutputMemoryBase uint32
-	// FunctionIndices maps function names to their WASM function indices for call resolution
-	FunctionIndices map[string]uint32
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
