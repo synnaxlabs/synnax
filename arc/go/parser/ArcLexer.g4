@@ -29,8 +29,6 @@ U64         : 'u64';
 F32         : 'f32';
 F64         : 'f64';
 STR         : 'str';
-TIMESTAMP   : 'timestamp';
-TIMESPAN    : 'timespan';
 SERIES      : 'series';
 
 // =============================================================================
@@ -45,6 +43,13 @@ DECLARE     : ':=';  // Local variable declaration
 STATE_DECLARE: '$='; // Stateful variable declaration
 TRANSITION  : '=>';  // Stage transition operator
 ASSIGN      : '=';   // Assignment to existing variable
+
+// Compound assignment
+PLUS_ASSIGN     : '+=';
+MINUS_ASSIGN    : '-=';
+STAR_ASSIGN     : '*=';
+SLASH_ASSIGN    : '/=';
+PERCENT_ASSIGN  : '%=';
 
 // Arithmetic
 PLUS        : '+';
@@ -89,15 +94,6 @@ fragment DIGITS : DIGIT+ ;
 
 fragment DIGIT: [0-9];
 
-// Temporal and frequency literals must be checked before plain numeric literals
-TEMPORAL_LITERAL
-    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ('ns' | 'us' | 'ms' | 's' | 'm' | 'h')
-    ;
-
-FREQUENCY_LITERAL
-    : (DIGITS | (DIGITS '.' DIGITS?) | ('.' DIGITS)) ([hH][zZ] | [kK][hH][zZ] | [mM][hH][zZ])
-    ;
-
 // Simple numeric literals without suffixes or special formats
 INTEGER_LITERAL
     : DIGITS
@@ -134,5 +130,5 @@ SINGLE_LINE_COMMENT: '//' ~[\r\n]* -> skip;
 // Multi-line comment
 MULTI_LINE_COMMENT: '/*' .*? '*/' -> skip;
 
-// Whitespace
-WS          : [ \t\r\n]+ -> skip;
+// Whitespace - on hidden channel to preserve position info for adjacency checks
+WS          : [ \t\r\n]+ -> channel(HIDDEN);

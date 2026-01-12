@@ -62,13 +62,21 @@ import (
 // This design allows child contexts to accumulate diagnostics and constraints that
 // are visible to parent contexts, while maintaining immutability for local state.
 type Context[AST antlr.ParserRuleContext] struct {
+	// Context is the standard Go context for cancellation and deadlines.
 	context.Context
-	Scope               *symbol.Scope
-	Diagnostics         *diagnostics.Diagnostics
-	Constraints         *constraints.System
-	TypeMap             map[antlr.ParserRuleContext]types.Type
-	AST                 AST
-	TypeHint            types.Type
+	// Scope is the current symbol scope for name resolution.
+	Scope *symbol.Scope
+	// Diagnostics accumulates errors and warnings during analysis.
+	Diagnostics *diagnostics.Diagnostics
+	// Constraints accumulates type constraints for unification.
+	Constraints *constraints.System
+	// TypeMap caches resolved types for AST nodes.
+	TypeMap map[antlr.ParserRuleContext]types.Type
+	// AST is the current AST node being analyzed.
+	AST AST
+	// TypeHint is the expected type from surrounding context for type inference.
+	TypeHint types.Type
+	// InTypeInferenceMode indicates whether type inference is active.
 	InTypeInferenceMode bool
 }
 

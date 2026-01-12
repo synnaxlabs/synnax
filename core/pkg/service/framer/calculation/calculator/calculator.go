@@ -30,16 +30,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Calculator is an engine for executing expressions and operations in calculated
 // channels.
 type Calculator struct {
-	stateCfg  arcruntime.ExtendedStateConfig
 	state     *state.State
 	scheduler *scheduler.Scheduler
 	cfg       Config
+	stateCfg  arcruntime.ExtendedStateConfig
+	start     telem.TimeStamp
 }
 
 type Config struct {
@@ -116,8 +118,7 @@ func Open(
 		nodes[irNode.Key] = n
 	}
 
-	sched := scheduler.New(ctx, cfg.Module.IR, nodes)
-	sched.Init(ctx)
+	sched := scheduler.New(cfg.Module.IR, nodes)
 	return &Calculator{
 		cfg:       cfg,
 		scheduler: sched,
@@ -172,7 +173,7 @@ func (c *Calculator) Next(
 		changed     bool
 	)
 	for {
-		c.scheduler.Next(ctx)
+		c.scheduler.Next(ctx, telem.Since(c.start))
 		ofr, currChanged = c.state.FlushWrites(ofr)
 		if !currChanged {
 			break

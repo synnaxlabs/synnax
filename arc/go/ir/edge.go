@@ -21,7 +21,7 @@ type EdgeKind int
 const (
 	// Continuous edges fire every tick while the source is active (-> operator).
 	// Data flows continuously from source to target.
-	Continuous EdgeKind = iota
+	Continuous EdgeKind = iota + 1
 	// OneShot edges fire once when the condition becomes true (=> operator).
 	// Used for state transitions and one-time actions.
 	OneShot

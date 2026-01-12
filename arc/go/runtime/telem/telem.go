@@ -93,18 +93,6 @@ type sink struct {
 	key uint32
 }
 
-func (s *sink) Init(node.Context) {
-	if !s.RefreshInputs() {
-		return
-	}
-	data := s.Input(0)
-	time := s.InputTime(0)
-	if data.Len() == 0 {
-		return
-	}
-	s.WriteChan(s.key, data, time)
-}
-
 func (s *sink) Next(node.Context) {
 	if !s.RefreshInputs() {
 		return

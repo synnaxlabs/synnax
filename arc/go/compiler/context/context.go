@@ -32,6 +32,8 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	Outputs          types.Params
 	Hint             types.Type
 	OutputMemoryBase uint32
+	// FunctionIndices maps function names to their WASM function indices for call resolution
+	FunctionIndices map[string]uint32
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
@@ -46,6 +48,7 @@ func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Con
 		Hint:             ctx.Hint,
 		Outputs:          ctx.Outputs,
 		OutputMemoryBase: ctx.OutputMemoryBase,
+		FunctionIndices:  ctx.FunctionIndices,
 	}
 }
 func (c Context[AstNode]) WithHint(hint types.Type) Context[AstNode] {
@@ -70,11 +73,12 @@ func CreateRoot(
 	disableHostImports bool,
 ) Context[antlr.ParserRuleContext] {
 	ctx := Context[antlr.ParserRuleContext]{
-		Context: ctx_,
-		Module:  wasm.NewModule(),
-		Scope:   symbols,
-		TypeMap: typeMap,
-		Writer:  wasm.NewWriter(),
+		Context:         ctx_,
+		Module:          wasm.NewModule(),
+		Scope:           symbols,
+		TypeMap:         typeMap,
+		Writer:          wasm.NewWriter(),
+		FunctionIndices: make(map[string]uint32),
 	}
 	if !disableHostImports {
 		ctx.Imports = bindings.SetupImports(ctx.Module)

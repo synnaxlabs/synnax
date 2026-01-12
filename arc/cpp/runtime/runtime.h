@@ -14,6 +14,8 @@
 #include <set>
 #include <utility>
 
+#include "glog/logging.h"
+
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
@@ -45,7 +47,7 @@ class Runtime {
     std::thread run_thread;
 
     std::shared_ptr<wasm::Module> mod;
-    std::unique_ptr<wasm::Bindings> bindings_runtime;
+    std::unique_ptr<wasm::Bindings> bindings;
     std::unique_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
@@ -68,7 +70,7 @@ public:
     ):
         breaker(breaker_cfg),
         mod(std::move(mod)),
-        bindings_runtime(std::move(bindings_runtime)),
+        bindings(std::move(bindings_runtime)),
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
@@ -80,6 +82,7 @@ public:
     std::vector<telem::TimeSpan> run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
+        LOG(INFO) << "[arc] runtime started";
         this->loop->start();
         std::vector<telem::TimeSpan> results;
         while (this->breaker.running()) {
@@ -89,14 +92,20 @@ public:
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
                 this->scheduler->next(elapsed);
+                LOG(INFO) << "[arc] cycle t=" << elapsed.nanoseconds() / 1000000
+                          << "ms";
                 this->state->clear_reads();
                 results.push_back(elapsed);
                 if (auto writes = this->state->flush_writes(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
-                        out_frame.emplace(key, std::move(*series));
+                        out_frame.emplace(key, series->deep_copy());
+                    LOG(INFO) << "[arc] wrote " << out_frame.size() << " channels";
                     this->outputs->push(std::move(out_frame));
                 }
+                // Clear transient handles at end of cycle to prevent memory growth.
+                // Stateful variables persist across cycles.
+                this->bindings->clear_transient_handles();
             }
         }
         return results;
@@ -188,12 +197,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     for (const auto &n: cfg.mod.nodes) {
         auto [node_state, node_state_err] = state->node(n.key);
         if (node_state_err) return {nullptr, node_state_err};
-        auto [node, err] = fact.create(
-            node::Config{
-                .node = n,
-                .state = node_state,
-            }
-        );
+        auto [node, err] = fact.create(node::Config(n, std::move(node_state)));
         if (err) return {nullptr, err};
         nodes[n.key] = std::move(node);
     }
