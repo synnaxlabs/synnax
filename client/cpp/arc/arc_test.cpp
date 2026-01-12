@@ -265,11 +265,11 @@ sequence main {
     ASSERT_FALSE(retrieved.module.wasm.empty());
 
     bool found_interval = false;
-    for (const auto& node : retrieved.module.nodes) {
+    for (const auto &node: retrieved.module.nodes) {
         if (node.type == "interval") {
             found_interval = true;
             bool found_period = false;
-            for (const auto& param : node.config)
+            for (const auto &param: node.config)
                 if (param.name == "period") found_period = true;
             ASSERT_TRUE(found_period);
             break;

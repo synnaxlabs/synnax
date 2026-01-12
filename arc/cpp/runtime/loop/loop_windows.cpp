@@ -165,7 +165,7 @@ public:
         this->timer_enabled_ = false;
     }
 
-    uint64_t watch(notify::Notifier &notifier) override {
+    bool watch(notify::Notifier &notifier) override {
         static bool warned = false;
         if (!warned) {
             LOG(WARNING) << "[loop] watch() not supported on Windows; "
@@ -173,10 +173,8 @@ public:
             warned = true;
         }
         (void) notifier;
-        return 0;
+        return false;
     }
-
-    void unwatch(const uint64_t handle) override { (void) handle; }
 
 private:
     void busy_wait(breaker::Breaker &breaker) {

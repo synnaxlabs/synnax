@@ -20,8 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -34,25 +32,10 @@ var _ = Describe("Calculator", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-		}))
-		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Label:    labelSvc,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-		}))
 		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
-			Framer:   dist.Framer,
-			Status:   statusSvc,
 			Signals:  dist.Signals,
 		}))
 	})

@@ -151,10 +151,9 @@ public:
         this->kqueue_timer_enabled_ = false;
     }
 
-    uint64_t watch(notify::Notifier &notifier) override {
+    bool watch(notify::Notifier &notifier) override {
         const int fd = notifier.fd();
-        if (fd == -1) return 0;
-        if (this->kqueue_fd_ == -1) return 0;
+        if (fd == -1 || this->kqueue_fd_ == -1) return false;
 
         struct kevent kev;
         EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_CLEAR, 0, 0, nullptr);
@@ -162,23 +161,10 @@ public:
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
             LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
                        << strerror(errno);
-            return 0;
+            return false;
         }
 
-        return static_cast<uint64_t>(fd);
-    }
-
-    void unwatch(const uint64_t handle) override {
-        if (handle == 0 || this->kqueue_fd_ == -1) return;
-
-        const int fd = static_cast<int>(handle);
-        struct kevent kev;
-        EV_SET(&kev, fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
-
-        if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1) {
-            LOG(WARNING) << "[loop] Failed to unwatch fd " << fd << ": "
-                         << strerror(errno);
-        }
+        return true;
     }
 
 private:

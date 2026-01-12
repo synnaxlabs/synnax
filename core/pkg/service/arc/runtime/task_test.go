@@ -22,12 +22,12 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
-	godriver "github.com/synnaxlabs/synnax/pkg/service/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -47,7 +47,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
-		labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -261,9 +261,9 @@ var _ = Describe("Task", Ordered, func() {
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
-			Expect(w.Write(core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](20)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](20)))).To(BeTrue())
 			time.Sleep(20 * time.Millisecond)
-			Expect(w.Write(core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
 			Eventually(func(g Gomega) {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, NotFoundError } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -176,6 +176,27 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const arc = await client.arcs.create(data);
+    try {
+      const task = await client.tasks.retrieve({ name: arc.key });
+      await client.tasks.create({
+        ...task.payload,
+        config: {
+          arcKey: arc.key,
+        },
+      });
+    } catch (error) {
+      if (NotFoundError.matches(error)) {
+        const rack = await client.racks.retrieve({ key: 65538 });
+        await rack.createTask({
+          name: arc.key,
+          type: "arc",
+          config: {
+            arcKey: arc.key,
+          },
+        });
+      }
+    }
+
     rollbacks.push(store.arcs.set(arc));
     return arc;
   },

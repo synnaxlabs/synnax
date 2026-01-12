@@ -38,85 +38,68 @@ struct Config {
         const std::vector<types::ChannelKey> &
     )>
         retrieve_channels;
-};
-
-/// @brief Configuration for Runtime queue capacities.
-struct RuntimeConfig {
-    size_t input_queue_capacity = 256; // Control messages are infrequent
-    size_t output_queue_capacity = 1024; // Handle scheduler output bursts
+    size_t input_queue_capacity = 256;
+    size_t output_queue_capacity = 1024;
 };
 
 class Runtime {
     breaker::Breaker breaker;
     std::thread run_thread;
-
     std::shared_ptr<wasm::Module> mod;
-    std::unique_ptr<wasm::Bindings> bindings;
-    std::unique_ptr<state::State> state;
-    std::unique_ptr<scheduler::Scheduler> scheduler;
+    std::shared_ptr<wasm::Bindings> bindings;
+    std::shared_ptr<state::State> state;
+    scheduler::Scheduler scheduler;
     std::unique_ptr<loop::Loop> loop;
-    std::unique_ptr<queue::SPSC<telem::Frame>> inputs;
-    std::unique_ptr<queue::SPSC<telem::Frame>> outputs;
-    uint64_t input_watch_handle = 0;
+    queue::SPSC<telem::Frame> inputs;
+    queue::SPSC<telem::Frame> outputs;
     telem::TimeStamp start_time = telem::TimeStamp(0);
-
 public:
     std::vector<types::ChannelKey> read_channels;
     std::vector<types::ChannelKey> write_channels;
     Runtime(
-        const breaker::Config &breaker_cfg,
+        const Config &cfg,
         std::shared_ptr<wasm::Module> mod,
-        std::unique_ptr<wasm::Bindings> bindings_runtime,
-        std::unique_ptr<state::State> state,
-        std::unique_ptr<scheduler::Scheduler> scheduler,
+        std::shared_ptr<wasm::Bindings> bindings_runtime,
+        std::shared_ptr<state::State> state,
+        scheduler::Scheduler scheduler,
         std::unique_ptr<loop::Loop> loop,
         const std::vector<types::ChannelKey> &read_channels,
-        std::vector<types::ChannelKey> write_channels,
-        const RuntimeConfig &rt_cfg = RuntimeConfig{}
+        std::vector<types::ChannelKey> write_channels
     ):
-        breaker(breaker_cfg),
+        breaker(cfg.breaker),
         mod(std::move(mod)),
         bindings(std::move(bindings_runtime)),
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
-        inputs(
-            std::make_unique<queue::SPSC<telem::Frame>>(rt_cfg.input_queue_capacity)
-        ),
-        outputs(
-            std::make_unique<queue::SPSC<telem::Frame>>(rt_cfg.output_queue_capacity)
-        ),
+        inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
+        outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {
-        this->input_watch_handle = this->loop->watch(this->inputs->notifier());
+        this->loop->watch(this->inputs.notifier());
     }
 
-    std::vector<telem::TimeSpan> run() {
+    void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
-        std::vector<telem::TimeSpan> results;
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
             bool first = true;
-            while (this->inputs->try_pop(frame) || first) {
+            while (this->inputs.try_pop(frame) || first) {
                 first = false;
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
-                this->scheduler->next(elapsed);
-                this->state->clear_reads();
-                results.push_back(elapsed);
-                if (auto writes = this->state->flush_writes(); !writes.empty()) {
+                this->scheduler.next(elapsed);
+                if (auto writes = this->state->flush(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
                         out_frame.emplace(key, series->deep_copy());
-                    this->outputs->push(std::move(out_frame));
+                    this->outputs.push(std::move(out_frame));
                 }
-                this->bindings->clear_transient_handles();
             }
         }
-        return results;
     }
 
     bool start() {
@@ -128,25 +111,24 @@ public:
 
     /// @brief closes the output queue, unblocking any pending read() calls.
     /// Call this before stopping consumers of the output queue.
-    void close_outputs() const { this->outputs->close(); }
+    void close_outputs() { this->outputs.close(); }
 
     bool stop() {
         if (!this->breaker.stop()) return false;
-        this->loop->unwatch(this->input_watch_handle);
         this->loop->stop();
         this->run_thread.join();
-        this->inputs->close();
-        this->outputs->close();
+        this->inputs.close();
+        this->outputs.close();
         return true;
     }
 
-    xerrors::Error write(telem::Frame frame) const {
-        if (!this->inputs->push(std::move(frame)))
+    xerrors::Error write(telem::Frame frame) {
+        if (!this->inputs.push(std::move(frame)))
             return xerrors::Error("runtime closed");
         return xerrors::NIL;
     }
 
-    bool read(telem::Frame &frame) const { return this->outputs->pop(frame); }
+    bool read(telem::Frame &frame) { return this->outputs.pop(frame); }
 };
 
 inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
@@ -169,12 +151,12 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     }
 
     state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
-    auto state = std::make_unique<state::State>(state_cfg);
-    auto bindings_runtime = std::make_unique<wasm::Bindings>(state.get(), nullptr);
+    auto state = std::make_shared<state::State>(state_cfg);
+    auto bindings_runtime = std::make_shared<wasm::Bindings>(state, nullptr);
 
     wasm::ModuleConfig module_cfg{
         .module = cfg.mod,
-        .bindings = bindings_runtime.get()
+        .bindings = bindings_runtime,
     };
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
@@ -203,7 +185,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
         nodes[n.key] = std::move(node);
     }
 
-    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
+    auto sched = scheduler::Scheduler(cfg.mod, nodes);
 
     auto timing_interval = time_factory->timing_base;
     const bool has_intervals = timing_interval.nanoseconds() !=
@@ -225,10 +207,10 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
 
     return {
         std::make_shared<Runtime>(
-            cfg.breaker,
+            cfg,
             std::move(mod),
-            std::move(bindings_runtime),
-            std::move(state),
+            bindings_runtime,
+            state,
             std::move(sched),
             std::move(loop),
             std::vector(reads.begin(), reads.end()),

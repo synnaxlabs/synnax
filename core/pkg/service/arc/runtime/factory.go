@@ -16,8 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	godriver "github.com/synnaxlabs/synnax/pkg/service/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )

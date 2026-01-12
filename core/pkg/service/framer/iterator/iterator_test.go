@@ -21,8 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,24 +35,9 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-		}))
-		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-			Label:    labelSvc,
-		}))
 		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       dist.DB,
 			Channel:  dist.Channel,
-			Framer:   dist.Framer,
-			Status:   statusSvc,
 			Ontology: dist.Ontology,
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{

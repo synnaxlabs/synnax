@@ -428,7 +428,7 @@ TEST(StateTest, ClearReads_PreservesLatestSeries) {
     ASSERT_TRUE(ok_before);
     ASSERT_EQ(data_before.series.size(), 2);
 
-    s.clear_reads();
+    s.flush();
 
     auto [data_after, ok_after] = s.read_channel(10);
     ASSERT_TRUE(ok_after);
@@ -452,7 +452,7 @@ TEST(StateTest, ClearReads_PreservesMultipleChannels) {
     series2.write(30.0);
     s.ingest(telem::Frame(20, std::move(series2)));
 
-    s.clear_reads();
+    s.flush();
 
     auto [data10, ok10] = s.read_channel(10);
     ASSERT_TRUE(ok10);
@@ -472,7 +472,7 @@ TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
     series1.write(1.0f);
     series1.write(2.0f);
     s.ingest(telem::Frame(10, std::move(series1)));
-    s.clear_reads();
+    s.flush();
 
     auto series2 = telem::Series(telem::FLOAT32_T, 2);
     series2.write(3.0f);
@@ -487,7 +487,7 @@ TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
     ASSERT_TRUE(ok20);
     EXPECT_EQ(data20.series[0].at<float>(-1), 4.0f);
 
-    s.clear_reads();
+    s.flush();
 
     auto [data10_2, ok10_2] = s.read_channel(10);
     ASSERT_TRUE(ok10_2);
@@ -504,7 +504,7 @@ TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
     auto series1 = telem::Series(telem::FLOAT32_T, 1);
     series1.write(100.0f);
     s.ingest(telem::Frame(10, std::move(series1)));
-    s.clear_reads();
+    s.flush();
 
     auto [data1, ok1] = s.read_channel(10);
     ASSERT_TRUE(ok1);
@@ -513,7 +513,7 @@ TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
     auto series2 = telem::Series(telem::FLOAT32_T, 1);
     series2.write(200.0f);
     s.ingest(telem::Frame(10, std::move(series2)));
-    s.clear_reads();
+    s.flush();
 
     auto [data2, ok2] = s.read_channel(10);
     ASSERT_TRUE(ok2);
@@ -530,7 +530,7 @@ TEST(StateTest, ClearReads_SingleSeriesNoOp) {
     series.write(3);
     s.ingest(telem::Frame(10, std::move(series)));
 
-    s.clear_reads();
+    s.flush();
 
     auto [data, ok] = s.read_channel(10);
     ASSERT_TRUE(ok);
@@ -544,7 +544,7 @@ TEST(StateTest, ClearReads_SingleSeriesNoOp) {
 TEST(StateTest, ClearReads_EmptyState) {
     State s = create_minimal_state();
 
-    s.clear_reads();
+    s.flush();
 
     auto [data, ok] = s.read_channel(10);
     ASSERT_FALSE(ok);

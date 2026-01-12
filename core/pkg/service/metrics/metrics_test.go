@@ -21,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -39,25 +37,10 @@ var _ = Describe("Metrics", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-		}))
-		statusSvc := MustSucceed(svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
-			DB:       dist.DB,
-			Label:    labelSvc,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-		}))
 		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
-			Framer:   dist.Framer,
-			Status:   statusSvc,
 			Signals:  dist.Signals,
 		}))
 		svcFramer = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
