@@ -78,9 +78,13 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return telem::SampleValue(val.f32());
         case types::Kind::F64:
             return telem::SampleValue(val.f64());
-        default:
+        case types::Kind::Invalid:
+        case types::Kind::String:
+        case types::Kind::Chan:
+        case types::Kind::Series:
             return telem::SampleValue(0);
     }
+    return telem::SampleValue(0);
 }
 
 /// Convert raw memory bits to SampleValue based on Arc type
@@ -117,9 +121,13 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             memcpy(&d, &bits, sizeof(double));
             return telem::SampleValue(d);
         }
-        default:
+        case types::Kind::Invalid:
+        case types::Kind::String:
+        case types::Kind::Chan:
+        case types::Kind::Series:
             return telem::SampleValue(static_cast<int32_t>(0));
     }
+    return telem::SampleValue(static_cast<int32_t>(0));
 }
 
 const auto BASE_ERROR = errors::BASE.sub("wasm");
