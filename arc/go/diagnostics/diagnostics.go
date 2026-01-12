@@ -76,22 +76,27 @@ func (d Diagnostics) Ok() bool {
 func (d Diagnostics) Error() string { return d.String() }
 
 func (d *Diagnostics) Add(diag Diagnostic) {
-	if d.contains(diag) {
-		return
+	for _, idx := range d.AtLocation(diag.Line, diag.Column) {
+		existing := (*d)[idx]
+		if existing.Message == diag.Message {
+			if diag.Severity < existing.Severity {
+				(*d)[idx] = diag
+			}
+			return
+		}
 	}
 	*d = append(*d, diag)
 }
 
-// contains checks if a diagnostic with the same location and message already exists.
-func (d *Diagnostics) contains(diag Diagnostic) bool {
-	for _, existing := range *d {
-		if existing.Line == diag.Line &&
-			existing.Column == diag.Column &&
-			existing.Message == diag.Message {
-			return true
+// AtLocation returns the indices of all diagnostics at the given line and column.
+func (d *Diagnostics) AtLocation(line, column int) []int {
+	var indices []int
+	for i, diag := range *d {
+		if diag.Line == line && diag.Column == column {
+			indices = append(indices, i)
 		}
 	}
-	return false
+	return indices
 }
 
 // AddError adds an error-level diagnostic with the given message and source location.
