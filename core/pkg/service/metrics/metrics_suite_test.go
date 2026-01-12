@@ -26,10 +26,7 @@ import (
 var (
 	builder   *mock.Cluster
 	dist      mock.Node
-	svcFramer *framer.Service
-	labelSvc  *label.Service
-	statusSvc *status.Service
-	arcSvc    *arc.Service
+	framerSvc *framer.Service
 )
 
 func TestMetrics(t *testing.T) {
@@ -62,7 +59,7 @@ var _ = BeforeSuite(func() {
 		Status:   statusSvc,
 		Signals:  dist.Signals,
 	}))
-	svcFramer = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: dist.Channel,
 		Arc:     arcSvc,
@@ -71,9 +68,6 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
-	Expect(svcFramer.Close()).To(Succeed())
-	Expect(arcSvc.Close()).To(Succeed())
-	Expect(statusSvc.Close()).To(Succeed())
-	Expect(labelSvc.Close()).To(Succeed())
+	Expect(framerSvc.Close()).To(Succeed())
 	Expect(builder.Close()).To(Succeed())
 })

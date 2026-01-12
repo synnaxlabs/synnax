@@ -325,6 +325,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
 			Storage:         cfg.Storage,
+			Group:           cfg.Distribution.Group,
+			Ontology:        cfg.Distribution.Ontology,
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}

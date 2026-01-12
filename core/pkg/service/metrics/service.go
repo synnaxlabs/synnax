@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -55,6 +57,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
+	// Ontology is used to create relationships between metrics and other entities in
+	// the Synnax resource graph.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Group is used to create a metrics group for the node.
+	//
+	// [REQUIRED]
+	Group *group.Service
 }
 
 var (
@@ -74,6 +85,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 		other.CollectionInterval,
 	)
 	c.Storage = override.Nil(c.Storage, other.Storage)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -85,6 +98,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "host_provider", c.HostProvider)
 	validate.NotNil(v, "storage", c.Storage)
 	validate.Positive(v, "collection_interval", c.CollectionInterval)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -112,8 +127,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	metricsGroup, err := cfg.Group.CreateOrRetrieve(ctx, "Metrics", cfg.Channel.Group().OntologyID())
+	if err != nil {
+		return nil, err
+	}
+	hostKey := cfg.HostProvider.HostKey().String()
+	nodeGroup, err := cfg.Group.CreateOrRetrieve(ctx, "Node "+hostKey, metricsGroup.OntologyID())
+	if err != nil {
+		return nil, err
+	}
 	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
-	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
+	nameBase := fmt.Sprintf("sy_node_%s_metrics_", hostKey)
 	allMetrics := s.buildMetrics()
 	c := &collector{
 		ins:      cfg.Child("collector"),
@@ -130,7 +154,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ctx,
 		&c.idx,
 		channel.RetrieveIfNameExists(),
+		channel.CreateWithoutGroupRelationship(),
 	); err != nil {
+		return nil, err
+	}
+	if err := cfg.Ontology.NewWriter(nil).DefineRelationship(ctx, nodeGroup.OntologyID(), ontology.ParentOf, c.idx.OntologyID()); err != nil {
 		return nil, err
 	}
 	metricChannels := make([]channel.Channel, len(allMetrics))
@@ -143,6 +171,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ctx,
 		&metricChannels,
 		channel.RetrieveIfNameExists(),
+		channel.CreateWithoutGroupRelationship(),
+	); err != nil {
+		return nil, err
+	}
+	if err := cfg.Ontology.NewWriter(nil).DefineFromOneToManyRelationships(
+		ctx,
+		nodeGroup.OntologyID(),
+		ontology.ParentOf,
+		channel.OntologyIDsFromChannels(metricChannels),
 	); err != nil {
 		return nil, err
 	}
@@ -166,15 +203,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
 	p := plumber.New()
-	plumber.SetSegment(p, writerAddr, w)
-	plumber.SetSource(p, collectorAddr, c)
+	plumber.SetSegment[framer.WriterRequest, framer.WriterResponse](p, writerAddr, w)
+	plumber.SetSource[framer.WriterRequest](p, collectorAddr, c)
 	o := confluence.NewObservableSubscriber[framer.WriterResponse]()
 	o.OnChange(func(_ context.Context, response framer.WriterResponse) {
 		if response.Err != nil {
 			cfg.L.Error("failed to write metrics to node", zap.Error(response.Err))
 		}
 	})
-	plumber.SetSink(p, loggerAddr, o)
+	plumber.SetSink[framer.WriterResponse](p, loggerAddr, o)
 	plumber.MustConnect[framer.WriterRequest](
 		p,
 		collectorAddr,
@@ -193,7 +230,4 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 }
 
 // Close gracefully stops the service, waiting for all internal goroutines to exit.
-func (s *Service) Close() error {
-	close(s.stopCollector)
-	return s.shutdown.Close()
-}
+func (s *Service) Close() error { close(s.stopCollector); return s.shutdown.Close() }
