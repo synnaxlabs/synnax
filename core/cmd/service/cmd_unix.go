@@ -1,4 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
+// Copyright 2025 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package main
+//go:build !windows
 
-import "github.com/synnaxlabs/synnax/cmd"
+package service
 
-func main() { cmd.RunMain() }
+import "github.com/spf13/cobra"
+
+// AddCommand is a no-op on non-Windows platforms. Service commands are only available
+// on Windows.
+func AddCommand(*cobra.Command) error { return nil }

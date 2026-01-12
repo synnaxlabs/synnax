@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/cmd/access"
+	"github.com/synnaxlabs/synnax/cmd/start/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	svcAccess "github.com/synnaxlabs/synnax/pkg/service/access"
