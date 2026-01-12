@@ -37,34 +37,31 @@ const (
 type Variant int32
 
 const (
-	Variant_VARIANT_UNSPECIFIED Variant = 0
-	Variant_VARIANT_SUCCESS     Variant = 1
-	Variant_VARIANT_INFO        Variant = 2
-	Variant_VARIANT_WARNING     Variant = 3
-	Variant_VARIANT_ERROR       Variant = 4
-	Variant_VARIANT_LOADING     Variant = 5
-	Variant_VARIANT_DISABLED    Variant = 6
+	Variant_VARIANT_SUCCESS  Variant = 0
+	Variant_VARIANT_INFO     Variant = 1
+	Variant_VARIANT_WARNING  Variant = 2
+	Variant_VARIANT_ERROR    Variant = 3
+	Variant_VARIANT_LOADING  Variant = 4
+	Variant_VARIANT_DISABLED Variant = 5
 )
 
 // Enum value maps for Variant.
 var (
 	Variant_name = map[int32]string{
-		0: "VARIANT_UNSPECIFIED",
-		1: "VARIANT_SUCCESS",
-		2: "VARIANT_INFO",
-		3: "VARIANT_WARNING",
-		4: "VARIANT_ERROR",
-		5: "VARIANT_LOADING",
-		6: "VARIANT_DISABLED",
+		0: "VARIANT_SUCCESS",
+		1: "VARIANT_INFO",
+		2: "VARIANT_WARNING",
+		3: "VARIANT_ERROR",
+		4: "VARIANT_LOADING",
+		5: "VARIANT_DISABLED",
 	}
 	Variant_value = map[string]int32{
-		"VARIANT_UNSPECIFIED": 0,
-		"VARIANT_SUCCESS":     1,
-		"VARIANT_INFO":        2,
-		"VARIANT_WARNING":     3,
-		"VARIANT_ERROR":       4,
-		"VARIANT_LOADING":     5,
-		"VARIANT_DISABLED":    6,
+		"VARIANT_SUCCESS":  0,
+		"VARIANT_INFO":     1,
+		"VARIANT_WARNING":  2,
+		"VARIANT_ERROR":    3,
+		"VARIANT_LOADING":  4,
+		"VARIANT_DISABLED": 5,
 	}
 )
 
@@ -157,7 +154,7 @@ func (x *Status) GetVariant() Variant {
 	if x != nil {
 		return x.Variant
 	}
-	return Variant_VARIANT_UNSPECIFIED
+	return Variant_VARIANT_SUCCESS
 }
 
 func (x *Status) GetMessage() string {
@@ -208,15 +205,14 @@ const file_x_go_status_pb_status_proto_rawDesc = "" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
 	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x12)\n" +
-	"\x06labels\x18\b \x03(\v2\x11.x.label.pb.LabelR\x06labels*\x9c\x01\n" +
-	"\aVariant\x12\x17\n" +
-	"\x13VARIANT_UNSPECIFIED\x10\x00\x12\x13\n" +
-	"\x0fVARIANT_SUCCESS\x10\x01\x12\x10\n" +
-	"\fVARIANT_INFO\x10\x02\x12\x13\n" +
-	"\x0fVARIANT_WARNING\x10\x03\x12\x11\n" +
-	"\rVARIANT_ERROR\x10\x04\x12\x13\n" +
-	"\x0fVARIANT_LOADING\x10\x05\x12\x14\n" +
-	"\x10VARIANT_DISABLED\x10\x06B\x8f\x01\n" +
+	"\x06labels\x18\b \x03(\v2\x11.x.label.pb.LabelR\x06labels*\x83\x01\n" +
+	"\aVariant\x12\x13\n" +
+	"\x0fVARIANT_SUCCESS\x10\x00\x12\x10\n" +
+	"\fVARIANT_INFO\x10\x01\x12\x13\n" +
+	"\x0fVARIANT_WARNING\x10\x02\x12\x11\n" +
+	"\rVARIANT_ERROR\x10\x03\x12\x13\n" +
+	"\x0fVARIANT_LOADING\x10\x04\x12\x14\n" +
+	"\x10VARIANT_DISABLED\x10\x05B\x8f\x01\n" +
 	"\x0fcom.x.status.pbB\vStatusProtoP\x01Z!github.com/synnaxlabs/x/status/pb\xa2\x02\x03XSP\xaa\x02\vX.Status.Pb\xca\x02\vX\\Status\\Pb\xe2\x02\x17X\\Status\\Pb\\GPBMetadata\xea\x02\rX::Status::Pbb\x06proto3"
 
 var (

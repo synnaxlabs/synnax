@@ -12,9 +12,9 @@
 #include <memory>
 #include <string>
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/mem/local_shared.h"
+#include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/factory.h"
@@ -52,11 +52,11 @@ public:
                 return x::errors::NIL;
 
             x::telem::Series time_series = generate_synthetic
-                                          ? x::telem::Series(
-                                                x::telem::TIMESTAMP_T,
-                                                ser.size()
-                                            )
-                                          : std::move(index_data.series[i]);
+                                             ? x::telem::Series(
+                                                   x::telem::TIMESTAMP_T,
+                                                   ser.size()
+                                               )
+                                             : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
                 const auto now = x::telem::TimeStamp::now();
@@ -68,7 +68,9 @@ public:
             } else if (time_series.alignment != ser.alignment)
                 return x::errors::NIL;
 
-            state.output(0) = x::mem::make_local_shared<x::telem::Series>(ser.deep_copy());
+            state.output(0) = x::mem::make_local_shared<x::telem::Series>(
+                ser.deep_copy()
+            );
             state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
                 std::move(time_series)
             );
@@ -126,7 +128,9 @@ public:
     create(node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         const auto channel_param = types::find_param(cfg.node.config, "channel");
-        assert(channel_param.has_value() && "on/write node requires a channel config param");
+        assert(
+            channel_param.has_value() && "on/write node requires a channel config param"
+        );
         auto channel_key = channel_param->get().value.get<types::ChannelKey>();
         if (cfg.node.type == "on")
             return {

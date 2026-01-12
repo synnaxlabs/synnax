@@ -20,8 +20,9 @@ Handle struct {
 }
 
 EdgeKind enum {
-    continuous = 1
-    one_shot   = 2
+    unspecified = 0
+    continuous  = 1
+    one_shot    = 2
 }
 
 Edge struct {

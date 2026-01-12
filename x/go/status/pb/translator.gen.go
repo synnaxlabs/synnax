@@ -35,7 +35,7 @@ func VariantToPB(v status.Variant) Variant {
 	case status.VariantDisabled:
 		return Variant_VARIANT_DISABLED
 	default:
-		return Variant_VARIANT_UNSPECIFIED
+		return Variant_VARIANT_SUCCESS
 	}
 }
 

@@ -9,11 +9,10 @@ import "x/go/control/pb/control.proto";
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
 
 enum OperationType {
-  OPERATION_TYPE_UNSPECIFIED = 0;
-  OPERATION_TYPE_MIN = 1;
-  OPERATION_TYPE_MAX = 2;
-  OPERATION_TYPE_AVG = 3;
-  OPERATION_TYPE_NONE = 4;
+  OPERATION_TYPE_MIN = 0;
+  OPERATION_TYPE_MAX = 1;
+  OPERATION_TYPE_AVG = 2;
+  OPERATION_TYPE_NONE = 3;
 }
 
 message Operation {

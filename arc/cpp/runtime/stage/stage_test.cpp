@@ -20,7 +20,7 @@ using namespace arc::runtime;
 namespace {
 node::Context make_context() {
     return node::Context{
-        .elapsed = telem::SECOND,
+        .elapsed = x::telem::SECOND,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},

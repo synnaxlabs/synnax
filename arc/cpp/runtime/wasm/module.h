@@ -55,7 +55,8 @@ inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
 inline x::telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
     // Check for timestamp (i64 with nanosecond time units)
-    if (type.is_timestamp()) return x::telem::SampleValue(x::telem::TimeStamp(val.i64()));
+    if (type.is_timestamp())
+        return x::telem::SampleValue(x::telem::TimeStamp(val.i64()));
 
     switch (type.kind) {
         case types::Kind::U8:
@@ -270,7 +271,6 @@ public:
             }
 
             const auto results = result.ok();
-
             if (this->base == 0) {
                 if (!this->output_values.empty() && !results.empty())
                     this->output_values[0] = Result{

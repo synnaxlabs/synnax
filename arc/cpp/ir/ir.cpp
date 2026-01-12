@@ -14,19 +14,19 @@
 namespace arc::ir {
 
 const Node &IR::node(const std::string &key) const {
-    for (const auto &n : nodes)
+    for (const auto &n: nodes)
         if (n.key == key) return n;
     throw std::runtime_error("node not found: " + key);
 }
 
 const Function &IR::function(const std::string &key) const {
-    for (const auto &f : functions)
+    for (const auto &f: functions)
         if (f.key == key) return f;
     throw std::runtime_error("function not found: " + key);
 }
 
 std::optional<Edge> IR::edge_to(const Handle &target) const {
-    for (const auto &e : edges)
+    for (const auto &e: edges)
         if (e.target == target) return e;
     return std::nullopt;
 }
@@ -34,7 +34,7 @@ std::optional<Edge> IR::edge_to(const Handle &target) const {
 std::unordered_map<std::string, std::vector<Edge>>
 IR::edges_from(const std::string &node_key) const {
     std::unordered_map<std::string, std::vector<Edge>> result;
-    for (const auto &e : edges)
+    for (const auto &e: edges)
         if (e.source.node == node_key) result[e.source.param].push_back(e);
     return result;
 }

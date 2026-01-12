@@ -9,28 +9,27 @@ import "google/protobuf/struct.proto";
 option go_package = "github.com/synnaxlabs/arc/types/pb";
 
 enum Kind {
-  KIND_UNSPECIFIED = 0;
-  KIND_INVALID = 1;
-  KIND_U_8 = 2;
-  KIND_U_16 = 3;
-  KIND_U_32 = 4;
-  KIND_U_64 = 5;
-  KIND_I_8 = 6;
-  KIND_I_16 = 7;
-  KIND_I_32 = 8;
-  KIND_I_64 = 9;
-  KIND_F_32 = 10;
-  KIND_F_64 = 11;
-  KIND_STRING = 12;
-  KIND_CHAN = 13;
-  KIND_SERIES = 14;
-  KIND_VARIABLE = 15;
-  KIND_NUMERIC_CONSTANT = 16;
-  KIND_INTEGER_CONSTANT = 17;
-  KIND_FLOAT_CONSTANT = 18;
-  KIND_FUNCTION = 19;
-  KIND_SEQUENCE = 20;
-  KIND_STAGE = 21;
+  KIND_INVALID = 0;
+  KIND_U_8 = 1;
+  KIND_U_16 = 2;
+  KIND_U_32 = 3;
+  KIND_U_64 = 4;
+  KIND_I_8 = 5;
+  KIND_I_16 = 6;
+  KIND_I_32 = 7;
+  KIND_I_64 = 8;
+  KIND_F_32 = 9;
+  KIND_F_64 = 10;
+  KIND_STRING = 11;
+  KIND_CHAN = 14;
+  KIND_SERIES = 15;
+  KIND_VARIABLE = 16;
+  KIND_NUMERIC_CONSTANT = 17;
+  KIND_INTEGER_CONSTANT = 18;
+  KIND_FLOAT_CONSTANT = 19;
+  KIND_FUNCTION = 20;
+  KIND_SEQUENCE = 21;
+  KIND_STAGE = 22;
 }
 
 message FunctionProperties {

@@ -37,28 +37,25 @@ const (
 type OperationType int32
 
 const (
-	OperationType_OPERATION_TYPE_UNSPECIFIED OperationType = 0
-	OperationType_OPERATION_TYPE_MIN         OperationType = 1
-	OperationType_OPERATION_TYPE_MAX         OperationType = 2
-	OperationType_OPERATION_TYPE_AVG         OperationType = 3
-	OperationType_OPERATION_TYPE_NONE        OperationType = 4
+	OperationType_OPERATION_TYPE_MIN  OperationType = 0
+	OperationType_OPERATION_TYPE_MAX  OperationType = 1
+	OperationType_OPERATION_TYPE_AVG  OperationType = 2
+	OperationType_OPERATION_TYPE_NONE OperationType = 3
 )
 
 // Enum value maps for OperationType.
 var (
 	OperationType_name = map[int32]string{
-		0: "OPERATION_TYPE_UNSPECIFIED",
-		1: "OPERATION_TYPE_MIN",
-		2: "OPERATION_TYPE_MAX",
-		3: "OPERATION_TYPE_AVG",
-		4: "OPERATION_TYPE_NONE",
+		0: "OPERATION_TYPE_MIN",
+		1: "OPERATION_TYPE_MAX",
+		2: "OPERATION_TYPE_AVG",
+		3: "OPERATION_TYPE_NONE",
 	}
 	OperationType_value = map[string]int32{
-		"OPERATION_TYPE_UNSPECIFIED": 0,
-		"OPERATION_TYPE_MIN":         1,
-		"OPERATION_TYPE_MAX":         2,
-		"OPERATION_TYPE_AVG":         3,
-		"OPERATION_TYPE_NONE":        4,
+		"OPERATION_TYPE_MIN":  0,
+		"OPERATION_TYPE_MAX":  1,
+		"OPERATION_TYPE_AVG":  2,
+		"OPERATION_TYPE_NONE": 3,
 	}
 )
 
@@ -243,13 +240,12 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"operations\x18\v \x03(\v2\".distribution.channel.pb.OperationR\n" +
 	"operations\x12;\n" +
-	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency*\x90\x01\n" +
-	"\rOperationType\x12\x1e\n" +
-	"\x1aOPERATION_TYPE_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12OPERATION_TYPE_MIN\x10\x01\x12\x16\n" +
-	"\x12OPERATION_TYPE_MAX\x10\x02\x12\x16\n" +
-	"\x12OPERATION_TYPE_AVG\x10\x03\x12\x17\n" +
-	"\x13OPERATION_TYPE_NONE\x10\x04B\xad\x01\n" +
+	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency*p\n" +
+	"\rOperationType\x12\x16\n" +
+	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
+	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
+	"\x12OPERATION_TYPE_AVG\x10\x02\x12\x17\n" +
+	"\x13OPERATION_TYPE_NONE\x10\x03B\xad\x01\n" +
 	"\x12com.api.channel.pbB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACP\xaa\x02\x0eApi.Channel.Pb\xca\x02\x0eApi\\Channel\\Pb\xe2\x02\x1aApi\\Channel\\Pb\\GPBMetadata\xea\x02\x10Api::Channel::Pbb\x06proto3"
 
 var (

@@ -71,7 +71,7 @@ func ConcurrencyToPB(v control.Concurrency) Concurrency {
 	case control.ConcurrencyShared:
 		return Concurrency_CONCURRENCY_SHARED
 	default:
-		return Concurrency_CONCURRENCY_UNSPECIFIED
+		return Concurrency_CONCURRENCY_EXCLUSIVE
 	}
 }
 

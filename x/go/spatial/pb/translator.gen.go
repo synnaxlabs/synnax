@@ -246,37 +246,13 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
-// YLocationToPB converts spatial.YLocation to YLocation.
-func YLocationToPB(v spatial.YLocation) YLocation {
-	switch v {
-	case spatial.YLocationTop:
-		return YLocation_Y_LOCATION_TOP
-	case spatial.YLocationBottom:
-		return YLocation_Y_LOCATION_BOTTOM
-	default:
-		return YLocation_Y_LOCATION_UNSPECIFIED
-	}
-}
-
-// YLocationFromPB converts YLocation to spatial.YLocation.
-func YLocationFromPB(v YLocation) spatial.YLocation {
-	switch v {
-	case YLocation_Y_LOCATION_TOP:
-		return spatial.YLocationTop
-	case YLocation_Y_LOCATION_BOTTOM:
-		return spatial.YLocationBottom
-	default:
-		return spatial.YLocationTop
-	}
-}
-
 // CenterLocationToPB converts spatial.CenterLocation to CenterLocation.
 func CenterLocationToPB(v spatial.CenterLocation) CenterLocation {
 	switch v {
 	case spatial.CenterLocationCenter:
 		return CenterLocation_CENTER_LOCATION_CENTER
 	default:
-		return CenterLocation_CENTER_LOCATION_UNSPECIFIED
+		return CenterLocation_CENTER_LOCATION_CENTER
 	}
 }
 
@@ -304,7 +280,7 @@ func LocationToPB(v spatial.Location) Location {
 	case spatial.LocationCenter:
 		return Location_LOCATION_CENTER
 	default:
-		return Location_LOCATION_UNSPECIFIED
+		return Location_LOCATION_TOP
 	}
 }
 
@@ -336,7 +312,7 @@ func AlignmentToPB(v spatial.Alignment) Alignment {
 	case spatial.AlignmentEnd:
 		return Alignment_ALIGNMENT_END
 	default:
-		return Alignment_ALIGNMENT_UNSPECIFIED
+		return Alignment_ALIGNMENT_START
 	}
 }
 
@@ -362,7 +338,7 @@ func OrderToPB(v spatial.Order) Order {
 	case spatial.OrderLast:
 		return Order_ORDER_LAST
 	default:
-		return Order_ORDER_UNSPECIFIED
+		return Order_ORDER_FIRST
 	}
 }
 
@@ -386,7 +362,7 @@ func DirectionToPB(v spatial.Direction) Direction {
 	case spatial.DirectionY:
 		return Direction_DIRECTION_Y
 	default:
-		return Direction_DIRECTION_UNSPECIFIED
+		return Direction_DIRECTION_X
 	}
 }
 
@@ -414,7 +390,7 @@ func OuterLocationToPB(v spatial.OuterLocation) OuterLocation {
 	case spatial.OuterLocationLeft:
 		return OuterLocation_OUTER_LOCATION_LEFT
 	default:
-		return OuterLocation_OUTER_LOCATION_UNSPECIFIED
+		return OuterLocation_OUTER_LOCATION_TOP
 	}
 }
 
@@ -442,7 +418,7 @@ func XLocationToPB(v spatial.XLocation) XLocation {
 	case spatial.XLocationRight:
 		return XLocation_X_LOCATION_RIGHT
 	default:
-		return XLocation_X_LOCATION_UNSPECIFIED
+		return XLocation_X_LOCATION_LEFT
 	}
 }
 
@@ -455,5 +431,29 @@ func XLocationFromPB(v XLocation) spatial.XLocation {
 		return spatial.XLocationRight
 	default:
 		return spatial.XLocationLeft
+	}
+}
+
+// YLocationToPB converts spatial.YLocation to YLocation.
+func YLocationToPB(v spatial.YLocation) YLocation {
+	switch v {
+	case spatial.YLocationTop:
+		return YLocation_Y_LOCATION_TOP
+	case spatial.YLocationBottom:
+		return YLocation_Y_LOCATION_BOTTOM
+	default:
+		return YLocation_Y_LOCATION_TOP
+	}
+}
+
+// YLocationFromPB converts YLocation to spatial.YLocation.
+func YLocationFromPB(v YLocation) spatial.YLocation {
+	switch v {
+	case YLocation_Y_LOCATION_TOP:
+		return spatial.YLocationTop
+	case YLocation_Y_LOCATION_BOTTOM:
+		return spatial.YLocationBottom
+	default:
+		return spatial.YLocationTop
 	}
 }

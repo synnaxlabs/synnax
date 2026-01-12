@@ -151,53 +151,45 @@ to_sample_value(const x::json::json &value, const Type &type) {
     switch (type.kind) {
         case Kind::I8:
             return value.is_number()
-                       ? std::optional(static_cast<int8_t>(value.get<int>()))
-                       : std::nullopt;
+                     ? std::optional(static_cast<int8_t>(value.get<int>()))
+                     : std::nullopt;
         case Kind::I16:
             return value.is_number()
-                       ? std::optional(static_cast<int16_t>(value.get<int>()))
-                       : std::nullopt;
+                     ? std::optional(static_cast<int16_t>(value.get<int>()))
+                     : std::nullopt;
         case Kind::I32:
-            return value.is_number()
-                       ? std::optional(value.get<int32_t>())
-                       : std::nullopt;
+            return value.is_number() ? std::optional(value.get<int32_t>())
+                                     : std::nullopt;
         case Kind::I64:
             if (type.is_timestamp()) {
                 return value.is_number()
-                           ? std::optional(x::telem::TimeStamp(value.get<int64_t>()))
-                           : std::nullopt;
+                         ? std::optional(x::telem::TimeStamp(value.get<int64_t>()))
+                         : std::nullopt;
             }
-            return value.is_number()
-                       ? std::optional(value.get<int64_t>())
-                       : std::nullopt;
+            return value.is_number() ? std::optional(value.get<int64_t>())
+                                     : std::nullopt;
         case Kind::U8:
             return value.is_number()
-                       ? std::optional(static_cast<uint8_t>(value.get<unsigned>()))
-                       : std::nullopt;
+                     ? std::optional(static_cast<uint8_t>(value.get<unsigned>()))
+                     : std::nullopt;
         case Kind::U16:
             return value.is_number()
-                       ? std::optional(static_cast<uint16_t>(value.get<unsigned>()))
-                       : std::nullopt;
+                     ? std::optional(static_cast<uint16_t>(value.get<unsigned>()))
+                     : std::nullopt;
         case Kind::U32:
-            return value.is_number()
-                       ? std::optional(value.get<uint32_t>())
-                       : std::nullopt;
+            return value.is_number() ? std::optional(value.get<uint32_t>())
+                                     : std::nullopt;
         case Kind::U64:
-            return value.is_number()
-                       ? std::optional(value.get<uint64_t>())
-                       : std::nullopt;
+            return value.is_number() ? std::optional(value.get<uint64_t>())
+                                     : std::nullopt;
         case Kind::F32:
-            return value.is_number()
-                       ? std::optional(value.get<float>())
-                       : std::nullopt;
+            return value.is_number() ? std::optional(value.get<float>()) : std::nullopt;
         case Kind::F64:
-            return value.is_number()
-                       ? std::optional(value.get<double>())
-                       : std::nullopt;
+            return value.is_number() ? std::optional(value.get<double>())
+                                     : std::nullopt;
         case Kind::String:
-            return value.is_string()
-                       ? std::optional(value.get<std::string>())
-                       : std::nullopt;
+            return value.is_string() ? std::optional(value.get<std::string>())
+                                     : std::nullopt;
         default:
             return std::nullopt;
     }

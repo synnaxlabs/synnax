@@ -35,16 +35,17 @@ std::string random_name(const std::string &prefix) {
 /// @brief Compiles an Arc program via the Synnax client.
 arc::module::Module
 compile_arc(const synnax::Synnax &client, const std::string &source) {
-    auto arc = synnax::Arc(random_name("test_arc"));
+    synnax::arc::Arc arc;
+    arc.name = random_name("test_arc");
     arc.text.raw = source;
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
-    synnax::RetrieveOptions opts;
+    synnax::arc::RetrieveOptions opts;
     opts.compile = true;
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
-    return compiled.module;
+    return *compiled.module;
 }
 
 /// @brief Finds the IR node with the given type in the module.
@@ -57,7 +58,7 @@ find_node_by_type(const arc::module::Module &mod, const std::string &type) {
 
 node::Context make_context() {
     return node::Context{
-        .elapsed = telem::SECOND,
+        .elapsed = x::telem::SECOND,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
         .activate_stage = [] {},
@@ -69,7 +70,7 @@ node::Context make_context() {
 TEST(FactoryTest, HandlesReturnsTrueForExistingFunction) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -90,7 +91,7 @@ func double(val f32) f32 {
 TEST(FactoryTest, CreateReturnsErrorWhenFunctionNotFound) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -120,7 +121,7 @@ func double(val f32) f32 {
 TEST(FactoryTest, CreateSucceedsWithValidConfig) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -150,7 +151,7 @@ func double(val f32) f32 {
 TEST(NodeTest, NextReturnsEarlyWhenNoInputsRefreshed) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -191,16 +192,31 @@ TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output_val");
 
-    auto input_idx = synnax::channel::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::channel::Channel(
+        input_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::channel::Channel(
+        output_idx_name,
+        x::telem::TIMESTAMP_T,
+        0,
+        true
+    );
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(input_name, telem::FLOAT32_T, input_idx.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        input_idx.key,
+        false
+    );
     ASSERT_NIL(client.channels.create(input_ch));
     auto output_ch = synnax::channel::Channel(
         output_name,
-        telem::FLOAT32_T,
+        x::telem::FLOAT32_T,
         output_idx.key,
         false
     );
@@ -222,10 +238,10 @@ func double(val f32) f32 {
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels = {
-                {input_idx.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::FLOAT32_T, input_idx.key},
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::FLOAT32_T, output_idx.key}
+                {input_idx.key, x::telem::TIMESTAMP_T, 0},
+                {input_ch.key, x::telem::FLOAT32_T, input_idx.key},
+                {output_idx.key, x::telem::TIMESTAMP_T, 0},
+                {output_ch.key, x::telem::FLOAT32_T, output_idx.key}
             }
         }
     );
@@ -238,21 +254,21 @@ func double(val f32) f32 {
     // This simulates what on.next() would do after reading from channels
     auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
 
-    auto on_data = telem::Series(std::vector{5.0f, 10.0f, 15.0f});
-    on_data.alignment = telem::Alignment(1, 0);
-    on_node_state.output(0) = x::mem::make_local_shared<telem::Series>(
+    auto on_data = x::telem::Series(std::vector{5.0f, 10.0f, 15.0f});
+    on_data.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_data)
     );
 
-    auto on_time = telem::Series(
+    auto on_time = x::telem::Series(
         std::vector{
-            telem::TimeStamp(1 * telem::MICROSECOND),
-            telem::TimeStamp(2 * telem::MICROSECOND),
-            telem::TimeStamp(3 * telem::MICROSECOND)
+            x::telem::TimeStamp(1 * x::telem::MICROSECOND),
+            x::telem::TimeStamp(2 * x::telem::MICROSECOND),
+            x::telem::TimeStamp(3 * x::telem::MICROSECOND)
         }
     );
-    on_time.alignment = telem::Alignment(1, 0);
-    on_node_state.output_time(0) = x::mem::make_local_shared<telem::Series>(
+    on_time.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
 
@@ -288,12 +304,22 @@ TEST(NodeTest, NextReportsErrorOnWasmTrap) {
     auto input_name = random_name("input");
     auto output_name = random_name("output");
 
-    auto index_ch = synnax::channel::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
+    auto index_ch = synnax::channel::Channel(idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto input_ch = synnax::channel::Channel(input_name, telem::INT32_T, index_ch.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::INT32_T,
+        index_ch.key,
+        false
+    );
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::channel::Channel(output_name, telem::INT32_T, index_ch.key, false);
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::INT32_T,
+        index_ch.key,
+        false
+    );
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -312,9 +338,9 @@ func divide_by_zero(val i32) i32 {
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels = {
-                {index_ch.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::INT32_T, index_ch.key},
-                {output_ch.key, telem::INT32_T, index_ch.key}
+                {index_ch.key, x::telem::TIMESTAMP_T, 0},
+                {input_ch.key, x::telem::INT32_T, index_ch.key},
+                {output_ch.key, x::telem::INT32_T, index_ch.key}
             }
         }
     );
@@ -324,14 +350,14 @@ func divide_by_zero(val i32) i32 {
     ASSERT_NE(on_node, nullptr);
 
     auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
-    auto on_data = telem::Series(static_cast<int32_t>(42));
-    on_data.alignment = telem::Alignment(1, 0);
-    on_node_state.output(0) = x::mem::make_local_shared<telem::Series>(
+    auto on_data = x::telem::Series(static_cast<int32_t>(42));
+    on_data.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_data)
     );
-    auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
-    on_time.alignment = telem::Alignment(1, 0);
-    on_node_state.output_time(0) = x::mem::make_local_shared<telem::Series>(
+    auto on_time = x::telem::Series(x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    on_time.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
 
@@ -354,7 +380,7 @@ func divide_by_zero(val i32) i32 {
 TEST(NodeTest, IsOutputTruthyReturnsFalseForNonexistent) {
     const auto client = new_test_client();
     const auto ch = ASSERT_NIL_P(
-        client.channels.create(random_name("input"), telem::FLOAT32_T, true)
+        client.channels.create(random_name("input"), x::telem::FLOAT32_T, true)
     );
 
     const std::string source = R"(
@@ -386,13 +412,22 @@ TEST(NodeTest, IsOutputTruthyEvaluatesOutputValues) {
     auto input_name = random_name("input");
     auto output_name = random_name("output");
 
-    auto index_ch = synnax::channel::Channel(idx_name, telem::TIMESTAMP_T, 0, true);
+    auto index_ch = synnax::channel::Channel(idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(index_ch));
 
-    auto input_ch = synnax::channel::Channel(input_name, telem::FLOAT32_T, index_ch.key, false);
+    auto input_ch = synnax::channel::Channel(
+        input_name,
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    );
     ASSERT_NIL(client.channels.create(input_ch));
-    auto
-        output_ch = synnax::channel::Channel(output_name, telem::FLOAT32_T, index_ch.key, false);
+    auto output_ch = synnax::channel::Channel(
+        output_name,
+        x::telem::FLOAT32_T,
+        index_ch.key,
+        false
+    );
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -411,9 +446,9 @@ func passthrough(val f32) f32 {
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels = {
-                {index_ch.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::FLOAT32_T, index_ch.key},
-                {output_ch.key, telem::FLOAT32_T, index_ch.key}
+                {index_ch.key, x::telem::TIMESTAMP_T, 0},
+                {input_ch.key, x::telem::FLOAT32_T, index_ch.key},
+                {output_ch.key, x::telem::FLOAT32_T, index_ch.key}
             }
         }
     );
@@ -423,14 +458,14 @@ func passthrough(val f32) f32 {
     ASSERT_NE(on_node, nullptr);
 
     auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
-    auto on_data = telem::Series(42.0f);
-    on_data.alignment = telem::Alignment(1, 0);
-    on_node_state.output(0) = x::mem::make_local_shared<telem::Series>(
+    auto on_data = x::telem::Series(42.0f);
+    on_data.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_data)
     );
-    auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
-    on_time.alignment = telem::Alignment(1, 0);
-    on_node_state.output_time(0) = x::mem::make_local_shared<telem::Series>(
+    auto on_time = x::telem::Series(x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    on_time.alignment = x::telem::Alignment(1, 0);
+    on_node_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(
         std::move(on_time)
     );
 

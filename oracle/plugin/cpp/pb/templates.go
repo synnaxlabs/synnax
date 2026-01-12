@@ -94,10 +94,7 @@ inline std::pair<{{.CppName}}<{{.TypeParamNames}}>, x::errors::Error> {{.CppName
 
 inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}::to_proto() const {
     {{.PBNamespace}}::{{.PBName}} pb;
-{{- range .ParentTypes}}
-    pb.MergeFrom({{.QualifiedName}}::to_proto());
-{{- end}}
-{{- range .Fields}}
+{{- range .AllFields}}
     {{.ForwardExpr}};
 {{- end}}
     return pb;

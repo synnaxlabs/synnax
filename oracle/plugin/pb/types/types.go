@@ -214,24 +214,29 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 
 	ed := enumData{
 		Name:   e.Name,
-		Values: make([]enumValueData, 0, len(form.Values)+1),
+		Values: make([]enumValueData, 0, len(form.Values)),
 	}
 
 	// Generate prefix from enum name (e.g., "OperationType" -> "OPERATION_TYPE_")
 	prefix := toScreamingSnake(e.Name) + "_"
 
-	// Add UNSPECIFIED as first value (proto3 best practice)
-	// Prefix with enum name per protobuf style guide
-	ed.Values = append(ed.Values, enumValueData{
-		Name:   prefix + "UNSPECIFIED",
-		Number: 0,
-	})
-
-	// Add actual enum values with prefix
+	// Use enum values exactly as defined in the oracle file.
+	// The oracle schema is the source of truth - no implicit UNSPECIFIED values.
+	// This keeps Go, C++, and Proto enum values aligned.
+	//
+	// For numeric enums (int values), use the explicit values from oracle.
+	// For string enums, use sequential numbering starting from 0.
 	for i, v := range form.Values {
+		number := i // Default to sequential for string enums
+		switch n := v.Value.(type) {
+		case int64:
+			number = int(n)
+		case int:
+			number = n
+		}
 		ed.Values = append(ed.Values, enumValueData{
 			Name:   prefix + toScreamingSnake(v.Name),
-			Number: i + 1,
+			Number: number,
 		})
 	}
 

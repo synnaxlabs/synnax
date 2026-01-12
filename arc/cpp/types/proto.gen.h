@@ -56,7 +56,12 @@ FunctionProperties::from_proto(const ::arc::types::pb::FunctionProperties &pb) {
 
 inline ::arc::types::pb::Type Type::to_proto() const {
     ::arc::types::pb::Type pb;
-    pb.MergeFrom(FunctionProperties::to_proto());
+    for (const auto &item: this->inputs)
+        *pb.add_inputs() = item.to_proto();
+    for (const auto &item: this->outputs)
+        *pb.add_outputs() = item.to_proto();
+    for (const auto &item: this->config)
+        *pb.add_config() = item.to_proto();
     pb.set_kind(static_cast<::arc::types::pb::Kind>(this->kind));
     pb.set_name(this->name);
     if (this->elem.has_value()) *pb.mutable_elem() = this->elem->to_proto();

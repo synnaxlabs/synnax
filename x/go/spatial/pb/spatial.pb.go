@@ -35,22 +35,19 @@ const (
 type Direction int32
 
 const (
-	Direction_DIRECTION_UNSPECIFIED Direction = 0
-	Direction_DIRECTION_X           Direction = 1
-	Direction_DIRECTION_Y           Direction = 2
+	Direction_DIRECTION_X Direction = 0
+	Direction_DIRECTION_Y Direction = 1
 )
 
 // Enum value maps for Direction.
 var (
 	Direction_name = map[int32]string{
-		0: "DIRECTION_UNSPECIFIED",
-		1: "DIRECTION_X",
-		2: "DIRECTION_Y",
+		0: "DIRECTION_X",
+		1: "DIRECTION_Y",
 	}
 	Direction_value = map[string]int32{
-		"DIRECTION_UNSPECIFIED": 0,
-		"DIRECTION_X":           1,
-		"DIRECTION_Y":           2,
+		"DIRECTION_X": 0,
+		"DIRECTION_Y": 1,
 	}
 )
 
@@ -84,28 +81,25 @@ func (Direction) EnumDescriptor() ([]byte, []int) {
 type OuterLocation int32
 
 const (
-	OuterLocation_OUTER_LOCATION_UNSPECIFIED OuterLocation = 0
-	OuterLocation_OUTER_LOCATION_TOP         OuterLocation = 1
-	OuterLocation_OUTER_LOCATION_RIGHT       OuterLocation = 2
-	OuterLocation_OUTER_LOCATION_BOTTOM      OuterLocation = 3
-	OuterLocation_OUTER_LOCATION_LEFT        OuterLocation = 4
+	OuterLocation_OUTER_LOCATION_TOP    OuterLocation = 0
+	OuterLocation_OUTER_LOCATION_RIGHT  OuterLocation = 1
+	OuterLocation_OUTER_LOCATION_BOTTOM OuterLocation = 2
+	OuterLocation_OUTER_LOCATION_LEFT   OuterLocation = 3
 )
 
 // Enum value maps for OuterLocation.
 var (
 	OuterLocation_name = map[int32]string{
-		0: "OUTER_LOCATION_UNSPECIFIED",
-		1: "OUTER_LOCATION_TOP",
-		2: "OUTER_LOCATION_RIGHT",
-		3: "OUTER_LOCATION_BOTTOM",
-		4: "OUTER_LOCATION_LEFT",
+		0: "OUTER_LOCATION_TOP",
+		1: "OUTER_LOCATION_RIGHT",
+		2: "OUTER_LOCATION_BOTTOM",
+		3: "OUTER_LOCATION_LEFT",
 	}
 	OuterLocation_value = map[string]int32{
-		"OUTER_LOCATION_UNSPECIFIED": 0,
-		"OUTER_LOCATION_TOP":         1,
-		"OUTER_LOCATION_RIGHT":       2,
-		"OUTER_LOCATION_BOTTOM":      3,
-		"OUTER_LOCATION_LEFT":        4,
+		"OUTER_LOCATION_TOP":    0,
+		"OUTER_LOCATION_RIGHT":  1,
+		"OUTER_LOCATION_BOTTOM": 2,
+		"OUTER_LOCATION_LEFT":   3,
 	}
 )
 
@@ -139,22 +133,19 @@ func (OuterLocation) EnumDescriptor() ([]byte, []int) {
 type XLocation int32
 
 const (
-	XLocation_X_LOCATION_UNSPECIFIED XLocation = 0
-	XLocation_X_LOCATION_LEFT        XLocation = 1
-	XLocation_X_LOCATION_RIGHT       XLocation = 2
+	XLocation_X_LOCATION_LEFT  XLocation = 0
+	XLocation_X_LOCATION_RIGHT XLocation = 1
 )
 
 // Enum value maps for XLocation.
 var (
 	XLocation_name = map[int32]string{
-		0: "X_LOCATION_UNSPECIFIED",
-		1: "X_LOCATION_LEFT",
-		2: "X_LOCATION_RIGHT",
+		0: "X_LOCATION_LEFT",
+		1: "X_LOCATION_RIGHT",
 	}
 	XLocation_value = map[string]int32{
-		"X_LOCATION_UNSPECIFIED": 0,
-		"X_LOCATION_LEFT":        1,
-		"X_LOCATION_RIGHT":       2,
+		"X_LOCATION_LEFT":  0,
+		"X_LOCATION_RIGHT": 1,
 	}
 )
 
@@ -188,22 +179,19 @@ func (XLocation) EnumDescriptor() ([]byte, []int) {
 type YLocation int32
 
 const (
-	YLocation_Y_LOCATION_UNSPECIFIED YLocation = 0
-	YLocation_Y_LOCATION_TOP         YLocation = 1
-	YLocation_Y_LOCATION_BOTTOM      YLocation = 2
+	YLocation_Y_LOCATION_TOP    YLocation = 0
+	YLocation_Y_LOCATION_BOTTOM YLocation = 1
 )
 
 // Enum value maps for YLocation.
 var (
 	YLocation_name = map[int32]string{
-		0: "Y_LOCATION_UNSPECIFIED",
-		1: "Y_LOCATION_TOP",
-		2: "Y_LOCATION_BOTTOM",
+		0: "Y_LOCATION_TOP",
+		1: "Y_LOCATION_BOTTOM",
 	}
 	YLocation_value = map[string]int32{
-		"Y_LOCATION_UNSPECIFIED": 0,
-		"Y_LOCATION_TOP":         1,
-		"Y_LOCATION_BOTTOM":      2,
+		"Y_LOCATION_TOP":    0,
+		"Y_LOCATION_BOTTOM": 1,
 	}
 )
 
@@ -237,19 +225,16 @@ func (YLocation) EnumDescriptor() ([]byte, []int) {
 type CenterLocation int32
 
 const (
-	CenterLocation_CENTER_LOCATION_UNSPECIFIED CenterLocation = 0
-	CenterLocation_CENTER_LOCATION_CENTER      CenterLocation = 1
+	CenterLocation_CENTER_LOCATION_CENTER CenterLocation = 0
 )
 
 // Enum value maps for CenterLocation.
 var (
 	CenterLocation_name = map[int32]string{
-		0: "CENTER_LOCATION_UNSPECIFIED",
-		1: "CENTER_LOCATION_CENTER",
+		0: "CENTER_LOCATION_CENTER",
 	}
 	CenterLocation_value = map[string]int32{
-		"CENTER_LOCATION_UNSPECIFIED": 0,
-		"CENTER_LOCATION_CENTER":      1,
+		"CENTER_LOCATION_CENTER": 0,
 	}
 )
 
@@ -283,31 +268,28 @@ func (CenterLocation) EnumDescriptor() ([]byte, []int) {
 type Location int32
 
 const (
-	Location_LOCATION_UNSPECIFIED Location = 0
-	Location_LOCATION_TOP         Location = 1
-	Location_LOCATION_RIGHT       Location = 2
-	Location_LOCATION_BOTTOM      Location = 3
-	Location_LOCATION_LEFT        Location = 4
-	Location_LOCATION_CENTER      Location = 5
+	Location_LOCATION_TOP    Location = 0
+	Location_LOCATION_RIGHT  Location = 1
+	Location_LOCATION_BOTTOM Location = 2
+	Location_LOCATION_LEFT   Location = 3
+	Location_LOCATION_CENTER Location = 4
 )
 
 // Enum value maps for Location.
 var (
 	Location_name = map[int32]string{
-		0: "LOCATION_UNSPECIFIED",
-		1: "LOCATION_TOP",
-		2: "LOCATION_RIGHT",
-		3: "LOCATION_BOTTOM",
-		4: "LOCATION_LEFT",
-		5: "LOCATION_CENTER",
+		0: "LOCATION_TOP",
+		1: "LOCATION_RIGHT",
+		2: "LOCATION_BOTTOM",
+		3: "LOCATION_LEFT",
+		4: "LOCATION_CENTER",
 	}
 	Location_value = map[string]int32{
-		"LOCATION_UNSPECIFIED": 0,
-		"LOCATION_TOP":         1,
-		"LOCATION_RIGHT":       2,
-		"LOCATION_BOTTOM":      3,
-		"LOCATION_LEFT":        4,
-		"LOCATION_CENTER":      5,
+		"LOCATION_TOP":    0,
+		"LOCATION_RIGHT":  1,
+		"LOCATION_BOTTOM": 2,
+		"LOCATION_LEFT":   3,
+		"LOCATION_CENTER": 4,
 	}
 )
 
@@ -341,25 +323,22 @@ func (Location) EnumDescriptor() ([]byte, []int) {
 type Alignment int32
 
 const (
-	Alignment_ALIGNMENT_UNSPECIFIED Alignment = 0
-	Alignment_ALIGNMENT_START       Alignment = 1
-	Alignment_ALIGNMENT_CENTER      Alignment = 2
-	Alignment_ALIGNMENT_END         Alignment = 3
+	Alignment_ALIGNMENT_START  Alignment = 0
+	Alignment_ALIGNMENT_CENTER Alignment = 1
+	Alignment_ALIGNMENT_END    Alignment = 2
 )
 
 // Enum value maps for Alignment.
 var (
 	Alignment_name = map[int32]string{
-		0: "ALIGNMENT_UNSPECIFIED",
-		1: "ALIGNMENT_START",
-		2: "ALIGNMENT_CENTER",
-		3: "ALIGNMENT_END",
+		0: "ALIGNMENT_START",
+		1: "ALIGNMENT_CENTER",
+		2: "ALIGNMENT_END",
 	}
 	Alignment_value = map[string]int32{
-		"ALIGNMENT_UNSPECIFIED": 0,
-		"ALIGNMENT_START":       1,
-		"ALIGNMENT_CENTER":      2,
-		"ALIGNMENT_END":         3,
+		"ALIGNMENT_START":  0,
+		"ALIGNMENT_CENTER": 1,
+		"ALIGNMENT_END":    2,
 	}
 )
 
@@ -393,22 +372,19 @@ func (Alignment) EnumDescriptor() ([]byte, []int) {
 type Order int32
 
 const (
-	Order_ORDER_UNSPECIFIED Order = 0
-	Order_ORDER_FIRST       Order = 1
-	Order_ORDER_LAST        Order = 2
+	Order_ORDER_FIRST Order = 0
+	Order_ORDER_LAST  Order = 1
 )
 
 // Enum value maps for Order.
 var (
 	Order_name = map[int32]string{
-		0: "ORDER_UNSPECIFIED",
-		1: "ORDER_FIRST",
-		2: "ORDER_LAST",
+		0: "ORDER_FIRST",
+		1: "ORDER_LAST",
 	}
 	Order_value = map[string]int32{
-		"ORDER_UNSPECIFIED": 0,
-		"ORDER_FIRST":       1,
-		"ORDER_LAST":        2,
+		"ORDER_FIRST": 0,
+		"ORDER_LAST":  1,
 	}
 )
 
@@ -719,45 +695,37 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\rsigned_height\x18\x02 \x01(\x01R\fsignedHeight\"4\n" +
 	"\x06Bounds\x12\x14\n" +
 	"\x05lower\x18\x01 \x01(\x01R\x05lower\x12\x14\n" +
-	"\x05upper\x18\x02 \x01(\x01R\x05upper*H\n" +
-	"\tDirection\x12\x19\n" +
-	"\x15DIRECTION_UNSPECIFIED\x10\x00\x12\x0f\n" +
-	"\vDIRECTION_X\x10\x01\x12\x0f\n" +
-	"\vDIRECTION_Y\x10\x02*\x95\x01\n" +
-	"\rOuterLocation\x12\x1e\n" +
-	"\x1aOUTER_LOCATION_UNSPECIFIED\x10\x00\x12\x16\n" +
-	"\x12OUTER_LOCATION_TOP\x10\x01\x12\x18\n" +
-	"\x14OUTER_LOCATION_RIGHT\x10\x02\x12\x19\n" +
-	"\x15OUTER_LOCATION_BOTTOM\x10\x03\x12\x17\n" +
-	"\x13OUTER_LOCATION_LEFT\x10\x04*R\n" +
-	"\tXLocation\x12\x1a\n" +
-	"\x16X_LOCATION_UNSPECIFIED\x10\x00\x12\x13\n" +
-	"\x0fX_LOCATION_LEFT\x10\x01\x12\x14\n" +
-	"\x10X_LOCATION_RIGHT\x10\x02*R\n" +
-	"\tYLocation\x12\x1a\n" +
-	"\x16Y_LOCATION_UNSPECIFIED\x10\x00\x12\x12\n" +
-	"\x0eY_LOCATION_TOP\x10\x01\x12\x15\n" +
-	"\x11Y_LOCATION_BOTTOM\x10\x02*M\n" +
-	"\x0eCenterLocation\x12\x1f\n" +
-	"\x1bCENTER_LOCATION_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16CENTER_LOCATION_CENTER\x10\x01*\x87\x01\n" +
-	"\bLocation\x12\x18\n" +
-	"\x14LOCATION_UNSPECIFIED\x10\x00\x12\x10\n" +
-	"\fLOCATION_TOP\x10\x01\x12\x12\n" +
-	"\x0eLOCATION_RIGHT\x10\x02\x12\x13\n" +
-	"\x0fLOCATION_BOTTOM\x10\x03\x12\x11\n" +
-	"\rLOCATION_LEFT\x10\x04\x12\x13\n" +
-	"\x0fLOCATION_CENTER\x10\x05*d\n" +
-	"\tAlignment\x12\x19\n" +
-	"\x15ALIGNMENT_UNSPECIFIED\x10\x00\x12\x13\n" +
-	"\x0fALIGNMENT_START\x10\x01\x12\x14\n" +
-	"\x10ALIGNMENT_CENTER\x10\x02\x12\x11\n" +
-	"\rALIGNMENT_END\x10\x03*?\n" +
-	"\x05Order\x12\x15\n" +
-	"\x11ORDER_UNSPECIFIED\x10\x00\x12\x0f\n" +
-	"\vORDER_FIRST\x10\x01\x12\x0e\n" +
+	"\x05upper\x18\x02 \x01(\x01R\x05upper*-\n" +
+	"\tDirection\x12\x0f\n" +
+	"\vDIRECTION_X\x10\x00\x12\x0f\n" +
+	"\vDIRECTION_Y\x10\x01*u\n" +
+	"\rOuterLocation\x12\x16\n" +
+	"\x12OUTER_LOCATION_TOP\x10\x00\x12\x18\n" +
+	"\x14OUTER_LOCATION_RIGHT\x10\x01\x12\x19\n" +
+	"\x15OUTER_LOCATION_BOTTOM\x10\x02\x12\x17\n" +
+	"\x13OUTER_LOCATION_LEFT\x10\x03*6\n" +
+	"\tXLocation\x12\x13\n" +
+	"\x0fX_LOCATION_LEFT\x10\x00\x12\x14\n" +
+	"\x10X_LOCATION_RIGHT\x10\x01*6\n" +
+	"\tYLocation\x12\x12\n" +
+	"\x0eY_LOCATION_TOP\x10\x00\x12\x15\n" +
+	"\x11Y_LOCATION_BOTTOM\x10\x01*,\n" +
+	"\x0eCenterLocation\x12\x1a\n" +
+	"\x16CENTER_LOCATION_CENTER\x10\x00*m\n" +
+	"\bLocation\x12\x10\n" +
+	"\fLOCATION_TOP\x10\x00\x12\x12\n" +
+	"\x0eLOCATION_RIGHT\x10\x01\x12\x13\n" +
+	"\x0fLOCATION_BOTTOM\x10\x02\x12\x11\n" +
+	"\rLOCATION_LEFT\x10\x03\x12\x13\n" +
+	"\x0fLOCATION_CENTER\x10\x04*I\n" +
+	"\tAlignment\x12\x13\n" +
+	"\x0fALIGNMENT_START\x10\x00\x12\x14\n" +
+	"\x10ALIGNMENT_CENTER\x10\x01\x12\x11\n" +
+	"\rALIGNMENT_END\x10\x02*(\n" +
+	"\x05Order\x12\x0f\n" +
+	"\vORDER_FIRST\x10\x00\x12\x0e\n" +
 	"\n" +
-	"ORDER_LAST\x10\x02B\x96\x01\n" +
+	"ORDER_LAST\x10\x01B\x96\x01\n" +
 	"\x10com.x.spatial.pbB\fSpatialProtoP\x01Z\"github.com/synnaxlabs/x/spatial/pb\xa2\x02\x03XSP\xaa\x02\fX.Spatial.Pb\xca\x02\fX\\Spatial\\Pb\xe2\x02\x18X\\Spatial\\Pb\\GPBMetadata\xea\x02\x0eX::Spatial::Pbb\x06proto3"
 
 var (

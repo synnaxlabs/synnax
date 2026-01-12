@@ -1395,8 +1395,8 @@ func (p *Plugin) generateEnumTranslator(
 		}
 	}
 
-	// Proto default is always UNSPECIFIED (with enum name prefix from pb/types)
-	pbDefault := fmt.Sprintf("%s_%s_UNSPECIFIED", enumRef.Name, toScreamingSnake(enumRef.Name))
+	// Proto default is the first enum value (oracle schema is source of truth)
+	pbDefault := values[0].PBValue
 
 	return &enumTranslatorData{
 		Name:      enumRef.Name,

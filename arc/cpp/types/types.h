@@ -27,7 +27,7 @@ using ChannelKey = std::uint32_t;
 /// @returns The param with the given name, or std::nullopt if not found.
 [[nodiscard]] inline std::optional<std::reference_wrapper<const Param>>
 find_param(const Params &params, const std::string &name) {
-    for (const auto &param : params) {
+    for (const auto &param: params) {
         if (param.name == name) return std::cref(param);
     }
     return std::nullopt;

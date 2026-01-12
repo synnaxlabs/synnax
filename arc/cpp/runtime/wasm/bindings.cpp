@@ -262,7 +262,7 @@ std::string Bindings::string_get(const uint32_t handle) {
 
 #define IMPL_SERIES_OPS(suffix, cpptype, data_type_const)                              \
     uint32_t Bindings::series_create_empty_##suffix(uint32_t length) {                 \
-        auto s = x::telem::Series(data_type_const, static_cast<size_t>(length));          \
+        auto s = x::telem::Series(data_type_const, static_cast<size_t>(length));       \
         s.resize(length);                                                              \
         const uint32_t handle = series_handle_counter++;                               \
         series.emplace(handle, std::move(s));                                          \

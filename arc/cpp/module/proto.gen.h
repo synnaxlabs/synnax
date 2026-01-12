@@ -25,8 +25,22 @@ namespace arc::module {
 
 inline ::arc::module::pb::Module Module::to_proto() const {
     ::arc::module::pb::Module pb;
-    pb.MergeFrom(::arc::ir::IR::to_proto());
-    pb.MergeFrom(::arc::compiler::Output::to_proto());
+    for (const auto &item: this->functions)
+        *pb.add_functions() = item.to_proto();
+    for (const auto &item: this->nodes)
+        *pb.add_nodes() = item.to_proto();
+    for (const auto &item: this->edges)
+        *pb.add_edges() = item.to_proto();
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item)
+            wrapper->add_values(v);
+    };
+    for (const auto &item: this->sequences)
+        *pb.add_sequences() = item.to_proto();
+    pb.set_wasm(this->wasm.data(), this->wasm.size());
+    for (const auto &[k, v]: this->output_memory_bases)
+        (*pb.mutable_output_memory_bases())[k] = v;
     return pb;
 }
 

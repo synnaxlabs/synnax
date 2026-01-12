@@ -530,6 +530,8 @@ func IRsFromPB(ctx context.Context, pbs []*IR) ([]ir.IR, error) {
 // EdgeKindToPB converts ir.EdgeKind to EdgeKind.
 func EdgeKindToPB(v ir.EdgeKind) EdgeKind {
 	switch v {
+	case ir.EdgeKindUnspecified:
+		return EdgeKind_EDGE_KIND_UNSPECIFIED
 	case ir.EdgeKindContinuous:
 		return EdgeKind_EDGE_KIND_CONTINUOUS
 	case ir.EdgeKindOneShot:
@@ -542,11 +544,13 @@ func EdgeKindToPB(v ir.EdgeKind) EdgeKind {
 // EdgeKindFromPB converts EdgeKind to ir.EdgeKind.
 func EdgeKindFromPB(v EdgeKind) ir.EdgeKind {
 	switch v {
+	case EdgeKind_EDGE_KIND_UNSPECIFIED:
+		return ir.EdgeKindUnspecified
 	case EdgeKind_EDGE_KIND_CONTINUOUS:
 		return ir.EdgeKindContinuous
 	case EdgeKind_EDGE_KIND_ONE_SHOT:
 		return ir.EdgeKindOneShot
 	default:
-		return ir.EdgeKindContinuous
+		return ir.EdgeKindUnspecified
 	}
 }

@@ -36,22 +36,19 @@ const (
 type Concurrency int32
 
 const (
-	Concurrency_CONCURRENCY_UNSPECIFIED Concurrency = 0
-	Concurrency_CONCURRENCY_EXCLUSIVE   Concurrency = 1
-	Concurrency_CONCURRENCY_SHARED      Concurrency = 2
+	Concurrency_CONCURRENCY_EXCLUSIVE Concurrency = 0
+	Concurrency_CONCURRENCY_SHARED    Concurrency = 1
 )
 
 // Enum value maps for Concurrency.
 var (
 	Concurrency_name = map[int32]string{
-		0: "CONCURRENCY_UNSPECIFIED",
-		1: "CONCURRENCY_EXCLUSIVE",
-		2: "CONCURRENCY_SHARED",
+		0: "CONCURRENCY_EXCLUSIVE",
+		1: "CONCURRENCY_SHARED",
 	}
 	Concurrency_value = map[string]int32{
-		"CONCURRENCY_UNSPECIFIED": 0,
-		"CONCURRENCY_EXCLUSIVE":   1,
-		"CONCURRENCY_SHARED":      2,
+		"CONCURRENCY_EXCLUSIVE": 0,
+		"CONCURRENCY_SHARED":    1,
 	}
 )
 
@@ -205,11 +202,10 @@ const file_x_go_control_pb_control_proto_rawDesc = "" +
 	"\x05State\x12/\n" +
 	"\asubject\x18\x01 \x01(\v2\x15.x.control.pb.SubjectR\asubject\x120\n" +
 	"\bresource\x18\x02 \x01(\v2\x14.google.protobuf.AnyR\bresource\x12\x1c\n" +
-	"\tauthority\x18\x03 \x01(\rR\tauthority*]\n" +
-	"\vConcurrency\x12\x1b\n" +
-	"\x17CONCURRENCY_UNSPECIFIED\x10\x00\x12\x19\n" +
-	"\x15CONCURRENCY_EXCLUSIVE\x10\x01\x12\x16\n" +
-	"\x12CONCURRENCY_SHARED\x10\x02B\x96\x01\n" +
+	"\tauthority\x18\x03 \x01(\rR\tauthority*@\n" +
+	"\vConcurrency\x12\x19\n" +
+	"\x15CONCURRENCY_EXCLUSIVE\x10\x00\x12\x16\n" +
+	"\x12CONCURRENCY_SHARED\x10\x01B\x96\x01\n" +
 	"\x10com.x.control.pbB\fControlProtoP\x01Z\"github.com/synnaxlabs/x/control/pb\xa2\x02\x03XCP\xaa\x02\fX.Control.Pb\xca\x02\fX\\Control\\Pb\xe2\x02\x18X\\Control\\Pb\\GPBMetadata\xea\x02\x0eX::Control::Pbb\x06proto3"
 
 var (

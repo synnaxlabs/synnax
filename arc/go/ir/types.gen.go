@@ -34,7 +34,8 @@ type Stratum = []string
 type EdgeKind uint8
 
 const (
-	EdgeKindContinuous EdgeKind = iota + 1
+	EdgeKindUnspecified EdgeKind = iota
+	EdgeKindContinuous
 	EdgeKindOneShot
 )
 

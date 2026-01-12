@@ -1105,11 +1105,13 @@ func (p *Plugin) processEnumForTranslation(
 		})
 	}
 
+	// Use first enum value as default (oracle schema is source of truth)
+	firstPBValue := fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name))
 	return &enumTranslatorData{
 		Name:        e.Name,
 		PBNamespace: pbNamespace,
 		Values:      values,
-		PBDefault:   fmt.Sprintf("%s_UNSPECIFIED", toScreamingSnake(e.Name)),
+		PBDefault:   firstPBValue,
 		CppDefault:  fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name)),
 	}
 }

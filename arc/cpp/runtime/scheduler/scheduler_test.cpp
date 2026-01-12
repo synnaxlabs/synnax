@@ -15,8 +15,8 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/telem/telem.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/ir/testutil/testutil.h"
@@ -29,7 +29,7 @@ struct MockNode final : public node::Node {
     // ─── Tracking State ───────────────────────────────────────────────────────
     int next_called = 0;
     int reset_called = 0;
-    std::vector<telem::TimeSpan> elapsed_values;
+    std::vector<x::telem::TimeSpan> elapsed_values;
 
     // ─── Configurable Behavior ────────────────────────────────────────────────
     std::unordered_map<std::string, bool> param_truthy;
@@ -91,7 +91,7 @@ protected:
 TEST_F(SchedulerTest, testConstructsWithEmptyProgram) {
     ir::IR ir;
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 }
 
 /// @brief it should construct with a single stratum and execute all nodes
@@ -108,7 +108,7 @@ TEST_F(SchedulerTest, testConstructsWithSingleStratum) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(mocks_["A"]->next_called, 1);
     ASSERT_EQ(mocks_["B"]->next_called, 1);
@@ -146,7 +146,7 @@ TEST_F(SchedulerTest, testBuildsTransitionTable) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     // If transition table built correctly, stage_a should be active
     ASSERT_EQ(mocks_["A"]->next_called, 1);
@@ -160,9 +160,9 @@ TEST_F(SchedulerTest, testStratum0AlwaysExecutes) {
 
     const auto scheduler = build(std::move(ir));
 
-    scheduler->next(telem::MILLISECOND);
-    scheduler->next(telem::MILLISECOND * 2);
-    scheduler->next(telem::MILLISECOND * 3);
+    scheduler->next(x::telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 3);
 
     ASSERT_EQ(nodeA.next_called, 3);
 }
@@ -180,7 +180,7 @@ TEST_F(SchedulerTest, testHigherStrataSkipWithoutChanges) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 0);
@@ -194,12 +194,12 @@ TEST_F(SchedulerTest, testElapsedTimePassedToContext) {
 
     const auto scheduler = build(std::move(ir));
 
-    scheduler->next(telem::MILLISECOND * 5);
-    scheduler->next(telem::MILLISECOND * 10);
+    scheduler->next(x::telem::MILLISECOND * 5);
+    scheduler->next(x::telem::MILLISECOND * 10);
 
     ASSERT_EQ(nodeA.elapsed_values.size(), 2);
-    ASSERT_EQ(nodeA.elapsed_values[0], telem::MILLISECOND * 5);
-    ASSERT_EQ(nodeA.elapsed_values[1], telem::MILLISECOND * 10);
+    ASSERT_EQ(nodeA.elapsed_values[0], x::telem::MILLISECOND * 5);
+    ASSERT_EQ(nodeA.elapsed_values[1], x::telem::MILLISECOND * 10);
 }
 
 /// @brief it should accumulate execution counts across multiple next() calls
@@ -211,7 +211,7 @@ TEST_F(SchedulerTest, testMultipleNextCallsAccumulate) {
     const auto scheduler = build(std::move(ir));
 
     for (int i = 0; i < 100; i++)
-        scheduler->next(telem::MILLISECOND * i);
+        scheduler->next(x::telem::MILLISECOND * i);
 
     ASSERT_EQ(nodeA.next_called, 100);
 }
@@ -228,7 +228,7 @@ TEST_F(SchedulerTest, testEmptyStrataDoesNotCrash) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     // A executes (stratum 0), B doesn't execute (stratum 2, not changed)
     ASSERT_EQ(mocks_["A"]->next_called, 1);
@@ -260,10 +260,10 @@ TEST_F(SchedulerTest, testChangedSetClearsPerStrataExecution) {
 
     const auto scheduler = build(std::move(ir));
 
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 1);
 
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeB.next_called, 1);
 }
 
@@ -282,7 +282,7 @@ TEST_F(SchedulerTest, testMarkChangedPropagatesContinuousEdge) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 1);
@@ -300,7 +300,7 @@ TEST_F(SchedulerTest, testMarkChangedDoesNotPropagateWithoutEdge) {
         ir = ir::testutil::Builder().node("A").node("B").strata({{"A"}, {"B"}}).build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 0);
@@ -325,7 +325,7 @@ TEST_F(SchedulerTest, testMultipleOutputsFromSingleNode) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeB.next_called, 1); // Connected to output_x
     ASSERT_EQ(nodeC.next_called, 0); // Connected to output_y (not marked)
@@ -350,7 +350,7 @@ TEST_F(SchedulerTest, testMultipleInputsToSingleNode) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeC.next_called, 1);
 }
@@ -374,7 +374,7 @@ TEST_F(SchedulerTest, testParameterSpecificEdges) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeB.next_called, 1);
     ASSERT_EQ(nodeC.next_called, 0);
@@ -399,7 +399,7 @@ TEST_F(SchedulerTest, testChainedPropagation) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 1);
@@ -431,7 +431,7 @@ TEST_F(SchedulerTest, testDiamondDependency) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeD.next_called, 1);
 }
@@ -452,7 +452,7 @@ TEST_F(SchedulerTest, testWideGraph) {
     auto ir = builder.strata({stratum0}).build();
 
     auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     for (int i = 0; i < 10; i++)
         ASSERT_EQ(mocks_["N" + std::to_string(i)]->next_called, 1);
@@ -474,7 +474,7 @@ TEST_F(SchedulerTest, testOneShotFiresWhenTruthy) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeB.next_called, 1);
 }
@@ -495,7 +495,7 @@ TEST_F(SchedulerTest, testOneShotDoesNotFireWhenFalsy) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeB.next_called, 0);
 }
@@ -528,10 +528,10 @@ TEST_F(SchedulerTest, testOneShotFiresOnlyOncePerStage) {
     const auto scheduler = build(std::move(ir));
 
     // First call: trigger→entry one-shot fires, stage activates, A→B one-shot fires
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 1);
 
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeB.next_called, 1);
 }
 
@@ -553,13 +553,13 @@ TEST_F(SchedulerTest, testOneShotFiresOnceInGlobalStrata) {
 
     const auto scheduler = build(std::move(ir));
 
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 1);
 
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeB.next_called, 1);
 
-    scheduler->next(telem::MILLISECOND * 3);
+    scheduler->next(x::telem::MILLISECOND * 3);
     ASSERT_EQ(nodeB.next_called, 1);
 }
 
@@ -592,12 +592,12 @@ TEST_F(SchedulerTest, testOneShotResetsOnStageEntry) {
 
     const auto scheduler = build(std::move(ir));
 
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 1);
     ASSERT_EQ(nodeA.reset_called, 1);
 
     // Stage re-activates via continuous edge, clearing fired_one_shots
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeB.next_called, 2);
     ASSERT_EQ(nodeA.reset_called, 2);
 }
@@ -618,7 +618,7 @@ TEST_F(SchedulerTest, testContinuousEdgeUnaffectedByTruthiness) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeB.next_called, 1);
 }
@@ -637,7 +637,7 @@ TEST_F(SchedulerTest, testNoExecutionWhenNoStageActive) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeB.next_called, 0);
 }
@@ -662,7 +662,7 @@ TEST_F(SchedulerTest, testStagedNodesExecuteWhenActive) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
 }
@@ -691,7 +691,7 @@ TEST_F(SchedulerTest, testGlobalStrataAlwaysExecutes) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1); // Global
     ASSERT_EQ(nodeB.next_called, 1); // Stage
@@ -718,7 +718,7 @@ TEST_F(SchedulerTest, testEntryNodeActivatesStage) {
 
     const auto scheduler = build(std::move(ir));
     ASSERT_EQ(nodeA.next_called, 0);
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 1);
 }
 
@@ -754,13 +754,13 @@ TEST_F(SchedulerTest, testStageTransitionDeactivatesPrevious) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 1);
 
     // Stage_b remains active, stage_a deactivated
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 2);
 }
@@ -787,7 +787,7 @@ TEST_F(SchedulerTest, testStageTransitionResetsNodes) {
     const auto scheduler = build(std::move(ir));
 
     ASSERT_EQ(nodeA.reset_called, 0);
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.reset_called, 1);
 }
 
@@ -825,7 +825,7 @@ TEST_F(SchedulerTest, testCrossSequenceIndependence) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     // Both sequences active independently
     ASSERT_EQ(nodeA.next_called, 1);
@@ -879,7 +879,7 @@ TEST_F(SchedulerTest, testMultipleStagesInSequence) {
     const auto scheduler = build(std::move(ir));
 
     // Single next() cascades through all stages: A→B→C
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 1);
     ASSERT_EQ(nodeC.next_called, 1);
@@ -905,7 +905,7 @@ TEST_F(SchedulerTest, testSingleTransitionConverges) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 1);
 }
 
@@ -949,7 +949,7 @@ TEST_F(SchedulerTest, testCascadingTransitionsComplete) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 1);
@@ -976,8 +976,8 @@ TEST_F(SchedulerTest, testConvergenceStopsWhenStable) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeA.next_called, 2);
 }
 
@@ -1007,7 +1007,7 @@ TEST_F(SchedulerTest, testMaxIterationsPreventInfiniteLoop) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_TRUE(true);
 }
 
@@ -1042,7 +1042,7 @@ TEST_F(SchedulerTest, testConvergenceDetectsTransition) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 1);
 }
@@ -1056,7 +1056,7 @@ TEST_F(SchedulerTest, testErrorHandlerReceivesErrors) {
     auto ir = ir::testutil::Builder().node("A").strata({{"A"}}).build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 1);
 }
 
@@ -1076,7 +1076,7 @@ TEST_F(SchedulerTest, testExecutionContinuesAfterError) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 1);
 }
 
@@ -1089,7 +1089,7 @@ TEST_F(SchedulerTest, testNextReturnsNormally) {
     auto ir = ir::testutil::Builder().node("A").strata({{"A"}}).build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_TRUE(true);
 }
 
@@ -1119,7 +1119,7 @@ TEST_F(SchedulerTest, testDeepStrataChain) {
 
     auto ir = builder.strata(strata).build();
     auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     // All 10 nodes should execute
     for (int i = 0; i < 10; i++)
@@ -1147,7 +1147,7 @@ TEST_F(SchedulerTest, testMixedContinuousAndOneShot) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeB.next_called, 1);
@@ -1178,7 +1178,7 @@ TEST_F(SchedulerTest, testGlobalAndStagedMixed) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(globalNode.next_called, 1);
     ASSERT_EQ(stagedNode.next_called, 1);
@@ -1223,7 +1223,7 @@ TEST_F(SchedulerTest, testMultiSequenceWithSharedGlobal) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
 
     ASSERT_EQ(globalNode.next_called, 1);
     ASSERT_EQ(staged1.next_called, 1);
@@ -1237,10 +1237,10 @@ TEST_F(SchedulerTest, testZeroElapsedTime) {
     auto ir = ir::testutil::Builder().node("A").strata({{"A"}}).build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND * 0);
+    scheduler->next(x::telem::MILLISECOND * 0);
 
     ASSERT_EQ(nodeA.next_called, 1);
-    ASSERT_EQ(nodeA.elapsed_values[0], telem::MILLISECOND * 0);
+    ASSERT_EQ(nodeA.elapsed_values[0], x::telem::MILLISECOND * 0);
 }
 
 /// @brief it should handle self-loop edges without infinite recursion
@@ -1257,7 +1257,7 @@ TEST_F(SchedulerTest, testSelfLoopHandled) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 1);
 }
 
@@ -1272,7 +1272,7 @@ TEST_F(SchedulerTest, testEmptySequence) {
                   .build();
 
     const auto scheduler = build(std::move(ir));
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(mocks_["A"]->next_called, 1);
 }
 

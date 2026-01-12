@@ -31,7 +31,7 @@ OperationTypeToPB(const std::string &cpp) {
         return ::distribution::channel::pb::OPERATION_TYPE_AVG;
     if (cpp == OPERATION_TYPE_NONE)
         return ::distribution::channel::pb::OPERATION_TYPE_NONE;
-    return ::distribution::channel::pb::OPERATION_TYPE_UNSPECIFIED;
+    return ::distribution::channel::pb::OPERATION_TYPE_MIN;
 }
 
 inline std::string OperationTypeFromPB(::distribution::channel::pb::OperationType pb) {

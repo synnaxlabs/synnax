@@ -24,7 +24,10 @@ namespace synnax::ranger {
 
 inline ::api::ranger::pb::Range Payload::to_proto() const {
     ::api::ranger::pb::Range pb;
-    pb.MergeFrom(Range::to_proto());
+    pb.set_key(this->key);
+    pb.set_name(this->name);
+    pb.set_time_range(this->time_range);
+    pb.set_color(this->color);
     for (const auto &item: this->labels)
         *pb.add_labels() = item.to_proto();
     if (this->parent.has_value()) *pb.mutable_parent() = this->parent->to_proto();

@@ -208,7 +208,9 @@ func calc(val f32) f32 {
     ASSERT_NIL(err);
     ASSERT_EQ(retrieved.key, arc.key);
 
-    // Verify the module was compiled - should have WASM bytes
+    // Verify the module was compiled
+    ASSERT_TRUE(retrieved.module.has_value())
+        << "Expected module to be present after compilation";
     ASSERT_FALSE(retrieved.module->wasm.empty())
         << "Expected WASM bytecode to be present after compilation";
 

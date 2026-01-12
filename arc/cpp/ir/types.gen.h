@@ -35,6 +35,7 @@ struct Sequence;
 struct IR;
 
 enum class EdgeKind : std::uint8_t {
+    Unspecified = 0,
     Continuous = 1,
     OneShot = 2,
 };

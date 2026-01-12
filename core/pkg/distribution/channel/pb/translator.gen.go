@@ -151,7 +151,7 @@ func OperationTypeToPB(v channel.OperationType) OperationType {
 	case channel.OperationTypeNone:
 		return OperationType_OPERATION_TYPE_NONE
 	default:
-		return OperationType_OPERATION_TYPE_UNSPECIFIED
+		return OperationType_OPERATION_TYPE_MIN
 	}
 }
 

@@ -9,9 +9,8 @@ import "google/protobuf/any.proto";
 option go_package = "github.com/synnaxlabs/x/control/pb";
 
 enum Concurrency {
-  CONCURRENCY_UNSPECIFIED = 0;
-  CONCURRENCY_EXCLUSIVE = 1;
-  CONCURRENCY_SHARED = 2;
+  CONCURRENCY_EXCLUSIVE = 0;
+  CONCURRENCY_SHARED = 1;
 }
 
 message Subject {

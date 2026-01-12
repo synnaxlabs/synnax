@@ -30,7 +30,7 @@ inline ::x::status::pb::Variant VariantToPB(const std::string &cpp) {
     if (cpp == VARIANT_ERROR) return ::x::status::pb::VARIANT_ERROR;
     if (cpp == VARIANT_LOADING) return ::x::status::pb::VARIANT_LOADING;
     if (cpp == VARIANT_DISABLED) return ::x::status::pb::VARIANT_DISABLED;
-    return ::x::status::pb::VARIANT_UNSPECIFIED;
+    return ::x::status::pb::VARIANT_SUCCESS;
 }
 
 inline std::string VariantFromPB(::x::status::pb::Variant pb) {

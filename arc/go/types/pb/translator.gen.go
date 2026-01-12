@@ -469,7 +469,7 @@ func KindToPB(v types.Kind) Kind {
 	case types.KindStage:
 		return Kind_KIND_STAGE
 	default:
-		return Kind_KIND_UNSPECIFIED
+		return Kind_KIND_INVALID
 	}
 }
 

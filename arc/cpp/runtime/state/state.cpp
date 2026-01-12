@@ -235,9 +235,11 @@ bool Node::refresh_inputs() {
     return true;
 }
 
-std::pair<x::telem::MultiSeries, bool> State::read_channel(const types::ChannelKey key) {
+std::pair<x::telem::MultiSeries, bool>
+State::read_channel(const types::ChannelKey key) {
     const auto it = reads.find(key);
-    if (it == reads.end() || it->second.empty()) return {x::telem::MultiSeries{}, false};
+    if (it == reads.end() || it->second.empty())
+        return {x::telem::MultiSeries{}, false};
     x::telem::MultiSeries ms;
     for (const auto &s: it->second)
         ms.series.push_back(s->deep_copy());

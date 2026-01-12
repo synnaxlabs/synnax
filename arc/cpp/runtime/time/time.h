@@ -111,7 +111,9 @@ public:
 
 class Factory : public node::Factory {
 public:
-    x::telem::TimeSpan timing_base = x::telem::TimeSpan(std::numeric_limits<int64_t>::max());
+    x::telem::TimeSpan timing_base = x::telem::TimeSpan(
+        std::numeric_limits<int64_t>::max()
+    );
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
