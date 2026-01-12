@@ -155,7 +155,8 @@ class State {
     std::unordered_map<uint32_t, telem::Series> series_handles;
     uint32_t series_handle_counter = 1;
 
-    /// @brief Persistent stateful variable storage - keyed by state_key(func_id, var_id).
+    /// @brief Persistent stateful variable storage - keyed by state_key(func_id,
+    /// var_id).
     std::unordered_map<uint64_t, uint8_t> var_u8;
     std::unordered_map<uint64_t, uint16_t> var_u16;
     std::unordered_map<uint64_t, uint32_t> var_u32;

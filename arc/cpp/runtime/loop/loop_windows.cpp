@@ -285,9 +285,7 @@ private:
             timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
         );
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
-        if (result < WAIT_OBJECT_0 + count) {
-            ResetEvent(this->data_event_);
-        }
+        if (result < WAIT_OBJECT_0 + count) { ResetEvent(this->data_event_); }
 
         this->data_available_.store(false, std::memory_order_release);
     }

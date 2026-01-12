@@ -339,9 +339,6 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Channel Operations", func() {
-		// Regression test for SY-XXXX: Channel keys should not be used as WASM local indices.
-		// Previously, assigning to a channel would generate local.set with the channel key
-		// as the local index, causing "unknown local N: local index out of bounds" errors.
 		It("Should compile channel writes with high channel keys", func() {
 			mockRuntime := bindings.NewBindings()
 			var writtenValue uint8

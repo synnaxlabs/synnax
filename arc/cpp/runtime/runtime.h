@@ -53,6 +53,7 @@ class Runtime {
     queue::SPSC<telem::Frame> inputs;
     queue::SPSC<telem::Frame> outputs;
     telem::TimeStamp start_time = telem::TimeStamp(0);
+
 public:
     std::vector<types::ChannelKey> read_channels;
     std::vector<types::ChannelKey> write_channels;
