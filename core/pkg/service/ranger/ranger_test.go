@@ -133,7 +133,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -153,7 +153,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -178,14 +178,14 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent2.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
 				var res2 ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent1.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res2).
 					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
 			})
@@ -207,7 +207,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))

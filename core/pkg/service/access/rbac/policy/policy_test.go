@@ -200,7 +200,7 @@ var _ = Describe("Writer", func() {
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(policy.OntologyType).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())
@@ -213,7 +213,7 @@ var _ = Describe("Writer", func() {
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(policy.OntologyType).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())

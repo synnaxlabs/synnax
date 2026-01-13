@@ -190,7 +190,7 @@ func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 	var resources []ontology.Resource
 	if err := r.otg.NewRetrieve().
 		WhereIDs(r.OntologyID()).
-		TraverseTo(ontology.Parents).
+		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(OntologyType).
 		ExcludeFieldData(true).
 		Entries(&resources).

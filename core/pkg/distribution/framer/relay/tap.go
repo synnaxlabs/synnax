@@ -104,7 +104,7 @@ func (t *tapper) updateDemands(d demand) map[cluster.NodeKey]channel.Keys {
 // Flow starts the tapper goroutines, which listen for demands that update relevant
 // taps into remote nodes, the host time-series db, or the free write pipeline.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	t.taps[cluster.Free], _ = t.tapInto(sCtx, cluster.Free, channel.Keys{})
+	t.taps[cluster.NodeKeyFree], _ = t.tapInto(sCtx, cluster.NodeKeyFree, channel.Keys{})
 	t.UnarySink.Flow(sCtx, append(opts,
 		// Order is very important here, we need to make sure the tapper deferral
 		// runs before we close the inlet to the delta.
@@ -117,7 +117,7 @@ func (t *tapper) close() {
 	if len(t.taps) > 1 {
 		panic("[relay] - tapper closed with open taps")
 	}
-	if err := t.taps[cluster.Free].closer.Close(); err != nil {
+	if err := t.taps[cluster.NodeKeyFree].closer.Close(); err != nil {
 		t.L.Error("failed to close free write tap", zap.Error(err))
 	}
 }

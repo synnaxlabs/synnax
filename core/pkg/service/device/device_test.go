@@ -57,7 +57,7 @@ var _ = Describe("Device", func() {
 			Group:    groupSvc,
 			Label:    label,
 		}))
-		rackSvc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		rackSvc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        groupSvc,
@@ -121,7 +121,7 @@ var _ = Describe("Device", func() {
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -138,14 +138,14 @@ var _ = Describe("Device", func() {
 			Expect(otg.NewWriter(tx).DeleteRelationship(
 				ctx,
 				rackSvc.EmbeddedKey.OntologyID(),
-				ontology.ParentOf,
+				ontology.RelationshipTypeParentOf,
 				d.OntologyID(),
 			)).To(Succeed())
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(MatchError(query.NotFound))
@@ -175,7 +175,7 @@ var _ = Describe("Device", func() {
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rack2.Key.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -185,7 +185,7 @@ var _ = Describe("Device", func() {
 			var nRes ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rack1.Key.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&nRes).
 				Exec(ctx, tx),
 			).To(MatchError(query.NotFound))
@@ -414,7 +414,7 @@ var _ = Describe("Device", func() {
 				Group:    groupSvc,
 				Label:    labelSvc,
 			}))
-			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:                  db,
 				Ontology:            otg,
 				Group:               groupSvc,
@@ -480,7 +480,7 @@ var _ = Describe("Device", func() {
 				Group:    groupSvc,
 				Label:    labelSvc,
 			}))
-			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				Group:        groupSvc,

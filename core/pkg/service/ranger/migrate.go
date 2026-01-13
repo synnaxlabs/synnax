@@ -57,7 +57,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		Ontology.
 		NewRetrieve().
 		WhereIDs(topLevelGroup.OntologyID()).
-		TraverseTo(ontology.Children).
+		TraverseTo(ontology.ChildrenTraverser).
 		WhereTypes(group.OntologyType).
 		Entries(&groups).
 		Exec(ctx, tx); err != nil {
@@ -66,7 +66,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 	if err := s.cfg.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
 		ctx,
 		topLevelGroup.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 	); err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 			Ontology.
 			NewRetrieve().
 			WhereIDs(g.ID).
-			TraverseTo(ontology.Children).
+			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(OntologyType).
 			Entries(&childRanges).
 			Exec(ctx, tx); err != nil {
@@ -101,7 +101,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		if err := s.cfg.Ontology.NewWriter(tx).DeleteOutgoingRelationshipsOfType(
 			ctx,
 			g.ID,
-			ontology.ParentOf,
+			ontology.RelationshipTypeParentOf,
 		); err != nil {
 			return err
 		}
@@ -146,7 +146,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 			DefineFromOneToManyRelationships(
 				ctx,
 				newParentRange.OntologyID(),
-				ontology.ParentOf,
+				ontology.RelationshipTypeParentOf,
 				lo.Map(childRanges, func(r ontology.Resource, _ int) ontology.ID {
 					return r.ID
 				}),

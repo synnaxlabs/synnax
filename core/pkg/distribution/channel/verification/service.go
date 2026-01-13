@@ -78,8 +78,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultConfig is the default configuration for the verification service.
-var DefaultConfig = ServiceConfig{
+// DefaultServiceConfig is the default configuration for the verification service.
+var DefaultServiceConfig = ServiceConfig{
 	CheckInterval: 24 * time.Hour,
 	WarningTime:   7 * 24 * time.Hour,
 }
@@ -107,7 +107,7 @@ var (
 
 // OpenService opens a new verification service.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +165,7 @@ func (s *Service) IsOverflowed(inUse types.Uint20) error {
 		return nil
 	}
 	if inUse > s.numCh {
-		return newErrTooMany(s.numCh)
+		return newTooManyError(s.numCh)
 	}
 	return nil
 }

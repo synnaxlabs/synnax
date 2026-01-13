@@ -51,7 +51,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		w.group.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }

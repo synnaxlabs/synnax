@@ -22,16 +22,16 @@ import (
 type Command uint8
 
 const (
-	Open Command = iota
-	// Write represents a call to Writer.Write.
-	Write
-	// Commit represents a call to Writer.Commit.
-	Commit
-	// SetAuthority represents a call to Writer.SetAuthority
-	SetAuthority
+	CommandOpen Command = iota
+	// CommandWrite represents a call to Writer.Write.
+	CommandWrite
+	// CommandCommit represents a call to Writer.Commit.
+	CommandCommit
+	// CommandSetAuthority represents a call to Writer.SetAuthority
+	CommandSetAuthority
 )
 
-var validateCommand = validate.NewInclusiveBoundsChecker(Open, SetAuthority)
+var validateCommand = validate.NewInclusiveBoundsChecker(CommandOpen, CommandSetAuthority)
 
 type Mode = ts.WriterMode
 

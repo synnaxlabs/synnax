@@ -71,7 +71,7 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 	resultNames := lo.Map(res, func(item channel.Channel, _ int) string { return item.Name })
 	if len(lo.Uniq(resultNames)) < len(names) {
 		_, diff := lo.Difference(names, resultNames)
-		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", diff)
+		return errors.Wrapf(ts.ErrChannelNotFound, "channel(s) %s not found", diff)
 	}
 
 	keys := channel.KeysFromChannels(res)
@@ -86,7 +86,7 @@ func (lp *leaseProxy) deleteTimeRangeRemote(
 ) error {
 	addr, err := lp.HostResolver.Resolve(target)
 	if errors.Is(err, aspen.ErrNodeNotFound) {
-		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", keys)
+		return errors.Wrapf(ts.ErrChannelNotFound, "channel(s) %s not found", keys)
 	}
 	_, err = lp.Transport.Client().Send(ctx, addr, Request{Keys: keys, Bounds: tr})
 	return err

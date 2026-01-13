@@ -55,11 +55,11 @@ func (w Writer) Create(
 	// Symbol already exists = delete incoming relationships and define new parent
 	// Symbol does not exist = define parent
 	if exists {
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID)
+	return w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
 }
 
 // Rename renames the symbol with the given key to the provided name.

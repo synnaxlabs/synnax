@@ -34,8 +34,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for creating a Service.
-type Config struct {
+// ServiceConfig is the configuration for creating a Service.
+type ServiceConfig struct {
 	alamos.Instrumentation
 	// DB is the gorp database that racks will be stored in.
 	// [REQUIRED]
@@ -69,15 +69,18 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a rack service. Note
-	// that this configuration is not valid. See the Config documentation for more
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a rack service.
+	// Note that this configuration is not valid. See the Config documentation for more
 	// details on which fields must be set.
-	DefaultConfig = Config{HealthCheckInterval: 5 * telem.Second, AlertEveryNChecks: 12}
+	DefaultServiceConfig = ServiceConfig{
+		HealthCheckInterval: 5 * telem.Second,
+		AlertEveryNChecks:   12,
+	}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -91,7 +94,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("hardware.rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -103,7 +106,7 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	Config
+	ServiceConfig
 	EmbeddedKey     Key
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
@@ -112,8 +115,8 @@ type Service struct {
 	monitor         *monitor
 }
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +129,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
+	s := &Service{ServiceConfig: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}

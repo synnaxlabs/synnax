@@ -66,17 +66,17 @@ func (w Writer[D]) SetWithParent(
 	// Status already exists and no parent provided = do nothing
 	// Status does not exist = define parent
 	if exists && hasParent {
-		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.ParentOf, otgID); hasRel || err != nil {
+		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); hasRel || err != nil {
 			return err
 		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
 			return err
 		}
 	} else if !exists {
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
 			return err
 		}
 	}

@@ -74,13 +74,13 @@ var _ = Describe("Writer", func() {
 				Expect(w.DefineRelationship(
 					ctx,
 					idOne,
-					ontology.ParentOf,
+					ontology.RelationshipTypeParentOf,
 					idTwo,
 				)).To(Succeed())
 				var res []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(idOne).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(1))
@@ -91,7 +91,7 @@ var _ = Describe("Writer", func() {
 					err := w.DefineRelationship(
 						ctx,
 						idOne,
-						ontology.ParentOf,
+						ontology.RelationshipTypeParentOf,
 						newSampleType("42"),
 					)
 					Expect(err).To(HaveOccurred())
@@ -102,19 +102,19 @@ var _ = Describe("Writer", func() {
 				It(
 					"Should return an error if a relationship is defined in two directions",
 					func() {
-						Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
-						err := w.DefineRelationship(ctx, idTwo, ontology.ParentOf, idOne)
+						Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+						err := w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idOne)
 						Expect(err).To(HaveOccurred())
 						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
 					},
 				)
 				It("Should return an error is a relationships creates a cycle",
 					func() {
-						Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+						Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 						idThree := ontology.ID{Key: "qux", Type: "quux"}
 						Expect(w.DefineResource(ctx, idThree)).To(Succeed())
-						Expect(w.DefineRelationship(ctx, idTwo, ontology.ParentOf, idThree)).To(Succeed())
-						err := w.DefineRelationship(ctx, idThree, ontology.ParentOf, idOne)
+						Expect(w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idThree)).To(Succeed())
+						err := w.DefineRelationship(ctx, idThree, ontology.RelationshipTypeParentOf, idOne)
 						Expect(err).To(HaveOccurred())
 						Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
 					})
@@ -125,13 +125,13 @@ var _ = Describe("Writer", func() {
 				Expect(w.DefineFromOneToManyRelationships(
 					ctx,
 					idOne,
-					ontology.ParentOf,
+					ontology.RelationshipTypeParentOf,
 					[]ontology.ID{idTwo},
 				)).To(Succeed())
 				var res []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(idOne).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(1))
@@ -141,16 +141,16 @@ var _ = Describe("Writer", func() {
 				Expect(w.DefineFromOneToManyRelationships(
 					ctx,
 					idOne,
-					ontology.ParentOf,
+					ontology.RelationshipTypeParentOf,
 					[]ontology.ID{newSampleType("42")},
 				)).To(HaveOccurredAs(query.NotFound))
 			})
 			It("Should return an error if a cyclic relationship is created", func() {
-				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				err := w.DefineFromOneToManyRelationships(
 					ctx,
 					idTwo,
-					ontology.ParentOf,
+					ontology.RelationshipTypeParentOf,
 					[]ontology.ID{idOne},
 				)
 				Expect(err).To(HaveOccurred())
@@ -159,12 +159,12 @@ var _ = Describe("Writer", func() {
 		})
 		Describe("Deleting a Relationship", func() {
 			It("Should delete a relationship by its ID", func() {
-				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
-				Expect(w.DeleteRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+				Expect(w.DeleteRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 				var res []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(idOne).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(0))
@@ -172,13 +172,13 @@ var _ = Describe("Writer", func() {
 			Describe("DeleteOutgoingRelationshipsOfType", func() {
 				It("Should delete all outgoing relationships of a type", func() {
 					var t ontology.RelationshipType = "baz"
-					Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+					Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 					Expect(w.DefineRelationship(ctx, idOne, t, idTwo)).To(Succeed())
-					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.ParentOf)).To(Succeed())
+					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.RelationshipTypeParentOf)).To(Succeed())
 					var res []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).
-						TraverseTo(ontology.Children).
+						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(HaveLen(0))
@@ -186,20 +186,20 @@ var _ = Describe("Writer", func() {
 			})
 			Describe("DeleteIncomingRelationshipsOfType", func() {
 				It("Should delete all incoming relationships of a type", func() {
-					Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
-					Expect(w.DefineRelationship(ctx, idOne, label.LabeledBy, idTwo)).To(Succeed())
-					Expect(w.DeleteIncomingRelationshipsOfType(ctx, idTwo, ontology.ParentOf)).To(Succeed())
+					Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+					Expect(w.DefineRelationship(ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo)).To(Succeed())
+					Expect(w.DeleteIncomingRelationshipsOfType(ctx, idTwo, ontology.RelationshipTypeParentOf)).To(Succeed())
 					var res []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idTwo).
-						TraverseTo(ontology.Parents).
+						TraverseTo(ontology.ParentsTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(HaveLen(0))
 					var res2 []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).
-						TraverseTo(label.Labels).
+						TraverseTo(label.LabelsOntologyTraverser).
 						Entries(&res2).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res2).To(HaveLen(1))
@@ -208,20 +208,20 @@ var _ = Describe("Writer", func() {
 			})
 			Describe("DeleteOutgoingRelationshipsOfType", func() {
 				It("Should delete all outgoing relationships of a type", func() {
-					Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
-					Expect(w.DefineRelationship(ctx, idOne, label.LabeledBy, idTwo)).To(Succeed())
-					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.ParentOf)).To(Succeed())
+					Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+					Expect(w.DefineRelationship(ctx, idOne, label.OntologyRelationshipTypeLabeledBy, idTwo)).To(Succeed())
+					Expect(w.DeleteOutgoingRelationshipsOfType(ctx, idOne, ontology.RelationshipTypeParentOf)).To(Succeed())
 					var res []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).
-						TraverseTo(ontology.Children).
+						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(HaveLen(0))
 					var res2 []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).
-						TraverseTo(label.Labels).
+						TraverseTo(label.LabelsOntologyTraverser).
 						Entries(&res2).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res2).To(HaveLen(1))
@@ -230,8 +230,8 @@ var _ = Describe("Writer", func() {
 		})
 		Describe("Idempotency", func() {
 			Specify("Defining a relationship should be idempotent", func() {
-				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
 			})
 		})
 	})

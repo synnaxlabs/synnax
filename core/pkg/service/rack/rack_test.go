@@ -57,7 +57,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Group:    g,
 			Label:    label,
 		}))
-		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
@@ -403,7 +403,7 @@ var _ = Describe("Migration", func() {
 			Group:    g,
 			Label:    labelSvc,
 		}))
-		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -419,7 +419,7 @@ var _ = Describe("Migration", func() {
 			Entry(&deletedStatus).
 			Exec(ctx, nil)).To(MatchError(query.NotFound))
 		Expect(svc.Close()).To(Succeed())
-		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -465,7 +465,7 @@ var _ = Describe("Migration", func() {
 			Entry(&v1EmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,

@@ -67,7 +67,7 @@ var _ = Describe("Channel Tests", func() {
 		})
 		Describe("Free", func() {
 			It("Should return true if the channel is a free channel", func() {
-				k := channel.NewKey(cluster.Free, 1)
+				k := channel.NewKey(cluster.NodeKeyFree, 1)
 				Expect(k.Free()).To(BeTrue())
 			})
 			It("Should return false if the channel is not a free channel", func() {

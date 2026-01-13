@@ -55,7 +55,7 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Label:    labelSvc,
 		}))
-		rackService = MustSucceed(rack.OpenService(ctx, rack.Config{
+		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
@@ -63,7 +63,7 @@ var _ = Describe("Task", Ordered, func() {
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
-		svc = MustSucceed(task.OpenService(ctx, task.Config{
+		svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -450,14 +450,14 @@ var _ = Describe("Task", Ordered, func() {
 				Group:    g,
 				Label:    labelSvc,
 			}))
-			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
 			}))
-			svc := MustSucceed(task.OpenService(ctx, task.Config{
+			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -478,7 +478,7 @@ var _ = Describe("Task", Ordered, func() {
 				Entry(&deletedStatus).
 				Exec(ctx, nil)).To(MatchError(query.NotFound))
 			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(task.OpenService(ctx, task.Config{
+			svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,

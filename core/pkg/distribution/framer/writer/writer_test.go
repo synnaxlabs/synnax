@@ -133,13 +133,13 @@ var _ = Describe("Writer", func() {
 					Name:        "free_time",
 					IsIndex:     true,
 					DataType:    telem.TimeStampT,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Virtual:     true,
 				}
 				dataCh = channel.Channel{
 					Name:        "free",
 					DataType:    telem.Float32T,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Virtual:     true,
 				}
 			)
@@ -279,7 +279,7 @@ func freeWriterScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 3)
 	svc := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.Free
+		ch.Leaseholder = cluster.NodeKeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}

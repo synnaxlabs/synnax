@@ -62,7 +62,7 @@ var _ = Describe("Writer", func() {
 			Expect(cpy.Key).ToNot(Equal(s.Key))
 			Expect(cpy.Name).To(Equal("test2"))
 			var res []ontology.Resource
-			Expect(otg.NewRetrieve().WhereIDs(ws.OntologyID()).TraverseTo(ontology.Children).Entries(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(otg.NewRetrieve().WhereIDs(ws.OntologyID()).TraverseTo(ontology.ChildrenTraverser).Entries(&res).Exec(ctx, tx)).To(Succeed())
 			keys := lo.Map(res, func(r ontology.Resource, _ int) string { return r.ID.Key })
 			Expect(keys).To(ContainElement(cpy.Key.String()))
 		})

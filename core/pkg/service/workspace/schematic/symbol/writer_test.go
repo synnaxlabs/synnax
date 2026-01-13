@@ -87,7 +87,7 @@ var _ = Describe("Writer", func() {
 			var res []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(ws.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
 
@@ -111,7 +111,7 @@ var _ = Describe("Writer", func() {
 			var res []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(groupOntologyID).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entries(&res).
 				Exec(ctx, tx)).To(Succeed())
 
@@ -214,7 +214,7 @@ var _ = Describe("Writer", func() {
 			var resBefore []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(ws.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entries(&resBefore).
 				Exec(ctx, tx)).To(Succeed())
 			keysBefore := lo.Map(resBefore, func(r ontology.Resource, _ int) string { return r.ID.Key })
@@ -227,7 +227,7 @@ var _ = Describe("Writer", func() {
 			var resAfter []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(ws.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entries(&resAfter).
 				Exec(ctx, tx)).To(Succeed())
 			keysAfter := lo.Map(resAfter, func(r ontology.Resource, _ int) string { return r.ID.Key })

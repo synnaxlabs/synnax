@@ -47,21 +47,21 @@ var _ = Describe("Verification", func() {
 	Describe("ConfigValues", func() {
 		Describe("Validate", func() {
 			It("should return an error if the DB is nil", func() {
-				Expect(verification.DefaultConfig.Validate()).To(HaveOccurred())
+				Expect(verification.DefaultServiceConfig.Validate()).To(HaveOccurred())
 			})
 			It("should return an error if the WarningTime is zero", func() {
-				cfg := verification.DefaultConfig.
+				cfg := verification.DefaultServiceConfig.
 					Override(verification.ServiceConfig{WarningTime: 0})
 				Expect(cfg.Validate()).To(HaveOccurred())
 			})
 			It("should return an error if the CheckInterval is zero", func() {
-				cfg := verification.DefaultConfig.
+				cfg := verification.DefaultServiceConfig.
 					Override(verification.ServiceConfig{CheckInterval: 0})
 				Expect(cfg.Validate()).To(HaveOccurred())
 			})
 			It("should not error if there is a valid DB", func() {
 				db := memkv.New()
-				cfg := verification.DefaultConfig.Override(verification.ServiceConfig{DB: db})
+				cfg := verification.DefaultServiceConfig.Override(verification.ServiceConfig{DB: db})
 				Expect(cfg.Validate()).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 			})
@@ -69,34 +69,34 @@ var _ = Describe("Verification", func() {
 		Describe("Override", func() {
 			It("should override the DB", func() {
 				db := memkv.New()
-				cfg := verification.DefaultConfig.Override(verification.ServiceConfig{DB: db})
+				cfg := verification.DefaultServiceConfig.Override(verification.ServiceConfig{DB: db})
 				Expect(cfg.DB).To(BeEquivalentTo(db))
 				Expect(db.Close()).To(Succeed())
 			})
 			It("should override the WarningTime if it is not zero", func() {
-				cfg := verification.DefaultConfig.
+				cfg := verification.DefaultServiceConfig.
 					Override(verification.ServiceConfig{WarningTime: 1 * time.Hour})
 				Expect(cfg.WarningTime).To(BeEquivalentTo(1 * time.Hour))
 			})
 			It("should not override the WarningTime if it is zero", func() {
-				cfg := verification.DefaultConfig.
+				cfg := verification.DefaultServiceConfig.
 					Override(verification.ServiceConfig{WarningTime: 0})
 				Expect(cfg.WarningTime).
-					To(BeEquivalentTo(verification.DefaultConfig.WarningTime))
+					To(BeEquivalentTo(verification.DefaultServiceConfig.WarningTime))
 			})
 			It("should override the CheckInterval if it is not zero", func() {
-				cfg := verification.DefaultConfig.
+				cfg := verification.DefaultServiceConfig.
 					Override(verification.ServiceConfig{CheckInterval: 1 * time.Hour})
 				Expect(cfg.CheckInterval).To(BeEquivalentTo(1 * time.Hour))
 			})
 			It("should not override the CheckInterval if it is zero", func() {
-				cfg := verification.DefaultConfig.
+				cfg := verification.DefaultServiceConfig.
 					Override(verification.ServiceConfig{CheckInterval: 0})
 				Expect(cfg.CheckInterval).
-					To(BeEquivalentTo(verification.DefaultConfig.CheckInterval))
+					To(BeEquivalentTo(verification.DefaultServiceConfig.CheckInterval))
 			})
 			It("should override the Verifier if it is not empty", func() {
-				cfg := verification.DefaultConfig.
+				cfg := verification.DefaultServiceConfig.
 					Override(verification.ServiceConfig{Verifier: "test"})
 				Expect(cfg.Verifier).To(BeEquivalentTo("test"))
 			})

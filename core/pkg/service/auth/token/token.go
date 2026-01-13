@@ -77,8 +77,8 @@ func (c ServiceConfig) Validate() error {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{
 		Expiration:       time.Hour,
 		RefreshThreshold: time.Minute * 5,
 		Now:              time.Now,
@@ -92,7 +92,7 @@ type Service struct{ cfg ServiceConfig }
 // validate.Error if the configuration is invalid. See token.ServiceConfig for
 // configuration details.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

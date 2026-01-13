@@ -53,7 +53,7 @@ var _ = Describe("Frame", func() {
 		It("Should split a frame into a local, remote, and free frame", func() {
 			localNodeCh := channel.NewKey(1, 1)
 			remoteNodeCh := channel.NewKey(2, 1)
-			freeNodeCh := channel.NewKey(cluster.Free, 1)
+			freeNodeCh := channel.NewKey(cluster.NodeKeyFree, 1)
 			f := frame.NewMulti(
 				[]channel.Key{localNodeCh, remoteNodeCh, freeNodeCh},
 				[]telem.Series{

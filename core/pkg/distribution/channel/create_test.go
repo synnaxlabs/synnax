@@ -123,7 +123,7 @@ var _ = Describe("Create", Ordered, func() {
 		})
 		Context("Free", func() {
 			BeforeEach(func() {
-				ch.Leaseholder = cluster.Free
+				ch.Leaseholder = cluster.NodeKeyFree
 				ch.Virtual = true
 			})
 			It("Should create the channel without error", func() {
@@ -278,7 +278,7 @@ var _ = Describe("Create", Ordered, func() {
 		It("Should not create a free channel if it already exists by name", func() {
 			ch.Name = "SG0002"
 			ch.Virtual = true
-			ch.Leaseholder = cluster.Free
+			ch.Leaseholder = cluster.NodeKeyFree
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 			k := ch.Key()
@@ -300,7 +300,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
 			// Verify calculated channel properties
-			Expect(calcCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(calcCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(calcCh.Virtual).To(BeTrue())
 			Expect(calcCh.LocalIndex).ToNot(BeZero())
 
@@ -318,7 +318,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(indexCh.IsIndex).To(BeTrue())
 			Expect(indexCh.DataType).To(Equal(telem.TimeStampT))
 			Expect(indexCh.Virtual).To(BeTrue())
-			Expect(indexCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(indexCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(indexCh.LocalKey).To(Equal(calcCh.LocalIndex))
 		})
 
@@ -469,7 +469,7 @@ var _ = Describe("Create", Ordered, func() {
 			ch.DataType = telem.Float64T
 			ch.Virtual = true
 			ch.Internal = false
-			ch.Leaseholder = cluster.Free
+			ch.Leaseholder = cluster.NodeKeyFree
 
 			ch2.IsIndex = true
 			ch2.Name = channel.NewRandomName()
@@ -564,7 +564,7 @@ var _ = Context("Name Validation Disabled", func() {
 				Name:        "sensor!@#$%",
 				DataType:    telem.Float64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key()).ToNot(BeZero())
@@ -596,7 +596,7 @@ var _ = Context("Name Validation Disabled", func() {
 				Name:        "",
 				DataType:    telem.Float64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).
 				To(MatchError(ContainSubstring("name: required")))

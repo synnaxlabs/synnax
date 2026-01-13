@@ -45,7 +45,7 @@ var _ = Describe("HttpRedirect", func() {
 				server.NewSimpleHTTPBranch(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					received = true
 					w.WriteHeader(http.StatusOK)
-				}), server.ServeAlwaysPreferSecure),
+				}), server.RoutingPolicyServeAlwaysPreferSecure),
 			},
 		}))
 

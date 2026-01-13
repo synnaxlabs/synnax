@@ -99,14 +99,14 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	if err = w.otg.DeleteIncomingRelationshipsOfType(
 		ctx,
 		otgID,
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 	); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(
 		ctx,
 		device.Rack.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }

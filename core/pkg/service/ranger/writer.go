@@ -74,7 +74,7 @@ func (w Writer) CreateWithParent(
 			if relAlreadyExists, err := w.otgWriter.HasRelationship(
 				ctx,
 				parent,
-				ontology.ParentOf,
+				ontology.RelationshipTypeParentOf,
 				otgID,
 			); relAlreadyExists || err != nil {
 				if err == nil {
@@ -86,7 +86,7 @@ func (w Writer) CreateWithParent(
 			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
 				ctx,
 				otgID,
-				ontology.ParentOf,
+				ontology.RelationshipTypeParentOf,
 			); err != nil {
 				return err
 			}
@@ -94,7 +94,7 @@ func (w Writer) CreateWithParent(
 		if err = w.otgWriter.DefineRelationship(
 			ctx,
 			parent,
-			ontology.ParentOf,
+			ontology.RelationshipTypeParentOf,
 			otgID,
 		); err != nil {
 			return err
@@ -166,7 +166,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 		otgWriter.
 		NewRetrieve().
 		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.Children).
+		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
 		ExcludeFieldData(true).
 		// The check for query.NotFound is necessary because the child may have already

@@ -122,7 +122,7 @@ func MigratePermissions(
 		if err = otgWriter.DeleteRelationship(
 			ctx,
 			svc.RBAC.Role.UsersGroup().OntologyID(),
-			ontology.ParentOf,
+			ontology.RelationshipTypeParentOf,
 			userOntologyID,
 		); err != nil {
 			return err

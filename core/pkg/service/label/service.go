@@ -44,10 +44,10 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default for the label service. This configuration is not
-	// valid, and must be overridden with a valid configuration before the service can
-	// be opened.
-	DefaultConfig = ServiceConfig{}
+	// DefaultServiceConfig is the default for the label service. This configuration is
+	// not valid, and must be overridden with a valid configuration before the service
+	// can be opened.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -79,7 +79,7 @@ type Service struct {
 // is nil, the service is ready for use and must be closed by calling Close in order
 // to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

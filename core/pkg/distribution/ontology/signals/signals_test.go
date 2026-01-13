@@ -38,15 +38,15 @@ type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
 
-const changeType ontology.Type = "change"
+const changeOntologyType ontology.Type = "change"
 
 func newChangeID(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: changeType}
+	return ontology.ID{Key: key, Type: changeOntologyType}
 }
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Type() ontology.Type { return changeType }
+func (s *changeService) Type() ontology.Type { return changeOntologyType }
 
 func (s *changeService) Schema() zyn.Schema {
 	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
@@ -186,7 +186,7 @@ var _ = Describe("Signals", Ordered, func() {
 		secondResource := newChangeID("def")
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
-		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
 		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
@@ -223,9 +223,9 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
 		By("Creating the relationship")
-		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		By("Deleting the relationship")
-		Expect(w.DeleteRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DeleteRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")

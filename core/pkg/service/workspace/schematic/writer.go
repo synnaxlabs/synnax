@@ -59,7 +59,7 @@ func (w Writer) Create(
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }
@@ -68,7 +68,7 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.Parents).
+		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(workspace.OntologyType).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
@@ -130,7 +130,7 @@ func (w Writer) Copy(
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		OntologyID(newKey),
 	)
 }

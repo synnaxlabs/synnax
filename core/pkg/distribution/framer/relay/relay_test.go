@@ -204,7 +204,7 @@ func freeScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.Free
+		ch.Leaseholder = cluster.NodeKeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}

@@ -45,18 +45,14 @@ type leaseProxy struct {
 	}
 }
 
-const (
-	leasedCounterSuffix       = ".distribution.channel.leasedCounter"
-	freeCounterSuffix         = ".distribution.channel.counter.free"
-	calculatedIndexNameSuffix = "_time"
-)
+const calculatedIndexNameSuffix = "_time"
 
 func newLeaseProxy(
 	ctx context.Context,
 	cfg ServiceConfig,
 	group group.Group,
 ) (*leaseProxy, error) {
-	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
+	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
 	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
 		return nil, err
@@ -82,8 +78,8 @@ func newLeaseProxy(
 		group:         group,
 	}
 	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
-		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
+	if cfg.HostResolver.HostKey() == cluster.NodeKeyBootstrapper {
+		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
 		if err != nil {
 			return nil, err
@@ -144,7 +140,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 					"local_index",
 				)
 			}
-			channels[i].Leaseholder = cluster.Free
+			channels[i].Leaseholder = cluster.NodeKeyFree
 			channels[i].Virtual = true
 			if lp.analyzeCalculation != nil {
 				dt, err := lp.analyzeCalculation(ctx, ch.Expression)
@@ -168,7 +164,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannels = append(indexChannels, indexCh)
@@ -189,7 +185,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	if len(batch.Free) > 0 {
 		if !lp.cfg.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, cluster.Bootstrapper, batch.Free, opts)
+			remoteChannels, err := lp.createRemote(ctx, cluster.NodeKeyBootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
@@ -270,7 +266,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannelsForExisting = append(indexChannelsForExisting, indexCh)
@@ -559,7 +555,7 @@ func (lp *leaseProxy) maybeSetResources(
 	return w.DefineFromOneToManyRelationships(
 		ctx,
 		group.OntologyID(lp.group.Key),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		externalIds,
 	)
 }

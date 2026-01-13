@@ -291,7 +291,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		return nil, err
 	}
 
-	if l.Framer, err = framer.OpenService(framer.Config{
+	if l.Framer, err = framer.OpenService(framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
 		Channel:         l.Channel,
 		TS:              cfg.Storage.TS,
@@ -327,7 +327,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		}
 	}
 
-	if l.Cluster.HostKey() == cluster.Bootstrapper {
+	if l.Cluster.HostKey() == cluster.NodeKeyBootstrapper {
 		var ontologyCDCCloser io.Closer
 		if ontologyCDCCloser, err = ontologysignals.Publish(
 			ctx,

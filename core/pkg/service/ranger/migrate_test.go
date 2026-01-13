@@ -126,7 +126,7 @@ var _ = Describe("Migrate", func() {
 		var children []ontology.Resource
 		Expect(otg.NewRetrieve().
 			WhereIDs(parentRange.OntologyID()).
-			TraverseTo(ontology.Children).
+			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(ranger.OntologyType).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())

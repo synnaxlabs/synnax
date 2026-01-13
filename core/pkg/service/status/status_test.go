@@ -127,7 +127,7 @@ var _ = Describe("Status", Ordered, func() {
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
 						WhereIDs(status.OntologyID(child.Key)).
-						TraverseTo(ontology.Parents).
+						TraverseTo(ontology.ParentsTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
 					Expect(res.ID).To(Equal(status.OntologyID(parent.Key)))

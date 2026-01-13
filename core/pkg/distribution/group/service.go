@@ -30,8 +30,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements ServiceConfig.
@@ -55,7 +55,7 @@ type Service struct {
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (w Writer) Create(
 	if err = w.otg.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
+	if err = w.otg.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
 		return
 	}
 	return g, err
@@ -132,7 +132,7 @@ func (w Writer) CreateWithKey(
 	if err = w.otg.DefineResource(ctx, id); err != nil {
 		return
 	}
-	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
+	if err = w.otg.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, id); err != nil {
 		return
 	}
 	return g, err
@@ -147,7 +147,7 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 		var children []ontology.Resource
 		if err := w.otg.NewRetrieve().
 			WhereIDs(OntologyID(key)).
-			TraverseTo(ontology.Children).
+			TraverseTo(ontology.ChildrenTraverser).
 			ExcludeFieldData(true).
 			Entries(&children).
 			Exec(ctx, w.tx); err != nil {

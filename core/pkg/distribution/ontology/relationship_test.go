@@ -23,7 +23,7 @@ var _ = Describe("Relationship", func() {
 			r := MustSucceed(ontology.ParseRelationship([]byte("foo:qux->parent->bar:baz")))
 			Expect(r.From.Type).To(Equal(ontology.Type("foo")))
 			Expect(r.From.Key).To(Equal("qux"))
-			Expect(r.Type).To(Equal(ontology.ParentOf))
+			Expect(r.Type).To(Equal(ontology.RelationshipTypeParentOf))
 			Expect(r.To.Type).To(Equal(ontology.Type("bar")))
 			Expect(r.To.Key).To(Equal("baz"))
 		})

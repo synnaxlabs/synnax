@@ -62,7 +62,7 @@ func (v *validator) validate(req Request) error {
 	if err := validateCommand(req.Command); err != nil {
 		return err
 	}
-	if req.Command == Write {
+	if req.Command == CommandWrite {
 		for rawI, k := range req.Frame.RawKeys() {
 			if req.Frame.ShouldExcludeRaw(rawI) {
 				continue

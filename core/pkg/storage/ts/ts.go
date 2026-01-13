@@ -46,9 +46,9 @@ type (
 
 const AutoSpan = cesium.AutoSpan
 const (
-	WriterPersistStream = cesium.WriterModePersistStream
-	WriterPersistOnly   = cesium.WriterModePersistOnly
-	WriterStreamOnly    = cesium.WriterModeStreamOnly
+	WriterModePersistStream = cesium.WriterModePersistStream
+	WriterModePersistOnly   = cesium.WriterModePersistOnly
+	WriterModeStreamOnly    = cesium.WriterModeStreamOnly
 )
 
 type Config struct {
@@ -71,7 +71,7 @@ var (
 	DefaultConfig = Config{
 		FS: xfs.Default,
 	}
-	ErrChannelNotfound = cesium.ErrChannelNotFound
+	ErrChannelNotFound = cesium.ErrChannelNotFound
 )
 
 // Validate implements config.Config.
