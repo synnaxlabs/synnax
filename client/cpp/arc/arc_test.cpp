@@ -221,13 +221,12 @@ func calc(val f32) f32 {
     ASSERT_EQ(retrieved.module->edges.size(), 2)
         << "Expected 2 edges connecting the nodes";
 }
-}
 
 /// @brief it should compile an Arc program with an interval node in a sequence.
 TEST(TestArc, testIntervalNodeCompiles) {
     const auto client = new_test_client();
 
-    auto arc = synnax::Arc(random_arc_name("interval_test"));
+    auto arc = Arc{.name=random_arc_name("interval_test")};
     arc.text.raw = R"(
 sequence main {
     stage initial {
@@ -240,13 +239,13 @@ sequence main {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    synnax::RetrieveOptions options;
-    options.compile = true;
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
-    ASSERT_FALSE(retrieved.module.wasm.empty());
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, synnax::arc::RetrieveOptions{
+        .compile = true,
+    }));
+    ASSERT_FALSE(retrieved.module->wasm.empty());
 
     bool found_interval = false;
-    for (const auto &node: retrieved.module.nodes) {
+    for (const auto &node: retrieved.module->nodes) {
         if (node.type == "interval") {
             found_interval = true;
             bool found_period = false;
@@ -258,7 +257,8 @@ sequence main {
     }
     ASSERT_TRUE(found_interval);
 
-    ASSERT_EQ(retrieved.module.sequences.size(), 1);
-    ASSERT_EQ(retrieved.module.sequences[0].key, "main");
-    ASSERT_EQ(retrieved.module.sequences[0].stages.size(), 2);
+    ASSERT_EQ(retrieved.module->sequences.size(), 1);
+    ASSERT_EQ(retrieved.module->sequences[0].key, "main");
+    ASSERT_EQ(retrieved.module->sequences[0].stages.size(), 2);
+}
 }

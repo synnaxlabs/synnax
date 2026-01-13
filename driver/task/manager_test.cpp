@@ -596,7 +596,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     ASSERT_NIL(rack.tasks.create(task));
 
     std::shared_ptr<TrackingTaskState> first_state;
-    x::test::eventually(
+    EVENTUALLY(
         [&] {
             std::lock_guard lock(f->mu);
             if (f->task_states.empty()) return false;
@@ -604,8 +604,6 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
             return true;
         },
         [] { return "first not created"; },
-        __FILE__,
-        __LINE__
     );
 
     task.config = json{{"v", 2}};
