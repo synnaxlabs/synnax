@@ -272,7 +272,7 @@ std::string Bindings::string_get(const uint32_t handle) const {
         if (sa == nullptr || sb == nullptr) return 0;                                  \
         if (sa->size() != sb->size())                                                  \
             throw std::runtime_error("arc panic: series length mismatch in " #name);   \
-        auto result = *sa op *sb;                                                      \
+        auto result = *sa op * sb;                                                     \
         return this->state->series_store(std::move(result));                           \
     }
 
@@ -528,10 +528,16 @@ create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
 /// trait
 #define REGISTER_CHANNEL_OPS(suffix)                                                   \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::channel_read_##suffix))   \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::channel_read_##suffix)                      \
+        )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::channel_write_##suffix))  \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::channel_write_##suffix)                     \
+        )                                                                              \
     );
 
     REGISTER_CHANNEL_OPS(u8)
@@ -558,172 +564,175 @@ create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_create_empty_##suffix)                     \
+            wrap(runtime.get(), &Bindings::series_create_empty_##suffix)               \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_set_element_##suffix)                      \
-        )                                                                              \
-    );                                                                                 \
-    imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::series_index_##suffix))   \
-    );                                                                                 \
-    imports.push_back(                                                                 \
-        wasmtime::Func::wrap(                                                          \
-            store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_element_add_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_set_element_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_element_mul_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_index_##suffix)                      \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_element_sub_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_element_add_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_element_div_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_element_mul_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_element_mod_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_element_sub_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_element_rsub_##suffix)                     \
+            wrap(runtime.get(), &Bindings::series_element_div_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_element_rdiv_##suffix)                     \
+            wrap(runtime.get(), &Bindings::series_element_mod_##suffix)                \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_series_add_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_element_rsub_##suffix)               \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_series_mul_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_element_rdiv_##suffix)               \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_series_sub_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_add_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_series_div_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_mul_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_series_mod_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_sub_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_gt_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_div_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_lt_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_series_mod_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_ge_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_gt_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_le_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_lt_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_eq_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_ge_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_ne_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_le_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_gt_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_eq_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_lt_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_ne_##suffix)                 \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_ge_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_gt_scalar_##suffix)          \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_le_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_lt_scalar_##suffix)          \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_eq_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_ge_scalar_##suffix)          \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::series_compare_ne_scalar_##suffix)                \
+            wrap(runtime.get(), &Bindings::series_compare_le_scalar_##suffix)          \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::state_load_series_##suffix)                       \
+            wrap(runtime.get(), &Bindings::series_compare_eq_scalar_##suffix)          \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
-            wrap(runtime.get(), &Bindings::state_store_series_##suffix)                      \
+            wrap(runtime.get(), &Bindings::series_compare_ne_scalar_##suffix)          \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::state_load_series_##suffix)                 \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::state_store_series_##suffix)                \
         )                                                                              \
     );
 
@@ -766,10 +775,16 @@ create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
 
 #define REGISTER_STATE_OPS(suffix)                                                     \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::state_load_##suffix))     \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::state_load_##suffix)                        \
+        )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::state_store_##suffix))    \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::state_store_##suffix)                       \
+        )                                                                              \
     );
 
     REGISTER_STATE_OPS(u8)
@@ -813,7 +828,7 @@ create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
 
 #define REGISTER_MATH_POW(suffix)                                                      \
     imports.push_back(                                                                 \
-        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::math_pow_##suffix))       \
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::math_pow_##suffix)) \
     );
 
     REGISTER_MATH_POW(f32)
@@ -828,7 +843,9 @@ create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
     REGISTER_MATH_POW(i64)
 
 #undef REGISTER_MATH_POW
-    imports.push_back(wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::panic)));
+    imports.push_back(
+        wasmtime::Func::wrap(store, wrap(runtime.get(), &Bindings::panic))
+    );
     return imports;
 }
 }

@@ -46,9 +46,13 @@ Series parse_default_value(
             return xmemory::make_local_shared<telem::Series>(0.0f);
         case types::Kind::F64:
             return xmemory::make_local_shared<telem::Series>(0.0);
-        default:
+        case types::Kind::Invalid:
+        case types::Kind::String:
+        case types::Kind::Chan:
+        case types::Kind::Series:
             return xmemory::make_local_shared<telem::Series>(data_type, 0);
     }
+    return xmemory::make_local_shared<telem::Series>(data_type, 0);
 }
 
 State::State(const Config &cfg): cfg(cfg) {

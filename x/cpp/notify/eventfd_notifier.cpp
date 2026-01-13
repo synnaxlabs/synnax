@@ -42,11 +42,11 @@ public:
 
     bool wait(const telem::TimeSpan timeout) override {
         pollfd pfd = {this->event_fd, POLLIN, 0};
-        const int timeout_ms = (timeout == telem::TimeSpan::MAX())
+        const int timeout_ms = (timeout == telem::TimeSpan::max())
                                  ? -1
                                  : static_cast<int>(timeout.milliseconds());
 
-        const int result = poll(&pfd, 1, timeout_ms);
+        const int result = ::poll(&pfd, 1, timeout_ms);
         if (result > 0) {
             uint64_t val;
             [[maybe_unused]] auto _ = read(this->event_fd, &val, sizeof(val));

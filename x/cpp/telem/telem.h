@@ -274,10 +274,10 @@ public:
     static TimeSpan ZERO() { return TimeSpan(0); }
 
     /// @brief the maximum representable timespan.
-    static TimeSpan MAX() { return TimeSpan(std::numeric_limits<int64_t>::max()); }
+    static TimeSpan max() { return TimeSpan(std::numeric_limits<int64_t>::max()); }
 
     /// @brief the minimum representable timespan.
-    static TimeSpan MIN() { return TimeSpan(std::numeric_limits<int64_t>::min()); }
+    static TimeSpan min() { return TimeSpan(std::numeric_limits<int64_t>::min()); }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -298,11 +298,11 @@ public:
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts): value(ts.nanoseconds()) {}
 
-    /// @brief the maximum representable timespan.
-    static TimeStamp MAX() { return TimeStamp(std::numeric_limits<int64_t>::max()); }
+    /// @brief the maximum representable timestamp.
+    static TimeStamp max() { return TimeStamp(std::numeric_limits<int64_t>::max()); }
 
-    /// @brief the minimum representable timespan.
-    static TimeStamp MIN() { return TimeStamp(std::numeric_limits<int64_t>::min()); }
+    /// @brief the minimum representable timestamp.
+    static TimeStamp min() { return TimeStamp(std::numeric_limits<int64_t>::min()); }
 
     TimeStamp static now() {
         // note that on some machines, hig-res clock refs system_clock and on others
@@ -664,6 +664,7 @@ template<typename T>
         case google::protobuf::Value::kNullValue:
         case google::protobuf::Value::kStructValue:
         case google::protobuf::Value::kListValue:
+        case google::protobuf::Value::KIND_NOT_SET:
         default:
             return 0.0;
     }

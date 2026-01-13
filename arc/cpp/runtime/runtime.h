@@ -48,11 +48,12 @@ class Runtime {
     std::shared_ptr<wasm::Module> mod;
     std::shared_ptr<wasm::Bindings> bindings;
     std::shared_ptr<state::State> state;
-    scheduler::Scheduler scheduler;
+    std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
     queue::SPSC<telem::Frame> inputs;
     queue::SPSC<telem::Frame> outputs;
     telem::TimeStamp start_time = telem::TimeStamp(0);
+
 public:
     std::vector<types::ChannelKey> read_channels;
     std::vector<types::ChannelKey> write_channels;
@@ -61,7 +62,7 @@ public:
         std::shared_ptr<wasm::Module> mod,
         std::shared_ptr<wasm::Bindings> bindings_runtime,
         std::shared_ptr<state::State> state,
-        scheduler::Scheduler scheduler,
+        std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop,
         const std::vector<types::ChannelKey> &read_channels,
         std::vector<types::ChannelKey> write_channels
@@ -91,7 +92,7 @@ public:
                 first = false;
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
-                this->scheduler.next(elapsed);
+                this->scheduler->next(elapsed);
                 if (auto writes = this->state->flush(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
@@ -185,7 +186,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
         nodes[n.key] = std::move(node);
     }
 
-    auto sched = scheduler::Scheduler(cfg.mod, nodes);
+    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
 
     auto timing_interval = time_factory->timing_base;
     const bool has_intervals = timing_interval.nanoseconds() !=
