@@ -223,7 +223,9 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver
-        run: rustup update
+        run: |
+          rustup update
+          rustup default stable
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
