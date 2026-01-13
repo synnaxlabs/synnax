@@ -141,7 +141,6 @@ func SetupImports(m *wasm.Module) *ImportIndex {
 // setupChannelOps registers channel operations for a specific type
 func setupChannelOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 	wasmType := wasm.ConvertType(t)
-	// Non-blocking read
 	funcName := fmt.Sprintf("channel_read_%s", t)
 	idx.ChannelRead[t.String()] = m.AddImport("env", funcName, wasm.FunctionType{
 		Params:  []wasm.ValueType{wasm.I32}, // channel ID

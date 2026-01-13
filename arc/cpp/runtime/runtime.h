@@ -14,8 +14,6 @@
 #include <set>
 #include <utility>
 
-#include "glog/logging.h"
-
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
@@ -40,75 +38,69 @@ struct Config {
         const std::vector<types::ChannelKey> &
     )>
         retrieve_channels;
+    size_t input_queue_capacity = 256;
+    size_t output_queue_capacity = 1024;
 };
 
 class Runtime {
     breaker::Breaker breaker;
     std::thread run_thread;
-
     std::shared_ptr<wasm::Module> mod;
-    std::unique_ptr<wasm::Bindings> bindings;
-    std::unique_ptr<state::State> state;
+    std::shared_ptr<wasm::Bindings> bindings;
+    std::shared_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
-    std::unique_ptr<queue::SPSC<telem::Frame>> inputs;
-    std::unique_ptr<queue::SPSC<telem::Frame>> outputs;
+    queue::SPSC<telem::Frame> inputs;
+    queue::SPSC<telem::Frame> outputs;
     telem::TimeStamp start_time = telem::TimeStamp(0);
 
 public:
     std::vector<types::ChannelKey> read_channels;
     std::vector<types::ChannelKey> write_channels;
     Runtime(
-        const breaker::Config &breaker_cfg,
+        const Config &cfg,
         std::shared_ptr<wasm::Module> mod,
-        std::unique_ptr<wasm::Bindings> bindings_runtime,
-        std::unique_ptr<state::State> state,
+        std::shared_ptr<wasm::Bindings> bindings_runtime,
+        std::shared_ptr<state::State> state,
         std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop,
         const std::vector<types::ChannelKey> &read_channels,
         std::vector<types::ChannelKey> write_channels
     ):
-        breaker(breaker_cfg),
+        breaker(cfg.breaker),
         mod(std::move(mod)),
         bindings(std::move(bindings_runtime)),
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
-        inputs(std::make_unique<queue::SPSC<telem::Frame>>()),
-        outputs(std::make_unique<queue::SPSC<telem::Frame>>()),
+        inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
+        outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
-    std::vector<telem::TimeSpan> run() {
+    void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
-        LOG(INFO) << "[arc] runtime started";
         this->loop->start();
-        std::vector<telem::TimeSpan> results;
+        if (!this->loop->watch(this->inputs.notifier()))
+            LOG(ERROR) << "[runtime] Failed to watch input notifier";
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
-            while (this->inputs->try_pop(frame)) {
+            bool first = true;
+            while (this->inputs.try_pop(frame) || first) {
+                first = false;
                 this->state->ingest(frame);
                 const auto elapsed = telem::TimeStamp::now() - this->start_time;
                 this->scheduler->next(elapsed);
-                LOG(INFO) << "[arc] cycle t=" << elapsed.nanoseconds() / 1000000
-                          << "ms";
-                this->state->clear_reads();
-                results.push_back(elapsed);
-                if (auto writes = this->state->flush_writes(); !writes.empty()) {
+                if (auto writes = this->state->flush(); !writes.empty()) {
                     telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
                         out_frame.emplace(key, series->deep_copy());
-                    LOG(INFO) << "[arc] wrote " << out_frame.size() << " channels";
-                    this->outputs->push(std::move(out_frame));
+                    this->outputs.push(std::move(out_frame));
                 }
-                // Clear transient handles at end of cycle to prevent memory growth.
-                // Stateful variables persist across cycles.
-                this->bindings->clear_transient_handles();
             }
         }
-        return results;
     }
 
     bool start() {
@@ -120,30 +112,27 @@ public:
 
     /// @brief closes the output queue, unblocking any pending read() calls.
     /// Call this before stopping consumers of the output queue.
-    void close_outputs() const { this->outputs->close(); }
+    void close_outputs() { this->outputs.close(); }
 
     bool stop() {
         if (!this->breaker.stop()) return false;
         this->loop->stop();
         this->run_thread.join();
-        this->inputs->close();
-        this->outputs->close();
+        this->inputs.close();
+        this->outputs.close();
         return true;
     }
 
-    xerrors::Error write(telem::Frame frame) const {
-        if (!this->inputs->push(std::move(frame)))
+    xerrors::Error write(telem::Frame frame) {
+        if (!this->inputs.push(std::move(frame)))
             return xerrors::Error("runtime closed");
-        this->loop->notify_data();
         return xerrors::NIL;
     }
 
-    bool read(telem::Frame &frame) const { return this->outputs->pop(frame); }
+    bool read(telem::Frame &frame) { return this->outputs.pop(frame); }
 };
 
 inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
-
-    // Step 1: Initialize state
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.mod.nodes) {
@@ -155,6 +144,8 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
 
     std::vector<types::ChannelKey> keys;
     keys.reserve(reads.size() + writes.size());
+    keys.insert(keys.end(), reads.begin(), reads.end());
+    keys.insert(keys.end(), writes.begin(), writes.end());
     auto [digests, state_err] = cfg.retrieve_channels(keys);
     if (state_err) return {nullptr, state_err};
     for (const auto &d: digests) {
@@ -163,20 +154,16 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     }
 
     state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
-    auto state = std::make_unique<state::State>(state_cfg);
+    auto state = std::make_shared<state::State>(state_cfg);
+    auto bindings_runtime = std::make_shared<wasm::Bindings>(state, nullptr);
 
-    // Step 2: Create bindings runtime
-    auto bindings_runtime = std::make_unique<wasm::Bindings>(state.get(), nullptr);
-
-    // Step 3: Initialize WASM Module with bindings
     wasm::ModuleConfig module_cfg{
         .module = cfg.mod,
-        .bindings = bindings_runtime.get()
+        .bindings = bindings_runtime,
     };
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
 
-    // Step 4: Put together factories.
     auto wasm_factory = std::make_shared<wasm::Factory>(mod);
     auto time_factory = std::make_shared<time::Factory>();
     auto stage_factory = std::make_shared<stage::Factory>();
@@ -192,7 +179,6 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
         }
     );
 
-    // Step 5: Construct nodes.
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
     for (const auto &n: cfg.mod.nodes) {
         auto [node_state, node_state_err] = state->node(n.key);
@@ -202,21 +188,19 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
         nodes[n.key] = std::move(node);
     }
 
-    // Step 6: Construct scheduler.
-    // Stage activation is wired automatically via node::Context.activate_stage.
     auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
 
-    // Step 7: Construct Loop with Mach thread enhancements
-    // If no timing nodes exist, use EVENT_DRIVEN mode to block until data arrives.
-    // Otherwise, use HIGH_RATE mode with the GCD of all timing intervals.
     auto timing_interval = time_factory->timing_base;
     const bool has_intervals = timing_interval.nanoseconds() !=
                                std::numeric_limits<int64_t>::max();
 
+    auto mode = loop::ExecutionMode::EVENT_DRIVEN;
+    if (has_intervals && timing_interval < loop::timing::SOFTWARE_TIMER_THRESHOLD)
+        mode = loop::ExecutionMode::HIGH_RATE;
+
     auto [loop, err] = loop::create(
         loop::Config{
-            .mode = has_intervals ? loop::ExecutionMode::HIGH_RATE
-                                  : loop::ExecutionMode::EVENT_DRIVEN,
+            .mode = mode,
             .interval = has_intervals ? timing_interval : telem::TimeSpan(0),
             .rt_priority = 47,
             .cpu_affinity = -1,
@@ -224,13 +208,12 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     );
     if (err) return {nullptr, err};
 
-    // Step 9: Build Runtime
     return {
         std::make_shared<Runtime>(
-            cfg.breaker,
+            cfg,
             std::move(mod),
-            std::move(bindings_runtime),
-            std::move(state),
+            bindings_runtime,
+            state,
             std::move(sched),
             std::move(loop),
             std::vector(reads.begin(), reads.end()),
