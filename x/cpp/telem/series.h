@@ -1344,8 +1344,15 @@ public:
     }
 
     /// @brief Unary negation operator. Returns a new Series with negated values.
-    /// Works for all numeric types (signed and unsigned).
+    /// Only works for signed integer types and floating-point types.
+    /// @throws std::runtime_error if called on unsigned integer types.
     Series operator-() const {
+        const auto dt = this->data_type();
+        if (dt == UINT64_T || dt == UINT32_T || dt == UINT16_T || dt == UINT8_T) {
+            throw std::runtime_error(
+                "unary negation not supported for unsigned integer types"
+            );
+        }
         return apply_unary_op([](auto a) { return -a; });
     }
 
