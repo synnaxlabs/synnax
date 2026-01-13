@@ -55,13 +55,13 @@ type (
 
 //go:generate stringer -type=RoutineState
 const (
-	Starting RoutineState = iota
-	Running
-	Stopping
-	Exited
-	Failed
-	ContextCanceled
-	Panicked
+	RoutineStateStarting RoutineState = iota
+	RoutineStateRunning
+	RoutineStateStopping
+	RoutineStateExited
+	RoutineStateFailed
+	RoutineStateContextCanceled
+	RoutineStatePanicked
 )
 
 //go:generate stringer -type=panicPolicy
@@ -72,9 +72,9 @@ const (
 )
 
 const (
-	// CancelOnExit defines if the routine should cancel the context upon exiting.
+	// cancelOnExit defines if the routine should cancel the context upon exiting.
 	cancelOnExit contextPolicy = iota + 1
-	// CancelOnFail defines if the routine should cancel the context upon exiting
+	// cancelOnFail defines if the routine should cancel the context upon exiting
 	cancelOnFail
 )
 
@@ -252,11 +252,11 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 
 	// If the context has already been canceled, don't even start the routine.
 	if r.ctx.Err() != nil {
-		r.state.state = Failed
+		r.state.state = RoutineStateFailed
 		r.state.err = r.ctx.Err()
 		return r.ctx, false
 	}
-	r.state.state = Starting
+	r.state.state = RoutineStateStarting
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
 	ctx, r.span = r.ctx.T.Prod(r.ctx, r.path())
@@ -269,7 +269,7 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 func (r *routine) runPostlude(err error) error {
 	r.ctx.mu.Lock()
 	r.ctx.L.Debug("stopping routine", r.zapFields()...)
-	r.state.state = Stopping
+	r.state.state = RoutineStateStopping
 	r.ctx.mu.Unlock()
 
 	for i := range r.deferrals {
@@ -285,9 +285,9 @@ func (r *routine) runPostlude(err error) error {
 		_ = r.span.Error(err, context.Canceled)
 		// Only non-context errors are considered failures.
 		if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
-			r.state.state = ContextCanceled
+			r.state.state = RoutineStateContextCanceled
 		} else {
-			r.state.state = Failed
+			r.state.state = RoutineStateFailed
 			r.state.err = err
 			r.ctx.L.Error("routine failed", r.zapFields()...)
 			r.ctx.L.Debugf(routineFailedFormat, r.key, r.state.err, r.ctx.routineDiagnostics())
@@ -296,7 +296,7 @@ func (r *routine) runPostlude(err error) error {
 			r.ctx.cancel()
 		}
 	} else {
-		r.state.state = Exited
+		r.state.state = RoutineStateExited
 	}
 
 	if r.contextPolicy == cancelOnExit {
@@ -327,7 +327,7 @@ func (r *routine) maybeRecover(panicReason any) error {
 
 	switch r.panicPolicy {
 	case propagatePanic:
-		r.state.state = Panicked
+		r.state.state = RoutineStatePanicked
 		if err, ok := panicReason.(error); ok {
 			r.state.err = err
 			_ = r.span.Error(err)
@@ -335,13 +335,13 @@ func (r *routine) maybeRecover(panicReason any) error {
 		r.span.End()
 		panic(panicReason)
 	case recoverErr:
-		r.state.state = Failed
+		r.state.state = RoutineStateFailed
 		if err, ok := panicReason.(error); ok {
 			return errors.Wrapf(err, "routine %s recovered", r.key)
 		}
 		return errors.Newf("%s", panicReason)
 	case recoverNoErr:
-		r.state.state = Exited
+		r.state.state = RoutineStateExited
 		return nil
 	default:
 		msg := fmt.Sprintf("unknown panic policy %v", r.panicPolicy)
@@ -381,7 +381,7 @@ func (r *routine) goRun(f func(context.Context) error) {
 	if ctx, proceed := r.runPrelude(); proceed {
 		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
 			r.ctx.mu.Lock()
-			r.state.state = Running
+			r.state.state = RoutineStateRunning
 			r.ctx.mu.Unlock()
 
 			r.ctx.internal.Go(func() (err error) {

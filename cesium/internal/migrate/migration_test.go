@@ -48,7 +48,7 @@ var _ = Describe("Migration Test", func() {
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
 					if ch.Key == testdata.LegacyRateKey {
-						Expect(err).To(HaveOccurredAs(query.NotFound))
+						Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 						continue
 					} else {
 						Expect(err).ToNot(HaveOccurred())

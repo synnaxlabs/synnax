@@ -53,7 +53,7 @@ func baseConfig(value int) (control.GateConfig[testResource], func() int) {
 var _ = Describe("Control", func() {
 	var (
 		c   *control.Controller[testResource]
-		cfg = control.Config{Concurrency: xcontrol.Exclusive}
+		cfg = control.Config{Concurrency: xcontrol.ConcurrencyExclusive}
 	)
 	JustBeforeEach(func() {
 		c = MustSucceed(control.New[testResource](cfg))
@@ -61,7 +61,7 @@ var _ = Describe("Control", func() {
 
 	Context("Exclusive", func() {
 		BeforeEach(func() {
-			cfg.Concurrency = xcontrol.Exclusive
+			cfg.Concurrency = xcontrol.ConcurrencyExclusive
 		})
 
 		Describe("OpenGate", func() {
@@ -139,10 +139,10 @@ var _ = Describe("Control", func() {
 				count := 0
 				cfg.OpenResource = func() (testResource, error) {
 					count++
-					return testResource{value: 11}, errors.Wrapf(validate.Error, "could not great gate")
+					return testResource{value: 11}, errors.Wrapf(validate.ErrValidation, "could not great gate")
 				}
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})
@@ -153,7 +153,7 @@ var _ = Describe("Control", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(g).ToNot(BeNil())
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(err).To(MatchError(ContainSubstring("control subject [test]<test> is already registered in the region")))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
@@ -908,7 +908,7 @@ var _ = Describe("Control", func() {
 
 	Context("Shared Control", func() {
 		BeforeEach(func() {
-			cfg.Concurrency = xcontrol.Shared
+			cfg.Concurrency = xcontrol.ConcurrencyShared
 		})
 		It("Should authorize gate with the highest authority", func() {
 			cfg1, _ := baseConfig(1)

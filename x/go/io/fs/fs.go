@@ -38,7 +38,7 @@ type File interface {
 
 type FileInfo = fs.FileInfo
 
-const defaultPerm = OwnerReadWriteExecute | GroupReadExecute | OthersReadExecute
+const defaultPerm = UserRWX | GroupRX | OtherRX
 
 type FS interface {
 	// Open opens a file according to the provided flag. The provided flag can be OR-ed

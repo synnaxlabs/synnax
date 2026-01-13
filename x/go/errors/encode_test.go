@@ -18,38 +18,38 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-const MyCustomErrorType string = "my-custom-error"
+const myCustomErrorType string = "my-custom-error"
 
 var (
-	MyCustomErrorOne = errors.New("one")
-	MyCustomErrorTwo = errors.New("two")
+	errMyCustomOne = errors.New("one")
+	errMyCustomTwo = errors.New("two")
 )
 
 func encodeMyCustomError(ctx context.Context, err error) (errors.Payload, bool) {
-	if errors.Is(err, MyCustomErrorOne) {
+	if errors.Is(err, errMyCustomOne) {
 		return errors.Payload{
-			Type: MyCustomErrorType,
-			Data: MyCustomErrorOne.Error(),
+			Type: myCustomErrorType,
+			Data: errMyCustomOne.Error(),
 		}, true
 	}
-	if errors.Is(err, MyCustomErrorTwo) {
+	if errors.Is(err, errMyCustomTwo) {
 		return errors.Payload{
-			Type: MyCustomErrorType,
-			Data: MyCustomErrorTwo.Error(),
+			Type: myCustomErrorType,
+			Data: errMyCustomTwo.Error(),
 		}, true
 	}
 	return errors.Payload{}, false
 }
 
 func decodeMyCustomError(ctx context.Context, encoded errors.Payload) (error, bool) {
-	if encoded.Type != MyCustomErrorType {
+	if encoded.Type != myCustomErrorType {
 		return nil, false
 	}
 	switch encoded.Data {
-	case MyCustomErrorOne.Error():
-		return MyCustomErrorOne, true
-	case MyCustomErrorTwo.Error():
-		return MyCustomErrorTwo, true
+	case errMyCustomOne.Error():
+		return errMyCustomOne, true
+	case errMyCustomTwo.Error():
+		return errMyCustomTwo, true
 	}
 	panic("unknown error")
 }
@@ -61,9 +61,9 @@ var _ = Describe("Ferrors", Ordered, func() {
 	Describe("Encode", func() {
 		Context("Internal is true", func() {
 			It("Should encode a custom error type into a payload", func() {
-				pld := errors.Encode(ctx, MyCustomErrorOne, true)
-				Expect(pld.Type).To(Equal(MyCustomErrorType))
-				Expect(pld.Data).To(Equal(MyCustomErrorOne.Error()))
+				pld := errors.Encode(ctx, errMyCustomOne, true)
+				Expect(pld.Type).To(Equal(myCustomErrorType))
+				Expect(pld.Data).To(Equal(errMyCustomOne.Error()))
 			})
 			It("Should encode an unknown error using cockroachdb's errors package", func() {
 				pld := errors.Encode(ctx, errors.New("unknown"), true)
@@ -72,9 +72,9 @@ var _ = Describe("Ferrors", Ordered, func() {
 		})
 		Context("Internal is false", func() {
 			It("Should encode a custom error type into a payload", func() {
-				pld := errors.Encode(ctx, MyCustomErrorOne, false)
-				Expect(pld.Type).To(Equal(MyCustomErrorType))
-				Expect(pld.Data).To(Equal(MyCustomErrorOne.Error()))
+				pld := errors.Encode(ctx, errMyCustomOne, false)
+				Expect(pld.Type).To(Equal(myCustomErrorType))
+				Expect(pld.Data).To(Equal(errMyCustomOne.Error()))
 			})
 			It("Should encode an unknown error into a human readable string", func() {
 				pld := errors.Encode(ctx, errors.New("unknown"), false)
@@ -87,9 +87,9 @@ var _ = Describe("Ferrors", Ordered, func() {
 	Describe("Decode", func() {
 		Context("Internal is true", func() {
 			It("Should decode a custom error type from a payload", func() {
-				pld := errors.Encode(ctx, MyCustomErrorOne, true)
+				pld := errors.Encode(ctx, errMyCustomOne, true)
 				err := errors.Decode(ctx, pld)
-				Expect(err).To(Equal(MyCustomErrorOne))
+				Expect(err).To(Equal(errMyCustomOne))
 			})
 			It("Should decode a nil error from a TypeNil typed payload", func() {
 				pld := errors.Encode(ctx, nil, true)
@@ -106,9 +106,9 @@ var _ = Describe("Ferrors", Ordered, func() {
 		})
 		Context("Internal is false", func() {
 			It("Should decode a custom error type from a payload", func() {
-				pld := errors.Encode(ctx, MyCustomErrorOne, false)
+				pld := errors.Encode(ctx, errMyCustomOne, false)
 				err := errors.Decode(ctx, pld)
-				Expect(err).To(Equal(MyCustomErrorOne))
+				Expect(err).To(Equal(errMyCustomOne))
 			})
 			It("Should decode a nil error from a TypeNil typed payload", func() {
 				pld := errors.Encode(ctx, nil, false)

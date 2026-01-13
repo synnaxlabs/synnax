@@ -64,7 +64,7 @@ type constantFactory struct{}
 
 func (c *constantFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	return &constant{Node: cfg.State, value: cfg.Node.Config[0].Value}, nil
 }

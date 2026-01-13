@@ -50,7 +50,7 @@ func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
 func ParseKey(s string) (Key, error) {
 	k, err := strconv.Atoi(s)
 	if err != nil {
-		return Key(0), errors.Wrapf(validate.Error, "%s is not a valid channel key", s)
+		return Key(0), errors.Wrapf(validate.ErrValidation, "%s is not a valid channel key", s)
 	}
 	return Key(k), nil
 }

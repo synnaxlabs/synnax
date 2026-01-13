@@ -61,7 +61,7 @@ func (r Relationship) SetOptions() []any { return nil }
 func ParseRelationship(key []byte) (Relationship, error) {
 	split := strings.Split(string(key), "->")
 	if len(split) != 3 {
-		return Relationship{}, errors.Wrapf(validate.Error, "invalid relationship key: %s", key)
+		return Relationship{}, errors.Wrapf(validate.ErrValidation, "invalid relationship key: %s", key)
 	}
 	var (
 		r   Relationship

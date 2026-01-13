@@ -144,7 +144,7 @@ func (w Writer) SetData(
 	return gorp.NewUpdate[uuid.UUID, Schematic]().WhereKeys(key).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
-				return s, errors.Wrapf(validate.Error, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
+				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
 			}
 			s.Data = data
 			return s, nil

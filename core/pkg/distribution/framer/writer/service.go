@@ -429,7 +429,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	}
 	if len(channels) != len(keys) {
 		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return nil, errors.Wrapf(validate.Error, "missing channels: %v", missing)
+		return nil, errors.Wrapf(validate.ErrValidation, "missing channels: %v", missing)
 	}
 	return channels, nil
 }

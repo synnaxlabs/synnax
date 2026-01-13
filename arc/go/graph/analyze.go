@@ -139,7 +139,7 @@ func Analyze(
 			if configParam.Value == nil {
 				ctx.Diagnostics.AddError(
 					errors.Wrapf(
-						query.NotFound,
+						query.ErrNotFound,
 						"node '%s' (%s) missing required config parameter '%s'",
 						n.Key,
 						n.Type,
@@ -190,7 +190,7 @@ func Analyze(
 					// Required parameter is missing
 					ctx.Diagnostics.AddError(
 						errors.Wrapf(
-							query.NotFound,
+							query.ErrNotFound,
 							"node '%s' (%s) missing required input '%s'",
 							n.Key,
 							n.Type,
@@ -276,7 +276,7 @@ func validateEdge(
 	sourceNode, ok := nodes.Find(edge.Source.Node)
 	if !ok {
 		ctx.Diagnostics.AddError(
-			errors.Wrapf(query.NotFound, "edge source node '%s' not found", edge.Source.Node),
+			errors.Wrapf(query.ErrNotFound, "edge source node '%s' not found", edge.Source.Node),
 			nil,
 		)
 		return false
@@ -284,7 +284,7 @@ func validateEdge(
 	targetNode, ok := nodes.Find(edge.Target.Node)
 	if !ok {
 		ctx.Diagnostics.AddError(
-			errors.Wrapf(query.NotFound, "edge target node '%s' not found", edge.Target.Node),
+			errors.Wrapf(query.ErrNotFound, "edge target node '%s' not found", edge.Target.Node),
 			nil,
 		)
 		return false
@@ -295,7 +295,7 @@ func validateEdge(
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
-				query.NotFound,
+				query.ErrNotFound,
 				"output '%s' not found in node '%s' (%s)",
 				edge.Source.Param,
 				edge.Source.Node,
@@ -309,7 +309,7 @@ func validateEdge(
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
-				query.NotFound,
+				query.ErrNotFound,
 				"input '%s' not found in node '%s' (%s)",
 				edge.Target.Param,
 				edge.Target.Node,

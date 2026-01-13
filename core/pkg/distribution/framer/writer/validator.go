@@ -68,7 +68,7 @@ func (v *validator) validate(req Request) error {
 				continue
 			}
 			if !lo.Contains(v.keys, k) {
-				return errors.Wrapf(validate.Error, "invalid key: %s", k)
+				return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
 			}
 		}
 	}

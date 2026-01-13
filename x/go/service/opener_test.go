@@ -26,7 +26,7 @@ var _ = Describe("Opener", Ordered, func() {
 		err              error
 		closer           xio.MultiCloser
 		cleanup          func(error) error
-		ok               func(err error, c io.Closer) bool
+		ok               func(error, io.Closer) bool
 		multiCloserCalls int
 		cancel           context.CancelFunc
 	)

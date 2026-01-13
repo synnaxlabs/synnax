@@ -42,7 +42,7 @@ type State = store.State
 type Change = store.Change
 
 // ErrNodeNotFound is returned when a node cannot be found in the Cluster.
-var ErrNodeNotFound = errors.Wrap(query.NotFound, "node not found")
+var ErrNodeNotFound = errors.Wrap(query.ErrNotFound, "node not found")
 
 func newNodeNotFoundError(key node.Key) error {
 	return errors.Wrapf(ErrNodeNotFound, "node %d", key)
@@ -72,7 +72,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 
 	// Attempt to open the Cluster store from kv. It's ok if we don't find it.
 	state, err := tryLoadPersistedState(ctx, cfg)
-	if err != nil && !errors.Is(err, kv.NotFound) {
+	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return nil, err
 	}
 	c.SetState(ctx, state)
@@ -240,7 +240,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	}
 	encoded, closer, err := cfg.Storage.Get(ctx, cfg.StorageKey)
 	if err != nil {
-		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
+		return state, lo.Ternary(errors.Is(err, kv.ErrNotFound), nil, err)
 	}
 	err = cfg.Codec.Decode(ctx, encoded, &state)
 	err = errors.Combine(err, closer.Close())

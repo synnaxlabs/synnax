@@ -67,7 +67,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
 	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
 	w := s.NewWriter(nil)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		return w.Create(ctx, groupName, parent)
 	}
 	return w.CreateWithKey(ctx, g.Key, groupName, parent)
@@ -157,7 +157,7 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			return !lo.Contains(keyStrings, item.ID.Key)
 		})
 		if len(children) > 0 {
-			return errors.Wrap(validate.Error, "cannot delete a group with children")
+			return errors.Wrap(validate.ErrValidation, "cannot delete a group with children")
 		}
 		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err

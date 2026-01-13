@@ -22,6 +22,6 @@ func NewInclusiveBoundsChecker[T types.Numeric](min T, max T) func(v T) error {
 		if v >= min && v <= max {
 			return nil
 		}
-		return errors.Wrapf(Error, "%s must be between %v and %v", name, min, max)
+		return errors.Wrapf(ErrValidation, "%s must be between %v and %v", name, min, max)
 	}
 }

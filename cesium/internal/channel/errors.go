@@ -17,7 +17,7 @@ import (
 )
 
 // ErrNotFound is returned when a particular channel cannot be found in the DB.
-var ErrNotFound = errors.Wrap(query.NotFound, "channel not found")
+var ErrNotFound = errors.Wrap(query.ErrNotFound, "channel not found")
 
 // NewNotFoundError returns a wrapper around ErrNotFound that includes the key of the
 // the missing channel.

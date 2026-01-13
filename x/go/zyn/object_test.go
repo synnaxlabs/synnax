@@ -87,7 +87,7 @@ var _ = Describe("Object", func() {
 			var dest TestStruct
 			Expect(schema.Parse("not a map", &dest)).
 				To(And(
-					HaveOccurredAs(zyn.InvalidDestinationTypeError),
+					HaveOccurredAs(zyn.ErrInvalidDestinationType),
 					MatchError(ContainSubstring("received string")),
 				))
 		})
@@ -96,14 +96,14 @@ var _ = Describe("Object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest *TestStruct
 			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("non-pointer destination", func() {
 			type TestStruct struct{ Name string }
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest TestStruct
 			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("missing required field", func() {
 			type TestStruct struct {
@@ -122,37 +122,37 @@ var _ = Describe("Object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest string
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("numeric destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest int
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("bool destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest bool
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("slice destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest []string
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("map destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest map[string]string
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("channel destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest chan struct{}
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 	})
 	Describe("Optional Fields", func() {

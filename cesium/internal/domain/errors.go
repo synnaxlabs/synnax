@@ -20,9 +20,9 @@ import (
 var (
 	// ErrWriteConflict is returned when a domain overlaps with an existing domain in
 	// the DB.
-	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
+	ErrWriteConflict = errors.Wrap(validate.ErrValidation, "write overlaps with existing data in database")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
-	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
+	ErrRangeNotFound = errors.Wrap(query.ErrNotFound, "time range not found")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
 	ErrDBClosed = resource.NewClosedError("domain.db")
 )

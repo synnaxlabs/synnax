@@ -123,7 +123,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
 	}
 
-	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.NotFound) {
+	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
 		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
 	}
 	if err != nil {
@@ -193,7 +193,7 @@ func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, 
 	}
 	resources := make([]Resource, 0, len(ids))
 	err = o.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, o.DB)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		err = nil
 	}
 	if err != nil {

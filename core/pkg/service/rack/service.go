@@ -162,7 +162,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	// Check if a v1 rack exists.
 	v1RackName := fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
 	err := s.NewRetrieve().WhereNames(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
-	isNotFound := errors.Is(err, query.NotFound)
+	isNotFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !isNotFound {
 		return err
 	}
@@ -173,7 +173,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 			WhereEmbedded(true, gorp.Required()).
 			WhereNode(s.HostProvider.HostKey(), gorp.Required()).
 			Entry(&embeddedRack).Exec(ctx, s.DB)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 	}
@@ -202,7 +202,7 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 	if err := status.NewRetrieve[StatusDetails](s.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	existingKeys := make(map[string]bool)

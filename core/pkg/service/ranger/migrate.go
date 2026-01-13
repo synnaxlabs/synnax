@@ -44,7 +44,7 @@ func (s *Service) migrateRangeGroups(ctx context.Context, tx gorp.Tx) error {
 		Entry(&topLevelGroup).
 		WhereNames("Ranges").
 		Exec(ctx, tx); err != nil {
-		if errors.Is(err, query.NotFound) {
+		if errors.Is(err, query.ErrNotFound) {
 			return nil
 		}
 		return err

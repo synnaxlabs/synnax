@@ -183,7 +183,7 @@ func (s *Service) handleChange(
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Variant != change.Set || !ch.IsCalculated() {
+		if cg.Variant != change.VariantSet || !ch.IsCalculated() {
 			continue
 		}
 		s.mu.Lock()

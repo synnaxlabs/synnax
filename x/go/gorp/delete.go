@@ -61,7 +61,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		entries []E
 		q       = (Retrieve[K, E]{Params: d.params}).Entries(&entries)
 	)
-	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
+	if err := q.Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	if err := checkGuards(Context{Context: ctx, Tx: tx}, d.params, entries); err != nil {

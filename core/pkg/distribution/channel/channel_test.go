@@ -46,7 +46,7 @@ var _ = Describe("Channel Tests", func() {
 			})
 			It("Should return an error when the key is not a valid integer", func() {
 				_, err := channel.ParseKey("123456a")
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(err.Error()).To(ContainSubstring("123456a is not a valid channel key"))
 			})
 		})
@@ -122,7 +122,7 @@ var _ = Describe("Channel Tests", func() {
 					{Type: "channel", Key: "a"},
 				}
 				_, err := channel.KeysFromOntologyIDs(ids)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(err.Error()).To(ContainSubstring("a is not a valid channel key"))
 			})
 		})

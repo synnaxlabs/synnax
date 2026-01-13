@@ -62,7 +62,7 @@ func SubSlice[V comparable](slice []V, n int) []V {
 		return slice
 	}
 	var (
-		c        = 0
+		c        int
 		subSlice = make([]V, n)
 		indexes  = make([]int, n)
 	)

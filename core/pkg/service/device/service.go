@@ -178,7 +178,7 @@ func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
 	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	existingKeys := make(map[string]bool)

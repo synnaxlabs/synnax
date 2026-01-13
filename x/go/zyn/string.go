@@ -83,7 +83,7 @@ func (s StringZ) Dump(data any) (any, error) {
 		if s.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
@@ -91,7 +91,7 @@ func (s StringZ) Dump(data any) (any, error) {
 			if s.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -100,7 +100,7 @@ func (s StringZ) Dump(data any) (any, error) {
 		case reflect.String:
 			if _, err := uuid.Parse(val.String()); err != nil {
 				return nil, errors.Wrap(
-					validate.Error,
+					validate.ErrValidation,
 					"invalid UUID format: must be a valid UUID string",
 				)
 			}
@@ -166,7 +166,7 @@ func (s StringZ) Parse(data any, dest any) error {
 	if !ok {
 		if dataVal.Kind() == reflect.Pointer {
 			if dataVal.IsNil() {
-				return errors.WithStack(validate.RequiredError)
+				return errors.WithStack(validate.ErrRequired)
 			}
 			dataVal = dataVal.Elem()
 		}
@@ -216,7 +216,7 @@ func (s StringZ) Parse(data any, dest any) error {
 
 func invalidUUIDStringError() error {
 	return errors.Wrap(
-		validate.Error,
+		validate.ErrValidation,
 		"invalid UUID format: must be a valid UUID string",
 	)
 }

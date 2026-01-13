@@ -424,7 +424,7 @@ var _ = Describe("Writer Behavior", func() {
 							Eventually(func() error {
 								_, err := w.Write(cesium.Frame{})
 								return err
-							}, "1000s").Should(HaveOccurredAs(validate.Error))
+							}, "1000s").Should(HaveOccurredAs(validate.ErrValidation))
 
 							By("Checking that the first commit did not succeed")
 							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
@@ -438,7 +438,7 @@ var _ = Describe("Writer Behavior", func() {
 							By("Closing the writer")
 							err := w.Close()
 							resultMatcher := ContainSubstring("overlaps with existing data occupying time range %v", (10 * telem.SecondTS).Range(14*telem.SecondTS+1))
-							Expect(err).To(MatchError(validate.Error))
+							Expect(err).To(MatchError(validate.ErrValidation))
 							Expect(err).To(MatchError(resultMatcher))
 						})
 						It("Should work with the write method", func() {
@@ -1251,9 +1251,9 @@ var _ = Describe("Writer Behavior", func() {
 						}),
 					))
 					_, err := w.Commit()
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 					err = w.Close()
-					Expect(err).To(MatchError(validate.Error))
+					Expect(err).To(MatchError(validate.ErrValidation))
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
 
@@ -1273,9 +1273,9 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)))
 						_, err := w.Commit()
-						Expect(err).To(HaveOccurredAs(validate.Error))
+						Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 						err = w.Close()
-						Expect(err).To(MatchError(validate.Error))
+						Expect(err).To(MatchError(validate.ErrValidation))
 						Expect(err).To(MatchError(
 							ContainSubstring(fmt.Sprintf(
 								"frame must have exactly one series for each data channel associated with index [uneven 1]<%d>, but is missing a series for channel [uneven 2]<%d>", idx, data))))
@@ -1295,9 +1295,9 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)))
 						_, err := w.Commit()
-						Expect(err).To(HaveOccurredAs(validate.Error))
+						Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 						err = w.Close()
-						Expect(err).To(MatchError(validate.Error))
+						Expect(err).To(MatchError(validate.ErrValidation))
 						Expect(err).To(MatchError(
 							ContainSubstring(fmt.Sprintf(
 								"received no data for index channel [uneven 1]<%v> that must be provided when writing to related data channels [[uneven 2]<%v>]", idx, data))))
@@ -1319,9 +1319,9 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)))
 					_, err := w.Commit()
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 					err = w.Close()
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 					Expect(err.Error()).To(ContainSubstring(
 						fmt.Sprintf("frame must have exactly one series per channel, found more than one for channel [uneven 1]<%v>: validation error", idx),
 					))
@@ -1428,9 +1428,9 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					))
 					Expect(authorized).To(BeFalse())
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 					Expect(err).To(MatchError(ContainSubstring("invalid data type")))
-					Expect(w.Close()).To(HaveOccurredAs(validate.Error))
+					Expect(w.Close()).To(HaveOccurredAs(validate.ErrValidation))
 				})
 			})
 

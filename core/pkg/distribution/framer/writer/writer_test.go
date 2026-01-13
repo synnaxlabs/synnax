@@ -94,7 +94,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
 			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			Expect(err.Error()).To(ContainSubstring("Channel"))
 			Expect(err.Error()).To(ContainSubstring("22"))
 			Expect(err.Error()).ToNot(ContainSubstring("1"))
@@ -120,8 +120,8 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV[int64](5, 6, 7),
 				},
 			))
-			Expect(err).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Close()).To(HaveOccurredAs(validate.Error))
+			Expect(err).To(HaveOccurredAs(validate.ErrValidation))
+			Expect(writer.Close()).To(HaveOccurredAs(validate.ErrValidation))
 		})
 	})
 

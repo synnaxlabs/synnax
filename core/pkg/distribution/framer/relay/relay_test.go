@@ -113,7 +113,7 @@ var _ = Describe("Relay", func() {
 			_, err := svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 })

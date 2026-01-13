@@ -71,7 +71,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "test2", true, &cpy)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, cpy.Key, "data2")).To(HaveOccurredAs(validate.Error))
+			Expect(svc.NewWriter(tx).SetData(ctx, cpy.Key, "data2")).To(HaveOccurredAs(validate.ErrValidation))
 		})
 	})
 })

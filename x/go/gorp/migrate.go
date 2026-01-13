@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/kv"
 )
 
-var ErrMigrationCountExceeded = errors.Newf(
+var ErrMigrationCountExceeded = errors.New(
 	"migration count is greater than the maximum of 255",
 )
 
@@ -70,7 +70,7 @@ func (r Migrator) Run(ctx context.Context, db *DB) error {
 		var currentVersion uint8
 		if !r.Force {
 			versionBytes, closer, err := tx.Get(ctx, []byte(r.Key))
-			if err := errors.Skip(err, kv.NotFound); err != nil {
+			if err := errors.Skip(err, kv.ErrNotFound); err != nil {
 				return err
 			}
 			if closer != nil {

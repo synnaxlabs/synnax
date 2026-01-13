@@ -174,7 +174,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
 
 				err := svc.NewRetrieve().WhereKeys("delete-key").Entry(&status.Status[any]{}).Exec(ctx, tx)
-				Expect(err).To(MatchError(query.NotFound))
+				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should be idempotent", func() {
@@ -201,7 +201,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 				Expect(w.DeleteMany(ctx, "del1", "del2")).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys("del1", "del2").Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+				Expect(svc.NewRetrieve().WhereKeys("del1", "del2").Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 		})
 	})

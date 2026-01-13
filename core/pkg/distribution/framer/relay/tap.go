@@ -87,7 +87,7 @@ func (t *tapper) sink(ctx context.Context, d demand) error {
 // updateDemands modifies the current set of locations that the relay needs to stream
 // channel data from.
 func (t *tapper) updateDemands(d demand) map[cluster.NodeKey]channel.Keys {
-	if d.Variant == change.Delete {
+	if d.Variant == change.VariantDelete {
 		delete(t.demands, d.Key)
 	} else {
 		t.demands[d.Key] = d.Value.Keys

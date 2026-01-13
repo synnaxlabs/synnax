@@ -129,7 +129,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	if cfg.Verifier == "" {
 		if err = service.loadCache(ctx); err != nil {
-			if !errors.Is(err, kv.NotFound) {
+			if !errors.Is(err, kv.ErrNotFound) {
 				return nil, err
 			}
 			cfg.L.Info(useFreeLog)

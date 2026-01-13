@@ -29,7 +29,7 @@ var _ = Describe("Relationship", func() {
 		})
 		It("Should return an error if the relationship has an invalid structure", func() {
 			_, err := ontology.ParseRelationship([]byte("foo:qux-parent->bar"))
-			Expect(err).To(HaveOccurredAs(validate.Error))
+			Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 		})
 	})
 

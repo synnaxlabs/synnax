@@ -109,7 +109,7 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig returns the default configuration for the storage layer.
 	DefaultConfig = Config{
-		Perm:     xfs.OwnerReadWriteExecute,
+		Perm:     xfs.UserRWX,
 		InMemory: config.False(),
 		KVEngine: KVEnginePebble,
 		TSEngine: TSEngineCesium,

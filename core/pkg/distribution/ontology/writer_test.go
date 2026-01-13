@@ -46,7 +46,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.DeleteResource(ctx, id)).To(Succeed())
 				err := w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
 				Expect(err).To(HaveOccurred())
-				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
+				Expect(errors.Is(err, query.ErrNotFound)).To(BeTrue())
 			})
 		})
 		Describe("Idempotency", func() {
@@ -95,7 +95,7 @@ var _ = Describe("Writer", func() {
 						newSampleType("42"),
 					)
 					Expect(err).To(HaveOccurred())
-					Expect(errors.Is(err, query.NotFound)).To(BeTrue())
+					Expect(errors.Is(err, query.ErrNotFound)).To(BeTrue())
 				})
 			})
 			Context("Cyclic violations", func() {
@@ -143,7 +143,7 @@ var _ = Describe("Writer", func() {
 					idOne,
 					ontology.RelationshipTypeParentOf,
 					[]ontology.ID{newSampleType("42")},
-				)).To(HaveOccurredAs(query.NotFound))
+				)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 			It("Should return an error if a cyclic relationship is created", func() {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())

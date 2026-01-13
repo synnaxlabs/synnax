@@ -316,12 +316,12 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
+			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(m.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -476,7 +476,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(t.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, nil)).To(MatchError(query.NotFound))
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			Expect(svc.Close()).To(Succeed())
 			svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,

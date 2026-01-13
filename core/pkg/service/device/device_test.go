@@ -148,7 +148,7 @@ var _ = Describe("Device", func() {
 				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
-			).To(MatchError(query.NotFound))
+			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should redefine ontology relationships if a device has moved racks", func() {
 			rw := rackSvc.NewWriter(tx)
@@ -188,7 +188,7 @@ var _ = Describe("Device", func() {
 				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&nRes).
 				Exec(ctx, tx),
-			).To(MatchError(query.NotFound))
+			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should update the status name when renaming a device", func() {
 			d := device.Device{
@@ -375,12 +375,12 @@ var _ = Describe("Device", func() {
 			Expect(w.Delete(ctx, d.Key)).To(Succeed())
 			var res device.Device
 			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).
-				To(MatchError(query.NotFound))
+				To(MatchError(query.ErrNotFound))
 			var deletedStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
 				WhereKeys(device.OntologyID(d.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should correctly delete an ontology resource for the device", func() {
 			d := device.Device{
@@ -394,7 +394,7 @@ var _ = Describe("Device", func() {
 			var res ontology.Resource
 			Expect(
 				otg.NewRetrieve().WhereIDs(d.OntologyID()).Entry(&res).Exec(ctx, tx),
-			).To(MatchError(query.NotFound))
+			).To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Suspect Rack", func() {
@@ -506,7 +506,7 @@ var _ = Describe("Device", func() {
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
 				WhereKeys(device.OntologyID(d.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, nil)).To(MatchError(query.NotFound))
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			Expect(svc.Close()).To(Succeed())
 			svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,

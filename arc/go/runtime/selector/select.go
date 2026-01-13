@@ -100,7 +100,7 @@ type selectFactory struct{}
 
 func (s *selectFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	return &selectNode{Node: cfg.State}, nil
 }

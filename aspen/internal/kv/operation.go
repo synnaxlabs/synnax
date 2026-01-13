@@ -48,7 +48,7 @@ func (o Operation) Digest() Digest {
 }
 
 func (o Operation) apply(ctx context.Context, b xkv.Writer) error {
-	if o.Variant == change.Delete {
+	if o.Variant == change.VariantDelete {
 		return b.Delete(ctx, o.Key)
 	}
 	return b.Set(ctx, o.Key, o.Value)

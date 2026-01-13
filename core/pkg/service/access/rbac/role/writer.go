@@ -36,7 +36,7 @@ func (w Writer) Create(
 		r.Key = uuid.New()
 	}
 	if r.Internal && !w.allowInternal {
-		return errors.Wrap(validate.Error, "cannot create internal role")
+		return errors.Wrap(validate.ErrValidation, "cannot create internal role")
 	}
 	if err := gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
@@ -52,7 +52,7 @@ func (w Writer) Create(
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
 		if r.Internal && !w.allowInternal {
-			return errors.Wrap(validate.Error, "cannot delete builtin role")
+			return errors.Wrap(validate.ErrValidation, "cannot delete builtin role")
 		}
 		return nil
 	}).Exec(ctx, w.tx)

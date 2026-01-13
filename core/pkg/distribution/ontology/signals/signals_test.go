@@ -108,7 +108,7 @@ var _ = Describe("Signals", Ordered, func() {
 			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
 				return slices.Values([]ontology.Change{
 					{
-						Variant: change.Set,
+						Variant: change.VariantSet,
 						Key:     newChangeID(key),
 						Value: ontology.NewResource(
 							svc.Schema(),
@@ -147,7 +147,7 @@ var _ = Describe("Signals", Ordered, func() {
 			svc.NotifyGenerator(ctx, func() iter.Seq[ontology.Change] {
 				return slices.Values([]ontology.Change{
 					{
-						Variant: change.Delete,
+						Variant: change.VariantDelete,
 						Key:     newChangeID(key),
 					},
 				})

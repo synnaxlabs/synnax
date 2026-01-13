@@ -129,7 +129,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 				deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
 			)
 			for _, c := range r {
-				if c.Variant == change.Delete {
+				if c.Variant == change.VariantDelete {
 					deletes.Data = append(deletes.Data, c.Key...)
 				} else {
 					sets.Data = append(sets.Data, c.Key...)

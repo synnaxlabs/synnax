@@ -35,7 +35,7 @@ func (w Writer) Create(
 		p.Key = uuid.New()
 	}
 	if p.Internal && !w.allowInternal {
-		return errors.Wrap(validate.Error, "cannot create internal policy")
+		return errors.Wrap(validate.ErrValidation, "cannot create internal policy")
 	}
 	if err := gorp.NewCreate[uuid.UUID, Policy]().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err

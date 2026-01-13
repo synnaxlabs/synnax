@@ -125,7 +125,7 @@ func (w Writer[D]) SetManyWithParent(
 func (w Writer[D]) Delete(ctx context.Context, key string) error {
 	if err := gorp.NewDelete[string, Status[D]]().
 		WhereKeys(key).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	return w.otgWriter.DeleteResource(ctx, OntologyID(key))

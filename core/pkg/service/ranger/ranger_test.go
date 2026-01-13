@@ -187,7 +187,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					WhereIDs(parent1.OntologyID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res2).
-					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 			It("Should create multiple ranges with the same parent", func() {
 				parent := ranger.Range{
@@ -234,7 +234,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
 					_, err := p.RetrieveParent(ctx)
-					Expect(err).To(HaveOccurredAs(query.NotFound))
+					Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 				})
 			})
 		})
@@ -557,7 +557,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				r = r.UseTx(tx)
 				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				_, err := r.ResolveAlias(ctx, "not_an_alias")
-				Expect(err).To(HaveOccurredAs(query.NotFound))
+				Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			})
 
 			It("Should fallback to the parent range if the Alias is not found", func() {

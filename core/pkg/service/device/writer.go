@@ -67,7 +67,7 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 		WhereKeys(device.Key).
 		Entry(&existing).
 		Exec(ctx, w.tx)
-	isNotFound := errors.Is(err, query.NotFound)
+	isNotFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !isNotFound {
 		return err
 	}

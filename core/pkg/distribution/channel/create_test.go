@@ -74,7 +74,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCh.IsIndex).To(BeTrue())
 			})
 			It("Should not create the channel on another nodes time-series DB", func() {
-				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).Error().To(MatchError(query.NotFound))
+				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).Error().To(MatchError(query.ErrNotFound))
 			})
 			It("Should assign a sequential key to the channels on each node",
 				func() {
@@ -130,7 +130,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(query.NotFound))
+					Error().To(MatchError(query.ErrNotFound))
 			})
 		})
 		Context("error cases", func() {
@@ -245,7 +245,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
 
 				err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
-				Expect(err).To(MatchError(query.NotFound))
+				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 			It("Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one", func() {
 				ch := channel.Channel{

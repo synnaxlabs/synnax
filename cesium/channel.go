@@ -90,7 +90,7 @@ func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []str
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if len(keys) != len(names) {
-		return errors.Wrapf(validate.Error, "keys and names must have the same length")
+		return errors.Wrapf(validate.ErrValidation, "keys and names must have the same length")
 	}
 	for i := range keys {
 		if err := db.renameChannel(ctx, keys[i], names[i]); err != nil {
@@ -159,7 +159,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 }
 
 func indexChannelNotFoundError(key ChannelKey) error {
-	return errors.Wrapf(query.NotFound, "index channel with key %d does not exist", key)
+	return errors.Wrapf(query.ErrNotFound, "index channel with key %d does not exist", key)
 }
 
 func (db *DB) validateNewChannel(ch Channel) error {
@@ -169,7 +169,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	_, unaryExists := db.mu.unaryDBs[ch.Key]
 	_, virtualExists := db.mu.virtualDBs[ch.Key]
 	if unaryExists || virtualExists {
-		return errors.Wrapf(validate.Error, "cannot create channel %v because it already exists", ch)
+		return errors.Wrapf(validate.ErrValidation, "cannot create channel %v because it already exists", ch)
 	}
 	if ch.Virtual {
 		return nil
@@ -181,7 +181,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		}
 		if !indexDB.Channel().IsIndex {
 			return validate.PathedError(
-				errors.Wrapf(validate.Error, "channel %v is not an index", indexDB.Channel()),
+				errors.Wrapf(validate.ErrValidation, "channel %v is not an index", indexDB.Channel()),
 				"index",
 			)
 		}

@@ -43,7 +43,7 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 			// we return an error.
 			return op, ErrLeaseNotTransferable
 		}
-	} else if errors.Is(err, xkv.NotFound) && op.Variant == change.Set {
+	} else if errors.Is(err, xkv.ErrNotFound) && op.Variant == change.VariantSet {
 		if op.Leaseholder == nodeKeyDefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.

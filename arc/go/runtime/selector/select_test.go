@@ -88,7 +88,7 @@ var _ = Describe("Select", func() {
 				State: s.Node("select"),
 			}
 			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(Equal(query.ErrNotFound))
 		})
 	})
 	Describe("select.Next", func() {

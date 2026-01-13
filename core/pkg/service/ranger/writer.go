@@ -57,7 +57,7 @@ func (w Writer) CreateWithParent(
 		NewRetrieve[uuid.UUID, Range]().
 		WhereKeys(r.Key).
 		Exists(ctx, w.tx)
-	if err != nil && !errors.Is(err, query.NotFound) {
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
@@ -171,7 +171,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 		ExcludeFieldData(true).
 		// The check for query.NotFound is necessary because the child may have already
 		// been deleted, and delete is idempotent.
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {

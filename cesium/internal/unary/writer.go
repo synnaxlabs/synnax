@@ -307,7 +307,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		}
 		if !approx.Exact() {
 			return 0, errors.Wrapf(
-				validate.Error,
+				validate.ErrValidation,
 				"writer start %s cannot be resolved in the index channel %v",
 				w.cfg.Start,
 				w.idx.Info(),

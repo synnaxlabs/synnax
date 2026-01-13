@@ -54,7 +54,7 @@ var _ = Describe("update", func() {
 	It("Should return an error if no change function was specified", func() {
 		Expect(gorp.NewUpdate[int, entry]().
 			WhereKeys(entries[0].GorpKey()).
-			Exec(ctx, tx)).To(HaveOccurredAs(query.InvalidParameters))
+			Exec(ctx, tx)).To(HaveOccurredAs(query.ErrInvalidParameters))
 	})
 
 	It("Should return an error if the the key cannot be found", func() {
@@ -63,7 +63,7 @@ var _ = Describe("update", func() {
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
-			}).Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+			}).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 	})
 
 	It("Should pass the correct transaction into the gorp.Context in the where function", func() {

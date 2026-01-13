@@ -62,7 +62,7 @@ var _ = Describe("Errors", func() {
 	Describe("InvalidTypeError", func() {
 		It("Should format the error message correctly", func() {
 			err := validate.NewInvalidTypeError("cat", "dog")
-			Expect(err).To(HaveOccurredAs(validate.InvalidTypeError))
+			Expect(err).To(HaveOccurredAs(validate.ErrInvalidType))
 			Expect(err).To(MatchError(ContainSubstring("expected cat but received dog")))
 		})
 	})
