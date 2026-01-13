@@ -563,7 +563,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     ASSERT_NIL(writer.close());
 
     auto state = f->task_states[0];
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return state->exec_count.load() >= 5; },
         [] { return "cmds not executed"; }
     );
@@ -580,7 +580,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     ASSERT_NIL(rack.tasks.create(task));
 
     std::shared_ptr<TrackingTaskState> first_state;
-    xtest::eventually(
+    EVENTUALLY(
         [&] {
             std::lock_guard lock(f->mu);
             if (f->task_states.empty()) return false;
@@ -593,7 +593,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     task.config = "{\"v\":2}";
     ASSERT_NIL(rack.tasks.create(task));
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return first_state->stopped.load(); },
         [] { return "not stopped"; }
     );
@@ -666,7 +666,9 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     auto task = synnax::Task(rack.key, "t", "destructor_tracking", "");
     ASSERT_NIL(rack.tasks.create(task));
 
-    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](auto &s) {
+        return s.message == "configured";
+    });
 
     ASSERT_EQ(f->configure_count.load(), 1);
     ASSERT_FALSE(f->first_destroyed.load());
@@ -674,12 +676,12 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     task.config = "{\"v\":2}";
     ASSERT_NIL(rack.tasks.create(task));
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return f->configure_count.load() >= 2; },
         [] { return "second task not configured"; }
     );
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return f->first_destroyed.load(); },
         [] { return "first task destructor not called"; }
     );
