@@ -1347,13 +1347,28 @@ public:
     /// Only works for signed integer types and floating-point types.
     /// @throws std::runtime_error if called on unsigned integer types.
     Series operator-() const {
+        auto result = Series(this->data_type(), this->size());
+        result.resize(this->size());
+
         const auto dt = this->data_type();
-        if (dt == UINT64_T || dt == UINT32_T || dt == UINT16_T || dt == UINT8_T) {
+        if (dt == FLOAT64_T)
+            apply_unary_op_typed<double>(result, [](auto a) { return -a; });
+        else if (dt == FLOAT32_T)
+            apply_unary_op_typed<float>(result, [](auto a) { return -a; });
+        else if (dt == INT64_T)
+            apply_unary_op_typed<int64_t>(result, [](auto a) { return -a; });
+        else if (dt == INT32_T)
+            apply_unary_op_typed<int32_t>(result, [](auto a) { return -a; });
+        else if (dt == INT16_T)
+            apply_unary_op_typed<int16_t>(result, [](auto a) { return -a; });
+        else if (dt == INT8_T)
+            apply_unary_op_typed<int8_t>(result, [](auto a) { return -a; });
+        else
             throw std::runtime_error(
                 "unary negation not supported for unsigned integer types"
             );
-        }
-        return apply_unary_op([](auto a) { return -a; });
+
+        return result;
     }
 
     /// @brief Bitwise NOT operator. Returns a new Series with inverted bits.
