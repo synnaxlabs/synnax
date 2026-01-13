@@ -41,8 +41,9 @@ telem::DataType Type::telem() const {
         case Kind::Chan:
             if (this->elem) return elem->telem();
             [[fallthrough]];
-        default:
+        case Kind::Invalid:
             return telem::UNKNOWN_T;
     }
+    return telem::UNKNOWN_T;
 }
 }

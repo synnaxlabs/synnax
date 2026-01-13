@@ -9,6 +9,8 @@
 
 #pragma once
 
+#include <cstdint>
+#include <string>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -24,6 +26,11 @@
 
 namespace arc::runtime::state {
 using Series = xmemory::local_shared<telem::Series>;
+
+/// Generates a unique key for stateful variables from function ID and variable ID.
+inline uint64_t state_key(const uint32_t func_id, const uint32_t var_id) {
+    return static_cast<uint64_t>(func_id) << 32 | static_cast<uint64_t>(var_id);
+}
 
 struct Value {
     Series data;
@@ -140,14 +147,77 @@ class State {
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;
 
-    void write_channel(types::ChannelKey key, const Series &data, const Series &time);
-    std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
+    /// @brief Transient string handles - cleared each execution cycle.
+    std::unordered_map<uint32_t, std::string> strings;
+    uint32_t string_handle_counter = 1;
+
+    /// @brief Transient series handles - cleared each execution cycle.
+    std::unordered_map<uint32_t, telem::Series> series_handles;
+    uint32_t series_handle_counter = 1;
+
+    /// @brief Persistent stateful variable storage - keyed by state_key(func_id,
+    /// var_id).
+    std::unordered_map<uint64_t, uint8_t> var_u8;
+    std::unordered_map<uint64_t, uint16_t> var_u16;
+    std::unordered_map<uint64_t, uint32_t> var_u32;
+    std::unordered_map<uint64_t, uint64_t> var_u64;
+    std::unordered_map<uint64_t, int8_t> var_i8;
+    std::unordered_map<uint64_t, int16_t> var_i16;
+    std::unordered_map<uint64_t, int32_t> var_i32;
+    std::unordered_map<uint64_t, int64_t> var_i64;
+    std::unordered_map<uint64_t, float> var_f32;
+    std::unordered_map<uint64_t, double> var_f64;
+    std::unordered_map<uint64_t, std::string> var_string;
+    std::unordered_map<uint64_t, telem::Series> var_series;
 
 public:
+    void write_channel(types::ChannelKey key, const Series &data, const Series &time);
+    std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
     explicit State(const Config &cfg);
     std::pair<Node, xerrors::Error> node(const std::string &key);
     void ingest(const telem::Frame &frame);
-    std::vector<std::pair<types::ChannelKey, Series>> flush_writes();
-    void clear_reads();
+    std::vector<std::pair<types::ChannelKey, Series>> flush();
+
+    /// @brief Creates a string handle from raw memory pointer and length.
+    uint32_t string_from_memory(const uint8_t *data, uint32_t len);
+
+    /// @brief Creates a string handle from a C++ string.
+    uint32_t string_create(const std::string &str);
+
+    /// @brief Gets the string value for a handle. Returns empty string if not found.
+    std::string string_get(uint32_t handle) const;
+
+    /// @brief Checks if a string handle exists.
+    bool string_exists(uint32_t handle) const;
+
+    /// @brief Gets a series by handle. Returns nullptr if not found.
+    telem::Series *series_get(uint32_t handle);
+    const telem::Series *series_get(uint32_t handle) const;
+
+    /// @brief Stores a series and returns its handle.
+    uint32_t series_store(telem::Series series);
+
+#define DECLARE_VAR_OPS(suffix, cpptype)                                               \
+    cpptype var_load_##suffix(uint32_t func_id, uint32_t var_id, cpptype init_value);  \
+    void var_store_##suffix(uint32_t func_id, uint32_t var_id, cpptype value);
+
+    DECLARE_VAR_OPS(u8, uint8_t)
+    DECLARE_VAR_OPS(u16, uint16_t)
+    DECLARE_VAR_OPS(u32, uint32_t)
+    DECLARE_VAR_OPS(u64, uint64_t)
+    DECLARE_VAR_OPS(i8, int8_t)
+    DECLARE_VAR_OPS(i16, int16_t)
+    DECLARE_VAR_OPS(i32, int32_t)
+    DECLARE_VAR_OPS(i64, int64_t)
+    DECLARE_VAR_OPS(f32, float)
+    DECLARE_VAR_OPS(f64, double)
+
+#undef DECLARE_VAR_OPS
+
+    uint32_t var_load_str(uint32_t func_id, uint32_t var_id, uint32_t init_handle);
+    void var_store_str(uint32_t func_id, uint32_t var_id, uint32_t str_handle);
+
+    uint32_t var_load_series(uint32_t func_id, uint32_t var_id, uint32_t init_handle);
+    void var_store_series(uint32_t func_id, uint32_t var_id, uint32_t handle);
 };
 }

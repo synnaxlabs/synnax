@@ -368,6 +368,11 @@ cc_library(
     includes = ["include"],
     strip_include_prefix = "include",
     visibility = ["//visibility:public"],
+    # On Windows, disable warning C4201 (nameless struct/union) which is used by wasmtime headers
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
     # On Windows with static linking, disable dllimport declarations
     defines = select({
         "@platforms//os:windows": [
