@@ -61,7 +61,7 @@ var _ config.Config[Config] = Config{}
 
 // Default is the default configuration for the tracing middleware.
 var Default = Config{
-	Level:             alamos.Prod,
+	Level:             alamos.EnvironmentProd,
 	EnableTracing:     config.True(),
 	EnablePropagation: config.True(),
 	EnableLogging:     config.True(),

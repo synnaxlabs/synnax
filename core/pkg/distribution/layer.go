@@ -230,7 +230,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	l.DB = gorp.Wrap(
 		aspenDB,
 		gorp.WithCodec(&binary.TracingCodec{
-			Level:           alamos.Bench,
+			Level:           alamos.EnvironmentBench,
 			Instrumentation: cfg.Instrumentation,
 			Codec:           cfg.GorpCodec,
 		}),

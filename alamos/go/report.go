@@ -72,21 +72,21 @@ func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
 // Debug environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Debug(key string, report ReportProvider) {
-	r.Attach(key, report, Debug)
+	r.Attach(key, report, EnvironmentDebug)
 }
 
 // Prod attaches the given ReportProvider to the Reporter with the given key in the
 // production (Prod) environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Prod(key string, report ReportProvider) {
-	r.Attach(key, report, Prod)
+	r.Attach(key, report, EnvironmentProd)
 }
 
 // Bench attaches the given ReportProvider to the Reporter with the given key in the
 // benchmark (Bench) environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Bench(key string, report ReportProvider) {
-	r.Attach(key, report, Bench)
+	r.Attach(key, report, EnvironmentBench)
 }
 
 // Attach attaches the given ReportProvider to the Reporter with the given key under
