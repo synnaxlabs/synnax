@@ -28,7 +28,7 @@ func parseServerContext(
 
 	oCtx := freighter.Context{
 		Context:  ctx,
-		Role:     freighter.Server,
+		Role:     freighter.RoleServer,
 		Target:   address.Address(serviceName),
 		Protocol: Reporter.Protocol,
 		Params:   make(freighter.Params),

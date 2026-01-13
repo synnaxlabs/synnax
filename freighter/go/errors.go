@@ -11,18 +11,19 @@ package freighter
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
 	"io"
 	"strings"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 var (
 	// EOF is returned when either the receiving or sending end of a Stream
 	// exits normally.
 	EOF = io.EOF
-	// StreamClosed is returned when a caller attempts to send or receive a message
+	// ErrStreamClosed is returned when a caller attempts to send or receive a message
 	// from a stream that is already closed.
-	StreamClosed = errors.New("[freighter] - stream closed")
+	ErrStreamClosed = errors.New("[freighter] - stream closed")
 )
 
 const (
@@ -35,7 +36,7 @@ func encodeErr(_ context.Context, err error) (errors.Payload, bool) {
 	if errors.Is(err, EOF) {
 		return errors.Payload{Type: eofErrorType, Data: err.Error()}, true
 	}
-	if errors.Is(err, StreamClosed) {
+	if errors.Is(err, ErrStreamClosed) {
 		return errors.Payload{Type: streamClosedErrorType, Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
@@ -46,7 +47,7 @@ func decodeErr(_ context.Context, pld errors.Payload) (error, bool) {
 	case eofErrorType:
 		return EOF, true
 	case streamClosedErrorType:
-		return StreamClosed, true
+		return ErrStreamClosed, true
 	}
 	if strings.HasPrefix(pld.Type, freighterErrorType) {
 		return errors.New(pld.Data), true

@@ -22,12 +22,12 @@ type Role uint8
 
 //go:generate stringer -type=Role
 const (
-	// Client indicates whether the middleware is located on the client side of the
+	// RoleClient indicates whether the middleware is located on the client side of the
 	// request.
-	Client Role = iota + 1
-	// Server indicates whether the middleware is located on the server side of the
+	RoleClient Role = iota + 1
+	// RoleServer indicates whether the middleware is located on the server side of the
 	// request.
-	Server
+	RoleServer
 )
 
 // Variant indicates the variant of transport (unary or streaming) that the middleware
@@ -36,10 +36,10 @@ type Variant uint8
 
 //go:generate stringer -type=Variant
 const (
-	// Unary is set on middleware that is executed for a unary request.
-	Unary Variant = iota + 1
-	// Stream is set on middleware that is executed for a streaming request.
-	Stream
+	// VariantUnary is set on middleware that is executed for a unary request.
+	VariantUnary Variant = iota + 1
+	// VariantStream is set on middleware that is executed for a streaming request.
+	VariantStream
 )
 
 // Context represents the metadata for a request that is passed to Middleware.
