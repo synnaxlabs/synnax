@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -38,9 +39,12 @@ var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a policy with auto-generated UUID", func() {
 			p := &policy.Policy{
-				Name:    "test-policy",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
+				Name:   "test-policy",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
@@ -49,10 +53,13 @@ var _ = Describe("Writer", func() {
 		It("Should create a policy with provided UUID", func() {
 			key := uuid.New()
 			p := &policy.Policy{
-				Key:     key,
-				Name:    "test-policy",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
+				Key:    key,
+				Name:   "test-policy",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 			Expect(p.Key).To(Equal(key))
@@ -60,13 +67,16 @@ var _ = Describe("Writer", func() {
 
 		It("Should create a policy with multiple objects", func() {
 			p := &policy.Policy{
-				Name: "multi-object-policy",
-				Objects: []ontology.ID{
-					{Type: "channel", Key: "ch1"},
-					{Type: "channel", Key: "ch2"},
-					{Type: "workspace", Key: "ws1"},
+				Name:   "multi-object-policy",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{
+						{Type: "channel", Key: "ch1"},
+						{Type: "channel", Key: "ch2"},
+						{Type: "workspace", Key: "ws1"},
+					},
+					Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
 				},
-				Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
@@ -74,18 +84,24 @@ var _ = Describe("Writer", func() {
 
 		It("Should create a policy with ActionAll wildcard", func() {
 			p := &policy.Policy{
-				Name:    "wildcard-policy",
-				Objects: []ontology.ID{{Type: "channel"}},
-				Actions: access.AllActions,
+				Name:   "wildcard-policy",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel"}},
+					Actions: access.AllActions,
+				},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 		})
 
 		It("Should define policy in ontology", func() {
 			p := &policy.Policy{
-				Name:    "ontology-test",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
+				Name:   "ontology-test",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 
@@ -102,9 +118,12 @@ var _ = Describe("Writer", func() {
 			internalWriter := svc.NewWriter(tx, true)
 			p := &policy.Policy{
 				Name:     "internal-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions:  []access.Action{access.ActionRetrieve},
+				Effect:   policy.EffectAllow,
 				Internal: true,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(internalWriter.Create(ctx, p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
@@ -113,9 +132,12 @@ var _ = Describe("Writer", func() {
 		It("Should fail to create an internal policy when allowInternal is false", func() {
 			p := &policy.Policy{
 				Name:     "internal-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions:  []access.Action{access.ActionRetrieve},
+				Effect:   policy.EffectAllow,
 				Internal: true,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			err := w.Create(ctx, p)
 			Expect(err).To(HaveOccurred())
@@ -128,14 +150,20 @@ var _ = Describe("Writer", func() {
 		BeforeEach(func() {
 			policies = []policy.Policy{
 				{
-					Name:    "policy-1",
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "policy-1",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				},
 				{
-					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
-					Actions: []access.Action{access.ActionUpdate},
+					Name:   "policy-2",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+						Actions: []access.Action{access.ActionUpdate},
+					},
 				},
 			}
 			for i := range policies {
@@ -178,14 +206,20 @@ var _ = Describe("Writer", func() {
 
 			policies = []policy.Policy{
 				{
-					Name:    "policy-1",
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "policy-1",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				},
 				{
-					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
-					Actions: []access.Action{access.ActionUpdate},
+					Name:   "policy-2",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+						Actions: []access.Action{access.ActionUpdate},
+					},
 				},
 			}
 			for i := range policies {
@@ -234,19 +268,28 @@ var _ = Describe("Retriever", func() {
 		w = svc.NewWriter(tx, false)
 		policies = []policy.Policy{
 			{
-				Name:    "alpha-policy",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
+				Name:   "alpha-policy",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			},
 			{
-				Name:    "beta-policy",
-				Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
-				Actions: []access.Action{access.ActionDelete},
+				Name:   "beta-policy",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Actions: []access.Action{access.ActionDelete},
+				},
 			},
 			{
-				Name:    "gamma-policy",
-				Objects: []ontology.ID{{Type: "user", Key: "u1"}},
-				Actions: []access.Action{access.ActionUpdate},
+				Name:   "gamma-policy",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "user", Key: "u1"}},
+					Actions: []access.Action{access.ActionUpdate},
+				},
 			},
 		}
 		for i := range policies {
@@ -402,15 +445,21 @@ var _ = Describe("Retriever", func() {
 			internalWriter := svc.NewWriter(tx, true)
 			internalPolicy = policy.Policy{
 				Name:     "internal-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions:  []access.Action{access.ActionRetrieve},
+				Effect:   policy.EffectAllow,
 				Internal: true,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			regularPolicy = policy.Policy{
 				Name:     "regular-policy",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch2"}},
-				Actions:  []access.Action{access.ActionRetrieve},
+				Effect:   policy.EffectAllow,
 				Internal: false,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch2"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(internalWriter.Create(ctx, &internalPolicy)).To(Succeed())
 			Expect(internalWriter.Create(ctx, &regularPolicy)).To(Succeed())
@@ -464,9 +513,12 @@ var _ = Describe("Ontology Integration", func() {
 		It("Should retrieve a policy as an ontology resource", func() {
 			w := svc.NewWriter(tx, false)
 			p := &policy.Policy{
-				Name:    "resource-test",
-				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions: []access.Action{access.ActionRetrieve},
+				Name:   "resource-test",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 
@@ -492,9 +544,12 @@ var _ = Describe("Ontology Integration", func() {
 			w := svc.NewWriter(tx, false)
 			for i := 0; i < 3; i++ {
 				p := &policy.Policy{
-					Name:    "nexter-test",
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "nexter-test",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				}
 				Expect(w.Create(ctx, p)).To(Succeed())
 			}

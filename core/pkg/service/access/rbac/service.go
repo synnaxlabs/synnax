@@ -233,18 +233,27 @@ func (e *Enforcer) policyMatches(
 	req access.Request,
 	obj ontology.ID,
 ) bool {
-	return lo.Contains(p.Actions, req.Action) &&
-		e.objectMatches(p, obj) &&
-		e.constraintsSatisfied(ctx, p.Constraints, req, obj)
+	return e.actionMatches(p.Constraint, req.Action) &&
+		e.objectMatches(p.Constraint, obj) &&
+		e.constraintSatisfied(ctx, p.Constraint, req, obj)
 }
 
-// objectMatches checks if the policy covers the requested object.
-func (e *Enforcer) objectMatches(p policy.Policy, obj ontology.ID) bool {
-	// Empty objects list matches all (for system-wide policies)
-	if len(p.Objects) == 0 {
+// actionMatches checks if the constraint covers the requested action.
+func (e *Enforcer) actionMatches(c constraint.Constraint, action access.Action) bool {
+	// Empty actions list matches all (for system-wide policies)
+	if len(c.Actions) == 0 {
 		return true
 	}
-	for _, policyObj := range p.Objects {
+	return lo.Contains(c.Actions, action)
+}
+
+// objectMatches checks if the constraint covers the requested object.
+func (e *Enforcer) objectMatches(c constraint.Constraint, obj ontology.ID) bool {
+	// Empty objects list matches all (for system-wide policies)
+	if len(c.Objects) == 0 {
+		return true
+	}
+	for _, policyObj := range c.Objects {
 		if policyObj.IsType() {
 			if policyObj.Type == obj.Type {
 				return true
@@ -256,17 +265,13 @@ func (e *Enforcer) objectMatches(p policy.Policy, obj ontology.ID) bool {
 	return false
 }
 
-// constraintsSatisfied checks if all constraints in the policy are satisfied.
-func (e *Enforcer) constraintsSatisfied(
+// constraintSatisfied checks if the constraint is satisfied.
+func (e *Enforcer) constraintSatisfied(
 	ctx context.Context,
-	constraints []constraint.Constraint,
+	c constraint.Constraint,
 	req access.Request,
 	obj ontology.ID,
 ) bool {
-	// No constraints = always satisfied
-	if len(constraints) == 0 {
-		return true
-	}
 	// Build the enforce params with a single-element Objects slice
 	singleObjReq := req
 	singleObjReq.Objects = []ontology.ID{obj}
@@ -275,11 +280,5 @@ func (e *Enforcer) constraintsSatisfied(
 		Ontology: e.cfg.Ontology,
 		Tx:       e.tx,
 	}
-	// All constraints must pass (AND logic)
-	for _, c := range constraints {
-		if !c.Enforce(ctx, params) {
-			return false
-		}
-	}
-	return true
+	return c.Enforce(ctx, params)
 }

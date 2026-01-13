@@ -29,50 +29,52 @@ import (
 )
 
 // =============================================================================
-// CONSTRAINT TYPES:
+// CONSTRAINT KINDS:
 //
-// 1. FieldConstraint - Direct field access on resources, subjects, requests, system
+// 1. KindField - Direct field access on resources, subjects, requests, system
 //    Example: resource.status == "active", subject.clearance in ["secret", "top_secret"]
 //
-// 2. RelationshipConstraint - Ontology graph traversal
+// 2. KindRelationship - Ontology graph traversal
 //    Example: resource created_by subject, resource labeled_by "production"
 //
-// 3. ComputedConstraint - Derived/calculated values
+// 3. KindComputed - Derived/calculated values
 //    Example: request.time_range duration <= 24h
+//
+// 4. KindAnd - All child constraints must be satisfied
+// 5. KindOr - At least one child constraint must be satisfied
+// 6. KindNot - Inverts the result of a child constraint
 // =============================================================================
 
 // PolicyOnlyUpdateSchematicsCreatedByUsers allows users to only update schematics they
 // created.
 var PolicyOnlyUpdateSchematicsCreatedByUsers = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "Schematics can only be updated by their creator",
-	Objects: []ontology.ID{{Type: schematic.OntologyType}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Relationship: ontology.CreatedBy,
-			Operator:     constraint.OpContainsAny,
-			MatchSubject: true,
-		},
+	Key:    uuid.New(),
+	Name:   "Schematics can only be updated by their creator",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindRelationship,
+		Objects: []ontology.ID{{Type: schematic.OntologyType}},
+		Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
+		Relationship: ontology.CreatedBy,
+		Operator:     constraint.OpContainsAny,
+		MatchSubject: true,
 	},
 }
 
 // PolicyTimeRangeChannelRead restricts channel data access to a specific time range.
 func PolicyTimeRangeChannelRead(channelKey channel.Key, allowedRange telem.TimeRange) policy.Policy {
 	return policy.Policy{
-		Key:     uuid.New(),
-		Name:    "Channel data can only be read within a specific time range",
-		Objects: []ontology.ID{channel.OntologyID(channelKey)},
-		Actions: []access.Action{"read_data"},
-		Effect:  policy.EffectAllow,
-		Constraints: []constraint.Constraint{
-			constraint.Field{
-				Target:   "request",
-				Field:    []string{"time_range"},
-				Operator: constraint.OpWithin,
-				Value:    allowedRange,
-			},
+		Key:    uuid.New(),
+		Name:   "Channel data can only be read within a specific time range",
+		Effect: policy.EffectAllow,
+		Constraint: constraint.Constraint{
+			Kind:     constraint.KindField,
+			Objects:  []ontology.ID{channel.OntologyID(channelKey)},
+			Actions:  []access.Action{"read_data"},
+			Target:   "request",
+			Field:    []string{"time_range"},
+			Operator: constraint.OpWithin,
+			Value:    allowedRange,
 		},
 	}
 }
@@ -80,124 +82,117 @@ func PolicyTimeRangeChannelRead(channelKey channel.Key, allowedRange telem.TimeR
 // PolicyDenyBuiltinStatusNameKeyEdit prevents editing Name or Key on builtin-owned
 // statuses.
 var PolicyDenyBuiltinStatusNameKeyEdit = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "Cannot edit Name or Key on builtin-owned statuses",
-	Objects: []ontology.ID{{Type: status.OntologyType}},
-	Actions: []access.Action{access.ActionUpdate},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		// todo: serialization + storage of the constraints.
-		constraint.Relationship{
-			Relationship: ontology.CreatedBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: ontology.TypeBuiltIn}},
-		},
-		// TODO: consider perf implications of checking properties for every request via
-		// reflection.
-		constraint.Field{
-			Target:   "request",
-			Field:    []string{"properties"},
-			Operator: constraint.OpContainsAny,
-			Value:    []string{"Name", "Key"},
+	Key:    uuid.New(),
+	Name:   "Cannot edit Name or Key on builtin-owned statuses",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: status.OntologyType}},
+		Actions: []access.Action{access.ActionUpdate},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:            constraint.KindRelationship,
+				Relationship:    ontology.CreatedBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: ontology.TypeBuiltIn}},
+			},
+			{
+				Kind:     constraint.KindField,
+				Target:   "request",
+				Field:    []string{"properties"},
+				Operator: constraint.OpContainsAny,
+				Value:    []string{"Name", "Key"},
+			},
 		},
 	},
 }
 
 // ErrorStatusesOnly restricts retrieval to statuses in error state.
 var ErrorStatusesOnly = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "error-statuses-only",
-	Objects: []ontology.ID{{Type: "status"}},
-	Actions: []access.Action{access.ActionRetrieve},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"status"},
-			Operator: constraint.OpEqual,
-			Value:    "error",
-		},
+	Key:    uuid.New(),
+	Name:   "error-statuses-only",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:     constraint.KindField,
+		Objects:  []ontology.ID{{Type: "status"}},
+		Actions:  []access.Action{access.ActionRetrieve},
+		Target:   "resource",
+		Field:    []string{"status"},
+		Operator: constraint.OpEqual,
+		Value:    "error",
 	},
 }
 
 // OPCScanTasksOnly restricts task retrieval to opc_scan type tasks. Uses
-// FieldConstraint to check the resource's type field.
+// KindField to check the resource's type field.
 var OPCScanTasksOnly = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "opc-scan-tasks-only",
-	Objects: []ontology.ID{{Type: "task"}},
-	Actions: []access.Action{access.ActionRetrieve},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"type"},
-			Operator: constraint.OpEqual,
-			Value:    "opc_scan",
-		},
+	Key:    uuid.New(),
+	Name:   "opc-scan-tasks-only",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:     constraint.KindField,
+		Objects:  []ontology.ID{{Type: "task"}},
+		Actions:  []access.Action{access.ActionRetrieve},
+		Target:   "resource",
+		Field:    []string{"type"},
+		Operator: constraint.OpEqual,
+		Value:    "opc_scan",
 	},
 }
 
 // TasksForSpecificRack restricts task retrieval to tasks belonging to a specific rack.
-// Uses FieldConstraint to check the resource's rack field.
+// Uses KindComputed to check the resource's rack field.
 func TasksForSpecificRack(rackKey string) policy.Policy {
 	return policy.Policy{
-		Key:     uuid.New(),
-		Name:    "tasks-for-rack-" + rackKey,
-		Objects: []ontology.ID{{Type: task.OntologyType}},
-		Actions: []access.Action{access.ActionRetrieve},
-		Effect:  policy.EffectAllow,
-		Constraints: []constraint.Constraint{
-			// this requires registering a custom computation function for the rack
-			// property.
-			// The other way of doing this would be checking for ontology relationships
-			// between the task an the rack.
-			constraint.Computed{
-				Property: "rack",
-				Source:   []string{"resource", "key"},
-				Operator: constraint.OpEqual,
-				Value:    rackKey,
-			},
+		Key:    uuid.New(),
+		Name:   "tasks-for-rack-" + rackKey,
+		Effect: policy.EffectAllow,
+		Constraint: constraint.Constraint{
+			Kind:     constraint.KindComputed,
+			Objects:  []ontology.ID{{Type: task.OntologyType}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Property: "rack",
+			Source:   []string{"resource", "key"},
+			Operator: constraint.OpEqual,
+			Value:    rackKey,
 		},
 	}
 }
 
 // RangesWithLabels restricts range retrieval to ranges with specific labels. Uses
-// RelationshipConstraint to check the "labeled_by" ontology relationship.
+// KindRelationship to check the "labeled_by" ontology relationship.
 func RangesWithLabels(allowedLabels []ontology.ID) policy.Policy {
 	return policy.Policy{
-		Key:     uuid.New(),
-		Name:    "ranges-with-labels",
-		Objects: []ontology.ID{{Type: ranger.OntologyType}},
-		Actions: []access.Action{access.ActionRetrieve},
-		Effect:  policy.EffectAllow,
-		Constraints: []constraint.Constraint{
-			constraint.Relationship{
-				Relationship: label.LabeledBy,
-				Operator:     constraint.OpContainsAny,
-				Value:        allowedLabels,
-			},
+		Key:    uuid.New(),
+		Name:   "ranges-with-labels",
+		Effect: policy.EffectAllow,
+		Constraint: constraint.Constraint{
+			Kind:            constraint.KindRelationship,
+			Objects:         []ontology.ID{{Type: ranger.OntologyType}},
+			Actions:         []access.Action{access.ActionRetrieve},
+			Relationship:    label.LabeledBy,
+			Operator:        constraint.OpContainsAny,
+			RelationshipIDs: allowedLabels,
 		},
 	}
 }
 
 // DenyAllWritesDuringTest blocks all write operations when system is in test mode. This
-// is a DENY policy that takes precedence over allow policies. Uses FieldConstraint to
+// is a DENY policy that takes precedence over allow policies. Uses KindField to
 // check the system's mode field.
 func DenyAllWritesDuringTest(testTime telem.TimeRange) policy.Policy {
 	return policy.Policy{
-		Key:     uuid.New(),
-		Name:    "deny-writes-during-test",
-		Objects: []ontology.ID{}, // Empty = all objects
-		Actions: []access.Action{access.ActionCreate, access.ActionUpdate, access.ActionDelete},
-		Effect:  policy.EffectDeny,
-		Constraints: []constraint.Constraint{
-			constraint.Field{
-				Target:   "system",
-				Field:    []string{"time"},
-				Operator: constraint.OpWithin,
-				Value:    testTime,
-			},
+		Key:    uuid.New(),
+		Name:   "deny-writes-during-test",
+		Effect: policy.EffectDeny,
+		Constraint: constraint.Constraint{
+			Kind:     constraint.KindField,
+			Objects:  []ontology.ID{}, // Empty = all objects
+			Actions:  []access.Action{access.ActionCreate, access.ActionUpdate, access.ActionDelete},
+			Target:   "system",
+			Field:    []string{"time"},
+			Operator: constraint.OpWithin,
+			Value:    testTime,
 		},
 	}
 }
@@ -209,25 +204,24 @@ func DenyAllWritesDuringTest(testTime telem.TimeRange) policy.Policy {
 // -----------------------------------------------------------------------------
 // Scenario: Channel data for Tuesday from 2-4 is available for a vendor to view
 // Type: Security
-// Status: SOLVED - uses FieldConstraint on request.time_range
+// Status: SOLVED - uses KindField on request.time_range
 // -----------------------------------------------------------------------------
 
 // VendorTuesdayChannelAccess allows a vendor to read channel data only during
 // a specific time window (Tuesday 2-4pm).
 func VendorTuesdayChannelAccess(channelKey string, tuesdayWindow telem.TimeRange) policy.Policy {
 	return policy.Policy{
-		Key:     uuid.New(),
-		Name:    "vendor-tuesday-channel-access",
-		Objects: []ontology.ID{{Type: "channel", Key: channelKey}},
-		Actions: []access.Action{access.ActionRetrieve},
-		Effect:  policy.EffectAllow,
-		Constraints: []constraint.Constraint{
-			constraint.Field{
-				Target:   "request",
-				Field:    []string{"time_range"},
-				Operator: constraint.OpWithin,
-				Value:    tuesdayWindow,
-			},
+		Key:    uuid.New(),
+		Name:   "vendor-tuesday-channel-access",
+		Effect: policy.EffectAllow,
+		Constraint: constraint.Constraint{
+			Kind:     constraint.KindField,
+			Objects:  []ontology.ID{{Type: "channel", Key: channelKey}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Target:   "request",
+			Field:    []string{"time_range"},
+			Operator: constraint.OpWithin,
+			Value:    tuesdayWindow,
 		},
 	}
 }
@@ -235,29 +229,33 @@ func VendorTuesdayChannelAccess(channelKey string, tuesdayWindow telem.TimeRange
 // -----------------------------------------------------------------------------
 // Scenario: Engineers in LA can edit LA schematics, not Texas
 // Type: Security (ABAC)
-// Status: SOLVED - uses FieldConstraint on subject.location and resource.workspace
+// Status: SOLVED - uses KindRelationship on subject and resource labels
 // -----------------------------------------------------------------------------
 
 // LAEngineerSchematicAccess allows engineers at LA location to edit
 // schematics in LA workspaces only.
-// TODO: use labeled_by constraint instead
 var LAEngineerSchematicAccess = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "la-engineer-schematic-access",
-	Objects: []ontology.ID{{Type: "schematic"}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Target:       "subject",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "la"}},
-		},
-		constraint.Relationship{
-			Relationship: ontology.CreatedBy,
-			Operator:     constraint.OpContainsAny,
-			MatchSubject: true,
+	Key:    uuid.New(),
+	Name:   "la-engineer-schematic-access",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "schematic"}},
+		Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "subject",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "la"}},
+			},
+			{
+				Kind:         constraint.KindRelationship,
+				Relationship: ontology.CreatedBy,
+				Operator:     constraint.OpContainsAny,
+				MatchSubject: true,
+			},
 		},
 	},
 }
@@ -265,22 +263,27 @@ var LAEngineerSchematicAccess = policy.Policy{
 // DenyTexasSchematicsForLA explicitly denies LA engineers from
 // editing Texas schematics.
 var DenyTexasSchematicsForLA = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-texas-schematics-for-la",
-	Objects: []ontology.ID{{Type: "schematic"}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Target:       "subject",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "la"}},
-		},
-		constraint.Relationship{
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsNone,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "texas"}},
+	Key:    uuid.New(),
+	Name:   "deny-texas-schematics-for-la",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "schematic"}},
+		Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "subject",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "la"}},
+			},
+			{
+				Kind:            constraint.KindRelationship,
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsNone,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "texas"}},
+			},
 		},
 	},
 }
@@ -294,25 +297,30 @@ var DenyTexasSchematicsForLA = policy.Policy{
 // TopSecretFullAccess allows subjects labeled "top-secret" (clearance) to read/write
 // objects labeled "top-secret" (classification).
 var TopSecretFullAccess = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "top-secret-full-access",
-	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		// Subject must be labeled as "top-secret"
-		constraint.Relationship{
-			Target:       "subject",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
-		},
-		// Resource (object) must be labeled as "top-secret"
-		constraint.Relationship{
-			Target:       "resource",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
+	Key:    uuid.New(),
+	Name:   "top-secret-full-access",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "channel"}},
+		Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate},
+		Constraints: []constraint.Constraint{
+			// Subject must be labeled as "top-secret"
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "subject",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
+			},
+			// Resource (object) must be labeled as "top-secret"
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "resource",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
+			},
 		},
 	},
 }
@@ -320,23 +328,28 @@ var TopSecretFullAccess = policy.Policy{
 // TopSecretReadSecret allows users with top-secret clearance to only READ
 // secret classified data (not write).
 var TopSecretReadSecret = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "top-secret-read-secret",
-	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{access.ActionRetrieve},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Target:       "subject",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
-		},
-		constraint.Relationship{
-			Target:       "resource",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
+	Key:    uuid.New(),
+	Name:   "top-secret-read-secret",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "channel"}},
+		Actions: []access.Action{access.ActionRetrieve},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "subject",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
+			},
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "resource",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
+			},
 		},
 	},
 }
@@ -344,29 +357,34 @@ var TopSecretReadSecret = policy.Policy{
 // -----------------------------------------------------------------------------
 // Scenario: Secret clearance can read/write "secret", only read "top-secret"
 // Type: Security (ABAC)
-// Status: SOLVED - uses FieldConstraint on subject.clearance
+// Status: SOLVED - uses labels on subject and resource
 // -----------------------------------------------------------------------------
 
 // SecretFullAccess allows users with secret clearance to read/write
 // secret classified data.
 var SecretFullAccess = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "secret-full-access",
-	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Target:       "subject",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
-		},
-		constraint.Relationship{
-			Target:       "resource",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
+	Key:    uuid.New(),
+	Name:   "secret-full-access",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "channel"}},
+		Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "subject",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
+			},
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "resource",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
+			},
 		},
 	},
 }
@@ -374,23 +392,28 @@ var SecretFullAccess = policy.Policy{
 // DenySecretWriteTopSecret denies users with secret clearance from writing
 // top-secret data.
 var DenySecretWriteTopSecret = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-secret-write-top-secret",
-	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionCreate},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Target:       "subject",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
-		},
-		constraint.Relationship{
-			Target:       "resource",
-			Relationship: label.LabeledBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
+	Key:    uuid.New(),
+	Name:   "deny-secret-write-top-secret",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "channel"}},
+		Actions: []access.Action{access.ActionUpdate, access.ActionCreate},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "subject",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "secret"}},
+			},
+			{
+				Kind:            constraint.KindRelationship,
+				Target:          "resource",
+				Relationship:    label.LabeledBy,
+				Operator:        constraint.OpContainsAny,
+				RelationshipIDs: []ontology.ID{{Type: label.OntologyType, Key: "top-secret"}},
+			},
 		},
 	},
 }
@@ -398,47 +421,45 @@ var DenySecretWriteTopSecret = policy.Policy{
 // -----------------------------------------------------------------------------
 // Scenario: Shutting down iterators while a test is going on
 // Type: Security
-// Status: SOLVED - uses FieldConstraint on system.mode
+// Status: SOLVED - uses KindField on system.mode
 // -----------------------------------------------------------------------------
 
 // DenyIteratorsDuringTest blocks all iterator/read operations during test mode.
 var DenyIteratorsDuringTest = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-iterators-during-test",
-	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{"iterator"},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "system",
-			Field:    []string{"mode"},
-			Operator: constraint.OpEqual,
-			Value:    "test",
-		},
+	Key:    uuid.New(),
+	Name:   "deny-iterators-during-test",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:     constraint.KindField,
+		Objects:  []ontology.ID{{Type: "channel"}},
+		Actions:  []access.Action{"iterator"},
+		Target:   "system",
+		Field:    []string{"mode"},
+		Operator: constraint.OpEqual,
+		Value:    "test",
 	},
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Block accessing data on the holiday break
 // Type: Security
-// Status: SOLVED - uses FieldConstraint on system.current_time
+// Status: SOLVED - uses KindField on system.current_time
 // -----------------------------------------------------------------------------
 
 // DenyAccessDuringHoliday blocks all data access during a holiday period.
 func DenyAccessDuringHoliday(holidayPeriod telem.TimeRange) policy.Policy {
 	return policy.Policy{
-		Key:     uuid.New(),
-		Name:    "deny-access-during-holiday",
-		Objects: []ontology.ID{},
-		Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate, access.ActionDelete},
-		Effect:  policy.EffectDeny,
-		Constraints: []constraint.Constraint{
-			constraint.Field{
-				Target:   "system",
-				Field:    []string{"time"},
-				Operator: constraint.OpWithin,
-				Value:    holidayPeriod,
-			},
+		Key:    uuid.New(),
+		Name:   "deny-access-during-holiday",
+		Effect: policy.EffectDeny,
+		Constraint: constraint.Constraint{
+			Kind:     constraint.KindField,
+			Objects:  []ontology.ID{},
+			Actions:  []access.Action{access.ActionRetrieve, access.ActionUpdate, access.ActionCreate, access.ActionDelete},
+			Target:   "system",
+			Field:    []string{"time"},
+			Operator: constraint.OpWithin,
+			Value:    holidayPeriod,
 		},
 	}
 }
@@ -446,72 +467,75 @@ func DenyAccessDuringHoliday(holidayPeriod telem.TimeRange) policy.Policy {
 // -----------------------------------------------------------------------------
 // Scenario: Certain ontology relationships (default groups) cannot be edited
 // Type: Security
-// Status: SOLVED - uses FieldConstraint on resource.internal
+// Status: SOLVED - uses KindRelationship on resource.internal
 // -----------------------------------------------------------------------------
 
 // DenyEditBuiltinGroups prevents editing of built-in/internal groups.
 var DenyEditBuiltinGroups = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-edit-builtin-groups",
-	Objects: []ontology.ID{{Type: "group"}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Relationship: ontology.CreatedBy,
-			Operator:     constraint.OpContainsNone,
-			Value:        []ontology.ID{{Type: ontology.TypeBuiltIn}},
-		},
+	Key:    uuid.New(),
+	Name:   "deny-edit-builtin-groups",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:            constraint.KindRelationship,
+		Objects:         []ontology.ID{{Type: "group"}},
+		Actions:         []access.Action{access.ActionUpdate, access.ActionDelete},
+		Relationship:    ontology.CreatedBy,
+		Operator:        constraint.OpContainsNone,
+		RelationshipIDs: []ontology.ID{{Type: ontology.TypeBuiltIn}},
 	},
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Ontology relationships between tasks and statuses cannot be edited
 // Type: Security
-// Status: SOLVED - uses FieldConstraint on resource.owner_type
+// Status: SOLVED - uses KindRelationship on resource.owner_type
 // -----------------------------------------------------------------------------
 
 // DenyEditTaskStatusRelationships prevents editing relationships owned by tasks.
 var DenyEditTaskStatusRelationships = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-edit-task-status-relationships",
-	Objects: []ontology.ID{{Type: "relationship"}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Relationship: ontology.CreatedBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: task.OntologyType}, {Type: arc.OntologyType}},
-		},
+	Key:    uuid.New(),
+	Name:   "deny-edit-task-status-relationships",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:            constraint.KindRelationship,
+		Objects:         []ontology.ID{{Type: "relationship"}},
+		Actions:         []access.Action{access.ActionUpdate, access.ActionDelete},
+		Relationship:    ontology.CreatedBy,
+		Operator:        constraint.OpContainsAny,
+		RelationshipIDs: []ontology.ID{{Type: task.OntologyType}, {Type: arc.OntologyType}},
 	},
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Embedded rack can only be edited via backend
 // Type: Security
-// Status: SOLVED - uses FieldConstraint on request.source
+// Status: SOLVED - uses KindField on request.source
 // -----------------------------------------------------------------------------
 
 // DenyEmbeddedRackEditFromClients prevents editing embedded rack from client apps.
 var DenyEmbeddedRackEditFromClients = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-embedded-rack-edit-from-clients",
-	Objects: []ontology.ID{{Type: "rack"}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"owner"},
-			Operator: constraint.OpEqual,
-			Value:    "node1",
-		},
-		constraint.Field{
-			Target:   "request",
-			Field:    []string{"source"},
-			Operator: constraint.OpIn,
-			Value:    []string{"console", "pluto"},
+	Key:    uuid.New(),
+	Name:   "deny-embedded-rack-edit-from-clients",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "rack"}},
+		Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:     constraint.KindField,
+				Target:   "resource",
+				Field:    []string{"owner"},
+				Operator: constraint.OpEqual,
+				Value:    "node1",
+			},
+			{
+				Kind:     constraint.KindField,
+				Target:   "request",
+				Field:    []string{"source"},
+				Operator: constraint.OpIn,
+				Value:    []string{"console", "pluto"},
+			},
 		},
 	},
 }
@@ -519,49 +543,53 @@ var DenyEmbeddedRackEditFromClients = policy.Policy{
 // -----------------------------------------------------------------------------
 // Scenario: User can't rename sy_node_1_metrics channels
 // Type: Security
-// Status: SOLVED - uses FieldConstraint on resource.owner and request.properties
+// Status: SOLVED - uses KindRelationship on resource.owner
 // -----------------------------------------------------------------------------
 
 // DenyRenameNodeChannels prevents renaming channels owned by nodes.
 var DenyRenameNodeChannels = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "deny-rename-node-channels",
-	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{access.ActionUpdate},
-	Effect:  policy.EffectDeny,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Relationship: ontology.CreatedBy,
-			Operator:     constraint.OpContainsAny,
-			Value:        []ontology.ID{{Type: cluster.OntologyTypeNode}},
-		},
+	Key:    uuid.New(),
+	Name:   "deny-rename-node-channels",
+	Effect: policy.EffectDeny,
+	Constraint: constraint.Constraint{
+		Kind:            constraint.KindRelationship,
+		Objects:         []ontology.ID{{Type: "channel"}},
+		Actions:         []access.Action{access.ActionUpdate},
+		Relationship:    ontology.CreatedBy,
+		Operator:        constraint.OpContainsAny,
+		RelationshipIDs: []ontology.ID{{Type: cluster.OntologyTypeNode}},
 	},
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: User wants to "lock" a workspace to only be edited by them
 // Type: Security (ReBAC)
-// Status: SOLVED - uses RelationshipConstraint for created_by
+// Status: SOLVED - uses KindRelationship for created_by
 // -----------------------------------------------------------------------------
 
 // LockedWorkspaceCreatorOnly allows only the creator to edit a locked workspace.
 var LockedWorkspaceCreatorOnly = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "locked-workspace-creator-only",
-	Objects: []ontology.ID{{Type: "workspace"}},
-	Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "resource",
-			Field:    []string{"locked"},
-			Operator: constraint.OpEqual,
-			Value:    true,
-		},
-		constraint.Relationship{
-			Relationship: "created_by",
-			Operator:     constraint.OpContainsAny,
-			MatchSubject: true,
+	Key:    uuid.New(),
+	Name:   "locked-workspace-creator-only",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:    constraint.KindAnd,
+		Objects: []ontology.ID{{Type: "workspace"}},
+		Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
+		Constraints: []constraint.Constraint{
+			{
+				Kind:     constraint.KindField,
+				Target:   "resource",
+				Field:    []string{"locked"},
+				Operator: constraint.OpEqual,
+				Value:    true,
+			},
+			{
+				Kind:         constraint.KindRelationship,
+				Relationship: "created_by",
+				Operator:     constraint.OpContainsAny,
+				MatchSubject: true,
+			},
 		},
 	},
 }
@@ -573,68 +601,65 @@ var LockedWorkspaceCreatorOnly = policy.Policy{
 // -----------------------------------------------------------------------------
 // Scenario: User can retrieve sy_task_set via Pluto, but not via Console
 // Type: UX
-// Status: SOLVED - uses FieldConstraint on request.source
+// Status: SOLVED - uses KindField on request.source
 // -----------------------------------------------------------------------------
 
 // AllowTaskSetFromPlutoOnly allows retrieving task set only from Pluto client.
 var AllowTaskSetFromPlutoOnly = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "allow-task-set-from-pluto-only",
-	Objects: []ontology.ID{{Type: "channel", Key: "sy_task_set"}},
-	Actions: []access.Action{access.ActionRetrieve},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "request",
-			Field:    []string{"source"},
-			Operator: constraint.OpEqual,
-			Value:    "pluto",
-		},
+	Key:    uuid.New(),
+	Name:   "allow-task-set-from-pluto-only",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:     constraint.KindField,
+		Objects:  []ontology.ID{{Type: "channel", Key: "sy_task_set"}},
+		Actions:  []access.Action{access.ActionRetrieve},
+		Target:   "request",
+		Field:    []string{"source"},
+		Operator: constraint.OpEqual,
+		Value:    "pluto",
 	},
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: Task statuses can be updated via Driver, not Console
 // Type: UX
-// Status: SOLVED - uses FieldConstraint on request.source
+// Status: SOLVED - uses KindField on request.source
 // -----------------------------------------------------------------------------
 
 // AllowTaskStatusUpdateFromDriver allows task status updates only from Driver.
 var AllowTaskStatusUpdateFromDriver = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "allow-task-status-update-from-driver",
-	Objects: []ontology.ID{{Type: "status"}},
-	Actions: []access.Action{access.ActionUpdate},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Field{
-			Target:   "request",
-			Field:    []string{"source"},
-			Operator: constraint.OpEqual,
-			Value:    "driver",
-		},
+	Key:    uuid.New(),
+	Name:   "allow-task-status-update-from-driver",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:     constraint.KindField,
+		Objects:  []ontology.ID{{Type: "status"}},
+		Actions:  []access.Action{access.ActionUpdate},
+		Target:   "request",
+		Field:    []string{"source"},
+		Operator: constraint.OpEqual,
+		Value:    "driver",
 	},
 }
 
 // -----------------------------------------------------------------------------
 // Scenario: User can see sy_node_1_metrics but not sy_task_cmd in Console
 // Type: UX
-// Status: SOLVED - uses FieldConstraint on resource.owner_type
+// Status: SOLVED - uses KindRelationship on resource.owner_type
 // -----------------------------------------------------------------------------
 
 // AllowUserVisibleChannels allows viewing channels not owned by builtin/system.
 var AllowUserVisibleChannels = policy.Policy{
-	Key:     uuid.New(),
-	Name:    "allow-user-visible-channels",
-	Objects: []ontology.ID{{Type: "channel"}},
-	Actions: []access.Action{access.ActionRetrieve},
-	Effect:  policy.EffectAllow,
-	Constraints: []constraint.Constraint{
-		constraint.Relationship{
-			Relationship: ontology.CreatedBy,
-			Operator:     constraint.OpContainsNone,
-			Value:        []ontology.ID{{Type: ontology.TypeBuiltIn}, {Type: cluster.OntologyTypeNode}},
-		},
+	Key:    uuid.New(),
+	Name:   "allow-user-visible-channels",
+	Effect: policy.EffectAllow,
+	Constraint: constraint.Constraint{
+		Kind:            constraint.KindRelationship,
+		Objects:         []ontology.ID{{Type: "channel"}},
+		Actions:         []access.Action{access.ActionRetrieve},
+		Relationship:    ontology.CreatedBy,
+		Operator:        constraint.OpContainsNone,
+		RelationshipIDs: []ontology.ID{{Type: ontology.TypeBuiltIn}, {Type: cluster.OntologyTypeNode}},
 	},
 }
 
@@ -643,46 +668,54 @@ var AllowUserVisibleChannels = policy.Policy{
 // =============================================================================
 
 // MaxDurationDataRead limits data reads to a maximum duration.
-// Uses ComputedConstraint to check the duration of the time range.
+// Uses KindComputed to check the duration of the time range.
 func MaxDurationDataRead(maxDuration telem.TimeSpan) policy.Policy {
 	return policy.Policy{
-		Key:     uuid.New(),
-		Name:    "max-duration-data-read",
-		Objects: []ontology.ID{{Type: "channel"}},
-		Actions: []access.Action{access.ActionRetrieve},
-		Effect:  policy.EffectAllow,
-		Constraints: []constraint.Constraint{
-			constraint.Computed{
-				Property: "duration",
-				Source:   []string{"request", "time_range"},
-				Operator: constraint.OpLessThanOrEqual,
-				Value:    maxDuration,
-			},
+		Key:    uuid.New(),
+		Name:   "max-duration-data-read",
+		Effect: policy.EffectAllow,
+		Constraint: constraint.Constraint{
+			Kind:     constraint.KindComputed,
+			Objects:  []ontology.ID{{Type: "channel"}},
+			Actions:  []access.Action{access.ActionRetrieve},
+			Property: "duration",
+			Source:   []string{"request", "time_range"},
+			Operator: constraint.OpLessThanOrEqual,
+			Value:    maxDuration,
 		},
 	}
 }
 
 // =============================================================================
-// SUMMARY OF CONSTRAINT TYPES
+// SUMMARY OF CONSTRAINT KINDS
 // =============================================================================
 //
-// FieldConstraint:
+// KindField:
 //   Target: "resource" | "subject" | "request" | "system"
 //   Field:  []string path to the field (e.g., ["status"], ["clearance"])
 //   Operators: OpEqual, OpNotEqual, OpIn, OpNotIn, OpContains, OpContainsAny,
 //              OpContainsAll, OpContainsNone, OpWithin, OpSubsetOf,
 //              OpLessThan, OpLessThanOrEqual, OpGreaterThan, OpGreaterThanOrEqual
 //
-// RelationshipConstraint:
+// KindRelationship:
 //   Relationship: "created_by" | "labeled_by" | "parent_of" | "member_of" | etc.
 //   Operators: OpContainsAny, OpContainsAll, OpContainsNone
-//   Value: []ontology.ID - the IDs to match against
-//   MatchSubject: bool - when true, matches against the requesting subject instead of Value
+//   RelationshipIDs: []ontology.ID - the IDs to match against
+//   MatchSubject: bool - when true, matches against the requesting subject instead of RelationshipIDs
 //
-// ComputedConstraint:
+// KindComputed:
 //   Property: "duration" | "age" | "count"
 //   Source:   []string path to source value
 //   Operators: comparison operators (lt, lte, gt, gte, eq)
+//
+// KindAnd:
+//   Constraints: []Constraint - all must be satisfied
+//
+// KindOr:
+//   Constraints: []Constraint - at least one must be satisfied
+//
+// KindNot:
+//   Constraints: []Constraint - first element is inverted
 //
 // =============================================================================
 
@@ -719,125 +752,5 @@ func MaxDurationDataRead(maxDuration telem.TimeSpan) policy.Policy {
 //        Action:  access.ActionRetrieve,
 //    })
 //    // accessibleChannels contains only channels the user can see
-//
-// =============================================================================
-// FILTERING EXAMPLE: Channel Search
-// =============================================================================
-//
-// Scenario: User searches for channels. The search should not fail if they
-// don't have access to some channels - it should just filter them out.
-//
-// Policy: Users can only see channels in their workspace
-//
-//   policy.Policy{
-//       Name:    "workspace-channel-access",
-//       Objects: []ontology.ID{{Type: "channel"}},
-//       Actions: []access.Action{access.ActionRetrieve},
-//       Effect:  policy.EffectAllow,
-//       Constraints: []constraint.Constraint{
-//           constraint.Field{
-//               Target:   "resource",
-//               Field:    []string{"workspace"},
-//               Operator: constraint.OpEqual,
-//               Value:    "user-workspace",  // Would be dynamic per-user
-//           },
-//       },
-//   }
-//
-// Usage in channel service:
-//
-//   func (s *Service) Search(ctx context.Context, userID ontology.ID, query string) ([]Channel, error) {
-//       // 1. Get all channels matching the query (no access filtering yet)
-//       allChannels, err := s.db.SearchChannels(query)
-//       if err != nil {
-//           return nil, err
-//       }
-//
-//       // 2. Extract channel IDs
-//       channelIDs := make([]ontology.ID, len(allChannels))
-//       for i, ch := range allChannels {
-//           channelIDs[i] = ch.OntologyID()
-//       }
-//
-//       // 3. Filter to only accessible channels
-//       accessibleIDs, err := s.enforcer.Filter(ctx, access.Request{
-//           Subject: userID,
-//           Objects: channelIDs,
-//           Action:  access.ActionRetrieve,
-//       })
-//       if err != nil {
-//           return nil, err
-//       }
-//
-//       // 4. Return only accessible channels
-//       accessibleSet := make(map[string]bool)
-//       for _, id := range accessibleIDs {
-//           accessibleSet[id.Key] = true
-//       }
-//       var result []Channel
-//       for _, ch := range allChannels {
-//           if accessibleSet[ch.Key()] {
-//               result = append(result, ch)
-//           }
-//       }
-//       return result, nil
-//   }
-//
-// =============================================================================
-// FILTERING EXAMPLE: Schematic List with Creator-Only Edit
-// =============================================================================
-//
-// Scenario: All users can view all schematics, but can only edit their own.
-// When listing schematics, we want to indicate which ones the user can edit.
-//
-// Policies:
-//
-//   // Everyone can view schematics
-//   policy.Policy{
-//       Name:    "view-all-schematics",
-//       Objects: []ontology.ID{{Type: "schematic"}},
-//       Actions: []access.Action{access.ActionRetrieve},
-//       Effect:  policy.EffectAllow,
-//   }
-//
-//   // Only creator can edit
-//   policy.Policy{
-//       Name:    "edit-own-schematics",
-//       Objects: []ontology.ID{{Type: "schematic"}},
-//       Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
-//       Effect:  policy.EffectAllow,
-//       Constraints: []constraint.Constraint{
-//           constraint.Relationship{
-//               Relationship: "created_by",
-//               Operator:     constraint.OpContainsAny,
-//               MatchSubject: true,
-//           },
-//       },
-//   }
-//
-// Usage in schematic service:
-//
-//   func (s *Service) ListWithPermissions(ctx context.Context, userID ontology.ID) ([]SchematicWithPerms, error) {
-//       schematics, _ := s.db.ListAll()
-//       schematicIDs := extractIDs(schematics)
-//
-//       // Check which ones user can edit
-//       editableIDs, _ := s.enforcer.Filter(ctx, access.Request{
-//           Subject: userID,
-//           Objects: schematicIDs,
-//           Action:  access.ActionUpdate,
-//       })
-//       editableSet := toSet(editableIDs)
-//
-//       // Return schematics with edit permission flag
-//       result := make([]SchematicWithPerms, len(schematics))
-//       for i, sch := range schematics {
-//           result[i] = SchematicWithPerms{
-//               Schematic: sch,
-//               CanEdit:   editableSet[sch.Key()],
-//           }
-//       }
-//       return result, nil
-//   }
 //
 // =============================================================================

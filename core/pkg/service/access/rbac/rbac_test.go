@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -85,9 +86,12 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
 				p := &policy.Policy{
-					Name:    "allow-read",
-					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "allow-read",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{obj1},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
 				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
@@ -115,9 +119,12 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
 				p := &policy.Policy{
-					Name:    "allow-all-actions",
-					Objects: []ontology.ID{obj1},
-					Actions: access.AllActions,
+					Name:   "allow-all-actions",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{obj1},
+						Actions: access.AllActions,
+					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
 				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
@@ -144,9 +151,12 @@ var _ = Describe("Service", func() {
 
 				typeWildcard := ontology.ID{Type: "channel"}
 				p := &policy.Policy{
-					Name:    "allow-all-channels",
-					Objects: []ontology.ID{typeWildcard},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "allow-all-channels",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{typeWildcard},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
 				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
@@ -165,9 +175,12 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
 				p := &policy.Policy{
-					Name:    "allow-obj1",
-					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "allow-obj1",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{obj1},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
 				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
@@ -191,9 +204,12 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
 				p := &policy.Policy{
-					Name:    "allow-read",
-					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "allow-read",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{obj1},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
 				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
@@ -215,9 +231,12 @@ var _ = Describe("Service", func() {
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
 				p := &policy.Policy{
-					Name:    "allow-read",
-					Objects: []ontology.ID{obj1},
-					Actions: []access.Action{access.ActionRetrieve},
+					Name:   "allow-read",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Objects: []ontology.ID{obj1},
+						Actions: []access.Action{access.ActionRetrieve},
+					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
 				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
@@ -259,14 +278,20 @@ var _ = Describe("Service", func() {
 
 			p1 := &policy.Policy{
 				Name:     "policy-1",
-				Objects:  []ontology.ID{{Type: "channel", Key: "ch1"}},
-				Actions:  access.AllActions,
+				Effect:   policy.EffectAllow,
 				Internal: true,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: access.AllActions,
+				},
 			}
 			p2 := &policy.Policy{
-				Name:    "policy-2",
-				Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
-				Actions: []access.Action{access.ActionRetrieve},
+				Name:   "policy-2",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
 			Expect(policyWriter.Create(ctx, p2)).To(Succeed())
@@ -317,9 +342,12 @@ var _ = Describe("Service", func() {
 			Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
 			p := &policy.Policy{
-				Name:    "allow-read",
-				Objects: []ontology.ID{obj},
-				Actions: []access.Action{access.ActionRetrieve},
+				Name:   "allow-read",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					Objects: []ontology.ID{obj},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
 			}
 			Expect(policyWriter.Create(ctx, p)).To(Succeed())
 			Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())

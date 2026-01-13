@@ -15,11 +15,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// TypeComputed is the type discriminator for Computed constraints.
-const TypeComputed Type = "computed"
-
-func init() { Register(TypeComputed, func() Constraint { return &Computed{} }) }
-
 // ComputeFunc is a function that computes a derived value from a source value. It
 // returns the computed value and a boolean indicating success.
 type ComputeFunc func(sourceValue any) (any, bool)
@@ -57,35 +52,6 @@ func init() {
 // This allows custom computed properties to be defined.
 func RegisterComputation(property string, fn ComputeFunc) {
 	computeRegistry[property] = fn
-}
-
-// Computed checks derived/calculated values.
-// Examples:
-//   - request.time_range duration <= 24h
-//   - resource age > 30d
-type Computed struct {
-	// Property is the computed value to evaluate.
-	// Built-in: "duration", "age", "count"
-	// Custom properties can be registered via RegisterComputation.
-	Property string `json:"property" msgpack:"property"`
-	// Source is what to compute from (e.g., ["request", "time_range"])
-	Source []string `json:"source" msgpack:"source"`
-	// Operator for comparison
-	Operator Operator `json:"operator" msgpack:"operator"`
-	// Value to compare against
-	Value any `json:"value" msgpack:"value"`
-}
-
-// Type implements Constraint.
-func (c Computed) Type() Type { return TypeComputed }
-
-// Enforce checks if the constraint is satisfied.
-func (c Computed) Enforce(ctx context.Context, params EnforceParams) bool {
-	computed, ok := computeValue(ctx, params, c.Property, c.Source)
-	if !ok {
-		return false
-	}
-	return applyOperator(c.Operator, computed, c.Value, params.Request.Subject)
 }
 
 func computeValue(

@@ -15,18 +15,94 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/x/binary"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Type discriminates between constraint kinds for serialization.
-type Type string
+// Kind discriminates between constraint types.
+type Kind string
+
+const (
+	// KindField checks a stored value on a resource, subject, request, or system.
+	KindField Kind = "field"
+	// KindRelationship checks ontology graph relationships.
+	KindRelationship Kind = "relationship"
+	// KindComputed checks derived/calculated values.
+	KindComputed Kind = "computed"
+	// KindAnd requires all child constraints to be satisfied.
+	KindAnd Kind = "and"
+	// KindOr requires at least one child constraint to be satisfied.
+	KindOr Kind = "or"
+	// KindNot inverts the result of a child constraint.
+	KindNot Kind = "not"
+)
+
+// Operator defines how a constraint compares values.
+type Operator string
+
+const (
+	OpEqual              Operator = "eq"
+	OpNotEqual           Operator = "not_eq"
+	OpEqualSubject       Operator = "eq_subject"
+	OpIn                 Operator = "in"
+	OpNotIn              Operator = "not_in"
+	OpContains           Operator = "contains"
+	OpContainsAny        Operator = "contains_any"
+	OpContainsAll        Operator = "contains_all"
+	OpContainsNone       Operator = "contains_none"
+	OpWithin             Operator = "within"
+	OpSubsetOf           Operator = "subset_of"
+	OpLessThan           Operator = "lt"
+	OpLessThanOrEqual    Operator = "lte"
+	OpGreaterThan        Operator = "gt"
+	OpGreaterThanOrEqual Operator = "gte"
+)
+
+// Constraint is a condition that must be satisfied for a policy to apply.
+// The Kind field determines which other fields are used.
+type Constraint struct {
+	// Kind specifies the type of constraint.
+	Kind Kind `json:"kind" msgpack:"kind"`
+
+	// Objects specifies which resource types/IDs this constraint applies to.
+	// Used to scope the constraint to specific resources.
+	Objects []ontology.ID `json:"objects,omitempty" msgpack:"objects,omitempty"`
+	// Actions specifies which actions this constraint applies to.
+	Actions []access.Action `json:"actions,omitempty" msgpack:"actions,omitempty"`
+
+	// --- Field constraint fields ---
+	// Target is the namespace: "resource", "subject", "request", "system"
+	Target string `json:"target,omitempty" msgpack:"target,omitempty"`
+	// Field is the path to the field within the target.
+	Field []string `json:"field,omitempty" msgpack:"field,omitempty"`
+
+	// --- Shared fields (Field, Relationship, Computed) ---
+	// Operator for comparison.
+	Operator Operator `json:"operator,omitempty" msgpack:"operator,omitempty"`
+	// Value to compare against.
+	Value any `json:"value,omitempty" msgpack:"value,omitempty"`
+
+	// --- Relationship constraint fields ---
+	// Relationship is the ontology edge type to traverse.
+	Relationship ontology.RelationshipType `json:"relationship,omitempty" msgpack:"relationship,omitempty"`
+	// RelationshipIDs is the list of IDs to match against related entities.
+	RelationshipIDs []ontology.ID `json:"relationship_ids,omitempty" msgpack:"relationship_ids,omitempty"`
+	// MatchSubject, when true, matches the relationship against the requesting subject.
+	MatchSubject bool `json:"match_subject,omitempty" msgpack:"match_subject,omitempty"`
+
+	// --- Computed constraint fields ---
+	// Property is the computed value to evaluate (e.g., "duration", "age", "count").
+	Property string `json:"property,omitempty" msgpack:"property,omitempty"`
+	// Source is the path to compute from (e.g., ["request", "time_range"]).
+	Source []string `json:"source,omitempty" msgpack:"source,omitempty"`
+
+	// --- Logical constraint fields (recursive) ---
+	// Constraints is the list of child constraints for And/Or.
+	Constraints []Constraint `json:"constraints,omitempty" msgpack:"constraints,omitempty"`
+}
 
 // EnforceParams provides the context needed for constraint evaluation.
 type EnforceParams struct {
-	// Request is the access request being evaluated. When enforcing, Request.Objects
-	// contains a single element - the specific object being checked.
+	// Request is the access request being evaluated.
 	Request access.Request
 	// Ontology provides access to the ontology graph for relationship lookups.
 	Ontology *ontology.Ontology
@@ -34,66 +110,116 @@ type EnforceParams struct {
 	Tx gorp.Tx
 }
 
-// Constraint is the interface for policy constraints.
-// Built-in types (Field, Relationship, Computed) implement this interface.
-// Users can implement custom constraints for specialized logic.
-type Constraint interface {
-	// Enforce checks if the constraint is satisfied for the given request.
-	// Returns true if satisfied, or false if not.
-	Enforce(context.Context, EnforceParams) bool
-	// Type returns the constraint type for serialization.
-	Type() Type
+// Enforce checks if the constraint is satisfied.
+func (c Constraint) Enforce(ctx context.Context, params EnforceParams) bool {
+	switch c.Kind {
+	case "":
+		// Empty kind means no additional constraints - just objects/actions matching
+		// which is already handled by the caller. Always satisfied.
+		return true
+	case KindField:
+		return c.enforceField(ctx, params)
+	case KindRelationship:
+		return c.enforceRelationship(ctx, params)
+	case KindComputed:
+		return c.enforceComputed(ctx, params)
+	case KindAnd:
+		return c.enforceAnd(ctx, params)
+	case KindOr:
+		return c.enforceOr(ctx, params)
+	case KindNot:
+		return c.enforceNot(ctx, params)
+	default:
+		return false
+	}
 }
 
-// TODO: think about serializing these as an interface vs. just a struct that has
-// kind-specific fields that go unused for other kinds.
-type Constraint2[Params any] struct {
-	ConstraintType string
-	Params         Params
-}
-
-// registry maps constraint types to factory functions for deserialization.
-var registry = make(map[Type]func() Constraint)
-
-// Register registers a constraint type for deserialization.
-func Register(t Type, factory func() Constraint) { registry[t] = factory }
-
-// Unmarshal deserializes a constraint using the provided decoder and type
-// discriminator.
-func Unmarshal(
-	ctx context.Context,
-	decoder binary.Decoder,
-	data []byte,
-) (Constraint, error) {
-	var typed struct {
-		Type Type `json:"type" msgpack:"type"`
-	}
-	if err := decoder.Decode(ctx, data, &typed); err != nil {
-		return nil, err
-	}
-	factory, ok := registry[typed.Type]
+func (c Constraint) enforceField(ctx context.Context, params EnforceParams) bool {
+	actual, ok := resolveFieldValue(ctx, params, c.Target, c.Field)
 	if !ok {
-		return nil, errors.Newf("unknown constraint type: %s", typed.Type)
+		return false
 	}
-	c := factory()
-	if err := decoder.Decode(ctx, data, c); err != nil {
-		return nil, err
-	}
-	return c, nil
+	return applyOperator(c.Operator, actual, c.Value, params.Request.Subject)
 }
 
-// UnmarshalMany deserializes a slice of raw constraint data using the provided decoder.
-func UnmarshalMany(
-	ctx context.Context,
-	decoder binary.Decoder,
-	rawConstraints [][]byte,
-) ([]Constraint, error) {
-	constraints := make([]Constraint, len(rawConstraints))
-	var err error
-	for i, raw := range rawConstraints {
-		if constraints[i], err = Unmarshal(ctx, decoder, raw); err != nil {
-			return nil, errors.Wrapf(err, "failed to unmarshal constraint %d", i)
+func (c Constraint) enforceRelationship(ctx context.Context, params EnforceParams) bool {
+	// Determine which entity's relationships to check
+	var fromID ontology.ID
+	switch c.Target {
+	case "subject":
+		fromID = params.Request.Subject
+	default: // "resource" or empty
+		if len(params.Request.Objects) == 0 {
+			return false
+		}
+		fromID = params.Request.Objects[0]
+	}
+
+	relatedIDs := resolveRelationship(ctx, params, fromID, c.Relationship)
+
+	var targetIDs []ontology.ID
+	if c.MatchSubject {
+		targetIDs = []ontology.ID{params.Request.Subject}
+	} else {
+		targetIDs = c.RelationshipIDs
+	}
+
+	switch c.Operator {
+	case OpContainsAny:
+		for _, target := range targetIDs {
+			if containsID(relatedIDs, target) {
+				return true
+			}
+		}
+		return false
+	case OpContainsAll:
+		for _, target := range targetIDs {
+			if !containsID(relatedIDs, target) {
+				return false
+			}
+		}
+		return true
+	case OpContainsNone:
+		for _, target := range targetIDs {
+			if containsID(relatedIDs, target) {
+				return false
+			}
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func (c Constraint) enforceComputed(ctx context.Context, params EnforceParams) bool {
+	computed, ok := computeValue(ctx, params, c.Property, c.Source)
+	if !ok {
+		return false
+	}
+	return applyOperator(c.Operator, computed, c.Value, params.Request.Subject)
+}
+
+func (c Constraint) enforceAnd(ctx context.Context, params EnforceParams) bool {
+	for _, child := range c.Constraints {
+		if !child.Enforce(ctx, params) {
+			return false
 		}
 	}
-	return constraints, nil
+	return true
+}
+
+func (c Constraint) enforceOr(ctx context.Context, params EnforceParams) bool {
+	for _, child := range c.Constraints {
+		if child.Enforce(ctx, params) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c Constraint) enforceNot(ctx context.Context, params EnforceParams) bool {
+	if len(c.Constraints) == 0 {
+		return true
+	}
+	return !c.Constraints[0].Enforce(ctx, params)
 }
