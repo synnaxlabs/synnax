@@ -32,7 +32,7 @@ class On : public node::Node {
     x::telem::Alignment high_water_mark{0};
 
 public:
-    On(state::Node &&state, types::ChannelKey channel_key):
+    On(state::Node &&state, const types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
     x::errors::Error next(node::Context &ctx) override {
@@ -92,7 +92,7 @@ class Write : public node::Node {
     types::ChannelKey channel_key;
 
 public:
-    Write(state::Node &&state, types::ChannelKey channel_key):
+    Write(state::Node &&state, const types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
     x::errors::Error next(node::Context & /*ctx*/) override {

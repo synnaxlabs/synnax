@@ -7,6 +7,11 @@ cc_library(
         "module.h",
         "node.h",
     ],
+    # Disable warning C4201 (nameless struct/union) on Windows - used by wasmtime headers
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
         "//arc/cpp/ir",
@@ -23,6 +28,10 @@ cc_library(
 cc_test(
     name = "bindings_test",
     srcs = ["bindings_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":wasm",
         "//x/cpp/telem",
@@ -33,6 +42,10 @@ cc_test(
 cc_test(
     name = "module_test",
     srcs = ["module_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":wasm",
         "//client/cpp:synnax",
@@ -46,6 +59,10 @@ cc_test(
 cc_test(
     name = "node_test",
     srcs = ["node_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/wd4201"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":wasm",
         "//arc/cpp/ir",

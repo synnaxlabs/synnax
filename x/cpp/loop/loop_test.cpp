@@ -59,7 +59,7 @@ TEST(LoopTest, testWaitLowRate) {
     EXPECT_LT(avg_delta, AVG_THRESHOLD);
 }
 
-void runBreaker(breaker::Breaker &brk) {
+void runBreakerx::breaker::Breaker &brk) {
     const auto rate = telem::HERTZ * 1;
     Timer timer{rate};
     timer.wait(brk);

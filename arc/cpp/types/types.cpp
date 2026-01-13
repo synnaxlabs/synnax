@@ -193,6 +193,7 @@ to_sample_value(const x::json::json &value, const Type &type) {
         default:
             return std::nullopt;
     }
+    return std::nullopt;
 }
 
 }

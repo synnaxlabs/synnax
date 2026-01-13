@@ -131,9 +131,9 @@ public:
             std::vector<telem::Series> &series_ref,
             const size_t pos
         ):
-            channels(channels_ref), series(series_ref), pos(pos) {}
+            channels(&channels_ref), series(&series_ref), pos(pos) {}
 
-        value_type operator*() const { return {channels.at(pos), series.at(pos)}; }
+        value_type operator*() const { return {channels->at(pos), series->at(pos)}; }
 
         Iterator &operator++() {
             pos++;
@@ -145,8 +145,13 @@ public:
         bool operator==(const Iterator &other) const { return pos == other.pos; }
 
     private:
-        std::vector<std::uint32_t> &channels;
-        std::vector<telem::Series> &series;
+        // NOTE: These are pointers rather than references to satisfy the C++ standard
+        // requirement that forward iterators be CopyAssignable. References cannot be
+        // reseated, which would delete the copy assignment operator. There are no
+        // lifecycle concerns because the Iterator is only valid while the parent Frame
+        // exists - the same contract as STL container iterators.
+        std::vector<std::uint32_t> *channels;
+        std::vector<telem::Series> *series;
         size_t pos;
     };
 

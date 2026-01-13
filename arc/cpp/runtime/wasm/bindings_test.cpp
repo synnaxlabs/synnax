@@ -9,14 +9,23 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/telem/frame.h"
+#include "x/cpp/telem/series.h"
+
+#include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
 
 namespace arc::runtime::wasm {
 
 class BindingsTest : public testing::Test {
 protected:
-    void SetUp() override { bindings = std::make_unique<Bindings>(nullptr, nullptr); }
+    void SetUp() override {
+        state::Config cfg{.ir = ir::IR{}, .channels = {}};
+        state = std::make_shared<state::State>(cfg);
+        bindings = std::make_unique<Bindings>(state, nullptr);
+    }
 
+    std::shared_ptr<state::State> state;
     std::unique_ptr<Bindings> bindings;
 };
 
@@ -967,7 +976,7 @@ TEST_F(BindingsTest, ClearTransientHandlesClearsSeriesHandles) {
     EXPECT_EQ(bindings->series_len(h1), 3);
     EXPECT_EQ(bindings->series_len(h2), 2);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
     EXPECT_EQ(bindings->series_len(h2), 0);
@@ -980,7 +989,7 @@ TEST_F(BindingsTest, ClearTransientHandlesClearsStringHandles) {
     EXPECT_EQ(bindings->string_get(h1), "hello");
     EXPECT_EQ(bindings->string_get(h2), "world");
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->string_get(h1), "");
     EXPECT_EQ(bindings->string_get(h2), "");
@@ -993,7 +1002,7 @@ TEST_F(BindingsTest, ClearTransientHandlesResetsCounters) {
     bindings->string_create("a");
     bindings->string_create("b");
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     const uint32_t new_series = bindings->series_create_empty_f64(1);
     const uint32_t new_string = bindings->string_create("new");
@@ -1008,7 +1017,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulSeries) {
     bindings->series_set_element_f64(h1, 1, 200.0);
     bindings->state_store_series_f64(1, 1, h1);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->series_len(h1), 0);
 
@@ -1024,7 +1033,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulStrings) {
     const uint32_t h1 = bindings->string_create("persistent");
     bindings->state_store_str(2, 2, h1);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_EQ(bindings->string_get(h1), "");
 
@@ -1039,7 +1048,7 @@ TEST_F(BindingsTest, ClearTransientHandlesPreservesStatefulPrimitives) {
     bindings->state_store_i32(1, 2, -42);
     bindings->state_store_u64(1, 3, 9999999999ULL);
 
-    bindings->clear_transient_handles();
+    state->flush();
 
     EXPECT_DOUBLE_EQ(bindings->state_load_f64(1, 1, 0.0), 3.14159);
     EXPECT_EQ(bindings->state_load_i32(1, 2, 0), -42);
@@ -1055,7 +1064,7 @@ TEST_F(BindingsTest, MultipleClearCycles) {
         EXPECT_EQ(bindings->series_len(h1), 2);
         EXPECT_NE(bindings->string_get(h2), "");
 
-        bindings->clear_transient_handles();
+        state->flush();
     }
 
     const uint32_t final_series = bindings->series_create_empty_f64(1);
@@ -1063,6 +1072,146 @@ TEST_F(BindingsTest, MultipleClearCycles) {
 
     EXPECT_EQ(final_series, 1);
     EXPECT_EQ(final_string, 1);
+}
+
+// Test fixture with State for channel operations
+class BindingsChannelTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // Create a minimal State configuration
+        state::Config cfg{.ir = ir::IR{}, .channels = {}};
+        state = std::make_shared<state::State>(cfg);
+        bindings = std::make_unique<Bindings>(state, nullptr);
+    }
+
+    std::shared_ptr<state::State> state;
+    std::unique_ptr<Bindings> bindings;
+};
+
+TEST_F(BindingsChannelTest, ChannelReadNoDataReturnsDefault) {
+    // No data ingested, should return default values
+    EXPECT_EQ(bindings->channel_read_f64(1), 0.0);
+    EXPECT_EQ(bindings->channel_read_f32(1), 0.0f);
+    EXPECT_EQ(bindings->channel_read_i32(1), 0);
+    EXPECT_EQ(bindings->channel_read_u64(1), 0);
+    EXPECT_EQ(bindings->channel_read_u8(1), 0);
+}
+
+TEST_F(BindingsChannelTest, ChannelReadF64WithData) {
+    const telem::Frame frame(1);
+    auto series = x::telem::Series(telem::FLOAT64_T, 3);
+    series.write(1.5);
+    series.write(2.5);
+    series.write(3.5);
+    frame.emplace(1, std::move(series));
+
+    state->ingest(frame);
+
+    EXPECT_DOUBLE_EQ(bindings->channel_read_f64(1), 3.5);
+}
+
+TEST_F(BindingsChannelTest, ChannelReadI32WithData) {
+    const telem::Frame frame(1);
+    auto series = x::telem::Series(telem::INT32_T, 2);
+    series.write(42);
+    series.write(-100);
+    frame.emplace(2, std::move(series));
+
+    state->ingest(frame);
+
+    EXPECT_EQ(bindings->channel_read_i32(2), -100);
+}
+
+TEST_F(BindingsChannelTest, ChannelReadU8WithData) {
+    const telem::Frame frame(1);
+    auto series = x::telem::Series(telem::UINT8_T, 2);
+    series.write(static_cast<uint8_t>(255));
+    series.write(static_cast<uint8_t>(128));
+    frame.emplace(3, std::move(series));
+
+    state->ingest(frame);
+
+    EXPECT_EQ(bindings->channel_read_u8(3), 128);
+}
+
+TEST_F(BindingsChannelTest, ChannelWriteF64) {
+    bindings->channel_write_f64(10, 99.5);
+
+    const auto writes = state->flush();
+    EXPECT_EQ(writes.size(), 1);
+    EXPECT_EQ(writes[0].first, 10);
+    EXPECT_EQ(writes[0].second->size(), 1);
+    EXPECT_DOUBLE_EQ(writes[0].second->at<double>(0), 99.5);
+}
+
+TEST_F(BindingsChannelTest, ChannelWriteI32) {
+    bindings->channel_write_i32(20, -42);
+
+    const auto writes = state->flush();
+    EXPECT_EQ(writes.size(), 1);
+    EXPECT_EQ(writes[0].first, 20);
+    EXPECT_EQ(writes[0].second->at<int32_t>(0), -42);
+}
+
+TEST_F(BindingsChannelTest, ChannelWriteU64) {
+    bindings->channel_write_u64(30, 18446744073709551615ULL);
+
+    const auto writes = state->flush();
+    EXPECT_EQ(writes.size(), 1);
+    EXPECT_EQ(writes[0].first, 30);
+    EXPECT_EQ(writes[0].second->at<uint64_t>(0), 18446744073709551615ULL);
+}
+
+TEST_F(BindingsChannelTest, ChannelReadDifferentChannelReturnsDefault) {
+    // Ingest data for channel 1
+    const telem::Frame frame(1);
+    auto series = x::telem::Series(telem::FLOAT64_T, 1);
+    series.write(123.456);
+    frame.emplace(1, std::move(series));
+    state->ingest(frame);
+
+    EXPECT_DOUBLE_EQ(bindings->channel_read_f64(1), 123.456);
+    EXPECT_EQ(bindings->channel_read_f64(2), 0.0);
+}
+
+TEST_F(BindingsChannelTest, ChannelMultipleWrites) {
+    bindings->channel_write_f64(1, 1.0);
+    bindings->channel_write_f64(2, 2.0);
+    bindings->channel_write_i32(3, 3);
+
+    const auto writes = state->flush();
+    EXPECT_EQ(writes.size(), 3);
+}
+
+TEST_F(BindingsChannelTest, ChannelReadStrNoData) {
+    EXPECT_EQ(bindings->channel_read_str(1), 0);
+}
+
+TEST_F(BindingsChannelTest, ChannelWriteStr) {
+    const uint32_t str_handle = bindings->string_create("hello world");
+
+    bindings->channel_write_str(40, str_handle);
+
+    const auto writes = state->flush();
+    EXPECT_EQ(writes.size(), 1);
+    EXPECT_EQ(writes[0].first, 40);
+    EXPECT_EQ(writes[0].second->size(), 1);
+}
+
+TEST(BindingsNullStateTest, ChannelReadWithNullStateReturnsDefault) {
+    const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
+
+    EXPECT_EQ(bindings->channel_read_f64(1), 0.0);
+    EXPECT_EQ(bindings->channel_read_i32(1), 0);
+    EXPECT_EQ(bindings->channel_read_str(1), 0);
+}
+
+TEST(BindingsNullStateTest, ChannelWriteWithNullStateDoesNotCrash) {
+    const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
+
+    bindings->channel_write_f64(1, 123.0);
+    bindings->channel_write_i32(2, 456);
+    bindings->channel_write_str(3, 0);
 }
 
 }

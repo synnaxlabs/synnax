@@ -19,116 +19,107 @@
 #include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::loop {
-/// @brief Polling-based fallback implementation of Loop.
-///
-/// This implementation doesn't use any platform-specific event primitives.
-/// It uses simple polling with optional sleep intervals. Suitable for platforms
-/// without epoll/kqueue/IOCP support or as a simple fallback.
+
 class PollingLoop final : public Loop {
 public:
     explicit PollingLoop(const Config &config): config_(config) {
-        // Validate configuration
-        if (config_.rt_priority > 0) {
+        if (this->config_.rt_priority > 0) {
             LOG(WARNING) << "[loop] RT priority not supported in polling mode";
         }
-        if (config_.cpu_affinity >= 0) {
+        if (this->config_.cpu_affinity >= 0) {
             LOG(WARNING) << "[loop] CPU affinity not supported in polling mode";
         }
-        if (config_.lock_memory) {
+        if (this->config_.lock_memory) {
             LOG(WARNING) << "[loop] Memory locking not supported in polling mode";
         }
 
-        // All modes fall back to polling in this implementation
-        if (config_.mode == ExecutionMode::RT_EVENT ||
-            config_.mode == ExecutionMode::EVENT_DRIVEN ||
-            config_.mode == ExecutionMode::HYBRID) {
+        if (this->config_.mode == ExecutionMode::RT_EVENT ||
+            this->config_.mode == ExecutionMode::EVENT_DRIVEN ||
+            this->config_.mode == ExecutionMode::HYBRID) {
             LOG(INFO) << "[loop] Falling back to HIGH_RATE mode for "
                       << "unsupported execution mode in polling implementation";
         }
     }
 
-    ~PollingLoop() override { stop(); }
+    ~PollingLoop() override { this->stop(); }
 
     void notify_data() override {
-        // In polling mode, we don't have event-driven notifications.
-        // The wait() loop will pick up data on the next poll cycle.
-        // Set a flag to minimize latency in HYBRID mode if needed.
-        data_available_.store(true, std::memory_order_release);
+        this->data_available_.store(true, std::memory_order_release);
     }
 
     void wait(x::breaker::Breaker &breaker) override {
-        if (!running_) return;
+        if (!this->running_) return;
 
-        // Check if we need to wait for timer interval
-        if (config_.interval.nanoseconds() > 0 && timer_) {
+        if (this->config_.interval.nanoseconds() > 0 && this->timer_) {
             const auto now = std::chrono::steady_clock::now();
             const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                                     now - last_tick_
+                                     now - this->last_tick_
             )
                                      .count();
 
-            if (elapsed < config_.interval.nanoseconds()) {
-                // Timer hasn't expired yet
-                const int64_t remaining_ns = config_.interval.nanoseconds() - elapsed;
+            if (elapsed < this->config_.interval.nanoseconds()) {
+                const int64_t remaining_ns = this->config_.interval.nanoseconds() -
+                                             elapsed;
 
-                // Choose wait strategy based on mode
-                switch (config_.mode) {
+                switch (this->config_.mode) {
                     case ExecutionMode::BUSY_WAIT:
-                        // Busy wait - no sleep
-                        busy_wait(remaining_ns, breaker);
+                        this->busy_wait(remaining_ns, breaker);
                         break;
-
                     case ExecutionMode::HIGH_RATE:
                     case ExecutionMode::RT_EVENT:
                     case ExecutionMode::EVENT_DRIVEN:
                     case ExecutionMode::HYBRID:
                     default:
-                        // Use precise timer for sleeping
-                        timer_->wait(breaker);
+                        this->timer_->wait(breaker);
                         break;
                 }
 
-                last_tick_ = std::chrono::steady_clock::now();
+                this->last_tick_ = std::chrono::steady_clock::now();
             } else {
-                // Timer has already expired
-                last_tick_ = now;
+                this->last_tick_ = now;
             }
         } else {
-            // No timer configured - use short sleep to avoid busy loop
-            const uint64_t poll_interval_us = config_.mode == ExecutionMode::BUSY_WAIT
-                                                ? 1
-                                                : 100;
-            std::this_thread::sleep_for(std::chrono::microseconds(poll_interval_us));
+            if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
+                std::this_thread::sleep_for(std::chrono::microseconds(1));
+            } else {
+                std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
+            }
         }
 
-        // Clear the data available flag after waiting
-        data_available_.store(false, std::memory_order_release);
+        this->data_available_.store(false, std::memory_order_release);
     }
 
     x::errors::Error start() override {
-        if (running_) {
-            return x::errors::NIL; // Already started
+        if (this->running_) return x::errors::NIL;
+
+        if (this->config_.interval.nanoseconds() > 0) {
+            this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
         }
 
-        // Initialize timer if interval is configured
-        if (config_.interval.nanoseconds() > 0) {
-            timer_ = std::make_unique<::x::loop::Timer>(config_.interval);
-        }
-
-        last_tick_ = std::chrono::steady_clock::now();
-        running_ = true;
-        data_available_.store(false, std::memory_order_release);
+        this->last_tick_ = std::chrono::steady_clock::now();
+        this->running_ = true;
+        this->data_available_.store(false, std::memory_order_release);
 
         return x::errors::NIL;
     }
 
     void stop() override {
-        running_ = false;
-        timer_.reset();
+        this->running_ = false;
+        this->timer_.reset();
+    }
+
+    bool watch(notify::Notifier &notifier) override {
+        static bool warned = false;
+        if (!warned) {
+            LOG(WARNING) << "[loop] watch() not supported in polling mode; "
+                         << "external notifiers will not wake wait()";
+            warned = true;
+        }
+        (void) notifier;
+        return false;
     }
 
 private:
-    /// @brief Busy wait for the specified duration.
     void busy_wait(uint64_t duration_ns, x::breaker::Breaker &breaker) {
         const auto start = std::chrono::steady_clock::now();
         while (!!breaker.running()) {
@@ -137,9 +128,7 @@ private:
                                      now - start
             )
                                      .count();
-            if (elapsed >= static_cast<int64_t>(duration_ns)) { break; }
-            // Optionally yield to prevent complete CPU starvation
-            // std::this_thread::yield();
+            if (elapsed >= static_cast<int64_t>(duration_ns)) break;
         }
     }
 
@@ -147,12 +136,13 @@ private:
     std::unique_ptr<::x::loop::Timer> timer_;
     std::chrono::steady_clock::time_point last_tick_;
     std::atomic<bool> data_available_{false};
-    bool running_ = false;
+    std::atomic<bool> running_{false};
 };
 
 std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<PollingLoop>(cfg);
-    if (auto err = loop->start(); err) { return {nullptr, err}; }
+    if (auto err = loop->start(); err) return {nullptr, err};
     return {std::move(loop), x::errors::NIL};
 }
+
 }

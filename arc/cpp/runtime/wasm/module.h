@@ -82,6 +82,7 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
         default:
             return x::telem::SampleValue(0);
     }
+    return x::telem::SampleValue(0);
 }
 
 /// Convert raw memory bits to SampleValue based on Arc type
@@ -121,6 +122,7 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
         default:
             return x::telem::SampleValue(static_cast<int32_t>(0));
     }
+    return x::telem::SampleValue(static_cast<int32_t>(0));
 }
 
 const auto BASE_ERROR = errors::BASE.sub("wasm");
@@ -128,7 +130,7 @@ const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
     module::Module module;
-    Bindings *bindings = nullptr;
+    std::shared_ptr<Bindings> bindings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };
@@ -173,11 +175,17 @@ public:
             engine,
             wasmtime::Span<uint8_t>(wasm_bytes.data(), wasm_bytes.size())
         );
-        if (!mod_result)
+        if (!mod_result) {
+            auto err = mod_result.err();
+            auto msg = err.message();
             return {
                 nullptr,
-                x::errors::Error(x::errors::VALIDATION, "failed to compile module")
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "failed to compile module: " + std::string(msg.data(), msg.size())
+                )
             };
+        }
         const auto mod = mod_result.ok();
         const auto imports = create_imports(store, cfg.bindings);
         auto instance = wasmtime::Instance::create(store, mod, imports).unwrap();
@@ -202,18 +210,19 @@ public:
             };
         auto mem = *mem_ptr;
 
-        if (cfg.bindings != nullptr) cfg.bindings->set_memory(&mem);
-        return {
-            std::make_shared<Module>(
-                cfg,
-                std::move(mod),
-                std::move(engine),
-                std::move(store),
-                std::move(mem),
-                std::move(instance)
-            ),
-            x::errors::NIL
-        };
+        auto module = std::make_shared<Module>(
+            cfg,
+            std::move(mod),
+            std::move(engine),
+            std::move(store),
+            std::move(mem),
+            std::move(instance)
+        );
+        if (cfg.bindings != nullptr) {
+            cfg.bindings->set_memory(&module->memory);
+            cfg.bindings->set_store(&module->store);
+        }
+        return {module, x::errors::NIL};
     }
 
     Module(Module &&other) noexcept = default;

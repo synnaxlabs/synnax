@@ -119,8 +119,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
-    auto [devices, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(devices[0].status->message, "Device connected");
@@ -154,8 +153,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     driver::task::common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
-    auto [devices, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status->variant, x::status::VARIANT_WARNING);
     EXPECT_EQ(devices[0].status->message, "Failed to reach device");

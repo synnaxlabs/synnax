@@ -536,7 +536,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     auto ctx = make_context();
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush_writes();
+    auto writes = s.flush();
     EXPECT_FALSE(writes.empty());
     bool found = false;
     for (const auto &[key, data]: writes) {
@@ -596,7 +596,7 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     auto ctx = make_context();
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush_writes();
+    auto writes = s.flush();
     EXPECT_TRUE(writes.empty());
 }
 
@@ -657,7 +657,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     auto ctx = make_context();
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush_writes();
+    auto writes = s.flush();
     EXPECT_TRUE(writes.empty());
 }
 
@@ -718,7 +718,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     EXPECT_TRUE(sink_checker1.refresh_inputs());
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes1 = s.flush_writes();
+    auto writes1 = s.flush();
     EXPECT_FALSE(writes1.empty());
     for (const auto &[key, data]: writes1) {
         if (key == 100) { EXPECT_FLOAT_EQ(data->at<float>(0), 1.0f); }
@@ -736,7 +736,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     EXPECT_TRUE(sink_checker2.refresh_inputs());
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes2 = s.flush_writes();
+    auto writes2 = s.flush();
     EXPECT_FALSE(writes2.empty());
     for (const auto &[key, data]: writes2) {
         if (key == 100) { EXPECT_FLOAT_EQ(data->at<float>(0), 2.0f); }
@@ -815,7 +815,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
 
     ASSERT_NIL(sink->next(ctx));
 
-    auto writes = s.flush_writes();
+    auto writes = s.flush();
     EXPECT_FALSE(writes.empty());
     bool found_data = false;
     for (const auto &[key, series]: writes) {

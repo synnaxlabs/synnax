@@ -276,6 +276,12 @@ public:
     /// @brief a zero nanosecond timespan.
     static TimeSpan ZERO() { return TimeSpan(0); }
 
+    /// @brief the maximum representable timespan.
+    static TimeSpan max() { return TimeSpan(std::numeric_limits<int64_t>::max()); }
+
+    /// @brief the minimum representable timespan.
+    static TimeSpan min() { return TimeSpan(std::numeric_limits<int64_t>::min()); }
+
     static TimeSpan parse(x::json::Parser parser) {
         return TimeSpan(parser.field<std::int64_t>());
     }
@@ -298,6 +304,12 @@ public:
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts): value(ts.nanoseconds()) {}
+
+    /// @brief the maximum representable timestamp.
+    static TimeStamp max() { return TimeStamp(std::numeric_limits<int64_t>::max()); }
+
+    /// @brief the minimum representable timestamp.
+    static TimeStamp min() { return TimeStamp(std::numeric_limits<int64_t>::min()); }
 
     TimeStamp static now() {
         // note that on some machines, hig-res clock refs system_clock and on others
@@ -663,6 +675,7 @@ template<typename T>
         case google::protobuf::Value::kNullValue:
         case google::protobuf::Value::kStructValue:
         case google::protobuf::Value::kListValue:
+        case google::protobuf::Value::KIND_NOT_SET:
         default:
             return 0.0;
     }

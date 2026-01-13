@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <sys/stat.h>
+
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
 
@@ -37,6 +39,8 @@ std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
 
     auto [runtime, rt_err] = load_runtime(cfg, ctx->client);
     if (rt_err) {
+        stat.message = "Failed to configure";
+        stat.description = rt_err.message();
         ctx->set_status(stat);
         return {nullptr, true};
     }
