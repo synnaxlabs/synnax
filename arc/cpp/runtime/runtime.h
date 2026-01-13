@@ -76,14 +76,14 @@ public:
         inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
         outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
         read_channels(read_channels),
-        write_channels(std::move(write_channels)) {
-        this->loop->watch(this->inputs.notifier());
-    }
+        write_channels(std::move(write_channels)) {}
 
     void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
+        if (!this->loop->watch(this->inputs.notifier()))
+            LOG(ERROR) << "[runtime] Failed to watch input notifier";
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
