@@ -25,7 +25,7 @@ struct IntervalConfig {
     telem::TimeSpan interval;
 
     explicit IntervalConfig(const ir::Params &params) {
-        auto interval_ns = params.get("period")->value.get<std::int64_t>();
+        const auto interval_ns = params["period"].get<std::int64_t>();
         this->interval = telem::TimeSpan(interval_ns);
     }
 };
@@ -33,24 +33,26 @@ struct IntervalConfig {
 class Interval : public node::Node {
     state::Node state;
     IntervalConfig cfg;
-    telem::TimeSpan last_fired = telem::TimeSpan(-1);
+    telem::TimeSpan last_fired;
 
 public:
-    explicit Interval(const IntervalConfig cfg, state::Node state):
-        state(state), cfg(cfg), last_fired(-1 * cfg.interval) {}
+    explicit Interval(const IntervalConfig &cfg, state::Node &&state):
+        state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
     xerrors::Error next(node::Context &ctx) override {
         if (ctx.elapsed - this->last_fired < this->cfg.interval) return xerrors::NIL;
         this->last_fired = ctx.elapsed;
         ctx.mark_changed(ir::default_output_param);
-        auto &o = this->state.output(0);
-        auto &o_time = this->state.output_time(0);
+        const auto &o = this->state.output(0);
+        const auto &o_time = this->state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
         return xerrors::NIL;
     }
+
+    void reset() override { last_fired = -1 * cfg.interval; }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
         return state.is_output_truthy(param_name);
@@ -61,7 +63,7 @@ struct WaitConfig {
     telem::TimeSpan duration;
 
     explicit WaitConfig(const ir::Params &params) {
-        auto duration_ns = params.get("duration")->value.get<std::int64_t>();
+        const auto duration_ns = params["duration"].get<std::int64_t>();
         this->duration = telem::TimeSpan(duration_ns);
     }
 };
@@ -75,7 +77,7 @@ class Wait : public node::Node {
     bool fired = false;
 
 public:
-    explicit Wait(WaitConfig cfg, state::Node state):
+    explicit Wait(const WaitConfig &cfg, state::Node &&state):
         state(std::move(state)), cfg(cfg) {}
 
     xerrors::Error next(node::Context &ctx) override {
@@ -83,13 +85,13 @@ public:
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
         if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;
         this->fired = true;
-        ctx.mark_changed(ir::default_output_param);
         const auto &o = state.output(0);
         const auto &o_time = state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
+        ctx.mark_changed(ir::default_output_param);
         return xerrors::NIL;
     }
 
@@ -108,32 +110,38 @@ class Factory : public node::Factory {
 public:
     telem::TimeSpan timing_base = telem::TimeSpan(std::numeric_limits<int64_t>::max());
 
+    bool handles(const std::string &node_type) const override {
+        return node_type == "interval" || node_type == "wait";
+    }
+
     std::pair<std::unique_ptr<node::Node>, xerrors::Error>
-    create(const node::Config &cfg) override {
+    create(node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
             IntervalConfig node_cfg(cfg.node.config);
-            update_timing_base(node_cfg.interval);
-            auto node = std::make_unique<Interval>(node_cfg, cfg.state);
-            return {std::move(node), xerrors::NIL};
+            this->update_timing_base(node_cfg.interval);
+            return {
+                std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
+                xerrors::NIL
+            };
         }
-
         if (cfg.node.type == "wait") {
             WaitConfig node_cfg(cfg.node.config);
-            update_timing_base(node_cfg.duration);
-            auto node = std::make_unique<Wait>(node_cfg, cfg.state);
-            return {std::move(node), xerrors::NIL};
+            this->update_timing_base(node_cfg.duration);
+            return {
+                std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
+                xerrors::NIL
+            };
         }
-
         return {nullptr, xerrors::NOT_FOUND};
     }
 
 private:
-    void update_timing_base(telem::TimeSpan span) {
-        if (timing_base.nanoseconds() == std::numeric_limits<int64_t>::max())
-            timing_base = span;
+    void update_timing_base(const telem::TimeSpan span) {
+        if (this->timing_base.nanoseconds() == std::numeric_limits<int64_t>::max())
+            this->timing_base = span;
         else
-            timing_base = telem::TimeSpan(
-                std::gcd(timing_base.nanoseconds(), span.nanoseconds())
+            this->timing_base = telem::TimeSpan(
+                std::gcd(this->timing_base.nanoseconds(), span.nanoseconds())
             );
     }
 };

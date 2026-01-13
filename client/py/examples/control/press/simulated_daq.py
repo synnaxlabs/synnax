@@ -78,6 +78,13 @@ vent_vlv_state = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
+start_seq_cmd = client.channels.create(
+    name="start_seq_cmd",
+    data_type=sy.DataType.UINT8,
+    retrieve_if_name_exists=True,
+    virtual=True,
+)
+
 loop = sy.Loop(sy.Rate.HZ * 100)
 
 state = {
@@ -115,20 +122,23 @@ with client.open_streamer(["press_vlv_cmd", "vent_vlv_cmd"]) as streamer:
             # will return immediately if no commands were sent. The frame data structure
             # returned is essentially a dictionary of channel names and their latest
             # values.
-            frame = streamer.read(timeout=0)
-            # A non-empty frame indicates that a command was issued.
-            if frame is not None:
-                # Check if there are 1 or more commands issued to the vent valve. If so,
-                # set the vent valve state to the latest command.
-                vent_vlv_cmd = frame.get("vent_vlv_cmd")
-                if len(vent_vlv_cmd) > 0:
-                    state["vent_vlv_state"] = vent_vlv_cmd[-1]
+            while True:
+                frame = streamer.read(timeout=0)
+                # A non-empty frame indicates that a command was issued.
+                if frame is not None:
+                    # Check if there are 1 or more commands issued to the vent valve. If so,
+                    # set the vent valve state to the latest command.
+                    vent_vlv_cmd = frame.get("vent_vlv_cmd")
+                    if len(vent_vlv_cmd) > 0:
+                        state["vent_vlv_state"] = vent_vlv_cmd[-1]
 
-                # Check if there are 1 or more commands issued to the press valve. If
-                # so, set the press valve state to the latest command.
-                press_vlv_cmd = frame.get("press_vlv_cmd")
-                if len(press_vlv_cmd) > 0:
-                    state["press_vlv_state"] = press_vlv_cmd[-1]
+                    # Check if there are 1 or more commands issued to the press valve. If
+                    # so, set the press valve state to the latest command.
+                    press_vlv_cmd = frame.get("press_vlv_cmd")
+                    if len(press_vlv_cmd) > 0:
+                        state["press_vlv_state"] = press_vlv_cmd[-1]
+                else:
+                    break
 
             # If the press valve is open, increase the pressure.
             if state["press_vlv_state"] == 1:

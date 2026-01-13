@@ -151,35 +151,6 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("64-bit floating point"))
 		})
 
-		It("should provide hover for temporal types", func() {
-			content := "t timestamp := now()\nd timespan := 5s"
-			testutil.OpenDocument(server, ctx, uri, content)
-
-			// Hover over timestamp
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 5}, // times|tamp
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## timestamp"))
-			Expect(hover.Contents.Value).To(ContainSubstring("nanoseconds since Unix epoch"))
-
-			// Hover over timespan
-			hover = MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 5}, // times|pan
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## timespan"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Duration"))
-		})
-
 		It("should provide hover for series type", func() {
 			content := "data series f64 := [1.0, 2.0, 3.0]"
 			testutil.OpenDocument(server, ctx, uri, content)

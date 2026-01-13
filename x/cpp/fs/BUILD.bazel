@@ -14,6 +14,7 @@ cc_test(
     deps = [
         "//x/cpp/fs",
         "//x/cpp/xerrors",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )

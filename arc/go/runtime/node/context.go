@@ -28,7 +28,8 @@ type Context struct {
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
-	// ActivateStage transitions to the stage that the given node belongs to.
-	// Used by stage_entry nodes to trigger stage transitions.
-	ActivateStage func(nodeKey string)
+	// ActivateStage transitions to the stage associated with the currently
+	// executing node. Used by stage_entry nodes to trigger stage transitions.
+	// The scheduler uses the current node key to look up the target stage.
+	ActivateStage func()
 }

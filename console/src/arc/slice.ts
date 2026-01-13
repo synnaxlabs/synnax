@@ -115,6 +115,11 @@ export interface SelectAllPayload {
   key: string;
 }
 
+export interface SetRawTextPayload {
+  key: string;
+  raw: string;
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -330,6 +335,11 @@ export const { actions, reducer } = createSlice({
       arc.graph.nodes.forEach((node) => (node.selected = true));
       arc.graph.edges.forEach((edge) => (edge.selected = true));
     },
+    setRawText: (state, { payload }: PayloadAction<SetRawTextPayload>) => {
+      const { key: layoutKey, raw } = payload;
+      const arc = state.arcs[layoutKey];
+      arc.text.raw = raw;
+    },
   },
 });
 
@@ -364,6 +374,7 @@ export const {
   pasteSelection,
   setViewportMode,
   setRemoteCreated,
+  setRawText,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

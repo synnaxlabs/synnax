@@ -11,54 +11,61 @@
 package expression
 
 import (
+	"fmt"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-func isBool(t basetypes.Type) bool    { return t.IsBool() }
-func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
-func isAny(basetypes.Type) bool       { return true }
+func isBool(t basetypes.Type) bool            { return t.IsBool() }
+func isNumeric(t basetypes.Type) bool         { return t.IsNumeric() }
+func isNumericOrString(t basetypes.Type) bool { return t.IsNumeric() || t.Kind == basetypes.KindString }
+func isAny(basetypes.Type) bool               { return true }
 
-// IsPureLiteral checks if an expression is a single literal value with no operators.
-func IsPureLiteral(expr parser.IExpressionContext) bool {
-	return isPureLiteralNode(expr.LogicalOrExpression())
+// IsLiteral checks if an expression is a single literal value with no operators.
+func IsLiteral(expr parser.IExpressionContext) bool {
+	return isLiteral(expr.LogicalOrExpression())
 }
 
-func isPureLiteralNode(node antlr.ParserRuleContext) bool {
+func isLiteral(node antlr.ParserRuleContext) bool {
 	if node == nil {
 		return false
 	}
 	switch ctx := node.(type) {
 	case parser.ILogicalOrExpressionContext:
 		ands := ctx.AllLogicalAndExpression()
-		return len(ands) == 1 && isPureLiteralNode(ands[0])
+		return len(ands) == 1 && isLiteral(ands[0])
 	case parser.ILogicalAndExpressionContext:
 		eqs := ctx.AllEqualityExpression()
-		return len(eqs) == 1 && isPureLiteralNode(eqs[0])
+		return len(eqs) == 1 && isLiteral(eqs[0])
 	case parser.IEqualityExpressionContext:
 		rels := ctx.AllRelationalExpression()
-		return len(rels) == 1 && isPureLiteralNode(rels[0])
+		return len(rels) == 1 && isLiteral(rels[0])
 	case parser.IRelationalExpressionContext:
 		adds := ctx.AllAdditiveExpression()
-		return len(adds) == 1 && isPureLiteralNode(adds[0])
+		return len(adds) == 1 && isLiteral(adds[0])
 	case parser.IAdditiveExpressionContext:
 		muls := ctx.AllMultiplicativeExpression()
-		return len(muls) == 1 && isPureLiteralNode(muls[0])
+		return len(muls) == 1 && isLiteral(muls[0])
 	case parser.IMultiplicativeExpressionContext:
 		pows := ctx.AllPowerExpression()
-		return len(pows) == 1 && isPureLiteralNode(pows[0])
+		return len(pows) == 1 && isLiteral(pows[0])
 	case parser.IPowerExpressionContext:
-		return ctx.CARET() == nil && isPureLiteralNode(ctx.UnaryExpression())
+		return ctx.CARET() == nil && isLiteral(ctx.UnaryExpression())
 	case parser.IUnaryExpressionContext:
-		return ctx.UnaryExpression() == nil && isPureLiteralNode(ctx.PostfixExpression())
+		return ctx.UnaryExpression() == nil && isLiteral(ctx.PostfixExpression())
 	case parser.IPostfixExpressionContext:
 		return len(ctx.AllIndexOrSlice()) == 0 &&
 			len(ctx.AllFunctionCallSuffix()) == 0 &&
-			isPureLiteralNode(ctx.PrimaryExpression())
+			isLiteral(ctx.PrimaryExpression())
 	case parser.IPrimaryExpressionContext:
 		return ctx.Literal() != nil
 	}
@@ -66,19 +73,119 @@ func isPureLiteralNode(node antlr.ParserRuleContext) bool {
 }
 
 // GetLiteral extracts the literal node from a pure literal expression.
-// Callers should first verify IsPureLiteral returns true.
+// Callers should first verify IsLiteral returns true.
 func GetLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
-	return expr.LogicalOrExpression().
-		AllLogicalAndExpression()[0].
-		AllEqualityExpression()[0].
-		AllRelationalExpression()[0].
-		AllAdditiveExpression()[0].
-		AllMultiplicativeExpression()[0].
-		AllPowerExpression()[0].
-		UnaryExpression().
-		PostfixExpression().
-		PrimaryExpression().
-		Literal()
+	return getLiteralNode(expr.LogicalOrExpression())
+}
+
+// getLiteralNode extracts the literal from any AST node type.
+// Returns nil if the node is not a pure literal. Mirrors isLiteral.
+func getLiteralNode(node antlr.ParserRuleContext) parser.ILiteralContext {
+	if node == nil {
+		return nil
+	}
+	switch ctx := node.(type) {
+	case parser.ILogicalOrExpressionContext:
+		ands := ctx.AllLogicalAndExpression()
+		if len(ands) == 1 {
+			return getLiteralNode(ands[0])
+		}
+	case parser.ILogicalAndExpressionContext:
+		eqs := ctx.AllEqualityExpression()
+		if len(eqs) == 1 {
+			return getLiteralNode(eqs[0])
+		}
+	case parser.IEqualityExpressionContext:
+		rels := ctx.AllRelationalExpression()
+		if len(rels) == 1 {
+			return getLiteralNode(rels[0])
+		}
+	case parser.IRelationalExpressionContext:
+		adds := ctx.AllAdditiveExpression()
+		if len(adds) == 1 {
+			return getLiteralNode(adds[0])
+		}
+	case parser.IAdditiveExpressionContext:
+		muls := ctx.AllMultiplicativeExpression()
+		if len(muls) == 1 {
+			return getLiteralNode(muls[0])
+		}
+	case parser.IMultiplicativeExpressionContext:
+		pows := ctx.AllPowerExpression()
+		if len(pows) == 1 {
+			return getLiteralNode(pows[0])
+		}
+	case parser.IPowerExpressionContext:
+		if ctx.CARET() == nil {
+			return getLiteralNode(ctx.UnaryExpression())
+		}
+	case parser.IUnaryExpressionContext:
+		if ctx.UnaryExpression() == nil {
+			return getLiteralNode(ctx.PostfixExpression())
+		}
+	case parser.IPostfixExpressionContext:
+		if len(ctx.AllIndexOrSlice()) == 0 && len(ctx.AllFunctionCallSuffix()) == 0 {
+			return getLiteralNode(ctx.PrimaryExpression())
+		}
+	case parser.IPrimaryExpressionContext:
+		return ctx.Literal()
+	}
+	return nil
+}
+
+// getSignedIntegerLiteral extracts a signed integer value from a node.
+// Supports both plain integer literals (2) and negated ones (-2).
+// Returns (value, true) if successful, (0, false) otherwise.
+func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
+	if node == nil {
+		return 0, false
+	}
+	var (
+		sign    = 1
+		current = node
+	)
+	if power, ok := current.(parser.IPowerExpressionContext); ok {
+		if power.CARET() != nil {
+			return 0, false
+		}
+		current = power.UnaryExpression()
+	}
+	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
+		if unary.MINUS() != nil {
+			sign = -1
+			current = unary.UnaryExpression()
+		} else if unary.NOT() != nil {
+			// NOT doesn't make sense for integer exponent
+			return 0, false
+		}
+	}
+	lit := getLiteralNode(current)
+	if lit == nil {
+		return 0, false
+	}
+	numLit := lit.NumericLiteral()
+	if numLit == nil {
+		return 0, false
+	}
+	intLit := numLit.INTEGER_LITERAL()
+	if intLit == nil {
+		return 0, false
+	}
+	if numLit.IDENTIFIER() != nil {
+		return 0, false
+	}
+	parsed, err := literal.ParseNumeric(numLit, basetypes.I64())
+	if err != nil {
+		return 0, false
+	}
+	if parsed.Type.Unit != nil {
+		return 0, false
+	}
+	intVal, ok := parsed.Value.(int64)
+	if !ok {
+		return 0, false
+	}
+	return sign * int(intVal), true
 }
 
 // Analyze validates type correctness of an expression and accumulates constraints.
@@ -163,7 +270,6 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	firstType := infer(context.Child(ctx, items[0])).Unwrap()
 	opName := getOperator(ctx.AST)
 
-	// If first type is a type variable, we can't check it yet - will be validated during unification
 	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
 		ctx.Diagnostics.AddError(
 			errors.Newf("cannot use %s in %s operation", firstType, opName),
@@ -175,15 +281,26 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	for i := 1; i < len(items); i++ {
 		nextType := infer(context.Child(ctx, items[i]).WithTypeHint(firstType)).Unwrap()
 
-		// If either type is a type variable, add a constraint instead of checking directly
+		// Check dimensional compatibility first if either operand has units
+		// This must be checked even for type variables since the unit is known at parse time
+		// Note: Power operations (^) are handled separately in analyzePower via ValidatePowerOp.
+		if firstType.Unit != nil || nextType.Unit != nil {
+			if !units.ValidateBinaryOp(ctx, opName, firstType, nextType) {
+				return false
+			}
+		}
+
 		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
 			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
-		} else if !types.Compatible(firstType, nextType) {
-			ctx.Diagnostics.AddError(
-				errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
-				ctx.AST,
-			)
-			return false
+		} else {
+			// Unit compatibility is already validated above by units.ValidateBinaryOp
+			if !types.Compatible(firstType, nextType) {
+				ctx.Diagnostics.AddError(
+					errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
+					ctx.AST,
+				)
+				return false
+			}
 		}
 	}
 	return true
@@ -254,12 +371,20 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) boo
 			return false
 		}
 	}
+	// Determine the operator - strings are only allowed for + (concatenation)
+	op := getAdditiveOperator(ctx.AST)
+	var check func(basetypes.Type) bool
+	if op == "+" {
+		check = isNumericOrString
+	} else {
+		check = isNumeric
+	}
 	return validateType[parser.IMultiplicativeExpressionContext](
 		ctx,
 		mults,
 		getAdditiveOperator,
 		types.InferMultiplicative,
-		isNumeric,
+		check,
 	)
 }
 
@@ -285,11 +410,26 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) bool {
 			return false
 		}
 	}
-	if power := ctx.AST.PowerExpression(); power != nil {
+	power := ctx.AST.PowerExpression()
+	if power != nil {
 		if !analyzePower(context.Child(ctx, power)) {
 			return false
 		}
 	}
+
+	if ctx.AST.CARET() != nil && power != nil {
+		baseType := types.InferFromUnaryExpression(context.Child(ctx, ctx.AST.UnaryExpression())).Unwrap()
+		expType := types.InferPower(context.Child(ctx, power)).Unwrap()
+
+		if baseType.Unit != nil || expType.Unit != nil {
+			_, isLiteral := getSignedIntegerLiteral(power)
+			if err := units.ValidatePowerOp(baseType, expType, isLiteral); err != nil {
+				ctx.Diagnostics.AddError(err, ctx.AST)
+				return false
+			}
+		}
+	}
+
 	return true
 }
 
@@ -341,13 +481,103 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) bool 
 			}
 		}
 	}
-	for _, funcCall := range ctx.AST.AllFunctionCallSuffix() {
+
+	funcCalls := ctx.AST.AllFunctionCallSuffix()
+
+	for _, funcCall := range funcCalls {
 		if argList := funcCall.ArgumentList(); argList != nil {
 			for _, expr := range argList.AllExpression() {
 				if !Analyze(context.Child(ctx, expr)) {
 					return false
 				}
 			}
+		}
+	}
+
+	if len(funcCalls) == 0 {
+		return true
+	}
+	primary := ctx.AST.PrimaryExpression()
+	if id := primary.IDENTIFIER(); id != nil {
+		funcName := id.GetText()
+		scope, err := ctx.Scope.Resolve(ctx, funcName)
+		if err != nil {
+			ctx.Diagnostics.AddError(err, primary)
+			return false
+		}
+		if scope.Kind == symbol.KindFunction {
+			if !validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0]) {
+				return false
+			}
+		} else {
+			ctx.Diagnostics.AddError(
+				errors.Newf("cannot call non-function %s of type %s", funcName, scope.Type),
+				funcCalls[0],
+			)
+			return false
+		}
+	}
+	return true
+}
+
+func validateFunctionCall(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	funcType basetypes.Type,
+	funcName string,
+	funcCall parser.IFunctionCallSuffixContext,
+) bool {
+	_, hasDefaultOutput := funcType.Outputs.Get(ir.DefaultOutputParam)
+	hasMultipleOutputs := len(funcType.Outputs) > 1 || (len(funcType.Outputs) == 1 && !hasDefaultOutput)
+	if hasMultipleOutputs {
+		ctx.Diagnostics.AddError(
+			errors.Newf("cannot call function %s: functions with multiple named outputs are not callable", funcName),
+			funcCall,
+		)
+		return false
+	}
+
+	var args []parser.IExpressionContext
+	if argList := funcCall.ArgumentList(); argList != nil {
+		args = argList.AllExpression()
+	}
+
+	totalCount := len(funcType.Inputs)
+	requiredCount := funcType.Inputs.RequiredCount()
+	actualCount := len(args)
+
+	if actualCount < requiredCount || actualCount > totalCount {
+		if requiredCount == totalCount {
+			// No optional params - use existing message format
+			ctx.Diagnostics.AddError(
+				errors.Newf("function %s expects %d argument(s), got %d",
+					funcName, totalCount, actualCount),
+				funcCall,
+			)
+		} else {
+			ctx.Diagnostics.AddError(
+				errors.Newf("function %s expects %d to %d argument(s), got %d",
+					funcName, requiredCount, totalCount, actualCount),
+				funcCall,
+			)
+		}
+		return false
+	}
+
+	for i, arg := range args {
+		paramType := funcType.Inputs[i].Type
+		argType := types.InferFromExpression(context.Child(ctx, arg)).Unwrap()
+		if paramType.Kind == basetypes.KindVariable || argType.Kind == basetypes.KindVariable {
+			ctx.Constraints.AddCompatible(argType, paramType, arg,
+				fmt.Sprintf("argument %d of %s", i+1, funcName))
+			continue
+		}
+		if !types.Compatible(argType, paramType) {
+			ctx.Diagnostics.AddError(
+				errors.Newf("argument %d of %s: expected %s, got %s",
+					i+1, funcName, paramType, argType),
+				arg,
+			)
+			return false
 		}
 	}
 	return true
@@ -369,8 +599,36 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) bool 
 	}
 	if typeCast := ctx.AST.TypeCast(); typeCast != nil {
 		if expr := typeCast.Expression(); expr != nil {
-			return Analyze(context.Child(ctx, expr))
+			if !Analyze(context.Child(ctx, expr)) {
+				return false
+			}
+			// Validate that the cast is allowed
+			sourceType := types.InferFromExpression(context.Child(ctx, expr)).Unwrap()
+			if typeCtx := typeCast.Type_(); typeCtx != nil {
+				targetType, _ := types.InferFromTypeContext(typeCtx)
+				if !isValidCast(sourceType, targetType) {
+					ctx.Diagnostics.AddError(
+						errors.Newf("cannot cast %s to %s", sourceType, targetType),
+						ctx.AST,
+					)
+					return false
+				}
+			}
 		}
 	}
 	return true
+}
+
+func isValidCast(source, target basetypes.Type) bool {
+	// Constraint unification will handle type variables
+	if source.Kind == basetypes.KindVariable || target.Kind == basetypes.KindVariable {
+		return true
+	}
+	if source.Kind == target.Kind {
+		return true
+	}
+	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
+		return false
+	}
+	return source.IsNumeric() && target.IsNumeric()
 }

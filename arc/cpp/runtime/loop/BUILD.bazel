@@ -17,10 +17,11 @@ cc_library(
         "//conditions:default": ["loop_polling.cpp"],
     }),
     deps = [
-        "//x/cpp/loop",
         "//x/cpp/breaker",
-        "//x/cpp/xerrors",
+        "//x/cpp/loop",
+        "//x/cpp/notify",
         "//x/cpp/telem",
+        "//x/cpp/xerrors",
         "@glog",
     ],
     linkopts = select({

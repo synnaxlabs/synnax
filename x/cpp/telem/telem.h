@@ -20,6 +20,8 @@
 #include <variant>
 #include <vector>
 
+#include <google/protobuf/struct.pb.h>
+
 namespace telem {
 // private namespace for internal constants
 namespace _priv {
@@ -270,6 +272,12 @@ public:
 
     /// @brief a zero nanosecond timespan.
     static TimeSpan ZERO() { return TimeSpan(0); }
+
+    /// @brief the maximum representable timespan.
+    static TimeSpan max() { return TimeSpan(std::numeric_limits<int64_t>::max()); }
+
+    /// @brief the minimum representable timespan.
+    static TimeSpan min() { return TimeSpan(std::numeric_limits<int64_t>::min()); }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -289,6 +297,12 @@ public:
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
     explicit TimeStamp(const TimeSpan ts): value(ts.nanoseconds()) {}
+
+    /// @brief the maximum representable timestamp.
+    static TimeStamp max() { return TimeStamp(std::numeric_limits<int64_t>::max()); }
+
+    /// @brief the minimum representable timestamp.
+    static TimeStamp min() { return TimeStamp(std::numeric_limits<int64_t>::min()); }
 
     TimeStamp static now() {
         // note that on some machines, hig-res clock refs system_clock and on others
@@ -634,6 +648,45 @@ template<typename T>
 [[nodiscard]] inline std::string to_string(const SampleValue &value) {
     return cast<std::string>(value);
 }
+
+/// @brief Converts a google::protobuf::Value to telem::SampleValue.
+/// @param v The protobuf Value to convert.
+/// @returns The SampleValue representation.
+/// @note Struct and list values are not supported and will return a default double(0).
+[[nodiscard]] inline SampleValue from_proto(const google::protobuf::Value &v) {
+    switch (v.kind_case()) {
+        case google::protobuf::Value::kNumberValue:
+            return v.number_value();
+        case google::protobuf::Value::kStringValue:
+            return v.string_value();
+        case google::protobuf::Value::kBoolValue:
+            return v.bool_value() ? static_cast<uint8_t>(1) : static_cast<uint8_t>(0);
+        case google::protobuf::Value::kNullValue:
+        case google::protobuf::Value::kStructValue:
+        case google::protobuf::Value::kListValue:
+        case google::protobuf::Value::KIND_NOT_SET:
+        default:
+            return 0.0;
+    }
+}
+
+/// @brief Converts a telem::SampleValue to google::protobuf::Value.
+/// @param sv The SampleValue to convert.
+/// @param v Pointer to the protobuf Value to populate.
+inline void to_proto(const SampleValue &sv, google::protobuf::Value *v) {
+    std::visit(
+        [v]<typename T>(const T &val) {
+            if constexpr (std::is_same_v<T, std::string>)
+                v->set_string_value(val);
+            else if constexpr (std::is_same_v<T, TimeStamp>)
+                v->set_number_value(static_cast<double>(val.nanoseconds()));
+            else
+                v->set_number_value(static_cast<double>(val));
+        },
+        sv
+    );
+}
+
 using NowFunc = std::function<TimeStamp()>;
 
 namespace _priv {

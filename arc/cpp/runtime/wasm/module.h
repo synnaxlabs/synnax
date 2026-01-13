@@ -26,8 +26,8 @@ namespace arc::runtime::wasm {
 /// Convert SampleValue to wasmtime::Val for WASM function calls
 inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
     return std::visit(
-        [](auto &&arg) -> wasmtime::Val {
-            using T = std::decay_t<decltype(arg)>;
+        []<typename T0>(T0 &&arg) -> wasmtime::Val {
+            using T = std::decay_t<T0>;
             if constexpr (std::is_same_v<T, double>) {
                 return wasmtime::Val(arg);
             } else if constexpr (std::is_same_v<T, float>) {
@@ -41,7 +41,7 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
             } else if constexpr (std::is_same_v<T, std::string>) {
                 // Strings are passed as handles (uint32_t) which should already be
                 // converted
-                return wasmtime::Val(static_cast<int32_t>(0));
+                return wasmtime::Val(0);
             } else {
                 // int32_t, int16_t, int8_t, uint32_t, uint16_t, uint8_t
                 return wasmtime::Val(static_cast<int32_t>(arg));
@@ -54,6 +54,9 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
 /// Convert wasmtime::Val to SampleValue after WASM function returns
 inline telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
+    // Check for timestamp (i64 with nanosecond time units)
+    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(val.i64()));
+
     switch (type.kind) {
         case types::Kind::U8:
             return telem::SampleValue(static_cast<uint8_t>(val.i32()));
@@ -75,16 +78,21 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return telem::SampleValue(val.f32());
         case types::Kind::F64:
             return telem::SampleValue(val.f64());
-        case types::Kind::TimeStamp:
-            return telem::SampleValue(telem::TimeStamp(val.i64()));
-        default:
-            return telem::SampleValue(static_cast<int32_t>(0));
+        case types::Kind::Invalid:
+        case types::Kind::String:
+        case types::Kind::Chan:
+        case types::Kind::Series:
+            return telem::SampleValue(0);
     }
+    return telem::SampleValue(0);
 }
 
 /// Convert raw memory bits to SampleValue based on Arc type
 inline telem::SampleValue
 sample_from_bits(const uint64_t bits, const types::Type &type) {
+    // Check for timestamp (i64 with nanosecond time units)
+    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(bits));
+
     switch (type.kind) {
         case types::Kind::U8:
             return telem::SampleValue(static_cast<uint8_t>(bits));
@@ -113,19 +121,21 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             memcpy(&d, &bits, sizeof(double));
             return telem::SampleValue(d);
         }
-        case types::Kind::TimeStamp:
-            return telem::SampleValue(telem::TimeStamp(bits));
-        default:
+        case types::Kind::Invalid:
+        case types::Kind::String:
+        case types::Kind::Chan:
+        case types::Kind::Series:
             return telem::SampleValue(static_cast<int32_t>(0));
     }
+    return telem::SampleValue(static_cast<int32_t>(0));
 }
 
-const auto BASE_ERROR = runtime::errors::BASE.sub("wasm");
+const auto BASE_ERROR = errors::BASE.sub("wasm");
 const auto INITIALIZATION_ERROR = BASE_ERROR.sub("initialization");
 
 struct ModuleConfig {
     module::Module module;
-    Bindings *bindings = nullptr;
+    std::shared_ptr<Bindings> bindings;
     std::uint32_t stack_size = 2 * 1024 * 1024; // 2MB (Wasmtime default)
     std::uint32_t host_managed_heap_size = 10 * 1024 * 1024; // 10MB
 };
@@ -170,11 +180,17 @@ public:
             engine,
             wasmtime::Span<uint8_t>(wasm_bytes.data(), wasm_bytes.size())
         );
-        if (!mod_result)
+        if (!mod_result) {
+            auto err = mod_result.err();
+            auto msg = err.message();
             return {
                 nullptr,
-                xerrors::Error(xerrors::VALIDATION, "failed to compile module")
+                xerrors::Error(
+                    xerrors::VALIDATION,
+                    "failed to compile module: " + std::string(msg.data(), msg.size())
+                )
             };
+        }
         const auto mod = mod_result.ok();
         const auto imports = create_imports(store, cfg.bindings);
         auto instance = wasmtime::Instance::create(store, mod, imports).unwrap();
@@ -199,18 +215,19 @@ public:
             };
         auto mem = *mem_ptr;
 
-        if (cfg.bindings != nullptr) cfg.bindings->set_memory(&mem);
-        return {
-            std::make_shared<Module>(
-                cfg,
-                std::move(mod),
-                std::move(engine),
-                std::move(store),
-                std::move(mem),
-                std::move(instance)
-            ),
-            xerrors::NIL
-        };
+        auto module = std::make_shared<Module>(
+            cfg,
+            std::move(mod),
+            std::move(engine),
+            std::move(store),
+            std::move(mem),
+            std::move(instance)
+        );
+        if (cfg.bindings != nullptr) {
+            cfg.bindings->set_memory(&module->memory);
+            cfg.bindings->set_store(&module->store);
+        }
+        return {module, xerrors::NIL};
     }
 
     Module(Module &&other) noexcept = default;
@@ -304,9 +321,14 @@ public:
         }
     };
 
+    [[nodiscard]] bool has_func(const std::string &name) {
+        const auto export_opt = this->instance.get(this->store, name);
+        if (!export_opt) return false;
+        return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
+    }
+
     std::pair<Function, xerrors::Error> func(const std::string &name) {
-        // Use C++ API to lookup export by name
-        const auto export_opt = instance.get(store, name);
+        const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
         if (!export_opt) return {zero_func, xerrors::NOT_FOUND};
 
@@ -317,9 +339,7 @@ public:
                 xerrors::Error(xerrors::VALIDATION, "export is not a function")
             };
 
-        const auto func_it = this->cfg.module.find_function(name);
-        if (func_it == this->cfg.module.functions.end())
-            return {zero_func, xerrors::NOT_FOUND};
+        const auto &func = this->cfg.module.function(name);
 
         uint32_t base = 0;
         if (const auto base_it = this->cfg.module.output_memory_bases.find(name);
@@ -328,7 +348,7 @@ public:
         }
 
         return {
-            Function(*this, *func_ptr, func_it->outputs, func_it->inputs, base),
+            Function(*this, *func_ptr, func.outputs, func.inputs, base),
             xerrors::NIL
         };
     }

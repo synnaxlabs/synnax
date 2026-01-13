@@ -121,5 +121,17 @@ var _ = Describe("WASM Writer", func() {
 				Expect(encoder.Bytes()).To(Equal([]byte{0xa2}))
 			})
 		})
+
+		Context("Unary Operations", func() {
+			It("Should encode i32.eqz", func() {
+				encoder.WriteI32Eqz()
+				Expect(encoder.Bytes()).To(Equal([]byte{0x45}))
+			})
+
+			It("Should encode unary operations", func() {
+				encoder.WriteUnaryOp(wasm.OpI32Eqz)
+				Expect(encoder.Bytes()).To(Equal([]byte{0x45}))
+			})
+		})
 	})
 })
