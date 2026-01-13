@@ -76,14 +76,14 @@ public:
         inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
         outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
         read_channels(read_channels),
-        write_channels(std::move(write_channels)) {
-        this->loop->watch(this->inputs.notifier());
-    }
+        write_channels(std::move(write_channels)) {}
 
     void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
+        if (!this->loop->watch(this->inputs.notifier()))
+            LOG(ERROR) << "[runtime] Failed to watch input notifier";
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
@@ -144,6 +144,8 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
 
     std::vector<types::ChannelKey> keys;
     keys.reserve(reads.size() + writes.size());
+    keys.insert(keys.end(), reads.begin(), reads.end());
+    keys.insert(keys.end(), writes.begin(), writes.end());
     auto [digests, state_err] = cfg.retrieve_channels(keys);
     if (state_err) return {nullptr, state_err};
     for (const auto &d: digests) {
