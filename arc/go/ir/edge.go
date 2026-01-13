@@ -19,12 +19,12 @@ import (
 type EdgeKind int
 
 const (
-	// Continuous edges fire every tick while the source is active (-> operator).
-	// Data flows continuously from source to target.
-	Continuous EdgeKind = iota + 1
-	// OneShot edges fire once when the condition becomes true (=> operator).
+	// EdgeKindContinuous edges fire every tick while the source is active (->
+	// operator). Data flows continuously from source to target.
+	EdgeKindContinuous EdgeKind = iota + 1
+	// EdgeKindOneShot edges fire once when the condition becomes true (=> operator).
 	// Used for state transitions and one-time actions.
-	OneShot
+	EdgeKindOneShot
 )
 
 // Parameter naming conventions for IR nodes and functions.
@@ -140,7 +140,7 @@ func (h Handle) String() string {
 
 // String returns the string representation of the edge kind.
 func (k EdgeKind) String() string {
-	if k == OneShot {
+	if k == EdgeKindOneShot {
 		return "oneshot"
 	}
 	return "continuous"
@@ -150,7 +150,7 @@ func (k EdgeKind) String() string {
 // Format: "source.param -> target.param (continuous)" or "source.param => target.param (oneshot)"
 func (e Edge) String() string {
 	arrow := "->"
-	if e.Kind == OneShot {
+	if e.Kind == EdgeKindOneShot {
 		arrow = "=>"
 	}
 	return fmt.Sprintf("%s %s %s (%s)", e.Source, arrow, e.Target, e.Kind)

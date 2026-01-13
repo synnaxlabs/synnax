@@ -534,25 +534,25 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 			{
 				Source: ir.Handle{Node: "timer_1", Param: "output"},
 				Target: ir.Handle{Node: "check_1", Param: "input"},
-				Kind:   ir.Continuous,
+				Kind:   ir.EdgeKindContinuous,
 			},
 			// OneShot transition: precheck -> pressurize
 			{
 				Source: ir.Handle{Node: "check_1", Param: "output"},
 				Target: ir.Handle{Node: "pressurize_entry", Param: "activate"},
-				Kind:   ir.OneShot,
+				Kind:   ir.EdgeKindOneShot,
 			},
 			// Continuous dataflow within pressurize stage
 			{
 				Source: ir.Handle{Node: "valve_ctrl", Param: "output"},
 				Target: ir.Handle{Node: "pressure_monitor", Param: "input"},
-				Kind:   ir.Continuous,
+				Kind:   ir.EdgeKindContinuous,
 			},
 			// OneShot transition: pressurize -> complete
 			{
 				Source: ir.Handle{Node: "pressure_monitor", Param: "threshold_met"},
 				Target: ir.Handle{Node: "complete_entry", Param: "activate"},
-				Kind:   ir.OneShot,
+				Kind:   ir.EdgeKindOneShot,
 			},
 		}
 
@@ -571,8 +571,8 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 		Expect(next.Key).To(Equal("pressurize"))
 
 		// Verify edge kinds
-		continuous := edges.GetByKind(ir.Continuous)
-		oneShot := edges.GetByKind(ir.OneShot)
+		continuous := edges.GetByKind(ir.EdgeKindContinuous)
+		oneShot := edges.GetByKind(ir.EdgeKindOneShot)
 
 		Expect(continuous).To(HaveLen(2))
 		Expect(oneShot).To(HaveLen(2))

@@ -104,7 +104,7 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 	}
 
 	ctx.Module.EnableMemory()
-	ctx.Module.AddExport("memory", wasm.ExportMemory, 0)
+	ctx.Module.AddExport("memory", wasm.ExportKindMemory, 0)
 
 	return Output{WASM: ctx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
 }
@@ -157,7 +157,7 @@ func compileItem(
 	}
 
 	funcIdx := ctx.Module.AddFunction(typeIdx, collectLocals(ctx.Scope), ctx.Writer.Bytes())
-	ctx.Module.AddExport(ctx.Scope.Name, wasm.ExportFunc, funcIdx)
+	ctx.Module.AddExport(ctx.Scope.Name, wasm.ExportKindFunc, funcIdx)
 	return nil
 }
 

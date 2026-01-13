@@ -587,7 +587,7 @@ sensor_chan > threshold -> alarm{}
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
 			// Should have warning about unassigned output
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.Warning))
+			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("never assigned"))
 		})
 

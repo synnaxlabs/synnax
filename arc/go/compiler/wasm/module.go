@@ -207,7 +207,7 @@ func (m *Module) writeImportSection() {
 		section.WriteString(imp.Module)
 		writeUnsignedLEB128(&section, uint64(len(imp.Name)))
 		section.WriteString(imp.Name)
-		section.WriteByte(byte(ExportFunc))
+		section.WriteByte(byte(ExportKindFunc))
 		writeUnsignedLEB128(&section, uint64(imp.TypeIdx))
 	}
 
