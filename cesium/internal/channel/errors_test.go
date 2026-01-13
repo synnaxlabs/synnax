@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("Errors", func() {
-	Describe("NewErrNotFound", func() {
+	Describe("NewNotFoundError", func() {
 		It("Should return an error with the correct message", func() {
 			err := channel.NewNotFoundError(1)
 			Expect(err).To(HaveOccurredAs(channel.ErrNotFound))
@@ -26,7 +26,7 @@ var _ = Describe("Errors", func() {
 		})
 	})
 
-	Describe("NewErrWrapper", func() {
+	Describe("NewErrorWrapper", func() {
 		It("Should return an error with the correct message", func() {
 			ch := channel.Channel{Key: 1, Name: "foo"}
 			err := channel.NewErrorWrapper(ch)(errors.Newf("bad error"))

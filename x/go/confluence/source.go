@@ -127,7 +127,7 @@ func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target address.Address, v O) error {
 	inlet, ok := aas.Out[target]
 	if !ok {
-		return address.NewErrTargetNotFound(target)
+		return address.NewTargetNotFoundError(target)
 	}
 	return signal.SendUnderContext(ctx, inlet.Inlet(), v)
 }

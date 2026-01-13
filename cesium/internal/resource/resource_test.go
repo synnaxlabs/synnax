@@ -16,7 +16,7 @@ import (
 )
 
 var _ = Describe("Resource", func() {
-	Describe("NewErrClosed", func() {
+	Describe("NewClosedError", func() {
 		It("Should return an error with the correct message", func() {
 			Expect(resource.NewClosedError("test")).To(And(
 				MatchError(resource.ErrClosed),
