@@ -109,6 +109,12 @@ public:
         }
     }
 
+    // Make Scheduler non-movable to prevent dangling 'this' in callbacks
+    Scheduler(Scheduler &&) = delete;
+    Scheduler &operator=(Scheduler &&) = delete;
+    Scheduler(const Scheduler &) = delete;
+    Scheduler &operator=(const Scheduler &) = delete;
+
     /// @brief Advances the scheduler by executing global and stage strata.
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;

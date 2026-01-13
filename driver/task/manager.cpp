@@ -349,7 +349,10 @@ void task::Manager::execute_op(
 ) const {
     switch (op.type) {
         case Op::Type::CONFIGURE: {
-            if (entry->task != nullptr) entry->task->stop(true);
+            if (entry->task != nullptr) {
+                entry->task->stop(true);
+                entry->task = nullptr;
+            }
             LOG(INFO) << "configuring task " << op.task;
             auto [driver_task, handled] = this->factory->configure_task(
                 this->ctx,

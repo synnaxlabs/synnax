@@ -27,6 +27,7 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -449,7 +450,8 @@ func translateParamsToPB(p arctypes.Params) ([]*arctypes.PBParam, error) {
 		}
 		// Translate Value if present
 		if param.Value != nil {
-			val, err := structpb.NewValue(param.Value)
+			v := unwrapTelemValue(param.Value)
+			val, err := structpb.NewValue(v)
 			if err != nil {
 				return nil, err
 			}
@@ -995,4 +997,15 @@ func newArc(a *api.Transport) fgrpc.CompoundBindableTransport {
 	a.ArcRetrieve = r
 	a.ArcDelete = d
 	return []fgrpc.BindableTransport{c, r, d}
+}
+
+func unwrapTelemValue(v any) any {
+	switch t := v.(type) {
+	case telem.TimeSpan:
+		return int64(t)
+	case telem.TimeStamp:
+		return int64(t)
+	default:
+		return v
+	}
 }

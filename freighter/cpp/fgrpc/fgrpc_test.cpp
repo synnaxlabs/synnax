@@ -222,8 +222,7 @@ void client_send(
 ) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
-    auto [res, err] = client->send("", mes);
-    ASSERT_TRUE(err.ok());
+    auto res = ASSERT_NIL_P(client->send("", mes));
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 

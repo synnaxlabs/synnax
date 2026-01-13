@@ -180,9 +180,13 @@ struct Type {
             case Kind::I64:
             case Kind::F64:
                 return 8;
-            default:
+            case Kind::Invalid:
+            case Kind::String:
+            case Kind::Chan:
+            case Kind::Series:
                 return 0;
         }
+        return 0;
     }
 
     [[nodiscard]] bool is_valid() const { return kind != Kind::Invalid; }
@@ -236,7 +240,7 @@ struct Type {
             case Kind::Series:
                 if (elem) return "series " + elem->to_string();
                 return "series <invalid>";
-            default:
+            case Kind::Invalid:
                 return "invalid";
         }
         // For numeric types, append unit name if present
