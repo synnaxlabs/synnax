@@ -32,7 +32,7 @@ var _ = Describe("Service", func() {
 			s, err := rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Group:    g,
+				Group:    groupSvc,
 			})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(s).ToNot(BeNil())
@@ -43,14 +43,14 @@ var _ = Describe("Service", func() {
 		It("Should return error with missing DB", func() {
 			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
 				Ontology: otg,
-				Group:    g,
+				Group:    groupSvc,
 			})
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should return error with missing Ontology", func() {
 			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:    db,
-				Group: g,
+				Group: groupSvc,
 			})
 			Expect(err).To(HaveOccurred())
 		})

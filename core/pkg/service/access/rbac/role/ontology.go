@@ -25,7 +25,7 @@ import (
 
 const OntologyType ontology.Type = "role"
 
-// OntologyID constructs a unique ontology.ID for the Role with the given key.
+// OntologyID returns the unique ontology.ID for the Role with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
 }

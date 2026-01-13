@@ -25,33 +25,36 @@ import (
 )
 
 var (
-	ctx     = context.Background()
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	g       *group.Service
-	svc     *rbac.Service
-	userSvc *user.Service
+	ctx      = context.Background()
+	db       *gorp.DB
+	otg      *ontology.Ontology
+	groupSvc *group.Service
+	svc      *rbac.Service
+	userSvc  *user.Service
 )
 
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
 	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 	}))
 	svc = MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 	}))
 })
 
 var _ = AfterSuite(func() {
 	Expect(svc.Close()).To(Succeed())
-	Expect(g.Close()).To(Succeed())
+	Expect(groupSvc.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())
 	Expect(db.Close()).To(Succeed())
 })

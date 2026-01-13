@@ -45,10 +45,7 @@ func (r Retrieve) WhereName(name string) Retrieve {
 }
 
 // Limit sets the maximum number of roles to retrieve.
-func (r Retrieve) Limit(limit int) Retrieve {
-	r.gorp = r.gorp.Limit(limit)
-	return r
-}
+func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
 // Offset sets the number of roles to skip before retrieving.
 func (r Retrieve) Offset(offset int) Retrieve {
@@ -57,10 +54,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 }
 
 // Entry sets the target for a single role retrieval.
-func (r Retrieve) Entry(role *Role) Retrieve {
-	r.gorp = r.gorp.Entry(role)
-	return r
-}
+func (r Retrieve) Entry(role *Role) Retrieve { r.gorp = r.gorp.Entry(role); return r }
 
 // Entries sets the target for multiple role retrieval.
 func (r Retrieve) Entries(roles *[]Role) Retrieve {

@@ -34,11 +34,25 @@ func resolveFieldValue(ctx context.Context, params EnforceParams, target string,
 }
 
 func resolveRequestField(req access.Request, field []string) (any, bool) {
-	if len(field) == 0 || req.Context == nil {
+	if len(field) == 0 {
 		return nil, false
 	}
-	value, ok := req.Context[field[0]]
-	return value, ok
+	switch field[0] {
+	case "time_range":
+		return req.TimeRange, true
+	case "properties":
+		return req.Properties, true
+	case "source":
+		return req.Source, true
+	case "action":
+		return req.Action, true
+	case "subject":
+		return req.Subject, true
+	case "objects":
+		return req.Objects, true
+	default:
+		return nil, false
+	}
 }
 
 func resolveResourceField(ctx context.Context, params EnforceParams, field []string) (any, bool) {
