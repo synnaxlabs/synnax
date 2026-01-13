@@ -315,7 +315,7 @@ protected:
     }
 
     void TearDown() override {
-        if (setup_succeeded) ASSERT_NIL(streamer.close());
+        if (setup_succeeded) { ASSERT_NIL(streamer.close()); }
         if (manager) {
             manager->stop();
             if (thread.joinable()) thread.join();

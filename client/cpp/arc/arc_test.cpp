@@ -38,9 +38,7 @@ TEST(TestArc, testCreate) {
 /// @brief it should create an Arc program using the convenience method.
 TEST(TestArc, testCreateConvenience) {
     const auto client = new_test_client();
-    auto [arc, err] = client.arcs.create("convenience_arc");
-
-    ASSERT_NIL(err);
+    auto arc = ASSERT_NIL_P(client.arcs.create("convenience_arc"));
     ASSERT_EQ(arc.name, "convenience_arc");
     ASSERT_FALSE(arc.key.empty());
 }
@@ -56,9 +54,8 @@ TEST(TestArc, testCreateMany) {
 
     ASSERT_NIL(client.arcs.create(arcs));
 
-    for (const auto &arc: arcs) {
+    for (const auto &arc: arcs)
         ASSERT_FALSE(arc.key.empty());
-    }
     ASSERT_EQ(arcs[0].name, "arc1");
     ASSERT_EQ(arcs[1].name, "arc2");
     ASSERT_EQ(arcs[2].name, "arc3");
@@ -71,9 +68,7 @@ TEST(TestArc, testRetrieveByName) {
     auto created = synnax::Arc(name);
     ASSERT_NIL(client.arcs.create(created));
 
-    auto [retrieved, err] = client.arcs.retrieve_by_name(name);
-
-    ASSERT_NIL(err);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_name(name));
     ASSERT_EQ(retrieved.key, created.key);
     ASSERT_EQ(retrieved.name, name);
 }
@@ -84,9 +79,7 @@ TEST(TestArc, testRetrieveByKey) {
     auto created = synnax::Arc("key_test");
     ASSERT_NIL(client.arcs.create(created));
 
-    auto [retrieved, err] = client.arcs.retrieve_by_key(created.key);
-
-    ASSERT_NIL(err);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(created.key));
     ASSERT_EQ(retrieved.key, created.key);
     ASSERT_EQ(retrieved.name, "key_test");
 }
@@ -102,9 +95,7 @@ TEST(TestArc, testRetrieveMany) {
     };
     ASSERT_NIL(client.arcs.create(arcs));
 
-    auto [retrieved, err] = client.arcs.retrieve({name1, name2});
-
-    ASSERT_NIL(err);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve({name1, name2}));
     ASSERT_EQ(retrieved.size(), 2);
 }
 
@@ -118,9 +109,7 @@ TEST(TestArc, testRetrieveByKeys) {
     ASSERT_NIL(client.arcs.create(arcs));
 
     std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
-    auto [retrieved, err] = client.arcs.retrieve_by_keys(keys);
-
-    ASSERT_NIL(err);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_keys(keys));
     ASSERT_EQ(retrieved.size(), 2);
 }
 
@@ -132,9 +121,7 @@ TEST(TestArc, testDelete) {
 
     ASSERT_NIL(client.arcs.delete_arc(arc.key));
 
-    // Verify it's deleted
-    auto [_, err] = client.arcs.retrieve_by_key(arc.key);
-    ASSERT_FALSE(err.ok());
+    ASSERT_OCCURRED_AS_P(client.arcs.retrieve_by_key(arc.key), xerrors::NOT_FOUND);
 }
 
 /// @brief it should delete multiple Arc programs by keys.
@@ -149,10 +136,10 @@ TEST(TestArc, testDeleteMany) {
     std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
     ASSERT_NIL(client.arcs.delete_arc(keys));
 
-    // Verify they're deleted by trying to retrieve - should fail
-    auto [retrieved, err] = client.arcs.retrieve_by_keys(keys);
-    // Server returns error when arcs don't exist
-    ASSERT_FALSE(err.ok());
+    auto retrieved = ASSERT_OCCURRED_AS_P(
+        client.arcs.retrieve_by_keys(keys),
+        xerrors::NOT_FOUND
+    );
 }
 
 /// @brief it should handle the module field correctly.
@@ -163,11 +150,8 @@ TEST(TestArc, testModuleField) {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto [retrieved, err] = client.arcs.retrieve_by_key(arc.key);
-
-    ASSERT_NIL(err);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key));
     ASSERT_EQ(retrieved.key, arc.key);
-    // Module field exists but WASM is empty when not compiled
     ASSERT_TRUE(retrieved.module.wasm.empty());
 }
 
@@ -206,9 +190,7 @@ func calc(val f32) f32 {
     // Retrieve with compile=true
     synnax::RetrieveOptions options;
     options.compile = true;
-    auto [retrieved, err] = client.arcs.retrieve_by_key(arc.key, options);
-
-    ASSERT_NIL(err);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
     ASSERT_EQ(retrieved.key, arc.key);
 
     // Verify the module was compiled - should have WASM bytes
@@ -259,9 +241,7 @@ sequence main {
 
     synnax::RetrieveOptions options;
     options.compile = true;
-    auto [retrieved, err] = client.arcs.retrieve_by_key(arc.key, options);
-
-    ASSERT_NIL(err);
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, options));
     ASSERT_FALSE(retrieved.module.wasm.empty());
 
     bool found_interval = false;

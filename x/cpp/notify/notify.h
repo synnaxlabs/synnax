@@ -20,7 +20,7 @@ struct Notifier {
 
     virtual void signal() = 0;
 
-    virtual bool wait(telem::TimeSpan timeout = telem::TimeSpan::MAX()) = 0;
+    virtual bool wait(telem::TimeSpan timeout = telem::TimeSpan::max()) = 0;
 
     virtual bool poll() = 0;
 

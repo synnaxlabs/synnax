@@ -188,6 +188,7 @@ public:
 /// @brief create import vector with all registered host functions for Wasmtime.
 /// Must be called before instance creation.
 /// Returns vector of Extern objects that should be passed to Instance::create().
-std::vector<wasmtime::Extern> create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime);
+std::vector<wasmtime::Extern>
+create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime);
 
 }
