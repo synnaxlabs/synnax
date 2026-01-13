@@ -86,7 +86,7 @@ describe("Arc queries", () => {
           version: "1.0.0",
           graph: { nodes: [], edges: [] },
           text: { raw: "" },
-          });
+        });
       });
 
       await waitFor(() => {
