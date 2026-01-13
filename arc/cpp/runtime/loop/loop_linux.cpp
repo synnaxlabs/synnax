@@ -30,7 +30,7 @@ class LinuxLoop final : public Loop {
 public:
     explicit LinuxLoop(const Config &config): config_(config) {}
 
-    ~LinuxLoop() override { this->stop(); }
+    ~LinuxLoop() override { this->close_fds(); }
 
     void notify_data() override {
         if (!this->running_ || this->event_fd_ == -1) return;
@@ -167,6 +167,38 @@ public:
     void stop() override {
         if (!this->running_) return;
 
+        // Signal the thread to stop by writing to eventfd and setting running_ to
+        // false. We intentionally do NOT close file descriptors here - that happens
+        // in close_fds() called by the destructor, after the thread has been joined.
+        // This avoids a race condition where closing fds before the thread exits
+        // could cause the eventfd wake-up signal to be lost.
+        if (this->event_fd_ != -1) {
+            const uint64_t val = 1;
+            [[maybe_unused]] auto _ = write(this->event_fd_, &val, sizeof(val));
+        }
+
+        this->running_ = false;
+    }
+
+    bool watch(notify::Notifier &notifier) override {
+        const int fd = notifier.fd();
+        if (fd == -1 || this->epoll_fd_ == -1) return false;
+
+        struct epoll_event ev;
+        ev.events = EPOLLIN;
+        ev.data.fd = fd;
+
+        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, fd, &ev) == -1) {
+            LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
+                       << strerror(errno);
+            return false;
+        }
+
+        return true;
+    }
+
+private:
+    void close_fds() {
         this->running_ = false;
         this->timer_.reset();
 
@@ -188,24 +220,6 @@ public:
         this->timer_enabled_ = false;
     }
 
-    bool watch(notify::Notifier &notifier) override {
-        const int fd = notifier.fd();
-        if (fd == -1 || this->epoll_fd_ == -1) return false;
-
-        struct epoll_event ev;
-        ev.events = EPOLLIN;
-        ev.data.fd = fd;
-
-        if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, fd, &ev) == -1) {
-            LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
-                       << strerror(errno);
-            return false;
-        }
-
-        return true;
-    }
-
-private:
     void busy_wait(breaker::Breaker &breaker) {
         struct epoll_event events[2];
 
@@ -237,10 +251,18 @@ private:
 
     void event_driven_wait(breaker::Breaker &breaker, bool blocking) {
         struct epoll_event events[2];
-        const int timeout_ms = blocking ? -1 : 10;
+        // Use 100ms timeout instead of infinite blocking to handle shutdown race
+        // where the eventfd wake-up signal could be lost if fds are closed too
+        // quickly. This ensures we check running_ periodically.
+        const int timeout_ms = blocking ? 100 : 10;
+        VLOG(1) << "[loop] epoll_wait entering with timeout_ms=" << timeout_ms;
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
+        VLOG(1) << "[loop] epoll_wait returned n=" << n;
 
         if (n > 0) {
+            for (int i = 0; i < n; i++) {
+                VLOG(1) << "[loop] event[" << i << "] fd=" << events[i].data.fd;
+            }
             this->consume_events(events, n);
         } else if (n == -1 && errno != EINTR) {
             LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
