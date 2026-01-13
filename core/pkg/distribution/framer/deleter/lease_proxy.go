@@ -85,7 +85,7 @@ func (lp *leaseProxy) deleteTimeRangeRemote(
 	tr telem.TimeRange,
 ) error {
 	addr, err := lp.HostResolver.Resolve(target)
-	if errors.Is(err, aspen.NodeNotfound) {
+	if errors.Is(err, aspen.ErrNodeNotFound) {
 		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", keys)
 	}
 	_, err = lp.Transport.Client().Send(ctx, addr, Request{Keys: keys, Bounds: tr})

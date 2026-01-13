@@ -50,9 +50,9 @@ import (
 var (
 	// errQuorumUnreachable is returned when a quorum jury cannot be safely assembled.
 	errQuorumUnreachable = errors.New("quorum unreachable")
-	// proposalRejected is an internal error returned when a juror rejects a pledge
+	// errProposalRejected is an internal error returned when a juror rejects a pledge
 	// proposal from a responsible node.
-	proposalRejected = errors.New("proposal rejected")
+	errProposalRejected = errors.New("proposal rejected")
 )
 
 // Pledge pledges a new node to the cluster. This node, called the Pledge,
@@ -241,7 +241,7 @@ func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum no
 		n_ := n
 		wg.Go(func() error {
 			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{Key: key})
-			if errors.Is(err, proposalRejected) {
+			if errors.Is(err, errProposalRejected) {
 				r.L.Debug(
 					"quorum rejected proposal",
 					zap.Uint32("key", uint32(key)),
@@ -275,19 +275,19 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 		return ctx.Err()
 	}
 	_, span := j.T.Prod(ctx, "juror.verdict")
-	defer func() { _ = span.EndWith(err, proposalRejected) }()
+	defer func() { _ = span.EndWith(err, errProposalRejected) }()
 	logID := zap.Uint32("key", uint32(req.Key))
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	if slices.Contains(j.approvals, req.Key) {
 		j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
-		err = proposalRejected
+		err = errProposalRejected
 		return
 	}
 	if req.Key <= highestNodeID(j.Candidates()) {
 		j.L.Warn("juror rejected proposal. id out of range", logID)
-		err = proposalRejected
+		err = errProposalRejected
 	}
 	j.approvals = append(j.approvals, req.Key)
 	j.L.Debug("juror approved proposal", logID)

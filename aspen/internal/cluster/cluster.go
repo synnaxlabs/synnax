@@ -41,11 +41,11 @@ type State = store.State
 // Change is information about a change to the Cluster's state.
 type Change = store.Change
 
-// NodeNotFound is returned when a node cannot be found in the Cluster.
-var NodeNotFound = errors.Wrap(query.NotFound, "node not found")
+// ErrNodeNotFound is returned when a node cannot be found in the Cluster.
+var ErrNodeNotFound = errors.Wrap(query.NotFound, "node not found")
 
-func nodeNotFoundErr(key node.Key) error {
-	return errors.Wrapf(NodeNotFound, "node %d", key)
+func newNodeNotFoundError(key node.Key) error {
+	return errors.Wrapf(ErrNodeNotFound, "node %d", key)
 }
 
 // Open joins the host node to the Cluster and begins gossiping its state. The
@@ -171,7 +171,7 @@ func (c *Cluster) Nodes() node.Group {
 func (c *Cluster) Node(key node.Key) (node.Node, error) {
 	n, ok := c.GetNode(key)
 	if !ok {
-		return n, nodeNotFoundErr(key)
+		return n, newNodeNotFoundError(key)
 	}
 	return n, nil
 }

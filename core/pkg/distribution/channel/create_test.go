@@ -127,7 +127,7 @@ var _ = Describe("Create", Ordered, func() {
 				ch.Virtual = true
 			})
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
 					Error().To(MatchError(query.NotFound))
@@ -280,13 +280,13 @@ var _ = Describe("Create", Ordered, func() {
 			ch.Virtual = true
 			ch.Leaseholder = cluster.Free
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
-			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 			k := ch.Key()
 			ch.LocalKey = 0
 			ch.Leaseholder = 0
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
-			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 		})
 	})
 	Context("Calculated Channel with Auto-Created Index", func() {

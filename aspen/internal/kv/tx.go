@@ -201,7 +201,7 @@ func (tr TxRequest) digests() []Digest {
 }
 
 func validateLeaseOption(maybeLease []any) (node.Key, error) {
-	lease := DefaultLeaseholder
+	lease := nodeKeyDefaultLeaseholder
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)
 		if !ok {

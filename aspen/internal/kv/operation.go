@@ -23,8 +23,8 @@ import (
 type gossipState byte
 
 const (
-	infected gossipState = iota
-	recovered
+	gossipStateInfected gossipState = iota
+	gossipStateRecovered
 )
 
 // codec used to be implemented by a gob codec, but we want to switch to msgpack.

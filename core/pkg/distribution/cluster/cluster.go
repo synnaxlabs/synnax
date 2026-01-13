@@ -25,6 +25,6 @@ type (
 )
 
 const (
-	Free         = aspen.Free
-	Bootstrapper = aspen.Bootstrapper
+	Free         = aspen.NodeKeyFree
+	Bootstrapper = aspen.NodeKeyBootstrapper
 )
