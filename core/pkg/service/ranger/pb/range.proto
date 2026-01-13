@@ -4,13 +4,13 @@ syntax = "proto3";
 
 package service.range.pb;
 
-import "x/go/telem/telem.proto";
+import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/pb";
 
 message Range {
   string key = 1;
   string name = 2;
-  telem.PBTimeRange time_range = 3;
+  .x.telem.pb.TimeRange time_range = 3;
   string color = 4;
 }

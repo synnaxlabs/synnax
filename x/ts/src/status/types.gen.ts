@@ -14,7 +14,7 @@ import { z } from "zod";
 import { id } from "@/id";
 import { label } from "@/label";
 import { type optional } from "@/optional";
-import { TimeStamp } from "@/telem";
+import { telem,TimeStamp } from "@/telem";
 import { zod } from "@/zod";
 export const VARIANTS = [
   "success",
@@ -51,7 +51,7 @@ export type StatusZodObject<
     variant: V;
     message: z.ZodString;
     description: z.ZodOptional<z.ZodString>;
-    time: z.ZodDefault<typeof TimeStamp.z>;
+    time: z.ZodDefault<typeof telem.timeStampZ>;
     labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
   } & ([Details] extends [z.ZodNever] ? {} : { details: Details })
 >;
@@ -84,7 +84,7 @@ export const statusZ: StatusZFunction = <
     variant: v ?? variantZ,
     message: z.string(),
     description: z.string().optional(),
-    time: TimeStamp.z.default(() => TimeStamp.now()),
+    time: telem.timeStampZ.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
     labels: zod.nullToUndefined(label.labelZ.array()),
   });
@@ -97,7 +97,7 @@ export type Status<
   variant: z.infer<V>;
   message: string;
   description?: string;
-  time: TimeStamp;
+  time: telem.TimeStamp;
   labels?: label.Label[];
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });
 

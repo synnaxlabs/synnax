@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/telem"
 import "schemas/label"
 
 @ts output  "x/ts/src/status"
@@ -32,7 +33,7 @@ Status struct<Details?, V extends Variant = Variant> {
     variant     V
     message     string
     description string?
-    time        timestamp      @validate default now
+    time        TimeStamp      @validate default now
     details     Details?
     labels      label.Label[]?
 
@@ -50,7 +51,7 @@ GoSVCStatus<Details?> = Status<Details?> {
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
     key  string?
     name string?
-    time timestamp?
+    time TimeStamp?
 
     @ts concrete_types
     @pb omit

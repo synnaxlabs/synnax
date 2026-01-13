@@ -782,7 +782,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 
-	// Validate each parent
 	for i, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(c.table)
 		if !ok {
@@ -791,7 +790,6 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				typ.Name, i+1, extendsRef.Name)
 			continue
 		}
-
 		parentForm, ok := parent.Form.(resolution.StructForm)
 		if !ok {
 			c.diag.AddErrorf(nil, c.filePath,
@@ -799,13 +797,10 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				typ.Name, i+1, parent.Name)
 			continue
 		}
-
 		if parent.QualifiedName == typ.QualifiedName {
 			c.diag.AddErrorf(nil, c.filePath, "struct %s cannot extend itself", typ.Name)
 			continue
 		}
-
-		// Validate type parameters for this parent
 		if len(parentForm.TypeParams) > 0 {
 			requiredParams := 0
 			for _, tp := range parentForm.TypeParams {
@@ -821,13 +816,11 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		}
 	}
 
-	// Check for circular inheritance
 	if hasCircularInheritance(typ, c.table, make(map[string]bool)) {
 		c.diag.AddErrorf(nil, c.filePath, "circular inheritance detected: struct %s", typ.Name)
 		return
 	}
 
-	// Validate omitted fields exist in at least one parent
 	allParentFields := make(map[string]bool)
 	for _, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(c.table)

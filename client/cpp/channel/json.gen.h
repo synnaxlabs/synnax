@@ -15,7 +15,6 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/telem.h"
 
 namespace synnax::channel {
 
@@ -23,7 +22,7 @@ inline Operation Operation::parse(x::json::Parser parser) {
     return Operation{
         .type = parser.field<std::string>("type"),
         .reset_channel = parser.field<ChannelKey>("reset_channel"),
-        .duration = parser.field<x::telem::TimeSpan>("duration"),
+        .duration = parser.field<TimeSpan>("duration"),
     };
 }
 
@@ -31,7 +30,7 @@ inline x::json::json Operation::to_json() const {
     x::json::json j;
     j["type"] = this->type;
     j["reset_channel"] = this->reset_channel;
-    j["duration"] = this->duration.nanoseconds();
+    j["duration"] = this->duration;
     return j;
 }
 

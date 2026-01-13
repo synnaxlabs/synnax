@@ -246,26 +246,6 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
-// CenterLocationToPB converts spatial.CenterLocation to CenterLocation.
-func CenterLocationToPB(v spatial.CenterLocation) CenterLocation {
-	switch v {
-	case spatial.CenterLocationCenter:
-		return CenterLocation_CENTER_LOCATION_CENTER
-	default:
-		return CenterLocation_CENTER_LOCATION_CENTER
-	}
-}
-
-// CenterLocationFromPB converts CenterLocation to spatial.CenterLocation.
-func CenterLocationFromPB(v CenterLocation) spatial.CenterLocation {
-	switch v {
-	case CenterLocation_CENTER_LOCATION_CENTER:
-		return spatial.CenterLocationCenter
-	default:
-		return spatial.CenterLocationCenter
-	}
-}
-
 // LocationToPB converts spatial.Location to Location.
 func LocationToPB(v spatial.Location) Location {
 	switch v {
@@ -455,5 +435,25 @@ func YLocationFromPB(v YLocation) spatial.YLocation {
 		return spatial.YLocationBottom
 	default:
 		return spatial.YLocationTop
+	}
+}
+
+// CenterLocationToPB converts spatial.CenterLocation to CenterLocation.
+func CenterLocationToPB(v spatial.CenterLocation) CenterLocation {
+	switch v {
+	case spatial.CenterLocationCenter:
+		return CenterLocation_CENTER_LOCATION_CENTER
+	default:
+		return CenterLocation_CENTER_LOCATION_CENTER
+	}
+}
+
+// CenterLocationFromPB converts CenterLocation to spatial.CenterLocation.
+func CenterLocationFromPB(v CenterLocation) spatial.CenterLocation {
+	switch v {
+	case CenterLocation_CENTER_LOCATION_CENTER:
+		return spatial.CenterLocationCenter
+	default:
+		return spatial.CenterLocationCenter
 	}
 }

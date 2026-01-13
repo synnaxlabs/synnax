@@ -18,8 +18,8 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/x/label/pb"
-	telem "github.com/synnaxlabs/x/telem"
+	pb1 "github.com/synnaxlabs/x/label/pb"
+	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -38,9 +38,9 @@ type Range struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	TimeRange     *telem.PBTimeRange     `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
+	TimeRange     *pb.TimeRange          `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
 	Color         string                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
-	Labels        []*pb.Label            `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
+	Labels        []*pb1.Label           `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
 	Parent        *Range                 `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -90,7 +90,7 @@ func (x *Range) GetName() string {
 	return ""
 }
 
-func (x *Range) GetTimeRange() *telem.PBTimeRange {
+func (x *Range) GetTimeRange() *pb.TimeRange {
 	if x != nil {
 		return x.TimeRange
 	}
@@ -104,7 +104,7 @@ func (x *Range) GetColor() string {
 	return ""
 }
 
-func (x *Range) GetLabels() []*pb.Label {
+func (x *Range) GetLabels() []*pb1.Label {
 	if x != nil {
 		return x.Labels
 	}
@@ -122,12 +122,12 @@ var File_core_pkg_api_ranger_pb_range_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_ranger_pb_range_proto_rawDesc = "" +
 	"\n" +
-	"\"core/pkg/api/ranger/pb/range.proto\x12\fapi.range.pb\x1a\x19x/go/label/pb/label.proto\x1a\x16x/go/telem/telem.proto\"\xde\x01\n" +
+	"\"core/pkg/api/ranger/pb/range.proto\x12\fapi.range.pb\x1a\x19x/go/label/pb/label.proto\x1a\x19x/go/telem/pb/telem.proto\"\xe1\x01\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
-	"time_range\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\ttimeRange\x12\x14\n" +
+	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x14\n" +
 	"\x05color\x18\x04 \x01(\tR\x05color\x12)\n" +
 	"\x06labels\x18\x05 \x03(\v2\x11.x.label.pb.LabelR\x06labels\x120\n" +
 	"\x06parent\x18\x06 \x01(\v2\x13.api.range.pb.RangeH\x00R\x06parent\x88\x01\x01B\t\n" +
@@ -149,12 +149,12 @@ func file_core_pkg_api_ranger_pb_range_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_api_ranger_pb_range_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_api_ranger_pb_range_proto_goTypes = []any{
-	(*Range)(nil),             // 0: api.range.pb.Range
-	(*telem.PBTimeRange)(nil), // 1: telem.PBTimeRange
-	(*pb.Label)(nil),          // 2: x.label.pb.Label
+	(*Range)(nil),        // 0: api.range.pb.Range
+	(*pb.TimeRange)(nil), // 1: x.telem.pb.TimeRange
+	(*pb1.Label)(nil),    // 2: x.label.pb.Label
 }
 var file_core_pkg_api_ranger_pb_range_proto_depIdxs = []int32{
-	1, // 0: api.range.pb.Range.time_range:type_name -> telem.PBTimeRange
+	1, // 0: api.range.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
 	2, // 1: api.range.pb.Range.labels:type_name -> x.label.pb.Label
 	0, // 2: api.range.pb.Range.parent:type_name -> api.range.pb.Range
 	3, // [3:3] is the sub-list for method output_type

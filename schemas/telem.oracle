@@ -7,5 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/telem/external";
-export * as telem from "@/telem/external";
+@go output "x/go/telem"
+@ts output "x/ts/src/telem"
+@pb
+
+TimeStamp int64 {
+    @ts omit
+}
+
+TimeSpan int64 {
+    @ts omit
+}
+
+Rate float64 {
+    @ts omit
+}
+
+Size int64 {
+    @ts omit
+}
+
+TimeRange struct {
+    Start TimeStamp
+    End   TimeStamp
+
+    @ts omit
+}
+
+TimeRangeBounded = TimeRange {
+    @ts omit
+}
+
+DataType string {
+    @ts omit
+}

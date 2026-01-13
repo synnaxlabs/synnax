@@ -17,7 +17,6 @@ from typing import Literal, NewType, TypeAlias
 from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
-from synnax.telem import DataType, TimeSpan
 from synnax.x import control
 
 Key = NewType("Key", int)
@@ -37,14 +36,14 @@ Name: TypeAlias = str
 class Operation(BaseModel):
     type: OperationType
     reset_channel: Key = Field(default=0)
-    duration: TimeSpan = Field(default=0)
+    duration: telem.TimeSpan = Field(default=0)
 
 
 class Payload(BaseModel):
     key: Key
     name: Name
     leaseholder: int
-    data_type: DataType
+    data_type: telem.DataType
     is_index: bool
     index: Key
     alias: str | None = None

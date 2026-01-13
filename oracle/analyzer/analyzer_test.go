@@ -19,6 +19,15 @@ import (
 	"github.com/synnaxlabs/oracle/testutil"
 )
 
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 var _ = Describe("Analyzer", func() {
 	var (
 		ctx    context.Context
@@ -273,26 +282,39 @@ var _ = Describe("Analyzer", func() {
 	Describe("Type Resolution", func() {
 		It("Should resolve primitive types", func() {
 			source := `
+				import "schemas/telem"
+
 				Test struct {
 					a uuid
 					b string
 					c int32
 					d float64
 					e bool
-					f timestamp
-					g timespan
-					h time_range
+					f telem.timestamp
+					g telem.timespan
+					h telem.time_range
 					i json
 					j bytes
 				}
 			`
+			loader.Add("schemas/telem", `
+				timestamp uint64
+				timespan int64
+				time_range struct {
+					start timestamp
+					end timestamp
+				}
+			`)
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.HasErrors()).To(BeFalse())
 
 			testType := table.MustGet("test.Test")
 			form := testType.Form.(resolution.StructForm)
+			primitiveFields := []string{"a", "b", "c", "d", "e", "i", "j"}
 			for _, field := range form.Fields {
-				Expect(resolution.IsPrimitive(field.Type.Name)).To(BeTrue())
+				if contains(primitiveFields, field.Name) {
+					Expect(resolution.IsPrimitive(field.Type.Name)).To(BeTrue())
+				}
 			}
 		})
 

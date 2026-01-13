@@ -18,7 +18,6 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/status/types.gen.h"
-#include "x/cpp/telem/telem.h"
 
 namespace x::status {
 
@@ -30,7 +29,7 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
         .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),
         .description = parser.field<std::string>("description", ""),
-        .time = parser.field<x::telem::TimeStamp>("time"),
+        .time = parser.field<TimeStamp>("time"),
         .details = parser.field<Details>("details"),
         .labels = parser.field<std::vector<x::label::Label>>("labels"),
     };
@@ -44,7 +43,7 @@ x::json::json Status<Details>::to_json() const {
     j["variant"] = this->variant;
     j["message"] = this->message;
     j["description"] = this->description;
-    j["time"] = this->time.nanoseconds();
+    j["time"] = this->time;
     if constexpr (std::is_same_v<Details, x::json::json>)
         j["details"] = this->details;
     else

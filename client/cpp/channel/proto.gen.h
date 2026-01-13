@@ -53,7 +53,7 @@ inline ::distribution::channel::pb::Operation Operation::to_proto() const {
     ::distribution::channel::pb::Operation pb;
     pb.set_type(OperationTypeToPB(this->type));
     pb.set_reset_channel(static_cast<uint32_t>(this->reset_channel));
-    pb.set_duration(this->duration.nanoseconds());
+    pb.set_duration(static_cast<int64_t>(this->duration));
     return pb;
 }
 
@@ -62,7 +62,7 @@ Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
     cpp.reset_channel = ChannelKey(pb.reset_channel());
-    cpp.duration = x::telem::TimeSpan(pb.duration());
+    cpp.duration = TimeSpan(pb.duration());
     return {cpp, x::errors::NIL};
 }
 

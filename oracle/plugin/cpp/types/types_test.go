@@ -143,28 +143,9 @@ var _ = Describe("C++ Types Plugin", func() {
 				Entry("uint64", "uint64", "std::uint64_t field = 0;"),
 				Entry("float32", "float32", "float field = 0;"),
 				Entry("float64", "float64", "double field = 0;"),
-				Entry("timestamp", "timestamp", "telem::TimeStamp field = {};"),
-				Entry("timespan", "timespan", "telem::TimeSpan field = {};"),
-				Entry("time_range", "time_range", "telem::TimeRange field = {};"),
 				Entry("json", "json", "x::json::json field;"),
 			)
 
-			It("Should import required headers for special types", func() {
-				source := `
-					@cpp output "out"
-
-					Test struct {
-						a timestamp
-						b json
-					}
-				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, cppPlugin)
-				testutil.ExpectContent(resp, "types.gen.h").
-					ToContain(
-						`#include "x/cpp/telem/telem.h"`,
-						`#include "x/cpp/json/json.h"`,
-					)
-			})
 		})
 
 		It("Should treat soft optional as bare type", func() {
@@ -293,34 +274,6 @@ var _ = Describe("C++ Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// Hard optional array wraps the vector with std::optional
 			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
-		})
-
-		It("Should handle timestamp and telem types", func() {
-			source := `
-				@cpp output "client/cpp/rack"
-
-				Rack struct {
-					key uint32
-					created_at timestamp
-					duration timespan
-					range time_range
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`#include "x/cpp/telem/telem.h"`))
-			Expect(content).To(ContainSubstring(`x::telem::TimeStamp created_at = {};`))
-			Expect(content).To(ContainSubstring(`x::telem::TimeSpan duration = {};`))
-			Expect(content).To(ContainSubstring(`x::telem::TimeRange range = {};`))
 		})
 
 		It("Should handle json type", func() {

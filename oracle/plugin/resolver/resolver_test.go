@@ -103,11 +103,6 @@ func (m *MockPrimitiveMapper) Map(name string) primitives.Mapping {
 			TargetType: "uuid.UUID",
 			Imports:    []primitives.Import{{Category: "external", Path: "github.com/synnaxlabs/x/uuid"}},
 		}
-	case "timestamp":
-		return primitives.Mapping{
-			TargetType: "telem.TimeStamp",
-			Imports:    []primitives.Import{{Category: "internal", Path: "github.com/synnaxlabs/x/telem"}},
-		}
 	default:
 		return primitives.Mapping{TargetType: "any"}
 	}
@@ -210,14 +205,6 @@ var _ = Describe("Resolver", func() {
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("string"))
 				Expect(adder.Imports).To(BeEmpty())
-			})
-
-			It("Should resolve timestamp with telem import", func() {
-				typeRef := resolution.TypeRef{Name: "timestamp"}
-				result := r.ResolveTypeRef(typeRef, ctx)
-				Expect(result).To(Equal("telem.TimeStamp"))
-				Expect(adder.Imports).To(HaveLen(1))
-				Expect(adder.Imports[0].Path).To(Equal("github.com/synnaxlabs/x/telem"))
 			})
 		})
 

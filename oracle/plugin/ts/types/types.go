@@ -469,7 +469,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType := primitiveToZod(typeOverride, data, false)
 			// Apply validation rules if present
 			if validateDomain, ok := td.Domains["validate"]; ok {
-				result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions)
+				result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions, data)
 				zodType = result.ZodType
 			}
 			// Apply @ts to_number: accept strings and convert to number (with NaN validation)
@@ -500,7 +500,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		}
 		// Apply validation rules if present
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions)
+			result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions, data)
 			zodType = result.ZodType
 		}
 		// Apply @ts to_number: accept strings and convert to number (with NaN validation)
@@ -531,7 +531,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		}
 		// Apply validation rules if present
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, form.Target, td.Name, data.Request.Resolutions)
+			result := p.applyValidation(zodType, validateDomain, form.Target, td.Name, data.Request.Resolutions, data)
 			zodType = result.ZodType
 		}
 		return typeDefData{
@@ -1040,7 +1040,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.TSType = primitiveToTS(typeOverride)
 		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
 		if validateDomain, ok := field.Domains["validate"]; ok {
-			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
+			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
 			fd.ZodType = result.ZodType
 			if result.HasDefault {
 				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
@@ -1057,7 +1057,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
 		if validateDomain, ok := field.Domains["validate"]; ok {
-			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table)
+			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
 			fd.ZodType = result.ZodType
 			if result.HasDefault {
 				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
@@ -1712,7 +1712,7 @@ type validationResult struct {
 	HasDefault bool
 }
 
-func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeRef resolution.TypeRef, fieldName string, table *resolution.Table) validationResult {
+func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
 	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) {
 		return validationResult{ZodType: zodType, HasDefault: false}
@@ -1762,12 +1762,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 		case resolution.ValueKindInt:
 			// Special handling for timestamp/timespan with default of 0
 			if rules.Default.IntValue == 0 {
-				switch typeRef.Name {
-				case "timestamp":
+				if typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp") {
+					addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 					zodType = fmt.Sprintf("%s.default(TimeStamp.ZERO)", zodType)
-				case "timespan":
+				} else if typeRef.Name == "TimeSpan" || strings.HasSuffix(typeRef.Name, ".TimeSpan") {
+					addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
 					zodType = fmt.Sprintf("%s.default(TimeSpan.ZERO)", zodType)
-				default:
+				} else {
 					zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
 				}
 			} else {
@@ -1779,7 +1780,8 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			zodType = fmt.Sprintf("%s.default(%t)", zodType, rules.Default.BoolValue)
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if rules.Default.IdentValue == "now" && typeRef.Name == "timestamp" {
+			if rules.Default.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
+				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
 			}
 		}

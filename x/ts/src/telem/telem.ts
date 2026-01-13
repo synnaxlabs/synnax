@@ -2303,3 +2303,11 @@ export const convertDataType = (
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
   return math.sub(value, offset);
 };
+
+export const timeRangeZ = TimeRange.z;
+export const timeStampZ = TimeStamp.z;
+export const timeSpanZ = TimeSpan.z;
+export const rateZ = Rate.z;
+export const sizeZ = Size.z;
+export const dataTypeZ = DataType.z;
+export const timeRangeBoundedZ = TimeRange.boundedZ;

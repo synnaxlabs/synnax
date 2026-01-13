@@ -118,7 +118,7 @@ var _ = Describe("Go Types Plugin", func() {
 				@go output "core/ranger"
 
 				Range struct {
-					created_at timestamp
+					created_at int64
 					time_range string
 					my_long_field_name string
 				}
@@ -134,7 +134,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(err).To(BeNil())
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`CreatedAt telem.TimeStamp`))
+				Expect(content).To(ContainSubstring(`CreatedAt int64`))
 				Expect(content).To(ContainSubstring(`TimeRange string`))
 				Expect(content).To(ContainSubstring(`MyLongFieldName string`))
 			})
@@ -198,9 +198,6 @@ var _ = Describe("Go Types Plugin", func() {
 				Entry("uint64", "uint64", "Field uint64"),
 				Entry("float32", "float32", "Field float32"),
 				Entry("float64", "float64", "Field float64"),
-				Entry("timestamp", "timestamp", "Field telem.TimeStamp"),
-				Entry("timespan", "timespan", "Field telem.TimeSpan"),
-				Entry("time_range", "time_range", "Field telem.TimeRange"),
 				Entry("json", "json", "Field map[string]any"),
 				Entry("bytes", "bytes", "Field []byte"),
 			)
@@ -211,13 +208,12 @@ var _ = Describe("Go Types Plugin", func() {
 
 					AllTypes struct {
 						a uuid
-						b timestamp
+						b json
 					}
 				`
 				resp := testutil.MustGenerate(ctx, source, "test", loader, goPlugin)
 				testutil.ExpectContent(resp, "types.gen.go").
-					ToContain(`"github.com/synnaxlabs/x/uuid"`).
-					ToContain(`"github.com/synnaxlabs/x/telem"`)
+					ToContain(`"github.com/synnaxlabs/x/uuid"`)
 			})
 		})
 
@@ -873,7 +869,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 
 				RackStatus struct extends Status<Details> {
-					timestamp timestamp
+					timestamp int64
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
@@ -890,7 +886,7 @@ var _ = Describe("Go Types Plugin", func() {
 				// RackStatus should embed Status with type argument
 				Expect(content).To(ContainSubstring(`type RackStatus struct {`))
 				Expect(content).To(ContainSubstring("\tStatus[Details]\n"))
-				Expect(content).To(ContainSubstring(`Timestamp telem.TimeStamp`))
+				Expect(content).To(ContainSubstring(`Timestamp int64`))
 			})
 
 			It("Should generate generic child extending generic parent with passed type param", func() {
@@ -903,7 +899,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 
 				RackStatus struct<D extends json> extends Status<D> {
-					timestamp timestamp
+					timestamp int64
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
@@ -920,7 +916,7 @@ var _ = Describe("Go Types Plugin", func() {
 				// RackStatus should be generic and embed Status with passed type param
 				Expect(content).To(ContainSubstring(`type RackStatus[D any] struct {`))
 				Expect(content).To(ContainSubstring("\tStatus[D]\n"))
-				Expect(content).To(ContainSubstring(`Timestamp telem.TimeStamp`))
+				Expect(content).To(ContainSubstring(`Timestamp int64`))
 			})
 
 			It("Should generate multiple embedding for multiple extends without conflicts", func() {

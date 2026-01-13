@@ -13,9 +13,6 @@ import (
 	"fmt"
 )
 
-// Size represents the size of an element in bytes.
-type Size int64
-
 // String implements fmt.Stringer.
 func (s Size) String() string {
 	if s > Terabyte {

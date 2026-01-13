@@ -16,7 +16,6 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from synnax import label
-from synnax.telem import TimeStamp
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
@@ -27,7 +26,7 @@ class Status(BaseModel):
     variant: Any
     message: str
     description: str | None = None
-    time: TimeStamp
+    time: telem.TimeStamp
     details: Any | None = None
     labels: list[label.Label] | None = None
 
@@ -38,4 +37,4 @@ class Status(BaseModel):
 class New(Status):
     key: str | None = None
     name: str | None = None
-    time: TimeStamp | None = None
+    time: telem.TimeStamp | None = None

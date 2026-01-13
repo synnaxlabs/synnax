@@ -60,7 +60,7 @@ inline ::x::status::pb::Status Status<Details>::to_proto() const {
     pb.set_variant(VariantToPB(this->variant));
     pb.set_message(this->message);
     pb.set_description(this->description);
-    pb.set_time(this->time.nanoseconds());
+    pb.set_time(static_cast<int64_t>(this->time));
     if constexpr (std::is_same_v<Details, x::json::json>) {
         *pb.mutable_details() = x::json::to_any(this->details);
     } else {
@@ -80,7 +80,7 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     cpp.variant = VariantFromPB(pb.variant());
     cpp.message = pb.message();
     cpp.description = pb.description();
-    cpp.time = x::telem::TimeStamp(pb.time());
+    cpp.time = TimeStamp(pb.time());
     if constexpr (std::is_same_v<Details, x::json::json>) {
         {
             auto [val, err] = x::json::from_any(pb.details());

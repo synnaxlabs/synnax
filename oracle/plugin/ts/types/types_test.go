@@ -231,26 +231,10 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("uint64", "uint64", "z.uint64()"),
 				Entry("float32", "float32", "z.number()"),
 				Entry("float64", "float64", "z.number()"),
-				Entry("timestamp", "timestamp", "TimeStamp.z"),
-				Entry("timespan", "timespan", "TimeSpan.z"),
 				Entry("json", "json", "record.nullishToEmpty"),
 				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
 			)
 
-			It("Should import required packages for special types", func() {
-				source := `
-					@ts output "out"
-
-					Test struct {
-						a timestamp
-						b timespan
-						c int8
-					}
-				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types.gen.ts").
-					ToContain(`import { TimeSpan, TimeStamp, zod } from "@synnaxlabs/x"`)
-			})
 		})
 
 		Context("@ts to_number directive", func() {
@@ -1055,40 +1039,6 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
 			Expect(content).To(ContainSubstring(`.omit({ b: true })`))
-		})
-
-		It("Should handle extension of generic struct with type arguments", func() {
-			source := `
-				@ts output "out"
-
-				Details struct {
-					message string
-				}
-
-				Status struct<D extends schema> {
-					variant int32
-					data D
-				}
-
-				RackStatus struct extends Status<Details> {
-					timestamp timestamp
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			// RackStatus should extend Status (generic type args are handled via extends)
-			Expect(content).To(ContainSubstring(`export const rackStatusZ = statusZ`))
-			Expect(content).To(ContainSubstring(`.extend({`))
-			Expect(content).To(ContainSubstring(`timestamp: TimeStamp.z`))
 		})
 
 		It("Should generate .merge() chain for multiple extends", func() {

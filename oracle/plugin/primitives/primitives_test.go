@@ -27,7 +27,6 @@ var _ = Describe("Primitives", func() {
 		It("Should return true for registered primitives", func() {
 			Expect(primitives.IsPrimitive("string")).To(BeTrue())
 			Expect(primitives.IsPrimitive("uuid")).To(BeTrue())
-			Expect(primitives.IsPrimitive("timestamp")).To(BeTrue())
 			Expect(primitives.IsPrimitive("int32")).To(BeTrue())
 			Expect(primitives.IsPrimitive("float64")).To(BeTrue())
 			Expect(primitives.IsPrimitive("bytes")).To(BeTrue())
@@ -42,10 +41,10 @@ var _ = Describe("Primitives", func() {
 
 	Describe("Get", func() {
 		It("Should return primitive and true for registered types", func() {
-			p, ok := primitives.Get("timestamp")
+			p, ok := primitives.Get("string")
 			Expect(ok).To(BeTrue())
-			Expect(p.Name).To(Equal("timestamp"))
-			Expect(p.Category).To(Equal(primitives.CategoryTemporal))
+			Expect(p.Name).To(Equal("string"))
+			Expect(p.Category).To(Equal(primitives.CategoryString))
 		})
 
 		It("Should return false for unknown types", func() {
@@ -72,10 +71,6 @@ var _ = Describe("Primitives", func() {
 		})
 
 		It("Should correctly identify temporal types", func() {
-			Expect(primitives.IsTemporal("timestamp")).To(BeTrue())
-			Expect(primitives.IsTemporal("timespan")).To(BeTrue())
-			Expect(primitives.IsTemporal("time_range")).To(BeTrue())
-			Expect(primitives.IsTemporal("time_range_bounded")).To(BeTrue())
 			Expect(primitives.IsTemporal("int64")).To(BeFalse())
 		})
 
@@ -93,7 +88,7 @@ var _ = Describe("Primitives", func() {
 	Describe("All", func() {
 		It("Should return all registered primitives", func() {
 			all := primitives.All()
-			Expect(len(all)).To(BeNumerically(">=", 20))
+			Expect(len(all)).To(BeNumerically(">=", 15))
 
 			names := make(map[string]bool)
 			for _, p := range all {
@@ -102,7 +97,6 @@ var _ = Describe("Primitives", func() {
 
 			Expect(names).To(HaveKey("string"))
 			Expect(names).To(HaveKey("uuid"))
-			Expect(names).To(HaveKey("timestamp"))
 			Expect(names).To(HaveKey("bytes"))
 		})
 	})

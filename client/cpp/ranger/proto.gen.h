@@ -26,7 +26,7 @@ inline ::api::ranger::pb::Range Payload::to_proto() const {
     ::api::ranger::pb::Range pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
-    pb.set_time_range(this->time_range);
+    *pb.mutable_time_range() = this->time_range.to_proto();
     pb.set_color(this->color);
     for (const auto &item: this->labels)
         *pb.add_labels() = item.to_proto();
@@ -39,7 +39,11 @@ Payload::from_proto(const ::api::ranger::pb::Range &pb) {
     Payload cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
-    cpp.time_range = pb.time_range();
+    {
+        auto [val, err] = TimeRangeBounded::from_proto(pb.time_range());
+        if (err) return {{}, err};
+        cpp.time_range = val;
+    }
     cpp.color = pb.color();
     for (const auto &item: pb.labels()) {
         auto [v, err] = ::x::label::Label::from_proto(item);

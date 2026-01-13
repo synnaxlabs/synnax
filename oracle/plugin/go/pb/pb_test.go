@@ -161,16 +161,6 @@ var _ = Describe("Go PB Plugin", func() {
 					"Value: r.Value",
 					"r.Value = pb.Value",
 				),
-				Entry("timestamp to int64",
-					"created_at timestamp",
-					"CreatedAt: int64(r.CreatedAt)",
-					"r.CreatedAt = telem.TimeStamp(pb.CreatedAt)",
-				),
-				Entry("timespan to int64",
-					"duration timespan",
-					"Duration: int64(r.Duration)",
-					"r.Duration = telem.TimeSpan(pb.Duration)",
-				),
 				Entry("bytes passthrough",
 					"data bytes",
 					"Data: r.Data",
@@ -417,21 +407,6 @@ var _ = Describe("Go PB Plugin", func() {
 
 				testutil.ExpectContent(resp, "translator.gen.go").
 					ToContain(`"github.com/synnaxlabs/x/uuid"`)
-			})
-
-			It("Should import telem package when timestamp fields present", func() {
-				source := `
-					@go output "core/test"
-					@pb
-
-					Test struct {
-						created_at timestamp
-					}
-				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
-
-				testutil.ExpectContent(resp, "translator.gen.go").
-					ToContain(`synnaxlabs/x/telem`)
 			})
 
 			It("Should import lo package when array conversions needed", func() {

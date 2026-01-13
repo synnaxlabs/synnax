@@ -16,12 +16,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	labelpb "github.com/synnaxlabs/x/label/pb"
-	"github.com/synnaxlabs/x/telem"
+	telempb "github.com/synnaxlabs/x/telem/pb"
 	"github.com/synnaxlabs/x/uuid"
 )
 
 // RangeToPB converts Range to Range.
 func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
+	timeRangeVal, err := telempb.TimeRangeToPB(ctx, r.TimeRange)
+	if err != nil {
+		return nil, err
+	}
 	labelsVal, err := labelpb.LabelsToPB(ctx, r.Labels)
 	if err != nil {
 		return nil, err
@@ -29,8 +33,8 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 	pb := &Range{
 		Key:       r.Key.String(),
 		Name:      r.Name,
-		TimeRange: telem.TranslateTimeRangeForward(r.TimeRange),
 		Color:     r.Color,
+		TimeRange: timeRangeVal,
 		Labels:    labelsVal,
 	}
 	if r.Parent != nil {
@@ -50,13 +54,16 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 		return r, nil
 	}
 	var err error
+	r.TimeRange, err = telempb.TimeRangeFromPB(ctx, pb.TimeRange)
+	if err != nil {
+		return r, err
+	}
 	r.Labels, err = labelpb.LabelsFromPB(ctx, pb.Labels)
 	if err != nil {
 		return r, err
 	}
 	r.Key = serviceranger.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.TimeRange = telem.TranslateTimeRangeBackward(pb.TimeRange)
 	r.Color = pb.Color
 	if pb.Parent != nil {
 		val, err := RangeFromPB(ctx, pb.Parent)

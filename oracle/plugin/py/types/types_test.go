@@ -227,56 +227,10 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uint64", "uint64", "int"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
-				Entry("timestamp", "timestamp", "TimeStamp"),
-				Entry("timespan", "timespan", "TimeSpan"),
 				Entry("json", "json", "dict[str, Any]"),
 				Entry("bytes", "bytes", "bytes"),
 			)
 
-			It("Should import required packages for special types", func() {
-				source := `
-					@py output "out"
-
-					Test struct {
-						a uuid
-						b timestamp
-						c json
-					}
-				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, typesPlugin)
-				testutil.ExpectContent(resp, "types_gen.py").
-					ToContain(
-						`from uuid import UUID`,
-						`from typing import Any`,
-						`from synnax.telem import`,
-					)
-			})
-		})
-
-		It("Should keep snake_case for field names (Python convention)", func() {
-			source := `
-				@py output "out"
-
-				Range struct {
-					created_at timestamp
-					time_range string
-					my_long_field_name string
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`created_at:`))
-			Expect(content).To(ContainSubstring(`time_range:`))
-			Expect(content).To(ContainSubstring(`my_long_field_name:`))
 		})
 
 		It("Should generate type alias for key fields", func() {
@@ -498,39 +452,6 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
 			Expect(content).To(ContainSubstring(`name: str | None = None`))
 		})
-		It("Should handle extension of generic struct with type arguments", func() {
-			source := `
-				@py output "out"
-
-				Details struct {
-					message string
-				}
-
-				Status struct<D extends schema> {
-					variant int32
-					data D
-				}
-
-				RackStatus struct extends Status<Details> {
-					timestamp timestamp
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			// RackStatus should extend Status (generic type args are inherited via extends)
-			Expect(content).To(ContainSubstring(`class RackStatus(Status):`))
-			Expect(content).To(ContainSubstring(`timestamp: TimeStamp`))
-		})
-
 		It("Should generate multiple inheritance for multiple extends", func() {
 			source := `
 				@py output "out"

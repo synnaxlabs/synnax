@@ -111,19 +111,6 @@ var _ = Describe("Plugin", func() {
 				testutil.ExpectContent(resp, "test.proto").ToContain("string key = 1;")
 			})
 
-			It("Should map timestamp to int64", func() {
-				source := `
-					@go output "core/pkg/api/grpc/v1"
-					@pb
-
-					Test struct {
-						created_at timestamp
-					}
-				`
-				resp := testutil.MustGenerate(ctx, source, "test", loader, p)
-				testutil.ExpectContent(resp, "test.proto").ToContain("int64 created_at = 1;")
-			})
-
 			It("Should map json to google.protobuf.Struct", func() {
 				source := `
 					@go output "core/pkg/api/grpc/v1"

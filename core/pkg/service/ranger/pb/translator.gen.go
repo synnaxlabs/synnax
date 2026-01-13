@@ -14,30 +14,38 @@ package pb
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/telem"
+	telempb "github.com/synnaxlabs/x/telem/pb"
 	"github.com/synnaxlabs/x/uuid"
 )
 
 // RangeToPB converts Range to Range.
-func RangeToPB(_ context.Context, r ranger.Range) (*Range, error) {
+func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
+	timeRangeVal, err := telempb.TimeRangeToPB(ctx, r.TimeRange)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Range{
 		Key:       r.Key.String(),
 		Name:      r.Name,
-		TimeRange: telem.TranslateTimeRangeForward(r.TimeRange),
 		Color:     r.Color,
+		TimeRange: timeRangeVal,
 	}
 	return pb, nil
 }
 
 // RangeFromPB converts Range to Range.
-func RangeFromPB(_ context.Context, pb *Range) (ranger.Range, error) {
+func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 	var r ranger.Range
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	r.TimeRange, err = telempb.TimeRangeFromPB(ctx, pb.TimeRange)
+	if err != nil {
+		return r, err
+	}
 	r.Key = ranger.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.TimeRange = telem.TranslateTimeRangeBackward(pb.TimeRange)
 	r.Color = pb.Color
 	return r, nil
 }

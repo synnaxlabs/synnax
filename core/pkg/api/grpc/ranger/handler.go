@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	pb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/uuid"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -68,32 +67,46 @@ var (
 )
 
 func (t createRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	r apiranger.CreateRequest,
 ) (*CreateRequest, error) {
-	return &CreateRequest{Ranges: translateRangesForward(r.Ranges)}, nil
+	ranges, err := pb.RangesToPB(ctx, r.Ranges)
+	if err != nil {
+		return nil, err
+	}
+	return &CreateRequest{Ranges: ranges}, nil
 }
 
 func (t createRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	r *CreateRequest,
 ) (apiranger.CreateRequest, error) {
-	ranges, err := translateRangesBackward(r.Ranges)
+	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
+	if err != nil {
+		return apiranger.CreateRequest{}, nil
+	}
 	return apiranger.CreateRequest{Ranges: ranges}, err
 }
 
 func (t createResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	r apiranger.CreateResponse,
 ) (*CreateResponse, error) {
-	return &CreateResponse{Ranges: translateRangesForward(r.Ranges)}, nil
+	ranges, err := pb.RangesToPB(ctx, r.Ranges)
+	if err != nil {
+		return nil, err
+	}
+	return &CreateResponse{Ranges: ranges}, nil
 }
 
 func (t createResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	r *CreateResponse,
 ) (apiranger.CreateResponse, error) {
-	ranges, err := translateRangesBackward(r.Ranges)
+	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
+	if err != nil {
+		return apiranger.CreateResponse{}, nil
+	}
 	return apiranger.CreateResponse{Ranges: ranges}, err
 }
 
@@ -124,17 +137,24 @@ func (t retrieveRequestTranslator) Backward(
 }
 
 func (t retrieveResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	r apiranger.RetrieveResponse,
 ) (*RetrieveResponse, error) {
-	return &RetrieveResponse{Ranges: translateRangesForward(r.Ranges)}, nil
+	ranges, err := pb.RangesToPB(ctx, r.Ranges)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveResponse{Ranges: ranges}, nil
 }
 
 func (t retrieveResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	r *RetrieveResponse,
 ) (apiranger.RetrieveResponse, error) {
-	ranges, err := translateRangesBackward(r.Ranges)
+	ranges, err := pb.RangesFromPB(ctx, r.Ranges)
+	if err != nil {
+		return apiranger.RetrieveResponse{}, nil
+	}
 	return apiranger.RetrieveResponse{Ranges: ranges}, err
 }
 
@@ -183,46 +203,6 @@ func (t renameRequestTranslator) Backward(
 		Key:  key,
 		Name: r.Name,
 	}, err
-}
-
-func translateRangeForward(r apiranger.Range) *pb.Range {
-	return &pb.Range{
-		Key:       r.Key.String(),
-		Name:      r.Name,
-		TimeRange: telem.TranslateTimeRangeForward(r.TimeRange),
-	}
-}
-
-func translateRangesForward(r []apiranger.Range) []*pb.Range {
-	ranges := make([]*pb.Range, len(r))
-	for i := range r {
-		ranges[i] = translateRangeForward(r[i])
-	}
-	return ranges
-}
-
-func translateRangeBackward(r *pb.Range) (or apiranger.Range, err error) {
-	if r.Key != "" {
-		or.Key, err = uuid.Parse(r.Key)
-		if err != nil {
-			return apiranger.Range{}, err
-		}
-	}
-	or.Name = r.Name
-	or.TimeRange = telem.TranslateTimeRangeBackward(r.TimeRange)
-	return
-}
-
-func translateRangesBackward(r []*pb.Range) ([]apiranger.Range, error) {
-	ranges := make([]apiranger.Range, len(r))
-	var err error
-	for i := range r {
-		ranges[i], err = translateRangeBackward(r[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return ranges, nil
 }
 
 func New(a *api.Transport) fgrpc.BindableTransport {

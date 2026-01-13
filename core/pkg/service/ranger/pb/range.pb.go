@@ -18,7 +18,7 @@
 package pb
 
 import (
-	telem "github.com/synnaxlabs/x/telem"
+	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -37,7 +37,7 @@ type Range struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	TimeRange     *telem.PBTimeRange     `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
+	TimeRange     *pb.TimeRange          `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
 	Color         string                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -87,7 +87,7 @@ func (x *Range) GetName() string {
 	return ""
 }
 
-func (x *Range) GetTimeRange() *telem.PBTimeRange {
+func (x *Range) GetTimeRange() *pb.TimeRange {
 	if x != nil {
 		return x.TimeRange
 	}
@@ -105,12 +105,12 @@ var File_core_pkg_service_ranger_pb_range_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ranger_pb_range_proto_rawDesc = "" +
 	"\n" +
-	"&core/pkg/service/ranger/pb/range.proto\x12\x10service.range.pb\x1a\x16x/go/telem/telem.proto\"v\n" +
+	"&core/pkg/service/ranger/pb/range.proto\x12\x10service.range.pb\x1a\x19x/go/telem/pb/telem.proto\"y\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x121\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
-	"time_range\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\ttimeRange\x12\x14\n" +
+	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x14\n" +
 	"\x05color\x18\x04 \x01(\tR\x05colorB\xb8\x01\n" +
 	"\x14com.service.range.pbB\n" +
 	"RangeProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/ranger/pb\xa2\x02\x03SRP\xaa\x02\x10Service.Range.Pb\xca\x02\x10Service\\Range\\Pb\xe2\x02\x1cService\\Range\\Pb\\GPBMetadata\xea\x02\x12Service::Range::Pbb\x06proto3"
@@ -129,11 +129,11 @@ func file_core_pkg_service_ranger_pb_range_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_ranger_pb_range_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_ranger_pb_range_proto_goTypes = []any{
-	(*Range)(nil),             // 0: service.range.pb.Range
-	(*telem.PBTimeRange)(nil), // 1: telem.PBTimeRange
+	(*Range)(nil),        // 0: service.range.pb.Range
+	(*pb.TimeRange)(nil), // 1: x.telem.pb.TimeRange
 }
 var file_core_pkg_service_ranger_pb_range_proto_depIdxs = []int32{
-	1, // 0: service.range.pb.Range.time_range:type_name -> telem.PBTimeRange
+	1, // 0: service.range.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
