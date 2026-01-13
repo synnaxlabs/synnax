@@ -71,7 +71,7 @@ Acquisition::Acquisition(
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
 /// back to now().
 telem::TimeStamp resolve_start(const telem::Frame &frame) {
-    auto min_timestamp = telem::TimeStamp::MAX();
+    auto min_timestamp = telem::TimeStamp::max();
     for (size_t i = 0; i < frame.size(); i++) {
         const auto &series = frame.series->at(i);
         if (series.data_type() == telem::TIMESTAMP_T && series.size() > 0) {
@@ -79,7 +79,7 @@ telem::TimeStamp resolve_start(const telem::Frame &frame) {
             if (ts < min_timestamp) min_timestamp = ts;
         }
     }
-    if (min_timestamp < telem::TimeStamp::MAX()) return min_timestamp;
+    if (min_timestamp < telem::TimeStamp::max()) return min_timestamp;
     return telem::TimeStamp::now();
 }
 

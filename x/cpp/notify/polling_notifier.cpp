@@ -35,7 +35,7 @@ public:
         if (timeout == telem::TimeSpan::ZERO()) return false;
 
         const auto start = std::chrono::steady_clock::now();
-        const bool indefinite = (timeout == telem::TimeSpan::MAX());
+        const bool indefinite = (timeout == telem::TimeSpan::max());
 
         while (true) {
             std::this_thread::sleep_for(std::chrono::microseconds(POLL_INTERVAL_US));

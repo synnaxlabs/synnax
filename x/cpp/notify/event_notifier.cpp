@@ -48,7 +48,7 @@ public:
 
     bool wait(const telem::TimeSpan timeout) override {
         DWORD timeout_ms;
-        if (timeout == telem::TimeSpan::MAX()) {
+        if (timeout == telem::TimeSpan::max()) {
             timeout_ms = INFINITE;
         } else {
             const auto ms = timeout.milliseconds();

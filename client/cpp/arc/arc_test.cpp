@@ -136,7 +136,10 @@ TEST(TestArc, testDeleteMany) {
     std::vector<std::string> keys = {arcs[0].key, arcs[1].key};
     ASSERT_NIL(client.arcs.delete_arc(keys));
 
-    auto retrieved = ASSERT_OCCURRED_AS_P(client.arcs.retrieve_by_keys(keys), xerrors::NOT_FOUND);
+    auto retrieved = ASSERT_OCCURRED_AS_P(
+        client.arcs.retrieve_by_keys(keys),
+        xerrors::NOT_FOUND
+    );
 }
 
 /// @brief it should handle the module field correctly.

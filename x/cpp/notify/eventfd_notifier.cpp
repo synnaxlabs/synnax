@@ -42,7 +42,7 @@ public:
 
     bool wait(const telem::TimeSpan timeout) override {
         pollfd pfd = {this->event_fd, POLLIN, 0};
-        const int timeout_ms = (timeout == telem::TimeSpan::MAX())
+        const int timeout_ms = (timeout == telem::TimeSpan::max())
                                  ? -1
                                  : static_cast<int>(timeout.milliseconds());
 
