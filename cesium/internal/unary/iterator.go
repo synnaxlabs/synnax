@@ -54,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var errIteratorClosed = resource.NewErrClosed("unary.iterator")
+var errIteratorClosed = resource.NewClosedError("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
@@ -366,7 +366,7 @@ func (i *Iterator) Len() int64 { return i.frame.Len() }
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
 func (i *Iterator) Error() error {
-	wrap := channel.NewErrWrapper(i.Channel)
+	wrap := channel.NewErrorWrapper(i.Channel)
 	return wrap(i.err)
 }
 
@@ -384,7 +384,7 @@ func (i *Iterator) Close() (err error) {
 		return nil
 	}
 	i.closed = true
-	wrap := channel.NewErrWrapper(i.Channel)
+	wrap := channel.NewErrorWrapper(i.Channel)
 	return wrap(i.internal.Close())
 }
 

@@ -20,7 +20,7 @@ import (
 var _ = Describe("Errors", func() {
 	Describe("NewErrNotFound", func() {
 		It("Should return an error with the correct message", func() {
-			err := channel.NewErrNotFound(1)
+			err := channel.NewNotFoundError(1)
 			Expect(err).To(HaveOccurredAs(channel.ErrNotFound))
 			Expect(err).To(MatchError(ContainSubstring("channel with key 1 not found")))
 		})
@@ -29,12 +29,12 @@ var _ = Describe("Errors", func() {
 	Describe("NewErrWrapper", func() {
 		It("Should return an error with the correct message", func() {
 			ch := channel.Channel{Key: 1, Name: "foo"}
-			err := channel.NewErrWrapper(ch)(errors.Newf("bad error"))
+			err := channel.NewErrorWrapper(ch)(errors.Newf("bad error"))
 			Expect(err).To(MatchError(ContainSubstring("channel [foo]<1>: bad error")))
 		})
 		It("Should return nil if the error is nil", func() {
 			ch := channel.Channel{Key: 1, Name: "foo"}
-			err := channel.NewErrWrapper(ch)(nil)
+			err := channel.NewErrorWrapper(ch)(nil)
 			Expect(err).To(BeNil())
 		})
 	})

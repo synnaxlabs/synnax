@@ -27,9 +27,7 @@ type Writer struct {
 	closeErr  error
 }
 
-const unexpectedSteamClosure = "unexpected early closure of response stream"
-
-var errWriterClosed = resource.NewErrClosed("cesium.writer")
+var errWriterClosed = resource.NewClosedError("cesium.writer")
 
 func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 	sCtx, cancel := signal.Isolated()
@@ -51,7 +49,7 @@ func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 }
 
 func (w *Writer) Write(frame Frame) (authorized bool, err error) {
-	res, err := w.exec(WriterRequest{Frame: frame, Command: WriterWrite}, *w.cfg.Sync)
+	res, err := w.exec(WriterRequest{Frame: frame, Command: WriterCommandWrite}, *w.cfg.Sync)
 	if err != nil {
 		return false, err
 	}
@@ -60,13 +58,13 @@ func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
-	res, err := w.exec(WriterRequest{Command: WriterCommit}, true)
+	res, err := w.exec(WriterRequest{Command: WriterCommandCommit}, true)
 	return res.End, err
 }
 
 // SetAuthority is synchronous
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
-	_, err := w.exec(WriterRequest{Config: cfg, Command: WriterSetAuthority}, true)
+	_, err := w.exec(WriterRequest{Config: cfg, Command: WriterCommandSetAuthority}, true)
 	return err
 }
 

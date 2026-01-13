@@ -46,9 +46,9 @@ type (
 
 const AutoSpan = cesium.AutoSpan
 const (
-	WriterPersistStream = cesium.WriterPersistStream
-	WriterPersistOnly   = cesium.WriterPersistOnly
-	WriterStreamOnly    = cesium.WriterStreamOnly
+	WriterPersistStream = cesium.WriterModePersistStream
+	WriterPersistOnly   = cesium.WriterModePersistOnly
+	WriterStreamOnly    = cesium.WriterModeStreamOnly
 )
 
 type Config struct {

@@ -32,15 +32,15 @@ import (
 type WriterCommand uint8
 
 const (
-	// WriterWrite represents a call to Writer.Write.
-	WriterWrite WriterCommand = iota + 1
-	// WriterCommit represents a call to Writer.Commit.
-	WriterCommit
-	// WriterSetAuthority represents a call to Writer.SetAuthority.
-	WriterSetAuthority
+	// WriterCommandWrite represents a call to Writer.Write.
+	WriterCommandWrite WriterCommand = iota + 1
+	// WriterCommandCommit represents a call to Writer.Commit.
+	WriterCommandCommit
+	// WriterCommandSetAuthority represents a call to Writer.SetAuthority.
+	WriterCommandSetAuthority
 )
 
-var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterWrite, WriterSetAuthority)
+var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrite, WriterCommandSetAuthority)
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
@@ -48,8 +48,7 @@ type WriterRequest struct {
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
-	// Config is used for updating the parameters in WriterSetAuthority and
-	// WriterSetMode.
+	// Config is used for updating the parameters in WriterCommandSetAuthority.
 	Config WriterConfig
 	// SeqNum is used to match the request with the response. The sequence number should
 	// be incremented with each request.
@@ -151,11 +150,11 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEn
 	if err = validateWriterCommand(req.Command); err != nil {
 		return 0, err
 	}
-	if req.Command == WriterSetAuthority {
+	if req.Command == WriterCommandSetAuthority {
 		err = w.setAuthority(ctx, req.Config)
 		return
 	}
-	if req.Command == WriterCommit {
+	if req.Command == WriterCommandCommit {
 		commitEnd, err = w.commit(ctx)
 		return
 	}
@@ -220,7 +219,7 @@ func (w *streamWriter) maybeSendRes(
 		res.Authorized = false
 	}
 	res.Err = w.accumulatedErr
-	if res.Err == nil && req.Command == WriterWrite && !*w.Sync {
+	if res.Err == nil && req.Command == WriterCommandWrite && !*w.Sync {
 		return nil
 	}
 	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)

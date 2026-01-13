@@ -661,7 +661,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(db.Close()).To(Succeed())
-					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(resource.NewErrClosed("domain.db")))
+					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
 				})
 			})
 		})

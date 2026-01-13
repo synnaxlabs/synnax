@@ -32,7 +32,7 @@ type (
 )
 
 var (
-	errDBClosed          = resource.NewErrClosed("cesium.db")
+	errDBClosed          = resource.NewClosedError("cesium.db")
 	ErrChannelNotFound   = channel.ErrNotFound
 	ZeroLeadingAlignment = alignment.ZeroLeading
 )

@@ -78,7 +78,7 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	if vOk {
 		return vCh.Channel(), nil
 	}
-	return Channel{}, channel.NewErrNotFound(key)
+	return Channel{}, channel.NewNotFoundError(key)
 }
 
 // RenameChannels finds the specified keys in the database and renames them to the new
@@ -132,7 +132,7 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 		return nil
 	}
 
-	return channel.NewErrNotFound(key)
+	return channel.NewNotFoundError(key)
 }
 
 func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
@@ -153,7 +153,7 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	ch.Version = version.Current
+	ch.Version = version.VersionCurrent
 	err = db.openVirtualOrUnary(ctx, ch)
 	return err
 }

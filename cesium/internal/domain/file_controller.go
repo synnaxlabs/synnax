@@ -396,7 +396,7 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 
 	if w, ok := fc.writers.open[fileKey]; ok {
 		if !w.tryAcquire() {
-			return newErrResourceInUse("writer", fileKey)
+			return newResourceInUseError("writer", fileKey)
 		}
 		if err := w.TrackedWriteCloser.Close(); err != nil {
 			return err
@@ -441,7 +441,7 @@ func (fc *fileController) close() error {
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {
-				return newErrResourceInUse("writer", w.fileKey)
+				return newResourceInUseError("writer", w.fileKey)
 			}
 			return w.HardClose()
 		})
@@ -451,7 +451,7 @@ func (fc *fileController) close() error {
 		for _, r := range f.open {
 			c.Exec(func() error {
 				if !r.tryAcquire() {
-					return newErrResourceInUse("reader", r.fileKey)
+					return newResourceInUseError("reader", r.fileKey)
 				}
 				return r.HardClose()
 			})

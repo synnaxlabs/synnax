@@ -128,7 +128,7 @@ var _ = Describe("Write", func() {
 				t = MustSucceed(w.Close())
 				Expect(t.Occurred()).To(BeTrue())
 				_, err := w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))
-				Expect(err).To(HaveOccurredAs(resource.NewErrClosed("virtual.writer")))
+				Expect(err).To(HaveOccurredAs(resource.NewClosedError("virtual.writer")))
 			})
 
 		})

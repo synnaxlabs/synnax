@@ -51,7 +51,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = resource.NewErrClosed("domain.writer")
+	errWriterClosed     = resource.NewClosedError("domain.writer")
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -161,7 +161,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	}
 	if db.idx.overlap(cfg.Domain()) {
 		return nil, errors.Wrap(
-			NewErrRangeWriteConflict(cfg.Domain(), db.idx.timeRange()),
+			NewRangeWriteConflictError(cfg.Domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}

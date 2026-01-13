@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = resource.NewErrClosed("virtual.writer")
+var errWriterClosed = resource.NewClosedError("virtual.writer")
 
 type WriterConfig struct {
 	Subject               xcontrol.Subject

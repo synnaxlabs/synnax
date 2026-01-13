@@ -30,15 +30,15 @@ import (
 type WriterMode uint8
 
 // Persist returns true if the current mode should persist data.
-func (mode WriterMode) Persist() bool { return mode != WriterStreamOnly }
+func (mode WriterMode) Persist() bool { return mode != WriterModeStreamOnly }
 
 // Stream returns true if the current mode should stream data.
-func (mode WriterMode) Stream() bool { return mode != WriterPersistOnly }
+func (mode WriterMode) Stream() bool { return mode != WriterModePersistOnly }
 
 const (
-	WriterPersistStream = iota + 1
-	WriterPersistOnly
-	WriterStreamOnly
+	WriterModePersistStream WriterMode = iota + 1
+	WriterModePersistOnly
+	WriterModeStreamOnly
 )
 
 // WriterConfig sets the configuration used to open a new writer on the DB.
@@ -106,7 +106,7 @@ func DefaultWriterConfig() WriterConfig {
 		ControlSubject:           xcontrol.Subject{Key: uuid.New().String()},
 		Authorities:              []xcontrol.Authority{xcontrol.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
-		Mode:                     WriterPersistStream,
+		Mode:                     WriterModePersistStream,
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
@@ -223,7 +223,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		u, isUnary := db.mu.unaryDBs[key]
 		v, isVirtual := db.mu.virtualDBs[key]
 		if !isVirtual && !isUnary {
-			return nil, channel.NewErrNotFound(key)
+			return nil, channel.NewNotFoundError(key)
 		}
 		var (
 			auth     = cfg.authority(i)
@@ -335,7 +335,7 @@ func (db *DB) openDomainIdxWriter(
 ) (*idxWriter, error) {
 	u, ok := db.mu.unaryDBs[idxKey]
 	if !ok {
-		return nil, channel.NewErrNotFound(idxKey)
+		return nil, channel.NewNotFoundError(idxKey)
 	}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.ch = u.Channel()
