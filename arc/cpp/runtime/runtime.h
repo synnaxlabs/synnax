@@ -144,6 +144,8 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
 
     std::vector<types::ChannelKey> keys;
     keys.reserve(reads.size() + writes.size());
+    keys.insert(keys.end(), reads.begin(), reads.end());
+    keys.insert(keys.end(), writes.begin(), writes.end());
     auto [digests, state_err] = cfg.retrieve_channels(keys);
     if (state_err) return {nullptr, state_err};
     for (const auto &d: digests) {
