@@ -268,8 +268,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
-    auto [devices, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
     EXPECT_EQ(devices[0].status.message, "Server connected");
@@ -302,8 +301,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
 
     // Step 1: Server is running (started in SetUp) - health should be good
     {
-        auto [devices, err] = scanner.scan(scan_ctx);
-        ASSERT_NIL(err);
+        auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
         EXPECT_EQ(devices[0].status.message, "Server connected");
@@ -317,8 +315,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     opc::Scanner scanner2(ctx, task, fresh_conn_pool);
 
     {
-        auto [devices, err] = scanner2.scan(scan_ctx);
-        ASSERT_NIL(err);
+        auto devices = ASSERT_NIL_P(scanner2.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
         EXPECT_EQ(devices[0].status.variant, status::variant::WARNING);
@@ -351,8 +348,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     opc::Scanner scanner3(ctx, task, fresh_conn_pool);
 
     {
-        auto [devices, err] = scanner3.scan(scan_ctx);
-        ASSERT_NIL(err);
+        auto devices = ASSERT_NIL_P(scanner3.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
         EXPECT_EQ(devices[0].status.message, "Server connected");

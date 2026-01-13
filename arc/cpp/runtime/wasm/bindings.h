@@ -22,37 +22,19 @@
 
 namespace arc::runtime::wasm {
 
-/// Runtime provides the actual implementation of Arc runtime functions.
-/// This is the "business logic" layer that the bindings call.
+/// Bindings provides the WASM-to-C++ bridge for Arc runtime functions.
+/// This is a thin wrapper that translates WASM calls to the central State object.
+/// All state storage is managed by state::State - this class only handles:
+/// - WASM memory access (for reading string literals from WASM memory)
+/// - Type conversions between WASM and C++ types
+/// - Routing calls to the appropriate State methods
 class Bindings {
-    [[maybe_unused]] state::State *state;
+    std::shared_ptr<state::State> state;
     wasmtime::Store *store;
     wasmtime::Memory *memory;
 
-    std::unordered_map<uint32_t, std::string> strings;
-    uint32_t string_handle_counter;
-    std::unordered_map<uint32_t, telem::Series> series;
-    uint32_t series_handle_counter;
-
-    std::unordered_map<uint64_t, uint8_t> state_u8;
-    std::unordered_map<uint64_t, uint16_t> state_u16;
-    std::unordered_map<uint64_t, uint32_t> state_u32;
-    std::unordered_map<uint64_t, uint64_t> state_u64;
-    std::unordered_map<uint64_t, int8_t> state_i8;
-    std::unordered_map<uint64_t, int16_t> state_i16;
-    std::unordered_map<uint64_t, int32_t> state_i32;
-    std::unordered_map<uint64_t, int64_t> state_i64;
-    std::unordered_map<uint64_t, float> state_f32;
-    std::unordered_map<uint64_t, double> state_f64;
-    std::unordered_map<uint64_t, std::string> state_string;
-    std::unordered_map<uint64_t, telem::Series> state_series;
-
-    static uint64_t state_key(const uint32_t func_id, const uint32_t var_id) {
-        return static_cast<uint64_t>(func_id) << 32 | static_cast<uint64_t>(var_id);
-    }
-
 public:
-    Bindings(state::State *state, wasmtime::Store *store);
+    Bindings(const std::shared_ptr<state::State> &state, wasmtime::Store *store);
 
 /// Channel operations use semantic C++ types. The MethodWrapper in bindings.cpp
 /// automatically converts to WASM-compatible types (i32, i64, f32, f64) at the
@@ -170,6 +152,8 @@ public:
 
     void set_memory(wasmtime::Memory *mem) { this->memory = mem; }
 
+    void set_store(wasmtime::Store *store) { this->store = store; }
+
     static uint64_t now();
     uint64_t len(uint32_t handle);
     void panic(uint32_t ptr, uint32_t len);
@@ -198,18 +182,13 @@ public:
     /// @brief Creates a string handle from a C++ string (for testing)
     uint32_t string_create(const std::string &str);
     /// @brief Gets the string value for a handle (for testing)
-    std::string string_get(uint32_t handle);
-
-    /// @brief Clears transient string and series handles at the end of each execution
-    /// cycle. This resets the handle counters and clears the temporary storage maps.
-    /// Stateful variables (state_* maps) are NOT cleared as they must persist across
-    /// cycles.
-    void clear_transient_handles();
+    std::string string_get(uint32_t handle) const;
 };
 
 /// @brief create import vector with all registered host functions for Wasmtime.
 /// Must be called before instance creation.
 /// Returns vector of Extern objects that should be passed to Instance::create().
-std::vector<wasmtime::Extern> create_imports(wasmtime::Store &store, Bindings *runtime);
+std::vector<wasmtime::Extern>
+create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime);
 
 }

@@ -439,6 +439,30 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
 /// @return The first element of the pair (the result value) if successful
 #define ASSERT_NIL_P(pair_expr) xtest::assert_nil_p((pair_expr), __FILE__, __LINE__)
 
+/// @brief Helper function for ASSERT_OCCURRED_AS_P macro
+/// @tparam Pair The pair type (automatically deduced)
+/// @param pair_result The pair to check
+/// @param expected The expected error
+/// @param file The source file name
+/// @param line The source line number
+/// @return The first element of the pair (the result value) if error matches
+template<typename Pair>
+auto assert_occurred_as_p(
+    Pair &&pair_result,
+    const xerrors::Error &expected,
+    const char *file,
+    const int line
+) -> typename std::remove_reference<decltype(pair_result.first)>::type {
+    if (!pair_result.second) {
+        ADD_FAILURE_AT(file, line) << "Expected operation to fail with error "
+                                   << expected << ", but it succeeded";
+    } else if (!pair_result.second.matches(expected)) {
+        ADD_FAILURE_AT(file, line) << "Expected error to match " << expected
+                                   << ", but got " << pair_result.second;
+    }
+    return std::move(pair_result.first);
+}
+
 /// @brief macro asserting that the provided xerrors::Error is NIL.
 #define ASSERT_NIL(expr) ASSERT_FALSE(expr) << expr;
 
@@ -449,10 +473,12 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
     ASSERT_MATCHES(expr, err);
 
 /// @brief macro asserting that the error return as the second item in the pair is the
-/// same as the provided error.
-#define ASSERT_OCCURRED_AS_P(expr, err)                                                \
-    ASSERT_TRUE(expr.second) << expr.second;                                           \
-    ASSERT_MATCHES(expr.second, err);
+/// same as the provided error and returning the result value
+/// @param pair_expr The expression returning the pair to evaluate
+/// @param err The expected error
+/// @return The first element of the pair (the result value) if error matches
+#define ASSERT_OCCURRED_AS_P(pair_expr, err)                                           \
+    xtest::assert_occurred_as_p((pair_expr), (err), __FILE__, __LINE__)
 
 /// @brief macro asserting that the provided error matches the expeced err via a call
 /// to err.matches(expect).

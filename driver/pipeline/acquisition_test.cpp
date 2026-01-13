@@ -234,3 +234,133 @@ TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
     );
     ASSERT_FALSE(pipeline.stop());
 }
+
+/// @brief MockSource that returns frames with multiple timestamp series
+class MultiTimestampSource final : public pipeline::Source {
+public:
+    std::vector<telem::TimeStamp> timestamps;
+    xerrors::Error read_err = xerrors::NIL;
+
+    explicit MultiTimestampSource(
+        std::vector<telem::TimeStamp> timestamps,
+        const xerrors::Error &read_err = xerrors::NIL
+    ):
+        timestamps(std::move(timestamps)), read_err(read_err) {}
+
+    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+        if (read_err != xerrors::NIL) return read_err;
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        fr.clear();
+
+        for (size_t i = 0; i < timestamps.size(); i++) {
+            fr.emplace(i + 1, telem::Series(timestamps[i]));
+        }
+
+        return xerrors::NIL;
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {}
+};
+
+/// @brief MockSource that returns frames with non-timestamp data
+class NonTimestampSource final : public pipeline::Source {
+public:
+    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        fr.clear();
+        fr.emplace(1, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+        return xerrors::NIL;
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {}
+};
+
+/// @brief MockSource that returns frames with empty timestamp series
+class EmptyTimestampSource final : public pipeline::Source {
+public:
+    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+        std::this_thread::sleep_for(std::chrono::microseconds(100));
+        fr.clear();
+        fr.emplace(1, telem::Series(telem::TIMESTAMP_T, 0));
+        return xerrors::NIL;
+    }
+
+    void stopped_with_err(const xerrors::Error &err) override {}
+};
+
+/// @brief it should resolve the minimum timestamp when multiple timestamp series exist
+TEST(AcquisitionPipeline, testStartResolutionMultipleTimestamps) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    auto ts1 = telem::TimeStamp(1000000000);
+    auto ts2 = telem::TimeStamp(2000000000);
+    auto ts3 = telem::TimeStamp(1500000000);
+
+    const auto source = std::make_shared<MultiTimestampSource>(
+        std::vector{ts2, ts1, ts3}
+    );
+
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 5);
+    ASSERT_TRUE(pipeline.stop());
+
+    ASSERT_EQ(mock_factory->config.start, ts1);
+}
+
+/// @brief it should fall back to now() when no timestamp series exist
+TEST(AcquisitionPipeline, testStartResolutionNoTimestamps) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    auto before = telem::TimeStamp::now();
+    const auto source = std::make_shared<NonTimestampSource>();
+
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 5);
+    ASSERT_TRUE(pipeline.stop());
+
+    auto after = telem::TimeStamp::now();
+
+    ASSERT_GE(mock_factory->config.start, before);
+    ASSERT_LE(mock_factory->config.start, after);
+}
+
+/// @brief it should ignore empty timestamp series and fall back to now()
+TEST(AcquisitionPipeline, testStartResolutionEmptyTimestamps) {
+    auto writes = std::make_shared<std::vector<telem::Frame>>();
+    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+
+    auto before = telem::TimeStamp::now();
+    const auto source = std::make_shared<EmptyTimestampSource>();
+
+    auto pipeline = pipeline::Acquisition(
+        mock_factory,
+        synnax::WriterConfig(),
+        source,
+        breaker::Config()
+    );
+
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_GE(writes->size(), 5);
+    ASSERT_TRUE(pipeline.stop());
+
+    auto after = telem::TimeStamp::now();
+
+    ASSERT_GE(mock_factory->config.start, before);
+    ASSERT_LE(mock_factory->config.start, after);
+}
