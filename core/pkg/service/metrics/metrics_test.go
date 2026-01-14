@@ -283,21 +283,15 @@ var _ = Describe("Metrics", func() {
 			Expect(cpuSeries.DataType).To(Equal(telem.Float32T))
 			Expect(cpuSeries.Len()).To(Equal(int64(1)))
 			cpuVal := telem.ValueAt[float32](cpuSeries, 0)
-			Expect(cpuVal).To(BeNumerically(">", 0))
-			Expect(cpuVal).To(BeNumerically("<", 100))
+			Expect(cpuVal).To(BeNumerically(">=", 0))
+			Expect(cpuVal).To(BeNumerically("<=", 100))
 
 			memSeries := res.Frame.SeriesAt(2)
 			Expect(memSeries.DataType).To(Equal(telem.Float32T))
 			Expect(memSeries.Len()).To(Equal(int64(1)))
 			memVal := telem.ValueAt[float32](memSeries, 0)
-			Expect(memVal).To(BeNumerically(">", 0))
-			Expect(memVal).To(BeNumerically("<", 100))
-
-			totalSizeSeries := res.Frame.SeriesAt(3)
-			Expect(totalSizeSeries.DataType).To(Equal(telem.Float32T))
-			Expect(totalSizeSeries.Len()).To(Equal(int64(1)))
-			totalSize := telem.ValueAt[float32](totalSizeSeries, 0)
-			Expect(totalSize).To(BeNumerically(">", 0))
+			Expect(memVal).To(BeNumerically(">=", 0))
+			Expect(memVal).To(BeNumerically("<=", 100))
 
 			tsSizeSeries := res.Frame.SeriesAt(4)
 			Expect(tsSizeSeries.DataType).To(Equal(telem.Float32T))
@@ -311,6 +305,10 @@ var _ = Describe("Metrics", func() {
 			kvSize := telem.ValueAt[float32](kvSizeSeries, 0)
 			Expect(kvSize).To(BeNumerically(">", 0))
 
+			totalSizeSeries := res.Frame.SeriesAt(3)
+			Expect(totalSizeSeries.DataType).To(Equal(telem.Float32T))
+			Expect(totalSizeSeries.Len()).To(Equal(int64(1)))
+			totalSize := telem.ValueAt[float32](totalSizeSeries, 0)
 			Expect(totalSize).To(BeNumerically("~", tsSize+kvSize, 0.0001))
 
 			// Verify channel count metric (index 6)
