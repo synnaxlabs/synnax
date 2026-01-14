@@ -16,12 +16,13 @@ dependencies = [
 [project.scripts]
 test-conductor = "framework.test_conductor:main"
 tc = "framework.test_conductor:main"
+console-pprof = "scripts.console_pprof:main"
 
 [dependency-groups]
 dev = ["black>=25.12.0", "isort>=7.0.0", "mypy>=1.19.0", "vermin>=1.8.0"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["driver", "framework", "tests"]
+packages = ["console", "driver", "framework", "scripts", "tests"]
 
 [tool.isort]
 profile = "black"
