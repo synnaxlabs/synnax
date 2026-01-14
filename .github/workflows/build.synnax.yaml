@@ -223,7 +223,9 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver
-        run: rustup update
+        run: |
+          rustup update
+          rustup default stable
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
@@ -539,15 +541,6 @@ jobs:
         if: inputs.core && inputs.upload_to_release
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
-
-      - name: Debug Build Environment
-        if: failure() && matrix.os != 'windows-build-bot'
-        run: integration/scripts/debug_build_environment_unix.sh
-
-      - name: Debug Build Environment (Windows)
-        if: failure() && matrix.os == 'windows-build-bot'
-        shell: cmd
-        run: integration/scripts/DebugBuildEnvironmentWindows.cmd
 
   docker:
     name: Build Docker Image
