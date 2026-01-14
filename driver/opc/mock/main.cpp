@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
     if (argc > 1) {
         try {
             port = static_cast<std::uint16_t>(std::stoi(argv[1]));
-        } catch (const std::exception &e) {
+        } catch (const std::exception &) {
             std::cerr << "Invalid port number: " << argv[1] << std::endl;
             return 1;
         }
