@@ -32,10 +32,18 @@ const (
 
 var AllActions = []Action{ActionCreate, ActionRetrieve, ActionUpdate, ActionDelete}
 
+type Source string
+
+const (
+	SourceConsole Source = "Console"
+	SourcePluto   Source = "Pluto"
+	SourceDriver  Source = "Driver"
+)
+
 // Request represents an access control request to be evaluated by an Enforcer. Not all
 // fields are required for each access control operation. For instance, a TimeRange will
-// only be required for data read/write operations, while Properties will only be required
-// for update operations.
+// only be required for data read/write operations, while Properties will only be
+// required for update operations.
 type Request struct {
 	// Subject is the entity (typically a user) making the request.
 	Subject ontology.ID
@@ -47,9 +55,8 @@ type Request struct {
 	TimeRange telem.TimeRange
 	// Properties is the list of properties being modified (for update operations).
 	Properties []string
-	// Source identifies the type of client making the request (e.g., "console", "pluto",
-	// "driver").
-	Source string
+	// Source identifies the type of client making the request.
+	Source Source
 }
 
 // Enforcer evaluates access control requests.

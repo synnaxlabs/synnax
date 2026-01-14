@@ -27,19 +27,19 @@ const OntologyType ontology.Type = "channel"
 
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
-func OntologyID(k Key) ontology.ID {
+func (k Key) OntologyID() ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
+func (c Channel) OntologyID() ontology.ID { return c.Key().OntologyID() }
+
 // OntologyIDs returns the ontology.ID for each key.
 func (k Keys) OntologyIDs() []ontology.ID {
-	return lo.Map(k, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(k, func(key Key, _ int) ontology.ID { return key.OntologyID() })
 }
 
 func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
-	return lo.Map(chs, func(item Channel, _ int) ontology.ID {
-		return OntologyID(item.Key())
-	})
+	return lo.Map(chs, func(ch Channel, _ int) ontology.ID { return ch.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -70,7 +70,7 @@ func ToPayload(c Channel) map[string]any {
 }
 
 func newResource(c Channel) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
+	return ontology.NewResource(schema, c.OntologyID(), c.Name, ToPayload(c))
 }
 
 var _ ontology.Service = (*Service)(nil)
@@ -98,7 +98,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 func translateChange(ch change) ontology.Change {
 	return ontology.Change{
 		Variant: ch.Variant,
-		Key:     OntologyID(ch.Key),
+		Key:     ch.Key.OntologyID(),
 		Value:   newResource(ch.Value),
 	}
 }

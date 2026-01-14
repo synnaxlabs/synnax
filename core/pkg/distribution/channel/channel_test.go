@@ -56,15 +56,6 @@ var _ = Describe("Channel Tests", func() {
 				Expect(k.Lease()).To(Equal(k.Leaseholder()))
 			})
 		})
-		Describe("OntologyID", func() {
-			It("Should return the ontology Name for the channel", func() {
-				ok := channel.OntologyID(channel.NewKey(cluster.NodeKey(1), 2))
-				Expect(ok).To(Equal(ontology.ID{
-					Type: "channel",
-					Key:  channel.NewKey(cluster.NodeKey(1), 2).String(),
-				}))
-			})
-		})
 		Describe("Free", func() {
 			It("Should return true if the channel is a free channel", func() {
 				k := channel.NewKey(cluster.Free, 1)

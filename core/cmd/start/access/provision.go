@@ -71,7 +71,7 @@ func provisionRole(
 			return uuid.Nil, err
 		}
 		if pol.Key == uuid.Nil {
-			if err := service.Policy.NewWriter(tx, true).Create(ctx, pol); err != nil {
+			if err := service.Policy.NewWriter(tx).Create(ctx, pol); err != nil {
 				return uuid.Nil, err
 			}
 		}
@@ -91,7 +91,7 @@ func provisionRole(
 			return uuid.Nil, err
 		}
 		// Associate all policies with the role
-		if err := service.Policy.NewWriter(tx, true).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
+		if err := service.Policy.NewWriter(tx).SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
 			return uuid.Nil, err
 		}
 	}

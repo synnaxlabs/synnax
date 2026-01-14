@@ -550,7 +550,7 @@ func (lp *leaseProxy) maybeSetResources(
 		return nil
 	}
 	externalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
-		return OntologyID(ch.Key()), !ch.Internal
+		return ch.OntologyID(), !ch.Internal
 	})
 	w := lp.cfg.Ontology.NewWriter(txn)
 	if err := w.DefineManyResources(ctx, externalIds); err != nil {
@@ -664,7 +664,7 @@ func (lp *leaseProxy) maybeDeleteResources(
 	if lp.cfg.Ontology == nil {
 		return nil
 	}
-	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+	ids := keys.OntologyIDs()
 	w := lp.cfg.Ontology.NewWriter(tx)
 	return w.DeleteManyResources(ctx, ids)
 }

@@ -69,7 +69,7 @@ func PolicyTimeRangeChannelRead(channelKey channel.Key, allowedRange telem.TimeR
 		Effect: policy.EffectAllow,
 		Constraint: constraint.Constraint{
 			Kind:     constraint.KindField,
-			Objects:  []ontology.ID{channel.OntologyID(channelKey)},
+			Objects:  []ontology.ID{channelKey.OntologyID()},
 			Actions:  []access.Action{"read_data"},
 			Target:   "request",
 			Field:    []string{"time_range"},

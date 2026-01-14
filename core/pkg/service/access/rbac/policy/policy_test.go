@@ -32,7 +32,7 @@ var _ = Describe("Writer", func() {
 	)
 	BeforeEach(func() {
 		tx = db.OpenTx()
-		w = svc.NewWriter(tx, false)
+		w = svc.NewWriter(tx)
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
@@ -115,11 +115,10 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should create an internal policy when allowInternal is true", func() {
-			internalWriter := svc.NewWriter(tx, true)
+			internalWriter := svc.NewWriter(tx)
 			p := &policy.Policy{
-				Name:     "internal-policy",
-				Effect:   policy.EffectAllow,
-				Internal: true,
+				Name:   "internal-policy",
+				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
@@ -131,9 +130,8 @@ var _ = Describe("Writer", func() {
 
 		It("Should fail to create an internal policy when allowInternal is false", func() {
 			p := &policy.Policy{
-				Name:     "internal-policy",
-				Effect:   policy.EffectAllow,
-				Internal: true,
+				Name:   "internal-policy",
+				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
@@ -265,7 +263,7 @@ var _ = Describe("Retriever", func() {
 	)
 	BeforeEach(func() {
 		tx = db.OpenTx()
-		w = svc.NewWriter(tx, false)
+		w = svc.NewWriter(tx)
 		policies = []policy.Policy{
 			{
 				Name:   "alpha-policy",
@@ -442,20 +440,18 @@ var _ = Describe("Retriever", func() {
 	Describe("WhereInternal", func() {
 		var internalPolicy, regularPolicy policy.Policy
 		BeforeEach(func() {
-			internalWriter := svc.NewWriter(tx, true)
+			internalWriter := svc.NewWriter(tx)
 			internalPolicy = policy.Policy{
-				Name:     "internal-policy",
-				Effect:   policy.EffectAllow,
-				Internal: true,
+				Name:   "internal-policy",
+				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
 			regularPolicy = policy.Policy{
-				Name:     "regular-policy",
-				Effect:   policy.EffectAllow,
-				Internal: false,
+				Name:   "regular-policy",
+				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					Objects: []ontology.ID{{Type: "channel", Key: "ch2"}},
 					Actions: []access.Action{access.ActionRetrieve},
@@ -468,24 +464,16 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve only internal policies", func() {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereInternal(true).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
-			for _, p := range ps {
-				Expect(p.Internal).To(BeTrue())
-			}
 			Expect(ps).To(ContainElement(HaveField("Key", internalPolicy.Key)))
 		})
 
 		It("Should retrieve only non-internal policies", func() {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereInternal(false).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
-			for _, p := range ps {
-				Expect(p.Internal).To(BeFalse())
-			}
 			Expect(ps).To(ContainElement(HaveField("Key", regularPolicy.Key)))
 		})
 	})
@@ -511,7 +499,7 @@ var _ = Describe("Ontology Integration", func() {
 
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a policy as an ontology resource", func() {
-			w := svc.NewWriter(tx, false)
+			w := svc.NewWriter(tx)
 			p := &policy.Policy{
 				Name:   "resource-test",
 				Effect: policy.EffectAllow,
@@ -541,7 +529,7 @@ var _ = Describe("Ontology Integration", func() {
 
 	Describe("OpenNexter", func() {
 		It("Should iterate over all policies", func() {
-			w := svc.NewWriter(tx, false)
+			w := svc.NewWriter(tx)
 			for i := 0; i < 3; i++ {
 				p := &policy.Policy{
 					Name:   "nexter-test",

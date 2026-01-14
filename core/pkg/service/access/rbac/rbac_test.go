@@ -72,7 +72,7 @@ var _ = Describe("Service", func() {
 			obj2         ontology.ID
 		)
 		BeforeEach(func() {
-			policyWriter = svc.Policy.NewWriter(tx, true)
+			policyWriter = svc.Policy.NewWriter(tx)
 			roleWriter = svc.Role.NewWriter(tx, true)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj1 = ontology.ID{Type: "channel", Key: "channel-1"}
@@ -262,7 +262,7 @@ var _ = Describe("Service", func() {
 			subject      ontology.ID
 		)
 		BeforeEach(func() {
-			policyWriter = svc.Policy.NewWriter(tx, true)
+			policyWriter = svc.Policy.NewWriter(tx)
 			roleWriter = svc.Role.NewWriter(tx, true)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
@@ -277,9 +277,8 @@ var _ = Describe("Service", func() {
 			Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
 			p1 := &policy.Policy{
-				Name:     "policy-1",
-				Effect:   policy.EffectAllow,
-				Internal: true,
+				Name:   "policy-1",
+				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: access.AllActions,
@@ -332,7 +331,7 @@ var _ = Describe("Service", func() {
 			enforcer := svc.NewEnforcer(tx)
 			Expect(enforcer).ToNot(BeNil())
 
-			policyWriter := svc.Policy.NewWriter(tx, true)
+			policyWriter := svc.Policy.NewWriter(tx)
 			roleWriter := svc.Role.NewWriter(tx, true)
 			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj := ontology.ID{Type: "channel", Key: "ch1"}

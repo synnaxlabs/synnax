@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -72,10 +71,7 @@ var (
 		Internal:    true,
 	}
 	ownerPolicy = policy.Policy{
-		Name:     ownerRoleName,
-		Objects:  allObjects,
-		Actions:  access.AllActions,
-		Internal: true,
+		Name: ownerRoleName,
 	}
 )
 
@@ -90,40 +86,9 @@ var (
 	engineerPolicies = []policy.Policy{
 		{
 			Name: "Engineer Edit Access",
-			Objects: []ontology.ID{
-				{Type: label.OntologyType},
-				{Type: log.OntologyType},
-				{Type: cluster.OntologyType},
-				{Type: cluster.OntologyTypeNode},
-				{Type: channel.OntologyType},
-				{Type: group.OntologyType},
-				{Type: ranger.OntologyType},
-				{Type: framer.OntologyType},
-				{Type: ranger.OntologyTypeAlias},
-				{Type: workspace.OntologyType},
-				{Type: schematic.OntologyType},
-				{Type: lineplot.OntologyType},
-				{Type: rack.OntologyType},
-				{Type: device.OntologyType},
-				{Type: task.OntologyType},
-				{Type: table.OntologyType},
-				{Type: arc.OntologyType},
-				{Type: symbol.OntologyType},
-				{Type: status.OntologyType},
-				{Type: view.OntologyType},
-			},
-			Actions:  access.AllActions,
-			Internal: true,
 		},
 		{
 			Name: "Engineer View Access",
-			Objects: []ontology.ID{
-				{Type: user.OntologyType},
-				{Type: role.OntologyType},
-				{Type: policy.OntologyType},
-			},
-			Actions:  []access.Action{access.ActionRetrieve},
-			Internal: true,
 		},
 	}
 )
@@ -139,18 +104,9 @@ var (
 	operatorPolicies = []policy.Policy{
 		{
 			Name: "Operator Edit Access",
-			Objects: []ontology.ID{
-				{Type: framer.OntologyType},
-				{Type: ranger.OntologyType},
-			},
-			Actions:  access.AllActions,
-			Internal: true,
 		},
 		{
-			Name:     "Operator View Access",
-			Objects:  allObjects,
-			Actions:  []access.Action{access.ActionRetrieve},
-			Internal: true,
+			Name: "Operator View Access",
 		},
 	}
 )
@@ -164,9 +120,6 @@ var (
 		Internal:    true,
 	}
 	viewerPolicy = policy.Policy{
-		Name:     viewerRoleName,
-		Objects:  allObjects,
-		Actions:  []access.Action{access.ActionRetrieve},
-		Internal: true,
+		Name: viewerRoleName,
 	}
 )

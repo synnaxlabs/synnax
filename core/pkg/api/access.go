@@ -32,8 +32,6 @@ func NewAccessService(p Provider) *AccessService {
 	return &AccessService{internal: p.Service.RBAC, dbProvider: p.db}
 }
 
-const allowInternal = false
-
 type (
 	AccessCreatePolicyRequest struct {
 		Policies []policy.Policy `json:"policies" msgpack:"policies"`
@@ -54,7 +52,7 @@ func (s *AccessService) CreatePolicy(
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Policy.NewWriter(tx, allowInternal)
+		w := s.internal.Policy.NewWriter(tx)
 		for i, p := range req.Policies {
 			if p.Key == uuid.Nil {
 				p.Key = uuid.New()
@@ -100,9 +98,6 @@ func (s *AccessService) RetrievePolicy(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal)
-	}
 	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
@@ -129,7 +124,7 @@ func (s *AccessService) DeletePolicy(ctx context.Context, req AccessDeletePolicy
 		}); err != nil {
 			return err
 		}
-		return s.internal.Policy.NewWriter(tx, allowInternal).Delete(ctx, req.Keys...)
+		return s.internal.Policy.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 
 }
@@ -156,7 +151,7 @@ func (s *AccessService) CreateRole(
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Role.NewWriter(tx, allowInternal)
+		w := s.internal.Role.NewWriter(tx, false)
 		for i, r := range req.Roles {
 			if r.Key == uuid.Nil {
 				r.Key = uuid.New()
@@ -200,9 +195,6 @@ func (s *AccessService) RetrieveRole(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal)
-	}
 	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
 		return AccessRetrieveRoleResponse{}, err
 	}
@@ -234,7 +226,7 @@ func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequ
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Role.NewWriter(tx, allowInternal)
+		w := s.internal.Role.NewWriter(tx, false)
 		for _, key := range req.Keys {
 			if err := w.Delete(ctx, key); err != nil {
 				return err
@@ -262,7 +254,7 @@ func (s *AccessService) AssignRole(
 		}); err != nil {
 			return err
 		}
-		return s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, userID, req.Role)
+		return s.internal.Role.NewWriter(tx, false).AssignRole(ctx, userID, req.Role)
 	})
 }
 
