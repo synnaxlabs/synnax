@@ -85,12 +85,12 @@ genrule(
             # Debug: Find where rust binaries actually are
             echo "===== Rust Binary Location Debug ====="
             echo "HOME=$$HOME"
-            echo "USERPROFILE=$$USERPROFILE"
+            echo "USERPROFILE=$${USERPROFILE:-NOT_SET}"
             echo "PATH=$$PATH"
-            which rustc
-            which cargo
-            rustc --version
-            rustc --print sysroot
+            which rustc || echo "rustc not found in PATH"
+            which cargo || echo "cargo not found in PATH"
+            rustc --version || echo "rustc command failed"
+            rustc --print sysroot || echo "rustc --print sysroot failed"
             echo "======================================="
 
             # Force CMake to use rustup-managed rust binaries, not Chocolatey's
