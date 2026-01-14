@@ -80,7 +80,7 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     cpp.variant = VariantFromPB(pb.variant());
     cpp.message = pb.message();
     cpp.description = pb.description();
-    cpp.time = TimeStamp(pb.time());
+    cpp.time = x::telem::TimeStamp(pb.time());
     if constexpr (std::is_same_v<Details, x::json::json>) {
         {
             auto [val, err] = x::json::from_any(pb.details());

@@ -28,7 +28,7 @@
 
 #include "x/cpp/notify/notify.h"
 
-namespace notify {
+namespace x::notify {
 
 class PipeNotifier final : public Notifier {
     int read_fd = -1;

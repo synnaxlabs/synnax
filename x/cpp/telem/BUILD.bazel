@@ -7,8 +7,11 @@ cc_library(
         "clock_skew.h",
         "control.h",
         "frame.h",
+        "json.gen.h",
+        "proto.gen.h",
         "series.h",
         "telem.h",
+        "types.gen.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -17,7 +20,7 @@ cc_library(
         "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
-        "@protobuf//:protobuf",
+        "@protobuf",
     ],
 )
 

@@ -17,6 +17,7 @@
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/label/proto.gen.h"
+#include "x/cpp/telem/proto.gen.h"
 
 #include "core/pkg/api/ranger/pb/range.pb.h"
 
@@ -40,7 +41,7 @@ Payload::from_proto(const ::api::ranger::pb::Range &pb) {
     cpp.key = pb.key();
     cpp.name = pb.name();
     {
-        auto [val, err] = TimeRangeBounded::from_proto(pb.time_range());
+        auto [val, err] = x::telem::TimeRangeBounded::from_proto(pb.time_range());
         if (err) return {{}, err};
         cpp.time_range = val;
     }

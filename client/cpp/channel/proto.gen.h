@@ -62,7 +62,7 @@ Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
     cpp.reset_channel = ChannelKey(pb.reset_channel());
-    cpp.duration = TimeSpan(pb.duration());
+    cpp.duration = x::telem::TimeSpan(pb.duration());
     return {cpp, x::errors::NIL};
 }
 

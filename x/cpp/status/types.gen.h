@@ -19,6 +19,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/types.gen.h"
+#include "x/cpp/telem/types.gen.h"
 
 #include "x/go/status/pb/status.pb.h"
 
@@ -38,7 +39,7 @@ struct Status {
     std::string variant;
     std::string message;
     std::string description;
-    ::synnax:: ::TimeStamp time = 0;
+    ::x::telem::TimeStamp time = 0;
     Details details;
     std::vector<::x::label::Label> labels;
 

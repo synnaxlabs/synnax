@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/fs/fs.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 namespace x::fs {
 class FSTest : public ::testing::Test {
@@ -111,7 +111,7 @@ TEST_F(FSTest, ReadLargeFile) {
 TEST_F(FSTest, ReadNonExistentFile) {
     auto content = ASSERT_OCCURRED_AS_P(
         fs::read_file(non_existent_file),
-        fs::NOT_FOUND
+        fs::ERR_NOT_FOUND
     );
     ASSERT_TRUE(content.empty());
 }
@@ -157,7 +157,7 @@ TEST_F(FSTest, ReadFileMultipleReads) {
 
 /// @brief it should return a NOT_FOUND error when given an empty path.
 TEST_F(FSTest, ReadFileEmptyPath) {
-    auto content = ASSERT_OCCURRED_AS_P(fs::read_file(""), fs::NOT_FOUND);
+    auto content = ASSERT_OCCURRED_AS_P(fs::read_file(""), fs::ERR_NOT_FOUND);
     ASSERT_TRUE(content.empty());
 }
 

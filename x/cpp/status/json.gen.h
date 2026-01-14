@@ -18,6 +18,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/status/types.gen.h"
+#include "x/cpp/telem/json.gen.h"
 
 namespace x::status {
 
@@ -29,7 +30,7 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
         .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),
         .description = parser.field<std::string>("description", ""),
-        .time = parser.field<TimeStamp>("time"),
+        .time = parser.field<x::telem::TimeStamp>("time"),
         .details = parser.field<Details>("details"),
         .labels = parser.field<std::vector<x::label::Label>>("labels"),
     };

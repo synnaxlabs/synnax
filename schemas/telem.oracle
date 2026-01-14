@@ -7,24 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@go output "x/go/telem"
-@ts output "x/ts/src/telem"
+@go output  "x/go/telem"
+@ts output  "x/ts/src/telem"
+@cpp output "x/cpp/telem"
 @pb
 
 TimeStamp int64 {
     @ts omit
+    @cpp omit
 }
 
 TimeSpan int64 {
     @ts omit
+    @cpp omit
 }
 
 Rate float64 {
     @ts omit
+    @cpp omit
 }
 
 Size int64 {
     @ts omit
+    @cpp omit
 }
 
 TimeRange struct {
@@ -32,12 +37,15 @@ TimeRange struct {
     End   TimeStamp
 
     @ts omit
+    @cpp omit
 }
 
 TimeRangeBounded = TimeRange {
     @ts omit
+    @cpp omit
 }
 
 DataType string {
     @ts omit
+    @cpp omit
 }

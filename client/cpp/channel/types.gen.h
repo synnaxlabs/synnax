@@ -17,6 +17,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
 
@@ -36,7 +37,7 @@ using Name = std::string;
 struct Operation {
     std::string type;
     ChannelKey reset_channel = 0;
-    ::synnax:: ::TimeSpan duration = 0;
+    ::x::telem::TimeSpan duration = 0;
 
     static Operation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

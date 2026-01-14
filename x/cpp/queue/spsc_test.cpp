@@ -210,4 +210,3 @@ TEST(SPSCQueueTest, LockFreeStressTest) {
     EXPECT_TRUE(queue.empty());
 }
 }
-}
