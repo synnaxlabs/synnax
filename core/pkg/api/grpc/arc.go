@@ -27,6 +27,7 @@ import (
 	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -449,7 +450,8 @@ func translateParamsToPB(p arctypes.Params) ([]*arctypes.PBParam, error) {
 		}
 		// Translate Value if present
 		if param.Value != nil {
-			val, err := structpb.NewValue(param.Value)
+			v := unwrapTelemValue(param.Value)
+			val, err := structpb.NewValue(v)
 			if err != nil {
 				return nil, err
 			}
@@ -497,6 +499,9 @@ func translateTypeToPB(t arctypes.Type) (*arctypes.PBType, error) {
 		}
 		typePb.Elem = elemPb
 	}
+	if t.Unit != nil {
+		typePb.Unit = translateUnitToPB(*t.Unit)
+	}
 	return typePb, nil
 }
 
@@ -513,11 +518,14 @@ func translateTypeFromPB(pb *arctypes.PBType) (arctypes.Type, error) {
 		}
 		typ.Elem = &elem
 	}
+	if pb.Unit != nil {
+		typ.Unit = translateUnitFromPB(pb.Unit)
+	}
 	return typ, nil
 }
 
-// translateTypeKindToPB converts arctypes.TypeKind to arctypes.PBKind
-func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
+// translateTypeKindToPB converts arctypes.Kind to arctypes.PBKind
+func translateTypeKindToPB(k arctypes.Kind) arctypes.PBKind {
 	switch k {
 	case arctypes.KindInvalid:
 		return arctypes.PBKind_PB_KIND_UNSPECIFIED
@@ -543,10 +551,6 @@ func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
 		return arctypes.PBKind_PB_KIND_F64
 	case arctypes.KindString:
 		return arctypes.PBKind_PB_KIND_STRING
-	case arctypes.KindTimeStamp:
-		return arctypes.PBKind_PB_KIND_TIMESTAMP
-	case arctypes.KindTimeSpan:
-		return arctypes.PBKind_PB_KIND_TIMESPAN
 	case arctypes.KindChan:
 		return arctypes.PBKind_PB_KIND_CHAN
 	case arctypes.KindSeries:
@@ -556,8 +560,8 @@ func translateTypeKindToPB(k arctypes.TypeKind) arctypes.PBKind {
 	}
 }
 
-// translateTypeKindFromPB converts arctypes.PBKind to arctypes.TypeKind
-func translateTypeKindFromPB(k arctypes.PBKind) arctypes.TypeKind {
+// translateTypeKindFromPB converts arctypes.PBKind to arctypes.Kind
+func translateTypeKindFromPB(k arctypes.PBKind) arctypes.Kind {
 	switch k {
 	case arctypes.PBKind_PB_KIND_UNSPECIFIED:
 		return arctypes.KindInvalid
@@ -583,16 +587,64 @@ func translateTypeKindFromPB(k arctypes.PBKind) arctypes.TypeKind {
 		return arctypes.KindF64
 	case arctypes.PBKind_PB_KIND_STRING:
 		return arctypes.KindString
-	case arctypes.PBKind_PB_KIND_TIMESTAMP:
-		return arctypes.KindTimeStamp
-	case arctypes.PBKind_PB_KIND_TIMESPAN:
-		return arctypes.KindTimeSpan
 	case arctypes.PBKind_PB_KIND_CHAN:
 		return arctypes.KindChan
 	case arctypes.PBKind_PB_KIND_SERIES:
 		return arctypes.KindSeries
 	default:
 		return arctypes.KindInvalid
+	}
+}
+
+// translateUnitToPB converts arctypes.Unit to *arctypes.PBUnit
+func translateUnitToPB(u arctypes.Unit) *arctypes.PBUnit {
+	return &arctypes.PBUnit{
+		Dimensions: translateDimensionsToPB(u.Dimensions),
+		Scale:      u.Scale,
+		Name:       u.Name,
+	}
+}
+
+// translateUnitFromPB converts *arctypes.PBUnit to *arctypes.Unit
+func translateUnitFromPB(pb *arctypes.PBUnit) *arctypes.Unit {
+	if pb == nil {
+		return nil
+	}
+	return &arctypes.Unit{
+		Dimensions: translateDimensionsFromPB(pb.Dimensions),
+		Scale:      pb.Scale,
+		Name:       pb.Name,
+	}
+}
+
+// translateDimensionsToPB converts arctypes.Dimensions to *arctypes.PBDimensions
+func translateDimensionsToPB(d arctypes.Dimensions) *arctypes.PBDimensions {
+	return &arctypes.PBDimensions{
+		Length:      int32(d.Length),
+		Mass:        int32(d.Mass),
+		Time:        int32(d.Time),
+		Current:     int32(d.Current),
+		Temperature: int32(d.Temperature),
+		Angle:       int32(d.Angle),
+		Count:       int32(d.Count),
+		Data:        int32(d.Data),
+	}
+}
+
+// translateDimensionsFromPB converts *arctypes.PBDimensions to arctypes.Dimensions
+func translateDimensionsFromPB(pb *arctypes.PBDimensions) arctypes.Dimensions {
+	if pb == nil {
+		return arctypes.Dimensions{}
+	}
+	return arctypes.Dimensions{
+		Length:      int8(pb.Length),
+		Mass:        int8(pb.Mass),
+		Time:        int8(pb.Time),
+		Current:     int8(pb.Current),
+		Temperature: int8(pb.Temperature),
+		Angle:       int8(pb.Angle),
+		Count:       int8(pb.Count),
+		Data:        int8(pb.Data),
 	}
 }
 
@@ -898,9 +950,14 @@ func translateSequenceFromPB(pb *arcir.PBSequence) arcir.Sequence {
 
 // translateStageToPB converts ir.Stage to *arcir.PBStage
 func translateStageToPB(s arcir.Stage) *arcir.PBStage {
+	strataPb := make([]*arcir.PBStratum, len(s.Strata))
+	for i, stratum := range s.Strata {
+		strataPb[i] = &arcir.PBStratum{Nodes: stratum}
+	}
 	return &arcir.PBStage{
-		Key:   s.Key,
-		Nodes: s.Nodes,
+		Key:    s.Key,
+		Nodes:  s.Nodes,
+		Strata: strataPb,
 	}
 }
 
@@ -909,9 +966,14 @@ func translateStageFromPB(pb *arcir.PBStage) arcir.Stage {
 	if pb == nil {
 		return arcir.Stage{}
 	}
+	strata := make(arcir.Strata, len(pb.Strata))
+	for i, stratumPb := range pb.Strata {
+		strata[i] = stratumPb.Nodes
+	}
 	return arcir.Stage{
-		Key:   pb.Key,
-		Nodes: pb.Nodes,
+		Key:    pb.Key,
+		Nodes:  pb.Nodes,
+		Strata: strata,
 	}
 }
 
@@ -935,4 +997,15 @@ func newArc(a *api.Transport) fgrpc.CompoundBindableTransport {
 	a.ArcRetrieve = r
 	a.ArcDelete = d
 	return []fgrpc.BindableTransport{c, r, d}
+}
+
+func unwrapTelemValue(v any) any {
+	switch t := v.(type) {
+	case telem.TimeSpan:
+		return int64(t)
+	case telem.TimeStamp:
+		return int64(t)
+	default:
+		return v
+	}
 }

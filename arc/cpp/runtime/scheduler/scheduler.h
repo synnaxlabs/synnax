@@ -15,236 +15,192 @@
 #include <unordered_set>
 #include <vector>
 
+#include "glog/logging.h"
+
 #include "x/cpp/xerrors/errors.h"
 
+#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
 
 namespace arc::runtime::scheduler {
-
-struct StageRef {
-    std::string sequence;
-    std::string stage;
-
-    bool operator==(const StageRef &other) const {
-        return sequence == other.sequence && stage == other.stage;
-    }
-
-    struct Hasher {
-        size_t operator()(const StageRef &ref) const {
-            const size_t h1 = std::hash<std::string>()(ref.sequence);
-            const size_t h2 = std::hash<std::string>()(ref.stage);
-            return h1 ^ (h2 << 1);
-        }
-    };
-};
-
+/// @brief Reactive scheduler that executes nodes based on stratified dependencies.
 class Scheduler {
-    ir::Strata strata;
-    std::unordered_set<std::string> changed;
-
-    struct NodeState {
-        std::string key;
+    /// @brief State for a single node including its implementation and edges.
+    struct Node {
+        /// @brief Outgoing edges keyed by output parameter name.
+        std::unordered_map<std::string, std::vector<ir::Edge>> output_edges;
+        /// @brief The node implementation.
         std::unique_ptr<node::Node> node;
-        std::vector<ir::Edge> output_edges;
     };
-    std::unordered_map<std::string, NodeState> nodes;
-    NodeState *current_state;
-    node::Context ctx;
 
-    std::unordered_map<std::string, ir::Sequence> sequences_by_key;
-    std::unordered_map<std::string, std::string> active_stages;
-    std::unordered_set<std::string> just_activated;
-    std::unordered_map<StageRef, std::vector<std::string>, StageRef::Hasher>
-        stage_to_nodes;
-    std::unordered_map<std::string, StageRef> node_to_stage;
-    std::unordered_map<std::string, StageRef> entry_node_targets;
-    std::unordered_map<std::string, std::unordered_set<ir::Edge, ir::Edge::Hasher>>
-        fired_one_shots;
+    /// @brief State for a single stage within a sequence.
+    struct Stage {
+        /// @brief Stratified node keys defining execution order.
+        ir::Strata strata;
+        /// @brief One-shot edges that have already fired in this stage activation.
+        std::unordered_set<ir::Edge> fired_one_shots;
+    };
 
-    void mark_changed(const std::string &param) {
-        for (const auto &edge: this->current_state->output_edges) {
-            if (edge.source.param != param) continue;
-            if (edge.kind == ir::EdgeKind::OneShot) {
-                if (!this->current_state->node->is_output_truthy(edge.source.param))
-                    continue;
-                std::string seq_name;
-                if (auto it = this->node_to_stage.find(current_state->key);
-                    it != this->node_to_stage.end())
-                    seq_name = it->second.sequence;
-                auto &fired_set = this->fired_one_shots[seq_name];
-                if (fired_set.contains(edge)) continue;
-                fired_set.insert(edge);
-            }
-            this->changed.insert(edge.target.node);
-        }
-    }
+    /// @brief State for a sequence of stages.
+    struct Sequence {
+        /// @brief Ordered list of stages in this sequence.
+        std::vector<Stage> stages;
+        /// @brief Index of the currently active stage, or npos if none.
+        size_t active_stage_idx = std::string::npos;
+    };
 
-    void activate_stage_by_node(const std::string &node_key) {
-        if (const auto it = this->entry_node_targets.find(node_key);
-            it != this->entry_node_targets.end()) {
-            activate_stage(it->second.sequence, it->second.stage);
-            return;
-        }
-        if (const auto it = this->node_to_stage.find(node_key);
-            it != this->node_to_stage.end())
-            activate_stage(it->second.sequence, it->second.stage);
-    }
+    // Graph structure (immutable after construction)
 
-    [[nodiscard]] bool should_execute_node(const std::string &node_key) const {
-        if (this->stage_to_nodes.empty()) return true;
-        const auto it = this->node_to_stage.find(node_key);
-        if (it == this->node_to_stage.end()) return true;
-        const auto stage_it = this->active_stages.find(it->second.sequence);
-        if (stage_it == this->active_stages.end()) return false;
-        return stage_it->second == it->second.stage;
-    }
+    /// @brief All nodes keyed by their unique identifier.
+    std::unordered_map<std::string, Node> nodes;
+    /// @brief Stratified node keys for global (non-sequence) execution.
+    ir::Strata global_strata;
+    /// @brief All sequences in the program.
+    std::vector<Sequence> sequences;
+    /// @brief Maps entry node keys to their target (sequence_idx, stage_idx).
+    std::unordered_map<std::string, std::pair<std::size_t, std::size_t>> transitions;
+    /// @brief Maximum iterations for stage convergence loop.
+    size_t max_convergence_iterations = 0;
 
-    void check_terminal_stages() {
-        std::vector<std::string> to_deactivate;
-        for (const auto &[seq_name, stage_name]: active_stages) {
-            if (this->just_activated.contains(seq_name)) continue;
-            auto seq_it = this->sequences_by_key.find(seq_name);
-            if (seq_it == this->sequences_by_key.end()) continue;
-            if (seq_it->second.next_stage(stage_name) != nullptr) continue;
-            if (stage_has_unfired_one_shots(seq_name, stage_name)) continue;
-            to_deactivate.push_back(seq_name);
-        }
-        for (const auto &seq_name: to_deactivate)
-            deactivate_sequence(seq_name);
-    }
+    // Execution state (changes during next()) ─────────────────
 
-    [[nodiscard]] bool stage_has_unfired_one_shots(
-        const std::string &seq_name,
-        const std::string &stage_name
-    ) const {
-        const StageRef ref{seq_name, stage_name};
-        const auto stage_it = this->stage_to_nodes.find(ref);
-        if (stage_it == this->stage_to_nodes.end()) return false;
-
-        const auto fired_it = this->fired_one_shots.find(seq_name);
-        const std::unordered_set<ir::Edge, ir::Edge::Hasher>
-            *fired_set = (fired_it != this->fired_one_shots.end()) ? &fired_it->second
-                                                                   : nullptr;
-
-        for (const auto &node_key: stage_it->second) {
-            auto node_it = this->nodes.find(node_key);
-            if (node_it == this->nodes.end()) continue;
-            for (const auto &edge: node_it->second.output_edges) {
-                if (edge.kind != ir::EdgeKind::OneShot) continue;
-                if (fired_set == nullptr || !fired_set->contains(edge)) return true;
-            }
-        }
-        return false;
-    }
+    /// @brief Context passed to nodes during execution.
+    node::Context ctx = node::Context{
+        .mark_changed = std::bind_front(&Scheduler::mark_changed, this),
+        .report_error = std::bind_front(&Scheduler::report_error),
+        .activate_stage = std::bind_front(&Scheduler::transition_stage, this),
+    };
+    /// @brief Set of node keys that need execution in the current stratum pass.
+    std::unordered_set<std::string> changed;
+    /// @brief One-shot edges that have fired in global strata (never reset).
+    std::unordered_set<ir::Edge> global_fired_one_shots;
+    /// @brief Key of the currently executing node.
+    std::string curr_node_key;
+    /// @brief Index of the currently executing sequence, or npos if global.
+    size_t curr_seq_idx = std::string::npos;
+    /// @brief Index of the currently executing stage, or npos if none.
+    size_t curr_stage_idx = std::string::npos;
 
 public:
+    /// @brief Constructs a scheduler from an IR program and node implementations.
     Scheduler(
         const ir::IR &prog,
-        std::unordered_map<std::string, std::unique_ptr<node::Node>> &nodes
-    ):
-        strata(prog.strata), current_state(nullptr) {
-        for (auto &[key, node]: nodes)
-            this->nodes[key] = NodeState{
-                .key = key,
+        std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls
+    ) {
+        for (auto &[key, node]: node_impls)
+            this->nodes[key] = Node{
+                .output_edges = prog.edges_from(key),
                 .node = std::move(node),
-                .output_edges = prog.outgoing_edges(key)
             };
-
-        this->ctx = node::Context{
-            .mark_changed =
-                [&](const std::string &param) { this->mark_changed(param); },
-            .report_error = [&](const xerrors::Error &) {},
-            .activate_stage = [&](
-                                  const std::string &node_key
-                              ) { this->activate_stage_by_node(node_key); }
-        };
-
-        load_sequences(prog.sequences);
-    }
-
-    void load_sequences(const std::vector<ir::Sequence> &seqs) {
-        for (const auto &seq: seqs) {
-            this->sequences_by_key[seq.key] = seq;
-            for (const auto &stage: seq.stages) {
-                const StageRef ref{seq.key, stage.key};
-                this->stage_to_nodes[ref] = stage.nodes;
-                for (const auto &node_key: stage.nodes)
-                    this->node_to_stage[node_key] = ref;
-                this->entry_node_targets["entry_" + seq.key + "_" + stage.key] = ref;
+        this->global_strata = prog.strata;
+        this->sequences.resize(prog.sequences.size());
+        for (size_t i = 0; i < prog.sequences.size(); i++) {
+            const auto &seq_ir = prog.sequences[i];
+            auto &seq = this->sequences[i];
+            seq.stages.resize(seq_ir.stages.size());
+            this->max_convergence_iterations += seq_ir.stages.size();
+            for (size_t j = 0; j < seq_ir.stages.size(); j++) {
+                const auto &stage_ir = seq_ir.stages[j];
+                auto &stage = seq.stages[j];
+                stage.strata = stage_ir.strata;
+                const auto entry_key = "entry_" + seq_ir.key + "_" + stage_ir.key;
+                this->transitions[entry_key] = {i, j};
             }
         }
     }
 
-    void activate_stage(const std::string &seq, const std::string &stage) {
-        this->active_stages[seq] = stage;
-        this->just_activated.insert(seq);
-        reset_stage_nodes(seq, stage);
-        mark_stage_nodes_changed(seq, stage);
-    }
+    // Make Scheduler non-movable to prevent dangling 'this' in callbacks
+    Scheduler(Scheduler &&) = delete;
+    Scheduler &operator=(Scheduler &&) = delete;
+    Scheduler(const Scheduler &) = delete;
+    Scheduler &operator=(const Scheduler &) = delete;
 
-    void mark_stage_nodes_changed(
-        const std::string &seq_name,
-        const std::string &stage_name
-    ) {
-        const StageRef ref{seq_name, stage_name};
-        const auto it = this->stage_to_nodes.find(ref);
-        if (it == this->stage_to_nodes.end()) return;
-        for (const auto &node_key: it->second)
-            this->changed.insert(node_key);
-    }
-
-    void deactivate_sequence(const std::string &seq_name) {
-        this->active_stages.erase(seq_name);
-        this->fired_one_shots.erase(seq_name);
-    }
-
-    void reset_stage_nodes(const std::string &seq_name, const std::string &stage_name) {
-        this->fired_one_shots.erase(seq_name);
-        const StageRef ref{seq_name, stage_name};
-        const auto it = this->stage_to_nodes.find(ref);
-        if (it == this->stage_to_nodes.end()) return;
-        for (const auto &node_key: it->second) {
-            if (auto node_it = nodes.find(node_key); node_it != nodes.end())
-                node_it->second.node->reset();
-        }
-    }
-
-    [[nodiscard]] std::vector<std::string> get_active_sequences() const {
-        std::vector<std::string> seqs;
-        seqs.reserve(this->active_stages.size());
-        for (const auto &seq: this->active_stages | std::views::keys)
-            seqs.push_back(seq);
-        return seqs;
-    }
-
-    [[nodiscard]] std::string get_active_stage_for(const std::string &seq_name) const {
-        const auto it = this->active_stages.find(seq_name);
-        return it != this->active_stages.end() ? it->second : "";
-    }
-
-    [[nodiscard]] bool is_sequence_active(const std::string &seq_name) const {
-        return this->active_stages.contains(seq_name);
-    }
-
+    /// @brief Advances the scheduler by executing global and stage strata.
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
-        this->just_activated.clear();
+        // Reset execution context for global strata (no active sequence/stage)
+        this->curr_seq_idx = std::string::npos;
+        this->curr_stage_idx = std::string::npos;
+        this->execute_strata(this->global_strata);
+        this->exec_stages();
+    }
 
-        bool first = true;
-        for (const auto &stratum: this->strata.strata) {
-            for (const auto &node_key: stratum) {
-                if (!should_execute_node(node_key)) continue;
-                if (first || this->changed.contains(node_key)) {
-                    auto it = this->nodes.find(node_key);
-                    if (it == this->nodes.end()) continue;
-                    this->current_state = &it->second;
-                    this->current_state->node->next(this->ctx);
-                }
-            }
-            first = false;
-        }
+private:
+    /// @brief Returns the NodeState for the currently executing node.
+    Node &curr_node() { return this->nodes[this->curr_node_key]; }
+
+    /// @brief Returns the StageState for the currently executing stage.
+    Stage &curr_stage() {
+        return this->sequences[this->curr_seq_idx].stages[this->curr_stage_idx];
+    }
+
+    /// @brief Executes all strata, propagating changes between them.
+    void execute_strata(const ir::Strata &strata) {
         this->changed.clear();
-        check_terminal_stages();
+        bool first_stratum = true;
+        for (const auto &stratum: strata) {
+            for (const auto &key: stratum)
+                if (first_stratum || this->changed.contains(key)) {
+                    this->curr_node_key = key;
+                    this->curr_node().node->next(this->ctx);
+                }
+            first_stratum = false;
+        }
+    }
+
+    /// @brief Executes active stages across all sequences until convergence.
+    void exec_stages() {
+        for (size_t iter = 0; iter < this->max_convergence_iterations; iter++) {
+            bool stable = true;
+            for (this->curr_seq_idx = 0; this->curr_seq_idx < this->sequences.size();
+                 this->curr_seq_idx++) {
+                auto &seq = this->sequences[this->curr_seq_idx];
+                if (seq.active_stage_idx == std::string::npos) continue;
+                this->curr_stage_idx = seq.active_stage_idx;
+                this->execute_strata(seq.stages[this->curr_stage_idx].strata);
+                if (seq.active_stage_idx != this->curr_stage_idx) stable = false;
+            }
+            if (stable) break;
+        }
+    }
+
+    /// @brief Logs an error reported by a node.
+    static void report_error(const xerrors::Error &e) {
+        LOG(ERROR) << "[arc] node encountered error: " << e;
+    }
+
+    /// @brief Marks downstream nodes as changed based on edge propagation rules.
+    void mark_changed(const std::string &param) {
+        for (const auto &edge: this->curr_node().output_edges[param])
+            if (edge.kind == ir::EdgeKind::Continuous)
+                this->changed.insert(edge.target.node);
+            else if (this->curr_node().node->is_output_truthy(param)) {
+                // One-shot edge: fire only once per stage (or once ever in global)
+                auto &fired_set = this->curr_stage_idx == std::string::npos
+                                    ? this->global_fired_one_shots
+                                    : this->curr_stage().fired_one_shots;
+                if (fired_set.insert(edge).second)
+                    this->changed.insert(edge.target.node);
+            }
+    }
+
+    /// @brief Resets all nodes in a strata to their initial state.
+    void reset_strata(const ir::Strata &strata) {
+        for (const auto &stratum: strata)
+            for (const auto &key: stratum)
+                this->nodes[key].node->reset();
+    }
+
+    /// @brief Transitions to a new stage, deactivating the current one.
+    void transition_stage() {
+        if (this->curr_seq_idx != std::string::npos)
+            this->sequences[this->curr_seq_idx].active_stage_idx = std::string::npos;
+        const auto [target_seq_idx, target_stage_idx] = this->transitions
+                                                            [this->curr_node_key];
+        auto &target = this->sequences[target_seq_idx].stages[target_stage_idx];
+        target.fired_one_shots.clear();
+        this->reset_strata(target.strata);
+        this->sequences[target_seq_idx].active_stage_idx = target_stage_idx;
     }
 };
 }

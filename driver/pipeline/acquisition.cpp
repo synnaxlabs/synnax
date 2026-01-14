@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <thread>
 
+#include "glog/logging.h"
 #include "nlohmann/json.hpp"
 
 #include "driver/errors/errors.h"
@@ -68,13 +69,17 @@ Acquisition::Acquisition(
 
 /// @brief attempts to resolve the start timestamp for the writer from a series in
 /// the frame with a timestamp data type. If that can't be found, resolveStart falls
-/// back to the
+/// back to now().
 telem::TimeStamp resolve_start(const telem::Frame &frame) {
-    for (size_t i = 0; i < frame.size(); i++)
-        if (frame.series->at(i).data_type() == telem::TIMESTAMP_T) {
-            const auto ts = frame.series->at(i).at<int64_t>(0);
-            if (ts != 0) return telem::TimeStamp(ts);
+    auto min_timestamp = telem::TimeStamp::max();
+    for (size_t i = 0; i < frame.size(); i++) {
+        const auto &series = frame.series->at(i);
+        if (series.data_type() == telem::TIMESTAMP_T && series.size() > 0) {
+            const auto ts = series.at<telem::TimeStamp>(0);
+            if (ts < min_timestamp) min_timestamp = ts;
         }
+    }
+    if (min_timestamp < telem::TimeStamp::max()) return min_timestamp;
     return telem::TimeStamp::now();
 }
 

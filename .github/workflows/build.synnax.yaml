@@ -209,10 +209,9 @@ jobs:
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on macOS
-        # Dependencies should already be installed on the machine.
-        # This is nominally a no-op, but exists as a fallback and for documentation.
-        if: matrix.os == 'macos-build-bot'
-        run: brew install autoconf automake libtool 2>/dev/null
+        # TODO: Revert to: if: matrix.os == 'macos-build-bot' with run: brew install autoconf automake libtool 2>/dev/null
+        if: matrix.os == 'macos-latest'
+        run: brew install autoconf automake libtool
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -224,7 +223,9 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver
-        run: rustup update
+        run: |
+          rustup update
+          rustup default stable
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
@@ -235,7 +236,7 @@ jobs:
             --config=opt-windows //driver
 
       - name: Build Driver (macOS)
-        if: inputs.driver && matrix.os == 'macos-build-bot'
+        if: inputs.driver && matrix.os == 'macos-latest'
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix --config=hide_symbols //driver
@@ -279,7 +280,7 @@ jobs:
             --config=opt-unix --config=hide_symbols //driver
 
       - name: Import Apple Developer Certificate
-        if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && matrix.os == 'macos-latest'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -300,7 +301,7 @@ jobs:
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
       - name: Sign macOS Driver Binary
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-latest'
         run: |
           cat > driver-entitlements.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -319,7 +320,7 @@ jobs:
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Notarize macOS Driver Binary
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-latest'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -471,7 +472,7 @@ jobs:
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Server Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-latest'
         working-directory: core
         run: |
           cat > server-entitlements.plist << 'EOF'
@@ -493,7 +494,7 @@ jobs:
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
       - name: Notarize macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
+        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-latest'
         working-directory: core
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -540,15 +541,6 @@ jobs:
         if: inputs.core && inputs.upload_to_release
         run: |
           gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
-
-      - name: Debug Build Environment
-        if: failure() && matrix.os != 'windows-build-bot'
-        run: integration/scripts/debug_build_environment_unix.sh
-
-      - name: Debug Build Environment (Windows)
-        if: failure() && matrix.os == 'windows-build-bot'
-        shell: cmd
-        run: integration/scripts/DebugBuildEnvironmentWindows.cmd
 
   docker:
     name: Build Docker Image

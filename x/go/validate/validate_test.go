@@ -95,6 +95,55 @@ var _ = Describe("Validate", func() {
 					Expect(v.Error()).To(HaveOccurred())
 				})
 			})
+
+			Describe("Filtering", func() {
+				It("Should validate numbers greater than threshold", func() {
+					Expect(validate.GreaterThan(v, "field", 10, 5)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				})
+
+				It("Should catch numbers less than or equal to threshold", func() {
+					Expect(validate.GreaterThan(v, "field", 5, 5)).To(BeTrue())
+					Expect(v.Error()).To(HaveOccurred())
+				})
+			})
+
+			Describe("InBounds", func() {
+				It("Should validate values within bounds", func() {
+					Expect(validate.InBounds(v, "field", 5, 1, 10)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				})
+
+				It("Should accept values at lower bound (inclusive)", func() {
+					Expect(validate.InBounds(v, "field", 1, 1, 10)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				})
+
+				It("Should reject values at upper bound (exclusive)", func() {
+					Expect(validate.InBounds(v, "field", 10, 1, 10)).To(BeTrue())
+					Expect(v.Error()).To(HaveOccurred())
+				})
+
+				It("Should reject values below lower bound", func() {
+					Expect(validate.InBounds(v, "field", 0, 1, 10)).To(BeTrue())
+					Expect(v.Error()).To(HaveOccurred())
+				})
+
+				It("Should reject values above upper bound", func() {
+					Expect(validate.InBounds(v, "field", 11, 1, 10)).To(BeTrue())
+					Expect(v.Error()).To(HaveOccurred())
+				})
+
+				It("Should work with float values", func() {
+					Expect(validate.InBounds(v, "field", 5.5, 1.0, 10.0)).To(BeFalse())
+					Expect(v.Error()).NotTo(HaveOccurred())
+				})
+
+				It("Should include bounds in error message", func() {
+					validate.InBounds(v, "field", 0, 1, 10)
+					Expect(v.Error().Error()).To(ContainSubstring("[1, 10)"))
+				})
+			})
 		})
 
 		Describe("Collection Validations", func() {
