@@ -122,7 +122,7 @@ struct Loop {
     ///         - notifier.fd() returns -1 (no file descriptor)
     ///         - Platform doesn't support multiplexed watching (Windows, Polling)
     ///         - Registration failed (logged as ERROR)
-    virtual bool watch(notify::Notifier &notifier) = 0;
+    virtual bool watch(x::notify::Notifier &notifier) = 0;
 };
 
 /// @brief Creates a platform-specific loop implementation.

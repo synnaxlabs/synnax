@@ -413,16 +413,16 @@ State create_minimal_state() {
 TEST(StateTest, ClearReads_PreservesLatestSeries) {
     State s = create_minimal_state();
 
-    auto series1 = x::telem::Series(telem::FLOAT32_T, 3);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 3);
     series1.write(1.0f);
     series1.write(2.0f);
     series1.write(3.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
 
-    auto series2 = x::telem::Series(telem::FLOAT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(4.0f);
     series2.write(5.0f);
-    s.ingest(telem::Frame(10, std::move(series2)));
+    s.ingest(x::telem::Frame(10, std::move(series2)));
 
     auto [data_before, ok_before] = s.read_channel(10);
     ASSERT_TRUE(ok_before);
@@ -441,16 +441,16 @@ TEST(StateTest, ClearReads_PreservesLatestSeries) {
 TEST(StateTest, ClearReads_PreservesMultipleChannels) {
     State s = create_minimal_state();
 
-    auto series1 = x::telem::Series(telem::FLOAT32_T, 2);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
     series1.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
 
-    auto series2 = x::telem::Series(telem::FLOAT64_T, 3);
+    auto series2 = x::telem::Series(x::telem::FLOAT64_T, 3);
     series2.write(10.0);
     series2.write(20.0);
     series2.write(30.0);
-    s.ingest(telem::Frame(20, std::move(series2)));
+    s.ingest(x::telem::Frame(20, std::move(series2)));
 
     s.flush();
 
@@ -468,16 +468,16 @@ TEST(StateTest, ClearReads_PreservesMultipleChannels) {
 TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
     State s = create_minimal_state();
 
-    auto series1 = x::telem::Series(telem::FLOAT32_T, 2);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series1.write(1.0f);
     series1.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
     s.flush();
 
-    auto series2 = x::telem::Series(telem::FLOAT32_T, 2);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 2);
     series2.write(3.0f);
     series2.write(4.0f);
-    s.ingest(telem::Frame(20, std::move(series2)));
+    s.ingest(x::telem::Frame(20, std::move(series2)));
 
     auto [data10, ok10] = s.read_channel(10);
     ASSERT_TRUE(ok10);
@@ -501,18 +501,18 @@ TEST(StateTest, ClearReads_PreservedDataAvailableNextCycle) {
 TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
     State s = create_minimal_state();
 
-    auto series1 = x::telem::Series(telem::FLOAT32_T, 1);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(100.0f);
-    s.ingest(telem::Frame(10, std::move(series1)));
+    s.ingest(x::telem::Frame(10, std::move(series1)));
     s.flush();
 
     auto [data1, ok1] = s.read_channel(10);
     ASSERT_TRUE(ok1);
     EXPECT_EQ(data1.series[0].at<float>(-1), 100.0f);
 
-    auto series2 = x::telem::Series(telem::FLOAT32_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(200.0f);
-    s.ingest(telem::Frame(10, std::move(series2)));
+    s.ingest(x::telem::Frame(10, std::move(series2)));
     s.flush();
 
     auto [data2, ok2] = s.read_channel(10);
@@ -524,11 +524,11 @@ TEST(StateTest, ClearReads_NewDataOverwritesPreserved) {
 TEST(StateTest, ClearReads_SingleSeriesNoOp) {
     State s = create_minimal_state();
 
-    auto series = x::telem::Series(telem::INT32_T, 3);
+    auto series = x::telem::Series(x::telem::INT32_T, 3);
     series.write(1);
     series.write(2);
     series.write(3);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     s.flush();
 
@@ -554,9 +554,9 @@ TEST(StateTest, ClearReads_EmptyState) {
 TEST(StateTest, ReadChannel_UnknownChannel) {
     State s = create_minimal_state();
 
-    auto series = x::telem::Series(telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     auto [data, ok] = s.read_channel(99);
     ASSERT_FALSE(ok);

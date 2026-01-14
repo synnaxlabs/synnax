@@ -151,7 +151,7 @@ public:
         this->kqueue_timer_enabled_ = false;
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
         if (fd == -1 || this->kqueue_fd_ == -1) return false;
 
