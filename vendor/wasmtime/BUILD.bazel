@@ -114,10 +114,12 @@ genrule(
 
             # Build wasmtime directly with cargo instead of CMake to avoid build script issues
             # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows
+            # Use cargo rustc to explicitly build as staticlib
             cd crates/c-api
-            cargo build --release --target x86_64-pc-windows-msvc \
+            cargo rustc --release --target x86_64-pc-windows-msvc \
                 --no-default-features \
-                --features wat,wasi,async,cranelift,threads
+                --features wat,wasi,async,cranelift,threads \
+                --crate-type staticlib
             cd ../..
 
             # Install headers and library manually
@@ -125,13 +127,13 @@ genrule(
 
             # Debug: List what files were actually created
             echo "===== Cargo build output files ====="
-            ls -la target/x86_64-pc-windows-msvc/release/*.lib 2>/dev/null || echo "No .lib files found"
-            ls -la target/x86_64-pc-windows-msvc/release/*.a 2>/dev/null || echo "No .a files found"
+            ls -la target/x86_64-pc-windows-msvc/release/ | grep -E '\.(lib|a)$$' || echo "No library files found"
             echo "====================================="
 
-            # Copy the library file (cargo produces wasmtime_c_api.lib for the c-api crate)
+            # Copy the library file (cargo produces wasmtime_c_api.lib for staticlib)
             cp target/x86_64-pc-windows-msvc/release/wasmtime_c_api.lib artifacts/lib/wasmtime.lib || \
-                cp target/x86_64-pc-windows-msvc/release/*.lib artifacts/lib/wasmtime.lib
+                cp target/x86_64-pc-windows-msvc/release/*.lib artifacts/lib/wasmtime.lib || \
+                ( ls target/x86_64-pc-windows-msvc/release/ && exit 1 )
             cp include/*.h artifacts/include/
             cp include/*.hh artifacts/include/
             cp -r include/wasmtime artifacts/include/
