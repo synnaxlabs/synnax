@@ -82,6 +82,12 @@ genrule(
             # Build wasmtime for Windows
             cd vendor/wasmtime/wasmtime
 
+            # Force CMake to use rustup-managed rust binaries, not Chocolatey's
+            # Even with PATH prepended, 'which' finds Chocolatey versions in Git Bash
+            # CMake respects these env vars to locate the correct rust installation
+            export RUSTC="$$HOME/.cargo/bin/rustc"
+            export CARGO="$$HOME/.cargo/bin/cargo"
+
             # Clean any cached artifacts from previous builds with wrong target
             # (e.g., x86_64-pc-windows-gnu vs x86_64-pc-windows-msvc)
             rm -rf target/c-api target/x86_64-pc-windows-msvc target/release 2>/dev/null || true
