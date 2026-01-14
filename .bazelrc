@@ -1,5 +1,3 @@
-startup --output_user_root=C:/tmp
-
 # Disable Bzlmod (Bazel Modules)
 # We need the last flag to avoid issues with rules_proto_grpc
 # See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390 for info
