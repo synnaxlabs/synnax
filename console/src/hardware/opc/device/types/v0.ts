@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel as channelAPI, type device } from "@synnaxlabs/client";
+import { channel, type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
-type Version = typeof VERSION;
 
 export const MAKE = "opc";
 export const makeZ = z.literal(MAKE);
@@ -69,11 +68,11 @@ export const propertiesZ = z.object({
   version: z.literal(VERSION),
   connection: connectionConfigZ,
   read: z.object({
-    index: channelAPI.keyZ,
-    channels: z.record(z.string(), channelAPI.keyZ),
+    index: channel.keyZ,
+    channels: z.record(z.string(), channel.keyZ),
   }),
   write: z.object({
-    channels: z.record(z.string(), channelAPI.keyZ),
+    channels: z.record(z.string(), channel.keyZ),
   }),
 });
 

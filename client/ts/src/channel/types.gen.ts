@@ -49,6 +49,9 @@ export const nameZ = z
   );
 export type Name = z.infer<typeof nameZ>;
 
+export const statusZ = status.statusZ();
+export type Status = z.infer<typeof statusZ>;
+
 export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
@@ -62,7 +65,7 @@ export const payloadZ = z.object({
   expression: z.string().default(""),
   operations: zod.nullToUndefined(operationZ.array()),
   concurrency: control.concurrencyZ.optional(),
-  status: status.statusZ().optional(),
+  status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 

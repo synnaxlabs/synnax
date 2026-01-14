@@ -14,7 +14,6 @@ import { z } from "zod";
 import * as v0 from "@/hardware/opc/device/types/v0";
 
 const VERSION = "1.0.0";
-type Version = typeof VERSION;
 
 export const propertiesZ = z.object({
   version: z.literal(VERSION),

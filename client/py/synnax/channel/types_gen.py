@@ -33,6 +33,8 @@ class Concurrency(IntEnum):
 
 Name: TypeAlias = str
 
+Status: TypeAlias = status.Status
+
 
 class Operation(BaseModel):
     type: OperationType
@@ -53,7 +55,7 @@ class Payload(BaseModel):
     expression: str = Field(default="")
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
-    status: status.Status | None = None
+    status: Status | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)

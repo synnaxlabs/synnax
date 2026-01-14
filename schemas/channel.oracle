@@ -76,6 +76,10 @@ Channel struct {
     @pb
 }
 
+Status = status.Status {
+    @go output "core/pkg/distribution/channel"
+}
+
 APIChannel struct {
     key         Key                  @key
     name        Name
@@ -89,7 +93,7 @@ APIChannel struct {
     expression  string               @validate default ""
     operations  Operation[]?
     concurrency control.Concurrency?
-    status      status.Status??
+    status      Status??
 
     @go output     "core/pkg/api/channel"
     @ontology type "channel"

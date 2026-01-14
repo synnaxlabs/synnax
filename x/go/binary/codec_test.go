@@ -336,4 +336,173 @@ var _ = Describe("Codec", func() {
 			Entry("float64 overflow", float64(5000000000)),
 		)
 	})
+	Describe("EncodedMsgpackStruct", func() {
+		DescribeTable("Should decode from JSON string",
+			func(jsonStr string, expectedKey string, expectedValue any) {
+				// Encode a string containing JSON
+				b := MustSucceed(msgpack.Marshal(jsonStr))
+
+				// Decode into EncodedMsgpackStruct
+				var result binary.EncodedMsgpackStruct
+				dec := msgpack.NewDecoder(bytes.NewReader(b))
+				Expect(dec.Decode(&result)).To(Succeed())
+
+				// Verify the map contents
+				Expect(result).To(HaveKey(expectedKey))
+				Expect(result[expectedKey]).To(Equal(expectedValue))
+			},
+			Entry("simple object", `{"name":"test"}`, "name", "test"),
+			Entry("number value", `{"count":42}`, "count", float64(42)),
+			Entry("boolean value", `{"active":true}`, "active", true),
+			Entry("nested object", `{"data":{"nested":"value"}}`, "data", map[string]any{"nested": "value"}),
+			Entry("array value", `{"items":[1,2,3]}`, "items", []any{float64(1), float64(2), float64(3)}),
+		)
+
+		It("Should decode from map[string]any directly", func() {
+			// Encode a map directly
+			inputMap := map[string]any{
+				"name":   "test",
+				"count":  42,
+				"active": true,
+			}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			// Decode into EncodedMsgpackStruct
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+
+			// Verify the map contents
+			Expect(result).To(HaveKey("name"))
+			Expect(result["name"]).To(Equal("test"))
+			Expect(result).To(HaveKey("count"))
+			Expect(result["count"]).To(BeEquivalentTo(42)) // Use BeEquivalentTo for numeric type flexibility
+			Expect(result).To(HaveKey("active"))
+			Expect(result["active"]).To(Equal(true))
+		})
+
+		It("Should decode from map[any]any with string keys", func() {
+			// Create a map[any]any (which msgpack sometimes produces)
+			inputMap := map[any]any{
+				"name":  "test",
+				"count": 42,
+			}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			// Decode into EncodedMsgpackStruct
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+
+			// Verify the map contents
+			Expect(result).To(HaveKey("name"))
+			Expect(result["name"]).To(Equal("test"))
+		})
+
+		It("Should return error for invalid JSON string", func() {
+			// Encode an invalid JSON string
+			invalidJSON := "not valid json"
+			b := MustSucceed(msgpack.Marshal(invalidJSON))
+
+			// Attempt to decode
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			err := dec.Decode(&result)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("failed to unmarshal JSON string"))
+		})
+
+		It("Should return error for unsupported types", func() {
+			// Encode a non-string, non-map value
+			b := MustSucceed(msgpack.Marshal([]int{1, 2, 3}))
+
+			// Attempt to decode
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			err := dec.Decode(&result)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("cannot unmarshal"))
+		})
+
+		It("Should return error for map with non-string keys", func() {
+			// Create a map with non-string keys
+			inputMap := map[any]any{
+				123: "value",
+			}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			// Attempt to decode
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			err := dec.Decode(&result)
+			Expect(err).To(HaveOccurred())
+			// msgpack will fail before our custom decoder is called
+			Expect(err.Error()).To(Or(ContainSubstring("not a string"), ContainSubstring("decoding string/bytes length")))
+		})
+
+		It("Should handle empty JSON object", func() {
+			jsonStr := "{}"
+			b := MustSucceed(msgpack.Marshal(jsonStr))
+
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("Should handle empty map", func() {
+			inputMap := map[string]any{}
+			b := MustSucceed(msgpack.Marshal(inputMap))
+
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("Should work with MsgPackCodec", func() {
+			codec := &binary.MsgPackCodec{}
+			ctx := context.Background()
+
+			// Test with JSON string
+			jsonStr := `{"name":"test","value":123}`
+			b := MustSucceed(codec.Encode(ctx, jsonStr))
+
+			var result binary.EncodedMsgpackStruct
+			Expect(codec.Decode(ctx, b, &result)).To(Succeed())
+			Expect(result).To(HaveKey("name"))
+			Expect(result["name"]).To(Equal("test"))
+			Expect(result).To(HaveKey("value"))
+			Expect(result["value"]).To(Equal(float64(123)))
+		})
+
+		It("Should handle complex nested structures from JSON", func() {
+			jsonStr := `{
+				"user": {
+					"name": "Alice",
+					"age": 30,
+					"tags": ["admin", "developer"],
+					"metadata": {
+						"created": "2024-01-01",
+						"active": true
+					}
+				}
+			}`
+			b := MustSucceed(msgpack.Marshal(jsonStr))
+
+			var result binary.EncodedMsgpackStruct
+			dec := msgpack.NewDecoder(bytes.NewReader(b))
+			Expect(dec.Decode(&result)).To(Succeed())
+
+			// Verify nested structure
+			Expect(result).To(HaveKey("user"))
+			user := result["user"].(map[string]any)
+			Expect(user).To(HaveKey("name"))
+			Expect(user["name"]).To(Equal("Alice"))
+			Expect(user).To(HaveKey("tags"))
+			tags := user["tags"].([]any)
+			Expect(tags).To(HaveLen(2))
+			Expect(tags[0]).To(Equal("admin"))
+		})
+	})
 })

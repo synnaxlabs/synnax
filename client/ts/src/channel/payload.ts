@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, zod } from "@synnaxlabs/x";
+import { zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -48,6 +48,3 @@ export const escapeInvalidName = (name: string, changeEmptyToUnderscore = false)
   if (result[0].match(/^\d/)) result = `_${result}`;
   return result;
 };
-
-export const statusZ = status.statusZ();
-export type Status = z.infer<typeof statusZ>;

@@ -145,7 +145,7 @@ APIChannel::from_proto(const ::api::channel::pb::Channel &pb) {
     }
     cpp.concurrency = static_cast<Concurrency>(pb.concurrency());
     if (pb.has_status()) {
-        auto [val, err] = ::x::status::Status::from_proto(pb.status());
+        auto [val, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
         cpp.status = val;
     }
@@ -178,7 +178,7 @@ NewChannel::from_proto(const pb::NewChannel &pb) {
     cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
     cpp.alias = pb.alias();
     if (pb.has_status()) {
-        auto [val, err] = ::x::status::Status::from_proto(pb.status());
+        auto [val, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
         cpp.status = val;
     }

@@ -12,17 +12,22 @@
 package channel
 
 import (
+	"go/types"
+
 	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
+	xtypes "github.com/synnaxlabs/x/types"
 )
 
 type Key uint32
 
-type LocalKey types.Uint20
+type LocalKey xtypes.Uint20
 
 type Name = string
+
+type Status = status.Status[types.Nil]
 
 type OperationType string
 

@@ -17,6 +17,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
@@ -33,6 +34,8 @@ constexpr const char *OPERATION_TYPE_NONE = "none";
 using ChannelKey = std::uint32_t;
 
 using Name = std::string;
+
+using Status = ::x::status::Status;
 
 struct Operation {
     std::string type;

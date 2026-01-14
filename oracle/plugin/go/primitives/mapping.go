@@ -30,7 +30,7 @@ var mapping = map[string]primitives.Mapping{
 	"float32": {TargetType: "float32"},
 	"float64": {TargetType: "float64"},
 	"color":   {TargetType: "color.Color", Imports: []primitives.Import{{Category: "internal", Path: "github.com/synnaxlabs/x/color"}}},
-	"json":    {TargetType: "map[string]any"},
+	"json":    {TargetType: "binary.EncodedMsgpackStruct", Imports: []primitives.Import{{Category: "internal", Path: "github.com/synnaxlabs/x/binary"}}},
 	"bytes":   {TargetType: "[]byte"},
 	"any":     {TargetType: "any"},
 }
