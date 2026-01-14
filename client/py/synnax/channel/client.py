@@ -28,6 +28,7 @@ from synnax.channel.types_gen import (
     New,
     Operation,
     Payload,
+    Status,
     ontology_id,
 )
 from synnax.channel.writer import ChannelWriter
@@ -71,6 +72,7 @@ class Channel(Payload):
         operations: list[Operation] | None = None,
         alias: str | None = None,
         concurrency: control.Concurrency | None = None,
+        status: Status | None = None,
         _frame_client: FrameClient | None = None,
         _client: ChannelClient | None = None,
     ) -> None:
