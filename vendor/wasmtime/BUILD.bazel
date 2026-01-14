@@ -127,7 +127,7 @@ genrule(
 
             # Debug: List what files were actually created
             echo "===== Cargo build output files ====="
-            ls -la target/x86_64-pc-windows-msvc/release/ | grep -E '\.(lib|a)$$' || echo "No library files found"
+            ls -la target/x86_64-pc-windows-msvc/release/ | grep -E '\\.(lib|a)$$' || echo "No library files found"
             echo "====================================="
 
             # Copy the library file (cargo produces wasmtime_c_api.lib for staticlib)
