@@ -177,8 +177,8 @@ func peerOnlyScenario() scenario {
 }
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	cluster_ := mock.ProvisionCluster(ctx, 3)
-	node := cluster_.Nodes[1]
+	clstr := mock.ProvisionCluster(ctx, 3)
+	node := clstr.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
@@ -195,7 +195,7 @@ func mixedScenario() scenario {
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
 		dist:     node,
-		close:    cluster_,
+		close:    clstr,
 	}
 }
 

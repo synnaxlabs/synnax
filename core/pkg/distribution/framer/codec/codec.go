@@ -546,11 +546,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 
 	// Calculate flags and byte size based on merged series
 	var (
-		curDataSize                   = -1
-		refTr                         = telem.TimeRangeZero
-		refAlignment  telem.Alignment = 0
-		byteArraySize                 = flagsSize + seqNumSize
-		fgs                           = newFlags()
+		curDataSize   = -1
+		refTr         = telem.TimeRangeZero
+		refAlignment  telem.Alignment
+		byteArraySize = flagsSize + seqNumSize
+		fgs           = newFlags()
 	)
 
 	if currState.hasVariableDataTypes {

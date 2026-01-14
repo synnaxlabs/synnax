@@ -129,8 +129,8 @@ func (t *tapper) updateTaps(
 	// Open any new taps we may need
 	for node, keys := range nodeDemands {
 		if _, ok := t.taps[node]; !ok && !node.IsFree() {
-			tc, err_ := t.tapInto(ctx, node, keys)
-			if err_ != nil {
+			tc, err := t.tapInto(ctx, node, keys)
+			if err != nil {
 				t.L.Error("failed to open new tap", zap.Uint16("node", uint16(node)))
 			} else {
 				t.taps[node] = tc

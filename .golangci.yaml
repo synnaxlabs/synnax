@@ -1,0 +1,19 @@
+version: "2"
+linters:
+  enable:
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: error-naming
+        - name: var-declaration
+        - name: var-naming
+          arguments:
+            - []
+            - []
+            - - skip-package-name-checks: true
+
+run:
+  build-tags:
+    - console
+    - driver

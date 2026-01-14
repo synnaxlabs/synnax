@@ -545,18 +545,18 @@ func (lp *leaseProxy) maybeSetResources(
 	if lp.cfg.Ontology == nil || lp.cfg.Group == nil {
 		return nil
 	}
-	externalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
 	w := lp.cfg.Ontology.NewWriter(txn)
-	if err := w.DefineManyResources(ctx, externalIds); err != nil {
+	if err := w.DefineManyResources(ctx, externalIDs); err != nil {
 		return err
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
 		group.OntologyID(lp.group.Key),
 		ontology.RelationshipTypeParentOf,
-		externalIds,
+		externalIDs,
 	)
 }
 

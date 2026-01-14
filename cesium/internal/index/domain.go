@@ -145,7 +145,7 @@ func (i *Domain) Distance(
 		// Length of the current domain
 		domainLen = sampleCount(r.Size())
 		// the total number of samples traversed as we move through domains
-		totalTraversed int64 = 0
+		totalTraversed int64
 		// Distance from the end of the domain to the start approximation.
 		startToFirstEnd = Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
 	)
@@ -516,9 +516,9 @@ func resolveBackwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds
 // timestamp exists in the underlying index, the approximation will be exact.
 func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
 	var (
-		start int64 = 0
-		end         = sampleCount(r.Size()) - 1
-		read        = newStampReader()
+		start int64
+		end   = sampleCount(r.Size()) - 1
+		read  = newStampReader()
 		midTs telem.TimeStamp
 		err   error
 	)

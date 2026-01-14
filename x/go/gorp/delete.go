@@ -103,9 +103,9 @@ func checkGuards[K Key, E Entry[K]](ctx Context, q query.Parameters, entries []E
 	if !ok {
 		return nil
 	}
-	guards_ := g.(guards[K, E])
+	guards := g.(guards[K, E])
 	for _, entry := range entries {
-		if err := guards_.exec(ctx, entry); err != nil {
+		if err := guards.exec(ctx, entry); err != nil {
 			return err
 		}
 	}

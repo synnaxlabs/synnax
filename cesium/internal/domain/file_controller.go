@@ -236,11 +236,11 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		return &w, s.Size(), span.Error(err)
 	}
 
-	nextKey_, err := fc.counter.Add(1)
+	nextCtr, err := fc.counter.Add(1)
 	if err != nil {
 		return nil, 0, span.Error(err)
 	}
-	nextKey := uint16(nextKey_)
+	nextKey := uint16(nextCtr)
 	file, err := fc.FS.Open(
 		fileKeyToName(nextKey),
 		os.O_CREATE|os.O_EXCL|os.O_WRONLY,

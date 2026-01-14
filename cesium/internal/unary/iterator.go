@@ -173,10 +173,10 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		i.err = errIteratorClosed
 		return false
 	}
-	ctx, span_ := i.T.Bench(ctx, "Next")
+	ctx, spn := i.T.Bench(ctx, "Next")
 	defer func() {
 		ok = i.Valid()
-		span_.End()
+		spn.End()
 	}()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
@@ -327,10 +327,10 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		i.err = errIteratorClosed
 		return false
 	}
-	ctx, span_ := i.T.Bench(ctx, "Prev")
+	ctx, spn := i.T.Bench(ctx, "Prev")
 	defer func() {
 		ok = i.Valid()
-		span_.End()
+		spn.End()
 	}()
 
 	if i.atStart() {

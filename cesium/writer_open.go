@@ -189,8 +189,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			return
 		}
 		for _, idx := range domainWriters {
-			_, err_ := idx.Close()
-			err = errors.Combine(err_, err)
+			_, errClose := idx.Close()
+			err = errors.Combine(errClose, err)
 		}
 	}()
 

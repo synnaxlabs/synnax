@@ -716,20 +716,20 @@ var _ = Describe("Codec", func() {
 			codec := codec.NewStatic(keys, dataTypes)
 
 			// Channel 1: two contiguous series
-			s1_ch1 := telem.NewSeriesV[int32](1, 2)
-			s1_ch1.Alignment = 0
-			s2_ch1 := telem.NewSeriesV[int32](3, 4)
-			s2_ch1.Alignment = 2
+			s1Ch1 := telem.NewSeriesV[int32](1, 2)
+			s1Ch1.Alignment = 0
+			s2Ch1 := telem.NewSeriesV[int32](3, 4)
+			s2Ch1.Alignment = 2
 
 			// Channel 2: two contiguous series
-			s1_ch2 := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
-			s1_ch2.Alignment = 5
-			s2_ch2 := telem.NewSeriesV[float32](4.4)
-			s2_ch2.Alignment = 8
+			s1Ch2 := telem.NewSeriesV[float32](1.1, 2.2, 3.3)
+			s1Ch2.Alignment = 5
+			s2Ch2 := telem.NewSeriesV[float32](4.4)
+			s2Ch2.Alignment = 8
 
 			frame := frame.NewMulti(
 				channel.Keys{1, 1, 2, 2},
-				[]telem.Series{s1_ch1, s2_ch1, s1_ch2, s2_ch2},
+				[]telem.Series{s1Ch1, s2Ch1, s1Ch2, s2Ch2},
 			)
 
 			encoded := MustSucceed(codec.Encode(ctx, frame))

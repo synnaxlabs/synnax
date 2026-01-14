@@ -279,30 +279,30 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	c := errors.NewCatcher(errors.WithAggregation())
-	u := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
-			u_, err := idx.Close()
+			u, err := idx.Close()
 			if err != nil {
 				return err
 			}
-			u.Transfers = append(u.Transfers, u_.Transfers...)
+			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
 			return nil
 		})
 	}
 	if w.virtual.internal != nil {
 		c.Exec(func() error {
-			u_, err := w.virtual.Close()
+			u, err := w.virtual.Close()
 			if err != nil {
 				return err
 			}
-			u.Transfers = append(u.Transfers, u_.Transfers...)
+			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
 			return nil
 		})
 	}
 
-	if len(u.Transfers) > 0 {
-		_ = w.updateDBControl(ctx, u)
+	if len(parentUpdate.Transfers) > 0 {
+		_ = w.updateDBControl(ctx, parentUpdate)
 	}
 
 	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {

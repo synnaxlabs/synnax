@@ -238,14 +238,13 @@ func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum no
 	defer cancel()
 	wg := errgroup.Group{}
 	for _, n := range quorum {
-		n_ := n
 		wg.Go(func() error {
-			_, err := r.TransportClient.Send(reqCtx, n_.Address, Request{Key: key})
+			_, err := r.TransportClient.Send(reqCtx, n.Address, Request{Key: key})
 			if errors.Is(err, errProposalRejected) {
 				r.L.Debug(
 					"quorum rejected proposal",
 					zap.Uint32("key", uint32(key)),
-					zap.Stringer("address", n_.Address),
+					zap.Stringer("address", n.Address),
 				)
 				cancel()
 			}
@@ -254,7 +253,7 @@ func (r *responsible) consultQuorum(ctx context.Context, key node.Key, quorum no
 			if err != nil {
 				r.L.Error("failed to reach juror",
 					zap.Uint32("key", uint32(key)),
-					zap.Stringer("address", n_.Address),
+					zap.Stringer("address", n.Address),
 				)
 				cancel()
 			}

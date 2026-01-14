@@ -252,9 +252,9 @@ func newConfig(ctx context.Context, configs []Config) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	store_ := store.New(ctx)
-	cfg.Gossip.Store = store_
-	cfg.Pledge.Candidates = func() node.Group { return store_.CopyState().Nodes }
+	store := store.New(ctx)
+	cfg.Gossip.Store = store
+	cfg.Pledge.Candidates = func() node.Group { return store.CopyState().Nodes }
 	cfg.Gossip.Instrumentation = cfg.Child("gossip")
 	cfg.Pledge.Instrumentation = cfg.Child("pledge")
 	return cfg, nil

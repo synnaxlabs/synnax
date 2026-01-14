@@ -113,8 +113,8 @@ func (r Report) ZapFields() []zap.Field { return r.zapFields("") }
 func (r Report) zapFields(prefix string) []zap.Field {
 	args := make([]zap.Field, 0, len(r))
 	for k, v := range r {
-		if v_, ok := v.(Report); ok {
-			args = append(args, v_.zapFields(prefix+k+".")...)
+		if v, ok := v.(Report); ok {
+			args = append(args, v.zapFields(prefix+k+".")...)
 			continue
 		}
 		args = append(args, zap.Any(prefix+k, v))

@@ -213,8 +213,8 @@ func Write(
 		return db.wrapError(err)
 	}
 	defer func() {
-		_, err_ := w.Close()
-		err = db.wrapError(errors.Combine(err, err_))
+		_, errClose := w.Close()
+		err = db.wrapError(errors.Combine(err, errClose))
 	}()
 	if _, err = w.Write(series); err != nil {
 		return err
