@@ -140,6 +140,19 @@ genrule(
             cp crates/c-api/include/*.hh artifacts/include/ 2>/dev/null || true
             cp -r crates/c-api/include/wasmtime artifacts/include/ 2>/dev/null || true
 
+            # Generate conf.h with the features we built (CMake would normally do this)
+            cat > artifacts/include/wasmtime/conf.h << 'EOF'
+#ifndef WASMTIME_CONF_H
+#define WASMTIME_CONF_H
+#define WASMTIME_FEATURE_WAT
+#define WASMTIME_FEATURE_WASI
+#define WASMTIME_FEATURE_ASYNC
+#define WASMTIME_FEATURE_CRANELIFT
+#define WASMTIME_FEATURE_THREADS
+#define WASMTIME_FEATURE_COMPILER
+#endif
+EOF
+
             # Go back to execroot
             cd ../../..
 
