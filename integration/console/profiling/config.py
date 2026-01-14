@@ -29,15 +29,11 @@ class ProfilerConfig:
         PLAYWRIGHT_CONSOLE_PROFILE: Enable CPU profiling via CDP (default: True)
         PLAYWRIGHT_CONSOLE_TRACE: Enable Playwright tracing (default: True)
         PLAYWRIGHT_CONSOLE_HEAP: Enable heap snapshot via CDP (default: True)
-        PLAYWRIGHT_CONSOLE_METRICS: Enable performance metrics via CDP (default: True)
-        PLAYWRIGHT_CONSOLE_COVERAGE: Enable code coverage via CDP (default: True)
 
     Attributes:
         cpu_profiling: Enable CPU profiling. Profiles saved as .cpuprofile files.
         tracing: Enable Playwright tracing. Traces saved as .trace.zip files.
         heap_snapshot: Enable heap snapshots. Saved as .heapsnapshot files.
-        metrics: Enable performance metrics. Saved as .metrics.json files.
-        coverage: Enable code coverage. Saved as .coverage.json files.
         output_dir: Directory where profile files are saved.
     """
 
@@ -50,12 +46,6 @@ class ProfilerConfig:
     heap_snapshot: bool = field(
         default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_HEAP", True)
     )
-    metrics: bool = field(
-        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_METRICS", True)
-    )
-    coverage: bool = field(
-        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_COVERAGE", True)
-    )
     output_dir: Path = field(
         default_factory=lambda: Path(__file__).parent.parent.parent / "profiles"
     )
@@ -63,7 +53,7 @@ class ProfilerConfig:
     @property
     def requires_cdp(self) -> bool:
         """Whether any CDP-based profiling is enabled."""
-        return self.cpu_profiling or self.heap_snapshot or self.metrics or self.coverage
+        return self.cpu_profiling or self.heap_snapshot
 
     @classmethod
     def from_params(cls, params: dict) -> "ProfilerConfig":
@@ -80,12 +70,6 @@ class ProfilerConfig:
             heap_snapshot=params.get(
                 "heap", _env_bool("PLAYWRIGHT_CONSOLE_HEAP", True)
             ),
-            metrics=params.get(
-                "metrics", _env_bool("PLAYWRIGHT_CONSOLE_METRICS", True)
-            ),
-            coverage=params.get(
-                "coverage", _env_bool("PLAYWRIGHT_CONSOLE_COVERAGE", True)
-            ),
         )
 
     @classmethod
@@ -98,6 +82,4 @@ class ProfilerConfig:
             cpu_profiling=False,
             tracing=False,
             heap_snapshot=False,
-            metrics=False,
-            coverage=False,
         )

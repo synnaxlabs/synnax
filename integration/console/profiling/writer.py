@@ -18,7 +18,7 @@ class ProfileWriter:
     """Writes profiling results to disk.
 
     Handles file creation and formatting for various profile types including
-    CPU profiles, metrics, coverage, and heap snapshots.
+    CPU profiles and heap snapshots.
 
     :param output_dir: Directory where profile files are saved.
     """
@@ -39,38 +39,6 @@ class ProfileWriter:
             json.dump(profile, f)
         return path
 
-    def write_metrics(self, test_name: str, raw_metrics: dict[str, float]) -> Path:
-        """Write performance metrics to disk.
-
-        :param test_name: Name of the test for the output file.
-        :param raw_metrics: Raw metrics from CDP Performance.getMetrics.
-        :returns: Path to the saved metrics file.
-        """
-        metrics = self._format_metrics(test_name, raw_metrics)
-        path = self._output_dir / f"{test_name}.metrics.json"
-        with open(path, "w") as f:
-            json.dump(metrics, f, indent=2)
-        return path
-
-    def write_coverage(self, test_name: str, coverage_data: list[dict]) -> Path:
-        """Write code coverage data to disk.
-
-        :param test_name: Name of the test for the output file.
-        :param coverage_data: Coverage data from CDP Profiler.takePreciseCoverage.
-        :returns: Path to the saved coverage file.
-        """
-        # Filter to only include app code (exclude node_modules, extensions)
-        app_coverage = [
-            entry
-            for entry in coverage_data
-            if entry.get("url", "").startswith("http")
-            and "node_modules" not in entry.get("url", "")
-        ]
-        path = self._output_dir / f"{test_name}.coverage.json"
-        with open(path, "w") as f:
-            json.dump(app_coverage, f, indent=2)
-        return path
-
     def write_heap_snapshot(self, test_name: str, chunks: list[str]) -> Path:
         """Write a heap snapshot to disk.
 
@@ -83,49 +51,3 @@ class ProfileWriter:
         with open(path, "w") as f:
             f.write(content)
         return path
-
-    def _format_metrics(
-        self, test_name: str, raw_metrics: dict[str, float]
-    ) -> dict[str, Any]:
-        """Format raw metrics into a structured report.
-
-        :param test_name: Name of the test.
-        :param raw_metrics: Raw metrics from CDP.
-        :returns: Formatted metrics dictionary.
-        """
-        return {
-            "test_name": test_name,
-            "memory": {
-                "js_heap_used_mb": round(
-                    raw_metrics.get("JSHeapUsedSize", 0) / 1024 / 1024, 2
-                ),
-                "js_heap_total_mb": round(
-                    raw_metrics.get("JSHeapTotalSize", 0) / 1024 / 1024, 2
-                ),
-            },
-            "dom": {
-                "nodes": int(raw_metrics.get("Nodes", 0)),
-                "documents": int(raw_metrics.get("Documents", 0)),
-                "frames": int(raw_metrics.get("Frames", 0)),
-                "js_event_listeners": int(raw_metrics.get("JSEventListeners", 0)),
-            },
-            "layout": {
-                "layout_count": int(raw_metrics.get("LayoutCount", 0)),
-                "recalc_style_count": int(raw_metrics.get("RecalcStyleCount", 0)),
-                "layout_duration_ms": round(
-                    raw_metrics.get("LayoutDuration", 0) * 1000, 2
-                ),
-                "recalc_style_duration_ms": round(
-                    raw_metrics.get("RecalcStyleDuration", 0) * 1000, 2
-                ),
-            },
-            "script": {
-                "script_duration_ms": round(
-                    raw_metrics.get("ScriptDuration", 0) * 1000, 2
-                ),
-                "task_duration_ms": round(
-                    raw_metrics.get("TaskDuration", 0) * 1000, 2
-                ),
-            },
-            "raw": raw_metrics,
-        }

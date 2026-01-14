@@ -36,10 +36,6 @@ class ConsoleCase(TestCase):
         PLAYWRIGHT_CONSOLE_HEAP: Enable heap snapshot via CDP (default: True)
             Snapshots are saved to integration/profiles/<test_name>.heapsnapshot
             Load in Chrome DevTools > Memory panel
-        PLAYWRIGHT_CONSOLE_METRICS: Enable performance metrics via CDP (default: True)
-            Metrics are saved to integration/profiles/<test_name>.metrics.json
-        PLAYWRIGHT_CONSOLE_COVERAGE: Enable code coverage via CDP (default: True)
-            Coverage is saved to integration/profiles/<test_name>.coverage.json
 
     Attributes:
         browser: The Playwright browser instance.

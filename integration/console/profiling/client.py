@@ -20,8 +20,6 @@ class CDPProfiler:
 
     This profiler integrates with Playwright browser sessions to collect:
     - CPU profiles via Profiler.start/stop
-    - Performance metrics via Performance.getMetrics
-    - Code coverage via Profiler.startPreciseCoverage
     - Heap snapshots via HeapProfiler.takeHeapSnapshot
     - Playwright traces via context.tracing
 
@@ -69,7 +67,7 @@ class CDPProfiler:
         """Start CDP-based profiling features.
 
         Call this after the page is ready. Initializes CDP session and starts
-        CPU profiling, coverage, and metrics collection as configured.
+        CPU profiling as configured.
         """
         if not self._config.requires_cdp:
             return
@@ -79,10 +77,6 @@ class CDPProfiler:
         if self._cdp_session is not None:
             if self._config.cpu_profiling:
                 self._start_cpu_profiling()
-            if self._config.coverage:
-                self._start_coverage()
-            if self._config.metrics:
-                self._start_metrics()
 
     def stop(self, test_name: str) -> None:
         """Stop all profiling and save results.
@@ -92,10 +86,6 @@ class CDPProfiler:
         if self._cdp_session is not None:
             if self._config.heap_snapshot:
                 self._collect_heap_snapshot(test_name)
-            if self._config.coverage:
-                self._stop_coverage(test_name)
-            if self._config.metrics:
-                self._collect_metrics(test_name)
             if self._config.cpu_profiling:
                 self._stop_cpu_profiling(test_name)
 
@@ -141,40 +131,6 @@ class CDPProfiler:
         result = self._cdp_session.send("Profiler.stop")
         profile = result.get("profile", {})
         self._writer.write_cpu_profile(test_name, profile)
-
-    def _start_metrics(self) -> None:
-        """Enable performance metrics collection via CDP."""
-        if self._cdp_session is None:
-            return
-        self._cdp_session.send("Performance.enable")
-
-    def _collect_metrics(self, test_name: str) -> None:
-        """Collect performance metrics and save to disk."""
-        if self._cdp_session is None:
-            return
-        result = self._cdp_session.send("Performance.getMetrics")
-        raw_metrics = {m["name"]: m["value"] for m in result.get("metrics", [])}
-        self._writer.write_metrics(test_name, raw_metrics)
-
-    def _start_coverage(self) -> None:
-        """Start code coverage collection via CDP."""
-        if self._cdp_session is None:
-            return
-        # Profiler.enable is required before startPreciseCoverage
-        self._cdp_session.send("Profiler.enable")
-        self._cdp_session.send(
-            "Profiler.startPreciseCoverage",
-            {"callCount": True, "detailed": True},
-        )
-
-    def _stop_coverage(self, test_name: str) -> None:
-        """Stop code coverage and save results to disk."""
-        if self._cdp_session is None:
-            return
-        result = self._cdp_session.send("Profiler.takePreciseCoverage")
-        coverage_data = result.get("result", [])
-        self._writer.write_coverage(test_name, coverage_data)
-        self._cdp_session.send("Profiler.stopPreciseCoverage")
 
     def _collect_heap_snapshot(self, test_name: str) -> None:
         """Take a heap snapshot and save to disk."""
