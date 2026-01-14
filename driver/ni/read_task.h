@@ -112,11 +112,11 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         auto remote_channels = map_channel_Keys(channel_vec);
         std::unordered_map<std::string, synnax::Device> devices;
         if (this->device_key != "cross-device") {
-            auto [device, err] = client->devices.retrieve(this->device_key);
-            if (err) {
+            auto [device, device_err] = client->devices.retrieve(this->device_key);
+            if (device_err) {
                 cfg.field_err(
                     "device",
-                    "failed to retrieve device for task: " + err.message()
+                    "failed to retrieve device for task: " + device_err.message()
                 );
                 return;
             }
