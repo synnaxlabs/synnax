@@ -34,7 +34,7 @@ TEST(StreamerTests, testStreamBasic) {
         WriterConfig{
             channels,
             now,
-            {x::telem::AUTH_ABSOLUTE},
+            {x::control::AUTH_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -70,7 +70,7 @@ TEST(StreamerTests, testStreamSetChannels) {
         WriterConfig{
             {data.key},
             now,
-            {x::telem::AUTH_ABSOLUTE},
+            {x::control::AUTH_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -160,7 +160,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
         WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTH_ABSOLUTE},
+            std::vector{x::control::AUTH_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -189,7 +189,7 @@ void test_downsample(
         WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTH_ABSOLUTE},
+            std::vector{x::control::AUTH_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));
@@ -233,7 +233,7 @@ void test_downsample_string(
         WriterConfig{
             channels,
             now,
-            std::vector{x::telem::AUTH_ABSOLUTE},
+            std::vector{x::control::AUTH_ABSOLUTE},
             x::control::Subject{"test_writer"}
         }
     ));

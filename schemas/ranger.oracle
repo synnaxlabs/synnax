@@ -41,3 +41,7 @@ APIRange struct extends Range {
     @cpp methods   "kv::Client kv = kv::Client()"
     @cpp includes  "client/cpp/kv/kv.h"
 }
+
+TSRange struct extends APIRange {
+    time_range telem.TimeRangeBounded
+}

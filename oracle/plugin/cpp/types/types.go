@@ -614,19 +614,11 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 
 	// Build with type arguments, filtering out defaulted params
 	// For generic types with all-defaulted/optional params referenced without args, we need <>
+	// BUT only if the type is actually a C++ template (has params without explicit defaults)
 	if len(typeRef.TypeArgs) == 0 {
-		// Check if target is generic with all params defaulted/optional
-		if form, ok := resolved.Form.(resolution.StructForm); ok && len(form.TypeParams) > 0 {
-			allDefaulted := true
-			for _, tp := range form.TypeParams {
-				if !tp.HasDefault() && !tp.Optional {
-					allDefaulted = false
-					break
-				}
-			}
-			if allDefaulted {
-				return name + "<>" // Need <> to instantiate template with defaults
-			}
+		// Check if target is a C++ template with all params defaulted
+		if isCppTemplateWithAllDefaults(resolved) {
+			return name + "<>" // Need <> to instantiate template with defaults
 		}
 		return name
 	}
@@ -647,8 +639,8 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	}
 
 	if len(args) == 0 {
-		// All args were for defaulted params, need <>
-		if form, ok := resolved.Form.(resolution.StructForm); ok && len(form.TypeParams) > 0 {
+		// All args were for defaulted params - check if we need <>
+		if isCppTemplateWithAllDefaults(resolved) {
 			return name + "<>"
 		}
 		return name
@@ -1142,13 +1134,45 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 	}
 
 	if len(args) == 0 {
-		// All args were for defaulted params, need <> to instantiate template
-		if len(typeParams) > 0 {
+		// All args were for defaulted params - check if we need <>
+		// Only add <> if the type is actually a C++ template with all params defaulted
+		if targetType != nil && isCppTemplateWithAllDefaults(*targetType) {
 			return baseName + "<>"
 		}
 		return baseName
 	}
 	return fmt.Sprintf("%s<%s>", baseName, strings.Join(args, ", "))
+}
+
+// isCppTemplateWithAllDefaults returns true if the type would be generated as a C++ template
+// AND all of its C++ template parameters have defaults.
+//
+// A struct is a C++ template only if it has type params without explicit defaults.
+// Params with explicit defaults are substituted at code generation and don't become template params.
+// Optional params (without explicit defaults) DO become template params with implicit std::monostate default.
+//
+// This function returns true when:
+// - The type has at least one type param without explicit default (making it a C++ template)
+// - All such params are optional (giving them implicit defaults)
+func isCppTemplateWithAllDefaults(t resolution.Type) bool {
+	form, ok := t.Form.(resolution.StructForm)
+	if !ok {
+		return false
+	}
+
+	hasCppTemplateParams := false
+	for _, tp := range form.TypeParams {
+		if tp.HasDefault() {
+			continue // This param is NOT part of C++ template (substituted)
+		}
+		// This param IS part of the C++ template
+		hasCppTemplateParams = true
+		// Check if it has a default in C++ (only optional params get implicit defaults)
+		if !tp.Optional {
+			return false // Has a C++ template param without default
+		}
+	}
+	return hasCppTemplateParams // True only if has template params AND all have defaults
 }
 
 func toPascalCase(s string) string {

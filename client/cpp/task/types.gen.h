@@ -59,7 +59,7 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails<>>;
+using Status = ::x::status::Status<StatusDetails>;
 
 struct Task {
     Key key = 0;
@@ -68,7 +68,7 @@ struct Task {
     x::json::json config;
     bool internal = false;
     bool snapshot = false;
-    std::optional<Status<>> status;
+    std::optional<Status> status;
 
     static Task parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
