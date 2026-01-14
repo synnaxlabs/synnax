@@ -246,86 +246,6 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
-// DirectionToPB converts spatial.Direction to Direction.
-func DirectionToPB(v spatial.Direction) Direction {
-	switch v {
-	case spatial.DirectionX:
-		return Direction_DIRECTION_X
-	case spatial.DirectionY:
-		return Direction_DIRECTION_Y
-	default:
-		return Direction_DIRECTION_X
-	}
-}
-
-// DirectionFromPB converts Direction to spatial.Direction.
-func DirectionFromPB(v Direction) spatial.Direction {
-	switch v {
-	case Direction_DIRECTION_X:
-		return spatial.DirectionX
-	case Direction_DIRECTION_Y:
-		return spatial.DirectionY
-	default:
-		return spatial.DirectionX
-	}
-}
-
-// OuterLocationToPB converts spatial.OuterLocation to OuterLocation.
-func OuterLocationToPB(v spatial.OuterLocation) OuterLocation {
-	switch v {
-	case spatial.OuterLocationTop:
-		return OuterLocation_OUTER_LOCATION_TOP
-	case spatial.OuterLocationRight:
-		return OuterLocation_OUTER_LOCATION_RIGHT
-	case spatial.OuterLocationBottom:
-		return OuterLocation_OUTER_LOCATION_BOTTOM
-	case spatial.OuterLocationLeft:
-		return OuterLocation_OUTER_LOCATION_LEFT
-	default:
-		return OuterLocation_OUTER_LOCATION_TOP
-	}
-}
-
-// OuterLocationFromPB converts OuterLocation to spatial.OuterLocation.
-func OuterLocationFromPB(v OuterLocation) spatial.OuterLocation {
-	switch v {
-	case OuterLocation_OUTER_LOCATION_TOP:
-		return spatial.OuterLocationTop
-	case OuterLocation_OUTER_LOCATION_RIGHT:
-		return spatial.OuterLocationRight
-	case OuterLocation_OUTER_LOCATION_BOTTOM:
-		return spatial.OuterLocationBottom
-	case OuterLocation_OUTER_LOCATION_LEFT:
-		return spatial.OuterLocationLeft
-	default:
-		return spatial.OuterLocationTop
-	}
-}
-
-// XLocationToPB converts spatial.XLocation to XLocation.
-func XLocationToPB(v spatial.XLocation) XLocation {
-	switch v {
-	case spatial.XLocationLeft:
-		return XLocation_X_LOCATION_LEFT
-	case spatial.XLocationRight:
-		return XLocation_X_LOCATION_RIGHT
-	default:
-		return XLocation_X_LOCATION_LEFT
-	}
-}
-
-// XLocationFromPB converts XLocation to spatial.XLocation.
-func XLocationFromPB(v XLocation) spatial.XLocation {
-	switch v {
-	case XLocation_X_LOCATION_LEFT:
-		return spatial.XLocationLeft
-	case XLocation_X_LOCATION_RIGHT:
-		return spatial.XLocationRight
-	default:
-		return spatial.XLocationLeft
-	}
-}
-
 // YLocationToPB converts spatial.YLocation to YLocation.
 func YLocationToPB(v spatial.YLocation) YLocation {
 	switch v {
@@ -455,5 +375,85 @@ func OrderFromPB(v Order) spatial.Order {
 		return spatial.OrderLast
 	default:
 		return spatial.OrderFirst
+	}
+}
+
+// DirectionToPB converts spatial.Direction to Direction.
+func DirectionToPB(v spatial.Direction) Direction {
+	switch v {
+	case spatial.DirectionX:
+		return Direction_DIRECTION_X
+	case spatial.DirectionY:
+		return Direction_DIRECTION_Y
+	default:
+		return Direction_DIRECTION_X
+	}
+}
+
+// DirectionFromPB converts Direction to spatial.Direction.
+func DirectionFromPB(v Direction) spatial.Direction {
+	switch v {
+	case Direction_DIRECTION_X:
+		return spatial.DirectionX
+	case Direction_DIRECTION_Y:
+		return spatial.DirectionY
+	default:
+		return spatial.DirectionX
+	}
+}
+
+// OuterLocationToPB converts spatial.OuterLocation to OuterLocation.
+func OuterLocationToPB(v spatial.OuterLocation) OuterLocation {
+	switch v {
+	case spatial.OuterLocationTop:
+		return OuterLocation_OUTER_LOCATION_TOP
+	case spatial.OuterLocationRight:
+		return OuterLocation_OUTER_LOCATION_RIGHT
+	case spatial.OuterLocationBottom:
+		return OuterLocation_OUTER_LOCATION_BOTTOM
+	case spatial.OuterLocationLeft:
+		return OuterLocation_OUTER_LOCATION_LEFT
+	default:
+		return OuterLocation_OUTER_LOCATION_TOP
+	}
+}
+
+// OuterLocationFromPB converts OuterLocation to spatial.OuterLocation.
+func OuterLocationFromPB(v OuterLocation) spatial.OuterLocation {
+	switch v {
+	case OuterLocation_OUTER_LOCATION_TOP:
+		return spatial.OuterLocationTop
+	case OuterLocation_OUTER_LOCATION_RIGHT:
+		return spatial.OuterLocationRight
+	case OuterLocation_OUTER_LOCATION_BOTTOM:
+		return spatial.OuterLocationBottom
+	case OuterLocation_OUTER_LOCATION_LEFT:
+		return spatial.OuterLocationLeft
+	default:
+		return spatial.OuterLocationTop
+	}
+}
+
+// XLocationToPB converts spatial.XLocation to XLocation.
+func XLocationToPB(v spatial.XLocation) XLocation {
+	switch v {
+	case spatial.XLocationLeft:
+		return XLocation_X_LOCATION_LEFT
+	case spatial.XLocationRight:
+		return XLocation_X_LOCATION_RIGHT
+	default:
+		return XLocation_X_LOCATION_LEFT
+	}
+}
+
+// XLocationFromPB converts XLocation to spatial.XLocation.
+func XLocationFromPB(v XLocation) spatial.XLocation {
+	switch v {
+	case XLocation_X_LOCATION_LEFT:
+		return spatial.XLocationLeft
+	case XLocation_X_LOCATION_RIGHT:
+		return spatial.XLocationRight
+	default:
+		return spatial.XLocationLeft
 	}
 }

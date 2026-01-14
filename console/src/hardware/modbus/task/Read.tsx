@@ -189,9 +189,9 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   config,
 ) => {
   const dev = await client.devices.retrieve<
-    Device.Properties,
-    Device.Make,
-    Device.Model
+    typeof Device.propertiesZ,
+    typeof Device.makeZ,
+    typeof Device.modelZ
   >({
     key: config.device,
   });

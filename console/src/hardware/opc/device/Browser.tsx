@@ -106,7 +106,7 @@ const { useRetrieveObservable: useRetrieveNodes } = Flux.createRetrieve<
     });
     if (variant !== "success") throw new Error(message);
     if (details?.data == null || !("channels" in details.data)) return [];
-    return details.data.channels;
+    return details.data.channels as ScannedNode[];
   },
 });
 

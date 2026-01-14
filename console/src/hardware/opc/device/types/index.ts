@@ -13,6 +13,7 @@ import * as v0 from "@/hardware/opc/device/types/v0";
 import * as v1 from "@/hardware/opc/device/types/v1";
 
 export const MAKE = v0.MAKE;
+export const makeZ = v0.makeZ;
 export type Make = v0.Make;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;
@@ -34,6 +35,7 @@ export const connectionConfigZ = v0.connectionConfigZ;
 export interface ConnectionConfig extends v0.ConnectionConfig {}
 export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
 
+export const propertiesZ = v1.propertiesZ;
 export interface Properties extends v1.Properties {}
 export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
 

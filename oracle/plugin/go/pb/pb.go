@@ -304,6 +304,11 @@ func (p *Plugin) generateFile(
 		}
 	}
 
+	// Collect all distinct primitive types for any converter helper
+	if data.needsAnyConverter {
+		p.collectDistinctPrimitives(data, req)
+	}
+
 	// Skip file generation if no translators of any kind
 	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 && len(data.DelegationTranslators) == 0 {
 		return nil, nil
@@ -923,9 +928,11 @@ func (p *Plugin) generatePrimitiveConversion(
 			fmt.Sprintf("color.Color(%s)", pbField), false, false
 	case "any":
 		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		data.needsAnyConverter = true
 		// structpb.NewValue returns (*Value, error) - needs error handling
 		// AsInterface() does NOT return an error
-		return fmt.Sprintf("structpb.NewValue(%s)", goField),
+		// Use convertAnyForPB to handle custom distinct primitive types
+		return fmt.Sprintf("structpb.NewValue(convertAnyForPB(%s))", goField),
 			fmt.Sprintf("%s.AsInterface()", pbField), true, false
 	case "int8":
 		return fmt.Sprintf("int32(%s)", goField),
@@ -1553,6 +1560,57 @@ func (p *Plugin) resolvePBTranslatorInfo(
 	return translatorPrefix, translatorStructName
 }
 
+// collectDistinctPrimitives collects all distinct types that wrap primitives
+// from the entire resolution table. These are used to generate conversion cases
+// in the any converter helper function.
+func (p *Plugin) collectDistinctPrimitives(data *templateData, req *plugin.Request) {
+	seen := make(map[string]bool)
+
+	for _, typ := range req.Resolutions.DistinctTypes() {
+		form, ok := typ.Form.(resolution.DistinctForm)
+		if !ok {
+			continue
+		}
+
+		// Check if this distinct type wraps a primitive
+		if !resolution.IsPrimitive(form.Base.Name) {
+			continue
+		}
+
+		// Get the Go name for this distinct type
+		goOutput := output.GetPath(typ, "go")
+		if goOutput == "" {
+			continue
+		}
+
+		// Import the package that defines this distinct type
+		importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+		if err != nil {
+			continue
+		}
+
+		alias := gointernal.DerivePackageName(goOutput)
+		data.imports.AddInternal(alias, importPath)
+
+		// Build the fully qualified Go type name
+		goTypeName := fmt.Sprintf("%s.%s", alias, typ.Name)
+
+		// Avoid duplicates
+		if seen[goTypeName] {
+			continue
+		}
+		seen[goTypeName] = true
+
+		// Get the protobuf primitive type
+		protoType := primitiveToProtoType(form.Base.Name)
+
+		data.DistinctPrimitives = append(data.DistinctPrimitives, distinctPrimitiveData{
+			GoType:        goTypeName,
+			PrimitiveType: protoType,
+		})
+	}
+}
+
 // hasKeyDomain checks if a field has the @key annotation.
 func hasKeyDomain(field resolution.Field) bool {
 	_, hasKey := field.Domains["key"]
@@ -1633,12 +1691,14 @@ type templateData struct {
 	EnumTranslators       []enumTranslatorData
 	AnyHelpers            []anyHelperData
 	DelegationTranslators []delegationTranslatorData
+	DistinctPrimitives    []distinctPrimitiveData
 	imports               *gointernal.ImportManager
 	repoRoot              string
 	table                 *resolution.Table
 	usedEnums             map[string]*resolution.Type
 	parentAlias           string
 	generatedAnyHelpers   map[string]bool
+	needsAnyConverter     bool
 }
 
 // HasImports returns true if any imports are needed.
@@ -1738,4 +1798,11 @@ type delegationTranslatorData struct {
 	UnderlyingGoType           string          // e.g., "gostatus.Status[Details]" (for casting)
 	UnderlyingPBType           string          // e.g., "gostatus_pb.Status" (proto type)
 	UnderlyingTranslatorPrefix string          // e.g., "gostatus_pb." (import prefix for translator)
+}
+
+// distinctPrimitiveData holds data for distinct types that wrap primitives.
+// Used to generate conversion cases in the any converter helper function.
+type distinctPrimitiveData struct {
+	GoType        string // e.g., "telem.TimeSpan"
+	PrimitiveType string // e.g., "int64"
 }

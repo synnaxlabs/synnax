@@ -30,8 +30,8 @@ Viewport struct {
 }
 
 Graph struct {
-    viewport  Viewport?
-    functions ir.Functions?
-    edges     ir.Edges?
-    nodes     Nodes?
+    viewport  Viewport
+    functions ir.Functions
+    edges     ir.Edges
+    nodes     Nodes
 }

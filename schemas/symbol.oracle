@@ -16,7 +16,7 @@ Key = uuid
 Region struct {
     key          string
     name         string
-    selectors    string[]?
+    selectors    string[]
     stroke_color string?
     fill_color   string?
 }

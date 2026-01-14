@@ -20,7 +20,7 @@ export const viewportZ = z.object({
    * The top-left pixel offset of the diagram pan position. Note that this
    * offset is unscaled by zoom.
    */
-  position: xy.xy,
+  position: xy.xyZ,
 
   /**
    * A decimal of the current diagram zoom. Larger values represent
@@ -86,7 +86,7 @@ export const nodeZ = z.object({
   /** A unique key for identifying the node within the diagram. */
   key: z.string(),
   /** The XY coordinate of the top left corner of the node. Unscaled by the viewport. */
-  position: xy.xy,
+  position: xy.xyZ,
   /** Whether the node is currently selected. */
   selected: z.boolean().optional(),
   /** An optional z-index for the node. */

@@ -16,6 +16,7 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
@@ -120,6 +121,7 @@ inline ::api::channel::pb::Channel APIChannel::to_proto() const {
     for (const auto &item: this->operations)
         *pb.add_operations() = item.to_proto();
     pb.set_concurrency(static_cast<::x::control::pb::Concurrency>(this->concurrency));
+    if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
     return pb;
 }
 
@@ -142,6 +144,11 @@ APIChannel::from_proto(const ::api::channel::pb::Channel &pb) {
         cpp.operations.push_back(v);
     }
     cpp.concurrency = static_cast<Concurrency>(pb.concurrency());
+    if (pb.has_status()) {
+        auto [val, err] = ::x::status::Status::from_proto(pb.status());
+        if (err) return {{}, err};
+        cpp.status = val;
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -150,6 +157,7 @@ inline pb::NewChannel NewChannel::to_proto() const {
     pb.set_name(this->name);
     pb.set_data_type(this->data_type.to_proto());
     pb.set_alias(this->alias);
+    if (this->status.has_value()) *pb.mutable_status() = this->status->to_proto();
     pb.set_key(static_cast<uint32_t>(this->key));
     pb.set_leaseholder(this->leaseholder);
     pb.set_index(static_cast<uint32_t>(this->index));
@@ -169,6 +177,11 @@ NewChannel::from_proto(const pb::NewChannel &pb) {
     cpp.name = pb.name();
     cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
     cpp.alias = pb.alias();
+    if (pb.has_status()) {
+        auto [val, err] = ::x::status::Status::from_proto(pb.status());
+        if (err) return {{}, err};
+        cpp.status = val;
+    }
     cpp.key = ChannelKey(pb.key());
     cpp.leaseholder = pb.leaseholder();
     cpp.index = ChannelKey(pb.index());

@@ -9,8 +9,9 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Device, Form } from "@synnaxlabs/pluto";
-import { primitive, type record } from "@synnaxlabs/x";
+import { primitive } from "@synnaxlabs/x";
 import { useEffect, useMemo } from "react";
+import { z } from "zod";
 
 /**
  * A hook that retrieves and subscribes to updates for a device. Must be used within a
@@ -30,9 +31,9 @@ import { useEffect, useMemo } from "react";
  * @template MO - The device model type.
  */
 export const use = <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >(): device.Device<Properties, Make, Model> | null => {
   const devKey = Form.useFieldValue<string>("config.device");
   const { useRetrieveStateful } = useMemo(

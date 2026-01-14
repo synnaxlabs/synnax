@@ -151,7 +151,10 @@ const onConfigure: Common.Task.OnConfigure<typeof counterReadConfigZ> = async (
   const devices = unique.unique(config.channels.map((c) => c.device));
   if (devices.length === 0) throw new Error("No device selected in task configuration");
 
-  const allDevices = await client.devices.retrieve<Device.Properties>({
+  const allDevices = await client.devices.retrieve<
+    typeof Device.propertiesZ,
+    typeof Device.makeZ
+  >({
     keys: devices,
   });
   const racks = new Set(allDevices.map((d) => d.rack));

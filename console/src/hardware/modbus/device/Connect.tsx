@@ -27,9 +27,9 @@ import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import {
-  type Make,
-  type Model,
-  type Properties,
+  makeZ,
+  modelZ,
+  propertiesZ,
   ZERO_PROPERTIES,
 } from "@/hardware/modbus/device/types";
 import {
@@ -52,9 +52,9 @@ export const CONNECT_LAYOUT: Layout.BaseState = {
   window: { resizable: false, size: { height: 500, width: 600 }, navTop: true },
 };
 
-const useForm = Device.createForm<Properties, Make, Model>();
+const useForm = Device.createForm<typeof propertiesZ, typeof makeZ, typeof modelZ>();
 
-const INITIAL_VALUES: device.Device<Properties, Make, Model> = {
+const INITIAL_VALUES: device.Device<typeof propertiesZ, typeof makeZ, typeof modelZ> = {
   key: "",
   name: "Modbus Server",
   make: "Modbus",

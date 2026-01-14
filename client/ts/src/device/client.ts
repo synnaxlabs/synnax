@@ -73,20 +73,20 @@ export class Client {
 
   async retrieve<
     Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodString = z.ZodString,
-    Model extends z.ZodString = z.ZodString,
+    Make extends z.ZodType<string> = z.ZodString,
+    Model extends z.ZodType<string> = z.ZodString,
   >(args: RetrieveSingleParams): Promise<Device<Properties, Make, Model>>;
 
   async retrieve<
     Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodString = z.ZodString,
-    Model extends z.ZodString = z.ZodString,
+    Make extends z.ZodType<string> = z.ZodString,
+    Model extends z.ZodType<string> = z.ZodString,
   >(args: RetrieveMultipleParams): Promise<Array<Device<Properties, Make, Model>>>;
 
   async retrieve<
     Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodString = z.ZodString,
-    Model extends z.ZodString = z.ZodString,
+    Make extends z.ZodType<string> = z.ZodString,
+    Model extends z.ZodType<string> = z.ZodString,
   >(
     args: RetrieveArgs,
   ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
@@ -105,20 +105,20 @@ export class Client {
 
   async create<
     Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodString = z.ZodString,
-    Model extends z.ZodString = z.ZodString,
+    Make extends z.ZodType<string> = z.ZodString,
+    Model extends z.ZodType<string> = z.ZodString,
   >(device: New<Properties, Make, Model>): Promise<Device<Properties, Make, Model>>;
   async create<
     Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodString = z.ZodString,
-    Model extends z.ZodString = z.ZodString,
+    Make extends z.ZodType<string> = z.ZodString,
+    Model extends z.ZodType<string> = z.ZodString,
   >(
     devices: New<Properties, Make, Model>[],
   ): Promise<Device<Properties, Make, Model>[]>;
   async create<
     Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodString = z.ZodString,
-    Model extends z.ZodString = z.ZodString,
+    Make extends z.ZodType<string> = z.ZodString,
+    Model extends z.ZodType<string> = z.ZodString,
   >(
     devices: New<Properties, Make, Model> | New<Properties, Make, Model>[],
   ): Promise<Device<Properties, Make, Model> | Device<Properties, Make, Model>[]> {

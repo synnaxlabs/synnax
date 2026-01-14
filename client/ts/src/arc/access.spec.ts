@@ -29,6 +29,8 @@ describe("arc", () => {
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
         deploy: false,
@@ -51,6 +53,8 @@ describe("arc", () => {
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
         deploy: false,
@@ -72,6 +76,8 @@ describe("arc", () => {
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
         deploy: false,
@@ -91,6 +97,8 @@ describe("arc", () => {
           graph: {
             nodes: [],
             edges: [],
+            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+            functions: [],
           },
           text: { raw: "" },
           deploy: false,
@@ -110,6 +118,8 @@ describe("arc", () => {
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
         deploy: false,
@@ -132,6 +142,8 @@ describe("arc", () => {
         graph: {
           nodes: [],
           edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
         },
         text: { raw: "" },
         deploy: false,

@@ -21,10 +21,12 @@ Key uint64 {
 }
 
 StatusDetails struct<Data extends json = json> {
-    task    Key?
-    running bool?
+    task    Key
+    running bool
     cmd     string?
     data    Data??
+
+    @ts concrete_types
 }
 
 Status<Data extends json = json> = status.Status<StatusDetails<Data>>

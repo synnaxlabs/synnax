@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { z } from "zod/v4";
+import { z } from "zod";
 
 export const MAKE = "Modbus";
-export type Make = typeof MAKE;
-export type Model = "Modbus";
+export const makeZ = z.literal(MAKE);
+export type Make = z.infer<typeof makeZ>;
+export const MODEL = "Modbus";
+export const modelZ = z.literal(MODEL);
+export type Model = z.infer<typeof modelZ>;
 
 export const connectionConfigZ = z.object({
   host: z.string(),
@@ -41,4 +44,5 @@ export const ZERO_PROPERTIES = {
   write: { channels: {} },
 } as const satisfies Properties;
 
-export interface Device extends device.Device<Properties, Make, Model> {}
+export interface Device
+  extends device.Device<typeof propertiesZ, typeof makeZ, typeof modelZ> {}

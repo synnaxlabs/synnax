@@ -10,6 +10,7 @@
 import { device, ontology, type Synnax } from "@synnaxlabs/client";
 import { array, primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
+import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -35,9 +36,11 @@ export interface FluxSubStore extends Task.FluxSubStore {
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
-const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.deviceZ> = {
+const genericDeviceZ = device.deviceZ();
+
+const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof genericDeviceZ> = {
   channel: device.SET_CHANNEL_NAME,
-  schema: device.deviceZ,
+  schema: genericDeviceZ,
   onChange: ({ store, changed }) => store.devices.set(changed.key, changed),
 };
 
@@ -61,16 +64,17 @@ export interface RetrieveQuery extends device.RetrieveSingleParams {}
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
 const retrieveSingle = async <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >({
   client,
   store,
   query,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>): Promise<
-  device.Device<Properties, Make, Model>
-> => {
+  schemas,
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore> & {
+  schemas?: device.DeviceSchemas<Properties, Make, Model>;
+}): Promise<device.Device<Properties, Make, Model>> => {
   const cached = store.devices.get(query.key);
   if (cached != null) {
     const status = await Status.retrieveSingle<typeof device.statusDetailsZ>({
@@ -80,29 +84,31 @@ const retrieveSingle = async <
       detailsSchema: device.statusDetailsZ,
     });
     const dev: device.Device = { ...cached, status };
-    return dev as device.Device<Properties, Make, Model>;
+    return dev as unknown as device.Device<Properties, Make, Model>;
   }
   const dev = await client.devices.retrieve<Properties, Make, Model>({
     ...BASE_QUERY,
     ...query,
   });
-  store.devices.set(dev);
+  store.devices.set(dev.key, dev as unknown as device.Device);
   if (dev.status != null) store.statuses.set(dev.status);
   return dev;
 };
 
 export const createRetrieve = <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
->() =>
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+) =>
   Flux.createRetrieve<
     RetrieveQuery,
     device.Device<Properties, Make, Model>,
     FluxSubStore
   >({
     name: RESOURCE_NAME,
-    retrieve: retrieveSingle<Properties, Make, Model>,
+    retrieve: (params) => retrieveSingle<Properties, Make, Model>({ ...params, schemas }),
     mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
         (changed) =>
@@ -247,7 +253,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-export const formSchema = device.deviceZ;
+export const formSchema = device.deviceZ();
 
 const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
   let rack = store.racks.get(() => true)[0];
@@ -264,10 +270,12 @@ const retrieveInitialRackKey = async (client: Synnax, store: FluxSubStore) => {
 export interface FormQuery extends RetrieveQuery {}
 
 export const createForm = <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
->() =>
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+) =>
   Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({
     name: RESOURCE_NAME,
     schema: formSchema,
@@ -291,12 +299,13 @@ export const createForm = <
         client,
         store,
         query,
+        schemas,
       });
-      reset(device);
+      reset(device as unknown as z.infer<typeof formSchema>);
     },
     update: async ({ value, client, store, rollbacks }) => {
       const result = await client.devices.create(value());
-      rollbacks.push(store.devices.set(result));
+      rollbacks.push(store.devices.set(result.key, result as unknown as device.Device));
     },
     mountListeners: ({ store, query: { key }, reset, set, get }) => {
       if (primitive.isZero(key)) return [];

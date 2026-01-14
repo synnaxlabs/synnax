@@ -31,7 +31,7 @@ const TOOLTIP_LIST_ITEM_HEIGHT: number = 14;
 const TOOLTIP_PADDING: xy.XY = xy.construct(6);
 
 export const tooltipStateZ = z.object({
-  position: xy.xy.or(z.null()),
+  position: xy.xyZ.or(z.null()),
   textColor: color.colorZ.default(color.ZERO),
   backgroundColor: color.colorZ.default(color.ZERO),
   borderColor: color.colorZ.default(color.ZERO),

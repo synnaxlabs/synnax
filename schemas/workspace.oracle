@@ -16,7 +16,7 @@ Key = uuid
 Workspace struct {
     key    Key    @key
     name   string @validate required
-    author uuid
+    author uuid?
     layout json
 
     @ontology type "workspace"

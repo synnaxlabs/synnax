@@ -838,6 +838,10 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "json" {
 			tpd.IsJSON = true
 		}
+		// String constraints use z.ZodType<string> to allow both z.string() and z.literal("foo")
+		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "string" {
+			tpd.Constraint = "z.ZodType<string>"
+		}
 		// Enum constraints use z.ZodType<EnumType> to allow literals and subset enums
 		resolved, ok := tp.Constraint.Resolve(table)
 		if ok {

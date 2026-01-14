@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type device } from "@synnaxlabs/client";
+import { channel as channelAPI, type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
 type Version = typeof VERSION;
 
 export const MAKE = "opc";
-export type Make = typeof MAKE;
+export const makeZ = z.literal(MAKE);
+export type Make = z.infer<typeof makeZ>;
 
 export const NO_SECURITY_MODE = "None";
 export const SIGN_SECURITY_MODE = "Sign";
@@ -64,12 +65,20 @@ export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   serverCertificate: "",
 };
 
-export type Properties = {
-  version: Version;
-  connection: ConnectionConfig;
-  read: { index: channel.Key; channels: Record<string, channel.Key> };
-  write: { channels: Record<string, channel.Key> };
-};
+export const propertiesZ = z.object({
+  version: z.literal(VERSION),
+  connection: connectionConfigZ,
+  read: z.object({
+    index: channelAPI.keyZ,
+    channels: z.record(z.string(), channelAPI.keyZ),
+  }),
+  write: z.object({
+    channels: z.record(z.string(), channelAPI.keyZ),
+  }),
+});
+
+export type Properties = z.infer<typeof propertiesZ>;
+
 export const ZERO_PROPERTIES: Properties = {
   version: VERSION,
   connection: ZERO_CONNECTION_CONFIG,
@@ -77,5 +86,5 @@ export const ZERO_PROPERTIES: Properties = {
   write: { channels: {} },
 };
 
-export interface Device extends device.Device<Properties, Make> {}
-export interface New extends device.New<Properties, Make> {}
+export interface Device extends device.Device<typeof propertiesZ, typeof makeZ> {}
+export interface New extends device.New<typeof propertiesZ, typeof makeZ> {}

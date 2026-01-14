@@ -193,7 +193,11 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<Device.Properties>({
+  const dev = await client.devices.retrieve<
+    typeof Device.propertiesZ,
+    typeof Device.makeZ,
+    typeof Device.modelZ
+  >({
     key: config.device,
   });
   const commandsToCreate: OutputChannel[] = [];

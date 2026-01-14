@@ -41,6 +41,13 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 		Concurrency: controlpb.ConcurrencyToPB(r.Concurrency),
 		Operations:  operationsVal,
 	}
+	if r.Status != nil {
+		var err error
+		pb.Status, err = r.Status
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -66,6 +73,13 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
 	r.Concurrency = controlpb.ConcurrencyFromPB(pb.Concurrency)
+	if pb.Status != nil {
+		val, err := pb.Status
+		if err != nil {
+			return r, err
+		}
+		r.Status = &val
+	}
 	return r, nil
 }
 

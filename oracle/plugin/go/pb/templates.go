@@ -49,6 +49,25 @@ import (
 {{- end}}
 )
 {{- end}}
+{{- if gt (len .DistinctPrimitives) 0}}
+
+// convertAnyForPB converts distinct primitive types to their underlying primitive types
+// so that structpb.NewValue() can handle them. This handles custom type aliases like
+// telem.TimeSpan (int64), telem.Rate (float64), etc.
+func convertAnyForPB(v any) any {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+{{- range .DistinctPrimitives}}
+	case {{.GoType}}:
+		return {{.PrimitiveType}}(val)
+{{- end}}
+	default:
+		return v
+	}
+}
+{{- end}}
 {{range .Translators}}
 
 // {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}}.

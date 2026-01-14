@@ -40,7 +40,8 @@ Device struct<
     properties Properties
     status     Status??
 
-    @ontology type "device"
+    @ontology type     "device"
+    @ts concrete_types
 }
 
 New struct<
@@ -52,7 +53,10 @@ New struct<
     properties Properties @ts stringify
     -configured
 
-    @ts use_input
+    @ts {
+        use_input
+        concrete_types
+    }
     @go omit
     @pb omit
     @py omit

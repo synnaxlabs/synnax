@@ -37,14 +37,24 @@ describe("Arc queries", () => {
       const arc1 = await client.arcs.create({
         name: "arc1",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
       const arc2 = await client.arcs.create({
         name: "arc2",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -86,7 +96,12 @@ describe("Arc queries", () => {
         await client.arcs.create({
           name: "new-arc",
           version: "1.0.0",
-          graph: { nodes: [], edges: [] },
+          graph: {
+            nodes: [],
+            edges: [],
+            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+            functions: [],
+          },
           text: { raw: "" },
           deploy: false,
         });
@@ -107,7 +122,12 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: "original-name",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -140,7 +160,12 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: "to-delete",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -170,21 +195,36 @@ describe("Arc queries", () => {
       const arc1 = await client.arcs.create({
         name: "filter-arc-1",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
       const arc2 = await client.arcs.create({
         name: "filter-arc-2",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
       await client.arcs.create({
         name: "filter-arc-3",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -215,7 +255,12 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: "delete-single",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -237,14 +282,24 @@ describe("Arc queries", () => {
       const arc1 = await client.arcs.create({
         name: "delete-multi-1",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
       const arc2 = await client.arcs.create({
         name: "delete-multi-2",
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -274,7 +329,12 @@ describe("Arc queries", () => {
         await result.current.updateAsync({
           name: uniqueName,
           version: "1.0.0",
-          graph: { nodes: [], edges: [] },
+          graph: {
+            nodes: [],
+            edges: [],
+            viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+            functions: [],
+          },
           text: { raw: "" },
           deploy: false,
         });
@@ -296,7 +356,12 @@ describe("Arc queries", () => {
       expect(formData.name).toBe("");
       expect(formData.version).toBe("0.0.0");
       expect(formData.deploy).toBe(true);
-      expect(formData.graph).toEqual({ nodes: [], edges: [] });
+      expect(formData.graph).toEqual({
+        nodes: [],
+        edges: [],
+        viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+        functions: [],
+      });
       expect(formData.text).toEqual({ raw: "" });
     });
 
@@ -330,7 +395,12 @@ describe("Arc queries", () => {
       const existingArc = await client.arcs.create({
         name: `existing-arc-${Math.random().toString(36).substring(7)}`,
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -372,7 +442,12 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `retrieve-arc-${Math.random().toString(36).substring(7)}`,
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: true,
       });
@@ -397,7 +472,12 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `toggle-arc-${Math.random().toString(36).substring(7)}`,
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });
@@ -433,7 +513,12 @@ describe("Arc queries", () => {
       const testArc = await client.arcs.create({
         name: `original-${Math.random().toString(36).substring(7)}`,
         version: "1.0.0",
-        graph: { nodes: [], edges: [] },
+        graph: {
+          nodes: [],
+          edges: [],
+          viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+          functions: [],
+        },
         text: { raw: "" },
         deploy: false,
       });

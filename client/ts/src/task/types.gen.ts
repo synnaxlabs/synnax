@@ -19,14 +19,17 @@ export type Key = z.infer<typeof keyZ>;
 
 export const statusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   z.object({
-    task: keyZ.optional(),
-    running: z.boolean().optional(),
+    task: keyZ,
+    running: z.boolean(),
     cmd: z.string().optional(),
     data: data ?? record.nullishToEmpty.optional(),
   });
-export type StatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
-  ReturnType<typeof statusDetailsZ<Data>>
->;
+export interface StatusDetails<Data extends z.ZodType = z.ZodType> {
+  task: Key;
+  running: boolean;
+  cmd?: string;
+  data?: z.infer<Data>;
+}
 
 export const newStatusDetailsZ = <Data extends z.ZodType = z.ZodType>(data?: Data) =>
   z.object({
@@ -60,7 +63,7 @@ export type NewStatus<Data extends z.ZodType = z.ZodType> = z.infer<
 >;
 
 export interface PayloadSchemas<
-  Type extends z.ZodType = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
@@ -70,7 +73,7 @@ export interface PayloadSchemas<
 }
 
 export const payloadZ = <
-  Type extends z.ZodType = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >({ type, config, statusData }: PayloadSchemas<Type, Config, StatusData> = {}) =>
@@ -84,7 +87,7 @@ export const payloadZ = <
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
   });
 export interface Payload<
-  Type extends z.ZodType = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
@@ -98,7 +101,7 @@ export interface Payload<
 }
 
 export interface NewSchemas<
-  Type extends z.ZodType = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > {
@@ -108,7 +111,7 @@ export interface NewSchemas<
 }
 
 export const newZ = <
-  Type extends z.ZodType = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 >({ type, config, statusData }: NewSchemas<Type, Config, StatusData> = {}) =>
@@ -120,7 +123,7 @@ export const newZ = <
       status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
     });
 export type New<
-  Type extends z.ZodType = z.ZodString,
+  Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > = optional.Optional<

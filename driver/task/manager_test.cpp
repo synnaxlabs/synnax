@@ -676,7 +676,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     auto *f = factory.get();
     start_manager(std::move(factory));
 
-    auto task = synnax::task::Task(rack.key, "t", "destructor_tracking", "");
+    auto task = synnax::task::Task{.name = "t", .type = "destructor_tracking"};
     ASSERT_NIL(rack.tasks.create(task));
 
     WAIT_FOR_TASK_STATUS(streamer, task, [](auto &s) {

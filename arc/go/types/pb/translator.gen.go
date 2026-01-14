@@ -14,8 +14,48 @@ package pb
 import (
 	"context"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/aspen/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// convertAnyForPB converts distinct primitive types to their underlying primitive types
+// so that structpb.NewValue() can handle them. This handles custom type aliases like
+// telem.TimeSpan (int64), telem.Rate (float64), etc.
+func convertAnyForPB(v any) any {
+	if v == nil {
+		return nil
+	}
+	switch val := v.(type) {
+	case telem.TimeStamp:
+		return int64(val)
+	case telem.TimeSpan:
+		return int64(val)
+	case telem.Rate:
+		return float64(val)
+	case telem.Size:
+		return int64(val)
+	case telem.DataType:
+		return string(val)
+	case telem.Alignment:
+		return uint64(val)
+	case channel.Key:
+		return uint32(val)
+	case channel.LocalKey:
+		return uint32(val)
+	case node.Key:
+		return uint32(val)
+	case rack.Key:
+		return uint32(val)
+	case task.Key:
+		return uint64(val)
+	default:
+		return v
+	}
+}
 
 // FunctionPropertiesToPB converts FunctionProperties to FunctionProperties.
 func FunctionPropertiesToPB(ctx context.Context, r types.FunctionProperties) (*FunctionProperties, error) {
@@ -209,7 +249,7 @@ func ParamToPB(ctx context.Context, r types.Param) (*Param, error) {
 	if err != nil {
 		return nil, err
 	}
-	valueVal, err := structpb.NewValue(r.Value)
+	valueVal, err := structpb.NewValue(convertAnyForPB(r.Value))
 	if err != nil {
 		return nil, err
 	}

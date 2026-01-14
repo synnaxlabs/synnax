@@ -58,7 +58,7 @@ export const ConnectionLine = ({
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
   if (toNodeHandle != null) {
-    const res = location.outer.safeParse(toNodeHandle[1]);
+    const res = location.outerZ.safeParse(toNodeHandle[1]);
     if (res.success) toPosition = res.data as Position;
   }
   const flow = useReactFlow();

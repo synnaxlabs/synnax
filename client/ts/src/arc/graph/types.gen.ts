@@ -32,9 +32,9 @@ export const nodesZ = array.nullishToEmpty(nodeZ);
 export type Nodes = z.infer<typeof nodesZ>;
 
 export const graphZ = z.object({
-  viewport: viewportZ.optional(),
-  functions: ir.functionsZ.optional(),
-  edges: ir.edgesZ.optional(),
-  nodes: nodesZ.optional(),
+  viewport: viewportZ,
+  functions: ir.functionsZ,
+  edges: ir.edgesZ,
+  nodes: nodesZ,
 });
 export interface Graph extends z.infer<typeof graphZ> {}

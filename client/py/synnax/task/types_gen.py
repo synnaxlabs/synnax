@@ -22,8 +22,8 @@ Key = NewType("Key", int)
 
 
 class StatusDetails(BaseModel):
-    task: Key | None = None
-    running: bool | None = None
+    task: Key
+    running: bool
     cmd: str | None = None
     data: Any | None = None
 

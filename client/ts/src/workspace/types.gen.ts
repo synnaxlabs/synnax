@@ -20,7 +20,7 @@ export type Key = z.infer<typeof keyZ>;
 export const workspaceZ = z.object({
   key: keyZ,
   name: z.string().min(1, "Name is required"),
-  author: z.uuid(),
+  author: z.uuid().optional(),
   layout: record.nullishToEmpty,
 });
 export interface Workspace extends z.infer<typeof workspaceZ> {}

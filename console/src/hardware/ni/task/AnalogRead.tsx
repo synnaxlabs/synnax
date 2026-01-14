@@ -150,7 +150,10 @@ const onConfigure: Common.Task.OnConfigure<typeof analogReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
-  const allDevices = await client.devices.retrieve<Device.Properties>({
+  const allDevices = await client.devices.retrieve<
+    typeof Device.propertiesZ,
+    typeof Device.makeZ
+  >({
     keys: devices,
   });
   const racks = new Set(allDevices.map((d) => d.rack));

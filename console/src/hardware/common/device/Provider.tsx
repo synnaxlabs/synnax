@@ -9,8 +9,8 @@
 
 import { type device } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+import { z } from "zod";
 
 import { EmptyAction } from "@/components";
 import { use } from "@/hardware/common/device/use";
@@ -23,17 +23,17 @@ const DEFAULT_NONE_SELECTED_CONTENT = (
 );
 
 export interface ProviderChildProps<
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 > {
   device: device.Device<Properties, Make, Model>;
 }
 
 export interface ProviderProps<
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 > {
   canConfigure: boolean;
   children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
@@ -42,9 +42,9 @@ export interface ProviderProps<
 }
 
 export const Provider = <
-  Properties extends record.Unknown = record.Unknown,
-  Make extends string = string,
-  Model extends string = string,
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
 >({
   canConfigure,
   children,

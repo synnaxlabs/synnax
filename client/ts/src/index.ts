@@ -41,7 +41,7 @@ export { kv } from "@/kv";
 export { label } from "@/label";
 export { ontology } from "@/ontology";
 export { rack } from "@/rack";
-export { range } from "@/range";
+export { range, ranger } from "@/range";
 export { status } from "@/status";
 export { task } from "@/task";
 export { createTestClientWithPolicy } from "@/testutil/access";

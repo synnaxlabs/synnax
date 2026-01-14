@@ -978,7 +978,7 @@ describe("queries", () => {
         const rack = await client.racks.create({
           name: "test custom props rack",
         });
-        const useForm = Device.createForm<CustomProperties>();
+        const useForm = Device.createForm();
         const { result } = renderHook(() => useForm({ query: { key: "" } }), {
           wrapper,
         });

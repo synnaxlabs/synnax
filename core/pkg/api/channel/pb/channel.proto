@@ -6,6 +6,7 @@ package api.channel.pb;
 
 import "core/pkg/distribution/channel/pb/channel.proto";
 import "x/go/control/pb/control.proto";
+import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
@@ -29,4 +30,5 @@ message Channel {
   string expression = 10;
   repeated .distribution.channel.pb.Operation operations = 11;
   .x.control.pb.Concurrency concurrency = 12;
+  optional .x.status.pb.Status status = 13;
 }

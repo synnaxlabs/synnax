@@ -22,7 +22,7 @@ namespace synnax::task {
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
         .task = parser.field<Key>("task"),
-        .running = parser.field<bool>("running", false),
+        .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
         .data = parser.has("data")
                   ? std::make_optional(parser.field<x::json::json>("data"))

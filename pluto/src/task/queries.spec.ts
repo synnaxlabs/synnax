@@ -1013,7 +1013,7 @@ describe("queries", () => {
           result.current.form.get<task.Status<typeof statusDataSchema>>("status").value;
         expect(status?.variant).toEqual("error");
         expect(status?.message).toEqual("Task error");
-        expect(status?.details.data.errorCode).toEqual(500);
+        expect(status?.details.data?.errorCode).toEqual(500);
       });
     });
 

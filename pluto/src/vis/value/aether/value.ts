@@ -35,8 +35,8 @@ const valueState = z.object({
   notation: notation.notationZ.default("standard"),
   location: location.xy.default({ x: "left", y: "center" }),
   useWidthForBackground: z.boolean().default(false),
-  valueBackgroundShift: xy.xy.default(xy.ZERO),
-  valueBackgroundOverScan: xy.xy.default(xy.ZERO),
+  valueBackgroundShift: xy.xyZ.default(xy.ZERO),
+  valueBackgroundOverScan: xy.xyZ.default(xy.ZERO),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];

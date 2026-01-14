@@ -25,8 +25,8 @@ export const ZERO_LEGEND_STATE: LegendState = { visible: true };
 
 export const viewportStateZ = z.object({
   renderTrigger: z.number(),
-  zoom: dimensions.dimensions,
-  pan: xy.xy,
+  zoom: dimensions.dimensionsZ,
+  pan: xy.xyZ,
 });
 export interface ViewportState extends z.infer<typeof viewportStateZ> {}
 export const ZERO_VIEWPORT_STATE: ViewportState = {
@@ -42,8 +42,8 @@ export const ZERO_SELECTION_STATE: SelectionState = { box: box.ZERO };
 export const axisStateZ = z.object({
   key: axisKeyZ,
   label: z.string(),
-  labelDirection: direction.direction,
-  bounds: bounds.bounds,
+  labelDirection: direction.directionZ,
+  bounds: bounds.boundsZ,
   autoBounds: z.object({ lower: z.boolean(), upper: z.boolean() }),
   tickSpacing: z.number(),
   labelLevel: Text.levelZ,

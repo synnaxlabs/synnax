@@ -10,6 +10,7 @@
 import "schemas/telem"
 import "schemas/node"
 import "schemas/control"
+import "schemas/status"
 
 @ts output  "client/ts/src/channel"
 @py output  "client/py/synnax/channel"
@@ -88,6 +89,7 @@ APIChannel struct {
     expression  string               @validate default ""
     operations  Operation[]?
     concurrency control.Concurrency?
+    status      status.Status??
 
     @go output     "core/pkg/api/channel"
     @ontology type "channel"

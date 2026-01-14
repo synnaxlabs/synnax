@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { id } from "@/id";
 import { type optional } from "@/optional";
-import { type Status, type Variant, type variantZ } from "@/status/types.gen";
+import { type Status, type Variant } from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
 
 // Input type for creating statuses - uses conditional typing for optional details
@@ -38,9 +38,9 @@ export const exceptionDetailsSchema = z.object({
 export const fromException = (
   exc: unknown,
   message?: string,
-): Status<typeof exceptionDetailsSchema> => {
+): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
   if (!(exc instanceof Error)) throw exc;
-  return create<typeof exceptionDetailsSchema>({
+  return create<typeof exceptionDetailsSchema, "error">({
     variant: "error",
     message: message ?? exc.message,
     description: message != null ? exc.message : undefined,
@@ -50,16 +50,16 @@ export const fromException = (
 
 export const create = <
   DetailsSchema extends z.ZodType = z.ZodNever,
-  V extends typeof variantZ = typeof variantZ,
+  V extends Variant = Variant,
 >(
-  spec: Crude<DetailsSchema, z.infer<V>>,
-): Status<DetailsSchema, V> =>
+  spec: Crude<DetailsSchema, V>,
+): Status<DetailsSchema, z.ZodType<V>> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
     name: "",
     ...spec,
-  }) as unknown as Status<DetailsSchema, V>;
+  }) as unknown as Status<DetailsSchema, z.ZodType<V>>;
 
 export const keepVariants = (
   variant?: Variant,

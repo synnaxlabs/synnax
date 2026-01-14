@@ -41,7 +41,6 @@ export {
   LOCATIONS,
   locationZ,
   OUTER_LOCATIONS,
-  outerLocationZ,
   X_LOCATIONS,
   Y_LOCATIONS,
 };
@@ -49,6 +48,7 @@ export {
 export const x = xLocationZ;
 export const y = yLocationZ;
 export const center = centerLocationZ;
+export const outerZ = outerLocationZ;
 
 export type X = XLocation;
 export type Y = YLocation;

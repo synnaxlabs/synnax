@@ -90,6 +90,7 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
 };
 
 export const formSchema = channel.newZ
+  .required({ expression: true })
   .extend({
     name: channel.nameZ,
     dataType: DataType.z.transform((v) => v.toString()),

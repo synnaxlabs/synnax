@@ -16,7 +16,7 @@ from typing import Literal, NewType, TypeAlias
 
 from pydantic import BaseModel, Field
 
-from synnax import telem
+from synnax import status, telem
 from synnax.ontology.payload import ID
 from synnax.x import control
 
@@ -53,6 +53,7 @@ class Payload(BaseModel):
     expression: str = Field(default="")
     operations: list[Operation] | None = None
     concurrency: control.Concurrency | None = None
+    status: status.Status | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)

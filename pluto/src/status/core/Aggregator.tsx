@@ -15,6 +15,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import type z from "zod";
 
 import { Aether } from "@/aether";
 import { context } from "@/context";
@@ -84,11 +85,12 @@ export const useAsyncErrorHandler = (): AsyncErrorHandler => {
   return useMemo(() => status.createAsyncErrorHandler(add), [add]);
 };
 
-export type NotificationSpec<Details = never> = xstatus.Status<Details> & {
-  count: number;
-};
+export type NotificationSpec<Details extends z.ZodType = z.ZodNever> =
+  xstatus.Status<Details> & {
+    count: number;
+  };
 
-export interface UseNotificationsReturn<Details = never> {
+export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> {
   statuses: NotificationSpec<Details>[];
   silence: (key: string) => void;
 }
