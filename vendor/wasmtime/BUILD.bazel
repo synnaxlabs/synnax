@@ -82,11 +82,23 @@ genrule(
             # Build wasmtime for Windows
             cd vendor/wasmtime/wasmtime
 
+            # Debug: Find where rust binaries actually are
+            echo "===== Rust Binary Location Debug ====="
+            echo "HOME=$$HOME"
+            echo "USERPROFILE=$$USERPROFILE"
+            echo "PATH=$$PATH"
+            which rustc
+            which cargo
+            rustc --version
+            rustc --print sysroot
+            echo "======================================="
+
             # Force CMake to use rustup-managed rust binaries, not Chocolatey's
-            # Even with PATH prepended, 'which' finds Chocolatey versions in Git Bash
-            # CMake respects these env vars to locate the correct rust installation
-            export RUSTC="$$HOME/.cargo/bin/rustc"
-            export CARGO="$$HOME/.cargo/bin/cargo"
+            # Use 'which' to find the actual rust binaries after PATH was prepended
+            export RUSTC=$$(which rustc)
+            export CARGO=$$(which cargo)
+            echo "RUSTC=$$RUSTC"
+            echo "CARGO=$$CARGO"
 
             # Clean any cached artifacts from previous builds with wrong target
             # (e.g., x86_64-pc-windows-gnu vs x86_64-pc-windows-msvc)
