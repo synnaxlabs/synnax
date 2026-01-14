@@ -87,7 +87,7 @@ const createConverter = (
       // Get the schema for this property using the converted key name
       const propSchema: z.ZodType | undefined =
         schema != null
-          ? (zodUtil.getFieldSchema(schema, nkey) ?? undefined)
+          ? (zodUtil.getFieldSchema(schema, nkey, { optional: true }) ?? undefined)
           : undefined;
 
       if (opt.recursive)

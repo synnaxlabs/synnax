@@ -246,6 +246,54 @@ func BoundssFromPB(ctx context.Context, pbs []*Bounds) ([]spatial.Bounds, error)
 	return result, nil
 }
 
+// XLocationToPB converts spatial.XLocation to XLocation.
+func XLocationToPB(v spatial.XLocation) XLocation {
+	switch v {
+	case spatial.XLocationLeft:
+		return XLocation_X_LOCATION_LEFT
+	case spatial.XLocationRight:
+		return XLocation_X_LOCATION_RIGHT
+	default:
+		return XLocation_X_LOCATION_LEFT
+	}
+}
+
+// XLocationFromPB converts XLocation to spatial.XLocation.
+func XLocationFromPB(v XLocation) spatial.XLocation {
+	switch v {
+	case XLocation_X_LOCATION_LEFT:
+		return spatial.XLocationLeft
+	case XLocation_X_LOCATION_RIGHT:
+		return spatial.XLocationRight
+	default:
+		return spatial.XLocationLeft
+	}
+}
+
+// YLocationToPB converts spatial.YLocation to YLocation.
+func YLocationToPB(v spatial.YLocation) YLocation {
+	switch v {
+	case spatial.YLocationTop:
+		return YLocation_Y_LOCATION_TOP
+	case spatial.YLocationBottom:
+		return YLocation_Y_LOCATION_BOTTOM
+	default:
+		return YLocation_Y_LOCATION_TOP
+	}
+}
+
+// YLocationFromPB converts YLocation to spatial.YLocation.
+func YLocationFromPB(v YLocation) spatial.YLocation {
+	switch v {
+	case YLocation_Y_LOCATION_TOP:
+		return spatial.YLocationTop
+	case YLocation_Y_LOCATION_BOTTOM:
+		return spatial.YLocationBottom
+	default:
+		return spatial.YLocationTop
+	}
+}
+
 // CenterLocationToPB converts spatial.CenterLocation to CenterLocation.
 func CenterLocationToPB(v spatial.CenterLocation) CenterLocation {
 	switch v {
@@ -407,53 +455,5 @@ func OuterLocationFromPB(v OuterLocation) spatial.OuterLocation {
 		return spatial.OuterLocationLeft
 	default:
 		return spatial.OuterLocationTop
-	}
-}
-
-// XLocationToPB converts spatial.XLocation to XLocation.
-func XLocationToPB(v spatial.XLocation) XLocation {
-	switch v {
-	case spatial.XLocationLeft:
-		return XLocation_X_LOCATION_LEFT
-	case spatial.XLocationRight:
-		return XLocation_X_LOCATION_RIGHT
-	default:
-		return XLocation_X_LOCATION_LEFT
-	}
-}
-
-// XLocationFromPB converts XLocation to spatial.XLocation.
-func XLocationFromPB(v XLocation) spatial.XLocation {
-	switch v {
-	case XLocation_X_LOCATION_LEFT:
-		return spatial.XLocationLeft
-	case XLocation_X_LOCATION_RIGHT:
-		return spatial.XLocationRight
-	default:
-		return spatial.XLocationLeft
-	}
-}
-
-// YLocationToPB converts spatial.YLocation to YLocation.
-func YLocationToPB(v spatial.YLocation) YLocation {
-	switch v {
-	case spatial.YLocationTop:
-		return YLocation_Y_LOCATION_TOP
-	case spatial.YLocationBottom:
-		return YLocation_Y_LOCATION_BOTTOM
-	default:
-		return YLocation_Y_LOCATION_TOP
-	}
-}
-
-// YLocationFromPB converts YLocation to spatial.YLocation.
-func YLocationFromPB(v YLocation) spatial.YLocation {
-	switch v {
-	case YLocation_Y_LOCATION_TOP:
-		return spatial.YLocationTop
-	case YLocation_Y_LOCATION_BOTTOM:
-		return spatial.YLocationBottom
-	default:
-		return spatial.YLocationTop
 	}
 }

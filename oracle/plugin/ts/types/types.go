@@ -478,7 +478,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			}
 			// Apply @ts to_string: accept numbers and convert to string
 			if toString {
-				zodType = fmt.Sprintf("%s.or(z.number().transform(String))", zodType)
+				zodType = fmt.Sprintf("%s.or(z.number().transform(String).or(z.bigint().transform(String)))", zodType)
 			}
 			return typeDefData{
 				Name:    td.Name,
@@ -1061,10 +1061,27 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
 		if validateDomain, ok := field.Domains["validate"]; ok {
-			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
-			fd.ZodType = result.ZodType
-			if result.HasDefault {
-				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+			// For type parameters with fallbacks (e.g., "make ?? z.string()"),
+			// apply validation only to the fallback to avoid TypeScript type errors.
+			// This generates: make ?? z.string().min(1, "...")
+			// instead of: (make ?? z.string()).min(1, "...")
+			if sepIndex := strings.Index(fd.ZodType, " ?? "); sepIndex > 0 {
+				// Split into parameter and fallback parts
+				paramPart := fd.ZodType[:sepIndex]
+				fallbackPart := fd.ZodType[sepIndex+4:] // +4 to skip " ?? "
+				// Apply validation to the fallback only
+				result := p.applyValidation(fallbackPart, validateDomain, field.Type, field.Name, table, data)
+				fd.ZodType = paramPart + " ?? " + result.ZodType
+				if result.HasDefault {
+					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+				}
+			} else {
+				// No fallback, apply validation normally
+				result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
+				fd.ZodType = result.ZodType
+				if result.HasDefault {
+					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+				}
 			}
 		}
 	}
@@ -1722,8 +1739,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
 	hasDefault := rules.Default != nil
-	isString := resolution.IsPrimitive(typeRef.Name) && resolution.IsStringPrimitive(typeRef.Name)
-	isNumber := resolution.IsPrimitive(typeRef.Name) && resolution.IsNumberPrimitive(typeRef.Name)
+	// For type parameters, check their constraint to determine the underlying type
+	effectiveType := typeRef.Name
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
+		effectiveType = typeRef.TypeParam.Constraint.Name
+	}
+	isString := resolution.IsPrimitive(effectiveType) && resolution.IsStringPrimitive(effectiveType)
+	isNumber := resolution.IsPrimitive(effectiveType) && resolution.IsNumberPrimitive(effectiveType)
 	if isString {
 		if rules.Required {
 			humanName := lo.Capitalize(strings.ReplaceAll(fieldName, "_", " "))

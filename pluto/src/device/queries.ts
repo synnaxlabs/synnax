@@ -10,7 +10,7 @@
 import { device, ontology, type Synnax } from "@synnaxlabs/client";
 import { array, primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -108,7 +108,8 @@ export const createRetrieve = <
     FluxSubStore
   >({
     name: RESOURCE_NAME,
-    retrieve: (params) => retrieveSingle<Properties, Make, Model>({ ...params, schemas }),
+    retrieve: (params) =>
+      retrieveSingle<Properties, Make, Model>({ ...params, schemas }),
     mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
         (changed) =>
