@@ -134,9 +134,11 @@ genrule(
             cp target/x86_64-pc-windows-msvc/release/wasmtime_c_api.lib artifacts/lib/wasmtime.lib || \
                 cp target/x86_64-pc-windows-msvc/release/*.lib artifacts/lib/wasmtime.lib || \
                 ( ls target/x86_64-pc-windows-msvc/release/ && exit 1 )
-            cp include/*.h artifacts/include/
-            cp include/*.hh artifacts/include/
-            cp -r include/wasmtime artifacts/include/
+
+            # Headers are in wasm-c-api/include when building without CMake
+            cp wasm-c-api/include/*.h artifacts/include/
+            cp wasm-c-api/include/*.hh artifacts/include/ 2>/dev/null || true
+            cp -r wasm-c-api/include/wasmtime artifacts/include/ 2>/dev/null || true
 
             # Go back to execroot
             cd ../../..
