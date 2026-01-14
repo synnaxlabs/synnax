@@ -112,16 +112,20 @@ genrule(
             # (e.g., x86_64-pc-windows-gnu vs x86_64-pc-windows-msvc)
             rm -rf target/c-api target/x86_64-pc-windows-msvc target/release 2>/dev/null || true
 
-            # Force MSVC target to avoid Mingw/GNU detection in Git Bash
-            # Disable profiling features to avoid ittapi-sys build issues on Windows
-            cmake -S crates/c-api -B target/c-api \
-                --install-prefix="$$(pwd)/artifacts" \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DBUILD_SHARED_LIBS=OFF \
-                -DWASMTIME_TARGET=x86_64-pc-windows-msvc \
-                -DWASMTIME_DISABLE_FEATURES="profiling"
-            cmake --build target/c-api --config Release
-            cmake --install target/c-api --config Release
+            # Build wasmtime directly with cargo instead of CMake to avoid build script issues
+            # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows
+            cd crates/c-api
+            cargo build --release --target x86_64-pc-windows-msvc \
+                --no-default-features \
+                --features wat,wasi,async,cranelift,threads
+            cd ../..
+
+            # Install headers and library manually
+            mkdir -p artifacts/lib artifacts/include artifacts/include/wasmtime
+            cp target/x86_64-pc-windows-msvc/release/wasmtime.lib artifacts/lib/
+            cp include/*.h artifacts/include/
+            cp include/*.hh artifacts/include/
+            cp -r include/wasmtime artifacts/include/
 
             # Go back to execroot
             cd ../../..
