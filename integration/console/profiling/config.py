@@ -26,9 +26,9 @@ class ProfilerConfig:
     Controls which profiling features are enabled and where profiles are saved.
 
     Environment Variables:
-        PLAYWRIGHT_CONSOLE_PROFILE: Enable CPU profiling via CDP (default: True)
-        PLAYWRIGHT_CONSOLE_TRACE: Enable Playwright tracing (default: True)
-        PLAYWRIGHT_CONSOLE_HEAP: Enable heap snapshot via CDP (default: True)
+        PLAYWRIGHT_CONSOLE_PROFILE: Enable CPU profiling via CDP (default: False)
+        PLAYWRIGHT_CONSOLE_TRACE: Enable Playwright tracing (default: False)
+        PLAYWRIGHT_CONSOLE_HEAP: Enable heap snapshot via CDP (default: False)
 
     Attributes:
         cpu_profiling: Enable CPU profiling. Profiles saved as .cpuprofile files.
@@ -38,13 +38,13 @@ class ProfilerConfig:
     """
 
     cpu_profiling: bool = field(
-        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_PROFILE", True)
+        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_PROFILE", False)
     )
     tracing: bool = field(
-        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_TRACE", True)
+        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_TRACE", False)
     )
     heap_snapshot: bool = field(
-        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_HEAP", True)
+        default_factory=lambda: _env_bool("PLAYWRIGHT_CONSOLE_HEAP", False)
     )
     output_dir: Path = field(
         default_factory=lambda: Path(__file__).parent.parent.parent / "profiles"
@@ -64,11 +64,11 @@ class ProfilerConfig:
         """
         return cls(
             cpu_profiling=params.get(
-                "profile", _env_bool("PLAYWRIGHT_CONSOLE_PROFILE", True)
+                "profile", _env_bool("PLAYWRIGHT_CONSOLE_PROFILE", False)
             ),
-            tracing=params.get("trace", _env_bool("PLAYWRIGHT_CONSOLE_TRACE", True)),
+            tracing=params.get("trace", _env_bool("PLAYWRIGHT_CONSOLE_TRACE", False)),
             heap_snapshot=params.get(
-                "heap", _env_bool("PLAYWRIGHT_CONSOLE_HEAP", True)
+                "heap", _env_bool("PLAYWRIGHT_CONSOLE_HEAP", False)
             ),
         )
 
