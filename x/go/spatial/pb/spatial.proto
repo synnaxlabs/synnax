@@ -6,11 +6,6 @@ package x.spatial.pb;
 
 option go_package = "github.com/synnaxlabs/x/spatial/pb";
 
-enum Direction {
-  DIRECTION_X = 0;
-  DIRECTION_Y = 1;
-}
-
 enum OuterLocation {
   OUTER_LOCATION_TOP = 0;
   OUTER_LOCATION_RIGHT = 1;
@@ -18,60 +13,7 @@ enum OuterLocation {
   OUTER_LOCATION_LEFT = 3;
 }
 
-enum XLocation {
-  X_LOCATION_LEFT = 0;
-  X_LOCATION_RIGHT = 1;
-}
-
-enum YLocation {
-  Y_LOCATION_TOP = 0;
-  Y_LOCATION_BOTTOM = 1;
-}
-
-enum CenterLocation {
-  CENTER_LOCATION_CENTER = 0;
-}
-
-enum Location {
-  LOCATION_TOP = 0;
-  LOCATION_RIGHT = 1;
-  LOCATION_BOTTOM = 2;
-  LOCATION_LEFT = 3;
-  LOCATION_CENTER = 4;
-}
-
-enum Alignment {
-  ALIGNMENT_START = 0;
-  ALIGNMENT_CENTER = 1;
-  ALIGNMENT_END = 2;
-}
-
-enum Order {
-  ORDER_FIRST = 0;
-  ORDER_LAST = 1;
-}
-
 message XY {
   double x = 1;
   double y = 2;
-}
-
-message ClientXY {
-  double client_x = 1;
-  double client_y = 2;
-}
-
-message Dimensions {
-  double width = 1;
-  double height = 2;
-}
-
-message SignedDimensions {
-  double signed_width = 1;
-  double signed_height = 2;
-}
-
-message Bounds {
-  double lower = 1;
-  double upper = 2;
 }

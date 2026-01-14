@@ -11,4 +11,5 @@ export * from "@/range/alias";
 export * from "@/range/client";
 export * from "@/range/kv";
 export * from "@/range/payload";
+export * from "@/range/types.gen";
 export * from "@/range/writer";

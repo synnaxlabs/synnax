@@ -11,13 +11,6 @@
 
 package spatial
 
-type Direction string
-
-const (
-	DirectionX Direction = "x"
-	DirectionY Direction = "y"
-)
-
 type OuterLocation string
 
 const (
@@ -27,72 +20,7 @@ const (
 	OuterLocationLeft   OuterLocation = "left"
 )
 
-type XLocation string
-
-const (
-	XLocationLeft  XLocation = "left"
-	XLocationRight XLocation = "right"
-)
-
-type YLocation string
-
-const (
-	YLocationTop    YLocation = "top"
-	YLocationBottom YLocation = "bottom"
-)
-
-type CenterLocation string
-
-const (
-	CenterLocationCenter CenterLocation = "center"
-)
-
-type Location string
-
-const (
-	LocationTop    Location = "top"
-	LocationRight  Location = "right"
-	LocationBottom Location = "bottom"
-	LocationLeft   Location = "left"
-	LocationCenter Location = "center"
-)
-
-type Alignment string
-
-const (
-	AlignmentStart  Alignment = "start"
-	AlignmentCenter Alignment = "center"
-	AlignmentEnd    Alignment = "end"
-)
-
-type Order string
-
-const (
-	OrderFirst Order = "first"
-	OrderLast  Order = "last"
-)
-
 type XY struct {
 	X float64 `json:"x" msgpack:"x"`
 	Y float64 `json:"y" msgpack:"y"`
-}
-
-type ClientXY struct {
-	ClientX float64 `json:"client_x" msgpack:"client_x"`
-	ClientY float64 `json:"client_y" msgpack:"client_y"`
-}
-
-type Dimensions struct {
-	Width  float64 `json:"width" msgpack:"width"`
-	Height float64 `json:"height" msgpack:"height"`
-}
-
-type SignedDimensions struct {
-	SignedWidth  float64 `json:"signed_width" msgpack:"signed_width"`
-	SignedHeight float64 `json:"signed_height" msgpack:"signed_height"`
-}
-
-type Bounds struct {
-	Lower float64 `json:"lower" msgpack:"lower"`
-	Upper float64 `json:"upper" msgpack:"upper"`
 }

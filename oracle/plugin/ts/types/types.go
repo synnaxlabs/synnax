@@ -1330,7 +1330,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		schemaName := lo.CamelCase(resolved.Name) + "Z"
+		schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
 		if form.IsGeneric() {
 			if len(typeRef.TypeArgs) > 0 {
 				args := make([]string, len(typeRef.TypeArgs))
@@ -1362,7 +1362,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 		return schemaName
 
 	case resolution.EnumForm:
-		enumName := lo.CamelCase(resolved.Name) + "Z"
+		enumName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
 			ns := resolved.Namespace
 			targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
@@ -1375,7 +1375,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 		return enumName
 
 	case resolution.DistinctForm:
-		schemaName := lo.CamelCase(resolved.Name) + "Z"
+		schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
 		if resolved.Namespace != data.Namespace {
 			ns := resolved.Namespace
 			targetOutputPath := output.GetPath(resolved, "ts")
@@ -1390,7 +1390,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 	case resolution.AliasForm:
 		// For non-generic aliases, just use the schema name
 		if !form.IsGeneric() {
-			schemaName := lo.CamelCase(resolved.Name) + "Z"
+			schemaName := lo.CamelCase(domain.GetName(resolved, "ts")) + "Z"
 			if resolved.Namespace != data.Namespace {
 				ns := resolved.Namespace
 				targetOutputPath := output.GetPath(resolved, "ts")
@@ -1473,7 +1473,7 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		typeName := resolved.Name
+		typeName := domain.GetName(resolved, "ts")
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
 			args := make([]string, len(typeRef.TypeArgs))
 			for i, arg := range typeRef.TypeArgs {
@@ -1487,12 +1487,14 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 		return typeName
 
 	case resolution.EnumForm:
+		enumName := domain.GetName(resolved, "ts")
 		if resolved.Namespace != data.Namespace {
-			return fmt.Sprintf("%s.%s", resolved.Namespace, resolved.Name)
+			return fmt.Sprintf("%s.%s", resolved.Namespace, enumName)
 		}
-		return resolved.Name
+		return enumName
 
 	case resolution.DistinctForm:
+		distinctName := domain.GetName(resolved, "ts")
 		if resolved.Namespace != data.Namespace {
 			ns := resolved.Namespace
 			targetOutputPath := output.GetPath(resolved, "ts")
@@ -1500,13 +1502,13 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 				targetOutputPath = ns
 			}
 			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("%s.%s", ns, resolved.Name)
+			return fmt.Sprintf("%s.%s", ns, distinctName)
 		}
-		return resolved.Name
+		return distinctName
 
 	case resolution.AliasForm:
 		// For aliases, use the alias name with type args if present
-		typeName := resolved.Name
+		typeName := domain.GetName(resolved, "ts")
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
 			args := make([]string, len(typeRef.TypeArgs))
 			for i, arg := range typeRef.TypeArgs {
@@ -1651,14 +1653,15 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 		prefix = resolved.Namespace + "."
 	}
 
+	tsName := domain.GetName(resolved, "ts")
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
 		// For generic structs, check if they have ConcreteTypes (which generates ZodObject type)
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
 			// Check if the struct has @ts concrete_types directive
 			hasConcreteTypes := false
-			if domain, ok := resolved.Domains["ts"]; ok {
-				for _, expr := range domain.Expressions {
+			if dom, ok := resolved.Domains["ts"]; ok {
+				for _, expr := range dom.Expressions {
 					if expr.Name == "concrete_types" {
 						hasConcreteTypes = true
 						break
@@ -1672,7 +1675,7 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 				for i, arg := range typeRef.TypeArgs {
 					args[i] = p.typeRefToZodSchemaType(&arg, table, data)
 				}
-				return fmt.Sprintf("%s%sZodObject<%s>", prefix, resolved.Name, strings.Join(args, ", "))
+				return fmt.Sprintf("%s%sZodObject<%s>", prefix, tsName, strings.Join(args, ", "))
 			}
 
 			// For regular generic structs, use ReturnType<typeof schemaZ<Args>>
@@ -1680,16 +1683,16 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 			for i, arg := range typeRef.TypeArgs {
 				args[i] = p.typeRefToZodSchemaType(&arg, table, data)
 			}
-			return fmt.Sprintf("ReturnType<typeof %s%sZ<%s>>", prefix, lo.CamelCase(resolved.Name), strings.Join(args, ", "))
+			return fmt.Sprintf("ReturnType<typeof %s%sZ<%s>>", prefix, lo.CamelCase(tsName), strings.Join(args, ", "))
 		}
 		// Non-generic struct - use typeof schemaZ
-		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(resolved.Name))
+		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(tsName))
 
 	case resolution.EnumForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(resolved.Name))
+		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(tsName))
 
 	case resolution.DistinctForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(resolved.Name))
+		return fmt.Sprintf("typeof %s%sZ", prefix, lo.CamelCase(tsName))
 	}
 
 	return "z.ZodType"

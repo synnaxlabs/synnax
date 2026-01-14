@@ -10,7 +10,7 @@
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ as rangeKeyZ } from "@/range/payload";
+import { keyZ as rangeKeyZ } from "@/range/types.gen";
 
 export const pairZ = z.object({
   range: rangeKeyZ,

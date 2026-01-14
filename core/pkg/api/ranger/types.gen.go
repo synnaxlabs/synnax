@@ -18,6 +18,6 @@ import (
 
 type Range struct {
 	serviceranger.Range
-	Labels []label.Label `json:"labels" msgpack:"labels"`
+	Labels []label.Label `json:"labels,omitempty" msgpack:"labels,omitempty"`
 	Parent *Range        `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }

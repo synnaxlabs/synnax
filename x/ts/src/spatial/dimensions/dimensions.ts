@@ -9,14 +9,14 @@
 
 import { z } from "zod";
 
-import { numberCouple } from "@/spatial/base";
 import {
   type Dimensions,
   dimensionsZ,
+  numberCouple,
   type SignedDimensions,
   signedDimensionsZ,
   xyZ,
-} from "@/spatial/types.gen";
+} from "@/spatial/base";
 
 export { type Dimensions, dimensionsZ, type SignedDimensions, signedDimensionsZ };
 

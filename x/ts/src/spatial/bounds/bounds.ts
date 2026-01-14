@@ -9,8 +9,7 @@
 
 import { abs, add, equal as mathEqual, min as mathMin, sub } from "@/math/math";
 import { type numeric } from "@/numeric";
-import { type Bounds, type CrudeBounds } from "@/spatial/base";
-import { boundsZ } from "@/spatial/types.gen";
+import { type Bounds, boundsZ, type CrudeBounds } from "@/spatial/base";
 
 export { type Bounds, boundsZ };
 

@@ -11,7 +11,8 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { keyZ, nameZ, type New, newZ, type Payload, payloadZ } from "@/range/payload";
+import { nameZ } from "@/range/payload";
+import { keyZ, type New, newZ, type Payload, payloadZ } from "@/range/types.gen";
 
 const createResZ = z.object({ ranges: payloadZ.array() });
 

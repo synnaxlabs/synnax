@@ -42,4 +42,4 @@ export {
   Y_LOCATIONS,
   type YLocation,
   yLocationZ,
-} from "@/spatial/types.gen";
+} from "@/spatial/base";

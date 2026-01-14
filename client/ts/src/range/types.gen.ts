@@ -17,21 +17,36 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-export const rangeZ = z.object({
+export const baseZ = z.object({
   key: keyZ,
   name: z.string().min(1),
   timeRange: telem.timeRangeZ,
   color: color.colorZ.optional(),
 });
-export interface Range extends z.infer<typeof rangeZ> {}
+export interface base extends z.infer<typeof baseZ> {}
 
-export const apiRangeZ = rangeZ.extend({
+export const apiRangeZ = baseZ.extend({
   labels: zod.nullToUndefined(label.labelZ.array()),
   get parent() {
     return apiRangeZ.optional();
   },
 });
 export interface APIRange extends z.infer<typeof apiRangeZ> {}
+
+export const payloadZ = baseZ.omit({ timeRange: true, color: true }).extend({
+  labels: zod.nullToUndefined(label.labelZ.array()),
+  get parent() {
+    return payloadZ.optional();
+  },
+  timeRange: telem.timeRangeBoundedZ,
+  color: z.string().optional(),
+});
+export interface Payload extends z.infer<typeof payloadZ> {}
+
+export const newZ = payloadZ
+  .omit({ parent: true, labels: true })
+  .partial({ key: true });
+export interface New extends z.infer<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("range");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

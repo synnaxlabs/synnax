@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type CrudeTimeRange, type Series, TimeRange } from "@synnaxlabs/x";
+import {
+  array,
+  color,
+  type CrudeTimeRange,
+  primitive,
+  type Series,
+  TimeRange,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Aliaser } from "@/alias/client";
@@ -17,18 +24,16 @@ import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { KV } from "@/kv/client";
 import { label } from "@/label";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
+import { type Keys, type Name, type Names, type Params } from "@/range/payload";
 import {
   type Key,
-  type Keys,
   keyZ,
-  type Name,
-  type Names,
   type New,
-  type Params,
+  ontologyID,
   type Payload,
   payloadZ,
-} from "@/range/payload";
+} from "@/range/types.gen";
 import { type CreateOptions, type Writer } from "@/range/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -50,8 +55,8 @@ export class Range {
   name: string;
   readonly kv: KV;
   readonly timeRange: TimeRange;
-  readonly color: string | undefined;
-  readonly parent: Payload | null;
+  readonly color?: color.Color;
+  readonly parent?: Payload;
   readonly labels?: label.Label[];
   readonly channels: channel.Retriever;
   private readonly aliaser: Aliaser;
@@ -61,7 +66,7 @@ export class Range {
   private readonly rangeClient: Client;
 
   constructor(
-    { name, timeRange = TimeRange.ZERO, key, color, parent, labels }: Payload,
+    { name, timeRange = TimeRange.ZERO, key, color: color_, parent, labels }: Payload,
     {
       frameClient,
       kv,
@@ -78,7 +83,7 @@ export class Range {
     this.parent = parent;
     this.labels = labels;
     this.frameClient = frameClient;
-    this.color = color;
+    this.color = parseColor(color_);
     this.kv = kv;
     this.aliaser = aliaser;
     this.channels = channels;
@@ -92,18 +97,17 @@ export class Range {
   }
 
   get payload(): Payload {
-    let parent: Payload | null = null;
-    if (this.parent != null)
-      if ("payload" in this.parent) parent = (this.parent as Range).payload;
-      else parent = this.parent;
-    return {
+    const r: Payload = {
       key: this.key,
       name: this.name,
       timeRange: this.timeRange,
-      color: this.color,
+      color: colorToHex(this.color),
       labels: this.labels,
-      parent,
     };
+    if (this.parent != null)
+      if ("payload" in this.parent) r.parent = (this.parent as Range).payload;
+      else r.parent = this.parent;
+    return r;
   }
 
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
@@ -313,19 +317,9 @@ export class Client {
   }
 
   resourceToRange(resource: ontology.Resource): Range {
-    return this.sugarOne({
-      key: resource.id.key,
-      name: resource.data?.name as string,
-      timeRange: new TimeRange(resource.data?.timeRange as CrudeTimeRange),
-      color: resource.data?.color as string,
-      labels: [],
-      parent: null,
-    });
+    return this.sugarOne(convertOntologyResourceToPayload(resource));
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("range");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const aliasOntologyID = (key: Key): ontology.ID => ({
   type: "range-alias",
@@ -342,8 +336,20 @@ export const convertOntologyResourceToPayload = ({
     key,
     name,
     timeRange,
-    color: typeof data?.color === "string" ? data.color : undefined,
+    color: colorToHex(data?.color),
     labels: [],
-    parent: null,
+    parent: undefined,
   };
+};
+
+const colorToHex = (c?: unknown): string | undefined => {
+  if (c == null || primitive.isZero(c)) return undefined;
+  const res = color.colorZ.safeParse(c);
+  if (res.success) return color.hex(res.data);
+  return undefined;
+};
+
+const parseColor = (c?: string): color.Color | undefined => {
+  if (primitive.isZero(c)) return undefined;
+  return color.construct(c);
 };

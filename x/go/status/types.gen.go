@@ -32,8 +32,8 @@ type Status[Details any] struct {
 	Name        string          `json:"name" msgpack:"name"`
 	Variant     Variant         `json:"variant" msgpack:"variant"`
 	Message     string          `json:"message" msgpack:"message"`
-	Description string          `json:"description" msgpack:"description"`
+	Description string          `json:"description,omitempty" msgpack:"description,omitempty"`
 	Time        telem.TimeStamp `json:"time" msgpack:"time"`
-	Details     Details         `json:"details" msgpack:"details"`
-	Labels      []label.Label   `json:"labels" msgpack:"labels"`
+	Details     Details         `json:"details,omitempty" msgpack:"details,omitempty"`
+	Labels      []label.Label   `json:"labels,omitempty" msgpack:"labels,omitempty"`
 }

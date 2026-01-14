@@ -12,13 +12,11 @@ import { z } from "zod";
 import { caseconv } from "@/caseconv";
 import {
   type AngularDirection,
-  type CrudeLocation,
-  crudeLocation,
-} from "@/spatial/base";
-import {
   CENTER_LOCATIONS,
   type CenterLocation,
   centerLocationZ,
+  type CrudeLocation,
+  crudeLocation,
   type Direction,
   DIRECTIONS,
   type Location,
@@ -33,7 +31,7 @@ import {
   Y_LOCATIONS,
   type YLocation,
   yLocationZ,
-} from "@/spatial/types.gen";
+} from "@/spatial/base";
 
 export {
   CENTER_LOCATIONS,

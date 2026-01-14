@@ -12,11 +12,6 @@
 @go output  "x/go/spatial"
 @pb
 
-Direction enum {
-    x = "x"
-    y = "y"
-}
-
 OuterLocation enum {
     top    = "top"
     right  = "right"
@@ -24,62 +19,7 @@ OuterLocation enum {
     left   = "left"
 }
 
-XLocation enum {
-    left  = "left"
-    right = "right"
-}
-
-YLocation enum {
-    top    = "top"
-    bottom = "bottom"
-}
-
-CenterLocation enum {
-    center = "center"
-}
-
-Location enum {
-    top    = "top"
-    right  = "right"
-    bottom = "bottom"
-    left   = "left"
-    center = "center"
-}
-
-Alignment enum {
-    start  = "start"
-    center = "center"
-    end    = "end"
-}
-
-Order enum {
-    first = "first"
-    last  = "last"
-}
-
 XY struct {
     x float64
     y float64
-}
-
-ClientXY struct {
-    client_x float64
-    client_y float64
-
-    @ts name "ClientXY"
-}
-
-Dimensions struct {
-    width  float64
-    height float64
-}
-
-SignedDimensions struct {
-    signed_width  float64
-    signed_height float64
-}
-
-Bounds struct {
-    lower float64
-    upper float64
 }

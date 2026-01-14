@@ -27,6 +27,7 @@ Range struct {
     @go output "core/pkg/service/ranger"
     @pb
     @cpp name  "Base"
+    @ts name   "base"
 }
 
 APIRange struct extends Range {
@@ -42,6 +43,27 @@ APIRange struct extends Range {
     @cpp includes  "client/cpp/kv/kv.h"
 }
 
-TSRange struct extends APIRange {
+TSRange struct extends Range {
+    labels     label.Label[]?
+    parent     TSRange??
     time_range telem.TimeRangeBounded
+    color      string?
+
+    @ts name  "Payload"
+    @py omit
+    @cpp omit
+    @go omit
+    @pb omit
+}
+
+New struct extends TSRange {
+    key Key?
+    -parent
+    -labels
+
+    @ts name  "New"
+    @py omit
+    @cpp omit
+    @go omit
+    @pb omit
 }
