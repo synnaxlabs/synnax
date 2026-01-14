@@ -14,9 +14,13 @@ package channel
 import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	gotypes "go/types"
 )
+
+type Status = status.Status[gotypes.Nil]
 
 type Channel struct {
 	Key         distributionchannel.Key         `json:"key" msgpack:"key"`
@@ -31,4 +35,5 @@ type Channel struct {
 	Expression  string                          `json:"expression" msgpack:"expression"`
 	Operations  []distributionchannel.Operation `json:"operations" msgpack:"operations"`
 	Concurrency control.Concurrency             `json:"concurrency" msgpack:"concurrency"`
+	Status      *Status                         `json:"status,omitempty" msgpack:"status,omitempty"`
 }

@@ -98,7 +98,7 @@ func (r *Resolver) ResolveTypeRef(typeRef resolution.TypeRef, ctx *Context) stri
 	case resolution.DistinctForm:
 		return r.resolveDistinctType(resolved, ctx)
 	case resolution.AliasForm:
-		return r.resolveAliasType(resolved, ctx)
+		return r.resolveAliasType(resolved, typeRef.TypeArgs, ctx)
 	default:
 		return r.Formatter.FallbackType()
 	}
@@ -195,12 +195,29 @@ func (r *Resolver) resolveDistinctType(resolved resolution.Type, ctx *Context) s
 
 // resolveAliasType resolves an alias type to a language-specific string.
 // Unlike expanding the target, this uses the alias name directly.
-func (r *Resolver) resolveAliasType(resolved resolution.Type, ctx *Context) string {
+func (r *Resolver) resolveAliasType(resolved resolution.Type, typeArgs []resolution.TypeRef, ctx *Context) string {
 	typeName := ctx.GetTypeName(resolved)
+
+	// Build type arguments, filtering out those that correspond to defaulted params
+	// We check the alias's own type params, not the target's, because the alias
+	// determines what type args are exposed in the output language.
+	var args []string
+	if aliasForm, ok := resolved.Form.(resolution.AliasForm); ok {
+		for i, arg := range typeArgs {
+			// Skip type args that correspond to defaulted params on the alias
+			if ctx.SubstituteDefaultedTypeParams && i < len(aliasForm.TypeParams) {
+				if aliasForm.TypeParams[i].HasDefault() {
+					continue
+				}
+			}
+			args = append(args, r.ResolveTypeRef(arg, ctx))
+		}
+	}
+	baseType := r.Formatter.FormatGeneric(typeName, args)
 
 	// Same namespace/output -> unqualified
 	if ctx.IsSameOutput(resolved) {
-		return typeName
+		return baseType
 	}
 
 	// Different namespace -> add import and qualify
@@ -214,5 +231,5 @@ func (r *Resolver) resolveAliasType(resolved resolution.Type, ctx *Context) stri
 		r.ImportAdder.AddImport("internal", importPath, qualifier)
 	}
 
-	return r.Formatter.FormatQualified(qualifier, typeName)
+	return r.Formatter.FormatQualified(qualifier, baseType)
 }

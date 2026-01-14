@@ -524,5 +524,434 @@ var _ = Describe("Go PB Plugin", func() {
 				Expect(resp.Files[0].Path).To(Equal("core/pkg/service/user/pb/translator.gen.go"))
 			})
 		})
+
+		Context("timestamp and timespan conversions with telem import", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/telem", `
+					@go output "x/go/telem"
+					@pb
+
+					timestamp = uint64
+					timespan = int64
+				`)
+			})
+
+			It("Should convert timestamp typedef via uint64", func() {
+				source := `
+					import "schemas/telem"
+
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						created_at telem.timestamp
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("uint64(r.CreatedAt)").
+					ToContain("telem.timestamp(pb.CreatedAt)")
+			})
+
+			It("Should convert timespan typedef via int64", func() {
+				source := `
+					import "schemas/telem"
+
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						duration telem.timespan
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("int64(r.Duration)").
+					ToContain("telem.timespan(pb.Duration)")
+			})
+		})
+
+		Context("typedef (distinct type) conversions", func() {
+			It("Should convert typedef with numeric base", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Key = uint32
+
+					Test struct {
+						rack Key
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("uint32(r.Rack)").
+					ToContain("test.Key(pb.Rack)")
+			})
+
+			It("Should convert typedef with uuid base", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					ResourceKey = uuid
+
+					Test struct {
+						resource_key ResourceKey
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("r.ResourceKey.String()").
+					ToContain("uuid.MustParse(pb.ResourceKey)")
+			})
+		})
+
+		Context("key domain with numeric types", func() {
+			It("Should convert key field with numeric key domain", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Key = uint32
+
+					Test struct {
+						@key
+						rack Key
+						name string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("uint32(r.Rack)").
+					ToContain("test.Key(pb.Rack)")
+			})
+		})
+
+		Context("int8 conversion", func() {
+			It("Should widen int8 to int32", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						priority int8
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("int32(r.Priority)").
+					ToContain("int8(pb.Priority)")
+			})
+		})
+
+		Context("@go name and @pb name annotations", func() {
+			It("Should use custom Go name in translator", func() {
+				source := `
+					@go output "core/test"
+					@go name "CustomName"
+					@pb
+
+					Test struct {
+						key uuid
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("test.CustomName")
+			})
+
+			It("Should use custom PB name in translator function", func() {
+				source := `
+					@go output "core/test"
+					@pb name "ProtoTest"
+
+					Test struct {
+						key uuid
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("func ProtoTestToPB").
+					ToContain("func ProtoTestFromPB")
+			})
+		})
+
+		Context("@go omit enum handling", func() {
+			It("Should use hand-written enum value format when @go omit", func() {
+				source := `
+					@go output "core/status"
+					@go omit
+					@pb
+
+					Status enum {
+						active = 0
+						inactive = 1
+					}
+
+					Task struct {
+						key uuid
+						status Status
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("status.ActiveStatus").
+					ToContain("status.InactiveStatus")
+			})
+		})
+
+		Context("json field conversion", func() {
+			It("Should handle json fields with structpb", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						data json
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("structpb.NewStruct(r.Data)").
+					ToContain("pb.Data.AsMap()")
+			})
+		})
+
+		Context("any field conversion", func() {
+			It("Should handle any fields with structpb", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						value any
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("structpb.NewValue").
+					ToContain("pb.Value.AsInterface()")
+			})
+		})
+	})
+
+	Describe("Check", func() {
+		It("Should return nil (no-op)", func() {
+			req := testutil.MustGenerateRequest(ctx, `
+				@go output "core/test"
+				@pb
+
+				Test struct { key uuid }
+			`, "test", loader)
+			Expect(pbPlugin.Check(req)).To(Succeed())
+		})
+	})
+
+	Describe("PostWrite", func() {
+		It("Should return nil for empty file list", func() {
+			Expect(pbPlugin.PostWrite(nil)).To(Succeed())
+			Expect(pbPlugin.PostWrite([]string{})).To(Succeed())
+		})
+
+		It("Should filter to only Go files", func() {
+			// PostWrite filters non-.go files internally
+			err := pbPlugin.PostWrite([]string{"test.proto", "config.yaml"})
+			Expect(err).To(Succeed())
+		})
+	})
+
+	Describe("Generate edge cases", func() {
+		Context("type alias to struct", func() {
+			It("Should handle alias pointing to struct type", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					User struct {
+						key uuid
+						name string
+					}
+
+					Person = User
+
+					Container struct {
+						key uuid
+						person Person
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("func UserToPB").
+					ToContain("func ContainerToPB")
+			})
+		})
+
+		Context("struct with extends", func() {
+			It("Should handle struct that extends another", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Base struct {
+						key uuid
+						name string
+					}
+
+					Derived struct extends Base {
+						extra string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("func BaseToPB").
+					ToContain("func DerivedToPB").
+					ToContain("Extra: r.Extra")
+			})
+		})
+
+		Context("struct array references", func() {
+			It("Should use slice translator for struct array with error handling", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Item struct {
+						key uuid
+					}
+
+					List struct {
+						key uuid
+						items Item[]
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("ItemsToPB(ctx, r.Items)").
+					ToContain("if err != nil")
+			})
+		})
+
+		Context("generic struct with type args", func() {
+			It("Should generate generic translator with converter functions", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Wrapper struct<T> {
+						key uuid
+						data T
+					}
+
+					User struct {
+						key uuid
+					}
+
+					UserWrapper = Wrapper<User>
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("func WrapperToPB[T any]").
+					ToContain("translateT func")
+			})
+		})
+
+		Context("soft optional fields", func() {
+			It("Should handle soft optional with question mark", func() {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						key uuid
+						name string?
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("Name: r.Name")
+			})
+		})
+
+		Context("cross-namespace struct reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/common", `
+					@go output "core/common"
+					@pb
+
+					Info struct {
+						key uuid
+						description string
+					}
+				`)
+			})
+
+			It("Should import pb package for cross-namespace struct", func() {
+				source := `
+					import "schemas/common"
+
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						key uuid
+						info common.Info
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("InfoToPB(ctx, r.Info)").
+					ToContain("InfoFromPB(ctx, pb.Info)")
+			})
+		})
+
+		Context("enum in different namespace", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/status", `
+					@go output "core/status"
+					@pb
+
+					Status enum {
+						unknown = 0
+						active = 1
+					}
+				`)
+			})
+
+			It("Should import pb package for cross-namespace enum", func() {
+				source := `
+					import "schemas/status"
+
+					@go output "core/task"
+					@pb
+
+					Task struct {
+						key uuid
+						status status.Status
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "translator.gen.go").
+					ToContain("StatusToPB(r.Status)")
+			})
+		})
 	})
 })

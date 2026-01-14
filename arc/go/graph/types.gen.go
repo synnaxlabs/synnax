@@ -13,17 +13,16 @@ package graph
 
 import (
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/spatial"
 )
 
 type Nodes []Node
 
 type Node struct {
-	Key      string                      `json:"key" msgpack:"key"`
-	Type     string                      `json:"type" msgpack:"type"`
-	Config   binary.EncodedMsgpackStruct `json:"config" msgpack:"config"`
-	Position spatial.XY                  `json:"position" msgpack:"position"`
+	Key      string         `json:"key" msgpack:"key"`
+	Type     string         `json:"type" msgpack:"type"`
+	Config   map[string]any `json:"config" msgpack:"config"`
+	Position spatial.XY     `json:"position" msgpack:"position"`
 }
 
 type Viewport struct {

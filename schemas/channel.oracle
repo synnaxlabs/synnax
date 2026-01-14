@@ -77,7 +77,7 @@ Channel struct {
 }
 
 Status = status.Status {
-    @go output "core/pkg/distribution/channel"
+    @go output "core/pkg/api/channel"
 }
 
 APIChannel struct {

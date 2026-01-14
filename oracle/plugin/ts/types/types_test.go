@@ -27,6 +27,52 @@ func TestTypes(t *testing.T) {
 	RunSpecs(t, "TS Types Plugin Suite")
 }
 
+var _ = Describe("TSFormatter", func() {
+	var f *types.TSFormatter
+
+	BeforeEach(func() {
+		f = &types.TSFormatter{}
+	})
+
+	Describe("FormatQualified", func() {
+		It("Should format qualified names with dot separator", func() {
+			Expect(f.FormatQualified("pkg", "Type")).To(Equal("pkg.Type"))
+		})
+
+		It("Should return type name when qualifier is empty", func() {
+			Expect(f.FormatQualified("", "Type")).To(Equal("Type"))
+		})
+	})
+
+	Describe("FormatGeneric", func() {
+		It("Should format generic types with angle brackets", func() {
+			Expect(f.FormatGeneric("Container", []string{"T", "U"})).To(Equal("Container<T, U>"))
+		})
+
+		It("Should return base name when no type args", func() {
+			Expect(f.FormatGeneric("Container", nil)).To(Equal("Container"))
+		})
+	})
+
+	Describe("FormatArray", func() {
+		It("Should format as TypeScript array syntax", func() {
+			Expect(f.FormatArray("string")).To(Equal("string[]"))
+		})
+	})
+
+	Describe("FormatMap", func() {
+		It("Should format as Record type", func() {
+			Expect(f.FormatMap("string", "number")).To(Equal("Record<string, number>"))
+		})
+	})
+
+	Describe("FallbackType", func() {
+		It("Should return unknown", func() {
+			Expect(f.FallbackType()).To(Equal("unknown"))
+		})
+	})
+})
+
 var _ = Describe("TS Types Plugin", func() {
 	var (
 		ctx         context.Context
@@ -47,6 +93,14 @@ var _ = Describe("TS Types Plugin", func() {
 
 		It("Should have no domain filter", func() {
 			Expect(typesPlugin.Domains()).To(BeEmpty())
+		})
+
+		It("Should have no dependencies", func() {
+			Expect(typesPlugin.Requires()).To(BeNil())
+		})
+
+		It("Should pass check", func() {
+			Expect(typesPlugin.Check(&plugin.Request{})).To(BeNil())
 		})
 	})
 

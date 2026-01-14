@@ -10,6 +10,7 @@
 package framework_test
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -322,6 +323,186 @@ var _ = Describe("Collector", func() {
 			typ := resolution.Type{Name: "MyType"}
 			Expect(c.Add(typ)).To(Succeed())
 			Expect(c.Has("custom/MyType")).To(BeTrue())
+		})
+	})
+
+	Describe("WithSkipFunc", func() {
+		It("Should skip types matching skip function", func() {
+			c := framework.NewCollector("go", req).
+				WithPathFunc(func(typ resolution.Type) string { return "output/" + typ.Name }).
+				WithSkipFunc(func(typ resolution.Type) bool { return typ.Name == "SkipMe" })
+
+			Expect(c.Add(resolution.Type{Name: "KeepMe"})).To(Succeed())
+			Expect(c.Add(resolution.Type{Name: "SkipMe"})).To(Succeed())
+
+			Expect(c.Count()).To(Equal(1))
+			Expect(c.Has("output/KeepMe")).To(BeTrue())
+			Expect(c.Has("output/SkipMe")).To(BeFalse())
+		})
+	})
+
+	Describe("AddAll", func() {
+		It("Should add multiple types", func() {
+			c := framework.NewCollector("go", req).
+				WithPathFunc(func(typ resolution.Type) string { return "pkg/" + typ.Name })
+
+			types := []resolution.Type{
+				{Name: "TypeA"},
+				{Name: "TypeB"},
+				{Name: "TypeC"},
+			}
+			Expect(c.AddAll(types)).To(Succeed())
+			Expect(c.Count()).To(Equal(3))
+		})
+
+		It("Should stop on first error", func() {
+			reqWithRoot := &plugin.Request{
+				Resolutions: table,
+				RepoRoot:    "/fake/repo",
+			}
+			c := framework.NewCollector("go", reqWithRoot)
+
+			types := []resolution.Type{
+				{
+					Name: "ValidType",
+					Domains: map[string]resolution.Domain{
+						"go": {Expressions: []resolution.Expression{
+							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "valid/path"}}},
+						}},
+					},
+				},
+				{
+					Name: "InvalidType",
+					Domains: map[string]resolution.Domain{
+						"go": {Expressions: []resolution.Expression{
+							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "../../../etc/passwd"}}},
+						}},
+					},
+				},
+			}
+			err := c.AddAll(types)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
+	Describe("ForEach error propagation", func() {
+		It("Should propagate errors from callback", func() {
+			c := framework.NewCollector("go", req).
+				WithPathFunc(func(typ resolution.Type) string { return "pkg/" + typ.Name })
+
+			Expect(c.Add(resolution.Type{Name: "TypeA"})).To(Succeed())
+
+			expectedErr := errors.New("callback error")
+			err := c.ForEach(func(path string, types []resolution.Type) error {
+				return expectedErr
+			})
+			Expect(err).To(Equal(expectedErr))
+		})
+	})
+
+	Describe("Get with non-existent path", func() {
+		It("Should return nil for non-existent path", func() {
+			c := framework.NewCollector("go", req)
+			Expect(c.Get("nonexistent/path")).To(BeNil())
+		})
+	})
+
+	Describe("Remove with non-existent path", func() {
+		It("Should return nil for non-existent path", func() {
+			c := framework.NewCollector("go", req)
+			Expect(c.Remove("nonexistent/path")).To(BeNil())
+		})
+	})
+})
+
+var _ = Describe("Collect Helpers", func() {
+	var (
+		table *resolution.Table
+		req   *plugin.Request
+	)
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		table.Add(resolution.Type{
+			Name: "User", QualifiedName: "auth.User", Namespace: "auth",
+			Form: resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{
+					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+				}},
+			},
+		})
+		table.Add(resolution.Type{
+			Name: "Status", QualifiedName: "auth.Status", Namespace: "auth",
+			Form: resolution.EnumForm{Values: []resolution.EnumValue{{Name: "ACTIVE"}}},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{
+					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+				}},
+			},
+		})
+		table.Add(resolution.Type{
+			Name: "UserID", QualifiedName: "auth.UserID", Namespace: "auth",
+			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "uuid"}},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{
+					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+				}},
+			},
+		})
+		table.Add(resolution.Type{
+			Name: "StringAlias", QualifiedName: "auth.StringAlias", Namespace: "auth",
+			Form: resolution.AliasForm{Target: resolution.TypeRef{Name: "string"}},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{
+					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
+				}},
+			},
+		})
+		req = &plugin.Request{Resolutions: table}
+	})
+
+	Describe("CollectStructs", func() {
+		It("Should collect only struct types", func() {
+			c, err := framework.CollectStructs("go", req)
+			Expect(err).To(Succeed())
+			Expect(c.Count()).To(Equal(1))
+			types := c.Get("core/auth")
+			Expect(types).To(HaveLen(1))
+			Expect(types[0].Name).To(Equal("User"))
+		})
+	})
+
+	Describe("CollectEnums", func() {
+		It("Should collect only enum types", func() {
+			c, err := framework.CollectEnums("go", req)
+			Expect(err).To(Succeed())
+			Expect(c.Count()).To(Equal(1))
+			types := c.Get("core/auth")
+			Expect(types).To(HaveLen(1))
+			Expect(types[0].Name).To(Equal("Status"))
+		})
+	})
+
+	Describe("CollectDistinct", func() {
+		It("Should collect only distinct types", func() {
+			c, err := framework.CollectDistinct("go", req)
+			Expect(err).To(Succeed())
+			Expect(c.Count()).To(Equal(1))
+			types := c.Get("core/auth")
+			Expect(types).To(HaveLen(1))
+			Expect(types[0].Name).To(Equal("UserID"))
+		})
+	})
+
+	Describe("CollectAliases", func() {
+		It("Should collect only alias types", func() {
+			c, err := framework.CollectAliases("go", req)
+			Expect(err).To(Succeed())
+			Expect(c.Count()).To(Equal(1))
+			types := c.Get("core/auth")
+			Expect(types).To(HaveLen(1))
+			Expect(types[0].Name).To(Equal("StringAlias"))
 		})
 	})
 })

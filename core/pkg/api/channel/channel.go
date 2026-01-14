@@ -259,10 +259,10 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 		tCh := channel.Channel{
 			Name:        ch.Name,
 			Leaseholder: cluster.NodeKey(ch.Leaseholder),
-			DataType:    telem.DataType(ch.DataType),
+			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
-			LocalIndex:  channel.Key(ch.Index).LocalKey(),
-			LocalKey:    channel.Key(ch.Key).LocalKey(),
+			LocalIndex:  ch.Index.LocalKey(),
+			LocalKey:    ch.Key.LocalKey(),
 			Virtual:     ch.Virtual,
 			Internal:    ch.Internal,
 			Expression:  ch.Expression,

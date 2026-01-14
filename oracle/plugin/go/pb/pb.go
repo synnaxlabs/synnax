@@ -827,16 +827,16 @@ func (p *Plugin) generateFieldConversion(
 
 	// Handle struct references
 	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-		f, b, c := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
-		return f, b, c, true, true // Struct conversions return error in both directions
+		f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+		return f, b, c, hasErr, hasErr
 	}
 
 	// Handle aliases that point to structs (e.g., GoStatus = status.Status<...>)
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if target, ok := aliasForm.Target.Resolve(data.table); ok {
 			if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-				f, b, c := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
-				return f, b, c, true, true
+				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+				return f, b, c, hasErr, hasErr
 			}
 		}
 	}
@@ -852,15 +852,15 @@ func (p *Plugin) generateFieldConversion(
 		// Check if this distinct type wraps a struct - if so, handle it like a struct
 		if baseResolved, ok := form.Base.Resolve(data.table); ok {
 			if _, isStruct := baseResolved.Form.(resolution.StructForm); isStruct {
-				f, b, c := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
-				return f, b, c, true, true
+				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+				return f, b, c, hasErr, hasErr
 			}
 			// Also check if base is an alias to a struct
 			if aliasForm, isAlias := baseResolved.Form.(resolution.AliasForm); isAlias {
 				if target, ok := aliasForm.Target.Resolve(data.table); ok {
 					if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-						f, b, c := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
-						return f, b, c, true, true
+						f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+						return f, b, c, hasErr, hasErr
 					}
 				}
 			}
@@ -943,14 +943,14 @@ func (p *Plugin) generatePrimitiveConversion(
 }
 
 // generateStructConversion generates conversion for struct references.
-// Returns forward expr, backward expr, and optional backward cast for type aliases.
+// Returns forward expr, backward expr, optional backward cast for type aliases, and whether error handling is needed.
 func (p *Plugin) generateStructConversion(
 	typeRef resolution.TypeRef,
 	resolved resolution.Type,
 	isHardOptional bool,
 	data *templateData,
 	goField, pbField string,
-) (forward, backward, backwardCast string) {
+) (forward, backward, backwardCast string, hasError bool) {
 	// Follow alias chain to find the actual underlying struct and collect type args
 	actualStruct := resolved
 	var typeArgs []resolution.TypeRef
@@ -981,7 +981,31 @@ func (p *Plugin) generateStructConversion(
 
 	actualForm, ok := actualStruct.Form.(resolution.StructForm)
 	if !ok {
-		return goField, pbField, ""
+		return goField, pbField, "", false
+	}
+
+	// For generic types, synthesize nil type args for optional params without provided args
+	if actualForm.IsGeneric() {
+		// Count non-defaulted type params
+		var nonDefaultedParams []resolution.TypeParam
+		for _, tp := range actualForm.TypeParams {
+			if !tp.HasDefault() {
+				nonDefaultedParams = append(nonDefaultedParams, tp)
+			}
+		}
+		// If there are missing type args for optional params, synthesize nil refs
+		providedArgs := len(typeArgs)
+		if providedArgs < len(nonDefaultedParams) {
+			newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
+			copy(newTypeArgs, typeArgs)
+			for i := providedArgs; i < len(nonDefaultedParams); i++ {
+				if nonDefaultedParams[i].Optional {
+					// Synthesize a nil type reference for optional param
+					newTypeArgs[i] = resolution.TypeRef{Name: "nil"}
+				}
+			}
+			typeArgs = newTypeArgs
+		}
 	}
 
 	// Handle generic types with concrete type arguments
@@ -989,9 +1013,9 @@ func (p *Plugin) generateStructConversion(
 		return p.generateGenericStructConversion(typeRef, resolved, actualStruct, actualForm, typeArgs, data, goField, pbField, isHardOptional)
 	}
 
-	// For generic types without type args, fall back to direct assignment
+	// For generic types without type args and no optional params to synthesize, fall back to direct assignment
 	if actualForm.IsGeneric() {
-		return goField, pbField, ""
+		return goField, pbField, "", false
 	}
 
 	// Use the new helper to resolve translator info (handles extends chain)
@@ -999,17 +1023,17 @@ func (p *Plugin) generateStructConversion(
 
 	if isHardOptional {
 		return fmt.Sprintf("%s%sToPB(ctx, *%s)", translatorPrefix, translatorStructName, goField),
-			fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), ""
+			fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), "", true
 	}
 
 	return fmt.Sprintf("%s%sToPB(ctx, %s)", translatorPrefix, translatorStructName, goField),
-		fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), ""
+		fmt.Sprintf("%s%sFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField), "", true
 }
 
 // generateGenericStructConversion generates conversion for generic struct types
 // with concrete type arguments. It calls the generic translator with appropriate
 // converter functions for each type parameter.
-// Returns forward expr, backward expr, and backward cast for type alias assignment.
+// Returns forward expr, backward expr, backward cast for type alias assignment, and whether error handling is needed.
 func (p *Plugin) generateGenericStructConversion(
 	typeRef resolution.TypeRef,
 	originalResolved resolution.Type,
@@ -1019,7 +1043,7 @@ func (p *Plugin) generateGenericStructConversion(
 	data *templateData,
 	goField, pbField string,
 	isHardOptional bool,
-) (forward, backward, backwardCast string) {
+) (forward, backward, backwardCast string, hasError bool) {
 	// For generics, use resolvePBTranslatorInfo to get both the import prefix and the
 	// correct struct name (respecting @pb name annotation)
 	translatorPrefix, structName := p.resolvePBTranslatorInfo(actualStruct, data)
@@ -1058,7 +1082,13 @@ func (p *Plugin) generateGenericStructConversion(
 		// For non-struct type args (primitives, etc.), we'd need different handling
 		forwardConverters = append(forwardConverters, "nil")
 		backwardConverters = append(backwardConverters, "nil")
-		explicitTypeArgs = append(explicitTypeArgs, "any")
+		// Special case: nil primitive maps to gotypes.Nil
+		if typeArg.Name == "nil" {
+			data.imports.AddInternal("gotypes", "go/types")
+			explicitTypeArgs = append(explicitTypeArgs, "gotypes.Nil")
+		} else {
+			explicitTypeArgs = append(explicitTypeArgs, "any")
+		}
 	}
 
 	forwardArgs := strings.Join(forwardConverters, ", ")
@@ -1105,7 +1135,7 @@ func (p *Plugin) generateGenericStructConversion(
 		backward = fmt.Sprintf("%s%sFromPB%s(ctx, %s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
 	}
 
-	return forward, backward, backwardCast
+	return forward, backward, backwardCast, true
 }
 
 // ensureAnyHelper tracks that we need to generate ToPBAny/FromPBAny helpers for a type.

@@ -17,8 +17,11 @@ import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/status"
+	statuspb "github.com/synnaxlabs/x/status/pb"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	gotypes "go/types"
 )
 
 // ChannelToPB converts Channel to Channel.
@@ -40,6 +43,13 @@ func ChannelToPB(ctx context.Context, r channel.Channel) (*Channel, error) {
 		Expression:  r.Expression,
 		Concurrency: controlpb.ConcurrencyToPB(r.Concurrency),
 		Operations:  operationsVal,
+	}
+	if r.Status != nil {
+		var err error
+		pb.Status, err = statuspb.StatusToPB[gotypes.Nil](ctx, (status.Status[gotypes.Nil])(*r.Status), nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -66,6 +76,13 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
 	r.Concurrency = controlpb.ConcurrencyFromPB(pb.Concurrency)
+	if pb.Status != nil {
+		val, err := statuspb.StatusFromPB[gotypes.Nil](ctx, pb.Status, nil)
+		if err != nil {
+			return r, err
+		}
+		r.Status = (*channel.Status)(&val)
+	}
 	return r, nil
 }
 

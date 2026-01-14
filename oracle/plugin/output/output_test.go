@@ -63,3 +63,115 @@ var _ = Describe("GetPath", func() {
 		Entry("nil domains map", "go", nil, ""),
 	)
 })
+
+var _ = Describe("IsOmitted", func() {
+	DescribeTable("checks for omit expression in domain",
+		func(domainName string, domains map[string]resolution.Domain, expected bool) {
+			typ := resolution.Type{Domains: domains}
+			Expect(output.IsOmitted(typ, domainName)).To(Equal(expected))
+		},
+		Entry("has omit expression", "go",
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{Name: "omit"}}},
+			}, true),
+		Entry("omit with values", "go",
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{
+					{Name: "omit", Values: []resolution.ExpressionValue{{BoolValue: true}}},
+				}},
+			}, true),
+		Entry("no omit expression", "go",
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{Name: "output"}}},
+			}, false),
+		Entry("missing domain", "go", map[string]resolution.Domain{}, false),
+		Entry("nil domains", "go", nil, false),
+		Entry("different domain has omit", "ts",
+			map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{Name: "omit"}}},
+			}, false),
+	)
+})
+
+var _ = Describe("HasPB", func() {
+	It("returns true when pb domain exists", func() {
+		typ := resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"pb": {},
+			},
+		}
+		Expect(output.HasPB(typ)).To(BeTrue())
+	})
+
+	It("returns true when pb domain has expressions", func() {
+		typ := resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"pb": {Expressions: []resolution.Expression{{Name: "package"}}},
+			},
+		}
+		Expect(output.HasPB(typ)).To(BeTrue())
+	})
+
+	It("returns false when no pb domain", func() {
+		typ := resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"go": {},
+			},
+		}
+		Expect(output.HasPB(typ)).To(BeFalse())
+	})
+
+	It("returns false when domains is empty", func() {
+		typ := resolution.Type{Domains: map[string]resolution.Domain{}}
+		Expect(output.HasPB(typ)).To(BeFalse())
+	})
+
+	It("returns false when domains is nil", func() {
+		typ := resolution.Type{}
+		Expect(output.HasPB(typ)).To(BeFalse())
+	})
+})
+
+var _ = Describe("GetPBPath", func() {
+	It("returns go path with /pb suffix when pb domain exists", func() {
+		typ := resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"pb": {},
+				"go": {Expressions: []resolution.Expression{
+					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/user"}}},
+				}},
+			},
+		}
+		Expect(output.GetPBPath(typ)).To(Equal("core/user/pb"))
+	})
+
+	It("returns empty when no pb domain", func() {
+		typ := resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{
+					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/user"}}},
+				}},
+			},
+		}
+		Expect(output.GetPBPath(typ)).To(BeEmpty())
+	})
+
+	It("returns empty when pb exists but no go output path", func() {
+		typ := resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"pb": {},
+				"go": {},
+			},
+		}
+		Expect(output.GetPBPath(typ)).To(BeEmpty())
+	})
+
+	It("returns empty when pb exists but no go domain", func() {
+		typ := resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"pb": {},
+			},
+		}
+		Expect(output.GetPBPath(typ)).To(BeEmpty())
+	})
+})

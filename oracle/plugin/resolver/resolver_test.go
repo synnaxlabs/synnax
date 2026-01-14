@@ -146,6 +146,30 @@ var _ = Describe("Resolver", func() {
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("T"))
 			})
+
+			It("Should substitute defaulted type params when enabled", func() {
+				ctx.SubstituteDefaultedTypeParams = true
+				typeRef := resolution.TypeRef{
+					TypeParam: &resolution.TypeParam{
+						Name:    "V",
+						Default: &resolution.TypeRef{Name: "string"},
+					},
+				}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("string"))
+			})
+
+			It("Should not substitute defaulted type params when disabled", func() {
+				ctx.SubstituteDefaultedTypeParams = false
+				typeRef := resolution.TypeRef{
+					TypeParam: &resolution.TypeParam{
+						Name:    "V",
+						Default: &resolution.TypeRef{Name: "string"},
+					},
+				}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("V"))
+			})
 		})
 
 		Describe("Array Types", func() {
@@ -261,6 +285,52 @@ var _ = Describe("Resolver", func() {
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("Container[string]"))
 			})
+
+			It("Should filter defaulted type params in struct when substitution enabled", func() {
+				ctx.SubstituteDefaultedTypeParams = true
+				Expect(table.Add(resolution.Type{
+					Name:          "DefaultedStruct",
+					QualifiedName: "test.DefaultedStruct",
+					Namespace:     "test",
+					Form: resolution.StructForm{
+						TypeParams: []resolution.TypeParam{
+							{Name: "T"},
+							{Name: "V", Default: &resolution.TypeRef{Name: "string"}},
+						},
+					},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{
+					Name: "test.DefaultedStruct",
+					TypeArgs: []resolution.TypeRef{
+						{Name: "int32"},
+						{Name: "bool"},
+					},
+				}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("DefaultedStruct[int32]"))
+			})
+
+			It("Should return fallback for struct with empty output path", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "NoOutputStruct",
+					QualifiedName: "other.NoOutputStruct",
+					Namespace:     "other",
+					Form:          resolution.StructForm{},
+					Domains:       map[string]resolution.Domain{},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{Name: "other.NoOutputStruct"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("any"))
+			})
 		})
 
 		Describe("Cross-Namespace Types", func() {
@@ -325,6 +395,46 @@ var _ = Describe("Resolver", func() {
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("Status"))
 			})
+
+			It("Should add import and qualify cross-namespace enums", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "ExternalEnum",
+					QualifiedName: "other.ExternalEnum",
+					Namespace:     "other",
+					Form:          resolution.EnumForm{},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/enums.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				r.ImportResolver = &MockImportResolver{
+					ImportPath:   "github.com/example/external",
+					Qualifier:    "external",
+					ShouldImport: true,
+				}
+				typeRef := resolution.TypeRef{Name: "other.ExternalEnum"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("external.ExternalEnum"))
+				Expect(adder.Imports).To(HaveLen(1))
+			})
+
+			It("Should return fallback for enum with empty output path", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "NoOutputEnum",
+					QualifiedName: "other.NoOutputEnum",
+					Namespace:     "other",
+					Form:          resolution.EnumForm{},
+					Domains:       map[string]resolution.Domain{},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{Name: "other.NoOutputEnum"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("any"))
+			})
 		})
 
 		Describe("Distinct Types", func() {
@@ -351,6 +461,46 @@ var _ = Describe("Resolver", func() {
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("UserID"))
 			})
+
+			It("Should add import and qualify cross-namespace distinct types", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "ExternalID",
+					QualifiedName: "other.ExternalID",
+					Namespace:     "other",
+					Form:          resolution.DistinctForm{},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/types.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				r.ImportResolver = &MockImportResolver{
+					ImportPath:   "github.com/example/external",
+					Qualifier:    "external",
+					ShouldImport: true,
+				}
+				typeRef := resolution.TypeRef{Name: "other.ExternalID"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("external.ExternalID"))
+				Expect(adder.Imports).To(HaveLen(1))
+			})
+
+			It("Should return fallback for distinct with empty output path", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "NoOutputID",
+					QualifiedName: "other.NoOutputID",
+					Namespace:     "other",
+					Form:          resolution.DistinctForm{},
+					Domains:       map[string]resolution.Domain{},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{Name: "other.NoOutputID"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("any"))
+			})
 		})
 
 		Describe("Alias Types", func() {
@@ -376,6 +526,103 @@ var _ = Describe("Resolver", func() {
 				}
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("StringAlias"))
+			})
+
+			It("Should resolve generic alias with type arguments", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "GenericAlias",
+					QualifiedName: "test.GenericAlias",
+					Namespace:     "test",
+					Form: resolution.AliasForm{
+						TypeParams: []resolution.TypeParam{{Name: "T"}},
+					},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{
+					Name:     "test.GenericAlias",
+					TypeArgs: []resolution.TypeRef{{Name: "string"}},
+				}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("GenericAlias[string]"))
+			})
+
+			It("Should filter defaulted type params in alias when substitution enabled", func() {
+				ctx.SubstituteDefaultedTypeParams = true
+				Expect(table.Add(resolution.Type{
+					Name:          "DefaultedAlias",
+					QualifiedName: "test.DefaultedAlias",
+					Namespace:     "test",
+					Form: resolution.AliasForm{
+						TypeParams: []resolution.TypeParam{
+							{Name: "T"},
+							{Name: "V", Default: &resolution.TypeRef{Name: "string"}},
+						},
+					},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{
+					Name: "test.DefaultedAlias",
+					TypeArgs: []resolution.TypeRef{
+						{Name: "int32"},
+						{Name: "bool"},
+					},
+				}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("DefaultedAlias[int32]"))
+			})
+
+			It("Should add import and qualify cross-namespace alias", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "ExternalAlias",
+					QualifiedName: "other.ExternalAlias",
+					Namespace:     "other",
+					Form:          resolution.AliasForm{},
+					Domains: map[string]resolution.Domain{
+						"go": {
+							Expressions: []resolution.Expression{
+								{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "external/types.go"}}},
+							},
+						},
+					},
+				})).To(Succeed())
+
+				r.ImportResolver = &MockImportResolver{
+					ImportPath:   "github.com/example/external",
+					Qualifier:    "external",
+					ShouldImport: true,
+				}
+				typeRef := resolution.TypeRef{Name: "other.ExternalAlias"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("external.ExternalAlias"))
+				Expect(adder.Imports).To(HaveLen(1))
+			})
+
+			It("Should return fallback for alias with empty output path", func() {
+				Expect(table.Add(resolution.Type{
+					Name:          "NoOutputAlias",
+					QualifiedName: "other.NoOutputAlias",
+					Namespace:     "other",
+					Form:          resolution.AliasForm{},
+					Domains:       map[string]resolution.Domain{},
+				})).To(Succeed())
+
+				typeRef := resolution.TypeRef{Name: "other.NoOutputAlias"}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("any"))
 			})
 		})
 
@@ -548,6 +795,91 @@ var _ = Describe("Context", func() {
 				Domains: map[string]resolution.Domain{},
 			}
 			Expect(ctx.GetOutputPath(t)).To(Equal(""))
+		})
+	})
+
+	Describe("IsSameOutputEnum", func() {
+		It("Should return true for enum in same namespace with matching output", func() {
+			// Add a struct in same namespace to provide output path for enum
+			Expect(table.Add(resolution.Type{
+				Name:          "StructInNamespace",
+				QualifiedName: "test.StructInNamespace",
+				Namespace:     "test",
+				Form:          resolution.StructForm{},
+				Domains: map[string]resolution.Domain{
+					"go": {
+						Expressions: []resolution.Expression{
+							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+						},
+					},
+				},
+			})).To(Succeed())
+
+			enum := resolution.Type{
+				Name:      "Status",
+				Namespace: "test",
+				Form:      resolution.EnumForm{},
+			}
+			Expect(ctx.IsSameOutputEnum(enum)).To(BeTrue())
+		})
+
+		It("Should return false for enum in different namespace", func() {
+			enum := resolution.Type{
+				Name:      "Status",
+				Namespace: "other",
+				Form:      resolution.EnumForm{},
+			}
+			Expect(ctx.IsSameOutputEnum(enum)).To(BeFalse())
+		})
+	})
+
+	Describe("GetEnumOutputPath", func() {
+		It("Should return output path from enum's own domain", func() {
+			enum := resolution.Type{
+				Name:      "Status",
+				Namespace: "test",
+				Form:      resolution.EnumForm{},
+				Domains: map[string]resolution.Domain{
+					"go": {
+						Expressions: []resolution.Expression{
+							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/enums.go"}}},
+						},
+					},
+				},
+			}
+			Expect(ctx.GetEnumOutputPath(enum)).To(Equal("pkg/enums.go"))
+		})
+
+		It("Should derive output path from struct in same namespace", func() {
+			Expect(table.Add(resolution.Type{
+				Name:          "StructInNamespace",
+				QualifiedName: "test.StructInNamespace",
+				Namespace:     "test",
+				Form:          resolution.StructForm{},
+				Domains: map[string]resolution.Domain{
+					"go": {
+						Expressions: []resolution.Expression{
+							{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "pkg/types.go"}}},
+						},
+					},
+				},
+			})).To(Succeed())
+
+			enum := resolution.Type{
+				Name:      "Status",
+				Namespace: "test",
+				Form:      resolution.EnumForm{},
+			}
+			Expect(ctx.GetEnumOutputPath(enum)).To(Equal("pkg/types.go"))
+		})
+
+		It("Should return empty for orphaned enum", func() {
+			enum := resolution.Type{
+				Name:      "OrphanedEnum",
+				Namespace: "orphan",
+				Form:      resolution.EnumForm{},
+			}
+			Expect(ctx.GetEnumOutputPath(enum)).To(Equal(""))
 		})
 	})
 })
