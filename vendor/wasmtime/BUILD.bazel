@@ -87,16 +87,11 @@ genrule(
             cd vendor/wasmtime/wasmtime
 
             # Force CMake to use rustup-managed rust binaries, not Chocolatey's
-            # Use 'which' to find the actual rust binaries after PATH was prepended
             export RUSTC=$$(which rustc)
             export CARGO=$$(which cargo)
 
             # Help cargo build scripts find their source files when invoked via CMake
             export CARGO_BUILD_TARGET_DIR="$$(pwd)/target"
-
-            # Clean any cached artifacts from previous builds with wrong target
-            # (e.g., x86_64-pc-windows-gnu vs x86_64-pc-windows-msvc)
-            rm -rf target/c-api target/x86_64-pc-windows-msvc target/release 2>/dev/null || true
 
             # Build wasmtime directly with cargo instead of CMake to avoid build script issues
             # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows

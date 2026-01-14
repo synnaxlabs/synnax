@@ -44,7 +44,9 @@ on:
       - turbo.json
       - uv.lock
       - uv.toml
-      - vendor
+      - vendor/mbedtls/**
+      - vendor/open62541/**
+      - vendor/wasmtime/**
       - x/cpp/**
       - x/go/**
       - x/media/**
