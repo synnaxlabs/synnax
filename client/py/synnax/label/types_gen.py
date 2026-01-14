@@ -16,11 +16,13 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from synnax import color
+
 
 class Label(BaseModel):
     key: UUID
     name: str = Field(min_length=1)
-    color: str
+    color: color.Color
 
     def __hash__(self) -> int:
         return hash(self.key)

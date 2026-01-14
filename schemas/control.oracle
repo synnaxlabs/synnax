@@ -23,8 +23,6 @@ Concurrency enum {
 Subject struct {
     key  string
     name string
-
-    @cpp omit
 }
 
 State struct<R> {
@@ -33,5 +31,4 @@ State struct<R> {
     authority Authority
 
     @ts concrete_types
-    @cpp omit
 }

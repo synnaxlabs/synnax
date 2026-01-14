@@ -22,10 +22,10 @@ export const keyZ = z.uint32().or(
 );
 export type Key = z.infer<typeof keyZ>;
 
-export const localKeyZ = zod.uint20Z;
+export const localKeyZ = zod.uint20;
 export type LocalKey = z.infer<typeof localKeyZ>;
 export const OPERATION_TYPES = ["min", "max", "avg", "none"] as const;
-export const operationTypeZ = z.enum([...OPERATION_TYPES]);
+export const operationTypeZ = z.enum(OPERATION_TYPES);
 export type OperationType = z.infer<typeof operationTypeZ>;
 export enum Concurrency {
   exclusive = 0,
@@ -55,7 +55,7 @@ export type Status = z.infer<typeof statusZ>;
 export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
-  leaseholder: zod.uint12Z,
+  leaseholder: zod.uint12,
   dataType: telem.dataTypeZ,
   isIndex: z.boolean(),
   index: keyZ,

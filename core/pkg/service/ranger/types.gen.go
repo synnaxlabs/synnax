@@ -12,6 +12,7 @@
 package ranger
 
 import (
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/uuid"
 )
@@ -22,5 +23,5 @@ type Range struct {
 	Key       Key             `json:"key" msgpack:"key"`
 	Name      string          `json:"name" msgpack:"name"`
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
-	Color     string          `json:"color" msgpack:"color"`
+	Color     color.Color     `json:"color" msgpack:"color"`
 }

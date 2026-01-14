@@ -24,7 +24,7 @@ export const subjectZ = z.object({
 });
 export interface Subject extends z.infer<typeof subjectZ> {}
 
-export const authorityZ = zod.uint8Z;
+export const authorityZ = zod.uint8;
 export type Authority = z.infer<typeof authorityZ>;
 
 export const stateZ = <R extends z.ZodType>(r: R) =>

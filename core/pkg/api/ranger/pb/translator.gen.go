@@ -15,6 +15,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/color"
 	labelpb "github.com/synnaxlabs/x/label/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 	"github.com/synnaxlabs/x/uuid"
@@ -33,7 +34,7 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 	pb := &Range{
 		Key:       r.Key.String(),
 		Name:      r.Name,
-		Color:     r.Color,
+		Color:     string(r.Color),
 		TimeRange: timeRangeVal,
 		Labels:    labelsVal,
 	}
@@ -64,7 +65,7 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 	}
 	r.Key = serviceranger.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.Color = pb.Color
+	r.Color = color.Color(pb.Color)
 	if pb.Parent != nil {
 		val, err := RangeFromPB(ctx, pb.Parent)
 		if err != nil {

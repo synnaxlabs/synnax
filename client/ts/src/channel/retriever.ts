@@ -28,7 +28,7 @@ import {
 } from "@/util/retrieve";
 
 const reqZ = z.object({
-  nodeKey: zod.uint12Z.optional(),
+  nodeKey: zod.uint12.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
   searchTerm: z.string().optional(),

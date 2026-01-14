@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,7 @@
 package framer
 
 import (
-	control "github.com/synnaxlabs/x/control"
+	pb1 "github.com/synnaxlabs/x/control/pb"
 	errors "github.com/synnaxlabs/x/errors"
 	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -211,15 +211,15 @@ func (x *IteratorResponse) GetError() *errors.PBPayload {
 }
 
 type WriterConfig struct {
-	state                    protoimpl.MessageState  `protogen:"open.v1"`
-	Keys                     []uint32                `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
-	Authorities              []uint32                `protobuf:"varint,2,rep,packed,name=authorities,proto3" json:"authorities,omitempty"`
-	Start                    int64                   `protobuf:"varint,3,opt,name=start,proto3" json:"start,omitempty"`
-	ControlSubject           *control.ControlSubject `protobuf:"bytes,4,opt,name=control_subject,json=controlSubject,proto3" json:"control_subject,omitempty"`
-	Mode                     int32                   `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
-	EnableAutoCommit         bool                    `protobuf:"varint,6,opt,name=enable_auto_commit,json=enableAutoCommit,proto3" json:"enable_auto_commit,omitempty"`
-	AutoIndexPersistInterval int64                   `protobuf:"varint,7,opt,name=auto_index_persist_interval,json=autoIndexPersistInterval,proto3" json:"auto_index_persist_interval,omitempty"`
-	ErrOnUnauthorized        bool                    `protobuf:"varint,8,opt,name=err_on_unauthorized,json=errOnUnauthorized,proto3" json:"err_on_unauthorized,omitempty"`
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Keys                     []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	Authorities              []uint32               `protobuf:"varint,2,rep,packed,name=authorities,proto3" json:"authorities,omitempty"`
+	Start                    int64                  `protobuf:"varint,3,opt,name=start,proto3" json:"start,omitempty"`
+	ControlSubject           *pb1.Subject           `protobuf:"bytes,4,opt,name=control_subject,json=controlSubject,proto3" json:"control_subject,omitempty"`
+	Mode                     int32                  `protobuf:"varint,5,opt,name=mode,proto3" json:"mode,omitempty"`
+	EnableAutoCommit         bool                   `protobuf:"varint,6,opt,name=enable_auto_commit,json=enableAutoCommit,proto3" json:"enable_auto_commit,omitempty"`
+	AutoIndexPersistInterval int64                  `protobuf:"varint,7,opt,name=auto_index_persist_interval,json=autoIndexPersistInterval,proto3" json:"auto_index_persist_interval,omitempty"`
+	ErrOnUnauthorized        bool                   `protobuf:"varint,8,opt,name=err_on_unauthorized,json=errOnUnauthorized,proto3" json:"err_on_unauthorized,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -275,7 +275,7 @@ func (x *WriterConfig) GetStart() int64 {
 	return 0
 }
 
-func (x *WriterConfig) GetControlSubject() *control.ControlSubject {
+func (x *WriterConfig) GetControlSubject() *pb1.Subject {
 	if x != nil {
 		return x.ControlSubject
 	}
@@ -638,7 +638,7 @@ var File_core_pkg_api_grpc_framer_framer_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/grpc/framer/framer.proto\x12\vgrpc.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xb5\x01\n" +
+	"%core/pkg/api/grpc/framer/framer.proto\x12\vgrpc.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xb5\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x12\n" +
 	"\x04span\x18\x02 \x01(\x03R\x04span\x12+\n" +
@@ -654,12 +654,12 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
-	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\xcd\x02\n" +
+	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\xcb\x02\n" +
 	"\fWriterConfig\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12 \n" +
 	"\vauthorities\x18\x02 \x03(\rR\vauthorities\x12\x14\n" +
-	"\x05start\x18\x03 \x01(\x03R\x05start\x12@\n" +
-	"\x0fcontrol_subject\x18\x04 \x01(\v2\x17.control.ControlSubjectR\x0econtrolSubject\x12\x12\n" +
+	"\x05start\x18\x03 \x01(\x03R\x05start\x12>\n" +
+	"\x0fcontrol_subject\x18\x04 \x01(\v2\x15.x.control.pb.SubjectR\x0econtrolSubject\x12\x12\n" +
 	"\x04mode\x18\x05 \x01(\x05R\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\x06 \x01(\bR\x10enableAutoCommit\x12=\n" +
 	"\x1bauto_index_persist_interval\x18\a \x01(\x03R\x18autoIndexPersistInterval\x12.\n" +
@@ -711,25 +711,25 @@ func file_core_pkg_api_grpc_framer_framer_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_api_grpc_framer_framer_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_core_pkg_api_grpc_framer_framer_proto_goTypes = []any{
-	(*IteratorRequest)(nil),        // 0: grpc.framer.IteratorRequest
-	(*IteratorResponse)(nil),       // 1: grpc.framer.IteratorResponse
-	(*WriterConfig)(nil),           // 2: grpc.framer.WriterConfig
-	(*WriterRequest)(nil),          // 3: grpc.framer.WriterRequest
-	(*WriterResponse)(nil),         // 4: grpc.framer.WriterResponse
-	(*StreamerRequest)(nil),        // 5: grpc.framer.StreamerRequest
-	(*StreamerResponse)(nil),       // 6: grpc.framer.StreamerResponse
-	(*DeleteRequest)(nil),          // 7: grpc.framer.DeleteRequest
-	(*pb.TimeRange)(nil),           // 8: x.telem.pb.TimeRange
-	(*pb.Frame)(nil),               // 9: x.telem.pb.Frame
-	(*errors.PBPayload)(nil),       // 10: errors.PBPayload
-	(*control.ControlSubject)(nil), // 11: control.ControlSubject
-	(*emptypb.Empty)(nil),          // 12: google.protobuf.Empty
+	(*IteratorRequest)(nil),  // 0: grpc.framer.IteratorRequest
+	(*IteratorResponse)(nil), // 1: grpc.framer.IteratorResponse
+	(*WriterConfig)(nil),     // 2: grpc.framer.WriterConfig
+	(*WriterRequest)(nil),    // 3: grpc.framer.WriterRequest
+	(*WriterResponse)(nil),   // 4: grpc.framer.WriterResponse
+	(*StreamerRequest)(nil),  // 5: grpc.framer.StreamerRequest
+	(*StreamerResponse)(nil), // 6: grpc.framer.StreamerResponse
+	(*DeleteRequest)(nil),    // 7: grpc.framer.DeleteRequest
+	(*pb.TimeRange)(nil),     // 8: x.telem.pb.TimeRange
+	(*pb.Frame)(nil),         // 9: x.telem.pb.Frame
+	(*errors.PBPayload)(nil), // 10: errors.PBPayload
+	(*pb1.Subject)(nil),      // 11: x.control.pb.Subject
+	(*emptypb.Empty)(nil),    // 12: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_framer_framer_proto_depIdxs = []int32{
 	8,  // 0: grpc.framer.IteratorRequest.range:type_name -> x.telem.pb.TimeRange
 	9,  // 1: grpc.framer.IteratorResponse.frame:type_name -> x.telem.pb.Frame
 	10, // 2: grpc.framer.IteratorResponse.error:type_name -> errors.PBPayload
-	11, // 3: grpc.framer.WriterConfig.control_subject:type_name -> control.ControlSubject
+	11, // 3: grpc.framer.WriterConfig.control_subject:type_name -> x.control.pb.Subject
 	2,  // 4: grpc.framer.WriterRequest.config:type_name -> grpc.framer.WriterConfig
 	9,  // 5: grpc.framer.WriterRequest.frame:type_name -> x.telem.pb.Frame
 	10, // 6: grpc.framer.WriterResponse.error:type_name -> errors.PBPayload

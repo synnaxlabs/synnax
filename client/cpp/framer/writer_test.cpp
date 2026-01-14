@@ -26,7 +26,7 @@ TEST(WriterTests, testWriteBasic) {
             keys_from_channels(time, data),
             now,
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"},
+            x::control::Subject{"test_writer"},
         }
     ));
 
@@ -69,7 +69,7 @@ TEST(WriterTests, testOpenWriterOnNonexistentChannel) {
                 std::vector<channel::Key>{time.key, 1000},
                 now,
                 std::vector{x::telem::AUTH_ABSOLUTE},
-                x::telem::ControlSubject{"test_writer"},
+                x::control::Subject{"test_writer"},
             }
         ),
         x::errors::NOT_FOUND
@@ -86,7 +86,7 @@ TEST(WriterTests, testWriteToUnspecifiedChannel) {
             std::vector{time.key},
             x::telem::TimeStamp::now(),
             std::vector{x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"},
+            x::control::Subject{"test_writer"},
         }
     ));
     auto frame = x::telem::Frame(1);
@@ -106,7 +106,7 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
             std::vector{time.key, data.key},
             x::telem::TimeStamp::now(),
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"},
+            x::control::Subject{"test_writer"},
         }
     ));
     auto frame = x::telem::Frame(2);
@@ -139,7 +139,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
             .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
-            .subject = x::telem::ControlSubject{"test_writer_1"},
+            .subject = x::control::Subject{"test_writer_1"},
             .err_on_unauthorized = true
         }
     ));
@@ -149,7 +149,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
             .start = x::telem::TimeStamp::now(),
             .authorities = std::
                 vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
-            .subject = x::telem::ControlSubject{"test_writer_2"},
+            .subject = x::control::Subject{"test_writer_2"},
             .err_on_unauthorized = true
         }
     );
@@ -189,7 +189,7 @@ TEST(WriterTests, testSetAuthority) {
                     x::telem::AUTH_ABSOLUTE,
                     x::telem::AUTH_ABSOLUTE
                 },
-            .subject = x::telem::ControlSubject{"test_writer"},
+            .subject = x::control::Subject{"test_writer"},
             .err_on_unauthorized = true
         }
     ));
@@ -220,7 +220,7 @@ TEST(WriterTests, testCloseIdempotency) {
             keys_from_channels(time, data),
             now,
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"},
+            x::control::Subject{"test_writer"},
         }
     ));
 
@@ -249,7 +249,7 @@ TEST(WriterTests, testErrorCommunication) {
             std::vector{time.key, data.key},
             x::telem::TimeStamp::now(),
             std::vector{x::telem::AUTH_ABSOLUTE, x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"},
+            x::control::Subject{"test_writer"},
         }
     ));
     auto frame = x::telem::Frame(2);

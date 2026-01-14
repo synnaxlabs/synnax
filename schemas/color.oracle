@@ -7,23 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#pragma once
+@ts output  "x/ts/src/color"
+@py output  "client/py/synnax/color"
+@go output  "x/go/color"
+@cpp output "x/cpp/color"
+@pb
 
-#include <string>
-
-#include "x/go/control/x/go/control/control.pb.h"
-
-namespace x::telem {
-typedef std::uint8_t Authority;
-constexpr Authority AUTH_ABSOLUTE = 255;
-
-struct ControlSubject {
-    std::string name;
-    std::string key;
-
-    void to_proto(::control::ControlSubject *s) const {
-        s->set_name(name);
-        s->set_key(key);
-    }
-};
-}
+Color string

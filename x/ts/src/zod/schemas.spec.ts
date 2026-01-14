@@ -25,7 +25,7 @@ describe("zod", () => {
       ];
       specs.forEach(({ input, expected }) => {
         it(`should parse ${input} as ${expected}`, () => {
-          const result = zod.uint12Z.parse(input);
+          const result = zod.uint12.parse(input);
           expect(result).toBe(expected);
         });
       });
@@ -43,7 +43,7 @@ describe("zod", () => {
       ];
       specs.forEach(({ input, expected }) => {
         it(`should throw for ${String(input)}`, () => {
-          expect(() => zod.uint12Z.parse(input)).toThrow(expected);
+          expect(() => zod.uint12.parse(input)).toThrow(expected);
         });
       });
     });

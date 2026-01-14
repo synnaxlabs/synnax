@@ -57,7 +57,7 @@ struct TaskConfig {
     /// available within the Lua script.
     json globals;
     /// @brief authority is the base authority level that the sequence will have;
-    x::telem::Authority authority;
+    x::control::Authority authority;
 
     explicit TaskConfig(x::json::Parser &parser):
         // this comment keeps the formatter happy
@@ -66,7 +66,7 @@ struct TaskConfig {
         read(parser.field<std::vector<synnax::channel::Key>>("read")),
         write(parser.field<std::vector<synnax::channel::Key>>("write")),
         globals(parser.field<json>("globals", json::object())),
-        authority(parser.field<x::telem::Authority>("authority", 150)) {}
+        authority(parser.field<x::control::Authority>("authority", 150)) {}
 };
 
 /// @brief deleted used to clean up lua unique pointers to ensure resources are

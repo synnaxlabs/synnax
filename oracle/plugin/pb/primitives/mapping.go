@@ -29,7 +29,6 @@ var mapping = map[string]primitives.Mapping{
 	"uint64":  {TargetType: "uint64"},
 	"float32": {TargetType: "float"},
 	"float64": {TargetType: "double"},
-	"color":   {TargetType: "string"},
 	"json":    {TargetType: "google.protobuf.Struct", Imports: []primitives.Import{{Category: "external", Path: "google/protobuf/struct.proto"}}},
 	"bytes":   {TargetType: "bytes"},
 	"any":     {TargetType: "google.protobuf.Value", Imports: []primitives.Import{{Category: "external", Path: "google/protobuf/struct.proto"}}},

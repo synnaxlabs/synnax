@@ -432,7 +432,7 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
 	// Hard optional (??) fields become pointers in Go to distinguish nil from zero value.
 	// Arrays and maps are reference types and don't need pointers (nil is their zero value).
-	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") {
+	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "binary.MsgpackEncodedJSON") {
 		goType = "*" + goType
 	}
 	return fieldData{

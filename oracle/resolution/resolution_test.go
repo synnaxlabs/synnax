@@ -47,7 +47,6 @@ var _ = Describe("Table", func() {
 			Entry("uuid", "uuid"),
 			Entry("json", "json"),
 			Entry("bytes", "bytes"),
-			Entry("color", "color"),
 			Entry("any", "any"),
 		)
 

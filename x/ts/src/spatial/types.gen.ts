@@ -12,28 +12,28 @@
 import { z } from "zod";
 
 export const DIRECTIONS = ["x", "y"] as const;
-export const directionZ = z.enum([...DIRECTIONS]);
+export const directionZ = z.enum(DIRECTIONS);
 export type Direction = z.infer<typeof directionZ>;
 export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
-export const outerLocationZ = z.enum([...OUTER_LOCATIONS]);
+export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 export const X_LOCATIONS = ["left", "right"] as const;
-export const xLocationZ = z.enum([...X_LOCATIONS]);
+export const xLocationZ = z.enum(X_LOCATIONS);
 export type XLocation = z.infer<typeof xLocationZ>;
 export const Y_LOCATIONS = ["top", "bottom"] as const;
-export const yLocationZ = z.enum([...Y_LOCATIONS]);
+export const yLocationZ = z.enum(Y_LOCATIONS);
 export type YLocation = z.infer<typeof yLocationZ>;
 export const CENTER_LOCATIONS = ["center"] as const;
-export const centerLocationZ = z.enum([...CENTER_LOCATIONS]);
+export const centerLocationZ = z.enum(CENTER_LOCATIONS);
 export type CenterLocation = z.infer<typeof centerLocationZ>;
 export const LOCATIONS = ["top", "right", "bottom", "left", "center"] as const;
-export const locationZ = z.enum([...LOCATIONS]);
+export const locationZ = z.enum(LOCATIONS);
 export type Location = z.infer<typeof locationZ>;
 export const ALIGNMENTS = ["start", "center", "end"] as const;
-export const alignmentZ = z.enum([...ALIGNMENTS]);
+export const alignmentZ = z.enum(ALIGNMENTS);
 export type Alignment = z.infer<typeof alignmentZ>;
 export const ORDERS = ["first", "last"] as const;
-export const orderZ = z.enum([...ORDERS]);
+export const orderZ = z.enum(ORDERS);
 export type Order = z.infer<typeof orderZ>;
 
 export const xyZ = z.object({

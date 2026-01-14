@@ -12,14 +12,15 @@
 package workspace
 
 import (
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/uuid"
 )
 
 type Key = uuid.UUID
 
 type Workspace struct {
-	Key    Key            `json:"key" msgpack:"key"`
-	Name   string         `json:"name" msgpack:"name"`
-	Author uuid.UUID      `json:"author" msgpack:"author"`
-	Layout map[string]any `json:"layout" msgpack:"layout"`
+	Key    Key                       `json:"key" msgpack:"key"`
+	Name   string                    `json:"name" msgpack:"name"`
+	Author uuid.UUID                 `json:"author" msgpack:"author"`
+	Layout binary.MsgpackEncodedJSON `json:"layout" msgpack:"layout"`
 }

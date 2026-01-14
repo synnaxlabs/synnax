@@ -1,5 +1,13 @@
 cc_library(
     name = "control",
-    hdrs = ["types.gen.h"],
+    hdrs = [
+        "control.h",
+        "json.gen.h",
+        "proto.gen.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/go/control:control_grpc",
+    ],
 )

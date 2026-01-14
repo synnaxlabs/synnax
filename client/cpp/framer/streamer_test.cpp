@@ -35,7 +35,7 @@ TEST(StreamerTests, testStreamBasic) {
             channels,
             now,
             {x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            x::control::Subject{"test_writer"}
         }
     ));
 
@@ -71,7 +71,7 @@ TEST(StreamerTests, testStreamSetChannels) {
             {data.key},
             now,
             {x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            x::control::Subject{"test_writer"}
         }
     ));
     // Sleep for 5 milliseconds to allow for the streamer to process the updated keys.
@@ -161,7 +161,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
             channels,
             now,
             std::vector{x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            x::control::Subject{"test_writer"}
         }
     ));
 
@@ -190,7 +190,7 @@ void test_downsample(
             channels,
             now,
             std::vector{x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            x::control::Subject{"test_writer"}
         }
     ));
 
@@ -234,7 +234,7 @@ void test_downsample_string(
             channels,
             now,
             std::vector{x::telem::AUTH_ABSOLUTE},
-            x::telem::ControlSubject{"test_writer"}
+            x::control::Subject{"test_writer"}
         }
     ));
 

@@ -9,8 +9,5 @@
 
 package color
 
-// Color is an alpha-valued hexadecimal color represented as bytes.
-type Color string
-
 // IsZero returns true if the color is the zero value for its type.
 func (c Color) IsZero() bool { return len(c) == 0 }

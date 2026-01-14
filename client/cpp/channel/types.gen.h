@@ -35,7 +35,7 @@ using ChannelKey = std::uint32_t;
 
 using Name = std::string;
 
-using Status = ::x::status::Status;
+using Status = ::x::status::Status<>;
 
 struct Operation {
     std::string type;

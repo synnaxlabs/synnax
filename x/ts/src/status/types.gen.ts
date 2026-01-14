@@ -24,7 +24,7 @@ export const VARIANTS = [
   "loading",
   "disabled",
 ] as const;
-export const variantZ = z.enum([...VARIANTS]);
+export const variantZ = z.enum(VARIANTS);
 export const successVariantZ = z.literal("success");
 export const infoVariantZ = z.literal("info");
 export const warningVariantZ = z.literal("warning");

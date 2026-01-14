@@ -13,6 +13,7 @@ package device
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/status"
 )
 
@@ -26,13 +27,13 @@ type StatusDetails struct {
 }
 
 type Device struct {
-	Key        Key            `json:"key" msgpack:"key"`
-	Rack       rack.Key       `json:"rack" msgpack:"rack"`
-	Location   string         `json:"location" msgpack:"location"`
-	Make       string         `json:"make" msgpack:"make"`
-	Model      string         `json:"model" msgpack:"model"`
-	Name       string         `json:"name" msgpack:"name"`
-	Configured bool           `json:"configured" msgpack:"configured"`
-	Properties map[string]any `json:"properties" msgpack:"properties"`
-	Status     *Status        `json:"status,omitempty" msgpack:"status,omitempty"`
+	Key        Key                       `json:"key" msgpack:"key"`
+	Rack       rack.Key                  `json:"rack" msgpack:"rack"`
+	Location   string                    `json:"location" msgpack:"location"`
+	Make       string                    `json:"make" msgpack:"make"`
+	Model      string                    `json:"model" msgpack:"model"`
+	Name       string                    `json:"name" msgpack:"name"`
+	Configured bool                      `json:"configured" msgpack:"configured"`
+	Properties binary.MsgpackEncodedJSON `json:"properties" msgpack:"properties"`
+	Status     *Status                   `json:"status,omitempty" msgpack:"status,omitempty"`
 }

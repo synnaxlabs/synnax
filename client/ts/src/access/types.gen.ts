@@ -12,5 +12,5 @@
 import { z } from "zod";
 
 export const ACTIONS = ["create", "delete", "retrieve", "update"] as const;
-export const actionZ = z.enum([...ACTIONS]);
+export const actionZ = z.enum(ACTIONS);
 export type Action = z.infer<typeof actionZ>;

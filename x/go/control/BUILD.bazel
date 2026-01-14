@@ -3,20 +3,6 @@ load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
     name = "control_proto",
-    srcs = ["control.proto"],
-    visibility = ["//visibility:public"],
-)
-
-cpp_grpc_library(
-    name = "control_grpc",
-    output_mode = "NO_PREFIX",
-    protos = [":control_proto"],
-    visibility = ["//visibility:public"],
-)
-
-# Oracle-generated proto (pb subdirectory)
-proto_library(
-    name = "control_pb_proto",
     srcs = ["pb/control.proto"],
     visibility = ["//visibility:public"],
     deps = [
@@ -25,8 +11,8 @@ proto_library(
 )
 
 cpp_grpc_library(
-    name = "control_pb_grpc",
+    name = "control_grpc",
     output_mode = "NO_PREFIX",
-    protos = [":control_pb_proto"],
+    protos = [":control_proto"],
     visibility = ["//visibility:public"],
 )

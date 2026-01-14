@@ -37,5 +37,5 @@ export const RESOURCE_TYPES = [
   "status",
   "view",
 ] as const;
-export const resourceTypeZ = z.enum([...RESOURCE_TYPES]);
+export const resourceTypeZ = z.enum(RESOURCE_TYPES);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

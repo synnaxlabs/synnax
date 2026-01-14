@@ -57,7 +57,6 @@ var _ = Describe("Primitives", func() {
 		It("Should correctly identify string types", func() {
 			Expect(primitives.IsString("string")).To(BeTrue())
 			Expect(primitives.IsString("uuid")).To(BeTrue())
-			Expect(primitives.IsString("color")).To(BeTrue())
 			Expect(primitives.IsString("int32")).To(BeFalse())
 		})
 

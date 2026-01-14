@@ -163,7 +163,7 @@ std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
             .channels = cfg.write,
             .start = x::telem::TimeStamp::now(),
             .authorities = {cfg.authority},
-            .subject = x::telem::ControlSubject{
+            .subject = x::control::Subject{
                 .name = task.name,
                 .key = std::to_string(task.key),
             }

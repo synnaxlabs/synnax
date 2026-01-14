@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/x/control"
+	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
@@ -90,27 +90,15 @@ func translateChannelKeysBackward(keys []uint32) []channel.Key {
 	return unsafe.ReinterpretSlice[uint32, channel.Key](keys)
 }
 
-func translateControlSubjectForward(cs control.Subject) *control.ControlSubject {
-	return &control.ControlSubject{
-		Key:  cs.Key,
-		Name: cs.Name,
-	}
-}
-
-func translateControlSubjectBackward(cs *control.ControlSubject) (of control.Subject) {
-	if cs == nil {
-		return
-	}
-	of.Key = cs.Key
-	of.Name = cs.Name
-	return
-}
-
 func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.WriterRequest,
 ) (*WriterRequest, error) {
 	frm, err := telempb.FrameToPB[channel.Key](ctx, msg.Frame.Frame)
+	if err != nil {
+		return nil, err
+	}
+	subj, err := controlpb.SubjectToPB(ctx, msg.Config.ControlSubject)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +111,7 @@ func (t frameWriterRequestTranslator) Forward(
 			Authorities:              msg.Config.Authorities,
 			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: int64(msg.Config.AutoIndexPersistInterval),
-			ControlSubject:           translateControlSubjectForward(msg.Config.ControlSubject),
+			ControlSubject:           subj,
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		},
 		Frame: frm,
@@ -148,6 +136,10 @@ func (t frameWriterRequestTranslator) Backward(
 		return r, err
 	}
 	if msg.Config != nil {
+		subj, err := controlpb.SubjectFromPB(ctx, msg.Config.ControlSubject)
+		if err != nil {
+			return apifra.WriterRequest{}, err
+		}
 		keys := translateChannelKeysBackward(msg.Config.Keys)
 		r.Config = apifra.WriterConfig{
 			Keys:                     keys,
@@ -156,7 +148,7 @@ func (t frameWriterRequestTranslator) Backward(
 			Authorities:              msg.Config.Authorities,
 			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
-			ControlSubject:           translateControlSubjectBackward(msg.Config.ControlSubject),
+			ControlSubject:           subj,
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
 		if err = t.codec.Update(ctx, keys); err != nil {

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "client/cpp/ranger/types.gen.h"
+#include "x/cpp/color/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/telem/json.gen.h"
@@ -26,7 +27,7 @@ inline Base Base::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
         .time_range = parser.field<x::telem::TimeRange>("time_range"),
-        .color = parser.field<std::string>("color", ""),
+        .color = parser.field<x::color::Color>("color"),
     };
 }
 

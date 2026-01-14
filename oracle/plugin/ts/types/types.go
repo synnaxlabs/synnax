@@ -1447,8 +1447,6 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 			case "timespan":
 				addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
-			case "color":
-				addXImport(data, xImport{name: "Color", submodule: "color"})
 			}
 		}
 		return primitiveToTS(typeRef.Name)
@@ -1533,8 +1531,7 @@ var primitiveTSTypes = map[string]string{
 	"uint8": "number", "uint12": "number", "uint16": "number", "uint20": "number", "uint32": "number", "uint64": "number",
 	"float32": "number", "float64": "number",
 	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
-	"color": "Color",
-	"json":  "unknown", "bytes": "Uint8Array",
+	"json": "unknown", "bytes": "Uint8Array",
 }
 
 func primitiveToTS(primitive string) string {
@@ -1558,14 +1555,14 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"uuid":               {schema: "z.uuid()"},
 	"string":             {schema: "z.string()"},
 	"bool":               {schema: "z.boolean()"},
-	"int8":               {schema: "zod.int8Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"int16":              {schema: "zod.int16Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"int8":               {schema: "zod.int8", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"int16":              {schema: "zod.int16", xImports: []xImport{{name: "zod", submodule: "zod"}}},
 	"int32":              {schema: "z.int32()"},
 	"int64":              {schema: "z.int64()"},
-	"uint8":              {schema: "zod.uint8Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"uint12":             {schema: "zod.uint12Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"uint16":             {schema: "zod.uint16Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
-	"uint20":             {schema: "zod.uint20Z", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"uint8":              {schema: "zod.uint8", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"uint12":             {schema: "zod.uint12", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"uint16":             {schema: "zod.uint16", xImports: []xImport{{name: "zod", submodule: "zod"}}},
+	"uint20":             {schema: "zod.uint20", xImports: []xImport{{name: "zod", submodule: "zod"}}},
 	"uint32":             {schema: "z.uint32()"},
 	"uint64":             {schema: "z.uint64()"},
 	"float32":            {schema: "z.number()"},
@@ -1575,7 +1572,6 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"time_range_bounded": {schema: "TimeRange.boundedZ", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
 	"data_type":          {schema: "DataType.z", xImports: []xImport{{name: "DataType", submodule: "telem"}}},
-	"color":              {schema: "color.colorZ", xImports: []xImport{{name: "color", submodule: "color"}}},
 	"json":               {schema: "record.unknownZ.or(z.string().transform((s) => JSON.parse(s)))", xImports: []xImport{{name: "record", submodule: "record"}}},
 	"bytes":              {schema: "z.instanceof(Uint8Array)"},
 }
@@ -1604,7 +1600,6 @@ var primitiveZodSchemaTypes = map[string]string{
 	"time_range":         "typeof TimeRange.z",
 	"time_range_bounded": "typeof TimeRange.boundedZ",
 	"data_type":          "typeof DataType.z",
-	"color":              "typeof color.colorZ",
 	"json":               "z.ZodType",
 	"bytes":              "z.ZodType<Uint8Array>",
 }
@@ -2006,7 +2001,7 @@ export enum {{ .Name }} {
 export const {{ camelCase .Name }}Z = z.enum({{ .Name }});
 {{- else }}
 export const {{ pluralUpper .Name }} = [{{ range $i, $v := .Values }}{{ if $i }}, {{ end }}"{{ $v.Value }}"{{ end }}] as const;
-export const {{ camelCase .Name }}Z = z.enum([...{{ pluralUpper .Name }}]);
+export const {{ camelCase .Name }}Z = z.enum({{ pluralUpper .Name }});
 {{- if .GenerateLiterals }}
 {{- $enumName := .Name }}
 {{- range $i, $v := .Values }}

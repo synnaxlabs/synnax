@@ -3,7 +3,7 @@ syntax = "proto3";
 package synnax.distribution.framer;
 
 import "google/protobuf/empty.proto";
-import "x/go/control/control.proto";
+import "x/go/control/pb/control.proto";
 import "x/go/errors/errors.proto";
 import "x/go/telem/pb/frame.proto";
 import "x/go/telem/pb/telem.proto";
@@ -61,7 +61,7 @@ message WriterConfig {
   repeated uint32 keys = 1;
   int64 start = 2;
   repeated uint32 authorities = 3;
-  control.ControlSubject control_subject = 4;
+  .x.control.pb.Subject control_subject = 4;
   bool err_on_unauthorized = 5;
   uint32 mode = 6;
   bool enable_auto_commit = 7;

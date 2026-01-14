@@ -44,14 +44,14 @@ export const channelsZ = z.object({
 export interface Channels extends z.infer<typeof channelsZ> {}
 
 export const dimensionsZ = z.object({
-  length: zod.int8Z,
-  mass: zod.int8Z,
-  time: zod.int8Z,
-  current: zod.int8Z,
-  temperature: zod.int8Z,
-  angle: zod.int8Z,
-  count: zod.int8Z,
-  data: zod.int8Z,
+  length: zod.int8,
+  mass: zod.int8,
+  time: zod.int8,
+  current: zod.int8,
+  temperature: zod.int8,
+  angle: zod.int8,
+  count: zod.int8,
+  data: zod.int8,
 });
 export interface Dimensions extends z.infer<typeof dimensionsZ> {}
 

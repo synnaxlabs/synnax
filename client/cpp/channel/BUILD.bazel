@@ -18,6 +18,8 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/go/status:status_grpc",
+        "//x/cpp/status",
         "@grpc//:grpc++",
     ],
 )

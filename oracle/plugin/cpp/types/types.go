@@ -613,7 +613,21 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	}
 
 	// Build with type arguments, filtering out defaulted params
+	// For generic types with all-defaulted/optional params referenced without args, we need <>
 	if len(typeRef.TypeArgs) == 0 {
+		// Check if target is generic with all params defaulted/optional
+		if form, ok := resolved.Form.(resolution.StructForm); ok && len(form.TypeParams) > 0 {
+			allDefaulted := true
+			for _, tp := range form.TypeParams {
+				if !tp.HasDefault() && !tp.Optional {
+					allDefaulted = false
+					break
+				}
+			}
+			if allDefaulted {
+				return name + "<>" // Need <> to instantiate template with defaults
+			}
+		}
 		return name
 	}
 
@@ -633,6 +647,10 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	}
 
 	if len(args) == 0 {
+		// All args were for defaulted params, need <>
+		if form, ok := resolved.Form.(resolution.StructForm); ok && len(form.TypeParams) > 0 {
+			return name + "<>"
+		}
 		return name
 	}
 	return fmt.Sprintf("%s<%s>", name, strings.Join(args, ", "))
@@ -654,13 +672,13 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		IsAlias: isAlias,
 	}
 
-	// Process type parameters, skipping defaulted ones
-	// (C++ doesn't support advanced generics with defaults)
+	// Process type parameters, skipping those with explicit defaults but keeping optional ones
+	// Optional type params get implicit defaults (std::monostate) which C++ can handle
 	for _, tp := range form.TypeParams {
 		if tp.HasDefault() {
-			continue // Skip defaulted type params
+			continue // Skip type params with explicit defaults (substitute default value)
 		}
-		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp))
+		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, data))
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
@@ -748,10 +766,16 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 	return sd
 }
 
-func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
-	return typeParamData{
-		Name: tp.Name,
+func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
+	tpd := typeParamData{Name: tp.Name}
+	// Optional type params without explicit defaults get std::monostate as implicit default
+	// This mirrors TypeScript's approach of using z.ZodNever for optional type params
+	if tp.Optional {
+		tpd.HasDefault = true
+		tpd.Default = "std::monostate"
+		data.includes.addSystem("variant")
 	}
+	return tpd
 }
 
 // cppDefaultValue returns the default initializer for a C++ type based on both
@@ -1090,8 +1114,8 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 
 	// Filter type args, skipping those that correspond to defaulted params
 	var args []string
+	var typeParams []resolution.TypeParam
 	if targetType != nil {
-		var typeParams []resolution.TypeParam
 		switch form := targetType.Form.(type) {
 		case resolution.StructForm:
 			typeParams = form.TypeParams
@@ -1118,6 +1142,10 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 	}
 
 	if len(args) == 0 {
+		// All args were for defaulted params, need <> to instantiate template
+		if len(typeParams) > 0 {
+			return baseName + "<>"
+		}
 		return baseName
 	}
 	return fmt.Sprintf("%s<%s>", baseName, strings.Join(args, ", "))
@@ -1226,7 +1254,9 @@ type structData struct {
 }
 
 type typeParamData struct {
-	Name string
+	Name       string
+	HasDefault bool
+	Default    string
 }
 
 type fieldData struct {
@@ -1463,10 +1493,10 @@ using {{$td.Name}} = {{$td.CppType}};
 /// @brief {{$s.Doc}}
 {{end}}
 {{- if $s.IsAlias}}
-{{- if $s.IsGeneric}}template <{{range $j, $p := $s.TypeParams}}{{if $j}}, {{end}}typename {{$p.Name}}{{end}}>
+{{- if $s.IsGeneric}}template <{{range $j, $p := $s.TypeParams}}{{if $j}}, {{end}}typename {{$p.Name}}{{if $p.HasDefault}} = {{$p.Default}}{{end}}{{end}}>
 {{end}}using {{$s.Name}} = {{$s.AliasOf}};
 {{- else}}
-{{- if $s.IsGeneric}}template <{{range $j, $p := $s.TypeParams}}{{if $j}}, {{end}}typename {{$p.Name}}{{end}}>
+{{- if $s.IsGeneric}}template <{{range $j, $p := $s.TypeParams}}{{if $j}}, {{end}}typename {{$p.Name}}{{if $p.HasDefault}} = {{$p.Default}}{{end}}{{end}}>
 {{end}}struct {{$s.Name}}{{if $s.HasExtends}} : {{range $i, $parent := $s.ExtendsTypes}}{{if $i}}, {{end}}public {{$parent}}{{end}}{{end}} {
 {{- range $s.Fields}}
 {{- if .Doc}}

@@ -461,13 +461,13 @@ func UnmarshalMsgpackUint32(dec *msgpack.Decoder) (uint32, error) {
 	}
 }
 
-// EncodedMsgpackStruct is a map[string]any that can unmarshal from either:
+// MsgpackEncodedJSON is a map[string]any that can unmarshal from either:
 // - A JSON string (which gets parsed into the map)
 // - A msgpack map (which is used directly)
-type EncodedMsgpackStruct map[string]any
+type MsgpackEncodedJSON map[string]any
 
 // DecodeMsgpack implements msgpack.CustomDecoder to handle both string and map formats.
-func (e *EncodedMsgpackStruct) DecodeMsgpack(dec *msgpack.Decoder) error {
+func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	// Decode as interface{} to let msgpack handle the type detection
 	v, err := dec.DecodeInterface()
 	if err != nil {
@@ -481,11 +481,11 @@ func (e *EncodedMsgpackStruct) DecodeMsgpack(dec *msgpack.Decoder) error {
 		if err := json.Unmarshal([]byte(val), &m); err != nil {
 			return errors.Wrapf(err, "failed to unmarshal JSON string into map")
 		}
-		*e = EncodedMsgpackStruct(m)
+		*e = MsgpackEncodedJSON(m)
 		return nil
 	case map[string]any:
 		// If it's already a map, use it directly
-		*e = EncodedMsgpackStruct(val)
+		*e = MsgpackEncodedJSON(val)
 		return nil
 	case map[any]any:
 		// Handle generic map[any]any (msgpack sometimes decodes to this)
@@ -497,9 +497,9 @@ func (e *EncodedMsgpackStruct) DecodeMsgpack(dec *msgpack.Decoder) error {
 				return errors.Newf("map key %v is not a string", k)
 			}
 		}
-		*e = EncodedMsgpackStruct(m)
+		*e = MsgpackEncodedJSON(m)
 		return nil
 	default:
-		return errors.Newf("cannot unmarshal %T into EncodedMsgpackStruct", v)
+		return errors.Newf("cannot unmarshal %T into MsgpackEncodedJSON", v)
 	}
 }

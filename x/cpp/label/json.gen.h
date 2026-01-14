@@ -13,6 +13,7 @@
 
 #include <string>
 
+#include "x/cpp/color/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/types.gen.h"
 
@@ -22,7 +23,7 @@ inline Label Label::parse(x::json::Parser parser) {
     return Label{
         .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name"),
-        .color = parser.field<std::string>("color"),
+        .color = parser.field<x::color::Color>("color"),
     };
 }
 

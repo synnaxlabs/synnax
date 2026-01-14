@@ -12,14 +12,15 @@
 package schematic
 
 import (
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/uuid"
 )
 
 type Key = uuid.UUID
 
 type Schematic struct {
-	Key      Key            `json:"key" msgpack:"key"`
-	Name     string         `json:"name" msgpack:"name"`
-	Data     map[string]any `json:"data" msgpack:"data"`
-	Snapshot bool           `json:"snapshot" msgpack:"snapshot"`
+	Key      Key                       `json:"key" msgpack:"key"`
+	Name     string                    `json:"name" msgpack:"name"`
+	Data     binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
+	Snapshot bool                      `json:"snapshot" msgpack:"snapshot"`
 }

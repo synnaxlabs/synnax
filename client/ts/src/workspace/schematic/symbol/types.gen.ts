@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
-export const outerLocationZ = z.enum([...OUTER_LOCATIONS]);
+export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 
 export const regionZ = z.object({

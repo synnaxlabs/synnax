@@ -25,7 +25,7 @@ inline ::x::label::pb::Label Label::to_proto() const {
     ::x::label::pb::Label pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
-    pb.set_color(this->color);
+    pb.set_color(static_cast<std::string>(this->color));
     return pb;
 }
 
@@ -34,7 +34,7 @@ Label::from_proto(const ::x::label::pb::Label &pb) {
     Label cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
-    cpp.color = pb.color();
+    cpp.color = x::color::Color(pb.color());
     return {cpp, x::errors::NIL};
 }
 

@@ -12,13 +12,14 @@
 package table
 
 import (
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/uuid"
 )
 
 type Key = uuid.UUID
 
 type Table struct {
-	Key  Key            `json:"key" msgpack:"key"`
-	Name string         `json:"name" msgpack:"name"`
-	Data map[string]any `json:"data" msgpack:"data"`
+	Key  Key                       `json:"key" msgpack:"key"`
+	Name string                    `json:"name" msgpack:"name"`
+	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
 }

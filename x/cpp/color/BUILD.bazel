@@ -1,0 +1,8 @@
+cc_library(
+    name = "color",
+    hdrs = [
+        "json.gen.h",
+        "types.gen.h",
+    ],
+    visibility = ["//visibility:public"],
+)

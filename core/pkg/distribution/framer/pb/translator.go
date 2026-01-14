@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
@@ -76,13 +77,14 @@ func (WriterRequestTranslator) Forward(
 	ctx context.Context,
 	req writer.Request,
 ) (*WriterRequest, error) {
+	subject, err := controlpb.SubjectToPB(ctx, req.Config.ControlSubject)
+	if err != nil {
+		return nil, err
+	}
 	cfg := &WriterConfig{
-		ControlSubject: &control.ControlSubject{
-			Key:  req.Config.ControlSubject.Key,
-			Name: req.Config.ControlSubject.Name,
-		},
-		Keys:  req.Config.Keys.Uint32(),
-		Start: int64(req.Config.Start),
+		ControlSubject: subject,
+		Keys:           req.Config.Keys.Uint32(),
+		Start:          int64(req.Config.Start),
 		Authorities: lo.Map(req.Config.Authorities, func(auth control.Authority, _ int) uint32 {
 			return uint32(auth)
 		}),

@@ -5,7 +5,6 @@ cc_library(
     ],
     hdrs = [
         "clock_skew.h",
-        "control.h",
         "frame.h",
         "json.gen.h",
         "proto.gen.h",
@@ -17,7 +16,6 @@ cc_library(
     deps = [
         "//x/cpp/binary",
         "//x/cpp/json",
-        "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
         "@protobuf",

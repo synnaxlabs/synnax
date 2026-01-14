@@ -33,7 +33,7 @@ x::errors::Error plugins::SynnaxFrameSink::write(x::telem::Frame &frame) {
 
 x::errors::Error plugins::SynnaxFrameSink::set_authority(
     const std::vector<synnax::channel::Key> &keys,
-    const std::vector<x::telem::Authority> &authorities
+    const std::vector<x::control::Authority> &authorities
 ) {
     return this->writer->set_authority(keys, authorities);
 }
@@ -122,12 +122,12 @@ x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             );
 
             std::vector<synnax::channel::Key> keys;
-            std::vector<x::telem::Authority> authorities;
+            std::vector<x::control::Authority> authorities;
 
             // Switching against the various possible overloads.
             if (lua_gettop(cL) == 1 && lua_isnumber(cL, 1)) {
                 // set_authority(auth number)
-                auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, 1));
+                auto auth = static_cast<x::control::Authority>(lua_tonumber(cL, 1));
                 for (const auto &[key, _]: op->channels) {
                     keys.push_back(key);
                     authorities.push_back(auth);
@@ -136,7 +136,7 @@ x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                        lua_isnumber(cL, 2)) {
                 // set_authority(channel_name string, auth number)
                 const char *channel_name = lua_tostring(cL, 1);
-                auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, 2));
+                auto auth = static_cast<x::control::Authority>(lua_tonumber(cL, 2));
                 const auto [channel, found] = op->resolve(channel_name);
                 if (!found) {
                     lua_pushfstring(cL, "Channel %s not found", channel_name);
@@ -148,7 +148,7 @@ x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
             } else if (lua_gettop(cL) == 2 && lua_istable(cL, 1) &&
                        lua_isnumber(cL, 2)) {
                 // set_authority(channel_names table, auth number)
-                auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, 2));
+                auto auth = static_cast<x::control::Authority>(lua_tonumber(cL, 2));
 
                 lua_pushnil(cL);
                 while (lua_next(cL, 1) != 0) {
@@ -168,7 +168,7 @@ x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
                 lua_pushnil(cL);
                 while (lua_next(cL, 1) != 0) {
                     const char *channel_name = lua_tostring(cL, -2);
-                    auto auth = static_cast<x::telem::Authority>(lua_tonumber(cL, -1));
+                    auto auth = static_cast<x::control::Authority>(lua_tonumber(cL, -1));
 
                     const auto [channel, found] = op->resolve(channel_name);
                     if (!found) {

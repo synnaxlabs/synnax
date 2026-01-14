@@ -9,6 +9,7 @@
 
 import "schemas/telem"
 import "schemas/label"
+import "schemas/color"
 
 @ts output  "client/ts/src/range"
 @cpp output "client/cpp/ranger"
@@ -21,7 +22,7 @@ Range struct {
     key        Key             @key
     name       string          @validate min_length 1
     time_range telem.TimeRange
-    color      string?
+    color      color.Color?
 
     @go output "core/pkg/service/ranger"
     @pb

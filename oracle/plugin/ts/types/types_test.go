@@ -254,9 +254,9 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// String enums generate a const array and z.enum([...ARRAY])
+			// String enums generate a const array and z.enum(ARRAY)
 			Expect(content).To(ContainSubstring(`export const DATA_TYPES = ["float32", "float64", "int32"] as const`))
-			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum([...DATA_TYPES])`))
+			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum(DATA_TYPES)`))
 		})
 
 		Context("primitive type mappings", func() {
@@ -275,12 +275,12 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("uuid", "uuid", "z.uuid()"),
 				Entry("string", "string", "z.string()"),
 				Entry("bool", "bool", "z.boolean()"),
-				Entry("int8", "int8", "zod.int8Z"),
-				Entry("int16", "int16", "zod.int16Z"),
+				Entry("int8", "int8", "zod.int8"),
+				Entry("int16", "int16", "zod.int16"),
 				Entry("int32", "int32", "z.int32()"),
 				Entry("int64", "int64", "z.int64()"),
-				Entry("uint8", "uint8", "zod.uint8Z"),
-				Entry("uint16", "uint16", "zod.uint16Z"),
+				Entry("uint8", "uint8", "zod.uint8"),
+				Entry("uint16", "uint16", "zod.uint16"),
 				Entry("uint32", "uint32", "z.uint32()"),
 				Entry("uint64", "uint64", "z.uint64()"),
 				Entry("float32", "float32", "z.number()"),

@@ -336,14 +336,14 @@ var _ = Describe("Codec", func() {
 			Entry("float64 overflow", float64(5000000000)),
 		)
 	})
-	Describe("EncodedMsgpackStruct", func() {
+	Describe("MsgpackEncodedJSON", func() {
 		DescribeTable("Should decode from JSON string",
 			func(jsonStr string, expectedKey string, expectedValue any) {
 				// Encode a string containing JSON
 				b := MustSucceed(msgpack.Marshal(jsonStr))
 
-				// Decode into EncodedMsgpackStruct
-				var result binary.EncodedMsgpackStruct
+				// Decode into MsgpackEncodedJSON
+				var result binary.MsgpackEncodedJSON
 				dec := msgpack.NewDecoder(bytes.NewReader(b))
 				Expect(dec.Decode(&result)).To(Succeed())
 
@@ -367,8 +367,8 @@ var _ = Describe("Codec", func() {
 			}
 			b := MustSucceed(msgpack.Marshal(inputMap))
 
-			// Decode into EncodedMsgpackStruct
-			var result binary.EncodedMsgpackStruct
+			// Decode into MsgpackEncodedJSON
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			Expect(dec.Decode(&result)).To(Succeed())
 
@@ -389,8 +389,8 @@ var _ = Describe("Codec", func() {
 			}
 			b := MustSucceed(msgpack.Marshal(inputMap))
 
-			// Decode into EncodedMsgpackStruct
-			var result binary.EncodedMsgpackStruct
+			// Decode into MsgpackEncodedJSON
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			Expect(dec.Decode(&result)).To(Succeed())
 
@@ -405,7 +405,7 @@ var _ = Describe("Codec", func() {
 			b := MustSucceed(msgpack.Marshal(invalidJSON))
 
 			// Attempt to decode
-			var result binary.EncodedMsgpackStruct
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			err := dec.Decode(&result)
 			Expect(err).To(HaveOccurred())
@@ -417,7 +417,7 @@ var _ = Describe("Codec", func() {
 			b := MustSucceed(msgpack.Marshal([]int{1, 2, 3}))
 
 			// Attempt to decode
-			var result binary.EncodedMsgpackStruct
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			err := dec.Decode(&result)
 			Expect(err).To(HaveOccurred())
@@ -432,7 +432,7 @@ var _ = Describe("Codec", func() {
 			b := MustSucceed(msgpack.Marshal(inputMap))
 
 			// Attempt to decode
-			var result binary.EncodedMsgpackStruct
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			err := dec.Decode(&result)
 			Expect(err).To(HaveOccurred())
@@ -444,7 +444,7 @@ var _ = Describe("Codec", func() {
 			jsonStr := "{}"
 			b := MustSucceed(msgpack.Marshal(jsonStr))
 
-			var result binary.EncodedMsgpackStruct
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			Expect(dec.Decode(&result)).To(Succeed())
 			Expect(result).To(BeEmpty())
@@ -454,7 +454,7 @@ var _ = Describe("Codec", func() {
 			inputMap := map[string]any{}
 			b := MustSucceed(msgpack.Marshal(inputMap))
 
-			var result binary.EncodedMsgpackStruct
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			Expect(dec.Decode(&result)).To(Succeed())
 			Expect(result).To(BeEmpty())
@@ -468,7 +468,7 @@ var _ = Describe("Codec", func() {
 			jsonStr := `{"name":"test","value":123}`
 			b := MustSucceed(codec.Encode(ctx, jsonStr))
 
-			var result binary.EncodedMsgpackStruct
+			var result binary.MsgpackEncodedJSON
 			Expect(codec.Decode(ctx, b, &result)).To(Succeed())
 			Expect(result).To(HaveKey("name"))
 			Expect(result["name"]).To(Equal("test"))
@@ -490,7 +490,7 @@ var _ = Describe("Codec", func() {
 			}`
 			b := MustSucceed(msgpack.Marshal(jsonStr))
 
-			var result binary.EncodedMsgpackStruct
+			var result binary.MsgpackEncodedJSON
 			dec := msgpack.NewDecoder(bytes.NewReader(b))
 			Expect(dec.Decode(&result)).To(Succeed())
 

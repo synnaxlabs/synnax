@@ -11,14 +11,14 @@ import { z } from "zod";
 
 import { math } from "@/math";
 
-export const int8Z = z.int().min(math.MIN_INT8).max(math.MAX_INT8);
-export const int16Z = z.int().min(math.MIN_INT16).max(math.MAX_INT16);
-export const int64Z = z.int().min(math.MIN_INT64_NUMBER).max(math.MAX_INT64_NUMBER);
+export const int8 = z.int().min(math.MIN_INT8).max(math.MAX_INT8);
+export const int16 = z.int().min(math.MIN_INT16).max(math.MAX_INT16);
+export const int64 = z.int().min(math.MIN_INT64_NUMBER).max(math.MAX_INT64_NUMBER);
 
-export const uint8Z = z.int().min(0).max(math.MAX_UINT8);
-export const uint12Z = z.int().min(0).max(math.MAX_UINT12);
-export const uint16Z = z.int().min(0).max(math.MAX_UINT16);
-export const uint20Z = z.int().min(0).max(math.MAX_UINT20);
+export const uint8 = z.int().min(0).max(math.MAX_UINT8);
+export const uint12 = z.int().min(0).max(math.MAX_UINT12);
+export const uint16 = z.int().min(0).max(math.MAX_UINT16);
+export const uint20 = z.int().min(0).max(math.MAX_UINT20);
 
 // JSON utilities
 const defaultJSONSchema = z.record(z.string(), z.unknown());
@@ -49,6 +49,3 @@ export const jsonStringifier = <T extends z.ZodType = typeof defaultJSONSchema>(
   const inner = (schema ?? defaultJSONSchema) as T;
   return inner.transform((v) => JSON.stringify(v));
 };
-
-/** @deprecated Use uint12Z instead */
-export const uint12 = uint12Z;
