@@ -105,16 +105,21 @@ genrule(
             echo "RUSTC=$$RUSTC"
             echo "CARGO=$$CARGO"
 
+            # Help cargo build scripts find their source files when invoked via CMake
+            export CARGO_BUILD_TARGET_DIR="$$(pwd)/target"
+
             # Clean any cached artifacts from previous builds with wrong target
             # (e.g., x86_64-pc-windows-gnu vs x86_64-pc-windows-msvc)
             rm -rf target/c-api target/x86_64-pc-windows-msvc target/release 2>/dev/null || true
 
             # Force MSVC target to avoid Mingw/GNU detection in Git Bash
+            # Disable profiling features to avoid ittapi-sys build issues on Windows
             cmake -S crates/c-api -B target/c-api \
                 --install-prefix="$$(pwd)/artifacts" \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DBUILD_SHARED_LIBS=OFF \
-                -DWASMTIME_TARGET=x86_64-pc-windows-msvc
+                -DWASMTIME_TARGET=x86_64-pc-windows-msvc \
+                -DWASMTIME_DISABLE_FEATURES="profiling"
             cmake --build target/c-api --config Release
             cmake --install target/c-api --config Release
 
