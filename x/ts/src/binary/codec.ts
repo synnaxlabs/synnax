@@ -61,7 +61,7 @@ export class JSONCodec implements Codec {
 
   decodeString<P extends z.ZodType>(data: string, schema?: P): z.infer<P> {
     const parsed = JSON.parse(data);
-    const unpacked = caseconv.snakeToCamel(parsed);
+    const unpacked = caseconv.snakeToCamel(parsed, undefined, schema);
     return schema != null ? schema.parse(unpacked) : (unpacked as z.infer<P>);
   }
 

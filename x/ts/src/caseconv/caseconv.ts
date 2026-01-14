@@ -7,7 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type z } from "zod";
+
 import { type record } from "@/record";
+import { zod as zodUtil } from "@/zod";
+
+/**
+ * Global symbol used to mark Zod schemas that should not have their keys converted.
+ * Uses Symbol.for() to ensure the same symbol is used across different module instances.
+ */
+const PRESERVE_CASE_SYMBOL = Symbol.for("synnax.caseconv.preserveCase");
+
+/**
+ * Marks a Zod schema to prevent case conversion of its keys and nested content.
+ * Use this for schemas where keys are semantic values (like OPC UA NodeIds or Modbus channel keys)
+ * rather than property names.
+ *
+ * @param schema - The Zod schema to mark
+ * @returns The same schema with a preserve case marker
+ *
+ * @example
+ * const propertiesZ = z.object({
+ *   read: z.object({
+ *     channels: preserveCase(z.record(z.string(), z.number()))
+ *   })
+ * });
+ */
+export const preserveCase = <T extends z.ZodType>(schema: T): T => {
+  (schema as any)[PRESERVE_CASE_SYMBOL] = true;
+  return schema;
+};
+
+/**
+ * Checks if a Zod schema has the preserve case marker.
+ */
+const hasPreserveCaseMarker = (schema: unknown): boolean =>
+  schema != null && typeof schema === "object" && PRESERVE_CASE_SYMBOL in schema;
 
 const snakeToCamelStr = (str: string): string => {
   const c = str.replace(/_[a-z]/g, (m) => m[1].toUpperCase());
@@ -18,39 +53,56 @@ const snakeToCamelStr = (str: string): string => {
   if (c.length === 0) return c;
   return c[0].toLowerCase() + c.slice(1);
 };
+
 /**
  * Convert string keys in an object to snake_case format.
  * @param obj: object to convert keys. If `obj` isn't a json object, `null` is returned.
  * @param opt: (optional) Options parameter, default is non-recursive.
+ * @param schema: (optional) Zod schema to check for preserve case markers
  */
 const createConverter = (
   f: (v: string) => string,
-): (<V>(obj: V, opt?: Options) => V) => {
-  const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
+): (<V>(obj: V, opt?: Options, schema?: z.ZodType) => V) => {
+  const converter = <V>(
+    obj: V,
+    opt: Options = defaultOptions,
+    schema?: z.ZodType,
+  ): V => {
     if (typeof obj === "string") return f(obj) as any;
-    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
+    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt, schema)) as V;
     if (!isValidObject(obj)) return obj;
+
+    // Check if the schema for this object is marked to preserve case
+    if (schema != null && hasPreserveCaseMarker(schema)) return obj;
+
     opt = validateOptions(opt);
     const res: record.Unknown = {};
     const anyObj = obj as record.Unknown;
     if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
-      return converter(anyObj.toJSON(), opt);
+      return converter(anyObj.toJSON(), opt, schema);
     Object.keys(anyObj).forEach((key) => {
       let value = anyObj[key];
       const nkey = f(key);
+
+      // Get the schema for this property using the converted key name
+      const propSchema: z.ZodType | undefined =
+        schema != null
+          ? (zodUtil.getFieldSchema(schema, nkey) ?? undefined)
+          : undefined;
+
       if (opt.recursive)
         if (isValidObject(value)) {
-          if (!belongToTypes(value)) value = converter(value, opt);
+          if (!belongToTypes(value)) value = converter(value, opt, propSchema);
         } else if (opt.recursiveInArray && isArrayObject(value))
           value = [...(value as unknown[])].map((v) => {
             let ret = v;
             if (isValidObject(v)) {
               // object in array
-              if (!belongToTypes(ret)) ret = converter(v, opt);
+              if (!belongToTypes(ret)) ret = converter(v, opt, propSchema);
             } else if (isArrayObject(v)) {
               // array in array
               // workaround by using an object holding array value
-              const temp: record.Unknown = converter({ key: v }, opt);
+              const temp: record.Unknown = converter({ key: v }, opt, propSchema);
               ret = temp.key;
             }
             return ret;

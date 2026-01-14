@@ -42,9 +42,7 @@ export const READ_SELECTABLE: Selector.Selectable = {
 };
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
-  props.read.channels[nodeId] ??
-  props.read.channels[caseconv.snakeToCamel(nodeId)] ??
-  0;
+  props.read.channels[nodeId] ?? 0;
 
 interface IsIndexItemProps {
   path: string;

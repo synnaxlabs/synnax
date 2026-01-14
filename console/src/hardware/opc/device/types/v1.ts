@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel as channelAPI, type device } from "@synnaxlabs/client";
-import { migrate } from "@synnaxlabs/x";
+import { caseconv, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/hardware/opc/device/types/v0";
@@ -20,10 +20,10 @@ export const propertiesZ = z.object({
   connection: v0.connectionConfigZ,
   read: z.object({
     indexes: z.array(channelAPI.keyZ),
-    channels: z.record(z.string(), channelAPI.keyZ),
+    channels: caseconv.preserveCase(z.record(z.string(), channelAPI.keyZ)),
   }),
   write: z.object({
-    channels: z.record(z.string(), channelAPI.keyZ),
+    channels: caseconv.preserveCase(z.record(z.string(), channelAPI.keyZ)),
   }),
 });
 

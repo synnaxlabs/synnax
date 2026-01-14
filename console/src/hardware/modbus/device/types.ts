@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
+import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const MAKE = "Modbus";
@@ -34,8 +35,13 @@ export const ZERO_CONNECTION_CONFIG = {
 
 export const propertiesZ = z.object({
   connection: connectionConfigZ,
-  read: z.object({ index: z.number(), channels: z.record(z.string(), z.number()) }),
-  write: z.object({ channels: z.record(z.string(), z.number()) }),
+  read: z.object({
+    index: z.number(),
+    channels: caseconv.preserveCase(z.record(z.string(), z.number())),
+  }),
+  write: z.object({
+    channels: caseconv.preserveCase(z.record(z.string(), z.number())),
+  }),
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}
 export const ZERO_PROPERTIES = {

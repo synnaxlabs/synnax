@@ -84,13 +84,6 @@ func StatusDetailsToPB(
 		Running: r.Running,
 		Cmd:     r.Cmd,
 	}
-	if r.Data != nil {
-		var err error
-		pb.Data, err = structpb.NewStruct(r.Data)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return pb, nil
 }
 
@@ -106,9 +99,6 @@ func StatusDetailsFromPB(
 	r.Task = task.Key(pb.Task)
 	r.Running = pb.Running
 	r.Cmd = pb.Cmd
-	if pb.Data != nil {
-		r.Data = pb.Data.AsMap()
-	}
 	return r, nil
 }
 
