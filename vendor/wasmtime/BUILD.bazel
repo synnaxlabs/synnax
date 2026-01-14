@@ -73,8 +73,9 @@ genrule(
         "@platforms//os:windows": """
             # Fix PATH: Use rustup's Rust instead of Chocolatey's
             # Chocolatey installs Rust to /c/ProgramData/chocolatey/bin but rustup
-            # manages toolchains in ~/.cargo/bin. We need rustup's version.
-            export PATH="$$HOME/.cargo/bin:$$PATH"
+            # manages toolchains in /c/Users/Administrator/.cargo/bin. We need rustup's version.
+            # Note: $HOME in Git Bash points to system profile, not actual user directory
+            export PATH="/c/Users/Administrator/.cargo/bin:$$PATH"
 
             # Ensure MSVC target is installed
             rustup target add x86_64-pc-windows-msvc
