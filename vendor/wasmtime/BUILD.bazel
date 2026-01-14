@@ -77,6 +77,9 @@ genrule(
             # Note: $$HOME in Git Bash points to system profile, not actual user directory
             export PATH="/c/Users/Administrator/.cargo/bin:$$PATH"
 
+            # Force rustup to use Administrator's rustup directory, not system profile's
+            export RUSTUP_HOME="/c/Users/Administrator/.rustup"
+
             # Ensure MSVC target is installed
             rustup target add x86_64-pc-windows-msvc
 
@@ -87,6 +90,7 @@ genrule(
             echo "===== Rust Binary Location Debug ====="
             echo "HOME=$$HOME"
             echo "USERPROFILE=$${USERPROFILE:-NOT_SET}"
+            echo "RUSTUP_HOME=$$RUSTUP_HOME"
             echo "PATH=$$PATH"
             which rustc || echo "rustc not found in PATH"
             which cargo || echo "cargo not found in PATH"
