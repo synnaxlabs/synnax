@@ -26,23 +26,28 @@ import (
 
 const OntologyType ontology.Type = "policy"
 
-// OntologyID constructs a unique ontology.ID for the Policy with the given key.
-func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+// OntologyID constructs a unique ontology ID for the Policy with the given key.
+func OntologyID(key uuid.UUID) ontology.ID {
+	return ontology.ID{Type: OntologyType, Key: key.String()}
 }
 
-// OntologyIDs constructs a slice of unique ontology.IDs for the Policys with the given
+// OntologyIDs constructs a slice of unique ontology IDs for the Policies with the given
 // keys.
 func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
+		return OntologyID(key)
+	})
 }
 
-// OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given Policys.
+// OntologyIDsFromPolicies constructs a slice of unique ontology IDs for the given
+// Policies.
 func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
-	return lo.Map(policies, func(l Policy, _ int) ontology.ID { return OntologyID(l.Key) })
+	return lo.Map(policies, func(policy Policy, _ int) ontology.ID {
+		return OntologyID(policy.Key)
+	})
 }
 
-// KeysFromOntologyIDs extracts the Policy keys from the given ontology.IDs.
+// KeysFromOntologyIDs extracts the keys from the given ontology.IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 	keys := make([]uuid.UUID, len(ids))
 	var err error
@@ -55,6 +60,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 	return keys, nil
 }
 
+// TODO: add constraints to this schema
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":      zyn.UUID(),
 	"name":     zyn.String(),
@@ -69,10 +75,10 @@ type change = xchange.Change[uuid.UUID, Policy]
 
 func (s *Service) Type() ontology.Type { return OntologyType }
 
-// Schema implements ontology.Service.
+// Schema returns the schema for the Policy ontology type.
 func (s *Service) Schema() zyn.Schema { return schema }
 
-// RetrieveResource implements ontology.Service.
+// RetrieveResource retrieves a Policy from the database.
 func (s *Service) RetrieveResource(
 	ctx context.Context,
 	key string,
@@ -97,16 +103,20 @@ func translateChange(c change) ontology.Change {
 	}
 }
 
-// OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+// OnChange observes changes to the Policy ontology type.
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Policy]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return gorp.Observe[uuid.UUID, Policy](s.cfg.DB).OnChange(handleChange)
 }
 
-// OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+// OpenNexter opens a nexter for the Policy ontology type.
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Policy](s.cfg.DB).OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

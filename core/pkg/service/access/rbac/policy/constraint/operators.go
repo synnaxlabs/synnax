@@ -148,12 +148,11 @@ func toStringSlice(v any) ([]string, bool) {
 		return val, true
 	case []any:
 		result := make([]string, len(val))
+		var ok bool
 		for i, item := range val {
-			str, ok := item.(string)
-			if !ok {
+			if result[i], ok = item.(string); !ok {
 				return nil, false
 			}
-			result[i] = str
 		}
 		return result, true
 	default:
@@ -182,8 +181,8 @@ func compareNumeric(a, b any) int {
 			return 0
 		}
 	}
-	if aInt, ok := toInt64(a); ok {
-		if bInt, ok := toInt64(b); ok {
+	if aInt, ok := a.(int64); ok {
+		if bInt, ok := b.(int64); ok {
 			if aInt < bInt {
 				return -1
 			} else if aInt > bInt {
@@ -192,8 +191,8 @@ func compareNumeric(a, b any) int {
 			return 0
 		}
 	}
-	if aFloat, ok := toFloat64(a); ok {
-		if bFloat, ok := toFloat64(b); ok {
+	if aFloat, ok := a.(float64); ok {
+		if bFloat, ok := b.(float64); ok {
 			if aFloat < bFloat {
 				return -1
 			} else if aFloat > bFloat {
@@ -203,34 +202,4 @@ func compareNumeric(a, b any) int {
 		}
 	}
 	return 0
-}
-
-func toInt64(v any) (int64, bool) {
-	switch val := v.(type) {
-	case int:
-		return int64(val), true
-	case int32:
-		return int64(val), true
-	case int64:
-		return val, true
-	case uint:
-		return int64(val), true
-	case uint32:
-		return int64(val), true
-	case uint64:
-		return int64(val), true
-	default:
-		return 0, false
-	}
-}
-
-func toFloat64(v any) (float64, bool) {
-	switch val := v.(type) {
-	case float32:
-		return float64(val), true
-	case float64:
-		return val, true
-	default:
-		return 0, false
-	}
 }

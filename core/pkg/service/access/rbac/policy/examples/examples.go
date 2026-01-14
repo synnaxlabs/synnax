@@ -52,9 +52,9 @@ var PolicyOnlyUpdateSchematicsCreatedByUsers = policy.Policy{
 	Name:   "Schematics can only be updated by their creator",
 	Effect: policy.EffectAllow,
 	Constraint: constraint.Constraint{
-		Kind:    constraint.KindRelationship,
-		Objects: []ontology.ID{{Type: schematic.OntologyType}},
-		Actions: []access.Action{access.ActionUpdate, access.ActionDelete},
+		Kind:         constraint.KindRelationship,
+		Objects:      []ontology.ID{{Type: schematic.OntologyType}},
+		Actions:      []access.Action{access.ActionUpdate, access.ActionDelete},
 		Relationship: ontology.CreatedBy,
 		Operator:     constraint.OpContainsAny,
 		MatchSubject: true,
@@ -138,25 +138,6 @@ var OPCScanTasksOnly = policy.Policy{
 		Operator: constraint.OpEqual,
 		Value:    "opc_scan",
 	},
-}
-
-// TasksForSpecificRack restricts task retrieval to tasks belonging to a specific rack.
-// Uses KindComputed to check the resource's rack field.
-func TasksForSpecificRack(rackKey string) policy.Policy {
-	return policy.Policy{
-		Key:    uuid.New(),
-		Name:   "tasks-for-rack-" + rackKey,
-		Effect: policy.EffectAllow,
-		Constraint: constraint.Constraint{
-			Kind:     constraint.KindComputed,
-			Objects:  []ontology.ID{{Type: task.OntologyType}},
-			Actions:  []access.Action{access.ActionRetrieve},
-			Property: "rack",
-			Source:   []string{"resource", "key"},
-			Operator: constraint.OpEqual,
-			Value:    rackKey,
-		},
-	}
 }
 
 // RangesWithLabels restricts range retrieval to ranges with specific labels. Uses
@@ -661,29 +642,6 @@ var AllowUserVisibleChannels = policy.Policy{
 		Operator:        constraint.OpContainsNone,
 		RelationshipIDs: []ontology.ID{{Type: ontology.TypeBuiltIn}, {Type: cluster.OntologyTypeNode}},
 	},
-}
-
-// =============================================================================
-// COMPUTED CONSTRAINT EXAMPLES
-// =============================================================================
-
-// MaxDurationDataRead limits data reads to a maximum duration.
-// Uses KindComputed to check the duration of the time range.
-func MaxDurationDataRead(maxDuration telem.TimeSpan) policy.Policy {
-	return policy.Policy{
-		Key:    uuid.New(),
-		Name:   "max-duration-data-read",
-		Effect: policy.EffectAllow,
-		Constraint: constraint.Constraint{
-			Kind:     constraint.KindComputed,
-			Objects:  []ontology.ID{{Type: "channel"}},
-			Actions:  []access.Action{access.ActionRetrieve},
-			Property: "duration",
-			Source:   []string{"request", "time_range"},
-			Operator: constraint.OpLessThanOrEqual,
-			Value:    maxDuration,
-		},
-	}
 }
 
 // =============================================================================

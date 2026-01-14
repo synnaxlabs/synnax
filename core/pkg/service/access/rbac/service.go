@@ -35,8 +35,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig ServiceConfig
 )
 
 // Override implements [config.Config].
@@ -74,13 +74,6 @@ func (s *Service) Enforce(ctx context.Context, req access.Request) error {
 	return s.NewEnforcer(nil).Enforce(ctx, req)
 }
 
-func (s *Service) Filter(
-	ctx context.Context,
-	req access.Request,
-) ([]ontology.ID, error) {
-	return s.NewEnforcer(nil).Filter(ctx, req)
-}
-
 // RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
 // This includes all policies from roles assigned to the subject via ontology
 // relationships.
@@ -94,7 +87,7 @@ func (s *Service) RetrievePoliciesForSubject(
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

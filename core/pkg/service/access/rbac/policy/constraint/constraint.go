@@ -12,6 +12,7 @@ package constraint
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -26,14 +27,10 @@ const (
 	KindField Kind = "field"
 	// KindRelationship checks ontology graph relationships.
 	KindRelationship Kind = "relationship"
-	// KindComputed checks derived/calculated values.
-	KindComputed Kind = "computed"
 	// KindAnd requires all child constraints to be satisfied.
 	KindAnd Kind = "and"
 	// KindOr requires at least one child constraint to be satisfied.
 	KindOr Kind = "or"
-	// KindNot inverts the result of a child constraint.
-	KindNot Kind = "not"
 )
 
 // Operator defines how a constraint compares values.
@@ -57,14 +54,21 @@ const (
 	OpGreaterThanOrEqual Operator = "gte"
 )
 
-// Constraint is a condition that must be satisfied for a policy to apply.
-// The Kind field determines which other fields are used.
+type Target string
+
+const (
+	TargetResource Target = "resource"
+	TargetRequest  Target = "request"
+)
+
+// Constraint is a condition that must be satisfied for a policy to apply. The Kind
+// field determines which other fields are used.
 type Constraint struct {
 	// Kind specifies the type of constraint.
 	Kind Kind `json:"kind" msgpack:"kind"`
 
-	// Objects specifies which resource types/IDs this constraint applies to.
-	// Used to scope the constraint to specific resources.
+	// Objects specifies which ontology IDs this constraint applies to. Used to
+	// scope the constraint to specific resources.
 	Objects []ontology.ID `json:"objects,omitempty" msgpack:"objects,omitempty"`
 	// Actions specifies which actions this constraint applies to.
 	Actions []access.Action `json:"actions,omitempty" msgpack:"actions,omitempty"`
@@ -95,8 +99,7 @@ type Constraint struct {
 	// Source is the path to compute from (e.g., ["request", "time_range"]).
 	Source []string `json:"source,omitempty" msgpack:"source,omitempty"`
 
-	// --- Logical constraint fields (recursive) ---
-	// Constraints is the list of child constraints for And/Or.
+	// Constraints is the list of child constraints for KindAnd and KindOr.
 	Constraints []Constraint `json:"constraints,omitempty" msgpack:"constraints,omitempty"`
 }
 
@@ -113,22 +116,14 @@ type EnforceParams struct {
 // Enforce checks if the constraint is satisfied.
 func (c Constraint) Enforce(ctx context.Context, params EnforceParams) bool {
 	switch c.Kind {
-	case "":
-		// Empty kind means no additional constraints - just objects/actions matching
-		// which is already handled by the caller. Always satisfied.
-		return true
 	case KindField:
 		return c.enforceField(ctx, params)
 	case KindRelationship:
 		return c.enforceRelationship(ctx, params)
-	case KindComputed:
-		return c.enforceComputed(ctx, params)
 	case KindAnd:
 		return c.enforceAnd(ctx, params)
 	case KindOr:
 		return c.enforceOr(ctx, params)
-	case KindNot:
-		return c.enforceNot(ctx, params)
 	default:
 		return false
 	}
@@ -167,21 +162,21 @@ func (c Constraint) enforceRelationship(ctx context.Context, params EnforceParam
 	switch c.Operator {
 	case OpContainsAny:
 		for _, target := range targetIDs {
-			if containsID(relatedIDs, target) {
+			if slices.Contains(relatedIDs, target) {
 				return true
 			}
 		}
 		return false
 	case OpContainsAll:
 		for _, target := range targetIDs {
-			if !containsID(relatedIDs, target) {
+			if !slices.Contains(relatedIDs, target) {
 				return false
 			}
 		}
 		return true
 	case OpContainsNone:
 		for _, target := range targetIDs {
-			if containsID(relatedIDs, target) {
+			if slices.Contains(relatedIDs, target) {
 				return false
 			}
 		}
@@ -189,14 +184,6 @@ func (c Constraint) enforceRelationship(ctx context.Context, params EnforceParam
 	default:
 		return false
 	}
-}
-
-func (c Constraint) enforceComputed(ctx context.Context, params EnforceParams) bool {
-	computed, ok := computeValue(ctx, params, c.Property, c.Source)
-	if !ok {
-		return false
-	}
-	return applyOperator(c.Operator, computed, c.Value, params.Request.Subject)
 }
 
 func (c Constraint) enforceAnd(ctx context.Context, params EnforceParams) bool {
@@ -215,11 +202,4 @@ func (c Constraint) enforceOr(ctx context.Context, params EnforceParams) bool {
 		}
 	}
 	return false
-}
-
-func (c Constraint) enforceNot(ctx context.Context, params EnforceParams) bool {
-	if len(c.Constraints) == 0 {
-		return true
-	}
-	return !c.Constraints[0].Enforce(ctx, params)
 }

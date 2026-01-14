@@ -30,7 +30,7 @@ type Config struct {
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	DefaultConfig Config
 )
 
 // Override implements [config.Config].
@@ -80,13 +80,9 @@ func (s *Service) Close() error {
 	return s.signals.Close()
 }
 
-func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	return Writer{
-		tx:            tx,
-		otg:           s.cfg.Ontology.NewWriter(tx),
-		allowInternal: allowInternal,
-	}
+	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
 }
 
 func (s *Service) NewRetrieve() Retriever {

@@ -38,15 +38,11 @@ type Policy struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Effect determines whether this policy allows or denies access.
 	Effect Effect `json:"effect" msgpack:"effect"`
-	// Constraint specifies the condition that must be met for this policy to apply.
-	// The constraint contains the Objects and Actions that the policy applies to,
-	// as well as any additional conditions (field checks, relationship checks, etc.).
-	// Use logical constraint kinds (And, Or, Not) to combine multiple conditions.
+	// Constraint specifies the condition that must be met for this policy to apply. The
+	// constraint contains the Objects and Actions that the policy applies to, as well
+	// as any additional conditions (field checks, relationship checks, etc.). Use
+	// logical constraint kinds (And, Or, Not) to combine multiple conditions.
 	Constraint constraint.Constraint `json:"constraint" msgpack:"constraint"`
-	// Internal indicates whether the policy is built-in to the system.
-	//
-	// TODO: remove this and replace with ontology relationship created_by.
-	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}

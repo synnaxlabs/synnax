@@ -12,6 +12,7 @@ package constraint
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -31,18 +32,7 @@ func resolveRelationship(
 		Exec(ctx, params.Tx); err != nil {
 		return nil
 	}
-	relatedIDs := make([]ontology.ID, 0, len(relationships))
-	for _, rel := range relationships {
-		relatedIDs = append(relatedIDs, rel.To)
-	}
-	return relatedIDs
-}
-
-func containsID(ids []ontology.ID, target ontology.ID) bool {
-	for _, id := range ids {
-		if id == target {
-			return true
-		}
-	}
-	return false
+	return lo.Map(relationships, func(rel ontology.Relationship, _ int) ontology.ID {
+		return rel.To
+	})
 }

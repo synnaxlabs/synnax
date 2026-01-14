@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // resolveFieldValue resolves a field path to its actual value.
@@ -26,8 +25,6 @@ func resolveFieldValue(ctx context.Context, params EnforceParams, target string,
 		return resolveResourceField(ctx, params, field)
 	case "subject":
 		return resolveSubjectField(ctx, params, field)
-	case "system":
-		return resolveSystemField(field)
 	default:
 		return nil, false
 	}
@@ -87,18 +84,6 @@ func resolveSubjectField(ctx context.Context, params EnforceParams, field []stri
 		return nil, false
 	}
 	return getNestedField(resources[0].Data, field)
-}
-
-func resolveSystemField(field []string) (any, bool) {
-	if len(field) == 0 {
-		return nil, false
-	}
-	switch field[0] {
-	case "current_time":
-		return telem.Now(), true
-	default:
-		return nil, false
-	}
 }
 
 func getNestedField(data any, path []string) (any, bool) {
