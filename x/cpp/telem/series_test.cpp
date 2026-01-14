@@ -15,7 +15,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/telem.pb.h"
+#include "x/go/telem/pb/telem.pb.h"
 
 namespace x::telem {
 template<typename T>
@@ -190,18 +190,6 @@ TEST(TestSeries, testInlineVectorConstruction) {
     ASSERT_EQ(s.at<float>(2), 3);
 }
 
-/// @brief it should correctly serialize and deserialize the series from protobuf.
-TEST(TestSeries, testProto) {
-    const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
-    const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
-    const auto v = s3.values<std::uint16_t>();
-    for (size_t i = 0; i < vals.size(); i++)
-        ASSERT_EQ(v[i], vals[i]);
-}
-
 /// @brief it should correctly construct a series from a single value.
 TEST(TestSeries, testConstructionSingleValue) {
     constexpr std::uint64_t value = 1;
@@ -219,9 +207,9 @@ TEST(TestSeries, testConstructionSingleValue) {
 TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
+    auto s2 = s.to_proto();
+    auto [s3, err] = Series::from_proto(s2);
+    ASSERT_FALSE(err);
     const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);

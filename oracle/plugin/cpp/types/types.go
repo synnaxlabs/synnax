@@ -594,7 +594,12 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 			if cppInclude != "" {
 				data.includes.addInternal(cppInclude)
 			}
-			if resolved.Namespace != "" {
+			// If there's an output path, derive the namespace from it (handles x/cpp/telem -> x::telem).
+			// Otherwise use the schema namespace directly.
+			if targetOutputPath != "" {
+				ns := deriveNamespace(targetOutputPath)
+				name = fmt.Sprintf("::%s::%s", ns, name)
+			} else if resolved.Namespace != "" {
 				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {
@@ -754,7 +759,19 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam) typeParamData {
 // Returns empty string if no explicit default is needed (e.g., for types with
 // proper default constructors like std::string, std::vector, std::optional).
 func cppDefaultValue(cppType string, underlyingPrimitive string) string {
-	// First check the underlying primitive type for aliases/distinct types
+	// First check for telem types with explicit constructors (must check before underlying primitive)
+	// These types are based on int64 but need explicit constructor calls
+	if strings.Contains(cppType, "::telem::TimeStamp") {
+		return "x::telem::TimeStamp(0)"
+	}
+	if strings.Contains(cppType, "::telem::TimeSpan") {
+		return "x::telem::TimeSpan(0)"
+	}
+	if strings.Contains(cppType, "::telem::TimeRange") {
+		return "x::telem::TimeRange{}"
+	}
+
+	// Then check the underlying primitive type for aliases/distinct types
 	if underlyingPrimitive != "" {
 		switch underlyingPrimitive {
 		case "bool":
@@ -765,8 +782,12 @@ func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 			return "0"
 		case "uint8", "uint12", "uint16", "uint20", "uint32", "uint64":
 			return "0"
-		case "timestamp", "timespan", "time_range", "time_range_bounded":
-			return "{}"
+		case "timestamp":
+			return "x::telem::TimeStamp(0)"
+		case "timespan":
+			return "x::telem::TimeSpan(0)"
+		case "time_range", "time_range_bounded":
+			return "x::telem::TimeRange{}"
 		}
 	}
 
@@ -782,9 +803,19 @@ func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 		return "0"
 	}
 
-	// Telem types need brace initialization for value-initialization
+	// Telem types with explicit constructors need constructor syntax
 	if strings.HasPrefix(cppType, "x::telem::") {
-		return "{}"
+		switch cppType {
+		case "x::telem::TimeStamp":
+			return "x::telem::TimeStamp(0)"
+		case "x::telem::TimeSpan":
+			return "x::telem::TimeSpan(0)"
+		case "x::telem::TimeRange":
+			return "x::telem::TimeRange{}"
+		default:
+			// Other telem types default to brace initialization
+			return "{}"
+		}
 	}
 
 	// Types that have proper default constructors don't need explicit defaults:
@@ -979,7 +1010,12 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 				data.includes.addInternal(cppInclude)
 			}
 			// Use namespace prefix for handwritten types.
-			if resolved.Namespace != "" {
+			// If there's an output path, derive the namespace from it (handles x/cpp/telem -> x::telem).
+			// Otherwise use the schema namespace directly.
+			if targetOutputPath != "" {
+				ns := deriveNamespace(targetOutputPath)
+				name = fmt.Sprintf("::%s::%s", ns, name)
+			} else if resolved.Namespace != "" {
 				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {

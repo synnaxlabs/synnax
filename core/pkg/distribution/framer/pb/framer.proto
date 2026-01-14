@@ -5,7 +5,8 @@ package synnax.distribution.framer;
 import "google/protobuf/empty.proto";
 import "x/go/control/control.proto";
 import "x/go/errors/errors.proto";
-import "x/go/telem/telem.proto";
+import "x/go/telem/pb/frame.proto";
+import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb";
 
@@ -17,7 +18,7 @@ message IteratorRequest {
   int32 command = 1;
   int64 stamp = 2;
   int64 span = 3;
-  telem.PBTimeRange bounds = 4;
+  x.telem.pb.TimeRange bounds = 4;
   repeated uint32 keys = 6;
   int64 chunk_size = 7;
   int32 seq_num = 8;
@@ -26,7 +27,7 @@ message IteratorRequest {
 message IteratorResponse {
   int32 variant = 1;
   int32 command = 2;
-  telem.PBFrame frame = 3;
+  x.telem.pb.Frame frame = 3;
   int32 node_key = 4;
   bool ack = 5;
   int32 seq_num = 6;
@@ -42,7 +43,7 @@ message RelayRequest {
 }
 
 message RelayResponse {
-  telem.PBFrame frame = 1;
+  x.telem.pb.Frame frame = 1;
   errors.PBPayload error = 2;
 }
 
@@ -53,7 +54,7 @@ service WriterService {
 message WriterRequest {
   int32 command = 1;
   WriterConfig config = 2;
-  telem.PBFrame frame = 3;
+  x.telem.pb.Frame frame = 3;
 }
 
 message WriterConfig {
@@ -82,5 +83,5 @@ service DeleteService {
 message DeleteRequest {
   repeated uint32 keys = 1;
   repeated string names = 2;
-  telem.PBTimeRange bounds = 3;
+  x.telem.pb.TimeRange bounds = 3;
 }

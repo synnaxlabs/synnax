@@ -46,7 +46,10 @@ std::pair<x::telem::Frame, x::errors::Error> Streamer::read() const {
             reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
             fr.buffer().size()
         );
-    return {x::telem::Frame(fr.frame()), exc};
+    if (exc) return {x::telem::Frame(), exc};
+    auto [frame, proto_err] = x::telem::Frame::from_proto(fr.frame());
+    if (proto_err) return {x::telem::Frame(), proto_err};
+    return {std::move(frame), x::errors::NIL};
 }
 
 void Streamer::close_send() const {

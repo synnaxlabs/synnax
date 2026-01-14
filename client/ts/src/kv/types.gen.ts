@@ -11,10 +11,10 @@
 
 import { z } from "zod";
 
-import { range } from "@/range";
+import { ranger } from "@/range";
 
 export const pairZ = z.object({
-  range: range.keyZ,
+  range: ranger.keyZ,
   key: z.string(),
   value: z.string(),
 });

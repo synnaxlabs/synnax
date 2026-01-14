@@ -48,8 +48,8 @@ OperationType enum {
 
 Operation struct {
     type          OperationType
-    reset_channel Key           @validate default 0
-    duration      TimeSpan      @validate default 0
+    reset_channel Key            @validate default 0
+    duration      telem.TimeSpan @validate default 0
 
     @go output "core/pkg/distribution/channel"
     @pb
@@ -58,7 +58,7 @@ Operation struct {
 Channel struct {
     name        Name
     leaseholder node.Key
-    data_type   DataType
+    data_type   telem.DataType
     is_index    bool
     local_key   LocalKey
     local_index LocalKey
@@ -79,7 +79,7 @@ APIChannel struct {
     key         Key                  @key
     name        Name
     leaseholder uint12
-    data_type   DataType
+    data_type   telem.DataType
     is_index    bool
     index       Key
     alias       string?

@@ -11,30 +11,54 @@
 
 #pragma once
 
+#include <string>
 #include <utility>
 #include <vector>
 
+#include "client/cpp/kv/kv.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/types.gen.h"
 #include "x/cpp/mem/indirect.h"
 
-#include "core/pkg/api/ranger/pb/range.pb.h"
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 
-struct Payload;
+struct Base;
+struct Range;
 
-struct Payload : public Range {
+using Key = std::string;
+
+struct Base {
+    Key key;
+    std::string name;
+    ::x::telem::TimeRange time_range = x::telem::TimeRange{};
+    std::string color;
+
+    static Base parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ranger::pb::Range;
+    [[nodiscard]] ::service::ranger::pb::Range to_proto() const;
+    static std::pair<Base, x::errors::Error>
+    from_proto(const ::service::ranger::pb::Range &pb);
+};
+
+struct Range : public Base {
     std::vector<::x::label::Label> labels;
-    x::mem::indirect<Payload> parent;
+    x::mem::indirect<Range> parent;
 
-    static Payload parse(x::json::Parser parser);
+    static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
     using proto_type = ::api::ranger::pb::Range;
     [[nodiscard]] ::api::ranger::pb::Range to_proto() const;
-    static std::pair<Payload, x::errors::Error>
+    static std::pair<Range, x::errors::Error>
     from_proto(const ::api::ranger::pb::Range &pb);
+
+    // Custom methods
+    kv::Client kv = kv::Client();
 };
 }

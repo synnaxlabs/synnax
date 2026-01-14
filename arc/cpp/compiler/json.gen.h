@@ -24,16 +24,16 @@ namespace arc::compiler {
 
 inline Output Output::parse(x::json::Parser parser) {
     return Output{
-        .wasm = parser.field<std::vector<std::uint8_t>>("WASM"),
+        .wasm = parser.field<std::vector<std::uint8_t>>("wasm"),
         .output_memory_bases = parser.field<
-            std::unordered_map<std::string, std::uint32_t>>("OutputMemoryBases"),
+            std::unordered_map<std::string, std::uint32_t>>("output_memory_bases"),
     };
 }
 
 inline x::json::json Output::to_json() const {
     x::json::json j;
-    j["WASM"] = this->wasm;
-    j["OutputMemoryBases"] = this->output_memory_bases;
+    j["wasm"] = this->wasm;
+    j["output_memory_bases"] = this->output_memory_bases;
     return j;
 }
 

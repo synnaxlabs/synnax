@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	telempb "github.com/synnaxlabs/x/telem/pb"
 )
 
 var (
@@ -42,9 +43,13 @@ type WriterRequestTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
 func (WriterRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	req *WriterRequest,
 ) (writer.Request, error) {
+	fr, err := translateFrameForward(ctx, req.Frame)
+	if err != nil {
+		return writer.Request{}, err
+	}
 	return writer.Request{
 		Command: writer.Command(req.Command),
 		Config: writer.Config{
@@ -62,13 +67,13 @@ func (WriterRequestTranslator) Backward(
 			EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
 			AutoIndexPersistInterval: telem.TimeSpan(req.Config.AutoIndexPersistInterval),
 		},
-		Frame: translateFrameForward(req.Frame),
+		Frame: fr,
 	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
 func (WriterRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	req writer.Request,
 ) (*WriterRequest, error) {
 	cfg := &WriterConfig{
@@ -90,10 +95,14 @@ func (WriterRequestTranslator) Forward(
 	if req.Config.EnableAutoCommit != nil {
 		cfg.EnableAutoCommit = *req.Config.EnableAutoCommit
 	}
+	fr, err := translateFrameBackward(ctx, req.Frame)
+	if err != nil {
+		return nil, err
+	}
 	return &WriterRequest{
 		Command: int32(req.Command),
 		Config:  cfg,
-		Frame:   translateFrameBackward(req.Frame),
+		Frame:   fr,
 	}, nil
 }
 
@@ -131,13 +140,17 @@ type IteratorRequestTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
 func (IteratorRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	req *IteratorRequest,
 ) (iterator.Request, error) {
+	bounds, err := telempb.TimeRangeFromPB(ctx, req.Bounds)
+	if err != nil {
+		return iterator.Request{}, err
+	}
 	return iterator.Request{
 		Command:   iterator.Command(req.Command),
 		Span:      telem.TimeSpan(req.Span),
-		Bounds:    telem.TranslateTimeRangeBackward(req.Bounds),
+		Bounds:    bounds,
 		Stamp:     telem.TimeStamp(req.Stamp),
 		Keys:      channel.KeysFromUint32(req.Keys),
 		ChunkSize: req.ChunkSize,
@@ -147,13 +160,17 @@ func (IteratorRequestTranslator) Backward(
 
 // Forward implements the fgrpc.Translator interface.
 func (IteratorRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	req iterator.Request,
 ) (*IteratorRequest, error) {
+	bounds, err := telempb.TimeRangeToPB(ctx, req.Bounds)
+	if err != nil {
+		return nil, err
+	}
 	return &IteratorRequest{
 		Command:   int32(req.Command),
 		Span:      int64(req.Span),
-		Bounds:    telem.TranslateTimeRangeForward(req.Bounds),
+		Bounds:    bounds,
 		Stamp:     int64(req.Stamp),
 		Keys:      req.Keys.Uint32(),
 		ChunkSize: req.ChunkSize,
@@ -168,6 +185,10 @@ func (IteratorResponseTranslator) Backward(
 	ctx context.Context,
 	res *IteratorResponse,
 ) (iterator.Response, error) {
+	fr, err := translateFrameForward(ctx, res.Frame)
+	if err != nil {
+		return iterator.Response{}, err
+	}
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
 		NodeKey: cluster.NodeKey(res.NodeKey),
@@ -175,7 +196,7 @@ func (IteratorResponseTranslator) Backward(
 		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),
 		Error:   fgrpc.DecodeError(ctx, res.Error),
-		Frame:   translateFrameForward(res.Frame),
+		Frame:   fr,
 	}, nil
 }
 
@@ -184,6 +205,10 @@ func (IteratorResponseTranslator) Forward(
 	ctx context.Context,
 	res iterator.Response,
 ) (*IteratorResponse, error) {
+	fr, err := translateFrameBackward(ctx, res.Frame)
+	if err != nil {
+		return nil, err
+	}
 	return &IteratorResponse{
 		Variant: int32(res.Variant),
 		NodeKey: int32(res.NodeKey),
@@ -191,7 +216,7 @@ func (IteratorResponseTranslator) Forward(
 		SeqNum:  int32(res.SeqNum),
 		Command: int32(res.Command),
 		Error:   fgrpc.EncodeError(ctx, res.Error, true),
-		Frame:   translateFrameBackward(res.Frame),
+		Frame:   fr,
 	}, nil
 }
 
@@ -217,49 +242,64 @@ func (w RelayResponseTranslator) Backward(
 	ctx context.Context,
 	res *RelayResponse,
 ) (relay.Response, error) {
-	return relay.Response{Frame: translateFrameForward(res.Frame)}, nil
+	fr, err := translateFrameForward(ctx, res.Frame)
+	if err != nil {
+		return relay.Response{}, err
+	}
+	return relay.Response{Frame: fr}, nil
 }
 
 func (w RelayResponseTranslator) Forward(
 	ctx context.Context,
 	res relay.Response,
 ) (*RelayResponse, error) {
-	return &RelayResponse{Frame: translateFrameBackward(res.Frame)}, nil
-}
-
-func translateFrameForward(fr *telem.PBFrame) framer.Frame {
-	keys := channel.KeysFromUint32(fr.Keys)
-	series := telem.TranslateManySeriesBackward(fr.Series)
-	return frame.NewMulti(keys, series)
-}
-
-func translateFrameBackward(frame framer.Frame) *telem.PBFrame {
-	return &telem.PBFrame{
-		Keys:   channel.Keys(frame.KeysSlice()).Uint32(),
-		Series: telem.TranslateManySeriesForward(frame.SeriesSlice()),
+	fr, err := translateFrameBackward(ctx, res.Frame)
+	if err != nil {
+		return nil, err
 	}
+	return &RelayResponse{Frame: fr}, nil
+}
+
+func translateFrameForward(ctx context.Context, fr *telempb.Frame) (framer.Frame, error) {
+	telemFr, err := telempb.FrameFromPB[channel.Key](ctx, fr)
+	if err != nil {
+		return framer.Frame{}, err
+	}
+	return frame.Frame{Frame: telemFr}, nil
+}
+
+func translateFrameBackward(ctx context.Context, fr framer.Frame) (*telempb.Frame, error) {
+	return telempb.FrameToPB(ctx, fr.Frame)
 }
 
 type DeleteRequestTranslator struct{}
 
 func (r DeleteRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg deleter.Request,
 ) (*DeleteRequest, error) {
+	bounds, err := telempb.TimeRangeToPB(ctx, msg.Bounds)
+	if err != nil {
+		return nil, err
+	}
 	return &DeleteRequest{
 		Keys:   msg.Keys.Uint32(),
 		Names:  msg.Names,
-		Bounds: telem.TranslateTimeRangeForward(msg.Bounds),
+		Bounds: bounds,
 	}, nil
 }
 
 func (r DeleteRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *DeleteRequest,
 ) (deleter.Request, error) {
+	bounds, err := telempb.TimeRangeFromPB(ctx, msg.Bounds)
+	if err != nil {
+		return deleter.Request{}, err
+	}
 	return deleter.Request{
 		Keys:   channel.KeysFromUint32(msg.Keys),
 		Names:  msg.Names,
-		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
+		Bounds: bounds,
 	}, nil
 }

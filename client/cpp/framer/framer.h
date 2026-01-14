@@ -398,7 +398,7 @@ private:
     /// @brief cached request for reuse during writes
     std::unique_ptr<grpc::framer::WriterRequest> cached_write_req;
     /// @brief cached frame within the request for reuse
-    ::telem::PBFrame *cached_frame = nullptr;
+    ::x::telem::pb::Frame *cached_frame = nullptr;
 
     /// @brief internal function that waits until an ack is received for a
     /// particular command.

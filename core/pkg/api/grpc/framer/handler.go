@@ -18,6 +18,7 @@ import (
 	apifra "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	telempb "github.com/synnaxlabs/x/telem/pb"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -88,23 +90,6 @@ func translateChannelKeysBackward(keys []uint32) []channel.Key {
 	return unsafe.ReinterpretSlice[uint32, channel.Key](keys)
 }
 
-func translateFrameForward(f apifra.Frame) *telem.PBFrame {
-	return &telem.PBFrame{
-		Keys:   translateChannelKeysForward(f.KeysSlice()),
-		Series: telem.TranslateManySeriesForward(f.SeriesSlice()),
-	}
-}
-
-func translateFrameBackward(f *telem.PBFrame) apifra.Frame {
-	if f == nil {
-		return apifra.Frame{}
-	}
-	return frame.NewMulti(
-		translateChannelKeysBackward(f.Keys),
-		telem.TranslateManySeriesBackward(f.Series),
-	)
-}
-
 func translateControlSubjectForward(cs control.Subject) *control.ControlSubject {
 	return &control.ControlSubject{
 		Key:  cs.Key,
@@ -125,6 +110,10 @@ func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.WriterRequest,
 ) (*WriterRequest, error) {
+	frm, err := telempb.FrameToPB[channel.Key](ctx, msg.Frame.Frame)
+	if err != nil {
+		return nil, err
+	}
 	r := &WriterRequest{
 		Command: int32(msg.Command),
 		Config: &WriterConfig{
@@ -137,9 +126,8 @@ func (t frameWriterRequestTranslator) Forward(
 			ControlSubject:           translateControlSubjectForward(msg.Config.ControlSubject),
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		},
-		Frame: translateFrameForward(msg.Frame),
+		Frame: frm,
 	}
-	var err error
 	r.Buffer, err = t.codec.Encode(ctx, msg.Frame)
 	if err != nil {
 		return nil, err
@@ -155,6 +143,10 @@ func (t frameWriterRequestTranslator) Backward(
 		return
 	}
 	r.Command = writer.Command(msg.Command)
+	frm, err := telempb.FrameFromPB[channel.Key](ctx, msg.Frame)
+	if err != nil {
+		return r, err
+	}
 	if msg.Config != nil {
 		keys := translateChannelKeysBackward(msg.Config.Keys)
 		r.Config = apifra.WriterConfig{
@@ -171,7 +163,7 @@ func (t frameWriterRequestTranslator) Backward(
 			return r, err
 		}
 	}
-	r.Frame = translateFrameBackward(msg.Frame)
+	r.Frame = frame.Frame{Frame: frm}
 	if t.codec != nil && len(msg.Buffer) > 0 {
 		r.Frame, err = t.codec.Decode(msg.Buffer)
 	}
@@ -204,10 +196,14 @@ func (t frameIteratorRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.IteratorRequest,
 ) (*IteratorRequest, error) {
+	tr, err := telempb.TimeRangeToPB(ctx, msg.Bounds)
+	if err != nil {
+		return nil, err
+	}
 	return &IteratorRequest{
 		Command:   int32(msg.Command),
 		Span:      int64(msg.Span),
-		Range:     telem.TranslateTimeRangeForward(msg.Bounds),
+		Range:     tr,
 		Keys:      translateChannelKeysForward(msg.Keys),
 		Stamp:     int64(msg.Stamp),
 		ChunkSize: msg.ChunkSize,
@@ -218,10 +214,14 @@ func (t frameIteratorRequestTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorRequest,
 ) (apifra.IteratorRequest, error) {
+	tr, err := telempb.TimeRangeFromPB(ctx, msg.Range)
+	if err != nil {
+		return apifra.IteratorRequest{}, err
+	}
 	return apifra.IteratorRequest{
 		Command:   iterator.Command(msg.Command),
 		Span:      telem.TimeSpan(msg.Span),
-		Bounds:    telem.TranslateTimeRangeBackward(msg.Range),
+		Bounds:    tr,
 		Keys:      translateChannelKeysBackward(msg.Keys),
 		Stamp:     telem.TimeStamp(msg.Stamp),
 		ChunkSize: msg.ChunkSize,
@@ -232,13 +232,17 @@ func (t frameIteratorResponseTranslator) Forward(
 	ctx context.Context,
 	msg apifra.IteratorResponse,
 ) (*IteratorResponse, error) {
+	frm, err := telempb.FrameToPB(ctx, msg.Frame.Frame)
+	if err != nil {
+		return nil, err
+	}
 	return &IteratorResponse{
 		Variant: int32(msg.Variant),
 		Command: int32(msg.Command),
 		NodeKey: int32(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int32(msg.SeqNum),
-		Frame:   translateFrameForward(msg.Frame),
+		Frame:   frm,
 		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
 	}, nil
 }
@@ -247,13 +251,17 @@ func (t frameIteratorResponseTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorResponse,
 ) (apifra.IteratorResponse, error) {
+	frm, err := telempb.FrameFromPB[channel.Key](ctx, msg.Frame)
+	if err != nil {
+		return apifra.IteratorResponse{}, err
+	}
 	return apifra.IteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
 		Command: iterator.Command(msg.Command),
 		NodeKey: cluster.NodeKey(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
-		Frame:   translateFrameBackward(msg.Frame),
+		Frame:   framer.Frame{Frame: frm},
 		Error:   fgrpc.DecodeError(ctx, msg.Error),
 	}, nil
 }
@@ -287,43 +295,52 @@ func (t frameStreamerRequestTranslator) Backward(
 func (t frameStreamerResponseTranslator) Forward(
 	ctx context.Context,
 	msg apifra.StreamerResponse,
-) (res *StreamerResponse, err error) {
-	res = &StreamerResponse{}
+) (*StreamerResponse, error) {
 	if t.codec.Initialized() {
-		res.Buffer, err = t.codec.Encode(ctx, msg.Frame)
-		return
+		buf, err := t.codec.Encode(ctx, msg.Frame)
+		if err != nil {
+			return nil, err
+		}
+		return &StreamerResponse{Buffer: buf}, nil
 	}
-	res.Frame = translateFrameForward(msg.Frame)
-	return
+	frm, err := telempb.FrameToPB(ctx, msg.Frame.Frame)
+	if err != nil {
+		return nil, err
+	}
+	return &StreamerResponse{Frame: frm}, nil
 }
 
 func (t frameStreamerResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *StreamerResponse,
 ) (apifra.StreamerResponse, error) {
-	return apifra.StreamerResponse{Frame: translateFrameBackward(msg.Frame)}, nil
+	tr, err := telempb.FrameFromPB[channel.Key](ctx, msg.Frame)
+	if err != nil {
+		return apifra.StreamerResponse{}, nil
+	}
+	return apifra.StreamerResponse{Frame: framer.Frame{Frame: tr}}, nil
 }
 
 func (t frameDeleteRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg apifra.DeleteRequest,
 ) (*DeleteRequest, error) {
-	return &DeleteRequest{
-		Keys:   msg.Keys.Uint32(),
-		Names:  msg.Names,
-		Bounds: telem.TranslateTimeRangeForward(msg.Bounds),
-	}, nil
+	tr, err := telempb.TimeRangeToPB(ctx, msg.Bounds)
+	if err != nil {
+		return nil, err
+	}
+	return &DeleteRequest{Keys: msg.Keys.Uint32(), Names: msg.Names, Bounds: tr}, nil
 }
 
 func (t frameDeleteRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *DeleteRequest,
 ) (apifra.DeleteRequest, error) {
-	return apifra.DeleteRequest{
-		Keys:   channel.KeysFromUint32(msg.Keys),
-		Names:  msg.Names,
-		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
-	}, nil
+	tr, err := telempb.TimeRangeFromPB(ctx, msg.Bounds)
+	if err != nil {
+		return apifra.DeleteRequest{}, nil
+	}
+	return apifra.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys), Names: msg.Names, Bounds: tr}, nil
 }
 
 type writerServer struct{ *framerWriterServerCore }

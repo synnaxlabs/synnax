@@ -21,9 +21,19 @@ type Size int64
 
 type DataType string
 
+type Alignment uint64
+
 type TimeRangeBounded = TimeRange
 
 type TimeRange struct {
 	Start TimeStamp `json:"start" msgpack:"start"`
 	End   TimeStamp `json:"end" msgpack:"end"`
+}
+
+type Series struct {
+	TimeRange    TimeRange `json:"time_range" msgpack:"time_range"`
+	DataType     DataType  `json:"data_type" msgpack:"data_type"`
+	Data         []byte    `json:"data" msgpack:"data"`
+	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
+	cachedLength *int64
 }

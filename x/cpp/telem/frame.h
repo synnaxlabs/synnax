@@ -12,9 +12,11 @@
 #include <memory>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/series.h"
 
-#include "x/go/telem/telem.pb.h"
+#include "x/go/telem/pb/frame.pb.h"
+#include "x/go/telem/pb/telem.pb.h"
 
 namespace x::telem {
 /// @brief A frame is a collection of series mapped to their corresponding channel
@@ -41,10 +43,6 @@ public:
     /// @param size the number of series to allocate space for.
     explicit Frame(size_t size);
 
-    /// @brief constructs the frame from its protobuf representation.
-    /// @param f the protobuf representation of the frame.
-    explicit Frame(const ::telem::PBFrame &f);
-
     /// @brief constructs a frame with a single channel and series.
     /// @param chan the channel key corresponding to the given series.
     /// @param ser the series to add to the frame.
@@ -55,9 +53,15 @@ public:
         size_t cap = 0
     );
 
-    /// @brief binds the frame to the given protobuf representation.
-    /// @param f the protobuf representation to bind to. This pb must be non-null.
-    void to_proto(::telem::PBFrame *f) const;
+    /// @brief converts the frame to its protobuf representation.
+    /// @return the protobuf representation of the frame.
+    [[nodiscard]] ::x::telem::pb::Frame to_proto() const;
+
+    /// @brief constructs a frame from its protobuf representation.
+    /// @param pb the protobuf representation to convert from.
+    /// @return a pair containing the frame and any error that occurred.
+    static std::pair<Frame, x::errors::Error>
+    from_proto(const ::x::telem::pb::Frame &pb);
 
     /// @brief adds a channel and series to the frame.
     /// @param chan the channel key to add.
@@ -161,4 +165,33 @@ public:
         return {*channels, *series, channels->size()};
     }
 };
+
+// ==================== Protobuf translators ====================
+
+inline ::x::telem::pb::Frame Frame::to_proto() const {
+    ::x::telem::pb::Frame pb;
+    pb.mutable_keys()->Add(this->channels->begin(), this->channels->end());
+    pb.mutable_series()->Reserve(static_cast<int>(this->series->size()));
+    for (const auto &ser: *this->series)
+        *pb.add_series() = ser.to_proto();
+    return pb;
+}
+
+inline std::pair<Frame, x::errors::Error>
+Frame::from_proto(const ::x::telem::pb::Frame &pb) {
+    Frame cpp;
+    cpp.channels = std::make_unique<std::vector<std::uint32_t>>(
+        pb.keys().begin(),
+        pb.keys().end()
+    );
+    cpp.series = std::make_unique<std::vector<Series>>();
+    cpp.series->reserve(pb.series_size());
+    for (const auto &ser_pb: pb.series()) {
+        auto [ser, err] = Series::from_proto(ser_pb);
+        if (err) return {{}, err};
+        cpp.series->emplace_back(std::move(ser));
+    }
+    return {std::move(cpp), x::errors::NIL};
+}
+
 };

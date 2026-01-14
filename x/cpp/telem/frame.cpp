@@ -40,26 +40,9 @@ Frame::Frame(std::unordered_map<std::uint32_t, telem::SampleValue> &data, size_t
     }
 }
 
-Frame::Frame(const ::telem::PBFrame &f):
-    channels(
-        std::make_unique<std::vector<std::uint32_t>>(f.keys().begin(), f.keys().end())
-    ),
-    series(std::make_unique<std::vector<telem::Series>>()) {
-    this->series->reserve(f.series_size());
-    for (const auto &ser: f.series())
-        this->series->emplace_back(ser);
-}
-
 void Frame::add(const std::uint32_t &chan, telem::Series &ser) const {
     this->channels->push_back(chan);
     this->series->push_back(std::move(ser));
-}
-
-void Frame::to_proto(::telem::PBFrame *f) const {
-    f->mutable_keys()->Add(this->channels->begin(), this->channels->end());
-    f->mutable_series()->Reserve(static_cast<int>(this->series->size()));
-    for (auto &ser: *this->series)
-        ser.to_proto(f->add_series());
 }
 
 void Frame::emplace(const std::uint32_t &chan, telem::Series &&ser) const {

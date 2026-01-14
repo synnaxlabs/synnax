@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * as range from "@/range/external";
+export * as ranger from "@/range/external";

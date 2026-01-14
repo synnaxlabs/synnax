@@ -30,21 +30,6 @@ TEST(FrameTests, testConstructionFromSingleSeriesAndChannel) {
     ASSERT_EQ(f.series->at(0).values<float>()[0], 1);
 }
 
-/// @brief it should construct a frame from a proto.
-TEST(FrameTests, toProto) {
-    const auto f = Frame(2);
-    auto s = Series(std::vector<float>{1, 2, 3});
-    f.emplace(65537, std::move(s));
-    ::telem::PBFrame p;
-    f.to_proto(&p);
-    ASSERT_EQ(p.keys_size(), 1);
-    ASSERT_EQ(p.series_size(), 1);
-    const auto f2 = Frame(p);
-    ASSERT_EQ(f2.size(), 1);
-    ASSERT_EQ(f2.channels->at(0), 65537);
-    ASSERT_EQ(f2.series->at(0).values<float>()[0], 1);
-}
-
 /// @brief it should output frame contents to ostream.
 TEST(FrameTests, ostream) {
     const auto f = Frame(2);

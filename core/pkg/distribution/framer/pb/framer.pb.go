@@ -18,7 +18,7 @@ package pb
 import (
 	control "github.com/synnaxlabs/x/control"
 	errors "github.com/synnaxlabs/x/errors"
-	telem "github.com/synnaxlabs/x/telem"
+	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -39,7 +39,7 @@ type IteratorRequest struct {
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
 	Stamp         int64                  `protobuf:"varint,2,opt,name=stamp,proto3" json:"stamp,omitempty"`
 	Span          int64                  `protobuf:"varint,3,opt,name=span,proto3" json:"span,omitempty"`
-	Bounds        *telem.PBTimeRange     `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Bounds        *pb.TimeRange          `protobuf:"bytes,4,opt,name=bounds,proto3" json:"bounds,omitempty"`
 	Keys          []uint32               `protobuf:"varint,6,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	ChunkSize     int64                  `protobuf:"varint,7,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,8,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
@@ -98,7 +98,7 @@ func (x *IteratorRequest) GetSpan() int64 {
 	return 0
 }
 
-func (x *IteratorRequest) GetBounds() *telem.PBTimeRange {
+func (x *IteratorRequest) GetBounds() *pb.TimeRange {
 	if x != nil {
 		return x.Bounds
 	}
@@ -130,7 +130,7 @@ type IteratorResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Variant       int32                  `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
 	Command       int32                  `protobuf:"varint,2,opt,name=command,proto3" json:"command,omitempty"`
-	Frame         *telem.PBFrame         `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
+	Frame         *pb.Frame              `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
 	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	Ack           bool                   `protobuf:"varint,5,opt,name=ack,proto3" json:"ack,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,6,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
@@ -183,7 +183,7 @@ func (x *IteratorResponse) GetCommand() int32 {
 	return 0
 }
 
-func (x *IteratorResponse) GetFrame() *telem.PBFrame {
+func (x *IteratorResponse) GetFrame() *pb.Frame {
 	if x != nil {
 		return x.Frame
 	}
@@ -264,7 +264,7 @@ func (x *RelayRequest) GetKeys() []uint32 {
 
 type RelayResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Frame         *telem.PBFrame         `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
+	Frame         *pb.Frame              `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
 	Error         *errors.PBPayload      `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -300,7 +300,7 @@ func (*RelayResponse) Descriptor() ([]byte, []int) {
 	return file_core_pkg_distribution_framer_pb_framer_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *RelayResponse) GetFrame() *telem.PBFrame {
+func (x *RelayResponse) GetFrame() *pb.Frame {
 	if x != nil {
 		return x.Frame
 	}
@@ -318,7 +318,7 @@ type WriterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
 	Config        *WriterConfig          `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
-	Frame         *telem.PBFrame         `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
+	Frame         *pb.Frame              `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -367,7 +367,7 @@ func (x *WriterRequest) GetConfig() *WriterConfig {
 	return nil
 }
 
-func (x *WriterRequest) GetFrame() *telem.PBFrame {
+func (x *WriterRequest) GetFrame() *pb.Frame {
 	if x != nil {
 		return x.Frame
 	}
@@ -554,7 +554,7 @@ type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
-	Bounds        *telem.PBTimeRange     `protobuf:"bytes,3,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Bounds        *pb.TimeRange          `protobuf:"bytes,3,opt,name=bounds,proto3" json:"bounds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -603,7 +603,7 @@ func (x *DeleteRequest) GetNames() []string {
 	return nil
 }
 
-func (x *DeleteRequest) GetBounds() *telem.PBTimeRange {
+func (x *DeleteRequest) GetBounds() *pb.TimeRange {
 	if x != nil {
 		return x.Bounds
 	}
@@ -614,33 +614,33 @@ var File_core_pkg_distribution_framer_pb_framer_proto protoreflect.FileDescripto
 
 const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\n" +
-	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\"\xcd\x01\n" +
+	",core/pkg/distribution/framer/pb/framer.proto\x12\x1asynnax.distribution.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xd0\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x14\n" +
 	"\x05stamp\x18\x02 \x01(\x03R\x05stamp\x12\x12\n" +
-	"\x04span\x18\x03 \x01(\x03R\x04span\x12*\n" +
-	"\x06bounds\x18\x04 \x01(\v2\x12.telem.PBTimeRangeR\x06bounds\x12\x12\n" +
+	"\x04span\x18\x03 \x01(\x03R\x04span\x12-\n" +
+	"\x06bounds\x18\x04 \x01(\v2\x15.x.telem.pb.TimeRangeR\x06bounds\x12\x12\n" +
 	"\x04keys\x18\x06 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
 	"chunk_size\x18\a \x01(\x03R\tchunkSize\x12\x17\n" +
-	"\aseq_num\x18\b \x01(\x05R\x06seqNum\"\xdb\x01\n" +
+	"\aseq_num\x18\b \x01(\x05R\x06seqNum\"\xde\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
-	"\acommand\x18\x02 \x01(\x05R\acommand\x12$\n" +
-	"\x05frame\x18\x03 \x01(\v2\x0e.telem.PBFrameR\x05frame\x12\x19\n" +
+	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +
+	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x19\n" +
 	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
 	"\x05error\x18\a \x01(\v2\x11.errors.PBPayloadR\x05error\"\"\n" +
 	"\fRelayRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\rR\x04keys\"^\n" +
-	"\rRelayResponse\x12$\n" +
-	"\x05frame\x18\x01 \x01(\v2\x0e.telem.PBFrameR\x05frame\x12'\n" +
-	"\x05error\x18\x02 \x01(\v2\x11.errors.PBPayloadR\x05error\"\x91\x01\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\"a\n" +
+	"\rRelayResponse\x12'\n" +
+	"\x05frame\x18\x01 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12'\n" +
+	"\x05error\x18\x02 \x01(\v2\x11.errors.PBPayloadR\x05error\"\x94\x01\n" +
 	"\rWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12@\n" +
-	"\x06config\x18\x02 \x01(\v2(.synnax.distribution.framer.WriterConfigR\x06config\x12$\n" +
-	"\x05frame\x18\x03 \x01(\v2\x0e.telem.PBFrameR\x05frame\"\xcd\x02\n" +
+	"\x06config\x18\x02 \x01(\v2(.synnax.distribution.framer.WriterConfigR\x06config\x12'\n" +
+	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\"\xcd\x02\n" +
 	"\fWriterConfig\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05start\x18\x02 \x01(\x03R\x05start\x12 \n" +
@@ -657,11 +657,11 @@ const file_core_pkg_distribution_framer_pb_framer_proto_rawDesc = "" +
 	"\x03end\x18\x04 \x01(\x03R\x03end\x12\x1e\n" +
 	"\n" +
 	"authorized\x18\x05 \x01(\bR\n" +
-	"authorized\"e\n" +
+	"authorized\"h\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\x12*\n" +
-	"\x06bounds\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\x06bounds2}\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\x12-\n" +
+	"\x06bounds\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\x06bounds2}\n" +
 	"\x0fIteratorService\x12j\n" +
 	"\aIterate\x12+.synnax.distribution.framer.IteratorRequest\x1a,.synnax.distribution.framer.IteratorResponse\"\x00(\x010\x012p\n" +
 	"\fRelayService\x12`\n" +
@@ -694,22 +694,22 @@ var file_core_pkg_distribution_framer_pb_framer_proto_goTypes = []any{
 	(*WriterConfig)(nil),           // 5: synnax.distribution.framer.WriterConfig
 	(*WriterResponse)(nil),         // 6: synnax.distribution.framer.WriterResponse
 	(*DeleteRequest)(nil),          // 7: synnax.distribution.framer.DeleteRequest
-	(*telem.PBTimeRange)(nil),      // 8: telem.PBTimeRange
-	(*telem.PBFrame)(nil),          // 9: telem.PBFrame
+	(*pb.TimeRange)(nil),           // 8: x.telem.pb.TimeRange
+	(*pb.Frame)(nil),               // 9: x.telem.pb.Frame
 	(*errors.PBPayload)(nil),       // 10: errors.PBPayload
 	(*control.ControlSubject)(nil), // 11: control.ControlSubject
 	(*emptypb.Empty)(nil),          // 12: google.protobuf.Empty
 }
 var file_core_pkg_distribution_framer_pb_framer_proto_depIdxs = []int32{
-	8,  // 0: synnax.distribution.framer.IteratorRequest.bounds:type_name -> telem.PBTimeRange
-	9,  // 1: synnax.distribution.framer.IteratorResponse.frame:type_name -> telem.PBFrame
+	8,  // 0: synnax.distribution.framer.IteratorRequest.bounds:type_name -> x.telem.pb.TimeRange
+	9,  // 1: synnax.distribution.framer.IteratorResponse.frame:type_name -> x.telem.pb.Frame
 	10, // 2: synnax.distribution.framer.IteratorResponse.error:type_name -> errors.PBPayload
-	9,  // 3: synnax.distribution.framer.RelayResponse.frame:type_name -> telem.PBFrame
+	9,  // 3: synnax.distribution.framer.RelayResponse.frame:type_name -> x.telem.pb.Frame
 	10, // 4: synnax.distribution.framer.RelayResponse.error:type_name -> errors.PBPayload
 	5,  // 5: synnax.distribution.framer.WriterRequest.config:type_name -> synnax.distribution.framer.WriterConfig
-	9,  // 6: synnax.distribution.framer.WriterRequest.frame:type_name -> telem.PBFrame
+	9,  // 6: synnax.distribution.framer.WriterRequest.frame:type_name -> x.telem.pb.Frame
 	11, // 7: synnax.distribution.framer.WriterConfig.control_subject:type_name -> control.ControlSubject
-	8,  // 8: synnax.distribution.framer.DeleteRequest.bounds:type_name -> telem.PBTimeRange
+	8,  // 8: synnax.distribution.framer.DeleteRequest.bounds:type_name -> x.telem.pb.TimeRange
 	0,  // 9: synnax.distribution.framer.IteratorService.Iterate:input_type -> synnax.distribution.framer.IteratorRequest
 	2,  // 10: synnax.distribution.framer.RelayService.Relay:input_type -> synnax.distribution.framer.RelayRequest
 	4,  // 11: synnax.distribution.framer.WriterService.Write:input_type -> synnax.distribution.framer.WriterRequest

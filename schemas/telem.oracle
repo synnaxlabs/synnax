@@ -9,32 +9,37 @@
 
 @go output  "x/go/telem"
 @ts output  "x/ts/src/telem"
+@py output  "client/py/synnax/telem"
 @cpp output "x/cpp/telem"
 @pb
 
 TimeStamp int64 {
     @ts omit
     @cpp omit
+    @py omit
 }
 
 TimeSpan int64 {
     @ts omit
     @cpp omit
+    @py omit
 }
 
 Rate float64 {
     @ts omit
     @cpp omit
+    @py omit
 }
 
 Size int64 {
     @ts omit
     @cpp omit
+    @py omit
 }
 
 TimeRange struct {
-    Start TimeStamp
-    End   TimeStamp
+    start TimeStamp
+    end   TimeStamp
 
     @ts omit
     @cpp omit
@@ -48,4 +53,33 @@ TimeRangeBounded = TimeRange {
 DataType string {
     @ts omit
     @cpp omit
+}
+
+Alignment uint64 {
+    @ts omit
+    @cpp omit
+    @py omit
+}
+
+Series struct {
+    time_range TimeRange
+    data_type  DataType
+    data       bytes
+    alignment  Alignment
+
+    @go fields "cachedLength *int64"
+    @ts omit
+    @cpp omit
+    @pb omit
+}
+
+Frame struct<Key extends uint32> {
+    keys   Key[]
+    series Series[]
+
+    @go omit
+    @pb omit
+    @ts omit
+    @cpp omit
+    @py omit
 }

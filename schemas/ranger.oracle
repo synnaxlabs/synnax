@@ -15,18 +15,17 @@ import "schemas/label"
 
 Key = uuid {
     @go output "core/pkg/service/ranger"
-    @cpp omit
 }
 
 Range struct {
-    key        Key              @key
-    name       string           @validate min_length 1
-    time_range TimeRangeBounded
+    key        Key             @key
+    name       string          @validate min_length 1
+    time_range telem.TimeRange
     color      string?
 
     @go output "core/pkg/service/ranger"
     @pb
-    @cpp omit
+    @cpp name  "Base"
 }
 
 APIRange struct extends Range {
@@ -37,5 +36,7 @@ APIRange struct extends Range {
     @go name       "Range"
     @pb name       "Range"
     @ontology type "range"
-    @cpp name      "Payload"
+    @cpp name      "Range"
+    @cpp methods   "kv::Client kv = kv::Client()"
+    @cpp includes  "client/cpp/kv/kv.h"
 }

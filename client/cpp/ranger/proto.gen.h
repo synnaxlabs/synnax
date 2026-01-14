@@ -19,11 +19,35 @@
 #include "x/cpp/label/proto.gen.h"
 #include "x/cpp/telem/proto.gen.h"
 
-#include "core/pkg/api/ranger/pb/range.pb.h"
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 
-inline ::api::ranger::pb::Range Payload::to_proto() const {
+inline ::service::ranger::pb::Range Base::to_proto() const {
+    ::service::ranger::pb::Range pb;
+    pb.set_key(this->key);
+    pb.set_name(this->name);
+    *pb.mutable_time_range() = this->time_range.to_proto();
+    pb.set_color(this->color);
+    return pb;
+}
+
+inline std::pair<Base, x::errors::Error>
+Base::from_proto(const ::service::ranger::pb::Range &pb) {
+    Base cpp;
+    cpp.key = pb.key();
+    cpp.name = pb.name();
+    {
+        auto [val, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
+        if (err) return {{}, err};
+        cpp.time_range = val;
+    }
+    cpp.color = pb.color();
+    return {cpp, x::errors::NIL};
+}
+
+inline ::api::ranger::pb::Range Range::to_proto() const {
     ::api::ranger::pb::Range pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
@@ -35,13 +59,13 @@ inline ::api::ranger::pb::Range Payload::to_proto() const {
     return pb;
 }
 
-inline std::pair<Payload, x::errors::Error>
-Payload::from_proto(const ::api::ranger::pb::Range &pb) {
-    Payload cpp;
+inline std::pair<Range, x::errors::Error>
+Range::from_proto(const ::api::ranger::pb::Range &pb) {
+    Range cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
     {
-        auto [val, err] = x::telem::TimeRangeBounded::from_proto(pb.time_range());
+        auto [val, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
         if (err) return {{}, err};
         cpp.time_range = val;
     }
@@ -52,7 +76,7 @@ Payload::from_proto(const ::api::ranger::pb::Range &pb) {
         cpp.labels.push_back(v);
     }
     if (pb.has_parent()) {
-        auto [val, err] = Payload::from_proto(pb.parent());
+        auto [val, err] = Range::from_proto(pb.parent());
         if (err) return {{}, err};
         cpp.parent = val;
     }

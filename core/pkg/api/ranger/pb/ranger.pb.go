@@ -13,7 +13,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: core/pkg/api/ranger/pb/range.proto
+// source: core/pkg/api/ranger/pb/ranger.proto
 
 package pb
 
@@ -48,7 +48,7 @@ type Range struct {
 
 func (x *Range) Reset() {
 	*x = Range{}
-	mi := &file_core_pkg_api_ranger_pb_range_proto_msgTypes[0]
+	mi := &file_core_pkg_api_ranger_pb_ranger_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -60,7 +60,7 @@ func (x *Range) String() string {
 func (*Range) ProtoMessage() {}
 
 func (x *Range) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_api_ranger_pb_range_proto_msgTypes[0]
+	mi := &file_core_pkg_api_ranger_pb_ranger_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -73,7 +73,7 @@ func (x *Range) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Range.ProtoReflect.Descriptor instead.
 func (*Range) Descriptor() ([]byte, []int) {
-	return file_core_pkg_api_ranger_pb_range_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_api_ranger_pb_ranger_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Range) GetKey() string {
@@ -118,45 +118,44 @@ func (x *Range) GetParent() *Range {
 	return nil
 }
 
-var File_core_pkg_api_ranger_pb_range_proto protoreflect.FileDescriptor
+var File_core_pkg_api_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
-const file_core_pkg_api_ranger_pb_range_proto_rawDesc = "" +
+const file_core_pkg_api_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"\"core/pkg/api/ranger/pb/range.proto\x12\fapi.range.pb\x1a\x19x/go/label/pb/label.proto\x1a\x19x/go/telem/pb/telem.proto\"\xe1\x01\n" +
+	"#core/pkg/api/ranger/pb/ranger.proto\x12\rapi.ranger.pb\x1a\x19x/go/label/pb/label.proto\x1a\x19x/go/telem/pb/telem.proto\"\xe2\x01\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
 	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x14\n" +
 	"\x05color\x18\x04 \x01(\tR\x05color\x12)\n" +
-	"\x06labels\x18\x05 \x03(\v2\x11.x.label.pb.LabelR\x06labels\x120\n" +
-	"\x06parent\x18\x06 \x01(\v2\x13.api.range.pb.RangeH\x00R\x06parent\x88\x01\x01B\t\n" +
-	"\a_parentB\xa0\x01\n" +
-	"\x10com.api.range.pbB\n" +
-	"RangeProtoP\x01Z.github.com/synnaxlabs/synnax/pkg/api/ranger/pb\xa2\x02\x03ARP\xaa\x02\fApi.Range.Pb\xca\x02\fApi\\Range\\Pb\xe2\x02\x18Api\\Range\\Pb\\GPBMetadata\xea\x02\x0eApi::Range::Pbb\x06proto3"
+	"\x06labels\x18\x05 \x03(\v2\x11.x.label.pb.LabelR\x06labels\x121\n" +
+	"\x06parent\x18\x06 \x01(\v2\x14.api.ranger.pb.RangeH\x00R\x06parent\x88\x01\x01B\t\n" +
+	"\a_parentB\xa6\x01\n" +
+	"\x11com.api.ranger.pbB\vRangerProtoP\x01Z.github.com/synnaxlabs/synnax/pkg/api/ranger/pb\xa2\x02\x03ARP\xaa\x02\rApi.Ranger.Pb\xca\x02\rApi\\Ranger\\Pb\xe2\x02\x19Api\\Ranger\\Pb\\GPBMetadata\xea\x02\x0fApi::Ranger::Pbb\x06proto3"
 
 var (
-	file_core_pkg_api_ranger_pb_range_proto_rawDescOnce sync.Once
-	file_core_pkg_api_ranger_pb_range_proto_rawDescData []byte
+	file_core_pkg_api_ranger_pb_ranger_proto_rawDescOnce sync.Once
+	file_core_pkg_api_ranger_pb_ranger_proto_rawDescData []byte
 )
 
-func file_core_pkg_api_ranger_pb_range_proto_rawDescGZIP() []byte {
-	file_core_pkg_api_ranger_pb_range_proto_rawDescOnce.Do(func() {
-		file_core_pkg_api_ranger_pb_range_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_api_ranger_pb_range_proto_rawDesc), len(file_core_pkg_api_ranger_pb_range_proto_rawDesc)))
+func file_core_pkg_api_ranger_pb_ranger_proto_rawDescGZIP() []byte {
+	file_core_pkg_api_ranger_pb_ranger_proto_rawDescOnce.Do(func() {
+		file_core_pkg_api_ranger_pb_ranger_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_api_ranger_pb_ranger_proto_rawDesc), len(file_core_pkg_api_ranger_pb_ranger_proto_rawDesc)))
 	})
-	return file_core_pkg_api_ranger_pb_range_proto_rawDescData
+	return file_core_pkg_api_ranger_pb_ranger_proto_rawDescData
 }
 
-var file_core_pkg_api_ranger_pb_range_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_core_pkg_api_ranger_pb_range_proto_goTypes = []any{
-	(*Range)(nil),        // 0: api.range.pb.Range
+var file_core_pkg_api_ranger_pb_ranger_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_api_ranger_pb_ranger_proto_goTypes = []any{
+	(*Range)(nil),        // 0: api.ranger.pb.Range
 	(*pb.TimeRange)(nil), // 1: x.telem.pb.TimeRange
 	(*pb1.Label)(nil),    // 2: x.label.pb.Label
 }
-var file_core_pkg_api_ranger_pb_range_proto_depIdxs = []int32{
-	1, // 0: api.range.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
-	2, // 1: api.range.pb.Range.labels:type_name -> x.label.pb.Label
-	0, // 2: api.range.pb.Range.parent:type_name -> api.range.pb.Range
+var file_core_pkg_api_ranger_pb_ranger_proto_depIdxs = []int32{
+	1, // 0: api.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
+	2, // 1: api.ranger.pb.Range.labels:type_name -> x.label.pb.Label
+	0, // 2: api.ranger.pb.Range.parent:type_name -> api.ranger.pb.Range
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -164,27 +163,27 @@ var file_core_pkg_api_ranger_pb_range_proto_depIdxs = []int32{
 	0, // [0:3] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_api_ranger_pb_range_proto_init() }
-func file_core_pkg_api_ranger_pb_range_proto_init() {
-	if File_core_pkg_api_ranger_pb_range_proto != nil {
+func init() { file_core_pkg_api_ranger_pb_ranger_proto_init() }
+func file_core_pkg_api_ranger_pb_ranger_proto_init() {
+	if File_core_pkg_api_ranger_pb_ranger_proto != nil {
 		return
 	}
-	file_core_pkg_api_ranger_pb_range_proto_msgTypes[0].OneofWrappers = []any{}
+	file_core_pkg_api_ranger_pb_ranger_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_ranger_pb_range_proto_rawDesc), len(file_core_pkg_api_ranger_pb_range_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_ranger_pb_ranger_proto_rawDesc), len(file_core_pkg_api_ranger_pb_ranger_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_core_pkg_api_ranger_pb_range_proto_goTypes,
-		DependencyIndexes: file_core_pkg_api_ranger_pb_range_proto_depIdxs,
-		MessageInfos:      file_core_pkg_api_ranger_pb_range_proto_msgTypes,
+		GoTypes:           file_core_pkg_api_ranger_pb_ranger_proto_goTypes,
+		DependencyIndexes: file_core_pkg_api_ranger_pb_ranger_proto_depIdxs,
+		MessageInfos:      file_core_pkg_api_ranger_pb_ranger_proto_msgTypes,
 	}.Build()
-	File_core_pkg_api_ranger_pb_range_proto = out.File
-	file_core_pkg_api_ranger_pb_range_proto_goTypes = nil
-	file_core_pkg_api_ranger_pb_range_proto_depIdxs = nil
+	File_core_pkg_api_ranger_pb_ranger_proto = out.File
+	file_core_pkg_api_ranger_pb_ranger_proto_goTypes = nil
+	file_core_pkg_api_ranger_pb_ranger_proto_depIdxs = nil
 }

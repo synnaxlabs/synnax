@@ -11,7 +11,7 @@ syntax = "proto3";
 
 package grpc.ranger;
 
-import "core/pkg/api/ranger/pb/range.proto";
+import "core/pkg/api/ranger/pb/ranger.proto";
 import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/ranger";
@@ -37,11 +37,11 @@ message DeleteRequest {
 }
 
 message CreateRequest {
-  repeated api.range.pb.Range ranges = 1;
+  repeated api.ranger.pb.Range ranges = 1;
 }
 
 message CreateResponse {
-  repeated api.range.pb.Range ranges = 1;
+  repeated api.ranger.pb.Range ranges = 1;
 }
 
 message RetrieveRequest {
@@ -50,7 +50,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated api.range.pb.Range ranges = 1;
+  repeated api.ranger.pb.Range ranges = 1;
 }
 
 message RenameRequest {

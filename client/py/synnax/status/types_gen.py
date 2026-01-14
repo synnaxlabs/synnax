@@ -15,7 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax import label
+from synnax import label, telem
 
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 

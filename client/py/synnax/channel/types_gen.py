@@ -16,6 +16,7 @@ from typing import Literal, NewType, TypeAlias
 
 from pydantic import BaseModel, Field
 
+from synnax import telem
 from synnax.ontology.payload import ID
 from synnax.x import control
 

@@ -82,9 +82,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if cppOutputPath == "" {
 			continue
 		}
-		if omit.IsType(entry, "cpp") {
-			continue
-		}
+		// Allow @cpp omit structs (handwritten C++ definition) to still get proto conversion
+		// Only skip if @pb omit (protobuf generation explicitly disabled)
 		if !hasPBFlag(entry) {
 			continue
 		}
@@ -251,7 +250,9 @@ func (p *Plugin) generateProto(
 	}
 
 	for _, s := range structs {
-		if omit.IsType(s, "cpp") || omit.IsType(s, "pb") {
+		// Only skip if @pb omit (protobuf generation explicitly disabled)
+		// Structs with @cpp omit (handwritten C++ definition) still need proto conversion methods
+		if omit.IsType(s, "pb") {
 			continue
 		}
 		form, ok := s.Form.(resolution.StructForm)
@@ -797,6 +798,13 @@ func (p *Plugin) generateDistinctConversion(
 			ns := deriveNamespace(targetOutputPath)
 			cppName = fmt.Sprintf("%s::%s", ns, cppName)
 		}
+	}
+
+	// Check if this distinct type has @cpp omit (meaning it's handwritten)
+	// Handwritten distinct types should provide their own to_proto()/from_proto() methods
+	if omit.IsType(resolved, "cpp") {
+		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, fieldName),
+			fmt.Sprintf("cpp.%s = %s::from_proto(pb.%s());", fieldName, cppName, fieldName)
 	}
 
 	if resolution.IsPrimitive(form.Base.Name) {

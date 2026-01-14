@@ -31,7 +31,7 @@ inline x::json::json Operation::to_json() const {
     x::json::json j;
     j["type"] = this->type;
     j["reset_channel"] = this->reset_channel;
-    j["duration"] = this->duration;
+    j["duration"] = this->duration.nanoseconds();
     return j;
 }
 

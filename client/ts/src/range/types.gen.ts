@@ -20,7 +20,7 @@ export type Key = z.infer<typeof keyZ>;
 export const rangeZ = z.object({
   key: keyZ,
   name: z.string().min(1),
-  timeRange: telem.timeRangeBoundedZ,
+  timeRange: telem.timeRangeZ,
   color: z.string().optional(),
 });
 export interface Range extends z.infer<typeof rangeZ> {}

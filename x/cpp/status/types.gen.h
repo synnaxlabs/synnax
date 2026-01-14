@@ -39,7 +39,7 @@ struct Status {
     std::string variant;
     std::string message;
     std::string description;
-    ::x::telem::TimeStamp time = 0;
+    ::x::telem::TimeStamp time = x::telem::TimeStamp(0);
     Details details;
     std::vector<::x::label::Label> labels;
 

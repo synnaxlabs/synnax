@@ -18,7 +18,7 @@ package framer
 import (
 	control "github.com/synnaxlabs/x/control"
 	errors "github.com/synnaxlabs/x/errors"
-	telem "github.com/synnaxlabs/x/telem"
+	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -38,7 +38,7 @@ type IteratorRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
 	Span          int64                  `protobuf:"varint,2,opt,name=span,proto3" json:"span,omitempty"`
-	Range         *telem.PBTimeRange     `protobuf:"bytes,3,opt,name=range,proto3" json:"range,omitempty"`
+	Range         *pb.TimeRange          `protobuf:"bytes,3,opt,name=range,proto3" json:"range,omitempty"`
 	Stamp         int64                  `protobuf:"varint,4,opt,name=stamp,proto3" json:"stamp,omitempty"`
 	Keys          []uint32               `protobuf:"varint,5,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	ChunkSize     int64                  `protobuf:"varint,6,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
@@ -90,7 +90,7 @@ func (x *IteratorRequest) GetSpan() int64 {
 	return 0
 }
 
-func (x *IteratorRequest) GetRange() *telem.PBTimeRange {
+func (x *IteratorRequest) GetRange() *pb.TimeRange {
 	if x != nil {
 		return x.Range
 	}
@@ -122,7 +122,7 @@ type IteratorResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Variant       int32                  `protobuf:"varint,1,opt,name=variant,proto3" json:"variant,omitempty"`
 	Command       int32                  `protobuf:"varint,2,opt,name=command,proto3" json:"command,omitempty"`
-	Frame         *telem.PBFrame         `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
+	Frame         *pb.Frame              `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
 	NodeKey       int32                  `protobuf:"varint,4,opt,name=node_key,json=nodeKey,proto3" json:"node_key,omitempty"`
 	Ack           bool                   `protobuf:"varint,5,opt,name=ack,proto3" json:"ack,omitempty"`
 	SeqNum        int32                  `protobuf:"varint,6,opt,name=seq_num,json=seqNum,proto3" json:"seq_num,omitempty"`
@@ -175,7 +175,7 @@ func (x *IteratorResponse) GetCommand() int32 {
 	return 0
 }
 
-func (x *IteratorResponse) GetFrame() *telem.PBFrame {
+func (x *IteratorResponse) GetFrame() *pb.Frame {
 	if x != nil {
 		return x.Frame
 	}
@@ -314,7 +314,7 @@ type WriterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Command       int32                  `protobuf:"varint,1,opt,name=command,proto3" json:"command,omitempty"`
 	Config        *WriterConfig          `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
-	Frame         *telem.PBFrame         `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
+	Frame         *pb.Frame              `protobuf:"bytes,3,opt,name=frame,proto3" json:"frame,omitempty"`
 	Buffer        []byte                 `protobuf:"bytes,4,opt,name=buffer,proto3" json:"buffer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -364,7 +364,7 @@ func (x *WriterRequest) GetConfig() *WriterConfig {
 	return nil
 }
 
-func (x *WriterRequest) GetFrame() *telem.PBFrame {
+func (x *WriterRequest) GetFrame() *pb.Frame {
 	if x != nil {
 		return x.Frame
 	}
@@ -524,7 +524,7 @@ func (x *StreamerRequest) GetThrottleRateHz() float64 {
 
 type StreamerResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Frame         *telem.PBFrame         `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
+	Frame         *pb.Frame              `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
 	Buffer        []byte                 `protobuf:"bytes,2,opt,name=buffer,proto3" json:"buffer,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -560,7 +560,7 @@ func (*StreamerResponse) Descriptor() ([]byte, []int) {
 	return file_core_pkg_api_grpc_framer_framer_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *StreamerResponse) GetFrame() *telem.PBFrame {
+func (x *StreamerResponse) GetFrame() *pb.Frame {
 	if x != nil {
 		return x.Frame
 	}
@@ -578,7 +578,7 @@ type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
-	Bounds        *telem.PBTimeRange     `protobuf:"bytes,3,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Bounds        *pb.TimeRange          `protobuf:"bytes,3,opt,name=bounds,proto3" json:"bounds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -627,7 +627,7 @@ func (x *DeleteRequest) GetNames() []string {
 	return nil
 }
 
-func (x *DeleteRequest) GetBounds() *telem.PBTimeRange {
+func (x *DeleteRequest) GetBounds() *pb.TimeRange {
 	if x != nil {
 		return x.Bounds
 	}
@@ -638,19 +638,19 @@ var File_core_pkg_api_grpc_framer_framer_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/grpc/framer/framer.proto\x12\vgrpc.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x16x/go/telem/telem.proto\"\xb2\x01\n" +
+	"%core/pkg/api/grpc/framer/framer.proto\x12\vgrpc.framer\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1ax/go/control/control.proto\x1a\x18x/go/errors/errors.proto\x1a\x19x/go/telem/pb/frame.proto\x1a\x19x/go/telem/pb/telem.proto\"\xb5\x01\n" +
 	"\x0fIteratorRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x12\n" +
-	"\x04span\x18\x02 \x01(\x03R\x04span\x12(\n" +
-	"\x05range\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\x05range\x12\x14\n" +
+	"\x04span\x18\x02 \x01(\x03R\x04span\x12+\n" +
+	"\x05range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\x05range\x12\x14\n" +
 	"\x05stamp\x18\x04 \x01(\x03R\x05stamp\x12\x12\n" +
 	"\x04keys\x18\x05 \x03(\rR\x04keys\x12\x1d\n" +
 	"\n" +
-	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\"\xdb\x01\n" +
+	"chunk_size\x18\x06 \x01(\x03R\tchunkSize\"\xde\x01\n" +
 	"\x10IteratorResponse\x12\x18\n" +
 	"\avariant\x18\x01 \x01(\x05R\avariant\x12\x18\n" +
-	"\acommand\x18\x02 \x01(\x05R\acommand\x12$\n" +
-	"\x05frame\x18\x03 \x01(\v2\x0e.telem.PBFrameR\x05frame\x12\x19\n" +
+	"\acommand\x18\x02 \x01(\x05R\acommand\x12'\n" +
+	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x19\n" +
 	"\bnode_key\x18\x04 \x01(\x05R\anodeKey\x12\x10\n" +
 	"\x03ack\x18\x05 \x01(\bR\x03ack\x12\x17\n" +
 	"\aseq_num\x18\x06 \x01(\x05R\x06seqNum\x12'\n" +
@@ -663,11 +663,11 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\x04mode\x18\x05 \x01(\x05R\x04mode\x12,\n" +
 	"\x12enable_auto_commit\x18\x06 \x01(\bR\x10enableAutoCommit\x12=\n" +
 	"\x1bauto_index_persist_interval\x18\a \x01(\x03R\x18autoIndexPersistInterval\x12.\n" +
-	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\"\x9a\x01\n" +
+	"\x13err_on_unauthorized\x18\b \x01(\bR\x11errOnUnauthorized\"\x9d\x01\n" +
 	"\rWriterRequest\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
-	"\x06config\x18\x02 \x01(\v2\x19.grpc.framer.WriterConfigR\x06config\x12$\n" +
-	"\x05frame\x18\x03 \x01(\v2\x0e.telem.PBFrameR\x05frame\x12\x16\n" +
+	"\x06config\x18\x02 \x01(\v2\x19.grpc.framer.WriterConfigR\x06config\x12'\n" +
+	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
 	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\x9a\x01\n" +
 	"\x0eWriterResponse\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x19\n" +
@@ -679,14 +679,14 @@ const file_core_pkg_api_grpc_framer_framer_proto_rawDesc = "" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
 	"\x11downsample_factor\x18\x02 \x01(\x05R\x10downsampleFactor\x12:\n" +
 	"\x19enable_experimental_codec\x18\x03 \x01(\bR\x17enableExperimentalCodec\x12(\n" +
-	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\"P\n" +
-	"\x10StreamerResponse\x12$\n" +
-	"\x05frame\x18\x01 \x01(\v2\x0e.telem.PBFrameR\x05frame\x12\x16\n" +
-	"\x06buffer\x18\x02 \x01(\fR\x06buffer\"e\n" +
+	"\x10throttle_rate_hz\x18\x04 \x01(\x01R\x0ethrottleRateHz\"S\n" +
+	"\x10StreamerResponse\x12'\n" +
+	"\x05frame\x18\x01 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
+	"\x06buffer\x18\x02 \x01(\fR\x06buffer\"h\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\x12*\n" +
-	"\x06bounds\x18\x03 \x01(\v2\x12.telem.PBTimeRangeR\x06bounds2a\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\x12-\n" +
+	"\x06bounds\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\x06bounds2a\n" +
 	"\x14FrameIteratorService\x12I\n" +
 	"\x04Exec\x12\x1c.grpc.framer.IteratorRequest\x1a\x1d.grpc.framer.IteratorResponse\"\x00(\x010\x012[\n" +
 	"\x12FrameWriterService\x12E\n" +
@@ -719,22 +719,22 @@ var file_core_pkg_api_grpc_framer_framer_proto_goTypes = []any{
 	(*StreamerRequest)(nil),        // 5: grpc.framer.StreamerRequest
 	(*StreamerResponse)(nil),       // 6: grpc.framer.StreamerResponse
 	(*DeleteRequest)(nil),          // 7: grpc.framer.DeleteRequest
-	(*telem.PBTimeRange)(nil),      // 8: telem.PBTimeRange
-	(*telem.PBFrame)(nil),          // 9: telem.PBFrame
+	(*pb.TimeRange)(nil),           // 8: x.telem.pb.TimeRange
+	(*pb.Frame)(nil),               // 9: x.telem.pb.Frame
 	(*errors.PBPayload)(nil),       // 10: errors.PBPayload
 	(*control.ControlSubject)(nil), // 11: control.ControlSubject
 	(*emptypb.Empty)(nil),          // 12: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_framer_framer_proto_depIdxs = []int32{
-	8,  // 0: grpc.framer.IteratorRequest.range:type_name -> telem.PBTimeRange
-	9,  // 1: grpc.framer.IteratorResponse.frame:type_name -> telem.PBFrame
+	8,  // 0: grpc.framer.IteratorRequest.range:type_name -> x.telem.pb.TimeRange
+	9,  // 1: grpc.framer.IteratorResponse.frame:type_name -> x.telem.pb.Frame
 	10, // 2: grpc.framer.IteratorResponse.error:type_name -> errors.PBPayload
 	11, // 3: grpc.framer.WriterConfig.control_subject:type_name -> control.ControlSubject
 	2,  // 4: grpc.framer.WriterRequest.config:type_name -> grpc.framer.WriterConfig
-	9,  // 5: grpc.framer.WriterRequest.frame:type_name -> telem.PBFrame
+	9,  // 5: grpc.framer.WriterRequest.frame:type_name -> x.telem.pb.Frame
 	10, // 6: grpc.framer.WriterResponse.error:type_name -> errors.PBPayload
-	9,  // 7: grpc.framer.StreamerResponse.frame:type_name -> telem.PBFrame
-	8,  // 8: grpc.framer.DeleteRequest.bounds:type_name -> telem.PBTimeRange
+	9,  // 7: grpc.framer.StreamerResponse.frame:type_name -> x.telem.pb.Frame
+	8,  // 8: grpc.framer.DeleteRequest.bounds:type_name -> x.telem.pb.TimeRange
 	0,  // 9: grpc.framer.FrameIteratorService.Exec:input_type -> grpc.framer.IteratorRequest
 	3,  // 10: grpc.framer.FrameWriterService.Exec:input_type -> grpc.framer.WriterRequest
 	5,  // 11: grpc.framer.FrameStreamerService.Exec:input_type -> grpc.framer.StreamerRequest

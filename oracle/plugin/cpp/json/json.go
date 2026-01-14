@@ -377,7 +377,7 @@ func (p *Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templat
 
 func (p *Plugin) processField(field resolution.Field, parent resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	jsonName := field.Name
+	jsonName := toSnakeCase(field.Name)
 
 	// Only treat as generic field if the type param does NOT have a default
 	// Defaulted type params are substituted with their default value
@@ -505,7 +505,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 
 func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Type, cppType string, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
-	jsonName := field.Name
+	jsonName := toSnakeCase(field.Name)
 	hasDefault := field.IsOptional
 
 	// Only treat as generic field if the type param does NOT have a default
@@ -669,7 +669,7 @@ func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonNa
 }
 
 func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templateData) (jsonParseExpr, structParseExpr string) {
-	jsonName := field.Name
+	jsonName := toSnakeCase(field.Name)
 	typeParamName := field.Type.TypeParam.Name
 
 	if field.IsHardOptional {
@@ -685,7 +685,7 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 
 func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Type, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
-	jsonName := field.Name
+	jsonName := toSnakeCase(field.Name)
 	fieldName := toSnakeCase(field.Name)
 
 	// Only treat as generic field if the type param does NOT have a default
@@ -764,7 +764,9 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 		}
 	}
 
-	if typeRef.Name == "timestamp" || typeRef.Name == "timespan" {
+	// Check if type name matches timestamp/timespan (handle module-prefixed types)
+	lowerName := strings.ToLower(typeRef.Name)
+	if strings.HasSuffix(lowerName, "timestamp") || strings.HasSuffix(lowerName, "timespan") {
 		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
 	}
 

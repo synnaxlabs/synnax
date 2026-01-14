@@ -474,7 +474,7 @@ TEST_F(XLuaTest, SetGlobalTelemJsonComplex) {
 /// @brief it should return validation error for invalid JSON telemetry value.
 TEST_F(XLuaTest, SetGlobalTelemJsonInvalid) {
     ASSERT_OCCURRED_AS(
-        xlua::set_global_sample_value(L, "val", telem::JSON_T, "invalid json"),
+        x::lua::set_global_sample_value(L, "val", telem::JSON_T, "invalid json"),
         x::errors::VALIDATION
     );
     lua_getglobal(L, "val");

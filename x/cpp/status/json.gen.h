@@ -44,7 +44,7 @@ x::json::json Status<Details>::to_json() const {
     j["variant"] = this->variant;
     j["message"] = this->message;
     j["description"] = this->description;
-    j["time"] = this->time;
+    j["time"] = this->time.nanoseconds();
     if constexpr (std::is_same_v<Details, x::json::json>)
         j["details"] = this->details;
     else

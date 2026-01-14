@@ -2,22 +2,20 @@ load("@rules_proto//proto:defs.bzl", "proto_library")
 load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
-    name = "ranger_proto",
+    name = "range_proto",
     srcs = ["pb/ranger.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/go/label:label_proto",
         "//x/go/telem:telem_proto",
     ],
 )
 
 cpp_grpc_library(
-    name = "ranger_grpc",
+    name = "range_grpc",
     output_mode = "NO_PREFIX",
-    protos = [":ranger_proto"],
+    protos = [":range_proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/go/label:label_grpc",
         "//x/go/telem:telem_grpc",
     ],
 )

@@ -17,6 +17,7 @@
 #include "client/cpp/channel/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
+#include "core/pkg/api/channel/pb/channel.pb.h"
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
 
 namespace synnax::channel {
@@ -53,7 +54,7 @@ inline ::distribution::channel::pb::Operation Operation::to_proto() const {
     ::distribution::channel::pb::Operation pb;
     pb.set_type(OperationTypeToPB(this->type));
     pb.set_reset_channel(static_cast<uint32_t>(this->reset_channel));
-    pb.set_duration(static_cast<int64_t>(this->duration));
+    pb.set_duration(this->duration.to_proto());
     return pb;
 }
 
@@ -62,7 +63,125 @@ Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
     cpp.reset_channel = ChannelKey(pb.reset_channel());
-    cpp.duration = x::telem::TimeSpan(pb.duration());
+    cpp.duration = x::telem::TimeSpan::from_proto(pb.duration());
+    return {cpp, x::errors::NIL};
+}
+
+inline ::distribution::channel::pb::Channel Channel::to_proto() const {
+    ::distribution::channel::pb::Channel pb;
+    pb.set_name(this->name);
+    pb.set_leaseholder(static_cast<uint32_t>(this->leaseholder));
+    pb.set_data_type(this->data_type.to_proto());
+    pb.set_is_index(this->is_index);
+    pb.set_local_key(this->local_key.to_proto());
+    pb.set_local_index(this->local_index.to_proto());
+    pb.set_virtual(this->virtual);
+    pb.set_concurrency(static_cast<::x::control::pb::Concurrency>(this->concurrency));
+    pb.set_internal(this->internal);
+    for (const auto &item: this->operations)
+        *pb.add_operations() = item.to_proto();
+    pb.set_expression(this->expression);
+    return pb;
+}
+
+inline std::pair<Channel, x::errors::Error>
+Channel::from_proto(const ::distribution::channel::pb::Channel &pb) {
+    Channel cpp;
+    cpp.name = pb.name();
+    cpp.leaseholder = Key(pb.leaseholder());
+    cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
+    cpp.is_index = pb.is_index();
+    cpp.local_key = LocalKey::from_proto(pb.local_key());
+    cpp.local_index = LocalKey::from_proto(pb.local_index());
+    cpp.virtual = pb.virtual();
+    cpp.concurrency = static_cast<Concurrency>(pb.concurrency());
+    cpp.internal = pb.internal();
+    for (const auto &item: pb.operations()) {
+        auto [v, err] = Operation::from_proto(item);
+        if (err) return {{}, err};
+        cpp.operations.push_back(v);
+    }
+    cpp.expression = pb.expression();
+    return {cpp, x::errors::NIL};
+}
+
+inline ::api::channel::pb::Channel APIChannel::to_proto() const {
+    ::api::channel::pb::Channel pb;
+    pb.set_key(static_cast<uint32_t>(this->key));
+    pb.set_name(this->name);
+    pb.set_leaseholder(this->leaseholder);
+    pb.set_data_type(this->data_type.to_proto());
+    pb.set_is_index(this->is_index);
+    pb.set_index(static_cast<uint32_t>(this->index));
+    pb.set_alias(this->alias);
+    pb.set_virtual(this->virtual);
+    pb.set_internal(this->internal);
+    pb.set_expression(this->expression);
+    for (const auto &item: this->operations)
+        *pb.add_operations() = item.to_proto();
+    pb.set_concurrency(static_cast<::x::control::pb::Concurrency>(this->concurrency));
+    return pb;
+}
+
+inline std::pair<APIChannel, x::errors::Error>
+APIChannel::from_proto(const ::api::channel::pb::Channel &pb) {
+    APIChannel cpp;
+    cpp.key = ChannelKey(pb.key());
+    cpp.name = pb.name();
+    cpp.leaseholder = pb.leaseholder();
+    cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
+    cpp.is_index = pb.is_index();
+    cpp.index = ChannelKey(pb.index());
+    cpp.alias = pb.alias();
+    cpp.virtual = pb.virtual();
+    cpp.internal = pb.internal();
+    cpp.expression = pb.expression();
+    for (const auto &item: pb.operations()) {
+        auto [v, err] = Operation::from_proto(item);
+        if (err) return {{}, err};
+        cpp.operations.push_back(v);
+    }
+    cpp.concurrency = static_cast<Concurrency>(pb.concurrency());
+    return {cpp, x::errors::NIL};
+}
+
+inline pb::NewChannel NewChannel::to_proto() const {
+    pb::NewChannel pb;
+    pb.set_name(this->name);
+    pb.set_data_type(this->data_type.to_proto());
+    pb.set_alias(this->alias);
+    pb.set_key(static_cast<uint32_t>(this->key));
+    pb.set_leaseholder(this->leaseholder);
+    pb.set_index(static_cast<uint32_t>(this->index));
+    pb.set_is_index(this->is_index);
+    pb.set_internal(this->internal);
+    pb.set_virtual(this->virtual);
+    pb.set_expression(this->expression);
+    for (const auto &item: this->operations)
+        *pb.add_operations() = item.to_proto();
+    pb.set_concurrency(static_cast<::x::control::pb::Concurrency>(this->concurrency));
+    return pb;
+}
+
+inline std::pair<NewChannel, x::errors::Error>
+NewChannel::from_proto(const pb::NewChannel &pb) {
+    NewChannel cpp;
+    cpp.name = pb.name();
+    cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
+    cpp.alias = pb.alias();
+    cpp.key = ChannelKey(pb.key());
+    cpp.leaseholder = pb.leaseholder();
+    cpp.index = ChannelKey(pb.index());
+    cpp.is_index = pb.is_index();
+    cpp.internal = pb.internal();
+    cpp.virtual = pb.virtual();
+    cpp.expression = pb.expression();
+    for (const auto &item: pb.operations()) {
+        auto [v, err] = Operation::from_proto(item);
+        if (err) return {{}, err};
+        cpp.operations.push_back(v);
+    }
+    cpp.concurrency = static_cast<Concurrency>(pb.concurrency());
     return {cpp, x::errors::NIL};
 }
 

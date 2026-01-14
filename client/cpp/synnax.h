@@ -139,7 +139,7 @@ public:
     std::shared_ptr<AuthMiddleware> auth;
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
-    range::Client ranges;
+    ranger::Client ranges;
     task::Client tasks;
     /// @brief Client for reading and writing telemetry to a cluster.
     framer::Client telem;

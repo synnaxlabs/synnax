@@ -24,6 +24,8 @@
 
 #include "x/cpp/json/json.h"
 
+#include "x/go/telem/pb/telem.pb.h"
+
 namespace x::telem {
 // private namespace for internal constants
 namespace details {
@@ -285,6 +287,12 @@ public:
     static TimeSpan parse(x::json::Parser parser) {
         return TimeSpan(parser.field<std::int64_t>());
     }
+
+    /// @brief converts the TimeSpan to protobuf representation.
+    [[nodiscard]] std::int64_t to_proto() const { return nanoseconds(); }
+
+    /// @brief creates a TimeSpan from protobuf representation.
+    static TimeSpan from_proto(std::int64_t pb) { return TimeSpan(pb); }
 };
 
 /// @brief represents a 64-bit nanosecond-precision, UNIX Epoch UTC timestamp.
@@ -310,6 +318,9 @@ public:
 
     /// @brief the minimum representable timestamp.
     static TimeStamp min() { return TimeStamp(std::numeric_limits<int64_t>::min()); }
+
+    /// @brief returns a timestamp with value 0 (Unix epoch).
+    static TimeStamp zero() { return TimeStamp(0); }
 
     TimeStamp static now() {
         // note that on some machines, hig-res clock refs system_clock and on others
@@ -407,6 +418,12 @@ public:
     static TimeStamp parse(x::json::Parser parser) {
         return TimeStamp(parser.field<std::int64_t>());
     }
+
+    /// @brief converts the TimeStamp to protobuf representation.
+    [[nodiscard]] std::int64_t to_proto() const { return nanoseconds(); }
+
+    /// @brief creates a TimeStamp from protobuf representation.
+    static TimeStamp from_proto(std::int64_t pb) { return TimeStamp(pb); }
 };
 
 inline TimeSpan since(const TimeStamp stamp) {
@@ -446,6 +463,19 @@ public:
     bool operator!=(const TimeRange &other) const {
         return start != other.start || end != other.end;
     }
+
+    /// @brief parses a TimeRange from JSON.
+    static TimeRange parse(x::json::Parser parser);
+
+    /// @brief converts the TimeRange to JSON.
+    [[nodiscard]] x::json::json to_json() const;
+
+    /// @brief converts the TimeRange to protobuf representation.
+    ::x::telem::pb::TimeRange to_proto() const;
+
+    /// @brief constructs a TimeRange from protobuf representation.
+    static std::pair<TimeRange, x::errors::Error>
+    from_proto(const ::x::telem::pb::TimeRange &pb);
 };
 
 class Rate {

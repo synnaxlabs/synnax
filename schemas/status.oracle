@@ -28,12 +28,12 @@ Variant enum {
 }
 
 Status struct<Details?, V extends Variant = Variant> {
-    key         string         @key generate
-    name        string         @validate default ""
+    key         string          @key generate
+    name        string          @validate default ""
     variant     V
     message     string
     description string?
-    time        TimeStamp      @validate default now
+    time        telem.TimeStamp @validate default now
     details     Details?
     labels      label.Label[]?
 
@@ -51,7 +51,7 @@ GoSVCStatus<Details?> = Status<Details?> {
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
     key  string?
     name string?
-    time TimeStamp?
+    time telem.TimeStamp?
 
     @ts concrete_types
     @pb omit
