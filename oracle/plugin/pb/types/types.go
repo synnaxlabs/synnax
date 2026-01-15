@@ -17,8 +17,6 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -30,6 +28,8 @@ import (
 	pbprimitives "github.com/synnaxlabs/oracle/plugin/pb/primitives"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const defaultModulePrefix = "github.com/synnaxlabs/synnax/"

@@ -16,6 +16,7 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/types.gen.h"
 
 #include "x/go/label/pb/label.pb.h"

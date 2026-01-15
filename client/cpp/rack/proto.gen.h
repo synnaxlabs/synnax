@@ -14,8 +14,10 @@
 #include <type_traits>
 #include <utility>
 
+#include "client/cpp/rack/json.gen.h"
 #include "client/cpp/rack/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"

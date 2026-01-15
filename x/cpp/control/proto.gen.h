@@ -14,9 +14,11 @@
 #include <type_traits>
 #include <utility>
 
+#include "x/cpp/control/json.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/any.h"
+#include "x/cpp/json/json.h"
 
 #include "x/go/control/pb/control.pb.h"
 
@@ -44,7 +46,7 @@ inline ::x::control::pb::State State<R>::to_proto() const {
     if constexpr (std::is_same_v<R, x::json::json>) {
         *pb.mutable_resource() = x::json::to_any(this->resource);
     } else {
-        pb.mutable_resource()->PackFrom(this->resource.to_proto());
+        *pb.mutable_resource() = x::json::to_any(this->resource.to_json());
     }
     pb.set_authority(this->authority);
     return pb;
@@ -67,12 +69,9 @@ State<R>::from_proto(const ::x::control::pb::State &pb) {
         }
     } else {
         {
-            typename R::proto_type pb_val;
-            if (!pb.resource().UnpackTo(&pb_val))
-                return {{}, x::errors::Error("failed to unpack resource")};
-            auto [val, err] = R::from_proto(pb_val);
+            auto [val, err] = x::json::from_any(pb.resource());
             if (err) return {{}, err};
-            cpp.resource = val;
+            cpp.resource = R::parse(x::json::Parser(val));
         }
     }
     cpp.authority = pb.authority();

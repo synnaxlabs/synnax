@@ -26,8 +26,8 @@ inline Base Base::parse(x::json::Parser parser) {
     return Base{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
-        .time_range = parser.field<x::telem::TimeRange>("time_range"),
-        .color = parser.field<x::color::Color>("color"),
+        .time_range = parser.field<::x::telem::TimeRange>("time_range"),
+        .color = parser.field<::x::color::Color>("color"),
     };
 }
 
@@ -43,7 +43,7 @@ inline x::json::json Base::to_json() const {
 inline Range Range::parse(x::json::Parser parser) {
     Range result;
     static_cast<Base &>(result) = Base::parse(parser);
-    result.labels = parser.field<std::vector<x::label::Label>>("labels");
+    result.labels = parser.field<std::vector<::x::label::Label>>("labels");
     result.parent = parser.has("parent")
                       ? x::mem::indirect<Range>(parser.field<Range>("parent"))
                       : nullptr;

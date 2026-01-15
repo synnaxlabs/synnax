@@ -251,7 +251,7 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "json.gen.h")
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 
@@ -497,7 +497,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
-			name = fmt.Sprintf("%s::%s", ns, name)
+			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
 	}
 
@@ -538,7 +538,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
 						ns := deriveNamespace(targetOutputPath)
-						wrapperType = fmt.Sprintf("%s::%s", ns, wrapperType)
+						wrapperType = fmt.Sprintf("::%s::%s", ns, wrapperType)
 					}
 				}
 				return fmt.Sprintf(`parser.field<%s>("%s")`, wrapperType, jsonName)
@@ -563,7 +563,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
 						ns := deriveNamespace(targetOutputPath)
-						structType = fmt.Sprintf("%s::%s", ns, structType)
+						structType = fmt.Sprintf("::%s::%s", ns, structType)
 					}
 				}
 				return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, structType, jsonName)
@@ -593,7 +593,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := deriveNamespace(targetOutputPath)
-					structType = fmt.Sprintf("%s::%s", ns, structType)
+					structType = fmt.Sprintf("::%s::%s", ns, structType)
 				}
 			}
 			if field.IsHardOptional {
@@ -615,7 +615,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 						targetOutputPath := output.GetPath(resolved, "cpp")
 						if targetOutputPath != "" {
 							ns := deriveNamespace(targetOutputPath)
-							aliasType = fmt.Sprintf("%s::%s", ns, aliasType)
+							aliasType = fmt.Sprintf("::%s::%s", ns, aliasType)
 						}
 					}
 					if field.IsHardOptional {
@@ -663,7 +663,7 @@ func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonNa
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					ns := deriveNamespace(targetOutputPath)
-					structType = fmt.Sprintf("%s::%s", ns, structType)
+					structType = fmt.Sprintf("::%s::%s", ns, structType)
 				}
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)

@@ -15,6 +15,7 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/types.gen.h"
 
 #include "x/go/spatial/pb/spatial.pb.h"

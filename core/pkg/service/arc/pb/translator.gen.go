@@ -13,6 +13,7 @@ package pb
 
 import (
 	"context"
+	"encoding/json"
 	graphpb "github.com/synnaxlabs/arc/graph/pb"
 	modulepb "github.com/synnaxlabs/arc/module/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
@@ -20,7 +21,9 @@ import (
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"github.com/synnaxlabs/x/uuid"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // StatusDetailsToPB converts StatusDetails to StatusDetails.
@@ -165,22 +168,48 @@ func ArcsFromPB(ctx context.Context, pbs []*Arc) ([]arc.Arc, error) {
 }
 
 // StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.
+// It wraps the value in structpb.Struct (JSON) for cross-language compatibility.
 func StatusDetailsToPBAny(ctx context.Context, v arc.StatusDetails) (*anypb.Any, error) {
 	pb, err := StatusDetailsToPB(ctx, v)
 	if err != nil {
 		return nil, err
 	}
-	return anypb.New(pb)
+	// Convert proto to JSON bytes, then to Struct for cross-language compatibility
+	jsonBytes, err := protojson.Marshal(pb)
+	if err != nil {
+		return nil, err
+	}
+	s := &structpb.Struct{}
+	if err := protojson.Unmarshal(jsonBytes, s); err != nil {
+		return nil, err
+	}
+	return anypb.New(s)
 }
 
 // StatusDetailsFromPBAny converts *anypb.Any to StatusDetails for use with generic translators.
+// It handles both typed protos and JSON (google.protobuf.Struct) for cross-language compatibility.
 func StatusDetailsFromPBAny(ctx context.Context, a *anypb.Any) (arc.StatusDetails, error) {
 	if a == nil {
 		return arc.StatusDetails{}, nil
 	}
+	// First try typed proto
 	var pb StatusDetails
-	if err := a.UnmarshalTo(&pb); err != nil {
+	if err := a.UnmarshalTo(&pb); err == nil {
+		return StatusDetailsFromPB(ctx, &pb)
+	}
+	// Fall back to JSON (structpb.Struct) for cross-language compatibility
+	var s structpb.Struct
+	if err := a.UnmarshalTo(&s); err != nil {
 		return arc.StatusDetails{}, err
 	}
-	return StatusDetailsFromPB(ctx, &pb)
+	// Convert map to JSON then unmarshal to Go struct
+	jsonBytes, err := json.Marshal(s.AsMap())
+	if err != nil {
+		return arc.StatusDetails{}, err
+	}
+	var result arc.StatusDetails
+	if err := json.Unmarshal(jsonBytes, &result); err != nil {
+		return arc.StatusDetails{}, err
+	}
+	return result, nil
 }

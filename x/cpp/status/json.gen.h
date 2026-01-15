@@ -30,9 +30,9 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
         .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),
         .description = parser.field<std::string>("description", ""),
-        .time = parser.field<x::telem::TimeStamp>("time"),
+        .time = parser.field<::x::telem::TimeStamp>("time"),
         .details = parser.field<Details>("details"),
-        .labels = parser.field<std::vector<x::label::Label>>("labels"),
+        .labels = parser.field<std::vector<::x::label::Label>>("labels"),
     };
 }
 

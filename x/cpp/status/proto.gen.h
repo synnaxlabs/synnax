@@ -16,7 +16,10 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/any.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/proto.gen.h"
+#include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/types.gen.h"
 
 #include "x/go/status/pb/status.pb.h"
@@ -64,7 +67,7 @@ inline ::x::status::pb::Status Status<Details>::to_proto() const {
     if constexpr (std::is_same_v<Details, x::json::json>) {
         *pb.mutable_details() = x::json::to_any(this->details);
     } else {
-        pb.mutable_details()->PackFrom(this->details.to_proto());
+        *pb.mutable_details() = x::json::to_any(this->details.to_json());
     }
     for (const auto &item: this->labels)
         *pb.add_labels() = item.to_proto();
@@ -80,7 +83,7 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     cpp.variant = VariantFromPB(pb.variant());
     cpp.message = pb.message();
     cpp.description = pb.description();
-    cpp.time = x::telem::TimeStamp::from_proto(pb.time());
+    cpp.time = ::x::telem::TimeStamp::from_proto(pb.time());
     if constexpr (std::is_same_v<Details, x::json::json>) {
         {
             auto [val, err] = x::json::from_any(pb.details());
@@ -89,12 +92,9 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
         }
     } else {
         {
-            typename Details::proto_type pb_val;
-            if (!pb.details().UnpackTo(&pb_val))
-                return {{}, x::errors::Error("failed to unpack details")};
-            auto [val, err] = Details::from_proto(pb_val);
+            auto [val, err] = x::json::from_any(pb.details());
             if (err) return {{}, err};
-            cpp.details = val;
+            cpp.details = Details::parse(x::json::Parser(val));
         }
     }
     for (const auto &item: pb.labels()) {

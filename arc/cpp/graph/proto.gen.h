@@ -16,9 +16,12 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
+#include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/proto.gen.h"
 
+#include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/graph/types.gen.h"
+#include "arc/cpp/ir/json.gen.h"
 #include "arc/cpp/ir/proto.gen.h"
 #include "arc/go/graph/pb/graph.pb.h"
 

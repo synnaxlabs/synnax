@@ -14,8 +14,10 @@
 #include <type_traits>
 #include <utility>
 
+#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/channel/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
@@ -64,7 +66,7 @@ Operation::from_proto(const ::distribution::channel::pb::Operation &pb) {
     Operation cpp;
     cpp.type = OperationTypeFromPB(pb.type());
     cpp.reset_channel = ChannelKey(pb.reset_channel());
-    cpp.duration = x::telem::TimeSpan::from_proto(pb.duration());
+    cpp.duration = ::x::telem::TimeSpan::from_proto(pb.duration());
     return {cpp, x::errors::NIL};
 }
 
@@ -90,7 +92,7 @@ Channel::from_proto(const ::distribution::channel::pb::Channel &pb) {
     Channel cpp;
     cpp.name = pb.name();
     cpp.leaseholder = Key(pb.leaseholder());
-    cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
+    cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
     cpp.local_key = LocalKey::from_proto(pb.local_key());
     cpp.local_index = LocalKey::from_proto(pb.local_index());
@@ -131,7 +133,7 @@ APIChannel::from_proto(const ::api::channel::pb::Channel &pb) {
     cpp.key = ChannelKey(pb.key());
     cpp.name = pb.name();
     cpp.leaseholder = pb.leaseholder();
-    cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
+    cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
     cpp.index = ChannelKey(pb.index());
     cpp.alias = pb.alias();
@@ -175,7 +177,7 @@ inline std::pair<NewChannel, x::errors::Error>
 NewChannel::from_proto(const pb::NewChannel &pb) {
     NewChannel cpp;
     cpp.name = pb.name();
-    cpp.data_type = x::telem::DataType::from_proto(pb.data_type());
+    cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.alias = pb.alias();
     if (pb.has_status()) {
         auto [val, err] = Status::from_proto(pb.status());

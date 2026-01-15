@@ -23,7 +23,7 @@ inline Label Label::parse(x::json::Parser parser) {
     return Label{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
-        .color = parser.field<x::color::Color>("color"),
+        .color = parser.field<::x::color::Color>("color"),
     };
 }
 

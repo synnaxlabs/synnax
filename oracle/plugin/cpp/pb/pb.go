@@ -225,6 +225,7 @@ func (p *Plugin) generateProto(
 	data.includes.addSystem("type_traits")
 	data.includes.addSystem("utility")
 	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", outputPath))
 	data.includes.addInternal("x/cpp/errors/errors.h")
 
 	pbOutputPaths := make(map[string]bool)
@@ -418,6 +419,7 @@ func (p *Plugin) processStructForTranslation(
 
 	if len(typeParams) > 0 {
 		data.includes.addInternal("x/cpp/json/any.h")
+		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
 	// Check if we can use C++ multiple inheritance
@@ -650,6 +652,7 @@ func (p *Plugin) generateStructConversion(
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+			data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
 		}
 	}
 
@@ -733,24 +736,22 @@ func (p *Plugin) generateTypeParamConversion(
 	fieldName string,
 ) (forward, backward string) {
 	typeParamName := field.Type.TypeParam.Name
+	// Always use JSON serialization for generic type parameters.
+	// This ensures compatibility with the Go server which stores details as JSON.
 	if field.IsHardOptional {
-		forward = fmt.Sprintf("if (this->%s.has_value()) pb.mutable_%s()->PackFrom(this->%s->to_proto())", fieldName, fieldName, fieldName)
+		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(this->%s->to_json())", fieldName, fieldName, fieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
-        typename %s::proto_type pb_val;
-        if (!pb.%s().UnpackTo(&pb_val)) return {{}, x::errors::Error("failed to unpack %s")};
-        auto [val, err] = %s::from_proto(pb_val);
+        auto [val, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
-    }`, fieldName, typeParamName, fieldName, fieldName, typeParamName, fieldName)
+        cpp.%s = %s::parse(x::json::Parser(val));
+    }`, fieldName, fieldName, fieldName, typeParamName)
 	} else {
-		forward = fmt.Sprintf("pb.mutable_%s()->PackFrom(this->%s.to_proto())", fieldName, fieldName)
+		forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_any(this->%s.to_json())", fieldName, fieldName)
 		backward = fmt.Sprintf(`{
-        typename %s::proto_type pb_val;
-        if (!pb.%s().UnpackTo(&pb_val)) return {{}, x::errors::Error("failed to unpack %s")};
-        auto [val, err] = %s::from_proto(pb_val);
+        auto [val, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
-    }`, typeParamName, fieldName, fieldName, typeParamName, fieldName)
+        cpp.%s = %s::parse(x::json::Parser(val));
+    }`, fieldName, fieldName, typeParamName)
 	}
 	return forward, backward
 }
@@ -791,7 +792,7 @@ func (p *Plugin) generateDistinctConversion(
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			ns := deriveNamespace(targetOutputPath)
-			cppName = fmt.Sprintf("%s::%s", ns, cppName)
+			cppName = fmt.Sprintf("::%s::%s", ns, cppName)
 		}
 	}
 
@@ -858,6 +859,7 @@ func (p *Plugin) generateAliasConversion(
 			targetOutputPath := output.GetPath(targetResolved, "cpp")
 			if targetOutputPath != "" {
 				data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+				data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
 			}
 		}
 		// Use the alias type name for from_proto since that's what the field type is
@@ -867,7 +869,7 @@ func (p *Plugin) generateAliasConversion(
 			aliasOutputPath := output.GetPath(resolved, "cpp")
 			if aliasOutputPath != "" {
 				ns := deriveNamespace(aliasOutputPath)
-				cppType = fmt.Sprintf("%s::%s", ns, cppType)
+				cppType = fmt.Sprintf("::%s::%s", ns, cppType)
 			}
 		}
 		if isOptional {
@@ -939,6 +941,7 @@ func (p *Plugin) generateArrayElementConversion(
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
 						data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
 					}
 				}
 				forward = fmt.Sprintf("for (const auto& item : this->%s) *pb.add_%s() = item.to_proto()", fieldName, fieldName)

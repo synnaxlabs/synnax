@@ -21,8 +21,6 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -30,6 +28,8 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Plugin generates protobuf translator functions for the pb/ subdirectory pattern.
@@ -1224,8 +1224,11 @@ func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {
 	}
 	data.generatedAnyHelpers[key] = true
 
-	// Add anypb import
+	// Add imports needed for AnyHelpers
 	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
+	data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+	data.imports.AddExternal("google.golang.org/protobuf/encoding/protojson")
+	data.imports.AddExternal("encoding/json")
 
 	goName := getGoName(s)
 	if goName == "" {

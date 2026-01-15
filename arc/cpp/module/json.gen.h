@@ -21,16 +21,18 @@ namespace arc::module {
 
 inline Module Module::parse(x::json::Parser parser) {
     Module result;
-    static_cast<arc::ir::IR &>(result) = arc::ir::IR::parse(parser);
-    static_cast<arc::compiler::Output &>(result) = arc::compiler::Output::parse(parser);
+    static_cast<::arc::ir::IR &>(result) = ::arc::ir::IR::parse(parser);
+    static_cast<::arc::compiler::Output &>(result) = ::arc::compiler::Output::parse(
+        parser
+    );
     return result;
 }
 
 inline x::json::json Module::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: arc::ir::IR::to_json().items())
+    for (auto &[k, v]: ::arc::ir::IR::to_json().items())
         j[k] = v;
-    for (auto &[k, v]: arc::compiler::Output::to_json().items())
+    for (auto &[k, v]: ::arc::compiler::Output::to_json().items())
         j[k] = v;
     return j;
 }

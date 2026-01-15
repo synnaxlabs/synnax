@@ -16,6 +16,7 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "arc/cpp/compiler/json.gen.h"
 #include "arc/cpp/compiler/types.gen.h"
 #include "arc/go/compiler/pb/compiler.pb.h"
 

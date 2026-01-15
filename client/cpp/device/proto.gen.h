@@ -14,9 +14,11 @@
 #include <type_traits>
 #include <utility>
 
+#include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
+#include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/service/device/pb/device.pb.h"
@@ -33,7 +35,7 @@ inline ::service::device::pb::StatusDetails StatusDetails::to_proto() const {
 inline std::pair<StatusDetails, x::errors::Error>
 StatusDetails::from_proto(const ::service::device::pb::StatusDetails &pb) {
     StatusDetails cpp;
-    cpp.rack = synnax::rack::Key(pb.rack());
+    cpp.rack = ::synnax::rack::Key(pb.rack());
     cpp.device = pb.device();
     return {cpp, x::errors::NIL};
 }
@@ -56,7 +58,7 @@ inline std::pair<Device, x::errors::Error>
 Device::from_proto(const ::service::device::pb::Device &pb) {
     Device cpp;
     cpp.key = pb.key();
-    cpp.rack = synnax::rack::Key(pb.rack());
+    cpp.rack = ::synnax::rack::Key(pb.rack());
     cpp.location = pb.location();
     cpp.make = pb.make();
     cpp.model = pb.model();

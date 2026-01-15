@@ -15,9 +15,12 @@
 #include <type_traits>
 #include <utility>
 
+#include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/proto.gen.h"
+#include "x/cpp/telem/json.gen.h"
 #include "x/cpp/telem/proto.gen.h"
 
 #include "core/pkg/api/ranger/pb/ranger.pb.h"
