@@ -97,7 +97,6 @@ export const distributeNodes = (
 
   const loc = location.construct(dir);
   const oppositeLoc = location.swap(loc);
-  const oppositeDir = direction.swap(dir);
 
   const sorted = [...layouts].sort((a, b) => box.loc(a.box, loc) - box.loc(b.box, loc));
 
@@ -113,40 +112,18 @@ export const distributeNodes = (
   );
 
   const numGaps = sorted.length - 1;
-  const rawGapSize = (totalSpace - totalMiddleSize) / numGaps;
+  const gapSize = (totalSpace - totalMiddleSize) / numGaps;
 
-  if (rawGapSize < 0) {
-    // Nodes overlap - stack them touching with no gaps.
-    // Sort by secondary axis to preserve visual coherence when stacking.
-    const remaining = sorted
-      .slice(1)
-      .sort(
-        (a, b) =>
-          box.loc(a.box, location.construct(oppositeDir)) -
-          box.loc(b.box, location.construct(oppositeDir)),
-      );
-    const reordered = [first, ...remaining];
-    let current = box.loc(first.box, loc);
-
-    reordered.forEach((node) => {
-      const pos = xy.construct(
-        dir === "x" ? current : box.loc(node.box, "left"),
-        dir === "y" ? current : box.loc(node.box, "top"),
-      );
-      node.box = box.construct(pos, box.dims(node.box));
-      current += box.dim(node.box, dir);
-    });
-  } else {
-    let current = box.loc(first.box, oppositeLoc) + rawGapSize;
-    middleNodes.forEach((node) => {
-      const pos = xy.construct(
-        dir === "x" ? current : box.loc(node.box, "left"),
-        dir === "y" ? current : box.loc(node.box, "top"),
-      );
-      node.box = box.construct(pos, box.dims(node.box));
-      current += box.dim(node.box, dir) + rawGapSize;
-    });
-  }
+  // Distribute middle nodes evenly between first and last (even if gap is negative)
+  let current = box.loc(first.box, oppositeLoc) + gapSize;
+  middleNodes.forEach((node) => {
+    const pos = xy.construct(
+      dir === "x" ? current : box.loc(node.box, "left"),
+      dir === "y" ? current : box.loc(node.box, "top"),
+    );
+    node.box = box.construct(pos, box.dims(node.box));
+    current += box.dim(node.box, dir) + gapSize;
+  });
 
   return layouts;
 };
