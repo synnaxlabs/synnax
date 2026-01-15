@@ -46,6 +46,16 @@ type ID struct {
 	Type Type `json:"type" msgpack:"type"`
 }
 
+// Matches returns true if the ID matches the other ID. If the ID is a type ID, it
+// matches if the types are equal. If the ID is a resource ID, it matches if the IDs
+// are equal.
+func (id ID) Matches(other ID) bool {
+	if id.IsType() {
+		return id.Type == other.Type
+	}
+	return id == other
+}
+
 // Validate ensures that the given ID has both a Key and Type.
 func (id ID) Validate() error {
 	if id.Key == "" {

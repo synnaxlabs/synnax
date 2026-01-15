@@ -34,6 +34,14 @@ func FromSlice[T comparable](entries []T) Set[T] {
 	return s
 }
 
+func FromMapSlice[E any, T comparable](entries []E, f func(E) T) Set[T] {
+	s := make(Set[T], len(entries))
+	for _, e := range entries {
+		s.Add(f(e))
+	}
+	return s
+}
+
 // Difference returns a new set containing elements that are in a but not in b (a - b).
 func Difference[T comparable, V any](a, b Mapped[T, V]) Mapped[T, V] {
 	s := make(Mapped[T, V], len(a))

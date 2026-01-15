@@ -89,7 +89,7 @@ var _ = Describe("Service", func() {
 					Name:   "allow-read",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{obj1},
+						IDs:     []ontology.ID{obj1},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				}
@@ -122,7 +122,7 @@ var _ = Describe("Service", func() {
 					Name:   "allow-all-actions",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{obj1},
+						IDs:     []ontology.ID{obj1},
 						Actions: access.AllActions,
 					},
 				}
@@ -154,7 +154,7 @@ var _ = Describe("Service", func() {
 					Name:   "allow-all-channels",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{typeWildcard},
+						IDs:     []ontology.ID{typeWildcard},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				}
@@ -178,7 +178,7 @@ var _ = Describe("Service", func() {
 					Name:   "allow-obj1",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{obj1},
+						IDs:     []ontology.ID{obj1},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				}
@@ -207,7 +207,7 @@ var _ = Describe("Service", func() {
 					Name:   "allow-read",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{obj1},
+						IDs:     []ontology.ID{obj1},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				}
@@ -234,7 +234,7 @@ var _ = Describe("Service", func() {
 					Name:   "allow-read",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{obj1},
+						IDs:     []ontology.ID{obj1},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				}
@@ -280,7 +280,7 @@ var _ = Describe("Service", func() {
 				Name:   "policy-1",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: access.AllActions,
 				},
 			}
@@ -288,7 +288,7 @@ var _ = Describe("Service", func() {
 				Name:   "policy-2",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -344,7 +344,7 @@ var _ = Describe("Service", func() {
 				Name:   "allow-read",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{obj},
+					IDs:     []ontology.ID{obj},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}

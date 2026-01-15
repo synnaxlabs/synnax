@@ -98,12 +98,13 @@ func (d Direction) GetID(rel *Relationship) ID {
 type Traverser struct {
 	// Filter if a function that returns true if the given Resource and Relationship
 	// should be included in the traversal results.
-	Filter func(res *Resource, rel *Relationship) bool
-	// Direction is the direction of the traversal. See (Direction) for more.
+	Filter func(*Resource, *Relationship) bool
+	// Direction is the direction of the traversal. See (Direction) for more
+	// information.
 	Direction Direction
-	// Prefix is an optional function that returns a prefix for efficient lookup.
-	// If nil, a full table scan will be used.
-	Prefix func(id ID) []byte
+	// Prefix is an optional function that returns a prefix for efficient lookup. If
+	// nil, a full table scan will be used.
+	Prefix func(ID) []byte
 }
 
 var (

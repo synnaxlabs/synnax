@@ -42,7 +42,7 @@ var _ = Describe("Writer", func() {
 				Name:   "test-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -57,7 +57,7 @@ var _ = Describe("Writer", func() {
 				Name:   "test-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -70,7 +70,7 @@ var _ = Describe("Writer", func() {
 				Name:   "multi-object-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{
+					IDs: []ontology.ID{
 						{Type: "channel", Key: "ch1"},
 						{Type: "channel", Key: "ch2"},
 						{Type: "workspace", Key: "ws1"},
@@ -87,7 +87,7 @@ var _ = Describe("Writer", func() {
 				Name:   "wildcard-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel"}},
+					IDs:     []ontology.ID{{Type: "channel"}},
 					Actions: access.AllActions,
 				},
 			}
@@ -99,7 +99,7 @@ var _ = Describe("Writer", func() {
 				Name:   "ontology-test",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -120,7 +120,7 @@ var _ = Describe("Writer", func() {
 				Name:   "internal-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -133,7 +133,7 @@ var _ = Describe("Writer", func() {
 				Name:   "internal-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -151,7 +151,7 @@ var _ = Describe("Writer", func() {
 					Name:   "policy-1",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+						IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				},
@@ -159,7 +159,7 @@ var _ = Describe("Writer", func() {
 					Name:   "policy-2",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+						IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
 						Actions: []access.Action{access.ActionUpdate},
 					},
 				},
@@ -207,7 +207,7 @@ var _ = Describe("Writer", func() {
 					Name:   "policy-1",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+						IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				},
@@ -215,7 +215,7 @@ var _ = Describe("Writer", func() {
 					Name:   "policy-2",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+						IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
 						Actions: []access.Action{access.ActionUpdate},
 					},
 				},
@@ -269,7 +269,7 @@ var _ = Describe("Retriever", func() {
 				Name:   "alpha-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			},
@@ -277,7 +277,7 @@ var _ = Describe("Retriever", func() {
 				Name:   "beta-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
 					Actions: []access.Action{access.ActionDelete},
 				},
 			},
@@ -285,7 +285,7 @@ var _ = Describe("Retriever", func() {
 				Name:   "gamma-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "user", Key: "u1"}},
+					IDs:     []ontology.ID{{Type: "user", Key: "u1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			},
@@ -445,7 +445,7 @@ var _ = Describe("Retriever", func() {
 				Name:   "internal-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -453,7 +453,7 @@ var _ = Describe("Retriever", func() {
 				Name:   "regular-policy",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch2"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch2"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -504,7 +504,7 @@ var _ = Describe("Ontology Integration", func() {
 				Name:   "resource-test",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
-					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 					Actions: []access.Action{access.ActionRetrieve},
 				},
 			}
@@ -535,7 +535,7 @@ var _ = Describe("Ontology Integration", func() {
 					Name:   "nexter-test",
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
-						Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+						IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
 						Actions: []access.Action{access.ActionRetrieve},
 					},
 				}

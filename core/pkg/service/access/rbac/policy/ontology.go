@@ -60,11 +60,11 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 	return keys, nil
 }
 
-// TODO: add constraints to this schema
+// TODO: fix this schema to include the constraints
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.UUID(),
-	"name":     zyn.String(),
-	"internal": zyn.Bool(),
+	"key":    zyn.UUID(),
+	"name":   zyn.String(),
+	"effect": zyn.String(),
 })
 
 func newResource(p Policy) ontology.Resource {

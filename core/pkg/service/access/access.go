@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -32,14 +33,6 @@ const (
 
 var AllActions = []Action{ActionCreate, ActionRetrieve, ActionUpdate, ActionDelete}
 
-type Source string
-
-const (
-	SourceConsole Source = "Console"
-	SourcePluto   Source = "Pluto"
-	SourceDriver  Source = "Driver"
-)
-
 // Request represents an access control request to be evaluated by an Enforcer. Not all
 // fields are required for each access control operation. For instance, a TimeRange will
 // only be required for data read/write operations, while Properties will only be
@@ -54,9 +47,7 @@ type Request struct {
 	// TimeRange is the time range being accessed (for data read/write operations).
 	TimeRange telem.TimeRange
 	// Properties is the list of properties being modified (for update operations).
-	Properties []string
-	// Source identifies the type of client making the request.
-	Source Source
+	Properties set.Set[string]
 }
 
 // Enforcer evaluates access control requests.
