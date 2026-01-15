@@ -10,13 +10,6 @@ import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
-enum OperationType {
-  OPERATION_TYPE_MIN = 0;
-  OPERATION_TYPE_MAX = 1;
-  OPERATION_TYPE_AVG = 2;
-  OPERATION_TYPE_NONE = 3;
-}
-
 message Channel {
   uint32 key = 1;
   string name = 2;

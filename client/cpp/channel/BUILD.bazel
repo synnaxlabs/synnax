@@ -9,6 +9,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/cluster",
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//core/pkg/api/grpc:api_grpc",
@@ -17,9 +18,9 @@ cc_library(
         "//x/cpp/control",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/status",
         "//x/cpp/telem",
         "//x/go/status:status_grpc",
-        "//x/cpp/status",
         "@grpc//:grpc++",
     ],
 )

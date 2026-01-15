@@ -448,6 +448,36 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`struct Rack {`))
 		})
 
+		It("Should handle @cpp name override for fields", func() {
+			// This tests renaming a field, e.g., when the field name is a C++ reserved keyword
+			source := `
+				@cpp output "client/cpp/channel"
+
+				Channel struct {
+					key uint32
+					name string
+					virtual bool {
+						@cpp name "is_virtual"
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := cppPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// The field should be renamed to is_virtual instead of virtual
+			Expect(content).To(ContainSubstring(`bool is_virtual = false;`))
+			// The original snake_case name should NOT appear
+			Expect(content).NotTo(ContainSubstring(`bool virtual`))
+		})
+
 		It("Should handle @cpp omit", func() {
 			source := `
 				@cpp output "client/cpp/rack"
@@ -1076,6 +1106,142 @@ var _ = Describe("C++ Types Plugin", func() {
 			})
 		})
 
+		Describe("Namespace-based enum collection", func() {
+			It("Should include standalone enums in the same namespace as structs", func() {
+				// This tests the fix for enums that are not referenced by struct fields
+				// but are in the same namespace and should be generated in the same file.
+				source := `
+					@cpp output "x/cpp/control"
+
+					Concurrency enum {
+						exclusive = 0
+						shared = 1
+					}
+
+					Subject struct {
+						key string
+						name string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "control", loader, cppPlugin)
+
+				// The Concurrency enum should be generated even though Subject
+				// doesn't reference it - they're in the same namespace
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"namespace x::control {",
+						"enum class Concurrency : std::uint8_t {",
+						"Exclusive = 0,",
+						"Shared = 1,",
+						"struct Subject {",
+					)
+			})
+
+			It("Should include enums inherited from file-level output directive", func() {
+				source := `
+					@cpp output "x/cpp/status"
+
+					Variant enum {
+						success = 0
+						error = 1
+					}
+
+					Status struct {
+						key uint32
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"enum class Variant : std::uint8_t {",
+						"struct Status {",
+					)
+			})
+		})
+
+		Describe("Cross-namespace enum references", func() {
+			It("Should use namespace-qualified name for cross-namespace int enums", func() {
+				// First, set up the "control" namespace with the enum
+				controlSource := `
+					@cpp output "x/cpp/control"
+
+					Concurrency enum {
+						exclusive = 0
+						shared = 1
+					}
+
+					Subject struct {
+						key string
+					}
+				`
+				loader.Add("schemas/control", controlSource)
+
+				// Then, the "channel" namespace that references it
+				channelSource := `
+					import "schemas/control"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						key uint32
+						concurrency control.Concurrency
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, channelSource, "channel", loader)
+				Expect(diag.HasErrors()).To(BeFalse())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp, err := cppPlugin.Generate(req)
+				Expect(err).To(BeNil())
+				// Both channel and control files are generated when importing
+				Expect(resp.Files).To(HaveLen(2))
+
+				// Find and check the channel file content
+				var channelContent string
+				for _, f := range resp.Files {
+					if strings.HasSuffix(f.Path, "client/cpp/channel/types.gen.h") {
+						channelContent = string(f.Content)
+						break
+					}
+				}
+				Expect(channelContent).NotTo(BeEmpty())
+				// Should include the control types header
+				Expect(channelContent).To(ContainSubstring(`#include "x/cpp/control/types.gen.h"`))
+				// Should use namespace-qualified enum type
+				Expect(channelContent).To(ContainSubstring(`::x::control::Concurrency concurrency`))
+			})
+
+			It("Should not namespace-qualify enums in the same namespace", func() {
+				source := `
+					@cpp output "client/cpp/channel"
+
+					Concurrency enum {
+						exclusive = 0
+						shared = 1
+					}
+
+					Channel struct {
+						key uint32
+						concurrency Concurrency
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "channel", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"enum class Concurrency : std::uint8_t {",
+						"Concurrency concurrency",
+					).
+					ToNotContain(
+						"::synnax::channel::Concurrency",
+					)
+			})
+		})
+
 		Describe("Array Wrapper Generation", func() {
 			It("Should generate wrapper struct for array distinct types", func() {
 				source := `
@@ -1167,6 +1333,36 @@ var _ = Describe("C++ Types Plugin", func() {
 				testutil.ExpectContent(resp, "types.gen.h").
 					ToContain(
 						"Channels(std::initializer_list<std::uint32_t> init) : Base(init) {}",
+					)
+			})
+		})
+
+		Context("documentation", func() {
+			It("Should generate doxygen comments from doc domain", func() {
+				source := `
+					@cpp output "client/cpp/user"
+
+					User struct {
+						@doc value "A User represents a user in the system."
+
+						key uint32 @key {
+							@doc value "The unique identifier for the user."
+						}
+
+						name string {
+							@doc value "The user's display name."
+						}
+
+						age int32
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, cppPlugin)
+
+				testutil.ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"/// @brief A User represents a user in the system.",
+						"/// @brief The unique identifier for the user.",
+						"/// @brief The user's display name.",
 					)
 			})
 		})

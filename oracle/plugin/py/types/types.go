@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
@@ -314,6 +315,7 @@ func processStruct(
 ) structData {
 	sd := structData{
 		Name:   entry.Name,
+		Doc:    doc.Get(entry.Domains),
 		PyName: entry.Name, // Default to original name
 	}
 
@@ -441,6 +443,7 @@ func processField(
 ) fieldData {
 	fd := fieldData{
 		Name:           field.Name,
+		Doc:            doc.Get(field.Domains),
 		IsOptional:     field.IsOptional,
 		IsHardOptional: field.IsHardOptional,
 		IsArray:        field.Type.Name == "Array",
@@ -921,6 +924,7 @@ type keyFieldData struct {
 
 type structData struct {
 	Name    string // Original struct name from schema
+	Doc     string // Documentation from @doc domain
 	PyName  string // Python name (can be overridden via py domain { name "..." })
 	Fields  []fieldData
 	Skip    bool   // If true, skip generating this struct (omit)
@@ -937,6 +941,7 @@ type structData struct {
 
 type fieldData struct {
 	Name           string
+	Doc            string
 	PyType         string
 	Default        string
 	IsOptional     bool
@@ -1049,8 +1054,14 @@ class {{ .Name }}(IntEnum):
 
 
 class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}):
+{{- if .Doc }}
+    """{{ .Doc }}"""
+{{- end }}
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
+{{- if .Doc }}
+    # {{ .Doc }}
+{{- end }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
 {{- if .KeyField }}
@@ -1058,14 +1069,20 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
-{{- else }}
+{{- else if not .Doc }}
     pass
 {{- end }}
 {{- else }}
 
 
 class {{ .PyName }}(BaseModel):
+{{- if .Doc }}
+    """{{ .Doc }}"""
+{{- end }}
 {{- range .Fields }}
+{{- if .Doc }}
+    # {{ .Doc }}
+{{- end }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
 {{- if .KeyField }}

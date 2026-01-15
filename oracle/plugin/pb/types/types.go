@@ -17,6 +17,7 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -92,13 +93,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
+	pbPathFunc := func(typ resolution.Type, table *resolution.Table) string {
+		return enum.FindPBOutputPath(typ, table)
+	}
 	err := structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
-		// Get all enums in the namespace, not just referenced ones
 		namespace := ""
 		if len(structs) > 0 {
 			namespace = structs[0].Namespace
 		}
-		enums := req.Resolutions.EnumsInNamespace(namespace)
+		enums := enum.CollectReferenced(structs, req.Resolutions)
+		enums = framework.MergeTypes(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc))
 		content, err := p.generateFile(outputPath, structs, enums, req.Resolutions, req.RepoRoot)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
@@ -216,6 +220,7 @@ func (p *Plugin) processEnum(e resolution.Type) enumData {
 
 	ed := enumData{
 		Name:   e.Name,
+		Doc:    doc.Get(e.Domains),
 		Values: make([]enumValueData, 0, len(form.Values)),
 	}
 
@@ -264,6 +269,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messa
 
 	md := messageData{
 		Name:   name,
+		Doc:    doc.Get(entry.Domains),
 		Fields: make([]fieldData, 0),
 	}
 
@@ -286,6 +292,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 	if p.isFixedSizeUint8Array(field.Type, data.table) {
 		return fieldData{
 			Name:       toSnakeCase(field.Name),
+			Doc:        doc.Get(field.Domains),
 			Type:       "bytes",
 			Number:     number,
 			IsOptional: field.IsHardOptional,
@@ -306,6 +313,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 		// Use the wrapper type instead
 		return fieldData{
 			Name:       toSnakeCase(field.Name),
+			Doc:        doc.Get(field.Domains),
 			Type:       wrapperName,
 			Number:     number,
 			IsOptional: field.IsHardOptional,
@@ -322,6 +330,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 	// Soft optional (?) types are regular fields in proto.
 	return fieldData{
 		Name:       toSnakeCase(field.Name),
+		Doc:        doc.Get(field.Domains),
 		Type:       protoType,
 		Number:     number,
 		IsOptional: field.IsHardOptional,
@@ -695,12 +704,14 @@ func (d *templateData) Imports() []string {
 
 type messageData struct {
 	Name   string
+	Doc    string
 	Fields []fieldData
 	Skip   bool
 }
 
 type fieldData struct {
 	Name       string
+	Doc        string
 	Type       string
 	Number     int
 	IsOptional bool
@@ -709,6 +720,7 @@ type fieldData struct {
 
 type enumData struct {
 	Name   string
+	Doc    string
 	Values []enumValueData
 }
 
@@ -730,7 +742,10 @@ import "{{.}}";
 
 option go_package = "{{.GoPackage}}";
 {{- range .Enums}}
+{{- if .Doc}}
 
+// {{ .Doc }}
+{{- end}}
 enum {{.Name}} {
 {{- range .Values}}
   {{.Name}} = {{.Number}};
@@ -738,9 +753,15 @@ enum {{.Name}} {
 }
 {{- end}}
 {{- range .Messages}}
+{{- if .Doc}}
 
+// {{ .Doc }}
+{{- end}}
 message {{.Name}} {
 {{- range .Fields}}
+{{- if .Doc}}
+  // {{ .Doc }}
+{{- end}}
   {{if .IsRepeated}}repeated {{else if .IsOptional}}optional {{end}}{{.Type}} {{.Name}} = {{.Number}};
 {{- end}}
 }

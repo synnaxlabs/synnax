@@ -26,33 +26,29 @@ TEST(ArcTests, testCalcDoubling) {
     auto output_idx_name = make_unique_channel_name("ox_pt_doubled_idx");
     auto output_name = make_unique_channel_name("ox_pt_doubled");
 
-    auto input_idx = synnax::channel::Channel(
-        input_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto input_idx = synnax::channel::Channel{
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(input_idx));
-    auto output_idx = synnax::channel::Channel(
-        output_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto output_idx = synnax::channel::Channel{
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(output_idx));
 
-    auto input_ch = synnax::channel::Channel(
-        input_name,
-        x::telem::FLOAT32_T,
-        input_idx.key,
-        false
-    );
-    auto output_ch = synnax::channel::Channel(
-        output_name,
-        x::telem::FLOAT32_T,
-        output_idx.key,
-        false
-    );
+    auto input_ch = synnax::channel::Channel{
+        .name = input_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = input_idx.key,
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = output_idx.key,
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
@@ -126,37 +122,33 @@ TEST(ArcTests, testBasicSequence) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with the sequence
@@ -248,37 +240,33 @@ TEST(ArcTests, testOneShotTruthiness) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("truthiness_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("truthiness_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("truthiness_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("truthiness_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a sequence triggered by one-shot edge
@@ -397,55 +385,49 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     // Create trigger channel (start_cmd)
     auto start_cmd_idx_name = make_unique_channel_name("two_stage_start_cmd_idx");
     auto start_cmd_name = make_unique_channel_name("two_stage_start_cmd");
-    auto start_cmd_idx = synnax::channel::Channel(
-        start_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto start_cmd_idx = synnax::channel::Channel{
+        .name = start_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_idx));
-    auto start_cmd_ch = synnax::channel::Channel(
-        start_cmd_name,
-        x::telem::UINT8_T,
-        start_cmd_idx.key,
-        false
-    );
+    auto start_cmd_ch = synnax::channel::Channel{
+        .name = start_cmd_name,
+        .data_type = x::telem::UINT8_T,
+        .index = start_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(start_cmd_ch));
 
     // Create pressure sensor channel
     auto pressure_idx_name = make_unique_channel_name("two_stage_pressure_idx");
     auto pressure_name = make_unique_channel_name("two_stage_pressure");
-    auto pressure_idx = synnax::channel::Channel(
-        pressure_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto pressure_idx = synnax::channel::Channel{
+        .name = pressure_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(pressure_idx));
-    auto pressure_ch = synnax::channel::Channel(
-        pressure_name,
-        x::telem::FLOAT32_T,
-        pressure_idx.key,
-        false
-    );
+    auto pressure_ch = synnax::channel::Channel{
+        .name = pressure_name,
+        .data_type = x::telem::FLOAT32_T,
+        .index = pressure_idx.key,
+    };
     ASSERT_NIL(client->channels.create(pressure_ch));
 
     // Create output channel (valve_cmd)
     auto valve_cmd_idx_name = make_unique_channel_name("two_stage_valve_cmd_idx");
     auto valve_cmd_name = make_unique_channel_name("two_stage_valve_cmd");
-    auto valve_cmd_idx = synnax::channel::Channel(
-        valve_cmd_idx_name,
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
+    auto valve_cmd_idx = synnax::channel::Channel{
+        .name = valve_cmd_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_idx));
-    auto valve_cmd_ch = synnax::channel::Channel(
-        valve_cmd_name,
-        x::telem::INT64_T,
-        valve_cmd_idx.key,
-        false
-    );
+    auto valve_cmd_ch = synnax::channel::Channel{
+        .name = valve_cmd_name,
+        .data_type = x::telem::INT64_T,
+        .index = valve_cmd_idx.key,
+    };
     ASSERT_NIL(client->channels.create(valve_cmd_ch));
 
     // Create Arc program with a two-stage sequence

@@ -22,6 +22,11 @@ namespace x::spatial {
 
 struct XY;
 
+constexpr const char *OUTER_LOCATION_TOP = "top";
+constexpr const char *OUTER_LOCATION_RIGHT = "right";
+constexpr const char *OUTER_LOCATION_BOTTOM = "bottom";
+constexpr const char *OUTER_LOCATION_LEFT = "left";
+
 struct XY {
     double x = 0;
     double y = 0;

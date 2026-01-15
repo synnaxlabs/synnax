@@ -67,7 +67,12 @@ inline ::x::status::pb::Status Status<Details>::to_proto() const {
     if constexpr (std::is_same_v<Details, x::json::json>) {
         *pb.mutable_details() = x::json::to_any(this->details);
     } else {
-        *pb.mutable_details() = x::json::to_any(this->details.to_json());
+        if constexpr (std::is_same_v<Details, std::monostate>)
+            *pb.mutable_details() = x::json::to_any(x::json::json(nullptr));
+        else if constexpr (std::is_same_v<Details, x::json::json>)
+            *pb.mutable_details() = x::json::to_any(this->details);
+        else
+            *pb.mutable_details() = x::json::to_any(this->details.to_json());
     }
     for (const auto &item: this->labels)
         *pb.add_labels() = item.to_proto();
@@ -94,7 +99,12 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
         {
             auto [val, err] = x::json::from_any(pb.details());
             if (err) return {{}, err};
-            cpp.details = Details::parse(x::json::Parser(val));
+            if constexpr (std::is_same_v<Details, std::monostate>)
+                cpp.details = std::monostate{};
+            else if constexpr (std::is_same_v<Details, x::json::json>)
+                cpp.details = val;
+            else
+                cpp.details = Details::parse(x::json::Parser(val));
         }
     }
     for (const auto &item: pb.labels()) {

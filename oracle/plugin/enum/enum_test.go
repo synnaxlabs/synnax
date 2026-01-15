@@ -345,6 +345,164 @@ var _ = Describe("FindPBOutputPath", func() {
 	})
 })
 
+var _ = Describe("CollectNamespaceEnums", func() {
+	It("should collect enums in the same namespace with matching output path", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Status",
+			Namespace:     "task",
+			QualifiedName: "task.Status",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "Task",
+			QualifiedName: "task.Task",
+			Namespace:     "task",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "client/ts/task"}},
+				}}},
+			},
+		})).To(Succeed())
+		result := enum.CollectNamespaceEnums("task", "client/ts/task", table, "ts", nil)
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].Name).To(Equal("Status"))
+	})
+
+	It("should exclude enums from different namespaces", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "OtherEnum",
+			Namespace:     "other",
+			QualifiedName: "other.OtherEnum",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "value"}}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "Task",
+			QualifiedName: "task.Task",
+			Namespace:     "task",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "client/ts/task"}},
+				}}},
+			},
+		})).To(Succeed())
+		result := enum.CollectNamespaceEnums("task", "client/ts/task", table, "ts", nil)
+		Expect(result).To(BeEmpty())
+	})
+
+	It("should exclude omitted enums", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Status",
+			Namespace:     "task",
+			QualifiedName: "task.Status",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{Name: "omit"}}},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "Task",
+			QualifiedName: "task.Task",
+			Namespace:     "task",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "client/ts/task"}},
+				}}},
+			},
+		})).To(Succeed())
+		result := enum.CollectNamespaceEnums("task", "client/ts/task", table, "ts", nil)
+		Expect(result).To(BeEmpty())
+	})
+
+	It("should deduplicate by qualified name", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Status",
+			Namespace:     "task",
+			QualifiedName: "task.Status",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "Task",
+			QualifiedName: "task.Task",
+			Namespace:     "task",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "client/ts/task"}},
+				}}},
+			},
+		})).To(Succeed())
+		result := enum.CollectNamespaceEnums("task", "client/ts/task", table, "ts", nil)
+		Expect(result).To(HaveLen(1))
+	})
+
+	It("should use custom path function when provided", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Status",
+			Namespace:     "control",
+			QualifiedName: "control.Status",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "Subject",
+			QualifiedName: "control.Subject",
+			Namespace:     "control",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "x/go/control"}},
+				}}},
+				"pb": {Expressions: []resolution.Expression{}},
+			},
+		})).To(Succeed())
+
+		customPathFunc := func(typ resolution.Type, t *resolution.Table) string {
+			return enum.FindPBOutputPath(typ, t)
+		}
+		result := enum.CollectNamespaceEnums("control", "x/go/control/pb", table, "pb", customPathFunc)
+		Expect(result).To(HaveLen(1))
+		Expect(result[0].Name).To(Equal("Status"))
+	})
+
+	It("should not find enum with default path func when pb path differs", func() {
+		table := resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Status",
+			Namespace:     "control",
+			QualifiedName: "control.Status",
+			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name:          "Subject",
+			QualifiedName: "control.Subject",
+			Namespace:     "control",
+			Form:          resolution.StructForm{},
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{{
+					Name:   "output",
+					Values: []resolution.ExpressionValue{{StringValue: "x/go/control"}},
+				}}},
+				"pb": {Expressions: []resolution.Expression{}},
+			},
+		})).To(Succeed())
+
+		result := enum.CollectNamespaceEnums("control", "x/go/control/pb", table, "pb", nil)
+		Expect(result).To(BeEmpty())
+	})
+})
+
 var _ = Describe("CollectReferenced edge cases", func() {
 	It("should collect enums from array type args", func() {
 		table := resolution.NewTable()

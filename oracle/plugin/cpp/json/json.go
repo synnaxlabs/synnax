@@ -379,6 +379,13 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	cppType := p.typeRefToCpp(field.Type, data)
 	jsonName := toSnakeCase(field.Name)
 
+	// Get the C++ field name, respecting @cpp name override
+	// If there's an override, use it directly; otherwise convert to snake_case
+	cppFieldName := domain.GetFieldName(field, "cpp")
+	if cppFieldName == field.Name {
+		cppFieldName = toSnakeCase(field.Name)
+	}
+
 	// Only treat as generic field if the type param does NOT have a default
 	// Defaulted type params are substituted with their default value
 	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil && !field.Type.TypeParam.HasDefault()
@@ -399,7 +406,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	}
 
 	return fieldData{
-		Name:            toSnakeCase(field.Name),
+		Name:            cppFieldName,
 		CppType:         cppType,
 		JsonName:        jsonName,
 		ParseExpr:       parseExpr,
@@ -586,6 +593,19 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				}
 				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 			}
+			// For int enums from different namespaces, qualify with namespace
+			enumType := domain.GetName(resolved, "cpp")
+			if resolved.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(resolved, "cpp")
+				if targetOutputPath != "" {
+					ns := deriveNamespace(targetOutputPath)
+					enumType = fmt.Sprintf("::%s::%s", ns, enumType)
+				}
+			}
+			if field.IsHardOptional {
+				return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, enumType, jsonName)
+			}
+			return fmt.Sprintf(`parser.field<%s>("%s")`, enumType, jsonName)
 		}
 		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 			structType := domain.GetName(resolved, "cpp")
@@ -695,7 +715,12 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Type, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
-	fieldName := toSnakeCase(field.Name)
+
+	// Get the C++ field name, respecting @cpp name override
+	fieldName := domain.GetFieldName(field, "cpp")
+	if fieldName == field.Name {
+		fieldName = toSnakeCase(field.Name)
+	}
 
 	// Only treat as generic field if the type param does NOT have a default
 	// Defaulted type params are substituted with their default value
@@ -703,8 +728,10 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 		typeName := typeRef.TypeParam.Name
 		return fmt.Sprintf(`if constexpr (std::is_same_v<%s, x::json::json>)
         j["%s"] = this->%s;
+    else if constexpr (std::is_same_v<%s, std::monostate>)
+        j["%s"] = nullptr;
     else
-        j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, jsonName, fieldName)
+        j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, typeName, jsonName, jsonName, fieldName)
 	}
 
 	// Check if the type is a distinct array wrapper (e.g., Params -> Param[])
@@ -726,10 +753,12 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
         for (const auto& item : this->%s)
             if constexpr (std::is_same_v<%s, x::json::json>)
                 arr.push_back(item);
+            else if constexpr (std::is_same_v<%s, std::monostate>)
+                arr.push_back(nullptr);
             else
                 arr.push_back(item.to_json());
         j["%s"] = arr;
-    }`, fieldName, typeName, jsonName)
+    }`, fieldName, typeName, typeName, jsonName)
 		}
 
 		// Check if element type is a struct (needs to_json())

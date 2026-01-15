@@ -35,58 +35,6 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type OperationType int32
-
-const (
-	OperationType_OPERATION_TYPE_MIN  OperationType = 0
-	OperationType_OPERATION_TYPE_MAX  OperationType = 1
-	OperationType_OPERATION_TYPE_AVG  OperationType = 2
-	OperationType_OPERATION_TYPE_NONE OperationType = 3
-)
-
-// Enum value maps for OperationType.
-var (
-	OperationType_name = map[int32]string{
-		0: "OPERATION_TYPE_MIN",
-		1: "OPERATION_TYPE_MAX",
-		2: "OPERATION_TYPE_AVG",
-		3: "OPERATION_TYPE_NONE",
-	}
-	OperationType_value = map[string]int32{
-		"OPERATION_TYPE_MIN":  0,
-		"OPERATION_TYPE_MAX":  1,
-		"OPERATION_TYPE_AVG":  2,
-		"OPERATION_TYPE_NONE": 3,
-	}
-)
-
-func (x OperationType) Enum() *OperationType {
-	p := new(OperationType)
-	*p = x
-	return p
-}
-
-func (x OperationType) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (OperationType) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_api_channel_pb_channel_proto_enumTypes[0].Descriptor()
-}
-
-func (OperationType) Type() protoreflect.EnumType {
-	return &file_core_pkg_api_channel_pb_channel_proto_enumTypes[0]
-}
-
-func (x OperationType) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use OperationType.Descriptor instead.
-func (OperationType) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP(), []int{0}
-}
-
 type Channel struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -251,12 +199,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12;\n" +
 	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x120\n" +
 	"\x06status\x18\r \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_status*p\n" +
-	"\rOperationType\x12\x16\n" +
-	"\x12OPERATION_TYPE_MIN\x10\x00\x12\x16\n" +
-	"\x12OPERATION_TYPE_MAX\x10\x01\x12\x16\n" +
-	"\x12OPERATION_TYPE_AVG\x10\x02\x12\x17\n" +
-	"\x13OPERATION_TYPE_NONE\x10\x03B\xad\x01\n" +
+	"\a_statusB\xad\x01\n" +
 	"\x12com.api.channel.pbB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACP\xaa\x02\x0eApi.Channel.Pb\xca\x02\x0eApi\\Channel\\Pb\xe2\x02\x1aApi\\Channel\\Pb\\GPBMetadata\xea\x02\x10Api::Channel::Pbb\x06proto3"
 
 var (
@@ -271,19 +214,17 @@ func file_core_pkg_api_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_api_channel_pb_channel_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_core_pkg_api_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
-	(OperationType)(0),   // 0: api.channel.pb.OperationType
-	(*Channel)(nil),      // 1: api.channel.pb.Channel
-	(*pb.Operation)(nil), // 2: distribution.channel.pb.Operation
-	(pb1.Concurrency)(0), // 3: x.control.pb.Concurrency
-	(*pb2.Status)(nil),   // 4: x.status.pb.Status
+	(*Channel)(nil),      // 0: api.channel.pb.Channel
+	(*pb.Operation)(nil), // 1: distribution.channel.pb.Operation
+	(pb1.Concurrency)(0), // 2: x.control.pb.Concurrency
+	(*pb2.Status)(nil),   // 3: x.status.pb.Status
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
-	2, // 0: api.channel.pb.Channel.operations:type_name -> distribution.channel.pb.Operation
-	3, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	4, // 2: api.channel.pb.Channel.status:type_name -> x.status.pb.Status
+	1, // 0: api.channel.pb.Channel.operations:type_name -> distribution.channel.pb.Operation
+	2, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	3, // 2: api.channel.pb.Channel.status:type_name -> x.status.pb.Status
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -302,14 +243,13 @@ func file_core_pkg_api_channel_pb_channel_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_channel_pb_channel_proto_rawDesc), len(file_core_pkg_api_channel_pb_channel_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_api_channel_pb_channel_proto_goTypes,
 		DependencyIndexes: file_core_pkg_api_channel_pb_channel_proto_depIdxs,
-		EnumInfos:         file_core_pkg_api_channel_pb_channel_proto_enumTypes,
 		MessageInfos:      file_core_pkg_api_channel_pb_channel_proto_msgTypes,
 	}.Build()
 	File_core_pkg_api_channel_pb_channel_proto = out.File

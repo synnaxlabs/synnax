@@ -15,6 +15,7 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <variant>
 
 #include "nlohmann/json.hpp"
 
@@ -440,7 +441,10 @@ inline constexpr bool is_parseable_v = !is_json_type_v<T> &&
 
 template<typename T>
 T Parser::parse_value(const std::string &path, const json &j) {
-    if constexpr (is_map_v<T>) {
+    // Handle std::monostate - just return default constructed monostate
+    if constexpr (std::is_same_v<T, std::monostate>) {
+        return std::monostate{};
+    } else if constexpr (is_map_v<T>) {
         typedef typename is_map<T>::key_type K;
         using V = typename is_map<T>::value_type;
         if (!j.is_object()) {

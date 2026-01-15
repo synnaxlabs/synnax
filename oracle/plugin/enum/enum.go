@@ -59,6 +59,9 @@ func collectEnumsFromTypeRef(ref resolution.TypeRef, table *resolution.Table, se
 	}
 }
 
+// PathFunc is a function that returns the output path for a type.
+type PathFunc func(typ resolution.Type, table *resolution.Table) string
+
 // FindOutputPath finds the output path for an enum type.
 // First checks if the enum has its own output domain, then falls back to
 // searching for a struct in the same namespace that has an output domain.
@@ -75,6 +78,13 @@ func FindOutputPath(e resolution.Type, table *resolution.Table, domainName strin
 		}
 	}
 	return ""
+}
+
+// MakePathFunc creates a PathFunc for a given domain name.
+func MakePathFunc(domainName string) PathFunc {
+	return func(typ resolution.Type, table *resolution.Table) string {
+		return FindOutputPath(typ, table, domainName)
+	}
 }
 
 // CollectWithOwnOutput collects enum types that have their own output domain defined.
@@ -100,4 +110,39 @@ func FindPBOutputPath(e resolution.Type, table *resolution.Table) string {
 		}
 	}
 	return ""
+}
+
+// CollectNamespaceEnums returns all enums in the given namespace that should be
+// generated at the specified output path. This handles the case where enums
+// inherit their output path from file-level directives rather than having
+// explicit per-type output directives.
+//
+// The function:
+// - Filters by namespace
+// - Filters by output path (via pathFunc or default FindOutputPath)
+// - Excludes omitted enums
+// - Deduplicates by QualifiedName
+//
+// If pathFunc is nil, uses the default FindOutputPath for the given domain.
+func CollectNamespaceEnums(namespace, outputPath string, table *resolution.Table, domainName string, pathFunc PathFunc) []resolution.Type {
+	if pathFunc == nil {
+		pathFunc = MakePathFunc(domainName)
+	}
+	var result []resolution.Type
+	seen := make(map[string]bool)
+	for _, e := range table.EnumTypes() {
+		if e.Namespace != namespace {
+			continue
+		}
+		if output.IsOmitted(e, domainName) {
+			continue
+		}
+		if enumPath := pathFunc(e, table); enumPath == outputPath {
+			if !seen[e.QualifiedName] {
+				seen[e.QualifiedName] = true
+				result = append(result, e)
+			}
+		}
+	}
+	return result
 }

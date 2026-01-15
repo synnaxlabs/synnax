@@ -12,26 +12,32 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
+#include "client/cpp/cluster/types.gen.h"
+#include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
+#include "core/pkg/api/channel/pb/channel.pb.h"
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
 
 namespace synnax::channel {
 
 struct Operation;
+struct Channel;
 
 constexpr const char *OPERATION_TYPE_MIN = "min";
 constexpr const char *OPERATION_TYPE_MAX = "max";
 constexpr const char *OPERATION_TYPE_AVG = "avg";
 constexpr const char *OPERATION_TYPE_NONE = "none";
 
-using ChannelKey = std::uint32_t;
+using Key = std::uint32_t;
 
 using Name = std::string;
 
@@ -39,7 +45,7 @@ using Status = ::x::status::Status<>;
 
 struct Operation {
     std::string type;
-    ChannelKey reset_channel = 0;
+    Key reset_channel = 0;
     ::x::telem::TimeSpan duration = x::telem::TimeSpan(0);
 
     static Operation parse(x::json::Parser parser);
@@ -49,5 +55,29 @@ struct Operation {
     [[nodiscard]] ::distribution::channel::pb::Operation to_proto() const;
     static std::pair<Operation, x::errors::Error>
     from_proto(const ::distribution::channel::pb::Operation &pb);
+};
+
+struct Channel {
+    Key key = 0;
+    Name name;
+    ::synnax::cluster::NodeKey leaseholder = 0;
+    ::x::telem::DataType data_type;
+    bool is_index = false;
+    Key index = 0;
+    std::string alias;
+    bool is_virtual = false;
+    bool internal = false;
+    std::string expression;
+    std::vector<Operation> operations;
+    ::x::control::Concurrency concurrency;
+    std::optional<Status> status;
+
+    static Channel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::channel::pb::Channel;
+    [[nodiscard]] ::api::channel::pb::Channel to_proto() const;
+    static std::pair<Channel, x::errors::Error>
+    from_proto(const ::api::channel::pb::Channel &pb);
 };
 }

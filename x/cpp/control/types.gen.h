@@ -25,6 +25,11 @@ namespace x::control {
 
 struct Subject;
 
+enum class Concurrency : std::uint8_t {
+    Exclusive = 0,
+    Shared = 1,
+};
+
 using Authority = std::uint8_t;
 
 struct Subject {

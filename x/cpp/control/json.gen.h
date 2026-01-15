@@ -48,6 +48,8 @@ x::json::json State<R>::to_json() const {
     j["subject"] = this->subject.to_json();
     if constexpr (std::is_same_v<R, x::json::json>)
         j["resource"] = this->resource;
+    else if constexpr (std::is_same_v<R, std::monostate>)
+        j["resource"] = nullptr;
     else
         j["resource"] = this->resource.to_json();
     j["authority"] = this->authority;

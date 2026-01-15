@@ -11,6 +11,7 @@
 
 #include <string>
 
+#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
@@ -19,9 +20,6 @@
 #include "core/pkg/api/grpc/channel/channel.pb.h"
 
 namespace synnax::channel {
-/// @brief an alias for the type of channel's key.
-using Key = std::uint32_t;
-
 /// @brief freighter retrieve transport.
 using RetrieveClient = freighter::
     UnaryClient<grpc::channel::RetrieveRequest, grpc::channel::RetrieveResponse>;
@@ -29,67 +27,6 @@ using RetrieveClient = freighter::
 /// @brief freighter create transport.
 using CreateClient = freighter::
     UnaryClient<grpc::channel::CreateRequest, grpc::channel::CreateResponse>;
-
-class Client;
-
-/// @brief A channel is a logical collection of samples emitted by or representing
-/// the values of a single source, typically a sensor, actuator, or software
-/// generated value. See https://docs.synnaxlabs.com/reference/concepts/channels for
-/// an introduction to channels and how they work.
-struct Channel {
-    /// @brief A human-readable name for the channel.
-    std::string name;
-    /// @brief the data type of the channel.
-    x::telem::DataType data_type;
-    /// @brief the key of the channel. This is auto-assigned by the cluster on calls
-    /// to create and retrieve.
-    Key key = 0;
-    /// @brief The key of the channel that indexes this channel. This field must be
-    /// set if the channel is not an index channel.
-    Key index = 0;
-    /// @brief Sets whether the channel itself is an index channel.
-    bool is_index = false;
-    /// @brief The leaseholder of the channel.
-    std::uint32_t leaseholder = 0;
-    /// @brief Whether the channel is virtual. Virtual channels are not stored in
-    /// the Synnax database, and are purely used for streaming and communication
-    /// purposes.
-    bool is_virtual = false;
-    /// @brief Whether the channel is an internal channel. Internal channels are
-    /// created by the DB and generally should not be interacted with unless you
-    /// know what you're doing.
-    bool internal = false;
-
-    /// @brief constructs an empty, invalid channel.
-    Channel() = default;
-
-    /// @brief constructs a new index or indexed channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param index the index of the channel.
-    /// @param is_index whether the channel is an index channel.
-    Channel(
-        std::string name,
-        x::telem::DataType data_type,
-        Key index,
-        bool is_index = false
-    );
-
-    /// @brief constructs a new virtual channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param is_virtual whether the channel is virtual.
-    Channel(std::string name, x::telem::DataType data_type, bool is_virtual);
-
-    /// @brief constructs the channel from its protobuf type.
-    explicit Channel(const api::channel::pb::Channel &ch);
-
-private:
-    /// @brief binds the channel's fields to the protobuf type.
-    void to_proto(api::channel::pb::Channel *ch) const;
-
-    friend class Client;
-};
 
 /// @brief creates a vector of channel keys from a variadic list of channels.
 template<typename... Channels>

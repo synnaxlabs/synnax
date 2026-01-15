@@ -18,6 +18,7 @@ import (
 	"text/template"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
@@ -96,12 +97,14 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	// Generate files for structs (merging in enums and typedefs from same output path)
 	err = structCollector.ForEach(func(outputPath string, structs []resolution.Type) error {
 		enums := enum.CollectReferenced(structs, req.Resolutions)
-		// Merge standalone enums that share the same output path
 		if enumCollector.Has(outputPath) {
 			enums = framework.MergeTypesByName(enums, enumCollector.Remove(outputPath))
+		}
+		if len(structs) > 0 {
+			namespace := structs[0].Namespace
+			enums = framework.MergeTypesByName(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "ts", nil))
 		}
 		var typeDefs []resolution.Type
 		if typeDefCollector.Has(outputPath) {
@@ -141,9 +144,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	// Handle standalone typedef-only outputs
 	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
-		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, nil, typeDefs, req)
+		var enums []resolution.Type
+		if len(typeDefs) > 0 {
+			namespace := typeDefs[0].Namespace
+			enums = enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "ts", nil)
+		}
+		content, err := p.generateFile(typeDefs[0].Namespace, outputPath, nil, enums, typeDefs, req)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -592,6 +599,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		sd := structData{
 			Name:          entry.Name,
 			TSName:        entry.Name,
+			Doc:           doc.Get(entry.Domains),
 			IsGeneric:     aliasForm.IsGeneric(),
 			IsSingleParam: len(aliasForm.TypeParams) == 1,
 			IsAlias:       true,
@@ -661,6 +669,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	sd := structData{
 		Name:          entry.Name,
 		TSName:        entry.Name,
+		Doc:           doc.Get(entry.Domains),
 		IsGeneric:     form.IsGeneric(),
 		IsSingleParam: len(form.TypeParams) == 1,
 		IsAlias:       false,
@@ -1043,6 +1052,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	fd := fieldData{
 		Name:           field.Name,
 		TSName:         lo.CamelCase(field.Name),
+		Doc:            doc.Get(field.Domains),
 		IsOptional:     field.IsOptional,
 		IsHardOptional: field.IsHardOptional,
 		IsArray:        isArray,
@@ -1942,6 +1952,7 @@ type namedImportData struct {
 
 type structData struct {
 	Name, TSName, AliasOf, AliasTypeRef            string
+	Doc                                            string
 	Fields                                         []fieldData
 	TypeParams                                     []typeParamData
 	UseInput, Handwritten, ConcreteTypes           bool
@@ -1979,6 +1990,7 @@ type typeParamData struct {
 
 type fieldData struct {
 	Name, TSName, ZodType, TSType, ZodSchemaType   string
+	Doc                                            string
 	IsOptional, IsHardOptional, IsArray, IsSelfRef bool
 }
 
@@ -2288,9 +2300,16 @@ export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ 
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
 {{- end }}
 {{- else }}
+{{- if .Doc }}
+
+/** {{ .Doc }} */
+{{- end }}
 
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
+{{- if .Doc }}
+  /** {{ .Doc }} */
+{{- end }}
 {{- if .IsSelfRef }}
   get {{ .TSName }}(): {{ .ZodSchemaType }} {
     return {{ .ZodType }};

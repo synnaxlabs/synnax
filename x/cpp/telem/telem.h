@@ -816,6 +816,23 @@ public:
     /// @property Gets type name.
     [[nodiscard]] std::string name() const { return value; }
 
+    /// @brief Converts the data type to its protobuf representation.
+    /// @returns The string name of the data type.
+    [[nodiscard]] std::string to_proto() const { return value; }
+
+    /// @brief Constructs a DataType from its protobuf representation.
+    /// @param pb The string name of the data type from protobuf.
+    /// @returns The constructed DataType.
+    static DataType from_proto(const std::string &pb) { return DataType(pb); }
+
+    /// @brief Converts the data type to JSON (for nlohmann::json ADL).
+    friend void to_json(x::json::json &j, const DataType &dt) { j = dt.value; }
+
+    /// @brief Constructs a DataType from JSON (for nlohmann::json ADL).
+    friend void from_json(const x::json::json &j, DataType &dt) {
+        dt = DataType(j.get<std::string>());
+    }
+
     /// @property how many bytes in memory the data type holds.
     [[nodiscard]] size_t density() const { return this->density_; }
 

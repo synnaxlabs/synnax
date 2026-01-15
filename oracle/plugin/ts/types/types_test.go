@@ -1418,5 +1418,32 @@ var _ = Describe("TS Types Plugin", func() {
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
 			})
 		})
+
+		Context("documentation", func() {
+			It("Should generate JSDoc comments from doc domain", func() {
+				source := `
+					@ts output "out"
+
+					User struct {
+						@doc value "A User represents a user in the system."
+
+						key uuid @key {
+							@doc value "The unique identifier for the user."
+						}
+
+						name string {
+							@doc value "The user's display name."
+						}
+
+						age int32
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`/** A User represents a user in the system. */`))
+				Expect(content).To(ContainSubstring(`/** The unique identifier for the user. */`))
+				Expect(content).To(ContainSubstring(`/** The user's display name. */`))
+			})
+		})
 	})
 })

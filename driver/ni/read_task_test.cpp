@@ -240,18 +240,16 @@ protected:
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("data_channel"),
-        x::telem::FLOAT64_T,
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("data_channel"),
+        .data_type = x::telem::FLOAT64_T,
+        .index = index_channel.key,
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -540,18 +538,16 @@ protected:
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("digital_channel"),
-        x::telem::UINT8_T, // Digital data is typically boolean/uint8
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("digital_channel"),
+        .data_type = x::telem::UINT8_T, // Digital data is typically boolean/uint8
+        .index = index_channel.key,
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -704,18 +700,16 @@ protected:
     std::unique_ptr<driver::ni::ReadTaskConfig> cfg;
     std::shared_ptr<driver::task::MockContext> ctx;
     std::shared_ptr<driver::pipeline::mock::WriterFactory> mock_factory;
-    synnax::channel::Channel index_channel = synnax::channel::Channel(
-        make_unique_channel_name("time_channel"),
-        x::telem::TIMESTAMP_T,
-        0,
-        true
-    );
-    synnax::channel::Channel data_channel = synnax::channel::Channel(
-        make_unique_channel_name("counter_channel"),
-        x::telem::FLOAT64_T, // Counter frequency data
-        index_channel.key,
-        false
-    );
+    synnax::channel::Channel index_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("time_channel"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    synnax::channel::Channel data_channel = synnax::channel::Channel{
+        .name = make_unique_channel_name("counter_channel"),
+        .data_type = x::telem::FLOAT64_T, // Counter frequency data
+        .index = index_channel.key,
+    };
 
     void parse_config() {
         client = std::make_shared<synnax::Synnax>(new_test_client());

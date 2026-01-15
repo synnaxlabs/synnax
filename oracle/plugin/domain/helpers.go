@@ -102,3 +102,10 @@ func GetType(t resolution.Type, domainName string) string {
 func GetFieldType(f resolution.Field, domainName string) string {
 	return GetStringFromField(f, domainName, "type")
 }
+
+func GetFieldName(f resolution.Field, domainName string) string {
+	if override := GetStringFromField(f, domainName, "name"); override != "" {
+		return override
+	}
+	return f.Name
+}

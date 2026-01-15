@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
@@ -75,7 +74,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		MergeByName:     false,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
-		ExtraEnumsFunc:  collectNamespaceEnums,
 	}
 	return gen.Generate(req)
 }
@@ -89,24 +87,6 @@ func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, 
 		return "", err
 	}
 	return string(content), nil
-}
-
-func collectNamespaceEnums(structs []resolution.Type, table *resolution.Table, outputPath string) []resolution.Type {
-	if len(structs) == 0 {
-		return nil
-	}
-	namespace := structs[0].Namespace
-	var result []resolution.Type
-	for _, e := range table.EnumTypes() {
-		if e.Namespace != namespace {
-			continue
-		}
-		// Check if this enum's @go output matches (via file-level inheritance)
-		if enumPath := enum.FindOutputPath(e, table, "go"); enumPath == outputPath {
-			result = append(result, e)
-		}
-	}
-	return result
 }
 
 func generateGoFile(

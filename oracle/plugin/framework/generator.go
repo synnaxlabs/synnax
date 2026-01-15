@@ -87,7 +87,15 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 				enums = MergeTypes(enums, enumCollector.Remove(outputPath))
 			}
 		}
-		// Call the extra enums callback if provided (used by Go for namespace-level enums)
+		if g.CollectEnums && len(structs) > 0 {
+			namespace := structs[0].Namespace
+			namespaceEnums := enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, g.Domain, nil)
+			if g.MergeByName {
+				enums = MergeTypesByName(enums, namespaceEnums)
+			} else {
+				enums = MergeTypes(enums, namespaceEnums)
+			}
+		}
 		if g.ExtraEnumsFunc != nil {
 			enums = MergeTypes(enums, g.ExtraEnumsFunc(structs, req.Resolutions, outputPath))
 		}

@@ -113,29 +113,24 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	// Generate files for structs and standalone aliases
 	for _, outputPath := range combinedOrder {
 		structs := structCollector.Get(outputPath)
 		enums := enum.CollectReferenced(structs, req.Resolutions)
 
-		// If no structs to reference enums from, check for standalone enums or namespace-based enums
-		if len(structs) == 0 {
-			// First check if we have standalone enums collected for this path
+		if len(structs) > 0 {
+			namespace := structs[0].Namespace
+			enums = framework.MergeTypes(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "cpp", nil))
+		} else {
 			if standaloneEnums, ok := enumOutputPaths[outputPath]; ok {
-				enums = append(enums, standaloneEnums...)
+				enums = framework.MergeTypes(enums, standaloneEnums)
 			} else {
-				// Fall back to namespace-based collection from aliases
 				aliases := aliasCollector.Get(outputPath)
 				var namespace string
 				if len(aliases) > 0 {
 					namespace = aliases[0].Namespace
 				}
 				if namespace != "" {
-					for _, e := range req.Resolutions.EnumTypes() {
-						if e.Namespace == namespace && !omit.IsType(e, "cpp") {
-							enums = append(enums, e)
-						}
-					}
+					enums = framework.MergeTypes(enums, enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "cpp", nil))
 				}
 			}
 		}
@@ -155,17 +150,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 
-	// Handle standalone typedef-only outputs
 	err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
-		// Collect enums in the same namespace as the typedefs
 		var enums []resolution.Type
 		if len(typeDefs) > 0 {
 			namespace := typeDefs[0].Namespace
-			for _, e := range req.Resolutions.EnumTypes() {
-				if e.Namespace == namespace && !omit.IsType(e, "cpp") {
-					enums = append(enums, e)
-				}
-			}
+			enums = enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "cpp", nil)
 		}
 		content, err := p.generateFile(outputPath, nil, enums, typeDefs, nil, req.Resolutions)
 		if err != nil {
@@ -890,8 +879,15 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 		underlyingPrimitive = ""
 	}
 
+	// Get the C++ field name, respecting @cpp name override
+	// If there's an override, use it directly; otherwise convert to snake_case
+	cppFieldName := domain.GetFieldName(field, "cpp")
+	if cppFieldName == field.Name {
+		cppFieldName = toSnakeCase(field.Name)
+	}
+
 	return fieldData{
-		Name:         toSnakeCase(field.Name),
+		Name:         cppFieldName,
 		CppType:      cppType,
 		Doc:          doc.Get(field.Domains),
 		IsSelfRef:    isSelfRef,
@@ -1047,22 +1043,27 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 }
 
 func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
-	// For cross-namespace references, we need to add an include
-	if resolved.Namespace != data.rawNs {
-		targetOutputPath := enum.FindOutputPath(resolved, data.table, "cpp")
-		if targetOutputPath != "" {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
-			data.includes.addInternal(includePath)
-		}
-	}
-
 	// String enums in C++ are represented as std::string, not as an enum class
 	if !form.IsIntEnum {
 		data.includes.addSystem("string")
 		return "std::string"
 	}
 
-	return resolved.Name
+	name := resolved.Name
+
+	// For cross-namespace references, we need to add an include and namespace prefix
+	if resolved.Namespace != data.rawNs {
+		targetOutputPath := enum.FindOutputPath(resolved, data.table, "cpp")
+		if targetOutputPath != "" {
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			data.includes.addInternal(includePath)
+			// Use namespace-qualified name with :: prefix for absolute resolution
+			ns := deriveNamespace(targetOutputPath)
+			name = fmt.Sprintf("::%s::%s", ns, name)
+		}
+	}
+
+	return name
 }
 
 func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {

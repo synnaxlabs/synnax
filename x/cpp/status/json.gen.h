@@ -47,6 +47,8 @@ x::json::json Status<Details>::to_json() const {
     j["time"] = this->time.nanoseconds();
     if constexpr (std::is_same_v<Details, x::json::json>)
         j["details"] = this->details;
+    else if constexpr (std::is_same_v<Details, std::monostate>)
+        j["details"] = nullptr;
     else
         j["details"] = this->details.to_json();
     {

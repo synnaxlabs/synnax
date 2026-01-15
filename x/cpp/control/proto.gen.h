@@ -46,7 +46,12 @@ inline ::x::control::pb::State State<R>::to_proto() const {
     if constexpr (std::is_same_v<R, x::json::json>) {
         *pb.mutable_resource() = x::json::to_any(this->resource);
     } else {
-        *pb.mutable_resource() = x::json::to_any(this->resource.to_json());
+        if constexpr (std::is_same_v<R, std::monostate>)
+            *pb.mutable_resource() = x::json::to_any(x::json::json(nullptr));
+        else if constexpr (std::is_same_v<R, x::json::json>)
+            *pb.mutable_resource() = x::json::to_any(this->resource);
+        else
+            *pb.mutable_resource() = x::json::to_any(this->resource.to_json());
     }
     pb.set_authority(this->authority);
     return pb;
@@ -71,7 +76,12 @@ State<R>::from_proto(const ::x::control::pb::State &pb) {
         {
             auto [val, err] = x::json::from_any(pb.resource());
             if (err) return {{}, err};
-            cpp.resource = R::parse(x::json::Parser(val));
+            if constexpr (std::is_same_v<R, std::monostate>)
+                cpp.resource = std::monostate{};
+            else if constexpr (std::is_same_v<R, x::json::json>)
+                cpp.resource = val;
+            else
+                cpp.resource = R::parse(x::json::Parser(val));
         }
     }
     cpp.authority = pb.authority();

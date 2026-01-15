@@ -19,7 +19,6 @@ import "schemas/status"
 
 Key uint32 {
     @go output    "core/pkg/distribution/channel"
-    @cpp name     "ChannelKey"
     @ts to_number
 }
 
@@ -88,7 +87,10 @@ APIChannel struct {
     is_index    bool
     index       Key
     alias       string?
-    virtual     bool                 @validate default false
+    virtual     bool                 {
+        @validate default false
+        @cpp name         "is_virtual"
+    }
     internal    bool                 @validate default false
     expression  string               @validate default ""
     operations  Operation[]?
@@ -101,7 +103,7 @@ APIChannel struct {
     @ts name       "Payload"
     @pb name       "Channel"
     @go name       "Channel"
-    @cpp omit
+    @cpp name      "Channel"
 }
 
 NewChannel struct extends APIChannel {
@@ -119,4 +121,5 @@ NewChannel struct extends APIChannel {
     @ts name      "New"
     @ts use_input
     @cpp omit
+    @pb omit
 }

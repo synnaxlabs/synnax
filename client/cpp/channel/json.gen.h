@@ -12,9 +12,12 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "client/cpp/channel/types.gen.h"
+#include "client/cpp/cluster/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/status/json.gen.h"
 #include "x/cpp/telem/json.gen.h"
 
 namespace synnax::channel {
@@ -22,7 +25,7 @@ namespace synnax::channel {
 inline Operation Operation::parse(x::json::Parser parser) {
     return Operation{
         .type = parser.field<std::string>("type"),
-        .reset_channel = parser.field<ChannelKey>("reset_channel"),
+        .reset_channel = parser.field<Key>("reset_channel"),
         .duration = parser.field<::x::telem::TimeSpan>("duration"),
     };
 }
@@ -32,6 +35,49 @@ inline x::json::json Operation::to_json() const {
     j["type"] = this->type;
     j["reset_channel"] = this->reset_channel;
     j["duration"] = this->duration.nanoseconds();
+    return j;
+}
+
+inline Channel Channel::parse(x::json::Parser parser) {
+    return Channel{
+        .key = parser.field<Key>("key"),
+        .name = parser.field<Name>("name"),
+        .leaseholder = parser.field<::synnax::cluster::NodeKey>("leaseholder"),
+        .data_type = parser.field<::x::telem::DataType>("data_type"),
+        .is_index = parser.field<bool>("is_index"),
+        .index = parser.field<Key>("index"),
+        .alias = parser.field<std::string>("alias", ""),
+        .is_virtual = parser.field<bool>("virtual"),
+        .internal = parser.field<bool>("internal"),
+        .expression = parser.field<std::string>("expression"),
+        .operations = parser.field<std::vector<Operation>>("operations"),
+        .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
+        .status = parser.has("status")
+                    ? std::make_optional(parser.field<Status>("status"))
+                    : std::nullopt,
+    };
+}
+
+inline x::json::json Channel::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["name"] = this->name;
+    j["leaseholder"] = this->leaseholder;
+    j["data_type"] = this->data_type;
+    j["is_index"] = this->is_index;
+    j["index"] = this->index;
+    j["alias"] = this->alias;
+    j["virtual"] = this->is_virtual;
+    j["internal"] = this->internal;
+    j["expression"] = this->expression;
+    {
+        auto arr = x::json::json::array();
+        for (const auto &item: this->operations)
+            arr.push_back(item.to_json());
+        j["operations"] = arr;
+    }
+    j["concurrency"] = this->concurrency;
+    if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }
 
