@@ -685,7 +685,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const typeZ = z.object({`))
 			Expect(content).To(ContainSubstring(`kind: kindZ`))
-			Expect(content).To(ContainSubstring(`get elem() {`))
+			Expect(content).To(ContainSubstring(`get elem():`))
 			Expect(content).To(ContainSubstring(`return typeZ.optional()`))
 			Expect(content).To(ContainSubstring(`export interface Type extends z.infer<typeof typeZ> {}`))
 		})
@@ -711,7 +711,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const nodeZ = z.object({`))
-			Expect(content).To(ContainSubstring(`get children() {`))
+			Expect(content).To(ContainSubstring(`get children():`))
 			// Optional arrays use zod.nullToUndefined with array schema
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(nodeZ.array())`))
 		})
@@ -738,9 +738,9 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const mosaicNodeZ = z.object({`))
-			Expect(content).To(ContainSubstring(`get first() {`))
+			Expect(content).To(ContainSubstring(`get first():`))
 			Expect(content).To(ContainSubstring(`return mosaicNodeZ.optional()`))
-			Expect(content).To(ContainSubstring(`get last() {`))
+			Expect(content).To(ContainSubstring(`get last():`))
 		})
 
 		It("Should generate getter for generic recursive struct with single param", func() {
@@ -764,7 +764,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const treeNodeZ = <K extends z.ZodType = z.ZodString>(k?: K) =>`))
-			Expect(content).To(ContainSubstring(`get children() {`))
+			Expect(content).To(ContainSubstring(`get children():`))
 			// Optional arrays use zod.nullToUndefined with array schema
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(treeNodeZ(k).array())`))
 		})
@@ -792,7 +792,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodString, V extends z.ZodType = z.ZodString>`))
 			Expect(content).To(ContainSubstring(`}: MapNodeSchemas<K, V> = {}) =>`))
-			Expect(content).To(ContainSubstring(`get children() {`))
+			Expect(content).To(ContainSubstring(`get children():`))
 			// Optional arrays use zod.nullToUndefined with array schema
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(mapNodeZ({k: k, v: v}).array())`))
 		})
