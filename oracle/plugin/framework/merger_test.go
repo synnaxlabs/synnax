@@ -423,7 +423,7 @@ var _ = Describe("Collect Helpers", func() {
 
 	BeforeEach(func() {
 		table = resolution.NewTable()
-		table.Add(resolution.Type{
+		Expect(table.Add(resolution.Type{
 			Name: "User", QualifiedName: "auth.User", Namespace: "auth",
 			Form: resolution.StructForm{},
 			Domains: map[string]resolution.Domain{
@@ -431,8 +431,8 @@ var _ = Describe("Collect Helpers", func() {
 					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
 				}},
 			},
-		})
-		table.Add(resolution.Type{
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
 			Name: "Status", QualifiedName: "auth.Status", Namespace: "auth",
 			Form: resolution.EnumForm{Values: []resolution.EnumValue{{Name: "ACTIVE"}}},
 			Domains: map[string]resolution.Domain{
@@ -440,8 +440,8 @@ var _ = Describe("Collect Helpers", func() {
 					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
 				}},
 			},
-		})
-		table.Add(resolution.Type{
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
 			Name: "UserID", QualifiedName: "auth.UserID", Namespace: "auth",
 			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: "uuid"}},
 			Domains: map[string]resolution.Domain{
@@ -449,8 +449,8 @@ var _ = Describe("Collect Helpers", func() {
 					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
 				}},
 			},
-		})
-		table.Add(resolution.Type{
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
 			Name: "StringAlias", QualifiedName: "auth.StringAlias", Namespace: "auth",
 			Form: resolution.AliasForm{Target: resolution.TypeRef{Name: "string"}},
 			Domains: map[string]resolution.Domain{
@@ -458,7 +458,7 @@ var _ = Describe("Collect Helpers", func() {
 					{Name: "output", Values: []resolution.ExpressionValue{{StringValue: "core/auth"}}},
 				}},
 			},
-		})
+		})).To(Succeed())
 		req = &plugin.Request{Resolutions: table}
 	})
 
