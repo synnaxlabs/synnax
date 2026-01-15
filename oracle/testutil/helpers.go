@@ -13,8 +13,8 @@ import (
 	"context"
 	"strings"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 )
@@ -47,9 +47,9 @@ func MustGenerateRequest(
 	namespace string,
 	loader *MockFileLoader,
 ) *plugin.Request {
-	GinkgoHelper()
+	ginkgo.GinkgoHelper()
 	req, err := generateRequest(ctx, source, namespace, loader)
-	Expect(err).To(BeNil(), "failed to analyze source")
+	gomega.Expect(err).To(gomega.BeNil(), "failed to analyze source")
 	return req
 }
 
@@ -62,10 +62,10 @@ func MustGenerate(
 	loader *MockFileLoader,
 	p plugin.Plugin,
 ) *plugin.Response {
-	GinkgoHelper()
+	ginkgo.GinkgoHelper()
 	req := MustGenerateRequest(ctx, source, namespace, loader)
 	resp, err := p.Generate(req)
-	Expect(err).To(BeNil(), "failed to generate")
+	gomega.Expect(err).To(gomega.BeNil(), "failed to generate")
 	return resp
 }
 
@@ -82,9 +82,9 @@ func contentOf(resp *plugin.Response, pathSuffix string) string {
 
 // MustContentOf is like ContentOf but fails the test if no matching file is found.
 func MustContentOf(resp *plugin.Response, pathSuffix string) string {
-	GinkgoHelper()
+	ginkgo.GinkgoHelper()
 	content := contentOf(resp, pathSuffix)
-	Expect(content).NotTo(BeEmpty(), "no file found with suffix: %s", pathSuffix)
+	gomega.Expect(content).NotTo(gomega.BeEmpty(), "no file found with suffix: %s", pathSuffix)
 	return content
 }
 
@@ -96,37 +96,37 @@ type ContentExpectation struct {
 // ExpectContent creates a ContentExpectation for fluent assertions.
 // Fails if no file with the given suffix is found.
 func ExpectContent(resp *plugin.Response, pathSuffix string) *ContentExpectation {
-	GinkgoHelper()
+	ginkgo.GinkgoHelper()
 	content := MustContentOf(resp, pathSuffix)
 	return &ContentExpectation{content: content}
 }
 
 // ToContain asserts that the content contains all the given substrings.
 func (c *ContentExpectation) ToContain(substrings ...string) *ContentExpectation {
-	GinkgoHelper()
+	ginkgo.GinkgoHelper()
 	for _, s := range substrings {
-		Expect(c.content).To(ContainSubstring(s), "expected content to contain: %q", s)
+		gomega.Expect(c.content).To(gomega.ContainSubstring(s), "expected content to contain: %q", s)
 	}
 	return c
 }
 
 // ToNotContain asserts that the content does not contain any of the given substrings.
 func (c *ContentExpectation) ToNotContain(substrings ...string) *ContentExpectation {
-	GinkgoHelper()
+	ginkgo.GinkgoHelper()
 	for _, s := range substrings {
-		Expect(c.content).NotTo(ContainSubstring(s), "expected content to NOT contain: %q", s)
+		gomega.Expect(c.content).NotTo(gomega.ContainSubstring(s), "expected content to NOT contain: %q", s)
 	}
 	return c
 }
 
 // ToPreserveOrder asserts that the given substrings appear in order in the content.
 func (c *ContentExpectation) ToPreserveOrder(orderedSubstrings ...string) *ContentExpectation {
-	GinkgoHelper()
+	ginkgo.GinkgoHelper()
 	lastIdx := -1
 	for _, s := range orderedSubstrings {
 		idx := strings.Index(c.content, s)
-		Expect(idx).To(BeNumerically(">=", 0), "expected content to contain: %q", s)
-		Expect(idx).To(BeNumerically(">", lastIdx),
+		gomega.Expect(idx).To(gomega.BeNumerically(">=", 0), "expected content to contain: %q", s)
+		gomega.Expect(idx).To(gomega.BeNumerically(">", lastIdx),
 			"expected %q to appear after previous substring", s)
 		lastIdx = idx
 	}

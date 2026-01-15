@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/parser"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -238,7 +239,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		}
 	}
 
-	c.table.Add(resolution.Type{
+	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
@@ -246,7 +247,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		Form:          form,
 		Domains:       domains,
 		AST:           def,
-	})
+	}))
 }
 
 func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
@@ -294,7 +295,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		}
 	}
 
-	c.table.Add(resolution.Type{
+	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
@@ -305,7 +306,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		},
 		Domains: domains,
 		AST:     def,
-	})
+	}))
 }
 
 func collectTypeParams(params parser.ITypeParamsContext) []resolution.TypeParam {
@@ -577,7 +578,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 		}
 	}
 
-	c.table.Add(resolution.Type{
+	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
@@ -585,7 +586,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 		Form:          form,
 		Domains:       domains,
 		AST:           def,
-	})
+	}))
 }
 
 func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
@@ -633,7 +634,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		}
 	}
 
-	c.table.Add(resolution.Type{
+	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
@@ -641,7 +642,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		Form:          resolution.DistinctForm{Base: base, TypeParams: typeParams},
 		Domains:       domains,
 		AST:           def,
-	})
+	}))
 }
 
 func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {

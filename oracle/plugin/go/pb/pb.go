@@ -21,6 +21,8 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -751,7 +753,7 @@ func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *re
 
 	// For primitives, capitalize the type name
 	if resolution.IsPrimitive(elemType.Name) {
-		return strings.Title(elemType.Name) + "Array"
+		return cases.Title(language.English).String(elemType.Name) + "Array"
 	}
 
 	return "ArrayWrapper"
@@ -1560,7 +1562,7 @@ func parseModuleName(modPath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

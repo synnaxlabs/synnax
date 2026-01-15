@@ -42,7 +42,7 @@ var _ = Describe("CollectReferenced", func() {
 				Values: []resolution.EnumValue{{Name: "active"}},
 			},
 		}
-		table.Add(taskStateType)
+		Expect(table.Add(taskStateType)).To(Succeed())
 
 		structs := []resolution.Type{{
 			Name:          "Task",
@@ -69,7 +69,7 @@ var _ = Describe("CollectReferenced", func() {
 				Values: []resolution.EnumValue{{Name: "active"}},
 			},
 		}
-		table.Add(taskStateType)
+		Expect(table.Add(taskStateType)).To(Succeed())
 
 		structs := []resolution.Type{
 			{
@@ -98,18 +98,18 @@ var _ = Describe("CollectReferenced", func() {
 
 	It("should collect multiple different enums", func() {
 		table := resolution.NewTable()
-		table.Add(resolution.Type{
+		Expect(table.Add(resolution.Type{
 			Name:          "TaskState",
 			Namespace:     "task",
 			QualifiedName: "task.TaskState",
 			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "active"}}},
-		})
-		table.Add(resolution.Type{
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
 			Name:          "DataType",
 			Namespace:     "telem",
 			QualifiedName: "telem.DataType",
 			Form:          resolution.EnumForm{Values: []resolution.EnumValue{{Name: "float32"}}},
-		})
+		})).To(Succeed())
 
 		structs := []resolution.Type{{
 			Name:          "Record",
@@ -181,7 +181,7 @@ var _ = Describe("FindOutputPath", func() {
 	It("should return empty for enum with no matching namespace", func() {
 		e := resolution.Type{Name: "TaskState", Namespace: "task", Form: resolution.EnumForm{}}
 		table := resolution.NewTable()
-		table.Add(resolution.Type{
+		Expect(table.Add(resolution.Type{
 			Name:          "Other",
 			QualifiedName: "other.Other",
 			Namespace:     "other",
@@ -192,20 +192,20 @@ var _ = Describe("FindOutputPath", func() {
 					Values: []resolution.ExpressionValue{{StringValue: "client/ts/other"}},
 				}}},
 			},
-		})
+		})).To(Succeed())
 		Expect(enum.FindOutputPath(e, table, "ts")).To(BeEmpty())
 	})
 
 	It("should return empty for struct without output domain", func() {
 		e := resolution.Type{Name: "TaskState", Namespace: "task", Form: resolution.EnumForm{}}
 		table := resolution.NewTable()
-		table.Add(resolution.Type{
+		Expect(table.Add(resolution.Type{
 			Name:          "Task",
 			QualifiedName: "task.Task",
 			Namespace:     "task",
 			Form:          resolution.StructForm{},
 			Domains:       map[string]resolution.Domain{},
-		})
+		})).To(Succeed())
 		Expect(enum.FindOutputPath(e, table, "ts")).To(BeEmpty())
 	})
 

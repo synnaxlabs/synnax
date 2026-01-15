@@ -35,7 +35,7 @@ var _ = Describe("Check Utilities", func() {
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(tempDir)
+		Expect(os.RemoveAll(tempDir)).To(Succeed())
 	})
 
 	Describe("FileModTime", func() {

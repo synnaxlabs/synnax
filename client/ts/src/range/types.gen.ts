@@ -18,7 +18,7 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 export const baseZ = z.object({
-  key: keyZ.default(0),
+  key: keyZ,
   name: z.string().min(1),
   timeRange: telem.timeRangeZ,
   color: color.colorZ.optional(),

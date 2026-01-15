@@ -24,7 +24,7 @@ Key: TypeAlias = UUID
 
 
 class Payload(BaseModel):
-    key: Key = Field(default=UUID(int=0))
+    key: Key
     name: str = Field(min_length=1)
     time_range: telem.TimeRange
     color: color_.Color | None = None

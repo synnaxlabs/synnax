@@ -177,7 +177,7 @@ var _ = Describe("Paths", func() {
 			// Save original working directory
 			originalWd, err := os.Getwd()
 			Expect(err).ToNot(HaveOccurred())
-			defer os.Chdir(originalWd)
+			defer func() { Expect(os.Chdir(originalWd)).To(Succeed()) }()
 
 			// Get repo root from current location
 			root1, err := paths.RepoRoot()

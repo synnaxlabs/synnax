@@ -21,15 +21,13 @@ var (
 	purple  = lipgloss.Color("#9D4EDD")
 	pink    = lipgloss.Color("#FF6B9D")
 	cyan    = lipgloss.Color("#00D9FF")
-	green   = lipgloss.Color("#39FF14")
 	dimGray = lipgloss.Color("#6B7280")
 
 	// Styles
-	pluginStyle  = lipgloss.NewStyle().Foreground(pink)
-	actionStyle  = lipgloss.NewStyle().Foreground(cyan)
-	countStyle   = lipgloss.NewStyle().Bold(true).Foreground(purple)
-	successStyle = lipgloss.NewStyle().Foreground(green)
-	dimStyle     = lipgloss.NewStyle().Foreground(dimGray)
+	pluginStyle = lipgloss.NewStyle().Foreground(pink)
+	actionStyle = lipgloss.NewStyle().Foreground(cyan)
+	countStyle  = lipgloss.NewStyle().Bold(true).Foreground(purple)
+	dimStyle    = lipgloss.NewStyle().Foreground(dimGray)
 )
 
 const (

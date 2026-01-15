@@ -980,9 +980,10 @@ func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
 	}
 
 	for _, imp := range mapping.Imports {
-		if imp.Category == "system" {
+		switch imp.Category {
+		case "system":
 			data.includes.addSystem(imp.Path)
-		} else if imp.Category == "internal" {
+		case "internal":
 			data.includes.addInternal(imp.Path)
 		}
 	}

@@ -28,10 +28,6 @@ var (
 	dimGray = lipgloss.Color("#6B7280")
 
 	// Styles
-	titleStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(purple)
-
 	successStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(green)
@@ -39,10 +35,6 @@ var (
 	errorStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(red)
-
-	warnStyle = lipgloss.NewStyle().
-			Bold(true).
-			Foreground(yellow)
 
 	infoStyle = lipgloss.NewStyle().
 			Foreground(cyan)
