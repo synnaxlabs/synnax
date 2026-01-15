@@ -12,9 +12,8 @@
 import { control, status, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { cluster } from "@/cluster";
 import { ontology } from "@/ontology";
-
-import { cluster } from "../../../../cluster";
 
 export const keyZ = z.uint32().or(
   z
