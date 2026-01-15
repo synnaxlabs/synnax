@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "gtest/gtest.h"
+
 #include "x/cpp/xtest/xtest.h"
 
 #include "driver/ni/syscfg/api.h"
