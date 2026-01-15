@@ -34,6 +34,7 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
     auto [pld, proto_err] = Rack::from_proto(res.racks(0));
     if (proto_err) return {Rack{}, proto_err};
     Rack rack(std::move(pld));
+    rack.tasks = this->tasks;
     return {rack, x::errors::NIL};
 }
 
@@ -47,6 +48,7 @@ std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) cons
         return {Rack{}, multiple_found_error("racks", "name " + name)};
     auto [pld, proto_err] = Rack::from_proto(res.racks(0));
     if (proto_err) return {Rack{}, proto_err};
+    pld.tasks = this->tasks;
     return {pld, x::errors::NIL};
 }
 
