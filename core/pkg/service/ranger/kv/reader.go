@@ -12,11 +12,11 @@ package kv
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Reader is used to retrieve key-value pairs.

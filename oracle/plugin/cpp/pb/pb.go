@@ -581,8 +581,24 @@ func (p *Plugin) generatePrimitiveConversion(
 ) (forward, backward string) {
 	switch primitive {
 	case "uuid":
-		return fmt.Sprintf("%s(this->%s)", pbSetter, fieldName),
-			fmt.Sprintf("cpp.%s = pb.%s();", fieldName, fieldName)
+		// UUID to proto: convert to string via to_string()
+		// Proto to UUID: parse from string via UUID::parse()
+		if isOptional {
+			forward = fmt.Sprintf("if (this->%s.has_value()) %s(this->%s->to_string())", fieldName, pbSetter, fieldName)
+			backward = fmt.Sprintf(`if (!pb.%s().empty()) {
+        auto [parsed, err] = x::uuid::UUID::parse(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = parsed;
+    }`, fieldName, fieldName, fieldName)
+		} else {
+			forward = fmt.Sprintf("%s(this->%s.to_string())", pbSetter, fieldName)
+			backward = fmt.Sprintf(`{
+        auto [parsed, err] = x::uuid::UUID::parse(pb.%s());
+        if (err) return {{}, err};
+        cpp.%s = parsed;
+    }`, fieldName, fieldName)
+		}
+		return forward, backward
 	case "timestamp":
 		return fmt.Sprintf("%s(this->%s.nanoseconds())", pbSetter, fieldName),
 			fmt.Sprintf("cpp.%s = x::telem::TimeStamp(pb.%s());", fieldName, fieldName)

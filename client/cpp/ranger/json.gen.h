@@ -33,7 +33,7 @@ inline Base Base::parse(x::json::Parser parser) {
 
 inline x::json::json Base::to_json() const {
     x::json::json j;
-    j["key"] = this->key;
+    j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
     j["color"] = this->color.to_json();

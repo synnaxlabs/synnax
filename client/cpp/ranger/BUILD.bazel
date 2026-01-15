@@ -10,7 +10,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
-        "//client/cpp/kv",
+        "//client/cpp/ranger/kv",
         "//client/cpp/ontology",
         "//core/pkg/api/grpc:api_grpc",
         "//core/pkg/service/ranger:range_grpc",

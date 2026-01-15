@@ -10,6 +10,7 @@ cc_library(
         "//x/cpp/color",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/uuid",
         "//x/go/label:label_grpc",
     ],
 )

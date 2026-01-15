@@ -17,13 +17,13 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Aliaser } from "@/alias/client";
 import { type channel } from "@/channel";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
-import { KV } from "@/kv/client";
 import { label } from "@/label";
 import { type ontology } from "@/ontology";
+import { Aliaser } from "@/range/alias/client";
+import { KV } from "@/range/kv/client";
 import { type Keys, type Name, type Names, type Params } from "@/range/payload";
 import {
   type Key,

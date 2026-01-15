@@ -12,8 +12,8 @@
 package label
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 type Key = uuid.UUID

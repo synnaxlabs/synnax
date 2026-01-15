@@ -106,7 +106,7 @@ func (m *MockPrimitiveMapper) Map(name string) primitives.Mapping {
 	case "uuid":
 		return primitives.Mapping{
 			TargetType: "uuid.UUID",
-			Imports:    []primitives.Import{{Category: "external", Path: "github.com/synnaxlabs/x/uuid"}},
+			Imports:    []primitives.Import{{Category: "external", Path: "github.com/google/uuid"}},
 		}
 	default:
 		return primitives.Mapping{TargetType: "any"}
@@ -239,7 +239,7 @@ var _ = Describe("Resolver", func() {
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("uuid.UUID"))
 				Expect(adder.Imports).To(HaveLen(1))
-				Expect(adder.Imports[0].Path).To(Equal("github.com/synnaxlabs/x/uuid"))
+				Expect(adder.Imports[0].Path).To(Equal("github.com/google/uuid"))
 			})
 
 			It("Should resolve simple primitives without imports", func() {

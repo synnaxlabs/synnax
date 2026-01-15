@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	arclsp "github.com/synnaxlabs/arc/lsp"
@@ -27,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 type Arc = arc.Arc

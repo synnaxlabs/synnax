@@ -101,16 +101,17 @@ TEST_F(RackConfigTest, parseRackFromConfigArg) {
 TEST_F(RackConfigTest, recreateOnClusterKeyMismatch) {
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("abc rack"));
+    const auto fake_cluster_key = x::uuid::generate();
     driver::rack::Config::save_remote_info(
         args,
         {
             .rack_key = rack.key,
-            .cluster_key = "abc",
+            .cluster_key = fake_cluster_key,
         }
     );
     const auto cfg = ASSERT_NIL_P(driver::rack::Config::load(args, brk));
     ASSERT_NE(cfg.rack.key, rack.key);
-    ASSERT_NE(cfg.remote_info.cluster_key, "abc");
+    ASSERT_NE(cfg.remote_info.cluster_key, fake_cluster_key);
 }
 
 /// @brief it should load default timing configuration.

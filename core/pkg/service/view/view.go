@@ -12,8 +12,8 @@
 package view
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 type View struct {

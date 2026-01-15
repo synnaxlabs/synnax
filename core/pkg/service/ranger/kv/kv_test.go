@@ -119,9 +119,9 @@ var _ = Describe("KV", Ordered, func() {
 			},
 		}
 		Expect(rangerSvc.NewWriter(tx).Create(ctx, r)).To(Succeed())
-		Expect(kvSvc.NewWriter(tx).SetMany(ctx, r.Key, []kv.Pair{
-			{Key: "key1", Value: "value1"},
-			{Key: "key2", Value: "value2"},
+		Expect(kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
+			{Key: "key1", Value: "value1", Range: r.Key},
+			{Key: "key2", Value: "value2", Range: r.Key},
 		})).To(Succeed())
 		value, err := kvSvc.NewReader(tx).Get(ctx, r.Key, "key1")
 		Expect(err).ToNot(HaveOccurred())

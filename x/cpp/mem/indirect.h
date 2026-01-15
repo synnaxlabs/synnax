@@ -112,5 +112,4 @@ template<typename T, typename... Args>
     result = T(std::forward<Args>(args)...);
     return result;
 }
-
-} // namespace x::mem
+}

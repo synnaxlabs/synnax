@@ -83,10 +83,12 @@ std::pair<Arc, x::errors::Error> Client::retrieve_by_name(
     return Arc::from_proto(res.arcs(0));
 }
 
-std::pair<Arc, x::errors::Error>
-Client::retrieve_by_key(const std::string &key, const RetrieveOptions &options) const {
+std::pair<Arc, x::errors::Error> Client::retrieve_by_key(
+    const x::uuid::UUID &key,
+    const RetrieveOptions &options
+) const {
     auto req = grpc::arc::RetrieveRequest();
-    req.add_keys(key);
+    req.add_keys(key.to_string());
     options.apply(req);
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
@@ -120,12 +122,12 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
 }
 
 std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
-    const std::vector<std::string> &keys,
+    const std::vector<x::uuid::UUID> &keys,
     const RetrieveOptions &options
 ) const {
     auto req = grpc::arc::RetrieveRequest();
     for (const auto &key: keys)
-        req.add_keys(key);
+        req.add_keys(key.to_string());
     options.apply(req);
 
     auto [res, err] = retrieve_client->send(ARC_RETRIEVE_ENDPOINT, req);
@@ -142,19 +144,18 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve_by_keys(
     return {arcs, x::errors::NIL};
 }
 
-x::errors::Error Client::delete_arc(const std::string &key) const {
+x::errors::Error Client::del(const x::uuid::UUID &key) const {
     auto req = grpc::arc::DeleteRequest();
-    req.add_keys(key);
+    req.add_keys(key.to_string());
 
     auto [_, err] = delete_client->send(ARC_DELETE_ENDPOINT, req);
     return err;
 }
 
-x::errors::Error Client::delete_arc(const std::vector<std::string> &keys) const {
+x::errors::Error Client::del(const std::vector<x::uuid::UUID> &keys) const {
     auto req = grpc::arc::DeleteRequest();
     for (const auto &key: keys)
-        req.add_keys(key);
-
+        req.add_keys(key.to_string());
     auto [_, err] = delete_client->send(ARC_DELETE_ENDPOINT, req);
     return err;
 }

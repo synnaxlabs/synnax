@@ -15,12 +15,13 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/kv/kv.h"
+#include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/types.gen.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
@@ -30,7 +31,7 @@ namespace synnax::ranger {
 struct Base;
 struct Range;
 
-using Key = std::string;
+using Key = x::uuid::UUID;
 
 struct Base {
     Key key;

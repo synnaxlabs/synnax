@@ -8,6 +8,7 @@ cc_library(
         "//freighter/cpp/grpc",
         "//x/cpp/os",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
         "@grpc//:grpc++",
     ],
 )

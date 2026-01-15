@@ -27,6 +27,8 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
+#include "x/cpp/uuid/uuid.h"
+
 #include "driver/ni/ni.h"
 #include "driver/opc/opc.h"
 #include "driver/rack/status/status.h"
@@ -39,7 +41,7 @@ using json = x::json::json;
 namespace driver::rack {
 struct RemoteInfo {
     synnax::rack::Key rack_key = 0;
-    std::string cluster_key;
+    x::uuid::UUID cluster_key;
 
     template<typename Parser>
     void override(Parser &p) {
@@ -50,7 +52,7 @@ struct RemoteInfo {
     [[nodiscard]] json to_json() const {
         return {
             {"rack_key", this->rack_key},
-            {"cluster_key", this->cluster_key},
+            {"cluster_key", this->cluster_key.to_json()},
         };
     }
 };

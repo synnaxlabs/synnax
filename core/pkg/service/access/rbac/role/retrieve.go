@@ -12,8 +12,8 @@ package role
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Retrieve is used to retrieve roles from the database.

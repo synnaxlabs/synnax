@@ -70,7 +70,7 @@ TEST(ArcTests, testCalcDoubling) {
     );
 
     synnax::task::Task task_meta{.name = "arc_calc_test", .type = "arc_runtime"};
-    task_meta.config = json{{"arc_key", arc_prog.key}};
+    task_meta.config = json{{"arc_key", arc_prog.key.to_string()}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -180,7 +180,7 @@ TEST(ArcTests, testBasicSequence) {
     );
 
     synnax::task::Task task_meta{.name = "arc_sequence_test", .type = "arc_runtime"};
-    task_meta.config = json{{"arc_key", arc_prog.key}};
+    task_meta.config = json{{"arc_key", arc_prog.key.to_string()}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -302,7 +302,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     );
 
     synnax::task::Task task_meta{.name = "arc_truthiness_test", .type = "arc_runtime"};
-    task_meta.config = json{{"arc_key", arc_prog.key}};
+    task_meta.config = json{{"arc_key", arc_prog.key.to_string()}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
@@ -479,7 +479,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     );
 
     synnax::task::Task task_meta{.name = "arc_two_stage_test", .type = "arc_runtime"};
-    task_meta.config = json{{"arc_key", arc_prog.key}};
+    task_meta.config = json{{"arc_key", arc_prog.key.to_string()}};
 
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));

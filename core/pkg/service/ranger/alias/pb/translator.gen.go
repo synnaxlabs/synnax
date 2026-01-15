@@ -13,10 +13,10 @@ package pb
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // AliasToPB converts Alias to Alias.

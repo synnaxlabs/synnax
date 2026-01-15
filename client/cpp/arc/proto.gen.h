@@ -45,7 +45,7 @@ StatusDetails::from_proto(const ::service::arc::pb::StatusDetails &pb) {
 
 inline ::service::arc::pb::Arc Arc::to_proto() const {
     ::service::arc::pb::Arc pb;
-    pb.set_key(this->key);
+    pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     *pb.mutable_graph() = this->graph.to_proto();
     *pb.mutable_text() = this->text.to_proto();
@@ -59,7 +59,11 @@ inline ::service::arc::pb::Arc Arc::to_proto() const {
 inline std::pair<Arc, x::errors::Error>
 Arc::from_proto(const ::service::arc::pb::Arc &pb) {
     Arc cpp;
-    cpp.key = pb.key();
+    {
+        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = parsed;
+    }
     cpp.name = pb.name();
     {
         auto [val, err] = ::arc::graph::Graph::from_proto(pb.graph());

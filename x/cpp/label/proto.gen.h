@@ -25,7 +25,7 @@ namespace x::label {
 
 inline ::x::label::pb::Label Label::to_proto() const {
     ::x::label::pb::Label pb;
-    pb.set_key(this->key);
+    pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     pb.set_color(this->color.data(), this->color.size());
     return pb;
@@ -34,7 +34,11 @@ inline ::x::label::pb::Label Label::to_proto() const {
 inline std::pair<Label, x::errors::Error>
 Label::from_proto(const ::x::label::pb::Label &pb) {
     Label cpp;
-    cpp.key = pb.key();
+    {
+        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = parsed;
+    }
     cpp.name = pb.name();
     std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin());
     return {cpp, x::errors::NIL};

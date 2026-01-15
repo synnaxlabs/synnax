@@ -10,9 +10,9 @@
 package workspace
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 var _ gorp.Entry[uuid.UUID] = Workspace{}

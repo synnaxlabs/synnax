@@ -15,7 +15,6 @@ from freighter import URL
 from synnax.access import Client as AccessClient
 from synnax.access.policy.client import PolicyClient
 from synnax.access.role.client import RoleClient
-from synnax.alias import Client as AliasClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
@@ -26,12 +25,13 @@ from synnax.device import Client as DeviceClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
 from synnax.group import Client as GroupClient
-from synnax.kv import Client as KVClient
 from synnax.ontology import Client as OntologyClient
 from synnax.options import SynnaxOptions
 from synnax.rack import Client as RackClient
 from synnax.ranger import RangeRetriever, RangeWriter
+from synnax.ranger.alias import Client as AliasClient
 from synnax.ranger.client import RangeClient
+from synnax.ranger.kv import Client as KVClient
 from synnax.signals.signals import Registry
 from synnax.status.client import Client as StatusClient
 from synnax.task import Client as TaskClient

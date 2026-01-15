@@ -10,8 +10,8 @@
 package label
 
 import (
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 var _ gorp.Entry[uuid.UUID] = Label{}

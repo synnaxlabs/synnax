@@ -119,8 +119,10 @@ public:
     /// @param options Optional retrieve options (compile, include_status, etc.).
     /// @returns A pair containing the retrieved Arc program and an error.
     /// If the Arc program does not exist, an error is returned.
-    [[nodiscard]] std::pair<Arc, x::errors::Error>
-    retrieve_by_key(const std::string &key, const RetrieveOptions &options = {}) const;
+    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve_by_key(
+        const x::uuid::UUID &key,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Retrieves Arc programs by their names.
     /// @param names Vector of names of Arc programs to retrieve.
@@ -139,20 +141,19 @@ public:
     /// @returns A pair containing a vector of retrieved Arc programs and an error.
     /// If an Arc program with a given key does not exist, it will not be in the result.
     [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve_by_keys(
-        const std::vector<std::string> &keys,
+        const std::vector<x::uuid::UUID> &keys,
         const RetrieveOptions &options = {}
     ) const;
 
     /// @brief Deletes an Arc program by its key.
     /// @param key The key of the Arc program to delete.
     /// @returns An error if the Arc program could not be deleted.
-    [[nodiscard]] x::errors::Error delete_arc(const std::string &key) const;
+    [[nodiscard]] x::errors::Error del(const x::uuid::UUID &key) const;
 
     /// @brief Deletes multiple Arc programs by their keys.
     /// @param keys Vector of keys of Arc programs to delete.
     /// @returns An error if the Arc programs could not be deleted.
-    [[nodiscard]] x::errors::Error
-    delete_arc(const std::vector<std::string> &keys) const;
+    [[nodiscard]] x::errors::Error del(const std::vector<x::uuid::UUID> &keys) const;
 
 private:
     /// @brief Client for retrieving Arc programs.

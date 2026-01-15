@@ -12,10 +12,10 @@ package arc
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Retrieve is a query builder for retrieving arcs. It should not be instantiated

@@ -13,8 +13,8 @@ package pb
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // UserToPB converts User to User.

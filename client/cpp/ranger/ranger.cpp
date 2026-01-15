@@ -13,13 +13,13 @@
 namespace synnax::ranger {
 
 std::pair<Range, x::errors::Error>
-Client::retrieve_by_key(const std::string &key) const {
+Client::retrieve_by_key(const x::uuid::UUID &key) const {
     auto req = grpc::ranger::RetrieveRequest();
-    req.add_keys(key);
+    req.add_keys(key.to_string());
     auto [res, err] = retrieve_client->send("/range/retrieve", req);
     if (err) return {Range(), err};
     if (res.ranges_size() == 0)
-        return {Range(), not_found_error("range", "key " + key)};
+        return {Range(), not_found_error("range", "key " + key.to_string())};
     auto [rng, proto_err] = Range::from_proto(res.ranges(0));
     if (proto_err) return {Range(), proto_err};
     rng.kv = this->kv.scope_to_range(rng.key);
@@ -66,10 +66,10 @@ Client::retrieve_by_name(const std::vector<std::string> &names) const {
 }
 
 std::pair<std::vector<Range>, x::errors::Error>
-Client::retrieve_by_key(const std::vector<std::string> &keys) const {
+Client::retrieve_by_key(const std::vector<x::uuid::UUID> &keys) const {
     auto req = grpc::ranger::RetrieveRequest();
     for (auto &key: keys)
-        req.add_keys(key);
+        req.add_keys(key.to_string());
     return retrieve_many(req);
 }
 

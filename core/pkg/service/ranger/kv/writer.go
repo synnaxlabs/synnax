@@ -12,8 +12,8 @@ package kv
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Writer is used to create and delete key-value pairs.
@@ -29,11 +29,7 @@ func (w Writer) Set(ctx context.Context, rng uuid.UUID, key, value string) error
 }
 
 // SetMany sets multiple key-value pairs on the specified range.
-func (w Writer) SetMany(ctx context.Context, rng uuid.UUID, pairs []Pair) error {
-	for i, p := range pairs {
-		p.Range = rng
-		pairs[i] = p
-	}
+func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
 	return gorp.NewCreate[string, Pair]().Entries(&pairs).Exec(ctx, w.tx)
 }
 

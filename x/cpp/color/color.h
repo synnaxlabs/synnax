@@ -106,4 +106,4 @@ inline x::json::json Color::to_json() const {
     return x::json::json::array({(*this)[0], (*this)[1], (*this)[2], (*this)[3]});
 }
 
-} // namespace x::color
+}

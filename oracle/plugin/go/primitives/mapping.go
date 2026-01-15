@@ -14,7 +14,7 @@ import "github.com/synnaxlabs/oracle/plugin/primitives"
 
 // Mappings contains Go-specific primitive type mappings.
 var Mappings = map[string]primitives.Mapping{
-	"uuid":    {TargetType: "uuid.UUID", Imports: []primitives.Import{{Category: "external", Path: "github.com/synnaxlabs/x/uuid"}}},
+	"uuid":    {TargetType: "uuid.UUID", Imports: []primitives.Import{{Category: "external", Path: "github.com/google/uuid"}}},
 	"string":  {TargetType: "string"},
 	"bool":    {TargetType: "bool"},
 	"int8":    {TargetType: "int8"},

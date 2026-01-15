@@ -15,12 +15,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 )
 

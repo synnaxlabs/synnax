@@ -18,6 +18,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/types.gen.h"
 #include "arc/cpp/module/types.gen.h"
@@ -29,7 +30,7 @@ namespace synnax::arc {
 struct StatusDetails;
 struct Arc;
 
-using Key = std::string;
+using Key = x::uuid::UUID;
 
 struct StatusDetails {
     bool running = false;

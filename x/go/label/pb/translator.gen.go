@@ -13,9 +13,9 @@ package pb
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/label"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // LabelToPB converts Label to Label.

@@ -406,7 +406,7 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := testutil.MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				testutil.ExpectContent(resp, "translator.gen.go").
-					ToContain(`"github.com/synnaxlabs/x/uuid"`)
+					ToContain(`"github.com/google/uuid"`)
 			})
 
 			It("Should import lo package when array conversions needed", func() {

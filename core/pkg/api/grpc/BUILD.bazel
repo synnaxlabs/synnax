@@ -10,7 +10,7 @@ proto_library(
         "connectivity/connectivity.proto",
         "device/device.proto",
         "framer/framer.proto",
-        "kv/kv.proto",
+        "ranger/kv/kv.proto",
         "rack/rack.proto",
         "ranger/ranger.proto",
         "status/status.proto",

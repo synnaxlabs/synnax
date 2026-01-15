@@ -17,13 +17,13 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )

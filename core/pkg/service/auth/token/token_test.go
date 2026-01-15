@@ -15,12 +15,12 @@ import (
 	"crypto/rsa"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 type mockKeyService struct {

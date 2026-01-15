@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -22,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 type Service struct {

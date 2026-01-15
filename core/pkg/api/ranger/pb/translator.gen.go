@@ -13,12 +13,12 @@ package pb
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	labelpb "github.com/synnaxlabs/x/label/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // RangeToPB converts Range to Range.

@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -25,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // Service is the core authentication service for the Synnax API.

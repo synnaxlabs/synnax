@@ -12,7 +12,7 @@
 package user
 
 import (
-	"github.com/synnaxlabs/x/uuid"
+	"github.com/google/uuid"
 )
 
 type Key = uuid.UUID

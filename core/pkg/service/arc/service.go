@@ -15,6 +15,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -34,7 +35,6 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/validate"
 )
 

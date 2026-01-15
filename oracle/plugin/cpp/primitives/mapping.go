@@ -14,7 +14,7 @@ import "github.com/synnaxlabs/oracle/plugin/primitives"
 
 // Mappings contains C++-specific primitive type mappings.
 var Mappings = map[string]primitives.Mapping{
-	"uuid":    {TargetType: "std::string", Imports: []primitives.Import{{Category: "system", Path: "string"}}},
+	"uuid":    {TargetType: "x::uuid::UUID", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/uuid/uuid.h"}}},
 	"string":  {TargetType: "std::string", Imports: []primitives.Import{{Category: "system", Path: "string"}}},
 	"bool":    {TargetType: "bool"},
 	"int8":    {TargetType: "std::int8_t", Imports: []primitives.Import{{Category: "system", Path: "cstdint"}}},

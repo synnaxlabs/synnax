@@ -12,13 +12,13 @@ package access
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 // ProvisionResult contains the keys of all provisioned built-in roles.

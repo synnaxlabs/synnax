@@ -12,6 +12,7 @@ package grpc
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
@@ -21,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
 	xkv "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/uuid"
 	"github.com/synnaxlabs/x/version"
 )
 

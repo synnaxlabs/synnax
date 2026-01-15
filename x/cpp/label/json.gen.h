@@ -29,7 +29,7 @@ inline Label Label::parse(x::json::Parser parser) {
 
 inline x::json::json Label::to_json() const {
     x::json::json j;
-    j["key"] = this->key;
+    j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["color"] = this->color.to_json();
     return j;
@@ -46,7 +46,7 @@ inline x::json::json New::to_json() const {
     x::json::json j;
     for (auto &[k, v]: Label::to_json().items())
         j[k] = v;
-    j["key"] = this->key;
+    j["key"] = this->key.to_json();
     return j;
 }
 

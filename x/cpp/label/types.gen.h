@@ -17,6 +17,7 @@
 #include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "x/go/label/pb/label.pb.h"
 
@@ -25,7 +26,7 @@ namespace x::label {
 struct Label;
 struct New;
 
-using Key = std::string;
+using Key = x::uuid::UUID;
 
 struct Label {
     Key key;

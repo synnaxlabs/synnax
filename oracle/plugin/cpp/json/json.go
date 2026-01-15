@@ -779,13 +779,24 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
 	}
 
+	// Handle UUID type - use to_json() method
+	// Check both direct uuid type and aliases that resolve to uuid
+	if typeRef.Name == "uuid" || p.resolvesToUUID(typeRef, data) {
+		if field.IsHardOptional {
+			return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+		}
+		return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+	}
+
 	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
 }
 
 func defaultValueForPrimitive(primitive string) string {
 	switch primitive {
-	case "string", "uuid":
+	case "string":
 		return `""`
+	case "uuid":
+		return "x::uuid::UUID{}"
 	case "bool":
 		return "false"
 	case "int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64":
@@ -857,6 +868,33 @@ func (m *includeManager) addInternal(path string) {
 	if !lo.Contains(m.internal, path) {
 		m.internal = append(m.internal, path)
 	}
+}
+
+// resolvesToUUID checks if a type reference resolves to a uuid primitive through aliases.
+// This is needed because type aliases like Key = uuid don't have Name == "uuid" directly.
+func (p *Plugin) resolvesToUUID(typeRef resolution.TypeRef, data *templateData) bool {
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return false
+	}
+
+	// Check if it's an alias that resolves to uuid
+	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
+		if aliasForm.Target.Name == "uuid" {
+			return true
+		}
+		// Recursively check nested aliases
+		return p.resolvesToUUID(aliasForm.Target, data)
+	}
+
+	// Check if it's a distinct type based on uuid
+	if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
+		if distinctForm.Base.Name == "uuid" {
+			return true
+		}
+	}
+
+	return false
 }
 
 // isFixedSizeUint8ArrayType checks if a resolved type is a fixed-size uint8 array.

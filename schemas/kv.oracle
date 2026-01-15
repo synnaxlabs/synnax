@@ -10,7 +10,7 @@
 import "schemas/ranger"
 
 @go output "core/pkg/service/ranger/kv"
-@ts output "client/ts/src/kv"
+@ts output "client/ts/src/range/kv"
 @pb
 
 Pair struct {

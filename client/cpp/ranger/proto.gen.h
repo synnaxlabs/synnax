@@ -30,7 +30,7 @@ namespace synnax::ranger {
 
 inline ::service::ranger::pb::Range Base::to_proto() const {
     ::service::ranger::pb::Range pb;
-    pb.set_key(this->key);
+    pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     *pb.mutable_time_range() = this->time_range.to_proto();
     pb.set_color(this->color.data(), this->color.size());
@@ -40,7 +40,11 @@ inline ::service::ranger::pb::Range Base::to_proto() const {
 inline std::pair<Base, x::errors::Error>
 Base::from_proto(const ::service::ranger::pb::Range &pb) {
     Base cpp;
-    cpp.key = pb.key();
+    {
+        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = parsed;
+    }
     cpp.name = pb.name();
     {
         auto [val, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
@@ -53,7 +57,7 @@ Base::from_proto(const ::service::ranger::pb::Range &pb) {
 
 inline ::api::ranger::pb::Range Range::to_proto() const {
     ::api::ranger::pb::Range pb;
-    pb.set_key(this->key);
+    pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     *pb.mutable_time_range() = this->time_range.to_proto();
     pb.set_color(this->color.data(), this->color.size());
@@ -66,7 +70,11 @@ inline ::api::ranger::pb::Range Range::to_proto() const {
 inline std::pair<Range, x::errors::Error>
 Range::from_proto(const ::api::ranger::pb::Range &pb) {
     Range cpp;
-    cpp.key = pb.key();
+    {
+        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        if (err) return {{}, err};
+        cpp.key = parsed;
+    }
     cpp.name = pb.name();
     {
         auto [val, err] = ::x::telem::TimeRange::from_proto(pb.time_range());

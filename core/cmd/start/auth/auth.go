@@ -12,6 +12,7 @@ package auth
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/cmd/start/access"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/service"
@@ -20,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/uuid"
 )
 
 func ProvisionRootUser(
