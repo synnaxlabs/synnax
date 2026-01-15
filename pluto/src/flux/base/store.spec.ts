@@ -10,8 +10,8 @@
 import { type record } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type core } from "@/flux/core";
-import { createStore, ScopedUnaryStore, scopeStore } from "@/flux/core/store";
+import { type base } from "@/flux/base";
+import { createStore, ScopedUnaryStore, scopeStore } from "@/flux/base/store";
 
 const basicHandleError = vi.fn((excOrFunc: any, _?: string) => {
   if (typeof excOrFunc === "function") void excOrFunc();
@@ -27,7 +27,7 @@ const squashError = vi.fn((excOrFunc: any, _?: string) => {
     })();
 });
 
-describe("Core Store", () => {
+describe("Base Store", () => {
   beforeEach(() => {
     squashError.mockClear();
   });
@@ -1461,9 +1461,9 @@ describe("Core Store", () => {
   describe("Store Factory Functions", () => {
     describe("createStore", () => {
       it("should create independent stores for each key", () => {
-        const config: core.StoreConfig<{
-          store1: core.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
-          store2: core.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
+        const config: base.StoreConfig<{
+          store1: base.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
+          store2: base.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
         }> = {
           store1: { listeners: [] },
           store2: { listeners: [] },

@@ -11,7 +11,7 @@ import "@/os/Controls/Windows.css";
 
 import { type ReactElement } from "react";
 
-import { Button as CoreButton } from "@/button";
+import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
@@ -60,9 +60,9 @@ const Button = ({
   disabled = false,
   className,
   ...rest
-}: CoreButton.ButtonProps): ReactElement | null =>
+}: BaseButton.ButtonProps): ReactElement | null =>
   !disabled ? (
-    <CoreButton.Button
+    <BaseButton.Button
       className={CSS(CSS.B("windows-control"), className)}
       tabIndex={-1}
       {...rest}

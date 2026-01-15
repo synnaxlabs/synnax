@@ -29,7 +29,7 @@ import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
-import { Status as StatusCore } from "@/status/core";
+import { Status as StatusBase } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { Table } from "@/table";
 import { Task } from "@/task";
@@ -130,7 +130,7 @@ export const Provider = ({
         <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
           <CanDisableAether workerKey="vis">
             <Alamos.Provider {...alamos}>
-              <StatusCore.Aggregator>
+              <StatusBase.Aggregator>
                 <Synnax.Provider connParams={connParams}>
                   <Flux.Provider storeConfig={FLUX_STORE_CONFIG}>
                     <Color.Provider {...color}>
@@ -142,7 +142,7 @@ export const Provider = ({
                     </Color.Provider>
                   </Flux.Provider>
                 </Synnax.Provider>
-              </StatusCore.Aggregator>
+              </StatusBase.Aggregator>
             </Alamos.Provider>
           </CanDisableAether>
         </Worker.Provider>

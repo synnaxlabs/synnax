@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb as Core } from "@synnaxlabs/pluto";
+import { Breadcrumb as Base } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 
 export interface BreadcrumbProps {
@@ -35,11 +35,11 @@ const capitalize = (str: string): string =>
   breadcrumbOverrides[str] ?? caseconv.capitalize(str);
 
 export const Breadcrumb = ({ url }: BreadcrumbProps) => (
-  <Core.Breadcrumb level="small" highlightVariant="last">
-    {Core.mapURLSegments(url.slice(1), ({ segment, href, index }) => (
-      <Core.Segment href={`/${href}`} key={index}>
+  <Base.Breadcrumb level="small" highlightVariant="last">
+    {Base.mapURLSegments(url.slice(1), ({ segment, href, index }) => (
+      <Base.Segment href={`/${href}`} key={index}>
         {segment.split("-").map(capitalize).join(" ")}
-      </Core.Segment>
+      </Base.Segment>
     ))}
-  </Core.Breadcrumb>
+  </Base.Breadcrumb>
 );

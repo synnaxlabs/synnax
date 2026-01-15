@@ -11,7 +11,7 @@ import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
-import { VARIANT_COLORS } from "@/status/core/colors";
+import { VARIANT_COLORS } from "@/status/base/colors";
 
 export interface IndicatorProps extends Icon.IconProps {
   variant?: status.Variant;

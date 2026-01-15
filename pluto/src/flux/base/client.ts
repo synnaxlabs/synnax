@@ -16,8 +16,8 @@ import {
   scopeStore,
   type Store,
   type StoreConfig,
-} from "@/flux/core/store";
-import { openStreamer as fluxOpenStreamer } from "@/flux/core/streamer";
+} from "@/flux/base/store";
+import { openStreamer as fluxOpenStreamer } from "@/flux/base/streamer";
 import { type status } from "@/status/aether";
 
 interface ClientArgs<ScopedStore extends Store> {

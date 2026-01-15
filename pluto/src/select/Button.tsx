@@ -12,7 +12,7 @@ import "@/select/Button.css";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button as CoreButton } from "@/button";
+import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { List } from "@/list";
@@ -53,7 +53,7 @@ export const Buttons = <K extends record.Key = record.Key>({
 };
 
 export interface ButtonProps<K extends record.Key = record.Key> extends Omit<
-  CoreButton.ToggleProps,
+  BaseButton.ToggleProps,
   "onChange" | "value"
 > {
   itemKey: K;
@@ -66,7 +66,7 @@ export const Button = <K extends record.Key = record.Key>({
 }: ButtonProps<K>): ReactElement | null => {
   const { selected, onSelect } = useItemState<K>(itemKey);
   return (
-    <CoreButton.Toggle
+    <BaseButton.Toggle
       {...rest}
       id={itemKey.toString()}
       onChange={onSelect}

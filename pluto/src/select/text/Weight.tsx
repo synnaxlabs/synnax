@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
-import { type text } from "@/text/core";
+import { type text } from "@/text/base";
 
 const DATA = [250, 400, 500, 600];
 

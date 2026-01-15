@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { z as base } from "zod";
 
 import { type Dimensions, dimensions, numberCouple, xy } from "@/spatial/base";
 
 export { type Dimensions, dimensions };
 
-export const signed = z.object({ signedWidth: z.number(), signedHeight: z.number() });
-export const crude = z.union([dimensions, signed, xy, numberCouple]);
-export type Crude = z.infer<typeof crude>;
+export const signed = base.object({
+  signedWidth: base.number(),
+  signedHeight: base.number(),
+});
+export const crude = base.union([dimensions, signed, xy, numberCouple]);
+export type Crude = base.infer<typeof crude>;
 
 export const ZERO = { width: 0, height: 0 };
 export const DECIMAL = { width: 1, height: 1 };
@@ -29,7 +32,7 @@ export const construct = (width: number | Crude, height?: number): Dimensions =>
   return { ...width };
 };
 
-export type Signed = z.infer<typeof signed>;
+export type Signed = base.infer<typeof signed>;
 
 export const equals = (ca: Crude, cb?: Crude | null): boolean => {
   if (cb == null) return false;

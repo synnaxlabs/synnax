@@ -20,13 +20,13 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/core/fontString";
+import { fontString } from "@/theming/base/fontString";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
 import { render } from "@/vis/render";
 
-export const coreAxisStateZ = axis.axisStateZ
+export const baseAxisStateZ = axis.axisStateZ
   .extend({
     axisKey: z.string().optional(),
     bounds: bounds.bounds.optional(),
@@ -44,7 +44,7 @@ export const coreAxisStateZ = axis.axisStateZ
   })
   .partial({ color: true, font: true, gridColor: true });
 
-export type BaseAxisState = z.infer<typeof coreAxisStateZ>;
+export type BaseAxisState = z.infer<typeof baseAxisStateZ>;
 
 const AXIS_SIZE_UPDATE_UPPER_THRESHOLD = 2; // px;
 const AXIS_SIZE_UPDATE_LOWER_THRESHOLD = 7; // px;
@@ -92,7 +92,7 @@ export const autoBounds = (
 
 interface InternalState {
   render: render.Context;
-  core: axis.Axis;
+  base: axis.Axis;
   // In the case where we're in a hold, we want to keep a snapshot of the hold bounds
   // so that we can rerender the plot in the same position even if the data changes.
   // changes.
@@ -103,8 +103,8 @@ interface InternalState {
 const DEFAULT_X_BOUND_PADDING = 0.01;
 const DEFAULT_Y_BOUND_PADDING = 0.1;
 
-export class CoreAxis<
-  S extends typeof coreAxisStateZ,
+export class BaseAxis<
+  S extends typeof baseAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
   afterUpdate(ctx: aether.Context): void {
@@ -115,7 +115,7 @@ export class CoreAxis<
     const dir = direction.construct(location);
     this.state.autoBoundPadding ??=
       dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
-    i.core = axis.newCanvas(location, i.render, {
+    i.base = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
       font: fontString(theme, { level: "small", code: true }),
       gridColor: theme.colors.gray.l1,
@@ -134,7 +134,7 @@ export class CoreAxis<
 
   renderAxis(props: AxisRenderProps, decimalToDataScale: scale.Scale): void {
     if (!props.canvases.includes("lower2d")) return;
-    const { core } = this.internal;
+    const { base } = this.internal;
     const { grid: g, container } = props;
     const position = grid.position(`${this.type}-${this.key}`, g, container);
     const p = {
@@ -143,7 +143,7 @@ export class CoreAxis<
       decimalToDataScale,
       size: this.state.size + this.state.labelSize,
     };
-    const { size } = core.render(p);
+    const { size } = base.render(p);
     if (!withinSizeThreshold(this.state.size, size))
       this.setState((p) => ({ ...p, size }));
   }

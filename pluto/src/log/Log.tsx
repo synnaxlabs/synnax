@@ -20,7 +20,7 @@ import { type Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { log } from "@/log/aether";
 import { useMemoDeepEqual } from "@/memo";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { Canvas } from "@/vis/canvas";
 
 export interface LogProps

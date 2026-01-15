@@ -19,7 +19,7 @@ import {
   Haul,
   Icon,
   Menu as PMenu,
-  Schematic as Core,
+  Schematic as Base,
   Theming,
   usePrevious,
   useSyncedRef,
@@ -153,7 +153,7 @@ const SymbolRenderer = ({
 
   if (props == null) return null;
 
-  const C = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
+  const C = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
@@ -277,7 +277,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (event == null) return valid;
       valid.forEach(({ key, data }) => {
-        const spec = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
+        const spec = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
         if (spec == null) return;
         const pos = xy.truncate(calculateCursorPosition(event), 0);
         handleAddElement(key.toString(), pos, data);
@@ -379,7 +379,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         authority={state.authority}
         onStatusChange={handleControlStatusChange}
       >
-        <Core.Schematic
+        <Base.Schematic
           onViewportChange={handleViewportChange}
           viewportMode={mode}
           onViewportModeChange={handleViewportModeChange}
@@ -412,7 +412,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               {!state.snapshot && <ControlToggleButton control={state.control} />}
             </Flex.Box>
           </Controls>
-        </Core.Schematic>
+        </Base.Schematic>
         {legendVisible && (
           <Control.Legend
             position={legendPosition}
@@ -426,7 +426,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 };
 
 const useLoadRemote = createLoadRemote<schematic.Schematic>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
