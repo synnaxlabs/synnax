@@ -10,6 +10,9 @@
 package status_test
 
 import (
+	"encoding/json"
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/status"
@@ -19,6 +22,10 @@ import (
 type CustomDetails struct {
 	Context string
 	Code    int
+}
+
+func (d CustomDetails) String() string {
+	return fmt.Sprintf("{%d %s}", d.Code, d.Context)
 }
 
 var _ = Describe("Status", func() {
@@ -227,7 +234,10 @@ var _ = Describe("Status", func() {
 				}
 				pb, err := status.TranslateToPB(s)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(pb.Details).To(Equal(`{"Code":500,"Context":"server error"}`))
+				var details CustomDetails
+				Expect(json.Unmarshal([]byte(pb.Details), &details)).To(Succeed())
+				Expect(details.Code).To(Equal(500))
+				Expect(details.Context).To(Equal("server error"))
 			})
 
 			It("Should marshal primitive details to JSON", func() {
