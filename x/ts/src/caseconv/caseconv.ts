@@ -45,13 +45,13 @@ const hasPreserveCaseMarker = (schema: unknown): boolean =>
   schema != null && typeof schema === "object" && PRESERVE_CASE_SYMBOL in schema;
 
 const snakeToCamelStr = (str: string): string => {
-  const c = str.replace(/_[a-z]/g, (m) => m[1].toUpperCase());
-  // if both first and second characters are upper case, leave as is
-  // if only first character is upper case, convert to lower case
-  if (c.length > 1 && c[0] === c[0].toUpperCase() && c[1] === c[1].toUpperCase())
-    return c;
-  if (c.length === 0) return c;
-  return c[0].toLowerCase() + c.slice(1);
+  if (str.length === 0) return str;
+  const hasUnderscore = str.indexOf("_") !== -1;
+  const c = hasUnderscore ? str.replace(/_[a-z]/g, (m) => m[1].toUpperCase()) : str;
+  const first = c.charCodeAt(0);
+  if (first < 65 || first > 90) return c; // not uppercase A-Z
+  if (c.length > 1 && c.charCodeAt(1) >= 65 && c.charCodeAt(1) <= 90) return c;
+  return String.fromCharCode(first + 32) + c.slice(1);
 };
 
 /**
@@ -62,53 +62,62 @@ const snakeToCamelStr = (str: string): string => {
  */
 const createConverter = (
   f: (v: string) => string,
-): (<V>(obj: V, opt?: Options, schema?: z.ZodType) => V) => {
-  const converter = <V>(
-    obj: V,
-    opt: Options = defaultOptions,
-    schema?: z.ZodType,
-  ): V => {
+): (<V>(obj: V, opt?: Options) => V) => {
+  const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
     if (typeof obj === "string") return f(obj) as any;
-    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt, schema)) as V;
+    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
     if (!isValidObject(obj)) return obj;
 
-    // Check if the schema for this object is marked to preserve case
-    if (schema != null && hasPreserveCaseMarker(schema)) return obj;
+    if (opt.schema != null && hasPreserveCaseMarker(opt.schema)) return obj;
 
-    opt = validateOptions(opt);
+    const recursive = opt.recursive ?? true;
+    const recursiveInArray = opt.recursiveInArray ?? recursive;
+    const schema = opt.schema;
     const res: record.Unknown = {};
     const anyObj = obj as record.Unknown;
     if ("toJSON" in anyObj && typeof anyObj.toJSON === "function")
-      return converter(anyObj.toJSON(), opt, schema);
-    Object.keys(anyObj).forEach((key) => {
+      return converter(anyObj.toJSON(), opt);
+
+    const keys = Object.keys(anyObj);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
       let value = anyObj[key];
       const nkey = f(key);
 
-      // Get the schema for this property using the converted key name
       const propSchema: z.ZodType | undefined =
         schema != null
           ? (zodUtil.getFieldSchema(schema, nkey, { optional: true }) ?? undefined)
           : undefined;
 
-      if (opt.recursive)
+      if (recursive)
         if (isValidObject(value)) {
-          if (!belongToTypes(value)) value = converter(value, opt, propSchema);
-        } else if (opt.recursiveInArray && isArrayObject(value))
-          value = [...(value as unknown[])].map((v) => {
-            let ret = v;
+          if (!isPreservedType(value))
+            value = converter(value, {
+              recursive,
+              recursiveInArray,
+              schema: propSchema,
+            });
+        } else if (recursiveInArray && Array.isArray(value))
+          value = (value as unknown[]).map((v) => {
             if (isValidObject(v)) {
-              // object in array
-              if (!belongToTypes(ret)) ret = converter(v, opt, propSchema);
-            } else if (isArrayObject(v)) {
-              // array in array
-              // workaround by using an object holding array value
-              const temp: record.Unknown = converter({ key: v }, opt, propSchema);
-              ret = temp.key;
+              if (!isPreservedType(v))
+                return converter(v, {
+                  recursive,
+                  recursiveInArray,
+                  schema: propSchema,
+                });
+            } else if (Array.isArray(v)) {
+              const temp: record.Unknown = converter(
+                { key: v },
+                { recursive, recursiveInArray, schema: propSchema },
+              );
+              return temp.key;
             }
-            return ret;
+            return v;
           });
+
       res[nkey] = value;
-    });
+    }
 
     return res as V;
   };
@@ -165,33 +174,22 @@ export const capitalize = (str: string): string => {
  * Example Date, RegExp. These types will be right-hand side of 'instanceof' operator.
  */
 export interface Options {
-  recursive: boolean;
+  recursive?: boolean;
   recursiveInArray?: boolean;
+  schema?: z.ZodType;
 }
 
-const keepTypesOnRecursion = [Number, String, Uint8Array];
-
-/**
- * Default options for convert function. This option is not recursive.
- */
 const defaultOptions: Options = {
   recursive: true,
   recursiveInArray: true,
+  schema: undefined,
 };
-
-const validateOptions = (opt: Options = defaultOptions): Options => {
-  if (opt.recursive == null) opt = defaultOptions;
-  else opt.recursiveInArray ??= false;
-  return opt;
-};
-
-const isArrayObject = (obj: unknown): boolean => obj != null && Array.isArray(obj);
 
 const isValidObject = (obj: unknown): boolean =>
   obj != null && typeof obj === "object" && !Array.isArray(obj);
 
-const belongToTypes = (obj: unknown): boolean =>
-  keepTypesOnRecursion.some((type) => obj instanceof type);
+const isPreservedType = (obj: unknown): boolean =>
+  obj instanceof Number || obj instanceof String || obj instanceof Uint8Array;
 
 /**
  * Converts a string to kebab-case.
