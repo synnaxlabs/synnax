@@ -10,9 +10,8 @@
 package resolution
 
 import (
-	"fmt"
-
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Table struct {
@@ -74,7 +73,7 @@ func (t *Table) MustGet(qualifiedName string) Type {
 
 func (t *Table) Add(typ Type) error {
 	if _, ok := t.Get(typ.QualifiedName); ok {
-		return fmt.Errorf("duplicate type: %s", typ.QualifiedName)
+		return errors.Newf("duplicate type: %s", typ.QualifiedName)
 	}
 	t.Types = append(t.Types, typ)
 	return nil

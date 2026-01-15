@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, ontology, type Synnax } from "@synnaxlabs/client";
-import { array, primitive, type record, uuid } from "@synnaxlabs/x";
+import { array, primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 

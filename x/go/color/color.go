@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -55,16 +57,20 @@ func FromBytes(b []byte) Color {
 func FromHex(s string) (Color, error) {
 	s = strings.TrimPrefix(s, "#")
 	if len(s) != 6 && len(s) != 8 {
-		return Color{}, fmt.Errorf("invalid hex color: %q (must be 6 or 8 hex digits)", s)
+		return Color{}, errors.Newf("invalid hex color: %q (must be 6 or 8 hex digits)", s)
 	}
 	b, err := hex.DecodeString(s)
 	if err != nil {
-		return Color{}, fmt.Errorf("invalid hex color: %q: %w", s, err)
+		return Color{}, errors.Newf("invalid hex color: %q: %w", s, err)
 	}
 	if len(b) == 3 {
 		return Color{b[0], b[1], b[2], 255}, nil
 	}
 	return Color{b[0], b[1], b[2], b[3]}, nil
+}
+
+func MustFromHex(s string) Color {
+	return lo.Must(FromHex(s))
 }
 
 // Hex returns the hex representation of the color.
@@ -106,7 +112,7 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 		*c = parsed
 		return nil
 	}
-	return fmt.Errorf("color must be [R,G,B,A] array or hex string")
+	return errors.Newf("color must be [R,G,B,A] array or hex string")
 }
 
 // EncodeMsgpack outputs the color as 4-byte binary.
@@ -134,7 +140,7 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 			return err
 		}
 		if len(b) != 4 {
-			return fmt.Errorf("color bytes must be exactly 4 bytes, got %d", len(b))
+			return errors.Newf("color bytes must be exactly 4 bytes, got %d", len(b))
 		}
 		copy(c[:], b)
 		return nil
@@ -147,7 +153,7 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 			return err
 		}
 		if len(arr) != 4 {
-			return fmt.Errorf("color array must have exactly 4 elements, got %d", len(arr))
+			return errors.Newf("color array must have exactly 4 elements, got %d", len(arr))
 		}
 		copy(c[:], arr)
 		return nil
@@ -167,5 +173,5 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 		return nil
 	}
 
-	return fmt.Errorf("color must be bytes, array, or hex string")
+	return errors.Newf("color must be bytes, array, or hex string")
 }

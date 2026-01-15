@@ -53,7 +53,7 @@ describe("queries", () => {
     it("should get individual labels using getItem", async () => {
       const testLabel = await client.labels.create({
         name: "testLabel",
-        color: "#E774D0",
+        color: color.construct("#E774D0"),
       });
 
       const { result } = renderHook(() => Label.useList(), {
@@ -67,7 +67,7 @@ describe("queries", () => {
       const retrievedLabel = result.current.getItem(testLabel.key);
       expect(retrievedLabel?.key).toEqual(testLabel.key);
       expect(retrievedLabel?.name).toEqual("testLabel");
-      expect(retrievedLabel?.color).toEqual("#E774D0");
+      expect(retrievedLabel?.color).toEqual(color.construct("#E774D0"));
     });
 
     it("should filter labels by search term", async () => {
@@ -204,7 +204,7 @@ describe("queries", () => {
       });
       const targetLabel = await client.labels.create({
         name: "targetEntity",
-        color: "#0000FF",
+        color: color.construct("#0000FF"),
       });
 
       await client.labels.label(label.ontologyID(targetLabel.key), [
@@ -226,7 +226,7 @@ describe("queries", () => {
     it("should update when labels are added to entity", async () => {
       const targetLabel = await client.labels.create({
         name: "targetForLabeling",
-        color: "#0000FF",
+        color: color.construct("#0000FF"),
       });
 
       const { result } = renderHook(
@@ -243,7 +243,7 @@ describe("queries", () => {
 
       const newLabel = await client.labels.create({
         name: "addedLabel",
-        color: "#FFFF00",
+        color: color.construct("#FFFF00"),
       });
       await client.labels.label(label.ontologyID(targetLabel.key), [newLabel.key]);
 
@@ -424,7 +424,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("newFormLabel");
-        expect(result.current.form.value().color).toEqual("#FF00FF");
+        expect(result.current.form.value().color).toEqual(color.construct("#FF00FF"));
         expect(result.current.form.value().key).toBeDefined();
       });
     });
@@ -442,7 +442,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       expect(result.current.form.value().name).toEqual("existingLabel");
-      expect(result.current.form.value().color).toEqual("#00FFFF");
+      expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
 
       act(() => {
         result.current.form.set("name", "editedLabel");
@@ -485,7 +485,7 @@ describe("queries", () => {
       });
 
       expect(result.current.form.value().name).toEqual("");
-      expect(result.current.form.value().color).toEqual("#000000");
+      expect(result.current.form.value().color).toEqual(color.construct("#000000"));
     });
   });
 

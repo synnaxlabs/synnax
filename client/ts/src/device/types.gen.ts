@@ -49,7 +49,7 @@ export const deviceZ = <
     make: make ?? z.string().min(1, "Make is required"),
     model: model ?? z.string().min(1, "Model is required"),
     name: z.string().min(1, "Name is required"),
-    configured: z.boolean().optional(),
+    configured: z.boolean(),
     properties: properties ?? record.nullishToEmpty,
     status: statusZ.optional(),
   });
@@ -64,7 +64,7 @@ export interface Device<
   make: z.infer<Make>;
   model: z.infer<Model>;
   name: string;
-  configured?: boolean;
+  configured: boolean;
   properties: z.infer<Properties>;
   status?: Status;
 }
@@ -85,8 +85,8 @@ export const newZ = <
   Model extends z.ZodType<string> = z.ZodString,
 >({ properties, make, model }: NewSchemas<Properties, Make, Model> = {}) =>
   deviceZ({ properties, make, model })
-    .omit({ configured: true, properties: true })
-    .partial({ key: true })
+    .omit({ properties: true })
+    .partial({ key: true, configured: true })
     .extend({
       properties: properties ?? record.nullishToEmpty,
     });
@@ -95,8 +95,8 @@ export type New<
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
 > = optional.Optional<
-  Omit<Device<Properties, Make, Model>, "configured" | "properties">,
-  "key"
+  Omit<Device<Properties, Make, Model>, "properties">,
+  "key" | "configured"
 > & {
   properties: z.infer<Properties>;
 };

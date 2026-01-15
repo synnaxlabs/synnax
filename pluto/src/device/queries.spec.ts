@@ -808,6 +808,7 @@ describe("queries", () => {
         make: "ni",
         model: "dog",
         properties: { cat: "dog" },
+        configured: true,
       };
       await act(async () => {
         await result.current.updateAsync(dev);

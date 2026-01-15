@@ -36,7 +36,7 @@ class Device(BaseModel):
     make: Any
     model: Any
     name: str
-    configured: bool | None = None
+    configured: bool
     properties: Any
     status: Status | None = None
 

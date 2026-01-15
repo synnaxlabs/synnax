@@ -21,7 +21,7 @@ export const useListenForChanges = (): void => {
       dispatch(
         updateIfExists({
           ...rest,
-          parent: null,
+          parent: undefined,
           timeRange: timeRange.numeric,
         }),
       );
