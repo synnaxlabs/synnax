@@ -35,6 +35,7 @@ cc_test(
     deps = [
         ":syscfg",
         "//driver/ni:ni_errors",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )
