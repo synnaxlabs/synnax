@@ -30,6 +30,7 @@ export const deviceZ = z.object({
   location: z.string().min(1, "Location is required"),
   configured: z.boolean().optional(),
   properties: record.unknownZ.or(z.string().transform(decodeJSONString)),
+  parentDevice: keyZ.optional(),
   status: zod.nullToUndefined(statusZ),
 });
 

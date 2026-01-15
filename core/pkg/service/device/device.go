@@ -38,6 +38,10 @@ type Device struct {
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties are additional properties that are unique to the device.
 	Properties string `json:"properties" msgpack:"properties"`
+	// ParentDevice is the key of the parent device, if this device is a child of another
+	// device (e.g., a module in a chassis). If empty, the device is a root device and
+	// its parent in the ontology is the rack.
+	ParentDevice string `json:"parent_device,omitempty" msgpack:"parent_device"`
 	// Status is the state of the device. This field is not stored directly with the
 	// device inside of gorp, and is not guaranteed to be valid.
 	Status *Status `json:"status" msgpack:"status"`

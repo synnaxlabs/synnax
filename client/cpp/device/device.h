@@ -107,6 +107,8 @@ struct Device {
     std::string model;
     /// @brief Additional properties of the device, typically in JSON format.
     std::string properties;
+    /// @brief The key of the parent device, if this device is a child of another device.
+    std::string parent_device;
     /// @brief whether the device has been configured.
     bool configured = false;
     /// @brief Status information about the device.

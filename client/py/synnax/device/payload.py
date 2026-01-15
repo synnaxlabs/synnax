@@ -42,6 +42,7 @@ class Device(Payload):
     model: str = ""
     configured: bool = False
     properties: str = ""
+    parent_device: str = ""
     status: DeviceStatus | None = None
 
     @property

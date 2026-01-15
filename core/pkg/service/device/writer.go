@@ -78,9 +78,10 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// If the device already exists, don't redefine the resource and relationship in the
-	// ontology, as to not mess with existing groups or relationships.
-	if exists && device.Rack == existing.Rack {
+	// If the device already exists with the same rack and parent, don't redefine
+	// the resource and relationship in the ontology, as to not mess with existing
+	// groups or relationships.
+	if exists && device.Rack == existing.Rack && device.ParentDevice == existing.ParentDevice {
 		// If the device is being renamed, update the status name.
 		if device.Name != existing.Name {
 			stat := resolveStatus(&device, providedStatus)
@@ -103,9 +104,17 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	); err != nil {
 		return err
 	}
+	// If the device has a parent device, create the relationship to the parent device.
+	// Otherwise, create the relationship to the rack.
+	var parentOntologyID ontology.ID
+	if device.ParentDevice != "" {
+		parentOntologyID = OntologyID(device.ParentDevice)
+	} else {
+		parentOntologyID = device.Rack.OntologyID()
+	}
 	return w.otg.DefineRelationship(
 		ctx,
-		device.Rack.OntologyID(),
+		parentOntologyID,
 		ontology.ParentOf,
 		otgID,
 	)

@@ -79,6 +79,7 @@ struct Device : synnax::Device {
                 }
             )
         );
+        dev.parent_device = this->parent_device;
         dev.status = this->status;
         return dev;
     }

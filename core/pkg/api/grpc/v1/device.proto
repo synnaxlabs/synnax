@@ -29,6 +29,7 @@ message Device {
   string properties = 8;
   bool configured = 9;
   status.PBStatus status = 10;
+  string parent_device = 11;
 }
 
 message DeviceCreateRequest {

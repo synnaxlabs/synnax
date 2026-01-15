@@ -121,6 +121,7 @@ std::pair<Device, xerrors::Error> Device::from_proto(const api::v1::Device &devi
     d.make = device.make();
     d.model = device.model();
     d.properties = device.properties();
+    d.parent_device = device.parent_device();
     d.configured = device.configured();
     if (device.has_status()) {
         auto [s, err] = DeviceStatus::from_proto(device.status());
@@ -155,6 +156,7 @@ void Device::to_proto(api::v1::Device *device) const {
     device->set_make(make);
     device->set_model(model);
     device->set_properties(properties);
+    device->set_parent_device(parent_device);
     device->set_configured(configured);
     if (!status.is_zero()) status.to_proto(device->mutable_status());
 }
@@ -169,6 +171,7 @@ Device Device::parse(xjson::Parser &parser) {
     d.model = parser.field<std::string>("model", "");
     d.configured = parser.field<bool>("configured", false);
     d.properties = parser.field<std::string>("properties", "");
+    d.parent_device = parser.field<std::string>("parent_device", "");
     return d;
 }
 }

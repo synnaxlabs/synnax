@@ -21,6 +21,20 @@ ni::Scanner::Scanner(
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
+
+/// @brief Extracts the parent device location from a module location string.
+/// For example, "cDAQ1Mod1" returns "cDAQ1", "PXI1Slot2" returns "PXI1".
+/// Returns empty string if the location doesn't match a child device pattern.
+/// TODO: Replace withe exact match of found chassis location.
+std::string extract_parent_from_location(const std::string &location) {
+    // Match pattern: parent identifier + "Mod" or "Slot" + number
+    static const std::regex pattern("^([a-zA-Z]+\\d+)(Mod|Slot)\\d+$");
+    std::smatch match;
+    if (std::regex_match(location, match, pattern)) {
+        return match[1].str();
+    }
+    return "";  // Root device (chassis or standalone), no parent
+}
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
 std::pair<ni::Device, xerrors::Error>
@@ -83,6 +97,12 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.location = property_value_buf;
+
+    dev.parent_device = extract_parent_from_location(dev.location);
+    if (!dev.parent_device.empty()) {
+        /// TODO: Consider no log output here.
+        VLOG(1) << SCAN_LOG_PREFIX << "device has parent: " << dev.parent_device;
+    }
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
             resource,
@@ -199,18 +219,6 @@ xerrors::Error ni::Scanner::start() {
             this->filter,
             NISysCfgFilterPropertyIsPresent,
             NISysCfgIsPresentTypePresent
-        ))
-        return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-            this->filter,
-            NISysCfgFilterPropertyIsChassis,
-            NISysCfgBoolFalse
-        ))
-        return err;
-    if (const auto err = this->syscfg->SetFilterProperty(
-            this->filter,
-            NISysCfgFilterPropertyIsNIProduct,
-            NISysCfgBoolTrue
         ))
         return err;
     return xerrors::NIL;
