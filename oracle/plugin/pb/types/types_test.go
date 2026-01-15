@@ -192,7 +192,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should generate proto file for simple struct", func() {
 			table := resolution.NewTable()
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "User",
 				Namespace:     "user",
 				QualifiedName: "user.User",
@@ -204,7 +204,7 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -227,7 +227,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should generate enum with prefixed values per protobuf style guide", func() {
 			table := resolution.NewTable()
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "Role",
 				Namespace:     "user",
 				QualifiedName: "user.Role",
@@ -238,8 +238,8 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: map[string]resolution.Domain{},
-			})
-			table.Add(resolution.Type{
+			})).To(Succeed())
+			Expect(table.Add(resolution.Type{
 				Name:          "User",
 				Namespace:     "user",
 				QualifiedName: "user.User",
@@ -249,7 +249,7 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -269,7 +269,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should handle array fields as repeated", func() {
 			table := resolution.NewTable()
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "User",
 				Namespace:     "user",
 				QualifiedName: "user.User",
@@ -279,7 +279,7 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -296,7 +296,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should handle map fields", func() {
 			table := resolution.NewTable()
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "Config",
 				Namespace:     "config",
 				QualifiedName: "config.Config",
@@ -315,7 +315,7 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -332,7 +332,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should import google.protobuf.Struct for json type", func() {
 			table := resolution.NewTable()
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "Config",
 				Namespace:     "config",
 				QualifiedName: "config.Config",
@@ -342,7 +342,7 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -360,7 +360,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should skip type aliases", func() {
 			table := resolution.NewTable()
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "Parent",
 				Namespace:     "user",
 				QualifiedName: "user.Parent",
@@ -370,8 +370,8 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
-			table.Add(resolution.Type{
+			})).To(Succeed())
+			Expect(table.Add(resolution.Type{
 				Name:          "Alias",
 				Namespace:     "user",
 				QualifiedName: "user.Alias",
@@ -379,7 +379,7 @@ var _ = Describe("Plugin", func() {
 					Target: resolution.TypeRef{Name: "user.Parent"},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -398,7 +398,7 @@ var _ = Describe("Plugin", func() {
 		It("Should preserve struct declaration order", func() {
 			table := resolution.NewTable()
 			domains := pbDomains("core/pkg/api/grpc/v1")
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "Zebra",
 				Namespace:     "animals",
 				QualifiedName: "animals.Zebra",
@@ -406,8 +406,8 @@ var _ = Describe("Plugin", func() {
 					Fields: []resolution.Field{{Name: "name", Type: resolution.TypeRef{Name: "string"}}},
 				},
 				Domains: domains,
-			})
-			table.Add(resolution.Type{
+			})).To(Succeed())
+			Expect(table.Add(resolution.Type{
 				Name:          "Apple",
 				Namespace:     "animals",
 				QualifiedName: "animals.Apple",
@@ -415,8 +415,8 @@ var _ = Describe("Plugin", func() {
 					Fields: []resolution.Field{{Name: "color", Type: resolution.TypeRef{Name: "string"}}},
 				},
 				Domains: domains,
-			})
-			table.Add(resolution.Type{
+			})).To(Succeed())
+			Expect(table.Add(resolution.Type{
 				Name:          "Mango",
 				Namespace:     "animals",
 				QualifiedName: "animals.Mango",
@@ -424,7 +424,7 @@ var _ = Describe("Plugin", func() {
 					Fields: []resolution.Field{{Name: "ripe", Type: resolution.TypeRef{Name: "bool"}}},
 				},
 				Domains: domains,
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -445,7 +445,7 @@ var _ = Describe("Plugin", func() {
 
 		It("Should preserve field declaration order", func() {
 			table := resolution.NewTable()
-			table.Add(resolution.Type{
+			Expect(table.Add(resolution.Type{
 				Name:          "Record",
 				Namespace:     "order",
 				QualifiedName: "order.Record",
@@ -457,7 +457,7 @@ var _ = Describe("Plugin", func() {
 					},
 				},
 				Domains: pbDomains("core/pkg/api/grpc/v1"),
-			})
+			})).To(Succeed())
 
 			req := &plugin.Request{
 				Resolutions: table,
