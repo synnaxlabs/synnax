@@ -73,10 +73,7 @@ func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 	return r.gorp.Exec(ctx, tx)
 }
 
-func (r Retriever) Entry(policy *Policy) Retriever {
-	r.gorp = r.gorp.Entry(policy)
-	return r
-}
+func (r Retriever) Entry(p *Policy) Retriever { r.gorp = r.gorp.Entry(p); return r }
 
 func (r Retriever) Entries(policies *[]Policy) Retriever {
 	r.gorp = r.gorp.Entries(policies)

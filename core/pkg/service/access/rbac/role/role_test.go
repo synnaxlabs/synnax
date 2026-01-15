@@ -423,27 +423,24 @@ var _ = Describe("Ontology Integration", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 
-			res, err := svc.RetrieveResource(ctx, r.Key.String(), tx)
-			Expect(err).ToNot(HaveOccurred())
+			res := MustSucceed(svc.RetrieveResource(ctx, r.Key.String(), tx))
 			Expect(res.ID.Key).To(Equal(r.Key.String()))
 			Expect(res.Name).To(Equal(r.Name))
 		})
 
 		It("Should return error for invalid UUID", func() {
-			_, err := svc.RetrieveResource(ctx, "invalid-uuid", tx)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.RetrieveResource(ctx, "invalid-uuid", tx)).Error().To(HaveOccurred())
 		})
 
 		It("Should return error for non-existent role", func() {
-			_, err := svc.RetrieveResource(ctx, uuid.New().String(), tx)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.RetrieveResource(ctx, uuid.New().String(), tx)).Error().To(HaveOccurred())
 		})
 	})
 
 	Describe("OpenNexter", func() {
 		It("Should iterate over all roles", func() {
 			w := svc.NewWriter(tx, true)
-			for i := 0; i < 3; i++ {
+			for range 3 {
 				r := &role.Role{
 					Name:        "nexter-test",
 					Description: "Nexter test role",
