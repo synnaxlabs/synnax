@@ -53,19 +53,34 @@ type transitionTarget struct {
 // It maintains the execution graph, tracks changed nodes, and propagates changes
 // through the dependency graph. It supports stage-based filtering for sequences.
 type Scheduler struct {
-	nodeCtx                  rnode.Context
-	errorHandler             ErrorHandler
-	cycleCallback            CycleCallback
-	transitions              map[string]transitionTarget
-	changed                  set.Set[string]
-	globalFiredOneShots      set.Set[ir.Edge]
-	nodes                    map[string]node
-	currNodeKey              string
-	globalStrata             ir.Strata
-	sequences                []sequenceState
+	// nodeCtx is a reusable context struct passed to nodes during execution.
+	nodeCtx rnode.Context
+	// errorHandler receives errors from node execution.
+	errorHandler ErrorHandler
+	// cycleCallback is called at the end of each Next() cycle for cleanup.
+	cycleCallback CycleCallback
+	// transitions maps entry node keys to their target (seqIdx, stageIdx).
+	transitions map[string]transitionTarget
+	// changed tracks which nodes need execution in the current strata pass.
+	changed set.Set[string]
+	// globalFiredOneShots tracks which one-shot edges in global strata have fired.
+	// Unlike per-stage one-shots, global one-shots fire once ever and never reset.
+	globalFiredOneShots set.Set[ir.Edge]
+	// nodes maps node keys to their runtime state.
+	nodes map[string]node
+	// Current execution context
+	// currNodeKey is the key of the currently executing node.
+	currNodeKey string
+	// globalStrata defines the topological execution order for global nodes.
+	globalStrata ir.Strata
+	// sequences holds the runtime state for each sequence.
+	sequences []sequenceState
+	// maxConvergenceIterations is the maximum iterations for stage convergence loop.
 	maxConvergenceIterations int
-	currStageIdx             int
-	currSeqIdx               int
+	// currStageIdx is the index of the currently executing stage, or -1 if none.
+	currStageIdx int
+	// currSeqIdx is the index of the currently executing sequence, or -1 if global.
+	currSeqIdx int
 }
 
 // ErrorHandler receives errors from node execution.

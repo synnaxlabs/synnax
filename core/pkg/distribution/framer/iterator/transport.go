@@ -37,14 +37,24 @@ const (
 
 // Request is a request to an Iterator.
 type Request struct {
-	Keys             channel.Keys    `json:"keys" msgpack:"keys"`
-	Bounds           telem.TimeRange `json:"bounds" msgpack:"bounds"`
-	Stamp            telem.TimeStamp `json:"stamp" msgpack:"stamp"`
-	Span             telem.TimeSpan  `json:"span" msgpack:"span"`
-	ChunkSize        int64           `json:"chunk_size" msgpack:"chunk_size"`
-	DownsampleFactor int             `json:"downsample_factor" msgpack:"downsample_factor"`
-	SeqNum           int
-	Command          Command `json:"command" msgpack:"command"`
+	// Keys should only be set when opening the Iterator.
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Bounds should be set during calls to SetBounds.
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds"`
+	// Stamp should be set during calls to SeekLE and SeekGE.
+	Stamp telem.TimeStamp `json:"stamp" msgpack:"stamp"`
+	// Span should be set during calls to Next and Prev.
+	Span telem.TimeSpan `json:"span" msgpack:"span"`
+	// ChunkSize should only be set when opening the Iterator.
+	ChunkSize int64 `json:"chunk_size" msgpack:"chunk_size"`
+	// DownsampleFactor should only be set when opening the Iterator.
+	DownsampleFactor int `json:"downsample_factor" msgpack:"downsample_factor"`
+	// SeqNum is the sequence number of the request (starting at 1). This is used to
+	// match responses to requests. Each request should increment the sequence number
+	// by 1.
+	SeqNum int
+	// Command is the command to execute on the Iterator.
+	Command Command `json:"command" msgpack:"command"`
 }
 
 //go:generate stringer -type=ResponseVariant
