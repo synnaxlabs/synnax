@@ -11,4 +11,9 @@ export * from "@/schematic/symbol/Custom";
 export * from "@/schematic/symbol/extractRegions";
 export * from "@/schematic/symbol/queries";
 export * from "@/schematic/symbol/registry";
+export {
+  SelectOrientation,
+  type SelectOrientationProps,
+  type OrientationValue,
+} from "@/schematic/symbol/SelectOrientation";
 export type * from "@/schematic/symbol/Symbols";

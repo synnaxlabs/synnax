@@ -12,12 +12,14 @@ import {
   Button,
   Color,
   Diagram,
+  Direction,
   Divider,
   Flex,
   Form,
   Icon,
   Input,
   Schematic,
+  Select,
   Status,
   Text,
 } from "@synnaxlabs/pluto";
@@ -28,6 +30,7 @@ import { useDispatch, useStore } from "react-redux";
 import { Layout } from "@/layout";
 import {
   type ElementInfo,
+  type NodeElementInfo,
   selectViewport,
   useSelectRequiredEdge,
   useSelectRequiredNodeProps,
@@ -164,6 +167,14 @@ interface MultiElementPropertiesProps {
   layoutKey: string;
 }
 
+type LabelProps = {
+  maxInlineSize?: number;
+  level?: Text.Level;
+  align?: Flex.Alignment;
+  direction?: direction.Direction;
+  orientation?: location.Outer;
+};
+
 const MultiElementProperties = ({
   layoutKey,
 }: MultiElementPropertiesProps): ReactElement => {
@@ -184,6 +195,9 @@ const MultiElementProperties = ({
     if (!(hex in colorGroups)) colorGroups[hex] = [];
     colorGroups[hex].push(e);
   });
+
+  const firstNode = elements.find((e): e is NodeElementInfo => e.type === "node");
+  const firstNodeLabel = firstNode?.props.label as LabelProps | undefined;
 
   const store = useStore<RootState>();
 
@@ -328,17 +342,24 @@ const MultiElementProperties = ({
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
-    elements.forEach((el) => {
-      if (el.type !== "node") return;
-      const parsed = location.outer.safeParse(el.props.orientation);
+    elements.forEach((e) => {
+      if (e.type !== "node") return;
+      const parsed = location.outer.safeParse(e.props.orientation);
       if (!parsed.success) return;
-      onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
+      onChange(e.key, { orientation: location.rotate(parsed.data, dir) });
     });
   };
 
   const handleRotateGroup = (dir: direction.Angular): void => {
     applyNodePositions(Diagram.rotateNodesAroundCenter(getLayoutsForAlignment(), dir));
     handleRotateIndividual(dir);
+  };
+
+  const handleLabelProp = <K extends keyof LabelProps>(key: K, value: LabelProps[K]): void => {
+    elements.forEach((e) => {
+      if (e.type !== "node" || e.props.label == null) return;
+      onChange(e.key, { label: { ...e.props.label, [key]: value } });
+    });
   };
 
   return (
@@ -446,6 +467,39 @@ const MultiElementProperties = ({
             <Icon.RotateAroundCenter.CCW />
           </Button.Button>
         </Flex.Box>
+      </Input.Item>
+      <Input.Item label="Label Wrap Width" align="start">
+        <Input.Numeric
+          value={firstNodeLabel?.maxInlineSize ?? 150}
+          onChange={(v) => handleLabelProp("maxInlineSize", v)}
+          endContent="px"
+        />
+      </Input.Item>
+      <Input.Item label="Label Size" align="start">
+        <Select.Text.Level
+          value={firstNodeLabel?.level ?? "p"}
+          onChange={(v: Text.Level) => handleLabelProp("level", v)}
+        />
+      </Input.Item>
+      <Input.Item label="Label Alignment" align="start">
+        <Select.Flex.Alignment
+          value={firstNodeLabel?.align ?? "center"}
+          onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
+        />
+      </Input.Item>
+      <Input.Item label="Label Direction" align="start">
+        <Direction.Select
+          value={firstNodeLabel?.direction ?? "x"}
+          onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
+          yDirection="down"
+        />
+      </Input.Item>
+      <Input.Item label="Label Orientation" align="start">
+        <Schematic.Symbol.SelectOrientation
+          value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
+          onChange={(v) => v.outer !== "center" && handleLabelProp("orientation", v.outer)}
+          hideInner
+        />
       </Input.Item>
     </Flex.Box>
   );
