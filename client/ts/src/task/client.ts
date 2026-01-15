@@ -244,7 +244,7 @@ type RetrieveSchemas<
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > = {
-  schemas?: Schemas<Type, Config, StatusData>;
+  schemas: Schemas<Type, Config, StatusData>;
 };
 
 const retrieveResZ = <
@@ -377,13 +377,13 @@ export class Client {
   ): Promise<Task<Type, Config, StatusData>[]>;
   async retrieve(args: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<
-    Type extends z.ZodLiteral<string>,
-    Config extends z.ZodType,
-    StatusData extends z.ZodType,
+    Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
+    Config extends z.ZodType = z.ZodType,
+    StatusData extends z.ZodType = z.ZodType,
   >({
     schemas,
     ...args
-  }: RetrieveArgs & RetrieveSchemas<Type, Config, StatusData>): Promise<
+  }: RetrieveArgs & Partial<RetrieveSchemas<Type, Config, StatusData>>): Promise<
     Task<Type, Config, StatusData> | Task<Type, Config, StatusData>[]
   > {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;

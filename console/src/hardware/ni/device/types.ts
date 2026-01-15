@@ -27,7 +27,9 @@ export const propertiesZ = z.object({
   analogOutput: z.object({
     portCount: z.number(),
     stateIndex: channel.keyZ,
-    channels: caseconv.preserveCase(z.record(z.string(), Common.Device.commandStatePairZ)),
+    channels: caseconv.preserveCase(
+      z.record(z.string(), Common.Device.commandStatePairZ),
+    ),
   }),
   counterInput: z.object({
     portCount: z.number(),
@@ -48,7 +50,9 @@ export const propertiesZ = z.object({
     portCount: z.number(),
     lineCounts: z.array(z.number()),
     stateIndex: channel.keyZ,
-    channels: caseconv.preserveCase(z.record(z.string(), Common.Device.commandStatePairZ)),
+    channels: caseconv.preserveCase(
+      z.record(z.string(), Common.Device.commandStatePairZ),
+    ),
   }),
 });
 

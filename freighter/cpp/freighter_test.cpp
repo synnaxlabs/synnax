@@ -28,8 +28,7 @@ public:
 
 class BasicFinalizer final : public Finalizer<int, int> {
 public:
-    FinalizerReturn<int>
-    operator()(const Context context, int &req) override {
+    FinalizerReturn<int> operator()(const Context context, int &req) override {
         return {context, x::errors::NIL, req + 1};
     }
 };

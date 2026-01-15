@@ -21,16 +21,24 @@
 namespace x::color {
 
 /// @brief Returns the red component (0-255).
-inline std::uint8_t r(const Color &c) { return c[0]; }
+inline std::uint8_t r(const Color &c) {
+    return c[0];
+}
 
 /// @brief Returns the green component (0-255).
-inline std::uint8_t g(const Color &c) { return c[1]; }
+inline std::uint8_t g(const Color &c) {
+    return c[1];
+}
 
 /// @brief Returns the blue component (0-255).
-inline std::uint8_t b(const Color &c) { return c[2]; }
+inline std::uint8_t b(const Color &c) {
+    return c[2];
+}
 
 /// @brief Returns the alpha component (0-255).
-inline std::uint8_t a(const Color &c) { return c[3]; }
+inline std::uint8_t a(const Color &c) {
+    return c[3];
+}
 
 /// @brief Returns true if the color is the zero value (all components are 0).
 inline bool is_zero(const Color &c) {
@@ -45,9 +53,7 @@ inline std::string hex(const Color &c) {
     ss << std::setw(2) << static_cast<int>(c[0]);
     ss << std::setw(2) << static_cast<int>(c[1]);
     ss << std::setw(2) << static_cast<int>(c[2]);
-    if (c[3] != 255) {
-        ss << std::setw(2) << static_cast<int>(c[3]);
-    }
+    if (c[3] != 255) { ss << std::setw(2) << static_cast<int>(c[3]); }
     return ss.str();
 }
 
@@ -55,20 +61,14 @@ inline std::string hex(const Color &c) {
 /// If no alpha is specified, defaults to 255 (fully opaque).
 inline Color from_hex(const std::string &s) {
     std::string hex_str = s;
-    if (!hex_str.empty() && hex_str[0] == '#') {
-        hex_str = hex_str.substr(1);
-    }
+    if (!hex_str.empty() && hex_str[0] == '#') { hex_str = hex_str.substr(1); }
 
     if (hex_str.length() != 6 && hex_str.length() != 8) {
-        throw std::invalid_argument(
-            "invalid hex color: must be 6 or 8 hex digits"
-        );
+        throw std::invalid_argument("invalid hex color: must be 6 or 8 hex digits");
     }
 
     auto parse_byte = [](const std::string &str, size_t pos) -> std::uint8_t {
-        return static_cast<std::uint8_t>(
-            std::stoi(str.substr(pos, 2), nullptr, 16)
-        );
+        return static_cast<std::uint8_t>(std::stoi(str.substr(pos, 2), nullptr, 16));
     };
 
     Color result;
@@ -96,9 +96,7 @@ inline Color Color::parse(x::json::Parser parser) {
     }
 
     // Fall back to hex string format
-    if (j.is_string()) {
-        return from_hex(j.get<std::string>());
-    }
+    if (j.is_string()) { return from_hex(j.get<std::string>()); }
 
     throw std::invalid_argument("color must be [R,G,B,A] array or hex string");
 }

@@ -123,11 +123,9 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<
-    typeof Device.propertiesZ,
-    typeof Device.makeZ
-  >({
+  const dev = await client.devices.retrieve({
     key: config.device,
+    schemas: { properties: Device.propertiesZ, make: Device.makeZ },
   });
   try {
     dev.properties = Device.migrateProperties(dev.properties);

@@ -86,13 +86,20 @@ const retrieveSingle = async <
     const dev: device.Device = { ...cached, status };
     return dev as unknown as device.Device<Properties, Make, Model>;
   }
-  const dev = await client.devices.retrieve<Properties, Make, Model>({
-    ...BASE_QUERY,
-    ...query,
-  });
+  const dev =
+    schemas != null
+      ? await client.devices.retrieve({
+          ...BASE_QUERY,
+          ...query,
+          schemas,
+        })
+      : await client.devices.retrieve({
+          ...BASE_QUERY,
+          ...query,
+        });
   store.devices.set(dev.key, dev as unknown as device.Device);
   if (dev.status != null) store.statuses.set(dev.status);
-  return dev;
+  return dev as device.Device<Properties, Make, Model>;
 };
 
 export const createRetrieve = <
@@ -199,21 +206,31 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
-export interface CreateParams extends device.New {}
+export const createCreate = <
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: device.DeviceSchemas<Properties, Make, Model>,
+) =>
+  Flux.createUpdate<
+    device.New<Properties, Make, Model>,
+    FluxSubStore,
+    device.Device<Properties, Make, Model>
+  >({
+    name: RESOURCE_NAME,
+    verbs: Flux.CREATE_VERBS,
+    update: async ({ data, client, rollbacks, store }) => {
+      const dev =
+        schemas != null
+          ? await client.devices.create(data, schemas)
+          : await client.devices.create(data as device.New);
+      rollbacks.push(store.devices.set(dev as unknown as device.Device));
+      return dev as device.Device<Properties, Make, Model>;
+    },
+  });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<
-  CreateParams,
-  FluxSubStore,
-  device.Device
->({
-  name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
-  update: async ({ data, client, rollbacks, store }) => {
-    const dev = await client.devices.create(data);
-    rollbacks.push(store.devices.set(dev));
-    return dev;
-  },
-});
+export const { useUpdate: useCreate } = createCreate();
 
 export interface UseRetrieveGroupArgs {}
 
@@ -305,7 +322,14 @@ export const createForm = <
       reset(device as unknown as z.infer<typeof formSchema>);
     },
     update: async ({ value, client, store, rollbacks }) => {
-      const result = await client.devices.create(value());
+      const data = value();
+      const result =
+        schemas != null
+          ? await client.devices.create(
+              data as device.New<Properties, Make, Model>,
+              schemas,
+            )
+          : await client.devices.create(data);
       rollbacks.push(store.devices.set(result.key, result as unknown as device.Device));
     },
     mountListeners: ({ store, query: { key }, reset, set, get }) => {

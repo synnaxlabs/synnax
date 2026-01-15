@@ -208,13 +208,17 @@ export const propertiesZ = z.object({
     channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
   }),
   [AO_PORT_TYPE]: z.object({
-    channels: caseconv.preserveCase(z.record(z.string(), Common.Device.commandStatePairZ)),
+    channels: caseconv.preserveCase(
+      z.record(z.string(), Common.Device.commandStatePairZ),
+    ),
   }),
   [DI_PORT_TYPE]: z.object({
     channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
   }),
   [DO_PORT_TYPE]: z.object({
-    channels: caseconv.preserveCase(z.record(z.string(), Common.Device.commandStatePairZ)),
+    channels: caseconv.preserveCase(
+      z.record(z.string(), Common.Device.commandStatePairZ),
+    ),
   }),
 });
 

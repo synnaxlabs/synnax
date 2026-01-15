@@ -12,7 +12,7 @@ import "@/notifications/Notifications.css";
 import { type Button, Flex, Status } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { createPortal } from "react-dom";
-import { z } from "zod";
+import type z from "zod";
 
 import { CSS } from "@/css";
 

@@ -27,9 +27,9 @@ import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import {
-  makeZ,
-  modelZ,
-  propertiesZ,
+  type makeZ,
+  type modelZ,
+  type propertiesZ,
   ZERO_PROPERTIES,
 } from "@/hardware/modbus/device/types";
 import {

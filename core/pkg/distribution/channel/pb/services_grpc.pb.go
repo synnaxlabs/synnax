@@ -29,7 +29,7 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	ChannelCreateService_Exec_FullMethodName = "/distribution.channel.ChannelCreateService/Exec"
+	ChannelCreateService_Exec_FullMethodName = "/distribution.channel.pb.ChannelCreateService/Exec"
 )
 
 // ChannelCreateServiceClient is the client API for ChannelCreateService service.
@@ -116,7 +116,7 @@ func _ChannelCreateService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "distribution.channel.ChannelCreateService",
+	ServiceName: "distribution.channel.pb.ChannelCreateService",
 	HandlerType: (*ChannelCreateServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -129,7 +129,7 @@ var ChannelCreateService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChannelDeleteService_Exec_FullMethodName = "/distribution.channel.ChannelDeleteService/Exec"
+	ChannelDeleteService_Exec_FullMethodName = "/distribution.channel.pb.ChannelDeleteService/Exec"
 )
 
 // ChannelDeleteServiceClient is the client API for ChannelDeleteService service.
@@ -216,7 +216,7 @@ func _ChannelDeleteService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "distribution.channel.ChannelDeleteService",
+	ServiceName: "distribution.channel.pb.ChannelDeleteService",
 	HandlerType: (*ChannelDeleteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -229,7 +229,7 @@ var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ChannelRenameService_Exec_FullMethodName = "/distribution.channel.ChannelRenameService/Exec"
+	ChannelRenameService_Exec_FullMethodName = "/distribution.channel.pb.ChannelRenameService/Exec"
 )
 
 // ChannelRenameServiceClient is the client API for ChannelRenameService service.
@@ -316,7 +316,7 @@ func _ChannelRenameService_Exec_Handler(srv interface{}, ctx context.Context, de
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var ChannelRenameService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "distribution.channel.ChannelRenameService",
+	ServiceName: "distribution.channel.pb.ChannelRenameService",
 	HandlerType: (*ChannelRenameServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{

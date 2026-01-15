@@ -9,7 +9,7 @@
 
 syntax = "proto3";
 
-package distribution.channel;
+package distribution.channel.pb;
 
 import "core/pkg/distribution/channel/pb/channel.proto";
 import "google/protobuf/empty.proto";

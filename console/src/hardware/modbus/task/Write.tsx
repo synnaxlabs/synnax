@@ -20,7 +20,7 @@ import {
   Telem,
   Text,
 } from "@synnaxlabs/pluto";
-import { caseconv, deep, id, primitive } from "@synnaxlabs/x";
+import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { CSS } from "@/css";
@@ -193,12 +193,13 @@ const onConfigure: Common.Task.OnConfigure<typeof writeConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<
-    typeof Device.propertiesZ,
-    typeof Device.makeZ,
-    typeof Device.modelZ
-  >({
+  const dev = await client.devices.retrieve({
     key: config.device,
+    schemas: {
+      properties: Device.propertiesZ,
+      make: Device.makeZ,
+      model: Device.modelZ,
+    },
   });
   const commandsToCreate: OutputChannel[] = [];
   for (const channel of config.channels) {

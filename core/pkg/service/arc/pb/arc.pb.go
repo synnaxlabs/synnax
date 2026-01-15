@@ -184,7 +184,7 @@ var File_core_pkg_service_arc_pb_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_arc_pb_arc_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x1darc/go/module/pb/module.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1bx/go/status/pb/status.proto\")\n" +
+	"!core/pkg/service/arc/pb/arc.proto\x12\x0eservice.arc.pb\x1a\x1barc/go/graph/pb/graph.proto\x1a\x19arc/go/text/pb/text.proto\x1a\x1darc/go/module/pb/module.proto\x1a\x1bx/go/status/pb/status.proto\")\n" +
 	"\rStatusDetails\x12\x18\n" +
 	"\arunning\x18\x01 \x01(\bR\arunning\"\xab\x02\n" +
 	"\x03Arc\x12\x10\n" +

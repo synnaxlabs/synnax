@@ -9,6 +9,7 @@
 
 import { TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import { ontology } from "@/ontology";
 import { task } from "@/task";
@@ -525,6 +526,113 @@ describe("Task", async () => {
       await expect(t.executeCommandSync({ type: "test", timeout: 0 })).rejects.toThrow(
         "timed out",
       );
+    });
+  });
+
+  describe("with schemas", () => {
+    const typeSchema = z.literal("sensor_task");
+    const configSchema = z.object({
+      sampleRate: z.number(),
+      channels: z.array(z.string()),
+      enabled: z.boolean(),
+    });
+    const statusDataSchema = z.object({
+      samplesCollected: z.number().optional(),
+    });
+
+    it("should create and retrieve a task with typed config", async () => {
+      const config = {
+        sampleRate: 1000,
+        channels: ["ch1", "ch2"],
+        enabled: true,
+      };
+      const t = await testRack.createTask(
+        {
+          name: "typed-config-task",
+          type: "sensor_task",
+          config,
+        },
+        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+      );
+      expect(t.config.sampleRate).toBe(1000);
+      expect(t.config.channels).toEqual(["ch1", "ch2"]);
+      expect(t.config.enabled).toBe(true);
+
+      const retrieved = await client.tasks.retrieve({
+        key: t.key,
+        schemas: { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+      });
+      expect(retrieved.config.sampleRate).toBe(1000);
+      expect(retrieved.config.channels).toEqual(["ch1", "ch2"]);
+      expect(retrieved.type).toBe("sensor_task");
+    });
+
+    it("should retrieve multiple tasks with schemas", async () => {
+      const t1 = await testRack.createTask(
+        {
+          name: "multi-schema-1",
+          type: "sensor_task",
+          config: { sampleRate: 100, channels: ["a"], enabled: true },
+        },
+        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+      );
+      const t2 = await testRack.createTask(
+        {
+          name: "multi-schema-2",
+          type: "sensor_task",
+          config: { sampleRate: 200, channels: ["b", "c"], enabled: false },
+        },
+        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+      );
+
+      const retrieved = await client.tasks.retrieve({
+        keys: [t1.key, t2.key],
+        schemas: { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+      });
+      expect(retrieved).toHaveLength(2);
+      expect(retrieved[0].config.sampleRate).toBe(100);
+      expect(retrieved[1].config.sampleRate).toBe(200);
+    });
+
+    it("should retrieve task by name with schemas", async () => {
+      const uniqueName = `schema-name-test-${Date.now()}`;
+      await testRack.createTask(
+        {
+          name: uniqueName,
+          type: "sensor_task",
+          config: { sampleRate: 500, channels: ["x"], enabled: true },
+        },
+        { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+      );
+
+      const retrieved = await client.tasks.retrieve({
+        name: uniqueName,
+        schemas: { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+      });
+      expect(retrieved.name).toBe(uniqueName);
+      expect(retrieved.config.sampleRate).toBe(500);
+    });
+
+    it("should retrieve task by type with schemas", async () => {
+      const customType = z.literal("unique_type_test");
+      const simpleConfig = z.object({ value: z.number() });
+
+      await testRack.createTask(
+        {
+          name: "type-filter-test",
+          type: "unique_type_test",
+          config: { value: 42 },
+        },
+        { type: customType, config: simpleConfig, statusData: z.unknown() },
+      );
+
+      const retrieved = await client.tasks.retrieve({
+        type: "unique_type_test",
+        rack: testRack.key,
+        schemas: { type: customType, config: simpleConfig, statusData: z.unknown() },
+      });
+      expect(retrieved.type).toBe("unique_type_test");
+      expect(retrieved.config.value).toBe(42);
     });
   });
 });

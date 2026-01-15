@@ -11,10 +11,10 @@
 
 #include "gtest/gtest.h"
 
+#include "freighter/cpp/freighter.h"
 #include "freighter/cpp/grpc/grpc.h"
 #include "freighter/cpp/grpc/mock/freighter/cpp/grpc/mock/service.grpc.pb.h"
 #include "freighter/cpp/grpc/mock/server.h"
-#include "freighter/cpp/freighter.h"
 #include "x/cpp/test/test.h"
 
 namespace freighter::grpc {
@@ -272,8 +272,10 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     auto pool = std::make_shared<Pool>();
-    auto global_stream_client = std::make_shared<
-        StreamClient<RQ, RS, STREAM_RPC>>(pool, base_target);
+    auto global_stream_client = std::make_shared<StreamClient<RQ, RS, STREAM_RPC>>(
+        pool,
+        base_target
+    );
 
     const auto mw = std::make_shared<myMiddleware>();
     global_stream_client->use(mw);

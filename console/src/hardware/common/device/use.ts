@@ -11,7 +11,7 @@ import { type device } from "@synnaxlabs/client";
 import { Device, Form } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useEffect, useMemo } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 /**
  * A hook that retrieves and subscribes to updates for a device. Must be used within a

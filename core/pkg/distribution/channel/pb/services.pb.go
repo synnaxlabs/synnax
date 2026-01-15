@@ -235,25 +235,25 @@ var File_core_pkg_distribution_channel_pb_services_proto protoreflect.FileDescri
 
 const file_core_pkg_distribution_channel_pb_services_proto_rawDesc = "" +
 	"\n" +
-	"/core/pkg/distribution/channel/pb/services.proto\x12\x14distribution.channel\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x7f\n" +
+	"/core/pkg/distribution/channel/pb/services.proto\x12\x17distribution.channel.pb\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a\x1bgoogle/protobuf/empty.proto\"\x7f\n" +
 	"\rCreateOptions\x125\n" +
 	"\x17retrieve_if_name_exists\x18\x01 \x01(\bR\x14retrieveIfNameExists\x127\n" +
-	"\x18overwrite_if_name_exists\x18\x02 \x01(\bR\x15overwriteIfNameExists\"\x86\x01\n" +
+	"\x18overwrite_if_name_exists\x18\x02 \x01(\bR\x15overwriteIfNameExists\"\x89\x01\n" +
 	"\rCreateMessage\x12<\n" +
-	"\bchannels\x18\x01 \x03(\v2 .distribution.channel.pb.ChannelR\bchannels\x127\n" +
-	"\x04opts\x18\x02 \x01(\v2#.distribution.channel.CreateOptionsR\x04opts\"#\n" +
+	"\bchannels\x18\x01 \x03(\v2 .distribution.channel.pb.ChannelR\bchannels\x12:\n" +
+	"\x04opts\x18\x02 \x01(\v2&.distribution.channel.pb.CreateOptionsR\x04opts\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\"9\n" +
 	"\rRenameRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names2j\n" +
-	"\x14ChannelCreateService\x12R\n" +
-	"\x04Exec\x12#.distribution.channel.CreateMessage\x1a#.distribution.channel.CreateMessage\"\x002]\n" +
-	"\x14ChannelDeleteService\x12E\n" +
-	"\x04Exec\x12#.distribution.channel.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002]\n" +
-	"\x14ChannelRenameService\x12E\n" +
-	"\x04Exec\x12#.distribution.channel.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xd4\x01\n" +
-	"\x18com.distribution.channelB\rServicesProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/distribution/channel/pb\xa2\x02\x03DCX\xaa\x02\x14Distribution.Channel\xca\x02\x14Distribution\\Channel\xe2\x02 Distribution\\Channel\\GPBMetadata\xea\x02\x15Distribution::Channelb\x06proto3"
+	"\x05names\x18\x02 \x03(\tR\x05names2p\n" +
+	"\x14ChannelCreateService\x12X\n" +
+	"\x04Exec\x12&.distribution.channel.pb.CreateMessage\x1a&.distribution.channel.pb.CreateMessage\"\x002`\n" +
+	"\x14ChannelDeleteService\x12H\n" +
+	"\x04Exec\x12&.distribution.channel.pb.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002`\n" +
+	"\x14ChannelRenameService\x12H\n" +
+	"\x04Exec\x12&.distribution.channel.pb.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xe4\x01\n" +
+	"\x1bcom.distribution.channel.pbB\rServicesProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/distribution/channel/pb\xa2\x02\x03DCP\xaa\x02\x17Distribution.Channel.Pb\xca\x02\x17Distribution\\Channel\\Pb\xe2\x02#Distribution\\Channel\\Pb\\GPBMetadata\xea\x02\x19Distribution::Channel::Pbb\x06proto3"
 
 var (
 	file_core_pkg_distribution_channel_pb_services_proto_rawDescOnce sync.Once
@@ -269,22 +269,22 @@ func file_core_pkg_distribution_channel_pb_services_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_distribution_channel_pb_services_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_pkg_distribution_channel_pb_services_proto_goTypes = []any{
-	(*CreateOptions)(nil), // 0: distribution.channel.CreateOptions
-	(*CreateMessage)(nil), // 1: distribution.channel.CreateMessage
-	(*DeleteRequest)(nil), // 2: distribution.channel.DeleteRequest
-	(*RenameRequest)(nil), // 3: distribution.channel.RenameRequest
+	(*CreateOptions)(nil), // 0: distribution.channel.pb.CreateOptions
+	(*CreateMessage)(nil), // 1: distribution.channel.pb.CreateMessage
+	(*DeleteRequest)(nil), // 2: distribution.channel.pb.DeleteRequest
+	(*RenameRequest)(nil), // 3: distribution.channel.pb.RenameRequest
 	(*Channel)(nil),       // 4: distribution.channel.pb.Channel
 	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
 }
 var file_core_pkg_distribution_channel_pb_services_proto_depIdxs = []int32{
-	4, // 0: distribution.channel.CreateMessage.channels:type_name -> distribution.channel.pb.Channel
-	0, // 1: distribution.channel.CreateMessage.opts:type_name -> distribution.channel.CreateOptions
-	1, // 2: distribution.channel.ChannelCreateService.Exec:input_type -> distribution.channel.CreateMessage
-	2, // 3: distribution.channel.ChannelDeleteService.Exec:input_type -> distribution.channel.DeleteRequest
-	3, // 4: distribution.channel.ChannelRenameService.Exec:input_type -> distribution.channel.RenameRequest
-	1, // 5: distribution.channel.ChannelCreateService.Exec:output_type -> distribution.channel.CreateMessage
-	5, // 6: distribution.channel.ChannelDeleteService.Exec:output_type -> google.protobuf.Empty
-	5, // 7: distribution.channel.ChannelRenameService.Exec:output_type -> google.protobuf.Empty
+	4, // 0: distribution.channel.pb.CreateMessage.channels:type_name -> distribution.channel.pb.Channel
+	0, // 1: distribution.channel.pb.CreateMessage.opts:type_name -> distribution.channel.pb.CreateOptions
+	1, // 2: distribution.channel.pb.ChannelCreateService.Exec:input_type -> distribution.channel.pb.CreateMessage
+	2, // 3: distribution.channel.pb.ChannelDeleteService.Exec:input_type -> distribution.channel.pb.DeleteRequest
+	3, // 4: distribution.channel.pb.ChannelRenameService.Exec:input_type -> distribution.channel.pb.RenameRequest
+	1, // 5: distribution.channel.pb.ChannelCreateService.Exec:output_type -> distribution.channel.pb.CreateMessage
+	5, // 6: distribution.channel.pb.ChannelDeleteService.Exec:output_type -> google.protobuf.Empty
+	5, // 7: distribution.channel.pb.ChannelRenameService.Exec:output_type -> google.protobuf.Empty
 	5, // [5:8] is the sub-list for method output_type
 	2, // [2:5] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

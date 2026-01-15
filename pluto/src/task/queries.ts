@@ -103,14 +103,20 @@ export const retrieveSingle = async <
       return tsk;
     }
   }
-  const tsk = await client.tasks.retrieve<Type, Config, StatusData>({
-    ...BASE_QUERY,
-    ...query,
-    schemas,
-  });
+  const tsk =
+    schemas != null
+      ? await client.tasks.retrieve({
+          ...BASE_QUERY,
+          ...query,
+          schemas,
+        })
+      : await client.tasks.retrieve({
+          ...BASE_QUERY,
+          ...query,
+        });
   store.tasks.set(tsk.key.toString(), tsk as unknown as task.Task);
   if (tsk.status != null) store.statuses.set(tsk.status);
-  return tsk;
+  return tsk as task.Task<Type, Config, StatusData>;
 };
 
 export const createRetrieve = <

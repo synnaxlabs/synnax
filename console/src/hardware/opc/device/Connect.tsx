@@ -31,9 +31,9 @@ import { retrieveScanTask } from "@/hardware/opc/device/retrieveScanTask";
 import { SelectSecurityMode } from "@/hardware/opc/device/SelectSecurityMode";
 import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 import {
-  makeZ,
+  type makeZ,
   NO_SECURITY_MODE,
-  propertiesZ,
+  type propertiesZ,
   type SecurityMode,
   type SecurityPolicy,
   ZERO_PROPERTIES,

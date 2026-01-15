@@ -13,6 +13,7 @@ import { z } from "zod";
 
 import {
   type Device,
+  type DeviceSchemas,
   deviceZ,
   type Key,
   keyZ,
@@ -27,8 +28,21 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_device_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
 
-const createReqZ = z.object({ devices: zod.toArray(newZ()) });
-const createResZ = z.object({ devices: deviceZ().array() });
+const createReqZ = <
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: DeviceSchemas<Properties, Make, Model>,
+) => z.object({ devices: zod.toArray(newZ(schemas)) });
+
+const createResZ = <
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: DeviceSchemas<Properties, Make, Model>,
+) => z.object({ devices: deviceZ(schemas).array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -45,7 +59,14 @@ const retrieveRequestZ = z.object({
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
 });
-const retrieveResZ = z.object({ devices: array.nullishToEmpty(deviceZ()) });
+
+const retrieveResZ = <
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>(
+  schemas?: DeviceSchemas<Properties, Make, Model>,
+) => z.object({ devices: array.nullishToEmpty(deviceZ(schemas)) });
 
 const singleRetrieveArgsZ = z
   .object({
@@ -64,6 +85,14 @@ const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
+type RetrieveSchemas<
+  Properties extends z.ZodType = z.ZodType,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+> = {
+  schemas: DeviceSchemas<Properties, Make, Model>;
+};
+
 export class Client {
   private readonly client: UnaryClient;
 
@@ -72,63 +101,85 @@ export class Client {
   }
 
   async retrieve<
-    Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodType<string> = z.ZodString,
-    Model extends z.ZodType<string> = z.ZodString,
-  >(args: RetrieveSingleParams): Promise<Device<Properties, Make, Model>>;
-
-  async retrieve<
-    Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodType<string> = z.ZodString,
-    Model extends z.ZodType<string> = z.ZodString,
-  >(args: RetrieveMultipleParams): Promise<Array<Device<Properties, Make, Model>>>;
-
-  async retrieve<
-    Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodType<string> = z.ZodString,
-    Model extends z.ZodType<string> = z.ZodString,
+    Properties extends z.ZodType,
+    Make extends z.ZodType<string>,
+    Model extends z.ZodType<string>,
   >(
-    args: RetrieveArgs,
-  ): Promise<Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>> {
+    args: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
+  ): Promise<Device<Properties, Make, Model>>;
+
+  async retrieve(args: RetrieveSingleParams): Promise<Device>;
+
+  async retrieve<
+    Properties extends z.ZodType,
+    Make extends z.ZodType<string>,
+    Model extends z.ZodType<string>,
+  >(
+    args: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
+  ): Promise<Array<Device<Properties, Make, Model>>>;
+
+  async retrieve(args: RetrieveMultipleParams): Promise<Device[]>;
+
+  async retrieve<
+    Properties extends z.ZodType = z.ZodType,
+    Make extends z.ZodType<string> = z.ZodString,
+    Model extends z.ZodType<string> = z.ZodString,
+  >({
+    schemas,
+    ...args
+  }: RetrieveArgs & Partial<RetrieveSchemas<Properties, Make, Model>>): Promise<
+    Device<Properties, Make, Model> | Array<Device<Properties, Make, Model>>
+  > {
     const isSingle = typeof args === "object" && "key" in args;
     const res = await sendRequired(
       this.client,
       "/device/retrieve",
       args,
       retrieveArgsZ,
-      retrieveResZ,
+      retrieveResZ(schemas),
     );
     checkForMultipleOrNoResults("Device", args, res.devices, isSingle);
     const devices = res.devices as Device<Properties, Make, Model>[];
     return isSingle ? devices[0] : devices;
   }
 
+  async create(device: New): Promise<Device>;
+
+  async create(devices: New[]): Promise<Device[]>;
+
   async create<
-    Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodType<string> = z.ZodString,
-    Model extends z.ZodType<string> = z.ZodString,
-  >(device: New<Properties, Make, Model>): Promise<Device<Properties, Make, Model>>;
+    Properties extends z.ZodType,
+    Make extends z.ZodType<string>,
+    Model extends z.ZodType<string>,
+  >(
+    device: New<Properties, Make, Model>,
+    schemas: DeviceSchemas<Properties, Make, Model>,
+  ): Promise<Device<Properties, Make, Model>>;
+
   async create<
-    Properties extends z.ZodType = z.ZodType,
-    Make extends z.ZodType<string> = z.ZodString,
-    Model extends z.ZodType<string> = z.ZodString,
+    Properties extends z.ZodType,
+    Make extends z.ZodType<string>,
+    Model extends z.ZodType<string>,
   >(
     devices: New<Properties, Make, Model>[],
+    schemas: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>[]>;
+
   async create<
     Properties extends z.ZodType = z.ZodType,
     Make extends z.ZodType<string> = z.ZodString,
     Model extends z.ZodType<string> = z.ZodString,
   >(
     devices: New<Properties, Make, Model> | New<Properties, Make, Model>[],
+    schemas?: DeviceSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model> | Device<Properties, Make, Model>[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,
       "/device/create",
-      { devices: devices as z.infer<typeof createReqZ>["devices"] },
-      createReqZ,
-      createResZ,
+      { devices: array.toArray(devices) },
+      createReqZ(schemas),
+      createResZ(schemas),
     );
     const created = res.devices as Device<Properties, Make, Model>[];
     return isSingle ? created[0] : created;

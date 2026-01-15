@@ -11,9 +11,9 @@ from uuid import UUID
 
 from freighter import Payload
 
+from synnax.color import Color
 from synnax.ontology import ID
 from synnax.telem import TimeRange
-from synnax.color import Color
 
 RANGE_ONTOLOGY_TYPE = ID(type="range")
 

@@ -10,7 +10,7 @@
 import { type device } from "@synnaxlabs/client";
 import { Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { EmptyAction } from "@/components";
 import { use } from "@/hardware/common/device/use";

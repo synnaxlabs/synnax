@@ -8,12 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { z } from "zod";
+import { type z } from "zod";
 
 export const checkConfigured = <
   Properties extends z.ZodType = z.ZodType,
   Make extends z.ZodType<string> = z.ZodString,
   Model extends z.ZodType<string> = z.ZodString,
->(device: device.Device<Properties, Make, Model>): void => {
+>(
+  device: device.Device<Properties, Make, Model>,
+): void => {
   if (!device.configured) throw new Error(`${device.name} is not configured.`);
 };

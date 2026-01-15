@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/ir/testutil"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 

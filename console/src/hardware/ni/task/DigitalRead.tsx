@@ -104,11 +104,9 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
   client,
   config,
 ) => {
-  const dev = await client.devices.retrieve<
-    typeof Device.propertiesZ,
-    typeof Device.makeZ
-  >({
+  const dev = await client.devices.retrieve({
     key: config.device,
+    schemas: { properties: Device.propertiesZ, make: Device.makeZ },
   });
   Common.Device.checkConfigured(dev);
   dev.properties = Device.enrich(dev.model, dev.properties);

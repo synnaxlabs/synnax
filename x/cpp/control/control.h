@@ -11,8 +11,8 @@
 
 #include <string>
 
-#include "x/cpp/control/types.gen.h"
 #include "x/cpp/control/proto.gen.h"
+#include "x/cpp/control/types.gen.h"
 
 namespace x::control {
 constexpr Authority AUTH_ABSOLUTE = 255;

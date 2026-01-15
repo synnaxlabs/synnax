@@ -18,7 +18,9 @@ import { type Notifications } from "@/notifications";
 const shouldShowConfigureButton = (make: Make): boolean =>
   make === "NI" || make === "LabJack";
 
-const notificationAdapter: Notifications.Adapter<ReturnType<typeof device.deviceZ>> = (status) => {
+const notificationAdapter: Notifications.Adapter<ReturnType<typeof device.deviceZ>> = (
+  status,
+) => {
   const key = getKeyFromStatus(status);
   if (key == null) return null;
   const sugared: Notifications.Sugared = { ...status };
@@ -49,4 +51,6 @@ const ConfigureButton = ({ layout }: ConfigureButtonProps) => {
   );
 };
 
-export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [notificationAdapter];
+export const NOTIFICATION_ADAPTERS: Notifications.Adapter<any>[] = [
+  notificationAdapter,
+];
