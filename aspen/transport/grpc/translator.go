@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/aspen/node"
+	"github.com/synnaxlabs/aspen/internal/node"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/v1"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/x/address"

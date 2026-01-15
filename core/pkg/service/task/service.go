@@ -239,7 +239,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
-			Details:     StatusDetails{Task: tsk.Key},
+			Details:     StatusDetails{Task: tsk.Key, Running: false},
 		}
 	}
 	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).

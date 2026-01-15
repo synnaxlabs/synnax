@@ -91,7 +91,7 @@ inline std::pair<Channel, x::errors::Error>
 Channel::from_proto(const ::distribution::channel::pb::Channel &pb) {
     Channel cpp;
     cpp.name = pb.name();
-    cpp.leaseholder = Key(pb.leaseholder());
+    cpp.leaseholder = NodeKey(pb.leaseholder());
     cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
     cpp.local_key = LocalKey::from_proto(pb.local_key());
@@ -112,7 +112,7 @@ inline ::api::channel::pb::Channel APIChannel::to_proto() const {
     ::api::channel::pb::Channel pb;
     pb.set_key(static_cast<uint32_t>(this->key));
     pb.set_name(this->name);
-    pb.set_leaseholder(this->leaseholder);
+    pb.set_leaseholder(static_cast<uint32_t>(this->leaseholder));
     pb.set_data_type(this->data_type.to_proto());
     pb.set_is_index(this->is_index);
     pb.set_index(static_cast<uint32_t>(this->index));
@@ -132,7 +132,7 @@ APIChannel::from_proto(const ::api::channel::pb::Channel &pb) {
     APIChannel cpp;
     cpp.key = ChannelKey(pb.key());
     cpp.name = pb.name();
-    cpp.leaseholder = pb.leaseholder();
+    cpp.leaseholder = NodeKey(pb.leaseholder());
     cpp.data_type = ::x::telem::DataType::from_proto(pb.data_type());
     cpp.is_index = pb.is_index();
     cpp.index = ChannelKey(pb.index());

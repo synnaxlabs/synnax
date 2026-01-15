@@ -42,7 +42,7 @@ APIRange struct extends Range {
     @ontology type "range"
     @cpp name      "Range"
     @cpp methods   "kv::Client kv = kv::Client()"
-    @cpp includes  "client/cpp/kv/kv.h"
+    @cpp includes  "client/cpp/ranger/kv/kv.h"
 }
 
 TSRange struct extends Range {

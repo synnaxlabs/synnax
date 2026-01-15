@@ -14,6 +14,8 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
+import { cluster } from "../../../../cluster";
+
 export const keyZ = z.uint32().or(
   z
     .string()
@@ -55,7 +57,7 @@ export type Status = z.infer<typeof statusZ>;
 export const payloadZ = z.object({
   key: keyZ,
   name: nameZ,
-  leaseholder: zod.uint12,
+  leaseholder: cluster.nodeKeyZ,
   dataType: telem.dataTypeZ,
   isIndex: z.boolean(),
   index: keyZ,
@@ -70,10 +72,9 @@ export const payloadZ = z.object({
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ
-  .omit({ operations: true, concurrency: true })
+  .omit({ leaseholder: true, operations: true, concurrency: true })
   .partial({
     key: true,
-    leaseholder: true,
     index: true,
     isIndex: true,
     internal: true,
@@ -81,6 +82,7 @@ export const newZ = payloadZ
     expression: true,
   })
   .extend({
+    leaseholder: zod.uint12.optional(),
     operations: zod.nullToUndefined(operationZ.array()),
     concurrency: control.concurrencyZ.optional(),
   });

@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-Key uint12 {
-    @go output "aspen/node"
+@go output "core/pkg/distribution/cluster"
+@py output "client/py/synnax/cluster"
+
+NodeKey uint12 {
+    @go omit
 }

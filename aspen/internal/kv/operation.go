@@ -12,7 +12,7 @@ package kv
 import (
 	"context"
 
-	"github.com/synnaxlabs/aspen/node"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"

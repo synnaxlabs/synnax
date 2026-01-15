@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "x/cpp/uuid/uuid.h"
-
 #include <sstream>
+
+#include "x/cpp/uuid/uuid.h"
 
 #include "boost/uuid/nil_generator.hpp"
 #include "boost/uuid/random_generator.hpp"
@@ -17,9 +17,9 @@
 
 namespace x::uuid {
 
-UUID::UUID() : value(boost::uuids::nil_uuid()) {}
+UUID::UUID(): value(boost::uuids::nil_uuid()) {}
 
-UUID::UUID(const boost::uuids::uuid &u) : value(u) {}
+UUID::UUID(const boost::uuids::uuid &u): value(u) {}
 
 UUID::UUID(const std::array<std::uint8_t, 16> &bytes) {
     std::copy(bytes.begin(), bytes.end(), value.begin());
@@ -46,27 +46,49 @@ UUID UUID::parse(json::Parser parser) {
     return uuid;
 }
 
-bool UUID::is_nil() const { return value.is_nil(); }
+bool UUID::is_nil() const {
+    return value.is_nil();
+}
 
-std::string UUID::to_string() const { return boost::uuids::to_string(value); }
+std::string UUID::to_string() const {
+    return boost::uuids::to_string(value);
+}
 
-json::json UUID::to_json() const { return to_string(); }
+json::json UUID::to_json() const {
+    return to_string();
+}
 
-const boost::uuids::uuid &UUID::underlying() const { return value; }
+const boost::uuids::uuid &UUID::underlying() const {
+    return value;
+}
 
-const std::uint8_t *UUID::data() const { return value.data; }
+const std::uint8_t *UUID::data() const {
+    return value.data;
+}
 
-bool UUID::operator==(const UUID &other) const { return value == other.value; }
+bool UUID::operator==(const UUID &other) const {
+    return value == other.value;
+}
 
-bool UUID::operator!=(const UUID &other) const { return value != other.value; }
+bool UUID::operator!=(const UUID &other) const {
+    return value != other.value;
+}
 
-bool UUID::operator<(const UUID &other) const { return value < other.value; }
+bool UUID::operator<(const UUID &other) const {
+    return value < other.value;
+}
 
-bool UUID::operator>(const UUID &other) const { return value > other.value; }
+bool UUID::operator>(const UUID &other) const {
+    return value > other.value;
+}
 
-bool UUID::operator<=(const UUID &other) const { return value <= other.value; }
+bool UUID::operator<=(const UUID &other) const {
+    return value <= other.value;
+}
 
-bool UUID::operator>=(const UUID &other) const { return value >= other.value; }
+bool UUID::operator>=(const UUID &other) const {
+    return value >= other.value;
+}
 
 std::ostream &operator<<(std::ostream &os, const UUID &uuid) {
     os << uuid.to_string();

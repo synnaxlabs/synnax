@@ -16,7 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/aspen/node"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/store"
 )

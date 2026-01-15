@@ -15,7 +15,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
-	"github.com/synnaxlabs/aspen/node"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/confluence"
 	xkv "github.com/synnaxlabs/x/kv"

@@ -12,7 +12,7 @@ package aspen
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster"
-	"github.com/synnaxlabs/aspen/node"
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
 	xio "github.com/synnaxlabs/x/io"

@@ -180,8 +180,22 @@ TEST(UUID, testHashSupport) {
 /// @brief it should construct from raw bytes.
 TEST(UUID, testConstructFromBytes) {
     std::array<std::uint8_t, 16> bytes = {
-        0x74, 0x8d, 0x31, 0xe2, 0x57, 0x32, 0x4c, 0xb5,
-        0x8b, 0xc9, 0x64, 0xd4, 0xad, 0x51, 0xef, 0xe8
+        0x74,
+        0x8d,
+        0x31,
+        0xe2,
+        0x57,
+        0x32,
+        0x4c,
+        0xb5,
+        0x8b,
+        0xc9,
+        0x64,
+        0xd4,
+        0xad,
+        0x51,
+        0xef,
+        0xe8
     };
     const auto uuid = UUID(bytes);
     ASSERT_EQ(uuid.to_string(), "748d31e2-5732-4cb5-8bc9-64d4ad51efe8");

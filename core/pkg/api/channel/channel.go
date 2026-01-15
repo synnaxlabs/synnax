@@ -13,9 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
-	xtypes "github.com/synnaxlabs/x/types"
-
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -27,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -244,7 +242,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 		translated[i] = Channel{
 			Key:         ch.Key(),
 			Name:        ch.Name,
-			Leaseholder: xtypes.Uint12(ch.Leaseholder),
+			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),

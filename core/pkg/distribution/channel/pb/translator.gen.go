@@ -13,8 +13,8 @@ package pb
 
 import (
 	"context"
-	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -101,7 +101,7 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 		return r, err
 	}
 	r.Name = channel.Name(pb.Name)
-	r.Leaseholder = node.Key(pb.Leaseholder)
+	r.Leaseholder = cluster.NodeKey(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex
 	r.LocalKey = channel.LocalKey(pb.LocalKey)

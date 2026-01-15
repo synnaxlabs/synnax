@@ -11,14 +11,15 @@ package gossip
 
 import (
 	"context"
-	"github.com/synnaxlabs/aspen/node"
+	"time"
+
+	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/rand"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
-	"time"
 )
 
 type Gossip struct{ Config }

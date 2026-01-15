@@ -16,11 +16,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	gotypes "go/types"
 )
 
@@ -67,7 +67,7 @@ func ChannelFromPB(ctx context.Context, pb *Channel) (channel.Channel, error) {
 	}
 	r.Key = distributionchannel.Key(pb.Key)
 	r.Name = distributionchannel.Name(pb.Name)
-	r.Leaseholder = types.Uint12(pb.Leaseholder)
+	r.Leaseholder = cluster.NodeKey(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex
 	r.Index = distributionchannel.Key(pb.Index)

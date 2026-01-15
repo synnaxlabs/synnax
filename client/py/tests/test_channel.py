@@ -73,7 +73,7 @@ class TestChannel:
         """Should raise a validation error when creating a channel with a non-existent index"""
         with pytest.raises(sy.ValidationError):
             client.channels.create(
-                name=channel_name(), data_type=sy.DataType.FLOAT64, index=1234
+                name=channel_name(), data_type=sy.DataType.FLOAT64, index=12345678
             )
 
     def test_create_indexed_pair_no_name(self, client: sy.Synnax):

@@ -15,13 +15,13 @@
 #include <ostream>
 #include <string>
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+
 #include "boost/uuid/uuid.hpp"
 #include "boost/uuid/uuid_generators.hpp"
 #include "boost/uuid/uuid_hash.hpp"
 #include "boost/uuid/uuid_io.hpp"
-
-#include "x/cpp/errors/errors.h"
-#include "x/cpp/json/json.h"
 
 namespace x::uuid {
 
@@ -30,7 +30,6 @@ const errors::Error INVALID = errors::SY.sub("uuid.invalid");
 
 /// @brief Generate a new random UUID (v4).
 /// @returns A newly generated random UUID.
-
 
 /// @brief A wrapper class around boost::uuid::uuid providing value semantics
 /// and integration with Synnax's serialization infrastructure.
@@ -57,8 +56,6 @@ public:
     /// @param parser The JSON parser positioned at a string value.
     /// @returns The parsed UUID, or a nil UUID if parsing fails.
     static UUID parse(json::Parser parser);
-
-
 
     /// @brief Check if this is a nil (all-zeros) UUID.
     /// @returns true if this UUID is nil, false otherwise.

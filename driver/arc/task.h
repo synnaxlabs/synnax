@@ -31,7 +31,7 @@ namespace arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig {
     /// @brief the key of the arc program to retrieve from Synnax.
-    std::string arc_key;
+    x::uuid::UUID arc_key;
     /// @brief the arc module retrieved from Synnax (already constructed).
     module::Module module;
     /// @brief execution loop configuration.
@@ -51,7 +51,7 @@ struct TaskConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         TaskConfig cfg;
 
-        cfg.arc_key = parser.field<std::string>("arc_key");
+        cfg.arc_key = parser.field<x::uuid::UUID>("arc_key");
         if (!parser.ok()) return {std::move(cfg), parser.error()};
 
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(

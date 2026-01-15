@@ -14,8 +14,8 @@ package pb
 import (
 	"context"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/aspen/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
@@ -46,7 +46,7 @@ func convertAnyForPB(v any) any {
 		return uint32(val)
 	case channel.LocalKey:
 		return uint32(val)
-	case node.Key:
+	case cluster.NodeKey:
 		return uint32(val)
 	case rack.Key:
 		return uint32(val)

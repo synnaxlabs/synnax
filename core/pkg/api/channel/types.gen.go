@@ -13,10 +13,10 @@ package channel
 
 import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	gotypes "go/types"
 )
 
@@ -25,7 +25,7 @@ type Status = status.Status[gotypes.Nil]
 type Channel struct {
 	Key         distributionchannel.Key         `json:"key" msgpack:"key"`
 	Name        distributionchannel.Name        `json:"name" msgpack:"name"`
-	Leaseholder types.Uint12                    `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder cluster.NodeKey                 `json:"leaseholder" msgpack:"leaseholder"`
 	DataType    telem.DataType                  `json:"data_type" msgpack:"data_type"`
 	IsIndex     bool                            `json:"is_index" msgpack:"is_index"`
 	Index       distributionchannel.Key         `json:"index" msgpack:"index"`

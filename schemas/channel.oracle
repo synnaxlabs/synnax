@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/telem"
-import "schemas/node"
+import "schemas/cluster"
 import "schemas/control"
 import "schemas/status"
 
@@ -58,7 +58,7 @@ Operation struct {
 
 Channel struct {
     name        Name
-    leaseholder node.Key
+    leaseholder cluster.NodeKey
     data_type   telem.DataType
     is_index    bool
     local_key   LocalKey
@@ -83,7 +83,7 @@ Status = status.Status {
 APIChannel struct {
     key         Key                  @key
     name        Name
-    leaseholder uint12
+    leaseholder cluster.NodeKey
     data_type   telem.DataType
     is_index    bool
     index       Key
