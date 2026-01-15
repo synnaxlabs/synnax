@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -43,8 +42,6 @@ func convertAnyForPB(v any) any {
 		return string(val)
 	case telem.Alignment:
 		return uint64(val)
-	case color.Color:
-		return string(val)
 	case channel.Key:
 		return uint32(val)
 	case channel.LocalKey:

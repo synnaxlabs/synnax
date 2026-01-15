@@ -15,14 +15,16 @@ import "schemas/color"
 @cpp output "x/cpp/label"
 @pb
 
+Key = uuid
+
 Label struct {
-    key   uuid        @key
+    key   Key         @key
     name  string      @validate min_length 1
     color color.Color
 }
 
 New struct extends Label {
-    key uuid?
+    key Key?
 
     @py omit
     @ts use_input

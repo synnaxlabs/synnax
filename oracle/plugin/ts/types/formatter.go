@@ -36,6 +36,15 @@ func (f *TSFormatter) FormatArray(elemType string) string {
 	return elemType + "[]"
 }
 
+func (f *TSFormatter) FormatFixedArray(elemType string, size int64) string {
+	// TypeScript represents fixed-size arrays as tuples: [T, T, T, T]
+	elements := make([]string, size)
+	for i := range elements {
+		elements[i] = elemType
+	}
+	return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
+}
+
 func (f *TSFormatter) FormatMap(keyType, valType string) string {
 	return fmt.Sprintf("Record<%s, %s>", keyType, valType)
 }

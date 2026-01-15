@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
@@ -298,11 +298,11 @@ describe("Status", () => {
     it("should correctly retrieve a status with labels attached", async () => {
       const label1 = await client.labels.create({
         name: "Label 1",
-        color: "#0000FF",
+        color: color.construct("#0000FF"),
       });
       const label2 = await client.labels.create({
         name: "Label 2",
-        color: "#FF0000",
+        color: color.construct("#FF0000"),
       });
       const stat = await client.statuses.set({
         name: "Idempotent",

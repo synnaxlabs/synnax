@@ -189,6 +189,13 @@ func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *ar
 		return nil
 	}
 
+	// Skip fixed-size arrays (e.g., Color [4]uint8) - they use std::array which
+	// doesn't have push_back, and need manual implementations with backward
+	// compatibility (e.g., hex string parsing)
+	if form.Base.ArraySize != nil {
+		return nil
+	}
+
 	name := domain.GetName(dt, "cpp")
 	elemType := form.Base.TypeArgs[0]
 	elemCppType := p.typeRefToCpp(elemType, data)

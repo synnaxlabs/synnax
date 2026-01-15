@@ -577,8 +577,12 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 			}
 			sb.WriteString(">")
 		}
-		if v.LBRACKET() != nil {
-			sb.WriteString("[]")
+		if arrMod := v.ArrayModifier(); arrMod != nil {
+			sb.WriteString("[")
+			if intLit := arrMod.INT_LIT(); intLit != nil {
+				sb.WriteString(intLit.GetText())
+			}
+			sb.WriteString("]")
 		}
 		if v.TypeModifiers() != nil {
 			for range v.TypeModifiers().AllQUESTION() {
@@ -847,8 +851,12 @@ func (f *formatter) formatTypeRef(ctx parser.ITypeRefContext) {
 		if v.TypeArgs() != nil {
 			f.formatTypeArgs(v.TypeArgs())
 		}
-		if v.LBRACKET() != nil {
-			f.write("[]")
+		if arrMod := v.ArrayModifier(); arrMod != nil {
+			f.write("[")
+			if intLit := arrMod.INT_LIT(); intLit != nil {
+				f.write(intLit.GetText())
+			}
+			f.write("]")
 		}
 		if v.TypeModifiers() != nil {
 			f.formatTypeModifiers(v.TypeModifiers())

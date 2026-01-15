@@ -27,8 +27,10 @@ type TypeFormatter interface {
 	FormatQualified(qualifier, typeName string) string
 	// FormatGeneric formats a generic type with arguments (e.g., "Type[T]" or "Type<T>").
 	FormatGeneric(baseName string, typeArgs []string) string
-	// FormatArray formats an array type (e.g., "[]T" or "std::vector<T>").
+	// FormatArray formats a dynamic array type (e.g., "[]T" or "std::vector<T>").
 	FormatArray(elemType string) string
+	// FormatFixedArray formats a fixed-size array type (e.g., "[4]byte" or "std::array<T, 4>").
+	FormatFixedArray(elemType string, size int64) string
 	// FormatMap formats a map type (e.g., "map[K]V" or "std::unordered_map<K, V>").
 	FormatMap(keyType, valType string) string
 	// FallbackType returns the fallback type for unresolved references (e.g., "any" or "void").
@@ -62,9 +64,12 @@ func (r *Resolver) ResolveTypeRef(typeRef resolution.TypeRef, ctx *Context) stri
 		return typeRef.TypeParam.Name
 	}
 
-	// Handle Array<T>
+	// Handle Array<T> - both dynamic [] and fixed-size [N]
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		elemType := r.ResolveTypeRef(typeRef.TypeArgs[0], ctx)
+		if typeRef.ArraySize != nil {
+			return r.Formatter.FormatFixedArray(elemType, *typeRef.ArraySize)
+		}
 		return r.Formatter.FormatArray(elemType)
 	}
 

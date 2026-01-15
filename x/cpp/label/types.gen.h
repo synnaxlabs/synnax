@@ -25,8 +25,10 @@ namespace x::label {
 struct Label;
 struct New;
 
+using Key = std::string;
+
 struct Label {
-    std::string key;
+    Key key;
     std::string name;
     ::x::color::Color color;
 
@@ -42,7 +44,7 @@ struct Label {
 using GoSVCLabel = Label;
 
 struct New : public Label {
-    std::string key;
+    Key key;
 
     static New parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -188,7 +188,7 @@ const handleListParentRelationshipSet = async (
     store.ranges.set(rel.from.key, parent);
     onChange(rel.to.key, (prev) => {
       if (prev == null) return prev;
-      return client.ranges.sugarOne({ ...prev, parent });
+      return client.ranges.sugarOne({ ...prev, parent: parent.payload });
     });
   }
 };
@@ -364,7 +364,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
         store.ranges.set(relationship.from.key, parent);
         onChange((prev) => {
           if (prev == null) return prev;
-          return client.ranges.sugarOne({ ...prev, parent });
+          return client.ranges.sugarOne({ ...prev, parent: parent.payload });
         });
       }
     }, key),
@@ -387,7 +387,9 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
       });
       if (isParentChange)
         return onChange(
-          state.skipUndefined((p) => client.ranges.sugarOne({ ...p, parent: null })),
+          state.skipUndefined((p) =>
+            client.ranges.sugarOne({ ...p, parent: undefined }),
+          ),
         );
     }),
   ],
@@ -453,7 +455,7 @@ export const {
               state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
-                  return client.ranges.sugarOne({ ...r, parent });
+                  return client.ranges.sugarOne({ ...r, parent: parent.payload });
                 }),
               ),
             );
@@ -486,7 +488,7 @@ export const {
               state.skipUndefined((prev) =>
                 prev.map((r) => {
                   if (r.key !== key) return r;
-                  return client.ranges.sugarOne({ ...r, parent: null });
+                  return client.ranges.sugarOne({ ...r, parent: undefined });
                 }),
               ),
             );
@@ -545,7 +547,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
       rollbacks,
       data: { id: rng.ontologyID, labels: value.labels },
     });
-    let parent: ranger.Payload | null = null;
+    let parent: ranger.Payload | undefined;
     if (primitive.isNonZero(parentKey))
       parent = (await retrieveSingle({ client, store, query: { key: parentKey } }))
         .payload;

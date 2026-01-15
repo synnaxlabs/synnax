@@ -18,9 +18,11 @@ from pydantic import BaseModel, Field
 
 from synnax import color
 
+Key: TypeAlias = UUID
+
 
 class Label(BaseModel):
-    key: UUID
+    key: Key
     name: str = Field(min_length=1)
     color: color.Color
 

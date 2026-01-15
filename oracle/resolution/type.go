@@ -124,6 +124,7 @@ type TypeRef struct {
 	Name      string
 	TypeParam *TypeParam
 	TypeArgs  []TypeRef
+	ArraySize *int64 // nil for dynamic arrays, set for fixed-size arrays like [4]byte
 }
 
 func (r TypeRef) IsTypeParam() bool {
@@ -255,5 +256,5 @@ func SubstituteTypeRef(ref TypeRef, typeArgMap map[string]TypeRef) TypeRef {
 	for i, arg := range ref.TypeArgs {
 		newArgs[i] = SubstituteTypeRef(arg, typeArgMap)
 	}
-	return TypeRef{Name: ref.Name, TypeArgs: newArgs}
+	return TypeRef{Name: ref.Name, TypeArgs: newArgs, ArraySize: ref.ArraySize}
 }

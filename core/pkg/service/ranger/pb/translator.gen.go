@@ -28,7 +28,7 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 	pb := &Range{
 		Key:       r.Key.String(),
 		Name:      r.Name,
-		Color:     string(r.Color),
+		Color:     r.Color.Bytes(),
 		TimeRange: timeRangeVal,
 	}
 	return pb, nil
@@ -47,7 +47,7 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 	}
 	r.Key = ranger.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.Color = color.Color(pb.Color)
+	r.Color = color.FromBytes(pb.Color)
 	return r, nil
 }
 

@@ -10,6 +10,7 @@
 package resolver_test
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -65,6 +66,10 @@ func (m *MockTypeFormatter) FormatGeneric(baseName string, typeArgs []string) st
 
 func (m *MockTypeFormatter) FormatArray(elemType string) string {
 	return "[]" + elemType
+}
+
+func (m *MockTypeFormatter) FormatFixedArray(elemType string, size int64) string {
+	return fmt.Sprintf("[%d]%s", size, elemType)
 }
 
 func (m *MockTypeFormatter) FormatMap(keyType, valType string) string {
@@ -198,6 +203,19 @@ var _ = Describe("Resolver", func() {
 				}
 				result := r.ResolveTypeRef(typeRef, ctx)
 				Expect(result).To(Equal("[][]int32"))
+			})
+
+			It("Should resolve fixed-size Array[N] types", func() {
+				size := int64(4)
+				typeRef := resolution.TypeRef{
+					Name: "Array",
+					TypeArgs: []resolution.TypeRef{
+						{Name: "int32"},
+					},
+					ArraySize: &size,
+				}
+				result := r.ResolveTypeRef(typeRef, ctx)
+				Expect(result).To(Equal("[4]int32"))
 			})
 		})
 

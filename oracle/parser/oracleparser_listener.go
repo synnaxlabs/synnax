@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -78,6 +69,9 @@ type OracleParserListener interface {
 
 	// EnterTypeRefNormal is called when entering the TypeRefNormal production.
 	EnterTypeRefNormal(c *TypeRefNormalContext)
+
+	// EnterArrayModifier is called when entering the arrayModifier production.
+	EnterArrayModifier(c *ArrayModifierContext)
 
 	// EnterMapType is called when entering the mapType production.
 	EnterMapType(c *MapTypeContext)
@@ -174,6 +168,9 @@ type OracleParserListener interface {
 
 	// ExitTypeRefNormal is called when exiting the TypeRefNormal production.
 	ExitTypeRefNormal(c *TypeRefNormalContext)
+
+	// ExitArrayModifier is called when exiting the arrayModifier production.
+	ExitArrayModifier(c *ArrayModifierContext)
 
 	// ExitMapType is called when exiting the mapType production.
 	ExitMapType(c *MapTypeContext)

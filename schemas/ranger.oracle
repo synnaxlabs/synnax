@@ -27,7 +27,7 @@ Range struct {
     @go output "core/pkg/service/ranger"
     @pb
     @cpp name  "Base"
-    @ts name   "base"
+    @ts name   "Base"
 }
 
 APIRange struct extends Range {
@@ -47,7 +47,6 @@ TSRange struct extends Range {
     labels     label.Label[]?
     parent     TSRange??
     time_range telem.TimeRangeBounded
-    color      string?
 
     @ts name  "Payload"
     @py omit
@@ -61,7 +60,10 @@ New struct extends TSRange {
     -parent
     -labels
 
-    @ts name  "New"
+    @ts {
+        name "New"
+        use_input
+    }
     @py omit
     @cpp omit
     @go omit

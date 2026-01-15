@@ -263,11 +263,19 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	tr := def.TypeRef()
 	target := collectTypeRef(tr, typeParams)
 
-	// Handle array types (e.g., "Stratum = string[]")
-	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok && normalCtx.LBRACKET() != nil {
-		target = resolution.TypeRef{
-			Name:     "Array",
-			TypeArgs: []resolution.TypeRef{target},
+	// Handle array types (e.g., "Stratum = string[]" or "Color = uint8[4]")
+	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
+		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
+			var arraySize *int64
+			if intLit := arrMod.INT_LIT(); intLit != nil {
+				size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
+				arraySize = &size
+			}
+			target = resolution.TypeRef{
+				Name:      "Array",
+				TypeArgs:  []resolution.TypeRef{target},
+				ArraySize: arraySize,
+			}
 		}
 	}
 
@@ -378,10 +386,18 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 	mapCtx, isMap := tr.(*parser.TypeRefMapContext)
 	isOptional, isHardOptional := false, false
 	isArray := false
+	var arraySize *int64
 
 	if isNormal {
 		isOptional, isHardOptional = extractTypeModifiersNormal(normalCtx)
-		isArray = normalCtx.LBRACKET() != nil
+		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
+			isArray = true
+			// Check for fixed-size array [N]
+			if intLit := arrMod.INT_LIT(); intLit != nil {
+				size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
+				arraySize = &size
+			}
+		}
 	} else if isMap {
 		isOptional, isHardOptional = extractTypeModifiersMap(mapCtx)
 	}
@@ -390,8 +406,9 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 
 	if isArray {
 		typeRef = resolution.TypeRef{
-			Name:     "Array",
-			TypeArgs: []resolution.TypeRef{typeRef},
+			Name:      "Array",
+			TypeArgs:  []resolution.TypeRef{typeRef},
+			ArraySize: arraySize,
 		}
 	}
 
@@ -584,11 +601,19 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 	tr := def.TypeRef()
 	base := collectTypeRef(tr, typeParams)
 
-	// Handle array types (e.g., "Params Param[]")
-	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok && normalCtx.LBRACKET() != nil {
-		base = resolution.TypeRef{
-			Name:     "Array",
-			TypeArgs: []resolution.TypeRef{base},
+	// Handle array types (e.g., "Params Param[]" or "Color uint8[4]")
+	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
+		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
+			var arraySize *int64
+			if intLit := arrMod.INT_LIT(); intLit != nil {
+				size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
+				arraySize = &size
+			}
+			base = resolution.TypeRef{
+				Name:      "Array",
+				TypeArgs:  []resolution.TypeRef{base},
+				ArraySize: arraySize,
+			}
 		}
 	}
 

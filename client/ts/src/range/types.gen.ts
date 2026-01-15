@@ -23,30 +23,29 @@ export const baseZ = z.object({
   timeRange: telem.timeRangeZ,
   color: color.colorZ.optional(),
 });
-export interface base extends z.infer<typeof baseZ> {}
+export interface Base extends z.infer<typeof baseZ> {}
 
 export const apiRangeZ = baseZ.extend({
   labels: zod.nullToUndefined(label.labelZ.array()),
-  get parent() {
+  get parent(): z.ZodOptional<typeof apiRangeZ> {
     return apiRangeZ.optional();
   },
 });
 export interface APIRange extends z.infer<typeof apiRangeZ> {}
 
-export const payloadZ = baseZ.omit({ timeRange: true, color: true }).extend({
+export const payloadZ = baseZ.omit({ timeRange: true }).extend({
   labels: zod.nullToUndefined(label.labelZ.array()),
-  get parent() {
+  get parent(): z.ZodOptional<typeof payloadZ> {
     return payloadZ.optional();
   },
   timeRange: telem.timeRangeBoundedZ,
-  color: z.string().optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ
   .omit({ parent: true, labels: true })
   .partial({ key: true });
-export interface New extends z.infer<typeof newZ> {}
+export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("range");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

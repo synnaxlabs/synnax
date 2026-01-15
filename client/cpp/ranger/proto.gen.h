@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <type_traits>
 #include <utility>
 
@@ -29,7 +30,7 @@ inline ::service::ranger::pb::Range Base::to_proto() const {
     pb.set_key(this->key);
     pb.set_name(this->name);
     *pb.mutable_time_range() = this->time_range.to_proto();
-    pb.set_color(static_cast<std::string>(this->color));
+    pb.set_color(this->color.data(), this->color.size());
     return pb;
 }
 
@@ -43,7 +44,7 @@ Base::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.time_range = val;
     }
-    cpp.color = x::color::Color(pb.color());
+    std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin());
     return {cpp, x::errors::NIL};
 }
 
@@ -52,7 +53,7 @@ inline ::api::ranger::pb::Range Range::to_proto() const {
     pb.set_key(this->key);
     pb.set_name(this->name);
     *pb.mutable_time_range() = this->time_range.to_proto();
-    pb.set_color(static_cast<std::string>(this->color));
+    pb.set_color(this->color.data(), this->color.size());
     for (const auto &item: this->labels)
         *pb.add_labels() = item.to_proto();
     if (this->parent.has_value()) *pb.mutable_parent() = this->parent->to_proto();
@@ -69,7 +70,7 @@ Range::from_proto(const ::api::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.time_range = val;
     }
-    cpp.color = x::color::Color(pb.color());
+    std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin());
     for (const auto &item: pb.labels()) {
         auto [v, err] = ::x::label::Label::from_proto(item);
         if (err) return {{}, err};

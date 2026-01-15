@@ -12,7 +12,6 @@ import {
   array,
   color,
   type CrudeTimeRange,
-  primitive,
   type Series,
   TimeRange,
 } from "@synnaxlabs/x";
@@ -83,7 +82,7 @@ export class Range {
     this.parent = parent;
     this.labels = labels;
     this.frameClient = frameClient;
-    this.color = parseColor(color_);
+    this.color = color_;
     this.kv = kv;
     this.aliaser = aliaser;
     this.channels = channels;
@@ -101,7 +100,7 @@ export class Range {
       key: this.key,
       name: this.name,
       timeRange: this.timeRange,
-      color: colorToHex(this.color),
+      color: this.color,
       labels: this.labels,
     };
     if (this.parent != null)
@@ -336,20 +335,14 @@ export const convertOntologyResourceToPayload = ({
     key,
     name,
     timeRange,
-    color: colorToHex(data?.color),
+    color: parseColor(data?.color),
     labels: [],
     parent: undefined,
   };
 };
 
-const colorToHex = (c?: unknown): string | undefined => {
-  if (c == null || primitive.isZero(c)) return undefined;
-  const res = color.colorZ.safeParse(c);
-  if (res.success) return color.hex(res.data);
+const parseColor = (c?: unknown): color.Color | undefined => {
+  const parsed = color.colorZ.safeParse(c);
+  if (parsed.success) return parsed.data;
   return undefined;
-};
-
-const parseColor = (c?: string): color.Color | undefined => {
-  if (primitive.isZero(c)) return undefined;
-  return color.construct(c);
 };

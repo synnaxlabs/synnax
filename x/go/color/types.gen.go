@@ -11,4 +11,4 @@
 
 package color
 
-type Color string
+type Color [4]uint8

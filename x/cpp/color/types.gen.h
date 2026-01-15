@@ -11,9 +11,51 @@
 
 #pragma once
 
-#include <string>
+#include <array>
+#include <cstdint>
+#include <vector>
+
+#include "x/cpp/json/json.h"
 
 namespace x::color {
 
-using Color = std::string;
+struct Color : private std::array<std::uint8_t, 4> {
+    using Base = std::array<std::uint8_t, 4>;
+
+    // Inherit constructors
+    using Base::Base;
+    Color() = default;
+
+    // Container interface
+    using Base::begin;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::const_iterator;
+    using Base::const_reference;
+    using Base::const_reverse_iterator;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::difference_type;
+    using Base::empty;
+    using Base::end;
+    using Base::iterator;
+    using Base::max_size;
+    using Base::rbegin;
+    using Base::reference;
+    using Base::rend;
+    using Base::reverse_iterator;
+    using Base::size;
+    using Base::size_type;
+    using Base::value_type;
+    using Base::operator[];
+    using Base::at;
+    using Base::back;
+    using Base::data;
+    using Base::fill;
+    using Base::front;
+    using Base::swap;
+
+    static Color parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 }

@@ -38,7 +38,7 @@ type Range struct {
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	TimeRange     *pb.TimeRange          `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	Color         string                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color         []byte                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -94,11 +94,11 @@ func (x *Range) GetTimeRange() *pb.TimeRange {
 	return nil
 }
 
-func (x *Range) GetColor() string {
+func (x *Range) GetColor() []byte {
 	if x != nil {
 		return x.Color
 	}
-	return ""
+	return nil
 }
 
 var File_core_pkg_service_ranger_pb_ranger_proto protoreflect.FileDescriptor
@@ -111,7 +111,7 @@ const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
 	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x14\n" +
-	"\x05color\x18\x04 \x01(\tR\x05colorB\xbe\x01\n" +
+	"\x05color\x18\x04 \x01(\fR\x05colorB\xbe\x01\n" +
 	"\x15com.service.ranger.pbB\vRangerProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/ranger/pb\xa2\x02\x03SRP\xaa\x02\x11Service.Ranger.Pb\xca\x02\x11Service\\Ranger\\Pb\xe2\x02\x1dService\\Ranger\\Pb\\GPBMetadata\xea\x02\x13Service::Ranger::Pbb\x06proto3"
 
 var (

@@ -167,9 +167,16 @@ domainBlock
 
 // Type reference with optional type args, array, optional, and nullable modifiers
 // Examples: string, uuid, uuid[], string?, Status<D>, Result<T, E>[]?, map<string, uint32>
+// Fixed-size arrays: uint8[4], byte[16]
 typeRef
     : mapType typeModifiers?                                           # TypeRefMap
-    | qualifiedIdent typeArgs? (LBRACKET RBRACKET)? typeModifiers?     # TypeRefNormal
+    | qualifiedIdent typeArgs? arrayModifier? typeModifiers?           # TypeRefNormal
+    ;
+
+// Array modifier: dynamic [] or fixed-size [N]
+arrayModifier
+    : LBRACKET RBRACKET           // [] dynamic array
+    | LBRACKET INT_LIT RBRACKET   // [N] fixed-size array
     ;
 
 // Map type: map<KeyType, ValueType>

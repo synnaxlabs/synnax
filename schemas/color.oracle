@@ -13,4 +13,6 @@
 @cpp output "x/cpp/color"
 @pb
 
-Color string
+Color uint8[4] {
+    @ts omit
+}

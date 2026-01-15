@@ -13,6 +13,7 @@ from freighter import Payload
 
 from synnax.ontology import ID
 from synnax.telem import TimeRange
+from synnax.color import Color
 
 RANGE_ONTOLOGY_TYPE = ID(type="range")
 
@@ -28,7 +29,7 @@ class RangePayload(Payload):
     key: UUID = UUID(int=0)
     name: str = ""
     time_range: TimeRange
-    color: str = "#000000"
+    color: Color | None = Color("#000000")
 
 
 RangeKey = UUID | str

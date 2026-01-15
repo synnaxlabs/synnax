@@ -1,8 +1,11 @@
 cc_library(
     name = "color",
     hdrs = [
-        "json.gen.h",
+        "color.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/json",
+    ],
 )

@@ -431,6 +431,14 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		tdd.ElementType = p.typeRefToCpp(elemTypeRef, data)
 		// Check if element is primitive - allows inline initializer_list constructor
 		tdd.ElementIsPrimitive = resolution.IsPrimitive(elemTypeRef.Name)
+		// Check for fixed-size array
+		if form.Base.ArraySize != nil {
+			tdd.IsFixedSizeArray = true
+			tdd.ArraySize = *form.Base.ArraySize
+			data.includes.addSystem("array")
+		} else {
+			data.includes.addSystem("vector")
+		}
 
 		// Extract custom methods from @cpp directives
 		if cppDomain, ok := td.Domains["cpp"]; ok {
@@ -1235,6 +1243,8 @@ type typeDefData struct {
 	Name               string
 	CppType            string
 	IsArrayWrapper     bool     // True if this is an array distinct type that should be a wrapper struct
+	IsFixedSizeArray   bool     // True if this is a fixed-size array (uses std::array instead of std::vector)
+	ArraySize          int64    // Size of fixed-size array
 	ElementType        string   // The element type for array wrappers
 	ElementIsPrimitive bool     // True if element type is primitive (allows initializer_list constructor)
 	Methods            []string // Custom methods from @cpp methods
@@ -1434,6 +1444,46 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{if or $i (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $td.IsArrayWrapper}}
+{{- if $td.IsFixedSizeArray}}
+struct {{$td.Name}} : private std::array<{{$td.ElementType}}, {{$td.ArraySize}}> {
+    using Base = std::array<{{$td.ElementType}}, {{$td.ArraySize}}>;
+
+    // Inherit constructors
+    using Base::Base;
+    {{$td.Name}}() = default;
+
+    // Container interface
+    using Base::value_type;
+    using Base::iterator;
+    using Base::const_iterator;
+    using Base::reverse_iterator;
+    using Base::const_reverse_iterator;
+    using Base::size_type;
+    using Base::difference_type;
+    using Base::reference;
+    using Base::const_reference;
+    using Base::begin;
+    using Base::end;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::rbegin;
+    using Base::rend;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::size;
+    using Base::empty;
+    using Base::max_size;
+    using Base::operator[];
+    using Base::at;
+    using Base::front;
+    using Base::back;
+    using Base::data;
+    using Base::fill;
+    using Base::swap;
+
+    static {{$td.Name}} parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+{{- else}}
 struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
     using Base = std::vector<{{$td.ElementType}}>;
 
@@ -1486,6 +1536,7 @@ struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
 
     static {{$td.Name}} parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+{{- end}}
 {{- if $td.HasProto}}
 
     using proto_type = {{$td.ProtoType}};

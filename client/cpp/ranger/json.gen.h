@@ -36,7 +36,7 @@ inline x::json::json Base::to_json() const {
     j["key"] = this->key;
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
-    j["color"] = this->color;
+    j["color"] = this->color.to_json();
     return j;
 }
 

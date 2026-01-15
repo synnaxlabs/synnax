@@ -9,15 +9,22 @@
 
 import { z } from "zod";
 
+import { zod } from "@/zod";
+
 /** A regex to match hex colors. */
 const hexRegex = /^#?([0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 /** A zod schema for a hex color. */
 const hexZ = z.string().regex(hexRegex);
 /** A zod schema for an RGB value. */
-const rgbValueZ = z.number().min(0).max(255);
+const rgbValueZ = zod.uint8;
 /** A zod schema for an alpha value between 0 and 1. */
-const alphaZ = z.number().min(0).max(1);
+const alphaZ = z
+  .number()
+  .min(0)
+  .max(1)
+  .transform((v) => v * 255)
+  .or(zod.uint8);
 /** A zod schema for an RGBA color. */
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
 /** A zod schema for an RGB color. */
@@ -104,7 +111,7 @@ export const cssString = ((color?: Crude): string | undefined => {
  * @param alpha - An optional alpha value to set. If the color value carries its own
  * alpha value, this value will be ignored. Defaults to 1.
  */
-export const construct = (color: Crude, alpha: number = 1): Color => {
+export const construct = (color: Crude, alpha: number = 255): Color => {
   color = crudeZ.parse(color);
   if (typeof color === "string") return fromHex(color, alpha);
   if (Array.isArray(color)) {
@@ -141,7 +148,7 @@ export const hex = ((color?: Crude) => {
   if (color == null) return undefined;
   const [r, g, b, a] = construct(color);
   return `#${rgbaToHex(r)}${rgbaToHex(g)}${rgbaToHex(b)}${
-    a === 1 ? "" : rgbaToHex(a * 255)
+    a === 255 ? "" : rgbaToHex(a)
   }`;
 }) as ToHex;
 
@@ -202,10 +209,7 @@ export const hsla = (color: Crude): HSLA => rgbaToHSLA(construct(color));
  */
 export const setAlpha = (color: Crude, alpha: number): Color => {
   const [r, g, b] = construct(color);
-  if (alpha > 100)
-    throw new Error(`Color opacity must be between 0 and 100, got ${alpha}`);
-  if (alpha > 1) alpha /= 100;
-  return [r, g, b, alpha];
+  return [r, g, b, alphaZ.parse(alpha)];
 };
 /**
  * @returns the luminance of the color, between 0 and 1.
@@ -264,14 +268,14 @@ export const isDark = (color: Crude): boolean => luminance(color) < 0.5;
 export const isLight = (color: Crude): boolean => luminance(color) > 0.5;
 
 /** @returns a color parsed from a hex string with an alpha value. */
-const fromHex = (hex: string, alpha: number = 1): RGBA => {
+const fromHex = (hex: string, alpha: number = 255): RGBA => {
   hex = hexZ.parse(hex);
   hex = stripHash(hex);
   return [
     hexToRgba(hex, 0),
     hexToRgba(hex, 2),
     hexToRgba(hex, 4),
-    hex.length === 8 ? hexToRgba(hex, 6) / 255 : alpha,
+    hex.length === 8 ? hexToRgba(hex, 6) : alpha,
   ];
 };
 
@@ -347,7 +351,12 @@ export const fromCSS = (cssColor: string): Color | undefined => {
     );
     if (match) {
       const [, r, g, b, a] = match;
-      return [parseInt(r), parseInt(g), parseInt(b), a ? parseFloat(a) : 1];
+      return [
+        parseInt(r),
+        parseInt(g),
+        parseInt(b),
+        a ? Math.round(parseFloat(a) * 255) : 255,
+      ];
     }
   }
   if (NAMED[trimmed]) return fromHex(NAMED[trimmed]);

@@ -16,8 +16,10 @@ import (
 	"github.com/synnaxlabs/x/uuid"
 )
 
+type Key = uuid.UUID
+
 type Label struct {
-	Key   uuid.UUID   `json:"key" msgpack:"key"`
+	Key   Key         `json:"key" msgpack:"key"`
 	Name  string      `json:"name" msgpack:"name"`
 	Color color.Color `json:"color" msgpack:"color"`
 }

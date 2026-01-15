@@ -36,6 +36,15 @@ func (f *PyFormatter) FormatArray(elemType string) string {
 	return fmt.Sprintf("list[%s]", elemType)
 }
 
+func (f *PyFormatter) FormatFixedArray(elemType string, size int64) string {
+	// Python represents fixed-size arrays as tuples: tuple[int, int, int, int]
+	elements := make([]string, size)
+	for i := range elements {
+		elements[i] = elemType
+	}
+	return fmt.Sprintf("tuple[%s]", strings.Join(elements, ", "))
+}
+
 func (f *PyFormatter) FormatMap(keyType, valType string) string {
 	return fmt.Sprintf("dict[%s, %s]", keyType, valType)
 }

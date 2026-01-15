@@ -36,6 +36,10 @@ func (f *CppFormatter) FormatArray(elemType string) string {
 	return fmt.Sprintf("std::vector<%s>", elemType)
 }
 
+func (f *CppFormatter) FormatFixedArray(elemType string, size int64) string {
+	return fmt.Sprintf("std::array<%s, %d>", elemType, size)
+}
+
 func (f *CppFormatter) FormatMap(keyType, valType string) string {
 	return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valType)
 }

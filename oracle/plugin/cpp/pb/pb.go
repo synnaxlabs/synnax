@@ -510,6 +510,11 @@ func (p *Plugin) generateFieldConversion(
 	fieldName := toSnakeCase(field.Name)
 	pbSetter := fmt.Sprintf("pb.set_%s", fieldName)
 
+	// Handle fixed-size uint8 arrays (e.g., Color [4]uint8) as bytes
+	if p.isFixedSizeUint8Array(typeRef, data.table) {
+		return p.generateFixedSizeUint8ArrayConversion(field, data)
+	}
+
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		return p.generateArrayConversion(field, data)
 	}
@@ -981,6 +986,60 @@ func (p *Plugin) generateMapConversion(
 
 	// Backward: copy from protobuf map to C++ unordered_map
 	backward = fmt.Sprintf("for (const auto& [k, v] : pb.%s()) cpp.%s[k] = v;", fieldName, fieldName)
+
+	return forward, backward
+}
+
+// isFixedSizeUint8Array checks if a type is a fixed-size uint8 array (like Color [4]uint8).
+// These are converted to/from bytes in protobuf rather than repeated fields.
+func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	// Check if this is a distinct type wrapping a fixed-size uint8 array
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+
+	form, ok := resolved.Form.(resolution.DistinctForm)
+	if !ok {
+		return false
+	}
+
+	// Check if base is an Array with ArraySize set
+	if form.Base.Name != "Array" || form.Base.ArraySize == nil {
+		return false
+	}
+
+	// Check if element type is uint8
+	if len(form.Base.TypeArgs) == 0 {
+		return false
+	}
+
+	elemType := form.Base.TypeArgs[0]
+	if resolution.IsPrimitive(elemType.Name) && elemType.Name == "uint8" {
+		return true
+	}
+
+	return false
+}
+
+// generateFixedSizeUint8ArrayConversion generates conversion for fixed-size uint8 arrays.
+// These are stored as bytes in protobuf and as std::array<uint8_t, N> in C++.
+func (p *Plugin) generateFixedSizeUint8ArrayConversion(
+	field resolution.Field,
+	data *templateData,
+) (forward, backward string) {
+	fieldName := toSnakeCase(field.Name)
+
+	// Forward: convert std::array to bytes string
+	// pb.set_color(this->color.data(), this->color.size())
+	forward = fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", fieldName, fieldName, fieldName)
+
+	// Backward: copy bytes to std::array
+	// std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin())
+	backward = fmt.Sprintf("std::copy(pb.%s().begin(), pb.%s().end(), cpp.%s.begin());", fieldName, fieldName, fieldName)
+
+	// Add algorithm include for std::copy
+	data.includes.addSystem("algorithm")
 
 	return forward, backward
 }

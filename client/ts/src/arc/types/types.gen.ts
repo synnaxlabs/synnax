@@ -63,13 +63,13 @@ export const unitZ = z.object({
 export interface Unit extends z.infer<typeof unitZ> {}
 
 export const functionPropertiesZ = z.object({
-  get inputs() {
+  get inputs(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
-  get outputs() {
+  get outputs(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
-  get config() {
+  get config(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
 });
@@ -78,11 +78,11 @@ export interface FunctionProperties extends z.infer<typeof functionPropertiesZ> 
 export const typeZ = functionPropertiesZ.extend({
   kind: kindZ,
   name: z.string(),
-  get elem() {
+  get elem(): z.ZodOptional<typeof typeZ> {
     return typeZ.optional();
   },
   unit: unitZ.optional(),
-  get constraint() {
+  get constraint(): z.ZodOptional<typeof typeZ> {
     return typeZ.optional();
   },
 });

@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <type_traits>
 #include <utility>
 
@@ -25,7 +26,7 @@ inline ::x::label::pb::Label Label::to_proto() const {
     ::x::label::pb::Label pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
-    pb.set_color(static_cast<std::string>(this->color));
+    pb.set_color(this->color.data(), this->color.size());
     return pb;
 }
 
@@ -34,7 +35,7 @@ Label::from_proto(const ::x::label::pb::Label &pb) {
     Label cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
-    cpp.color = x::color::Color(pb.color());
+    std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin());
     return {cpp, x::errors::NIL};
 }
 

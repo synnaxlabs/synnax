@@ -255,6 +255,20 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
 	}
+	// Handle Array type
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		elemType := typeDefBaseToPython(typeRef.TypeArgs[0], currentNamespace, table, data)
+		// Fixed-size array -> tuple type
+		if typeRef.ArraySize != nil {
+			data.imports.addTyping("Tuple")
+			elements := make([]string, *typeRef.ArraySize)
+			for i := range elements {
+				elements[i] = elemType
+			}
+			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
+		}
+		return elemType
+	}
 	// Try to resolve another typedef
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -561,6 +575,15 @@ func typeToPython(
 	// Handle Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		elemType := typeToPython(typeRef.TypeArgs[0], table, data)
+		// Fixed-size array -> tuple type
+		if typeRef.ArraySize != nil {
+			data.imports.addTyping("Tuple")
+			elements := make([]string, *typeRef.ArraySize)
+			for i := range elements {
+				elements[i] = elemType
+			}
+			return fmt.Sprintf("Tuple[%s]", strings.Join(elements, ", "))
+		}
 		return elemType
 	}
 

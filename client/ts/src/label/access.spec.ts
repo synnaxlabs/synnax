@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
@@ -46,7 +47,7 @@ describe("label", () => {
       const retrieved = await userClient.labels.retrieve({ key: randomLabel.key });
       expect(retrieved.key).toBe(randomLabel.key);
       expect(retrieved.name).toBe(randomLabel.name);
-      expect(retrieved.color).toBe(randomLabel.color);
+      expect(retrieved.color).toEqual(randomLabel.color);
     });
 
     it("should allow the caller to create labels with the correct policy", async () => {

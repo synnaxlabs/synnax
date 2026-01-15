@@ -38,6 +38,10 @@ func (f *GoFormatter) FormatArray(elemType string) string {
 	return "[]" + elemType
 }
 
+func (f *GoFormatter) FormatFixedArray(elemType string, size int64) string {
+	return fmt.Sprintf("[%d]%s", size, elemType)
+}
+
 func (f *GoFormatter) FormatMap(keyType, valType string) string {
 	return fmt.Sprintf("map[%s]%s", keyType, valType)
 }

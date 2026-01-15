@@ -13,7 +13,7 @@ message Range {
   string key = 1;
   string name = 2;
   .x.telem.pb.TimeRange time_range = 3;
-  string color = 4;
+  bytes color = 4;
   repeated .x.label.pb.Label labels = 5;
   optional Range parent = 6;
 }

@@ -491,10 +491,20 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		// For array type definitions (e.g., Stages Stage[]), wrap with array.nullishToEmpty
 		// so that null/undefined coerces to [] rather than staying undefined.
 		// array.nullishToEmpty takes the element schema, not the array schema.
+		// Fixed-size arrays use tuple types and don't need nullish handling.
 		if isArrayTypeRef(form.Base) && len(form.Base.TypeArgs) > 0 {
-			addXImport(data, xImport{name: "array", submodule: "array"})
 			elemZod := p.typeRefToZod(&form.Base.TypeArgs[0], data.Request.Resolutions, data, false)
-			zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+			if form.Base.ArraySize != nil {
+				// Fixed-size array -> tuple type
+				elements := make([]string, *form.Base.ArraySize)
+				for i := range elements {
+					elements[i] = elemZod
+				}
+				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
+			} else {
+				addXImport(data, xImport{name: "array", submodule: "array"})
+				zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Base, data)
 		}
@@ -522,10 +532,20 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		// For array type aliases (e.g., Stages = Stage[]), wrap with array.nullishToEmpty
 		// so that null/undefined coerces to [] rather than staying undefined.
 		// array.nullishToEmpty takes the element schema, not the array schema.
+		// Fixed-size arrays use tuple types and don't need nullish handling.
 		if isArrayTypeRef(form.Target) && len(form.Target.TypeArgs) > 0 {
-			addXImport(data, xImport{name: "array", submodule: "array"})
 			elemZod := p.typeRefToZod(&form.Target.TypeArgs[0], data.Request.Resolutions, data, false)
-			zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+			if form.Target.ArraySize != nil {
+				// Fixed-size array -> tuple type
+				elements := make([]string, *form.Target.ArraySize)
+				for i := range elements {
+					elements[i] = elemZod
+				}
+				zodType = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
+			} else {
+				addXImport(data, xImport{name: "array", submodule: "array"})
+				zodType = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+			}
 		} else {
 			zodType = p.typeDefBaseToZod(&form.Target, data)
 		}
@@ -607,10 +627,20 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		// For array type aliases (e.g., Stages = Stage[]), wrap with array.nullishToEmpty
 		// so that null/undefined coerces to [] rather than staying undefined.
 		// array.nullishToEmpty takes the element schema, not the array schema.
+		// Fixed-size arrays use tuple types and don't need nullish handling.
 		if isArrayTypeRef(aliasForm.Target) && len(aliasForm.Target.TypeArgs) > 0 {
-			addXImport(data, xImport{name: "array", submodule: "array"})
 			elemZod := p.typeRefToZod(&aliasForm.Target.TypeArgs[0], table, data, sd.UseInput)
-			sd.AliasOf = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+			if aliasForm.Target.ArraySize != nil {
+				// Fixed-size array -> tuple type
+				elements := make([]string, *aliasForm.Target.ArraySize)
+				for i := range elements {
+					elements[i] = elemZod
+				}
+				sd.AliasOf = fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
+			} else {
+				addXImport(data, xImport{name: "array", submodule: "array"})
+				sd.AliasOf = fmt.Sprintf("array.nullishToEmpty(%s)", elemZod)
+			}
 		} else {
 			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data, sd.UseInput)
 		}
@@ -1312,6 +1342,14 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 	// Handle Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		elemZod := p.typeRefToZodInternal(&typeRef.TypeArgs[0], table, data, stringify, false)
+		// Fixed-size array -> tuple type
+		if typeRef.ArraySize != nil {
+			elements := make([]string, *typeRef.ArraySize)
+			for i := range elements {
+				elements[i] = elemZod
+			}
+			return fmt.Sprintf("z.tuple([%s])", strings.Join(elements, ", "))
+		}
 		return fmt.Sprintf("z.array(%s)", elemZod)
 	}
 
@@ -1455,6 +1493,14 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 	// Handle Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		elemTS := p.typeRefToTSInternal(&typeRef.TypeArgs[0], table, data, forStructArg, needsTypeImports)
+		// Fixed-size array -> tuple type
+		if typeRef.ArraySize != nil {
+			elements := make([]string, *typeRef.ArraySize)
+			for i := range elements {
+				elements[i] = elemTS
+			}
+			return fmt.Sprintf("[%s]", strings.Join(elements, ", "))
+		}
 		return elemTS + "[]"
 	}
 
@@ -1632,6 +1678,14 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 	// Handle Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		elemZodType := p.typeRefToZodSchemaType(&typeRef.TypeArgs[0], table, data)
+		// Fixed-size array -> tuple type
+		if typeRef.ArraySize != nil {
+			elements := make([]string, *typeRef.ArraySize)
+			for i := range elements {
+				elements[i] = elemZodType
+			}
+			return fmt.Sprintf("z.ZodTuple<[%s]>", strings.Join(elements, ", "))
+		}
 		return fmt.Sprintf("z.ZodArray<%s>", elemZodType)
 	}
 
@@ -2104,7 +2158,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
     .extend({
 {{- range .ExtendFields }}
 {{- if .IsSelfRef }}
-      get {{ .TSName }}() {
+      get {{ .TSName }}(): {{ .ZodSchemaType }} {
         return {{ .ZodType }};
       },
 {{- else }}
@@ -2117,7 +2171,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
   z.object({
 {{- range .Fields }}
 {{- if .IsSelfRef }}
-    get {{ .TSName }}() {
+    get {{ .TSName }}(): {{ .ZodSchemaType }} {
       return {{ .ZodType }};
     },
 {{- else }}
@@ -2177,7 +2231,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
     .extend({
 {{- range .ExtendFields }}
 {{- if .IsSelfRef }}
-      get {{ .TSName }}() {
+      get {{ .TSName }}(): {{ .ZodSchemaType }} {
         return {{ .ZodType }};
       },
 {{- else }}
@@ -2190,7 +2244,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
   z.object({
 {{- range .Fields }}
 {{- if .IsSelfRef }}
-    get {{ .TSName }}() {
+    get {{ .TSName }}(): {{ .ZodSchemaType }} {
       return {{ .ZodType }};
     },
 {{- else }}
@@ -2242,7 +2296,7 @@ export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ 
   .extend({
 {{- range .ExtendFields }}
 {{- if .IsSelfRef }}
-    get {{ .TSName }}() {
+    get {{ .TSName }}(): {{ .ZodSchemaType }} {
       return {{ .ZodType }};
     },
 {{- else }}
@@ -2259,7 +2313,7 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
 {{- if .IsSelfRef }}
-  get {{ .TSName }}() {
+  get {{ .TSName }}(): {{ .ZodSchemaType }} {
     return {{ .ZodType }};
   },
 {{- else }}

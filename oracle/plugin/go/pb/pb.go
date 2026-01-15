@@ -775,6 +775,98 @@ func (p *Plugin) getNestedArrayInnerType(typeRef resolution.TypeRef, table *reso
 	return p.getArrayElementType(elemType, table)
 }
 
+// isFixedSizeUint8Array checks if a type is a fixed-size uint8 array (like Color [4]uint8).
+// These are encoded as bytes in protobuf and need special conversion.
+func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	// Get the array size for this type (following aliases/distinct types)
+	arraySize := p.getArraySize(typeRef, table)
+	if arraySize == nil {
+		return false
+	}
+
+	// Get the element type
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return false
+	}
+
+	// Check if element type is uint8
+	resolved, ok := elemType.Resolve(table)
+	if !ok {
+		// Direct primitive reference
+		return elemType.Name == "uint8"
+	}
+
+	if prim, ok := resolved.Form.(resolution.PrimitiveForm); ok {
+		return prim.Name == "uint8"
+	}
+	return false
+}
+
+// getArraySize returns the array size for a type, following aliases and distinct types.
+func (p *Plugin) getArraySize(typeRef resolution.TypeRef, table *resolution.Table) *int64 {
+	// Direct Array type with size
+	if typeRef.Name == "Array" && typeRef.ArraySize != nil {
+		return typeRef.ArraySize
+	}
+
+	// Resolve the type and follow aliases/distinct types
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return nil
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.AliasForm:
+		return p.getArraySize(form.Target, table)
+	case resolution.DistinctForm:
+		return p.getArraySize(form.Base, table)
+	default:
+		return nil
+	}
+}
+
+// generateFixedSizeUint8ArrayConversion generates conversion for fixed-size uint8 arrays.
+// These types (like Color [4]uint8) are encoded as bytes in proto.
+// Forward: uses .Bytes() method to convert [N]uint8 to []byte
+// Backward: uses FromBytes() function to convert []byte back to [N]uint8
+func (p *Plugin) generateFixedSizeUint8ArrayConversion(
+	typeRef resolution.TypeRef,
+	data *templateData,
+	goField, pbField string,
+) (forward, backward string) {
+	// Resolve the type to get its package info
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		// Fallback for unresolved types
+		return fmt.Sprintf("%s[:]", goField), pbField
+	}
+
+	// Get the Go output path for the type
+	goOutput := output.GetPath(resolved, "go")
+	if goOutput == "" {
+		// Fallback
+		return fmt.Sprintf("%s[:]", goField), pbField
+	}
+
+	// Import the type's package
+	importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+	if err != nil {
+		return fmt.Sprintf("%s[:]", goField), pbField
+	}
+
+	alias := gointernal.DerivePackageName(goOutput)
+	data.imports.AddInternal(alias, importPath)
+
+	// Forward: use .Bytes() method (e.g., r.Color.Bytes())
+	forward = fmt.Sprintf("%s.Bytes()", goField)
+
+	// Backward: use FromBytes function (e.g., color.FromBytes(pb.Color))
+	backward = fmt.Sprintf("%s.FromBytes(%s)", alias, pbField)
+
+	return forward, backward
+}
+
 // generateFieldConversion generates the forward and backward conversion expressions.
 // Returns forward expr, backward expr, backward cast, and whether forward/backward conversions return errors.
 func (p *Plugin) generateFieldConversion(
@@ -787,6 +879,12 @@ func (p *Plugin) generateFieldConversion(
 	// Proto uses snake_case, protoc converts to PascalCase
 	// e.g., WASM -> wasm (proto) -> Wasm (Go protobuf)
 	pbFieldName := "pb." + gointernal.ToPascalCase(lo.SnakeCase(field.Name))
+
+	// Handle fixed-size uint8 arrays (like Color [4]uint8) - these are bytes in proto
+	if p.isFixedSizeUint8Array(typeRef, data.table) {
+		f, b := p.generateFixedSizeUint8ArrayConversion(typeRef, data, goFieldName, pbFieldName)
+		return f, b, "", false, false
+	}
 
 	// Handle arrays (including via aliases and distinct types)
 	if p.isArrayType(typeRef, data.table) {

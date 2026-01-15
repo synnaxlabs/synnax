@@ -280,6 +280,17 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) (messa
 }
 
 func (p *Plugin) processField(field resolution.Field, number int, data *templateData) (fieldData, error) {
+	// Check for fixed-size uint8 arrays (like Color [4]uint8) - these become bytes
+	if p.isFixedSizeUint8Array(field.Type, data.table) {
+		return fieldData{
+			Name:       toSnakeCase(field.Name),
+			Type:       "bytes",
+			Number:     number,
+			IsOptional: field.IsHardOptional,
+			IsRepeated: false, // bytes is not repeated
+		}, nil
+	}
+
 	// Check if the type is an array (following aliases)
 	isArray := p.isArrayType(field.Type, data.table)
 
@@ -366,6 +377,57 @@ func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resoluti
 		return p.getArrayElementType(form.Base, table)
 	default:
 		return resolution.TypeRef{}, false
+	}
+}
+
+// isFixedSizeUint8Array checks if a type is a fixed-size uint8 array (like Color [4]uint8).
+// These are encoded as bytes in protobuf for compact representation.
+func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	// Get the array size for this type (following aliases/distinct types)
+	arraySize := p.getArraySize(typeRef, table)
+	if arraySize == nil {
+		return false
+	}
+
+	// Get the element type
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return false
+	}
+
+	// Check if element type is uint8
+	resolved, ok := elemType.Resolve(table)
+	if !ok {
+		// Direct primitive reference
+		return elemType.Name == "uint8"
+	}
+
+	if prim, ok := resolved.Form.(resolution.PrimitiveForm); ok {
+		return prim.Name == "uint8"
+	}
+	return false
+}
+
+// getArraySize returns the array size for a type, following aliases and distinct types.
+func (p *Plugin) getArraySize(typeRef resolution.TypeRef, table *resolution.Table) *int64 {
+	// Direct Array type with size
+	if typeRef.Name == "Array" && typeRef.ArraySize != nil {
+		return typeRef.ArraySize
+	}
+
+	// Resolve the type and follow aliases/distinct types
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return nil
+	}
+
+	switch form := resolved.Form.(type) {
+	case resolution.AliasForm:
+		return p.getArraySize(form.Target, table)
+	case resolution.DistinctForm:
+		return p.getArraySize(form.Base, table)
+	default:
+		return nil
 	}
 }
 

@@ -21,7 +21,7 @@ namespace x::label {
 
 inline Label Label::parse(x::json::Parser parser) {
     return Label{
-        .key = parser.field<std::string>("key"),
+        .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
         .color = parser.field<x::color::Color>("color"),
     };
@@ -31,14 +31,14 @@ inline x::json::json Label::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
-    j["color"] = this->color;
+    j["color"] = this->color.to_json();
     return j;
 }
 
 inline New New::parse(x::json::Parser parser) {
     New result;
     static_cast<Label &>(result) = Label::parse(parser);
-    result.key = parser.field<std::string>("key", "");
+    result.key = parser.field<Key>("key");
     return result;
 }
 

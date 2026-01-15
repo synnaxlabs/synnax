@@ -23,7 +23,7 @@ func LabelToPB(_ context.Context, r label.Label) (*Label, error) {
 	pb := &Label{
 		Key:   r.Key.String(),
 		Name:  r.Name,
-		Color: string(r.Color),
+		Color: r.Color.Bytes(),
 	}
 	return pb, nil
 }
@@ -34,9 +34,9 @@ func LabelFromPB(_ context.Context, pb *Label) (label.Label, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = uuid.MustParse(pb.Key)
+	r.Key = label.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.Color = color.Color(pb.Color)
+	r.Color = color.FromBytes(pb.Color)
 	return r, nil
 }
 

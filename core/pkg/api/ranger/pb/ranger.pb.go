@@ -39,7 +39,7 @@ type Range struct {
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	TimeRange     *pb.TimeRange          `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	Color         string                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color         []byte                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	Labels        []*pb1.Label           `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
 	Parent        *Range                 `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -97,11 +97,11 @@ func (x *Range) GetTimeRange() *pb.TimeRange {
 	return nil
 }
 
-func (x *Range) GetColor() string {
+func (x *Range) GetColor() []byte {
 	if x != nil {
 		return x.Color
 	}
-	return ""
+	return nil
 }
 
 func (x *Range) GetLabels() []*pb1.Label {
@@ -128,7 +128,7 @@ const file_core_pkg_api_ranger_pb_ranger_proto_rawDesc = "" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
 	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x14\n" +
-	"\x05color\x18\x04 \x01(\tR\x05color\x12)\n" +
+	"\x05color\x18\x04 \x01(\fR\x05color\x12)\n" +
 	"\x06labels\x18\x05 \x03(\v2\x11.x.label.pb.LabelR\x06labels\x121\n" +
 	"\x06parent\x18\x06 \x01(\v2\x14.api.ranger.pb.RangeH\x00R\x06parent\x88\x01\x01B\t\n" +
 	"\a_parentB\xa6\x01\n" +

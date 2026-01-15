@@ -36,7 +36,7 @@ type Label struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Color         string                 `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color         []byte                 `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,11 +85,11 @@ func (x *Label) GetName() string {
 	return ""
 }
 
-func (x *Label) GetColor() string {
+func (x *Label) GetColor() []byte {
 	if x != nil {
 		return x.Color
 	}
-	return ""
+	return nil
 }
 
 var File_x_go_label_pb_label_proto protoreflect.FileDescriptor
@@ -101,7 +101,7 @@ const file_x_go_label_pb_label_proto_rawDesc = "" +
 	"\x05Label\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05color\x18\x03 \x01(\tR\x05colorB\x88\x01\n" +
+	"\x05color\x18\x03 \x01(\fR\x05colorB\x88\x01\n" +
 	"\x0ecom.x.label.pbB\n" +
 	"LabelProtoP\x01Z github.com/synnaxlabs/x/label/pb\xa2\x02\x03XLP\xaa\x02\n" +
 	"X.Label.Pb\xca\x02\n" +
