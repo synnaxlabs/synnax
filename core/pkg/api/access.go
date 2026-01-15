@@ -70,11 +70,11 @@ func (s *AccessService) CreatePolicy(
 }
 
 type AccessRetrievePolicyRequest struct {
-	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-	Keys     []uuid.UUID   `json:"keys" msgpack:"keys"`
-	Limit    int           `json:"limit" msgpack:"limit"`
-	Offset   int           `json:"offset" msgpack:"offset"`
-	Internal *bool         `json:"internal" msgpack:"internal"`
+	Subject  ontology.ID `json:"subject" msgpack:"subject"`
+	Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
+	Limit    int         `json:"limit" msgpack:"limit"`
+	Offset   int         `json:"offset" msgpack:"offset"`
+	Internal *bool       `json:"internal" msgpack:"internal"`
 }
 
 type AccessRetrievePolicyResponse struct {
@@ -86,8 +86,8 @@ func (s *AccessService) RetrievePolicy(
 	req AccessRetrievePolicyRequest,
 ) (res AccessRetrievePolicyResponse, err error) {
 	q := s.internal.Policy.NewRetrieve()
-	if len(req.Subjects) > 0 {
-		q = q.WhereSubjects(req.Subjects...)
+	if !req.Subject.IsZero() {
+		q = q.WhereSubject(req.Subject)
 	}
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)

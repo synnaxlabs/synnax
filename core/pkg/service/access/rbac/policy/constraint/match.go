@@ -21,6 +21,9 @@ func (c Constraint) enforceMatch(params EnforceParams) (bool, error) {
 	})
 	switch c.Operator {
 	case OpContainsAny:
+		if len(c.IDs) == 0 {
+			return true, nil
+		}
 		for _, id := range c.IDs {
 			if id.IsType() {
 				if requestedTypesSet.Contains(id.Type) {

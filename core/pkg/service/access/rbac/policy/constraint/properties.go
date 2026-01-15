@@ -14,6 +14,9 @@ import "slices"
 func (c Constraint) enforceProperties(params EnforceParams) (bool, error) {
 	switch c.Operator {
 	case OpContainsAny:
+		if len(c.Properties) == 0 {
+			return true, nil
+		}
 		if slices.ContainsFunc(c.Properties, params.Request.Properties.Contains) {
 			return true, nil
 		}

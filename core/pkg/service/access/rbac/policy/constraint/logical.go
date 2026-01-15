@@ -17,6 +17,9 @@ func (c Constraint) enforceLogical(
 ) (bool, error) {
 	switch c.Operator {
 	case OpContainsAny:
+		if len(c.Constraints) == 0 {
+			return true, nil
+		}
 		for _, constraint := range c.Constraints {
 			if ok, err := constraint.Enforce(ctx, params); err != nil || ok {
 				return ok, err

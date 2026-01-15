@@ -66,7 +66,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	s := &Service{cfg: cfg}
-	if s.Policy, err = policy.OpenService(ctx, policy.Config{
+	if s.Policy, err = policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       cfg.DB,
 		Signals:  cfg.Signals,
 		Ontology: cfg.Ontology,
@@ -163,7 +163,7 @@ func (e *Enforcer) retrievePolicies(
 ) ([]policy.Policy, error) {
 	var policies []policy.Policy
 	if err := e.policy.NewRetrieve().
-		WhereSubjects(subject).
+		WhereSubject(subject).
 		Entries(&policies).
 		Exec(ctx, e.tx); err != nil {
 		return nil, err

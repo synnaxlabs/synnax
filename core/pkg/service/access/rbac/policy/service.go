@@ -22,40 +22,51 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type Config struct {
-	DB       *gorp.DB
+// ServiceConfig is the configuration for opening a policy service.
+type ServiceConfig struct {
+	// DB is the underlying database that the service will use to store policies.
+	DB *gorp.DB
+	// Ontology is the ontology that the service will use to create relationships
+	// between policies and other resources, such as roles, within the Synnax cluster.
 	Ontology *ontology.Ontology
-	Signals  *signals.Provider
+	// Signals is the signals provider that the service will use to publish changes to
+	// policies.
+	Signals *signals.Provider
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig Config
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
-// Override implements [config.Config].
-func (c Config) Override(other Config) Config {
+// Override overrides fields in c with the valid fields in other.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
-// Validate implements [config.Config].
-func (c Config) Validate() error {
+// Validate validates the configuration.
+func (c ServiceConfig) Validate() error {
 	v := validate.New("policy")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	return v.Error()
 }
 
+// Service is the main entrypoint for managing policies within Synnax. It provides
+// mechanisms for creating, retrieving, updating, and deleting policies. It also
+// provides mechanisms for listening to changes in policies.
 type Service struct {
-	cfg     Config
+	cfg     ServiceConfig
 	signals io.Closer
 }
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+var _ io.Closer = (*Service)(nil)
+
+// OpenService opens a new policy service using the provided configuration. If error is
+// nil, the service is ready for use and must be closed by calling Close in order to
+// prevent resource leaks.
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,6 +84,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	return s, nil
 }
 
+// Close closes the policy service and releases any resources that it may have acquired.
 func (s *Service) Close() error {
 	if s.signals == nil {
 		return nil
@@ -80,13 +92,15 @@ func (s *Service) Close() error {
 	return s.signals.Close()
 }
 
+// NewWriter opens a new Writer to create, update, and delete policies.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
 }
 
-func (s *Service) NewRetrieve() Retriever {
-	return Retriever{
+// NewRetrieve opens a new Retrieve query to fetch policies.
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{
 		baseTx:   s.cfg.DB,
 		gorp:     gorp.NewRetrieve[uuid.UUID, Policy](),
 		ontology: s.cfg.Ontology,

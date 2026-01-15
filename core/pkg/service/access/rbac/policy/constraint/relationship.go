@@ -33,7 +33,7 @@ func (c Constraint) enforceRelationship(
 		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
 			return rel.Type == c.RelationshipType && rel.From == res.ID
 		},
-		Direction: ontology.Backward,
+		Direction: ontology.Forward,
 	}
 	if err := params.Ontology.NewRetrieve().WhereIDs(params.Request.Objects...).
 		ExcludeFieldData(true).
@@ -53,6 +53,9 @@ func (c Constraint) enforceRelationship(
 
 	switch c.Operator {
 	case OpContainsAny:
+		if len(c.IDs) == 0 {
+			return true, nil
+		}
 		for _, id := range c.IDs {
 			if id.IsType() {
 				if relatedTypesSet.Contains(id.Type) {

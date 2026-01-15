@@ -18,12 +18,14 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Writer is a writer used for creating, updating, and deleting policies.
 type Writer struct {
 	tx  gorp.Tx
 	otg ontology.Writer
 }
 
-// Create creates a new policy in the database.
+// Create creates a new policy. If the policy does not have a key, a new key will be
+// generated.
 func (w Writer) Create(ctx context.Context, policy *Policy) error {
 	if policy.Key == uuid.Nil {
 		policy.Key = uuid.New()
@@ -42,17 +44,18 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 	return gorp.NewDelete[uuid.UUID, Policy]().WhereKeys(keys...).Exec(ctx, w.tx)
 }
 
+// SetOnRole associates the given policies with the role with the given key.
 func (w Writer) SetOnRole(
 	ctx context.Context,
 	roleKey uuid.UUID,
 	policies ...uuid.UUID,
 ) error {
-	for _, policies := range OntologyIDs(policies) {
+	for _, policy := range OntologyIDs(policies) {
 		if err := w.otg.DefineRelationship(
 			ctx,
 			role.OntologyID(roleKey),
 			ontology.ParentOf,
-			policies,
+			policy,
 		); err != nil {
 			return err
 		}

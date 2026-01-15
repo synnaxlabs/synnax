@@ -19,41 +19,58 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	ctx     = context.Background()
-	db      *gorp.DB
-	otg     *ontology.Ontology
-	g       *group.Service
-	svc     *policy.Service
-	roleSvc *role.Service
+	db       *gorp.DB
+	ctx      = context.Background()
+	otg      *ontology.Ontology
+	groupSvc *group.Service
+	roleSvc  *role.Service
+	svc      *policy.Service
+	tx       gorp.Tx
 )
 
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-	svc = MustSucceed(policy.OpenService(ctx, policy.Config{
+})
+
+var _ = AfterSuite(func() {
+	Expect(db.Close()).To(Succeed())
+})
+
+var _ = BeforeEach(func() {
+	ctx = context.Background()
+	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
+		DB:           db,
+		EnableSearch: config.False(),
+	}))
+	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
 	roleSvc = MustSucceed(role.OpenService(ctx, role.Config{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 	}))
+	svc = MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+	}))
+	tx = db.OpenTx()
 })
 
-var _ = AfterSuite(func() {
-	Expect(roleSvc.Close()).To(Succeed())
+var _ = AfterEach(func() {
+	Expect(tx.Close()).To(Succeed())
 	Expect(svc.Close()).To(Succeed())
-	Expect(g.Close()).To(Succeed())
+	Expect(roleSvc.Close()).To(Succeed())
+	Expect(groupSvc.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
 })
 
 func TestPolicy(t *testing.T) {
