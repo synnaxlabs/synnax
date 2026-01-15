@@ -1167,8 +1167,8 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
 
     // Verify we can extract unique locations (what the validation code does)
     std::set<std::string> unique_locs;
-    for (const auto &ch: cfg->channels)
-        if (!ch->dev_loc.empty()) { unique_locs.insert(ch->dev_loc); }
+    for (const auto &channel: cfg->channels)
+        if (!channel->dev_loc.empty()) { unique_locs.insert(channel->dev_loc); }
     EXPECT_EQ(unique_locs.size(), 2);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod1") > 0);
     EXPECT_TRUE(unique_locs.count("cDAQ1Mod2") > 0);

@@ -49,6 +49,7 @@ REBUILD_PATHS=(
     "turbo.json"
     "vendor/mbedtls/**"
     "vendor/open62541/**"
+    "vendor/wasmtime/**"
     "x/cpp/**"
     "x/go/**"
     "x/ts/**"
