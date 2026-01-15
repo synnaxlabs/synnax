@@ -16,11 +16,11 @@
 
 #include "client/cpp/channel/channel.h"
 #include "freighter/cpp/freighter.h"
-#include "../../../x/cpp/control/control.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
+#include "../../../x/cpp/control/control.h"
 #include "core/pkg/api/grpc/framer/framer.pb.h"
 
 namespace synnax::framer {

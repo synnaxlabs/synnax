@@ -8,6 +8,6 @@ import (
 
 type Pair struct {
 	Range ranger.Key `json:"range" msgpack:"range"`
-	Key string `json:"key" msgpack:"key"`
-	Value string `json:"value" msgpack:"value"`
+	Key   string     `json:"key" msgpack:"key"`
+	Value string     `json:"value" msgpack:"value"`
 }

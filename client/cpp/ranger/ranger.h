@@ -15,15 +15,14 @@
 
 #include "client/cpp/kv/kv.h"
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/ranger/json.gen.h"
+#include "client/cpp/ranger/proto.gen.h"
+#include "client/cpp/ranger/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/grpc/ranger/ranger.pb.h"
 #include "core/pkg/api/ranger/pb/ranger.pb.h"
-
-#include "client/cpp/ranger/types.gen.h"
-#include "client/cpp/ranger/json.gen.h"
-#include "client/cpp/ranger/proto.gen.h"
 
 namespace synnax::ranger {
 using Key = std::string;

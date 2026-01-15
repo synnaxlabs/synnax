@@ -27,8 +27,8 @@ type User struct {
 
 type New struct {
 	Username  string `json:"username" msgpack:"username"`
-	Key       Key    `json:"key,omitempty" msgpack:"key,omitempty"`
+	Key       Key    `json:"key" msgpack:"key"`
 	Password  string `json:"password" msgpack:"password"`
-	FirstName string `json:"first_name,omitempty" msgpack:"first_name,omitempty"`
-	LastName  string `json:"last_name,omitempty" msgpack:"last_name,omitempty"`
+	FirstName string `json:"first_name" msgpack:"first_name"`
+	LastName  string `json:"last_name" msgpack:"last_name"`
 }

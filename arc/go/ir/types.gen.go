@@ -47,7 +47,7 @@ type Handle struct {
 type Edge struct {
 	Source Handle   `json:"source" msgpack:"source"`
 	Target Handle   `json:"target" msgpack:"target"`
-	Kind   EdgeKind `json:"kind,omitempty" msgpack:"kind,omitempty"`
+	Kind   EdgeKind `json:"kind" msgpack:"kind"`
 }
 
 type Stage struct {
@@ -68,28 +68,28 @@ type Body struct {
 
 type Function struct {
 	Key      string         `json:"key" msgpack:"key"`
-	Body     Body           `json:"body,omitempty" msgpack:"body,omitempty"`
-	Config   types.Params   `json:"config,omitempty" msgpack:"config,omitempty"`
-	Inputs   types.Params   `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
-	Outputs  types.Params   `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
-	Channels types.Channels `json:"channels,omitempty" msgpack:"channels,omitempty"`
+	Body     Body           `json:"body" msgpack:"body"`
+	Config   types.Params   `json:"config" msgpack:"config"`
+	Inputs   types.Params   `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params   `json:"outputs" msgpack:"outputs"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 type Node struct {
 	Key      string         `json:"key" msgpack:"key"`
 	Type     string         `json:"type" msgpack:"type"`
-	Config   types.Params   `json:"config,omitempty" msgpack:"config,omitempty"`
-	Inputs   types.Params   `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
-	Outputs  types.Params   `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
-	Channels types.Channels `json:"channels,omitempty" msgpack:"channels,omitempty"`
+	Config   types.Params   `json:"config" msgpack:"config"`
+	Inputs   types.Params   `json:"inputs" msgpack:"inputs"`
+	Outputs  types.Params   `json:"outputs" msgpack:"outputs"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 type IR struct {
-	Functions Functions                              `json:"functions,omitempty" msgpack:"functions,omitempty"`
-	Nodes     Nodes                                  `json:"nodes,omitempty" msgpack:"nodes,omitempty"`
-	Edges     Edges                                  `json:"edges,omitempty" msgpack:"edges,omitempty"`
-	Strata    Strata                                 `json:"strata,omitempty" msgpack:"strata,omitempty"`
-	Sequences Sequences                              `json:"sequences,omitempty" msgpack:"sequences,omitempty"`
+	Functions Functions                              `json:"functions" msgpack:"functions"`
+	Nodes     Nodes                                  `json:"nodes" msgpack:"nodes"`
+	Edges     Edges                                  `json:"edges" msgpack:"edges"`
+	Strata    Strata                                 `json:"strata" msgpack:"strata"`
+	Sequences Sequences                              `json:"sequences" msgpack:"sequences"`
 	Symbols   *symbol.Scope                          `json:"-"`
 	TypeMap   map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

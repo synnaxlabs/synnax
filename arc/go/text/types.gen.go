@@ -7,6 +7,6 @@ import (
 )
 
 type Text struct {
-	Raw string `json:"raw" msgpack:"raw"`
+	Raw string                 `json:"raw" msgpack:"raw"`
 	AST parser.IProgramContext `json:"-"`
 }

@@ -29,11 +29,11 @@ type Channel struct {
 	DataType    telem.DataType                  `json:"data_type" msgpack:"data_type"`
 	IsIndex     bool                            `json:"is_index" msgpack:"is_index"`
 	Index       distributionchannel.Key         `json:"index" msgpack:"index"`
-	Alias       string                          `json:"alias,omitempty" msgpack:"alias,omitempty"`
+	Alias       string                          `json:"alias" msgpack:"alias"`
 	Virtual     bool                            `json:"virtual" msgpack:"virtual"`
 	Internal    bool                            `json:"internal" msgpack:"internal"`
 	Expression  string                          `json:"expression" msgpack:"expression"`
-	Operations  []distributionchannel.Operation `json:"operations,omitempty" msgpack:"operations,omitempty"`
-	Concurrency control.Concurrency             `json:"concurrency,omitempty" msgpack:"concurrency,omitempty"`
+	Operations  []distributionchannel.Operation `json:"operations" msgpack:"operations"`
+	Concurrency control.Concurrency             `json:"concurrency" msgpack:"concurrency"`
 	Status      *Status                         `json:"status,omitempty" msgpack:"status,omitempty"`
 }

@@ -40,9 +40,9 @@ const (
 )
 
 type FunctionProperties struct {
-	Inputs  Params `json:"inputs,omitempty" msgpack:"inputs,omitempty"`
-	Outputs Params `json:"outputs,omitempty" msgpack:"outputs,omitempty"`
-	Config  Params `json:"config,omitempty" msgpack:"config,omitempty"`
+	Inputs  Params `json:"inputs" msgpack:"inputs"`
+	Outputs Params `json:"outputs" msgpack:"outputs"`
+	Config  Params `json:"config" msgpack:"config"`
 }
 
 type Type struct {
@@ -57,7 +57,7 @@ type Type struct {
 type Param struct {
 	Name  string `json:"name" msgpack:"name"`
 	Type  Type   `json:"type" msgpack:"type"`
-	Value any    `json:"value,omitempty" msgpack:"value,omitempty"`
+	Value any    `json:"value" msgpack:"value"`
 }
 
 type Channels struct {

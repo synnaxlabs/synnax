@@ -33,7 +33,7 @@ type Device struct {
 	Make       string                    `json:"make" msgpack:"make"`
 	Model      string                    `json:"model" msgpack:"model"`
 	Name       string                    `json:"name" msgpack:"name"`
-	Configured bool                      `json:"configured,omitempty" msgpack:"configured,omitempty"`
+	Configured bool                      `json:"configured" msgpack:"configured"`
 	Properties binary.MsgpackEncodedJSON `json:"properties" msgpack:"properties"`
 	Status     *Status                   `json:"status,omitempty" msgpack:"status,omitempty"`
 }

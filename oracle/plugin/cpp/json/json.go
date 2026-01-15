@@ -492,7 +492,16 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			includePath := fmt.Sprintf("%s/json.gen.h", targetOutputPath)
+			// For fixed-size uint8 arrays (like Color), include the main header
+			// instead of json.gen.h since we don't generate json.gen.h for them
+			var includePath string
+			if p.isFixedSizeUint8ArrayType(resolved) {
+				// Use the type name in snake_case as the header file name
+				headerName := lo.SnakeCase(resolved.Name)
+				includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
+			} else {
+				includePath = fmt.Sprintf("%s/json.gen.h", targetOutputPath)
+			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("%s::%s", ns, name)
@@ -855,6 +864,23 @@ func (m *includeManager) addInternal(path string) {
 	if !lo.Contains(m.internal, path) {
 		m.internal = append(m.internal, path)
 	}
+}
+
+// isFixedSizeUint8ArrayType checks if a resolved type is a fixed-size uint8 array.
+// These types don't generate json.gen.h and need manual implementations.
+func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
+	form, ok := resolved.Form.(resolution.DistinctForm)
+	if !ok {
+		return false
+	}
+	if form.Base.Name != "Array" || form.Base.ArraySize == nil {
+		return false
+	}
+	if len(form.Base.TypeArgs) == 0 {
+		return false
+	}
+	elemType := form.Base.TypeArgs[0]
+	return resolution.IsPrimitive(elemType.Name) && elemType.Name == "uint8"
 }
 
 type templateData struct {

@@ -575,7 +575,7 @@ type fieldData struct {
 }
 
 func (f fieldData) TagSuffix() string {
-	if f.IsHardOptional || f.IsOptional {
+	if f.IsHardOptional {
 		return ",omitempty"
 	}
 	return ""

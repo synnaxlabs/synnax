@@ -2,16 +2,17 @@
 
 #pragma once
 
-#include <string>
-#include <utility>
 #include <optional>
+#include <string>
 #include <type_traits>
+#include <utility>
+
 #include "client/cpp/rack/types.gen.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/errors/errors.h"
-#include "core/pkg/service/device/pb/device.pb.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
 
+#include "core/pkg/service/device/pb/device.pb.h"
 
 namespace synnax::device {
 
@@ -28,7 +29,8 @@ struct StatusDetails {
 
     using proto_type = ::service::device::pb::StatusDetails;
     [[nodiscard]] ::service::device::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error> from_proto(const ::service::device::pb::StatusDetails& pb);
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::device::pb::StatusDetails &pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
@@ -49,6 +51,7 @@ struct Device {
 
     using proto_type = ::service::device::pb::Device;
     [[nodiscard]] ::service::device::pb::Device to_proto() const;
-    static std::pair<Device, x::errors::Error> from_proto(const ::service::device::pb::Device& pb);
+    static std::pair<Device, x::errors::Error>
+    from_proto(const ::service::device::pb::Device &pb);
 };
 }

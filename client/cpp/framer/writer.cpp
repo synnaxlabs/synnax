@@ -107,7 +107,9 @@ x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
 
     if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
         for (size_t i = 0; i < fr.series->size(); i++)
-            *cached_frame->mutable_series(static_cast<int>(i)) = fr.series->at(i).to_proto();
+            *cached_frame->mutable_series(
+                static_cast<int>(i)
+            ) = fr.series->at(i).to_proto();
         return x::errors::NIL;
     }
     this->cached_write_req = nullptr;

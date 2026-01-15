@@ -5,8 +5,8 @@ package access
 type Action string
 
 const (
-	ActionCreate Action = "create"
-	ActionDelete Action = "delete"
+	ActionCreate   Action = "create"
+	ActionDelete   Action = "delete"
 	ActionRetrieve Action = "retrieve"
-	ActionUpdate Action = "update"
+	ActionUpdate   Action = "update"
 )

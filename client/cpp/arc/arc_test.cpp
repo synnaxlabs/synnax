@@ -226,7 +226,7 @@ func calc(val f32) f32 {
 TEST(TestArc, testIntervalNodeCompiles) {
     const auto client = new_test_client();
 
-    auto arc = Arc{.name=random_arc_name("interval_test")};
+    auto arc = Arc{.name = random_arc_name("interval_test")};
     arc.text.raw = R"(
 sequence main {
     stage initial {
@@ -239,9 +239,12 @@ sequence main {
 
     ASSERT_NIL(client.arcs.create(arc));
 
-    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(arc.key, synnax::arc::RetrieveOptions{
-        .compile = true,
-    }));
+    auto retrieved = ASSERT_NIL_P(client.arcs.retrieve_by_key(
+        arc.key,
+        synnax::arc::RetrieveOptions{
+            .compile = true,
+        }
+    ));
     ASSERT_FALSE(retrieved.module->wasm.empty());
 
     bool found_interval = false;

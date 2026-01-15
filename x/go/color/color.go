@@ -88,6 +88,10 @@ func (c Color) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON accepts BOTH hex string AND [R,G,B,A] array for backward compatibility.
 func (c *Color) UnmarshalJSON(data []byte) error {
+	// Handle null - leave as zero value
+	if string(data) == "null" {
+		return nil
+	}
 	var arr []uint8
 	if err := json.Unmarshal(data, &arr); err == nil && len(arr) == 4 {
 		c[0], c[1], c[2], c[3] = arr[0], arr[1], arr[2], arr[3]
@@ -116,6 +120,11 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 	code, err := dec.PeekCode()
 	if err != nil {
 		return err
+	}
+
+	// Handle null - leave as zero value
+	if code == 0xc0 {
+		return dec.DecodeNil()
 	}
 
 	// Binary data (new format)

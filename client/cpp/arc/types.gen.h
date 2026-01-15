@@ -2,17 +2,18 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
-#include <optional>
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "core/pkg/service/arc/pb/arc.pb.h"
-#include "x/cpp/status/types.gen.h"
-#include "arc/cpp/graph/types.gen.h"
-#include "arc/cpp/text/types.gen.h"
-#include "arc/cpp/module/types.gen.h"
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/status/types.gen.h"
+
+#include "arc/cpp/graph/types.gen.h"
+#include "arc/cpp/module/types.gen.h"
+#include "arc/cpp/text/types.gen.h"
+#include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
 
@@ -29,7 +30,8 @@ struct StatusDetails {
 
     using proto_type = ::service::arc::pb::StatusDetails;
     [[nodiscard]] ::service::arc::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error> from_proto(const ::service::arc::pb::StatusDetails& pb);
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::arc::pb::StatusDetails &pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
@@ -49,6 +51,7 @@ struct Arc {
 
     using proto_type = ::service::arc::pb::Arc;
     [[nodiscard]] ::service::arc::pb::Arc to_proto() const;
-    static std::pair<Arc, x::errors::Error> from_proto(const ::service::arc::pb::Arc& pb);
+    static std::pair<Arc, x::errors::Error>
+    from_proto(const ::service::arc::pb::Arc &pb);
 };
 }

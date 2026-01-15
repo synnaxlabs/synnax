@@ -3,6 +3,6 @@
 package compiler
 
 type Output struct {
-	WASM []byte `json:"wasm" msgpack:"wasm"`
+	WASM              []byte            `json:"wasm" msgpack:"wasm"`
 	OutputMemoryBases map[string]uint32 `json:"output_memory_bases" msgpack:"output_memory_bases"`
 }

@@ -84,6 +84,9 @@ class Color(tuple[int, int, int, int]):
     def _from_hex(hex_str: str) -> tuple[int, int, int, int]:
         """Parse hex string to RGBA tuple."""
         hex_str = hex_str.lstrip("#")
+        # Empty string returns zero color
+        if len(hex_str) == 0:
+            return (0, 0, 0, 0)
         if len(hex_str) == 6:
             hex_str += "ff"
         if len(hex_str) != 8:
@@ -116,3 +119,18 @@ class Color(tuple[int, int, int, int]):
 
     def __repr__(self) -> str:
         return f"Color({self.hex()})"
+
+    def __eq__(self, other: object) -> bool:
+        """Support equality with hex strings and other Colors."""
+        if isinstance(other, str):
+            try:
+                other_rgba = self._from_hex(other)
+                return tuple(self) == other_rgba
+            except ValueError:
+                return False
+        if isinstance(other, (list, tuple)) and len(other) == 4:
+            return tuple(self) == tuple(other)
+        return super().__eq__(other)
+
+    def __hash__(self) -> int:
+        return super().__hash__()

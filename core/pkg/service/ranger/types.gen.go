@@ -23,5 +23,5 @@ type Range struct {
 	Key       Key             `json:"key" msgpack:"key"`
 	Name      string          `json:"name" msgpack:"name"`
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
-	Color     color.Color     `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color     color.Color     `json:"color" msgpack:"color"`
 }

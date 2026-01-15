@@ -3,21 +3,21 @@
 #pragma once
 
 #include <cstdint>
-#include <utility>
-#include <string>
 #include <optional>
-#include "x/cpp/json/json.h"
-#include "x/cpp/errors/errors.h"
-#include "core/pkg/service/rack/pb/rack.pb.h"
-#include "x/cpp/status/types.gen.h"
-#include "client/cpp/task/task.h"
+#include <string>
+#include <utility>
 
+#include "client/cpp/task/task.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
+#include "x/cpp/status/types.gen.h"
+
+#include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
 
 struct StatusDetails;
 struct Rack;
-
 
 using Key = std::uint32_t;
 
@@ -29,7 +29,8 @@ struct StatusDetails {
 
     using proto_type = ::service::rack::pb::StatusDetails;
     [[nodiscard]] ::service::rack::pb::StatusDetails to_proto() const;
-    static std::pair<StatusDetails, x::errors::Error> from_proto(const ::service::rack::pb::StatusDetails& pb);
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::rack::pb::StatusDetails &pb);
 };
 
 using Status = ::x::status::Status<StatusDetails>;
@@ -46,7 +47,8 @@ struct Rack {
 
     using proto_type = ::service::rack::pb::Rack;
     [[nodiscard]] ::service::rack::pb::Rack to_proto() const;
-    static std::pair<Rack, x::errors::Error> from_proto(const ::service::rack::pb::Rack& pb);
+    static std::pair<Rack, x::errors::Error>
+    from_proto(const ::service::rack::pb::Rack &pb);
 
     // Custom methods
     task::Client tasks;
