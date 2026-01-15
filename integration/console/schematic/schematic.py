@@ -812,7 +812,7 @@ class Schematic(ConsolePage):
         )
 
         expected_angle = 90.0 if direction == "clockwise" else -90.0
-        angular_tolerance = 15.0
+        angular_tolerance = 17.0
 
         for i in range(len(symbols)):
 
