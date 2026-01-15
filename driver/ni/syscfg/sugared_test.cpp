@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include "gtest/gtest.h"
+#include "x/cpp/xtest/xtest.h"
 
-#include "driver/ni/errors.h"
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/sugared.h"
 
@@ -99,8 +99,7 @@ TEST(SugaredAPITest, CloseHandleReturnsNilOnSuccess) {
     mock->close_handle_status = NISysCfg_OK;
     syscfg::SugaredAPI api(mock);
 
-    auto err = api.CloseHandle(nullptr);
-    EXPECT_FALSE(err) << "Expected no error, got: " << err.message();
+    ASSERT_NIL(api.CloseHandle(nullptr));
 }
 
 /// @brief CloseHandle should return NIL when the underlying API returns EndOfEnum.
@@ -110,8 +109,7 @@ TEST(SugaredAPITest, CloseHandleReturnsNilOnEndOfEnum) {
     mock->close_handle_status = NISysCfg_EndOfEnum;
     syscfg::SugaredAPI api(mock);
 
-    auto err = api.CloseHandle(nullptr);
-    EXPECT_FALSE(err) << "Expected no error for EndOfEnum, got: " << err.message();
+    ASSERT_NIL(api.CloseHandle(nullptr));
 }
 
 /// @brief CloseHandle should propagate other errors normally.
