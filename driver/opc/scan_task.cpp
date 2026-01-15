@@ -214,8 +214,8 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         .variant = x::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
-            .cmd = cmd.key,
             .running = true,
+            .cmd = cmd.key,
         }
     };
     if (!parser.ok()) {

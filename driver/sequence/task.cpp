@@ -164,8 +164,8 @@ std::unique_ptr<driver::task::Task> driver::sequence::Task::configure(
             .start = x::telem::TimeStamp::now(),
             .authorities = {cfg.authority},
             .subject = x::control::Subject{
-                .name = task.name,
                 .key = std::to_string(task.key),
+                .name = task.name,
             }
         };
         auto sink = std::make_shared<plugins::SynnaxFrameSink>(ctx->client, writer_cfg);

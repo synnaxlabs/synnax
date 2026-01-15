@@ -44,7 +44,7 @@ public:
             .key = synnax::task::status_key(sy_task),
             .variant = x::status::VARIANT_SUCCESS,
             .details =
-                {.task = sy_task.key, .cmd = cmd.key, .running = true, .data = cmd.args}
+                {.task = sy_task.key, .running = true, .cmd = cmd.key, .data = cmd.args}
         };
         ctx->set_status(status);
     }

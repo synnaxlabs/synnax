@@ -136,7 +136,7 @@ public:
         if (this->config_.mode == ExecutionMode::HIGH_RATE ||
             this->config_.mode == ExecutionMode::HYBRID) {
             if (this->config_.interval.nanoseconds() > 0) {
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             }
         }
 
@@ -180,7 +180,7 @@ public:
         this->running_ = false;
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         const int fd = notifier.fd();
         if (fd == -1 || this->epoll_fd_ == -1) return false;
 

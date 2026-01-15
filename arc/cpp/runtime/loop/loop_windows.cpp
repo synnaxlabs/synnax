@@ -122,7 +122,7 @@ public:
         if (this->config_.mode == ExecutionMode::HIGH_RATE ||
             this->config_.mode == ExecutionMode::HYBRID) {
             if (this->config_.interval.nanoseconds() > 0) {
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             }
         }
 
@@ -165,7 +165,7 @@ public:
         this->timer_enabled_ = false;
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         static bool warned = false;
         if (!warned) {
             LOG(WARNING) << "[loop] watch() not supported on Windows; "

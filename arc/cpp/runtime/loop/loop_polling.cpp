@@ -93,7 +93,7 @@ public:
         if (this->running_) return x::errors::NIL;
 
         if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+            this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
         }
 
         this->last_tick_ = std::chrono::steady_clock::now();
@@ -108,7 +108,7 @@ public:
         this->timer_.reset();
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         static bool warned = false;
         if (!warned) {
             LOG(WARNING) << "[loop] watch() not supported in polling mode; "
