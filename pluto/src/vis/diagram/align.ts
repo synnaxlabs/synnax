@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, direction, location, xy } from "@synnaxlabs/x";
+import { box, type direction, location, xy } from "@synnaxlabs/x";
 
 import { type NodeLayout } from "@/vis/diagram/util";
 

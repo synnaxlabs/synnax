@@ -355,7 +355,10 @@ const MultiElementProperties = ({
     handleRotateIndividual(dir);
   };
 
-  const handleLabelProp = <K extends keyof LabelProps>(key: K, value: LabelProps[K]): void => {
+  const handleLabelProp = <K extends keyof LabelProps>(
+    key: K,
+    value: LabelProps[K],
+  ): void => {
     elements.forEach((e) => {
       if (e.type !== "node" || e.props.label == null) return;
       onChange(e.key, { label: { ...e.props.label, [key]: value } });
@@ -497,7 +500,9 @@ const MultiElementProperties = ({
       <Input.Item label="Label Orientation" align="start">
         <Schematic.Symbol.SelectOrientation
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
-          onChange={(v) => v.outer !== "center" && handleLabelProp("orientation", v.outer)}
+          onChange={(v) =>
+            v.outer !== "center" && handleLabelProp("orientation", v.outer)
+          }
           hideInner
         />
       </Input.Item>
