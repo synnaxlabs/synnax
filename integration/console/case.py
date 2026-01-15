@@ -11,7 +11,13 @@ import os
 import random
 from typing import cast
 
-from playwright.sync_api import Browser, BrowserContext, BrowserType, Page, sync_playwright
+from playwright.sync_api import (
+    Browser,
+    BrowserContext,
+    BrowserType,
+    Page,
+    sync_playwright,
+)
 
 from console.console import Console
 from console.profiling import CDPProfiler, ProfilerConfig
@@ -27,13 +33,13 @@ class ConsoleCase(TestCase):
     Environment Variables:
         PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False)
             Can be set via command line: --console-headed or -ch
-        PLAYWRIGHT_CONSOLE_PROFILE: Enable CPU profiling via CDP (default: True)
+        PLAYWRIGHT_CONSOLE_PROFILE: Enable CPU profiling via CDP (default: False)
             Profiles are saved to integration/profiles/<test_name>.cpuprofile
             Load in Chrome DevTools > JavaScript Profiler
-        PLAYWRIGHT_CONSOLE_TRACE: Enable Playwright tracing (default: True)
+        PLAYWRIGHT_CONSOLE_TRACE: Enable Playwright tracing (default: False)
             Traces are saved to integration/profiles/<test_name>.trace.zip
             View with: npx playwright show-trace <path-to-trace.zip>
-        PLAYWRIGHT_CONSOLE_HEAP: Enable heap snapshot via CDP (default: True)
+        PLAYWRIGHT_CONSOLE_HEAP: Enable heap snapshot via CDP (default: False)
             Snapshots are saved to integration/profiles/<test_name>.heapsnapshot
             Load in Chrome DevTools > Memory panel
 
@@ -66,7 +72,9 @@ class ConsoleCase(TestCase):
         browser_engine = self.determine_browser()
         self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
         # Use larger viewport to reduce element overlap
-        self.context = self.browser.new_context(viewport={"width": 1920, "height": 1080})
+        self.context = self.browser.new_context(
+            viewport={"width": 1920, "height": 1080}
+        )
 
         # Initialize profiler config
         profiler_config = ProfilerConfig.from_params(self.params)

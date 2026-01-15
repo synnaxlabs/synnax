@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 #  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
@@ -45,7 +44,7 @@ from datetime import datetime
 from pathlib import Path
 
 try:
-    from playwright.sync_api import sync_playwright, Page
+    from playwright.sync_api import CDPSession, Page, sync_playwright
 except ImportError:
     print("Error: playwright is required. Install with: pip install playwright")
     sys.exit(1)
@@ -60,7 +59,7 @@ def generate_filename(profile_type: str) -> str:
 
 
 def collect_cpu_profile(
-    cdp_session, duration_seconds: int | None, writer: ProfileWriter, name: str
+    cdp_session: CDPSession, duration_seconds: int | None, writer: ProfileWriter, name: str
 ) -> Path:
     """Collect a CPU profile for the specified duration.
 
@@ -105,7 +104,7 @@ def collect_cpu_profile(
 
 
 def collect_heap_snapshot(
-    cdp_session, page: Page, writer: ProfileWriter, name: str
+    cdp_session: CDPSession, page: Page, writer: ProfileWriter, name: str
 ) -> Path:
     """Take a heap snapshot.
 
@@ -121,7 +120,7 @@ def collect_heap_snapshot(
 
     chunks: list[str] = []
 
-    def on_chunk(params: dict) -> None:
+    def on_chunk(params: dict[str, str]) -> None:
         chunk = params.get("chunk", "")
         if isinstance(chunk, str):
             chunks.append(chunk)
@@ -187,8 +186,7 @@ def wait_for_console_ready(page: Page, timeout: int = 30000) -> bool:
     """Wait for the Console to be ready."""
     try:
         page.wait_for_selector(
-            ".pluto-field__username, text=Get Started",
-            timeout=timeout
+            ".pluto-field__username, text=Get Started", timeout=timeout
         )
         return True
     except Exception:

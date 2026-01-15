@@ -56,7 +56,7 @@ class ProfilerConfig:
         return self.cpu_profiling or self.heap_snapshot
 
     @classmethod
-    def from_params(cls, params: dict) -> "ProfilerConfig":
+    def from_params(cls, params: dict[str, bool]) -> "ProfilerConfig":
         """Create config from test parameters, falling back to environment variables.
 
         :param params: Test parameters dictionary.
