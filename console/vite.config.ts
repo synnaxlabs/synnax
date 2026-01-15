@@ -35,7 +35,7 @@ export default defineConfig({
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
-  plugins: [react(), tsconfigPaths({ root: __dirname })],
+  plugins: [react(), tsconfigPaths()],
   optimizeDeps: {
     esbuildOptions: {
       plugins: [importMetaUrlPlugin],

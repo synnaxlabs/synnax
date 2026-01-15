@@ -556,4 +556,9 @@ TEST(DeviceTests, testParseFromJSONDefaults) {
     ASSERT_EQ(d.properties, nullptr);
     ASSERT_EQ(d.configured, false);
 }
+
+TEST(DeviceTests, testDeviceStatusKey) {
+    const auto d = Device{.key = "cat"};
+    ASSERT_EQ(device::status_key(d), "device:cat");
+}
 }

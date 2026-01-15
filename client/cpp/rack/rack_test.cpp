@@ -54,6 +54,34 @@ TEST(RackTests, testRetrieveRackByName) {
     ASSERT_EQ(r.key, r2.key);
 }
 
+TEST(RackTests, testCreateTaskOnCreatedRack) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    task::Task t{
+        .name = "cat",
+        .type = "dog",
+        .internal = false,
+    };
+    ASSERT_NIL(r.tasks.create(t));
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+}
+
+TEST(RackTests, testCreateTaskOnRetrieveRack) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto retrieved = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    task::Task t{
+        .name = "cat",
+        .type = "dog",
+        .internal = false,
+    };
+    ASSERT_NIL(retrieved.tasks.create(t));
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), r.key);
+    ASSERT_EQ(task::rack_key_from_task_key(t.key), retrieved.key);
+}
+
 /// @brief it should correctly create and retrieve a rack with a status.
 TEST(RackTests, testCreateRackWithStatus) {
     const auto client = new_test_client();

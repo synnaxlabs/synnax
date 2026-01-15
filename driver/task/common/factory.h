@@ -73,7 +73,7 @@ configure_initial_factory_tasks(
     };
     auto [created, err] = create_if_type_not_exists_on_rack(rack, sy_task);
     if (err) {
-        LOG(ERROR) << "[" << integration_name << "] failed to create" << task_name
+        LOG(ERROR) << "[" << integration_name << "] failed to create " << task_name
                    << " on rack " << rack.key << ": " << err;
         return tasks;
     }

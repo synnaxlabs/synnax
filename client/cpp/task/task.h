@@ -95,7 +95,7 @@ inline RackKey rack(const Task &task) {
 /// @param task The task.
 /// @returns A unique key for status updates, derived from the task key.
 inline std::string status_key(const Task &task) {
-    return std::to_string(task.key);
+    return ontology_id(task.key).string();
 }
 
 /// @brief Stream output operator for Task.

@@ -27,29 +27,25 @@ Client::Client(
 std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
     auto req = grpc::rack::RetrieveRequest();
     req.add_keys(key);
-    auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
-    if (err) return {Rack{}, err};
-    if (res.racks_size() == 0)
-        return {Rack{}, not_found_error("Rack", "key " + std::to_string(key))};
-    auto [pld, proto_err] = Rack::from_proto(res.racks(0));
-    if (proto_err) return {Rack{}, proto_err};
-    Rack rack(std::move(pld));
-    rack.tasks = this->tasks;
-    return {rack, x::errors::NIL};
+    return this->retrieve(req, "key " + std::to_string(key));
 }
 
 std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) const {
     auto req = grpc::rack::RetrieveRequest();
     req.add_names(name);
+    return this->retrieve(req, "name " + name);
+}
+
+std::pair<Rack, x::errors::Error>
+Client::retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) const {
     auto [res, err] = rack_retrieve_client->send("/rack/retrieve", req);
     if (err) return {Rack{}, err};
-    if (res.racks_size() == 0) return {Rack{}, not_found_error("Rack", "name " + name)};
-    if (res.racks_size() > 1)
-        return {Rack{}, multiple_found_error("racks", "name " + name)};
-    auto [pld, proto_err] = Rack::from_proto(res.racks(0));
+    if (res.racks_size() == 0) return {Rack{}, not_found_error("Rack", query)};
+    if (res.racks_size() > 1) return {Rack{}, multiple_found_error("racks", query)};
+    auto [rack, proto_err] = Rack::from_proto(res.racks(0));
     if (proto_err) return {Rack{}, proto_err};
-    pld.tasks = this->tasks;
-    return {pld, x::errors::NIL};
+    rack.tasks = this->tasks.scope_to_rack(rack.key);
+    return {rack, x::errors::NIL};
 }
 
 x::errors::Error Client::create(Rack &rack) const {

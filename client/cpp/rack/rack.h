@@ -114,6 +114,10 @@ public:
     x::errors::Error del(std::uint32_t key) const;
 
 private:
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error>
+    retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) const;
+
     /// @brief Rack creation transport.
     std::unique_ptr<CreateClient> rack_create_client;
     /// @brief Rack retrieval transport.
