@@ -81,6 +81,8 @@ x::errors::Error SugaredAPI::SetFilterProperty(
 
 x::errors::Error SugaredAPI::CloseHandle(void *syscfgHandle) {
     auto status = syscfg->CloseHandle(syscfgHandle);
+    // END_OF_ENUM is expected when closing an exhausted enumeration handle
+    if (status == NISysCfg_EndOfEnum) return xerrors::NIL;
     return process_error(status);
 }
 
