@@ -12,8 +12,6 @@ package types
 import (
 	"fmt"
 	"strings"
-
-	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
 type TSFormatter struct{}
@@ -42,8 +40,4 @@ func (f *TSFormatter) FormatMap(keyType, valType string) string {
 
 func (f *TSFormatter) FallbackType() string {
 	return "unknown"
-}
-
-type TSImportResolver struct {
-	CurrentOutputPath string
 }

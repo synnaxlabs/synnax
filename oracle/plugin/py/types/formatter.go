@@ -12,8 +12,6 @@ package types
 import (
 	"fmt"
 	"strings"
-
-	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
 type PyFormatter struct{}
@@ -43,5 +41,3 @@ func (f *PyFormatter) FormatMap(keyType, valType string) string {
 func (f *PyFormatter) FallbackType() string {
 	return "Any"
 }
-
-type PyImportResolver struct{}

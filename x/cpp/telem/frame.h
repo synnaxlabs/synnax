@@ -188,10 +188,10 @@ Frame::from_proto(const ::x::telem::pb::Frame &pb) {
     cpp.series->reserve(pb.series_size());
     for (const auto &ser_pb: pb.series()) {
         auto [ser, err] = Series::from_proto(ser_pb);
-        if (err) return {Frame{}, err};
+        if (err) return std::make_pair(Frame{}, err);
         cpp.series->emplace_back(std::move(ser));
     }
-    return {std::move(cpp), x::errors::NIL};
+    return std::make_pair(std::move(cpp), x::errors::NIL);
 }
 
 };
