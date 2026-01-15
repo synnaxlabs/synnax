@@ -59,7 +59,10 @@ def generate_filename(profile_type: str) -> str:
 
 
 def collect_cpu_profile(
-    cdp_session: CDPSession, duration_seconds: int | None, writer: ProfileWriter, name: str
+    cdp_session: CDPSession,
+    duration_seconds: int | None,
+    writer: ProfileWriter,
+    name: str,
 ) -> Path:
     """Collect a CPU profile for the specified duration.
 
