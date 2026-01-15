@@ -11,42 +11,38 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import TypeAlias
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from synnax import rack as rack_
-from synnax import status as status_
+from synnax import color as color_
+from synnax import label, telem
 from synnax.ontology.payload import ID
 
-Key: TypeAlias = str
+Key: TypeAlias = UUID
 
 
-class StatusDetails(BaseModel):
-    rack: rack_.Key
-    device: str
-
-
-Status: TypeAlias = status_.Status[StatusDetails]
-
-
-class Device(BaseModel):
-    key: Key
-    rack: rack_.Key
-    location: str
-    make: Any
-    model: Any
-    name: str
-    configured: bool = Field(default=False)
-    properties: Any
-    status: Status | None = None
+class Payload(BaseModel):
+    key: Key = Field(default=UUID(int=0))
+    name: str = Field(min_length=1)
+    time_range: telem.TimeRange
+    color: color_.Color | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-ONTOLOGY_TYPE = ID(type="device")
+class APIRange(Payload):
+    labels: list[label.Label] | None = None
+    parent: APIRange | None = None
+
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+ONTOLOGY_TYPE = ID(type="range")
 
 
 def ontology_id(key: Key) -> ID:
-    return ID(type="device", key=str(key))
+    return ID(type="range", key=str(key))

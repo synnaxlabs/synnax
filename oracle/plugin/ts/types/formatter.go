@@ -9,35 +9,7 @@
 
 package types
 
-import (
-	"fmt"
-	"strings"
-)
+import "github.com/synnaxlabs/oracle/plugin/resolver"
 
-type TSFormatter struct{}
-
-func (f *TSFormatter) FormatQualified(qualifier, typeName string) string {
-	if qualifier == "" {
-		return typeName
-	}
-	return fmt.Sprintf("%s.%s", qualifier, typeName)
-}
-
-func (f *TSFormatter) FormatGeneric(baseName string, typeArgs []string) string {
-	if len(typeArgs) == 0 {
-		return baseName
-	}
-	return fmt.Sprintf("%s<%s>", baseName, strings.Join(typeArgs, ", "))
-}
-
-func (f *TSFormatter) FormatArray(elemType string) string {
-	return elemType + "[]"
-}
-
-func (f *TSFormatter) FormatMap(keyType, valType string) string {
-	return fmt.Sprintf("Record<%s, %s>", keyType, valType)
-}
-
-func (f *TSFormatter) FallbackType() string {
-	return "unknown"
-}
+// TSFormatter is a TypeFormatter configured for TypeScript type formatting.
+var TSFormatter = resolver.NewFormatter(resolver.TSFormatterConfig)

@@ -24,24 +24,9 @@ func NewMockFileLoader() *MockFileLoader {
 	return &MockFileLoader{Files: make(map[string]string), root: "/mock/repo"}
 }
 
-// WithFiles creates a MockFileLoader with pre-populated files.
-func WithFiles(files map[string]string) *MockFileLoader {
-	m := NewMockFileLoader()
-	for k, v := range files {
-		m.Files[k] = v
-	}
-	return m
-}
-
 // Add adds a file to the mock loader and returns the loader for chaining.
 func (m *MockFileLoader) Add(path, content string) *MockFileLoader {
 	m.Files[path] = content
-	return m
-}
-
-// WithRepoRoot returns the loader with the specified repo root.
-func (m *MockFileLoader) WithRepoRoot(root string) *MockFileLoader {
-	m.root = root
 	return m
 }
 

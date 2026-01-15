@@ -10,44 +10,14 @@
 package types
 
 import (
-	"fmt"
-	"strings"
-
 	gointernal "github.com/synnaxlabs/oracle/plugin/go/internal"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
-type GoFormatter struct{}
-
-func (f *GoFormatter) FormatQualified(qualifier, typeName string) string {
-	if qualifier == "" {
-		return typeName
-	}
-	return fmt.Sprintf("%s.%s", qualifier, typeName)
-}
-
-func (f *GoFormatter) FormatGeneric(baseName string, typeArgs []string) string {
-	if len(typeArgs) == 0 {
-		return baseName
-	}
-	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
-}
-
-func (f *GoFormatter) FormatArray(elemType string) string {
-	return "[]" + elemType
-}
-
-func (f *GoFormatter) FormatFixedArray(elemType string, size int64) string {
-	return fmt.Sprintf("[%d]%s", size, elemType)
-}
-
-func (f *GoFormatter) FormatMap(keyType, valType string) string {
-	return fmt.Sprintf("map[%s]%s", keyType, valType)
-}
-
-func (f *GoFormatter) FallbackType() string {
-	return "any"
+// GoFormatter returns a TypeFormatter configured for Go type formatting.
+func GoFormatter() resolver.TypeFormatter {
+	return resolver.NewFormatter(resolver.GoFormatterConfig)
 }
 
 type GoImportResolver struct {

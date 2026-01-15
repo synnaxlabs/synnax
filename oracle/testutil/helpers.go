@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 )
 
-// GenerateRequest creates a plugin request from a source string by analyzing the source
+// generateRequest creates a plugin request from a source string by analyzing the source
 // and returning a request with the resolution table.
-func GenerateRequest(
+func generateRequest(
 	ctx context.Context,
 	source string,
 	namespace string,
@@ -48,7 +48,7 @@ func MustGenerateRequest(
 	loader *MockFileLoader,
 ) *plugin.Request {
 	GinkgoHelper()
-	req, err := GenerateRequest(ctx, source, namespace, loader)
+	req, err := generateRequest(ctx, source, namespace, loader)
 	Expect(err).To(BeNil(), "failed to analyze source")
 	return req
 }
@@ -69,9 +69,9 @@ func MustGenerate(
 	return resp
 }
 
-// ContentOf finds a file in the response by path suffix and returns its content.
+// contentOf finds a file in the response by path suffix and returns its content.
 // Returns empty string if no matching file is found.
-func ContentOf(resp *plugin.Response, pathSuffix string) string {
+func contentOf(resp *plugin.Response, pathSuffix string) string {
 	for _, f := range resp.Files {
 		if strings.HasSuffix(f.Path, pathSuffix) {
 			return string(f.Content)
@@ -83,7 +83,7 @@ func ContentOf(resp *plugin.Response, pathSuffix string) string {
 // MustContentOf is like ContentOf but fails the test if no matching file is found.
 func MustContentOf(resp *plugin.Response, pathSuffix string) string {
 	GinkgoHelper()
-	content := ContentOf(resp, pathSuffix)
+	content := contentOf(resp, pathSuffix)
 	Expect(content).NotTo(BeEmpty(), "no file found with suffix: %s", pathSuffix)
 	return content
 }

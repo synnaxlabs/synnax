@@ -15,7 +15,7 @@ from typing import Any, NewType, TypeAlias
 
 from pydantic import BaseModel
 
-from synnax import status
+from synnax import status as status_
 from synnax.ontology.payload import ID
 
 Key = NewType("Key", int)
@@ -35,7 +35,7 @@ class Command(BaseModel):
     args: dict[str, Any] | None = None
 
 
-Status: TypeAlias = status.Status[StatusDetails]
+Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Payload(BaseModel):

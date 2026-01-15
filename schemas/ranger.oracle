@@ -12,6 +12,7 @@ import "schemas/label"
 import "schemas/color"
 
 @ts output  "client/ts/src/range"
+@py output  "client/py/synnax/ranger"
 @cpp output "client/cpp/ranger"
 
 Key = uuid {
@@ -19,7 +20,7 @@ Key = uuid {
 }
 
 Range struct {
-    key        Key             @key
+    key        Key             @key @validate default 0
     name       string          @validate min_length 1
     time_range telem.TimeRange
     color      color.Color?
@@ -28,6 +29,7 @@ Range struct {
     @pb
     @cpp name  "Base"
     @ts name   "Base"
+    @py name   "Payload"
 }
 
 APIRange struct extends Range {

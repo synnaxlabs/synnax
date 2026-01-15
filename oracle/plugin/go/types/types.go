@@ -33,7 +33,7 @@ import (
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
 // primitiveMapper is the Go-specific primitive type mapper.
-var primitiveMapper = &goprimitives.Mapper{}
+var primitiveMapper = goprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
@@ -57,23 +57,14 @@ func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
-var gofmtCmd = []string{"gofmt", "-w"}
+var goPostWriter = &exec.PostWriter{
+	Extensions: []string{".go"},
+	Commands:   [][]string{{"gofmt", "-w"}},
+}
 
 // PostWrite runs gofmt on all generated Go files.
 func (p *Plugin) PostWrite(files []string) error {
-	if len(files) == 0 {
-		return nil
-	}
-	var goFiles []string
-	for _, f := range files {
-		if strings.HasSuffix(f, ".go") {
-			goFiles = append(goFiles, f)
-		}
-	}
-	if len(goFiles) == 0 {
-		return nil
-	}
-	return exec.OnFiles(gofmtCmd, goFiles, "")
+	return goPostWriter.PostWrite(files)
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -150,7 +141,7 @@ func generateGoFile(
 
 	// Create resolver with Go-specific components
 	r := &resolver.Resolver{
-		Formatter:       &GoFormatter{},
+		Formatter:       GoFormatter(),
 		ImportResolver:  &GoImportResolver{RepoRoot: repoRoot, CurrentPackage: pkg},
 		ImportAdder:     imports,
 		PrimitiveMapper: primitiveMapper,

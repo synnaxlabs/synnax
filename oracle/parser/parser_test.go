@@ -113,18 +113,15 @@ var _ = Describe("Parser", func() {
 			fields := structDef.StructBody().AllFieldDef()
 			Expect(fields).To(HaveLen(3))
 
-			// key uuid
 			Expect(fields[0].IDENT().GetText()).To(Equal("key"))
 			tr0 := asTypeRefNormal(fields[0].TypeRef())
 			Expect(tr0.QualifiedIdent().IDENT(0).GetText()).To(Equal("uuid"))
 			Expect(tr0.TypeModifiers()).To(BeNil())
 
-			// name string
 			Expect(fields[1].IDENT().GetText()).To(Equal("name"))
 			tr1 := asTypeRefNormal(fields[1].TypeRef())
 			Expect(tr1.QualifiedIdent().IDENT(0).GetText()).To(Equal("string"))
 
-			// description string?
 			Expect(fields[2].IDENT().GetText()).To(Equal("description"))
 			tr2 := asTypeRefNormal(fields[2].TypeRef())
 			Expect(tr2.TypeModifiers()).NotTo(BeNil())
@@ -143,12 +140,10 @@ var _ = Describe("Parser", func() {
 			fields := structDef.StructBody().AllFieldDef()
 			Expect(fields).To(HaveLen(2))
 
-			// labels uuid[]
 			tr0 := asTypeRefNormal(fields[0].TypeRef())
 			Expect(tr0.ArrayModifier()).NotTo(BeNil())
 			Expect(tr0.TypeModifiers()).To(BeNil())
 
-			// tags string[]?
 			tr1 := asTypeRefNormal(fields[1].TypeRef())
 			Expect(tr1.ArrayModifier()).NotTo(BeNil())
 			Expect(tr1.TypeModifiers()).NotTo(BeNil())
@@ -166,13 +161,11 @@ var _ = Describe("Parser", func() {
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			fields := structDef.StructBody().AllFieldDef()
 
-			// channel.Channel
 			tr0 := asTypeRefNormal(fields[0].TypeRef())
 			qualIdent := tr0.QualifiedIdent()
 			Expect(qualIdent.IDENT(0).GetText()).To(Equal("channel"))
 			Expect(qualIdent.IDENT(1).GetText()).To(Equal("Channel"))
 
-			// label.Label[]
 			tr1 := asTypeRefNormal(fields[1].TypeRef())
 			qualIdent2 := tr1.QualifiedIdent()
 			Expect(qualIdent2.IDENT(0).GetText()).To(Equal("label"))
@@ -192,7 +185,6 @@ var _ = Describe("Parser", func() {
 			fields := structDef.StructBody().AllFieldDef()
 			Expect(fields).To(HaveLen(2))
 
-			// settings map<string, string>
 			tr0, ok := fields[0].TypeRef().(*parser.TypeRefMapContext)
 			Expect(ok).To(BeTrue())
 			mapType := tr0.MapType()
@@ -204,7 +196,6 @@ var _ = Describe("Parser", func() {
 			valueType := asTypeRefNormal(typeRefs[1])
 			Expect(valueType.QualifiedIdent().IDENT(0).GetText()).To(Equal("string"))
 
-			// counts map<string, uint32>?
 			tr1, ok := fields[1].TypeRef().(*parser.TypeRefMapContext)
 			Expect(ok).To(BeTrue())
 			Expect(tr1.TypeModifiers()).NotTo(BeNil())
@@ -286,15 +277,12 @@ var _ = Describe("Parser", func() {
 			exprs := block.AllExpression()
 			Expect(exprs).To(HaveLen(3))
 
-			// required (flag)
 			Expect(exprs[0].IDENT().GetText()).To(Equal("required"))
 			Expect(exprs[0].AllExpressionValue()).To(BeEmpty())
 
-			// max_length 255
 			Expect(exprs[1].IDENT().GetText()).To(Equal("max_length"))
 			Expect(exprs[1].ExpressionValue(0).INT_LIT().GetText()).To(Equal("255"))
 
-			// min_length 1
 			Expect(exprs[2].IDENT().GetText()).To(Equal("min_length"))
 			Expect(exprs[2].ExpressionValue(0).INT_LIT().GetText()).To(Equal("1"))
 		})
@@ -315,11 +303,9 @@ var _ = Describe("Parser", func() {
 			block := content.DomainBlock()
 			exprs := block.AllExpression()
 
-			// default "untitled"
 			Expect(exprs[0].IDENT().GetText()).To(Equal("default"))
 			Expect(exprs[0].ExpressionValue(0).STRING_LIT().GetText()).To(Equal(`"untitled"`))
 
-			// pattern "[a-z]+"
 			Expect(exprs[1].IDENT().GetText()).To(Equal("pattern"))
 			Expect(exprs[1].ExpressionValue(0).STRING_LIT().GetText()).To(Equal(`"[a-z]+"`))
 		})
@@ -340,10 +326,8 @@ var _ = Describe("Parser", func() {
 			block := content.DomainBlock()
 			exprs := block.AllExpression()
 
-			// target label.Label
 			Expect(exprs[0].IDENT().GetText()).To(Equal("target"))
 
-			// cardinality many_to_many
 			Expect(exprs[1].IDENT().GetText()).To(Equal("cardinality"))
 			qualIdent := exprs[1].ExpressionValue(0).QualifiedIdent()
 			Expect(qualIdent.IDENT(0).GetText()).To(Equal("many_to_many"))

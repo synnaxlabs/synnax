@@ -28,11 +28,7 @@ func TestTypes(t *testing.T) {
 }
 
 var _ = Describe("PyFormatter", func() {
-	var f *types.PyFormatter
-
-	BeforeEach(func() {
-		f = &types.PyFormatter{}
-	})
+	f := types.PyFormatter
 
 	Describe("FormatQualified", func() {
 		It("Should format qualified names with dot separator", func() {

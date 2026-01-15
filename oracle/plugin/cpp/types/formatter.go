@@ -11,38 +11,12 @@ package types
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
-type CppFormatter struct{}
-
-func (f *CppFormatter) FormatQualified(qualifier, typeName string) string {
-	if qualifier == "" {
-		return typeName
-	}
-	return fmt.Sprintf("%s::%s", qualifier, typeName)
-}
-
-func (f *CppFormatter) FormatGeneric(baseName string, typeArgs []string) string {
-	if len(typeArgs) == 0 {
-		return baseName
-	}
-	return fmt.Sprintf("%s<%s>", baseName, strings.Join(typeArgs, ", "))
-}
-
-func (f *CppFormatter) FormatArray(elemType string) string {
-	return fmt.Sprintf("std::vector<%s>", elemType)
-}
-
-func (f *CppFormatter) FormatMap(keyType, valType string) string {
-	return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valType)
-}
-
-func (f *CppFormatter) FallbackType() string {
-	return "void"
-}
+// CppFormatter is a TypeFormatter configured for C++ type formatting.
+var CppFormatter = resolver.NewFormatter(resolver.CppFormatterConfig)
 
 type CppImportResolver struct {
 	FilePattern string

@@ -16,7 +16,8 @@ from typing import Literal, NewType, TypeAlias
 
 from pydantic import BaseModel, Field
 
-from synnax import status, telem
+from synnax import status as status_
+from synnax import telem
 from synnax.ontology.payload import ID
 from synnax.x import control
 
@@ -33,7 +34,7 @@ class Concurrency(IntEnum):
 
 Name: TypeAlias = str
 
-Status: TypeAlias = status.Status
+Status: TypeAlias = status_.Status
 
 
 class Operation(BaseModel):

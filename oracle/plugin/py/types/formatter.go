@@ -9,35 +9,7 @@
 
 package types
 
-import (
-	"fmt"
-	"strings"
-)
+import "github.com/synnaxlabs/oracle/plugin/resolver"
 
-type PyFormatter struct{}
-
-func (f *PyFormatter) FormatQualified(qualifier, typeName string) string {
-	if qualifier == "" {
-		return typeName
-	}
-	return fmt.Sprintf("%s.%s", qualifier, typeName)
-}
-
-func (f *PyFormatter) FormatGeneric(baseName string, typeArgs []string) string {
-	if len(typeArgs) == 0 {
-		return baseName
-	}
-	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
-}
-
-func (f *PyFormatter) FormatArray(elemType string) string {
-	return fmt.Sprintf("list[%s]", elemType)
-}
-
-func (f *PyFormatter) FormatMap(keyType, valType string) string {
-	return fmt.Sprintf("dict[%s, %s]", keyType, valType)
-}
-
-func (f *PyFormatter) FallbackType() string {
-	return "Any"
-}
+// PyFormatter is a TypeFormatter configured for Python type formatting.
+var PyFormatter = resolver.NewFormatter(resolver.PyFormatterConfig)

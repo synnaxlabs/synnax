@@ -40,7 +40,11 @@ func OnFiles(
 // It groups files by project directory and runs commands in order.
 type PostWriter struct {
 	// ConfigFile is the file that marks a project directory (e.g., "package.json", "pyproject.toml").
+	// If empty, files are run from their containing directory without grouping.
 	ConfigFile string
+	// Extensions filters files to only those matching the given extensions (e.g., []string{".go"}).
+	// If empty, all files are processed.
+	Extensions []string
 	// Commands are the commands to run in order on each group of files.
 	Commands [][]string
 }
@@ -48,6 +52,31 @@ type PostWriter struct {
 // PostWrite groups files by their project directory and runs all configured commands.
 func (w *PostWriter) PostWrite(files []string) error {
 	if len(files) == 0 {
+		return nil
+	}
+	// Filter by extensions if specified
+	if len(w.Extensions) > 0 {
+		filtered := make([]string, 0, len(files))
+		for _, f := range files {
+			for _, ext := range w.Extensions {
+				if strings.HasSuffix(f, ext) {
+					filtered = append(filtered, f)
+					break
+				}
+			}
+		}
+		files = filtered
+		if len(files) == 0 {
+			return nil
+		}
+	}
+	// If no config file specified, run from current directory
+	if w.ConfigFile == "" {
+		for _, cmd := range w.Commands {
+			if err := OnFiles(cmd, files, ""); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	byProject := GroupByConfigDir(files, w.ConfigFile)

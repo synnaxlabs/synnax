@@ -207,12 +207,6 @@ var _ = Describe("Table", func() {
 			Expect(types).To(HaveLen(4))
 		})
 
-		It("filters structs in namespace", func() {
-			structs := table.StructsInNamespace("auth")
-			Expect(structs).To(HaveLen(1))
-			Expect(structs[0].Name).To(Equal("User"))
-		})
-
 		It("filters enums in namespace", func() {
 			enums := table.EnumsInNamespace("auth")
 			Expect(enums).To(HaveLen(1))
@@ -229,44 +223,6 @@ var _ = Describe("Table", func() {
 			Expect(types).To(HaveLen(1))
 			Expect(types[0].Name).To(Equal("WithGo"))
 		})
-	})
-
-	Describe("Primitive Checks", func() {
-		DescribeTable("IsPrimitiveType",
-			func(name string, expected bool) {
-				Expect(table.IsPrimitiveType(name)).To(Equal(expected))
-			},
-			Entry("string is primitive", "string", true),
-			Entry("int32 is primitive", "int32", true),
-			Entry("uuid is primitive", "uuid", true),
-			Entry("non-existent is not primitive", "auth.User", false),
-			Entry("Array is not primitive", "Array", false),
-		)
-
-		DescribeTable("IsStringPrimitiveType",
-			func(name string, expected bool) {
-				Expect(table.IsStringPrimitiveType(name)).To(Equal(expected))
-			},
-			Entry("string", "string", true),
-			Entry("uuid", "uuid", true),
-			Entry("int32", "int32", false),
-			Entry("bool", "bool", false),
-		)
-
-		DescribeTable("IsNumberPrimitiveType",
-			func(name string, expected bool) {
-				Expect(table.IsNumberPrimitiveType(name)).To(Equal(expected))
-			},
-			Entry("int8", "int8", true),
-			Entry("int32", "int32", true),
-			Entry("int64", "int64", true),
-			Entry("uint8", "uint8", true),
-			Entry("uint32", "uint32", true),
-			Entry("float32", "float32", true),
-			Entry("float64", "float64", true),
-			Entry("string", "string", false),
-			Entry("bool", "bool", false),
-		)
 	})
 
 	Describe("Imports", func() {

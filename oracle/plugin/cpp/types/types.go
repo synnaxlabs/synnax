@@ -30,7 +30,7 @@ import (
 )
 
 // primitiveMapper is the C++-specific primitive type mapper.
-var primitiveMapper = &cppprimitives.Mapper{}
+var primitiveMapper = cppprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
@@ -44,8 +44,6 @@ func DefaultOptions() Options {
 		FileNamePattern: "types.gen.h",
 	}
 }
-
-var clangFormatCmd = []string{"clang-format", "-i"}
 
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
@@ -186,25 +184,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
+var cppPostWriter = &exec.PostWriter{
+	Extensions: []string{".h", ".hpp", ".cpp", ".cc"},
+	Commands:   [][]string{{"clang-format", "-i"}},
+}
+
 func (p *Plugin) PostWrite(files []string) error {
-	if p.Options.DisableFormatter || len(files) == 0 {
+	if p.Options.DisableFormatter {
 		return nil
 	}
-
-	// Filter to only C++ header files
-	var cppFiles []string
-	for _, f := range files {
-		if strings.HasSuffix(f, ".h") || strings.HasSuffix(f, ".hpp") ||
-			strings.HasSuffix(f, ".cpp") || strings.HasSuffix(f, ".cc") {
-			cppFiles = append(cppFiles, f)
-		}
-	}
-
-	if len(cppFiles) == 0 {
-		return nil
-	}
-
-	return exec.OnFiles(clangFormatCmd, cppFiles, "")
+	return cppPostWriter.PostWrite(files)
 }
 
 func (p *Plugin) generateFile(

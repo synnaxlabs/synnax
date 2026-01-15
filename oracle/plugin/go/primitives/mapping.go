@@ -12,8 +12,8 @@ package primitives
 
 import "github.com/synnaxlabs/oracle/plugin/primitives"
 
-// mapping contains Go-specific primitive type mappings.
-var mapping = map[string]primitives.Mapping{
+// Mappings contains Go-specific primitive type mappings.
+var Mappings = map[string]primitives.Mapping{
 	"uuid":    {TargetType: "uuid.UUID", Imports: []primitives.Import{{Category: "external", Path: "github.com/synnaxlabs/x/uuid"}}},
 	"string":  {TargetType: "string"},
 	"bool":    {TargetType: "bool"},
@@ -35,13 +35,7 @@ var mapping = map[string]primitives.Mapping{
 	"nil":     {TargetType: "gotypes.Nil", Imports: []primitives.Import{{Category: "internal", Path: "go/types", Name: "gotypes"}}},
 }
 
-// Mapper implements primitives.Mapper for Go code generation.
-type Mapper struct{}
-
-// Map returns the Go-specific mapping for a primitive type.
-func (m *Mapper) Map(name string) primitives.Mapping {
-	if mapping, ok := mapping[name]; ok {
-		return mapping
-	}
-	return primitives.Mapping{TargetType: "any"}
+// Mapper returns a primitives.Mapper for Go code generation.
+func Mapper() primitives.Mapper {
+	return primitives.NewMapper(Mappings, "any")
 }

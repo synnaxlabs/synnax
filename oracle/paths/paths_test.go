@@ -43,21 +43,6 @@ var _ = Describe("Paths", func() {
 		})
 	})
 
-	Describe("RepoRootFrom", func() {
-		It("Should find repo root from a given path", func() {
-			oraclePath := filepath.Join(repoRoot, "oracle")
-			root, err := paths.RepoRootFrom(oraclePath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(root).To(Equal(repoRoot))
-		})
-
-		It("Should fail when given a path outside any git repo", func() {
-			_, err := paths.RepoRootFrom("/tmp")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("git repository"))
-		})
-	})
-
 	Describe("Normalize", func() {
 		It("Should normalize absolute paths to repo-relative", func() {
 			absPath := filepath.Join(repoRoot, "oracle", "paths")

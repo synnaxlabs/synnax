@@ -31,13 +31,14 @@ import (
 
 var _ = Describe("Ranger", Ordered, func() {
 	var (
-		db     *gorp.DB
-		svc    *ranger.Service
-		ctx    context.Context
-		w      ranger.Writer
-		otg    *ontology.Ontology
-		tx     gorp.Tx
-		closer io.Closer
+		db       *gorp.DB
+		svc      *ranger.Service
+		ctx      context.Context
+		w        ranger.Writer
+		otg      *ontology.Ontology
+		tx       gorp.Tx
+		closer   io.Closer
+		labelSvc *label.Service
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
@@ -47,12 +48,12 @@ var _ = Describe("Ranger", Ordered, func() {
 			EnableSearch: config.True(),
 		}))
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
+		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
 		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Label:    lab,
+			Label:    labelSvc,
 		}))
 		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
 		closer = xio.MultiCloser{db, otg, g, svc}
@@ -280,6 +281,37 @@ var _ = Describe("Ranger", Ordered, func() {
 				End:   telem.TimeStamp(9 * telem.Second),
 			}).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
+		})
+		It("Should retrieve ranges that have a specific label", func() {
+			l := &label.Label{Name: "TestLabel"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+			r1 := &ranger.Range{
+				Name:      "LabeledRange",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			r2 := &ranger.Range{
+				Name:      "UnlabeledRange",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r1)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, r2)).To(Succeed())
+			Expect(labelSvc.NewWriter(tx).Label(ctx, r1.OntologyID(), []uuid.UUID{l.Key})).To(Succeed())
+			var results []ranger.Range
+			Expect(svc.NewRetrieve().WhereHasLabels(l.Key).Entries(&results).Exec(ctx, tx)).To(Succeed())
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Key).To(Equal(r1.Key))
+		})
+		It("Should return empty when no ranges have the specified label", func() {
+			l := &label.Label{Name: "UnusedLabel"}
+			Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+			r := &ranger.Range{
+				Name:      "RangeWithoutLabels",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			var results []ranger.Range
+			Expect(svc.NewRetrieve().WhereHasLabels(l.Key).Entries(&results).Exec(ctx, tx)).To(Succeed())
+			Expect(results).To(BeEmpty())
 		})
 	})
 

@@ -28,31 +28,12 @@ var _ = Describe("MockFileLoader", func() {
 		})
 	})
 
-	Describe("WithFiles", func() {
-		It("should create loader with pre-populated files", func() {
-			files := map[string]string{
-				"schema/user":  "struct User {}",
-				"schema/range": "struct Range {}",
-			}
-			loader := testutil.WithFiles(files)
-			Expect(loader.Files).To(HaveLen(2))
-			Expect(loader.Files["schema/user"]).To(Equal("struct User {}"))
-		})
-	})
-
 	Describe("Add", func() {
 		It("should add file and return loader for chaining", func() {
 			loader := testutil.NewMockFileLoader().
 				Add("schema/user", "struct User {}").
 				Add("schema/range", "struct Range {}")
 			Expect(loader.Files).To(HaveLen(2))
-		})
-	})
-
-	Describe("WithRepoRoot", func() {
-		It("should set custom repo root", func() {
-			loader := testutil.NewMockFileLoader().WithRepoRoot("/custom/path")
-			Expect(loader.RepoRoot()).To(Equal("/custom/path"))
 		})
 	})
 

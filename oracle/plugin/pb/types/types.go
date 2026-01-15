@@ -33,7 +33,7 @@ import (
 const defaultModulePrefix = "github.com/synnaxlabs/synnax/"
 
 // primitiveMapper is the Protobuf-specific primitive type mapper.
-var primitiveMapper = &pbprimitives.Mapper{}
+var primitiveMapper = pbprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 

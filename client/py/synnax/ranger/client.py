@@ -43,10 +43,10 @@ from synnax.ranger.payload import (
     RangeKeys,
     RangeName,
     RangeNames,
-    RangePayload,
-    ontology_id,
 )
 from synnax.ranger.retrieve import RangeRetriever
+from synnax.ranger.types_gen import Payload as RangePayload
+from synnax.ranger.types_gen import ontology_id
 from synnax.ranger.writer import RangeWriter
 from synnax.signals.signals import Registry
 from synnax.state import LatestState

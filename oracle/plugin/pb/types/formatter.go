@@ -10,36 +10,13 @@
 package types
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
-type PbFormatter struct{}
-
-func (f *PbFormatter) FormatQualified(qualifier, typeName string) string {
-	if qualifier == "" {
-		return typeName
-	}
-	return fmt.Sprintf("%s.%s", qualifier, typeName)
-}
-
-func (f *PbFormatter) FormatGeneric(baseName string, typeArgs []string) string {
-	return baseName
-}
-
-func (f *PbFormatter) FormatArray(elemType string) string {
-	return elemType
-}
-
-func (f *PbFormatter) FormatMap(keyType, valType string) string {
-	return fmt.Sprintf("map<%s, %s>", keyType, valType)
-}
-
-func (f *PbFormatter) FallbackType() string {
-	return "bytes"
-}
+// PbFormatter is a TypeFormatter configured for Protocol Buffers type formatting.
+var PbFormatter = resolver.NewFormatter(resolver.PbFormatterConfig)
 
 type PbImportResolver struct{}
 

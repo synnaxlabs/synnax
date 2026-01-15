@@ -61,23 +61,14 @@ func (p *Plugin) Requires() []string { return []string{"go/types", "pb/types"} }
 // Check verifies generated files are up-to-date. Currently unimplemented.
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
-var gofmtCmd = []string{"gofmt", "-w"}
+var goPostWriter = &exec.PostWriter{
+	Extensions: []string{".go"},
+	Commands:   [][]string{{"gofmt", "-w"}},
+}
 
 // PostWrite runs gofmt on all generated Go files.
 func (p *Plugin) PostWrite(files []string) error {
-	if len(files) == 0 {
-		return nil
-	}
-	var goFiles []string
-	for _, f := range files {
-		if strings.HasSuffix(f, ".go") {
-			goFiles = append(goFiles, f)
-		}
-	}
-	if len(goFiles) == 0 {
-		return nil
-	}
-	return exec.OnFiles(gofmtCmd, goFiles, "")
+	return goPostWriter.PostWrite(files)
 }
 
 // Generate produces translator functions for structs with @pb flag.

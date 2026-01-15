@@ -31,7 +31,7 @@ import (
 )
 
 // primitiveMapper is the Python-specific primitive type mapper.
-var primitiveMapper = &pyprimitives.Mapper{}
+var primitiveMapper = pyprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
@@ -119,6 +119,20 @@ func generatePyFile(
 	data.Ontology = extractOntology(structs, rawKeyFields, keyFields, skip)
 	if data.Ontology != nil {
 		data.imports.addOntology("ID")
+	}
+
+	// Pre-collect all field names to detect conflicts with module import names.
+	// This allows us to alias module imports when a field name would shadow them.
+	for _, s := range structs {
+		if form, ok := s.Form.(resolution.StructForm); ok {
+			for _, field := range form.Fields {
+				data.imports.registerFieldName(field.Name)
+			}
+		}
+		// Also collect unified fields (which include inherited fields)
+		for _, field := range resolution.UnifiedFields(s, table) {
+			data.imports.registerFieldName(field.Name)
+		}
 	}
 
 	// Separate distinct types from alias types
@@ -539,7 +553,13 @@ func collectValidation(
 				constraints = append(constraints, "default=False")
 			}
 		case resolution.ValueKindInt:
-			constraints = append(constraints, fmt.Sprintf("default=%d", rules.Default.IntValue))
+			// Type-aware: uuid with default 0 → UUID(int=0)
+			if isUUIDType(typeRef, table) && rules.Default.IntValue == 0 {
+				data.imports.addUUID("UUID")
+				constraints = append(constraints, "default=UUID(int=0)")
+			} else {
+				constraints = append(constraints, fmt.Sprintf("default=%d", rules.Default.IntValue))
+			}
 		case resolution.ValueKindFloat:
 			constraints = append(constraints, fmt.Sprintf("default=%f", rules.Default.FloatValue))
 		case resolution.ValueKindString:
@@ -549,17 +569,37 @@ func collectValidation(
 	return constraints
 }
 
+// isUUIDType checks if a type reference is or resolves to the uuid primitive type.
+func isUUIDType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	// Direct uuid primitive
+	if typeRef.Name == "uuid" {
+		return true
+	}
+	// Check if it's a distinct type or alias that resolves to uuid
+	typ, ok := table.Get(typeRef.Name)
+	if !ok {
+		return false
+	}
+	switch form := typ.Form.(type) {
+	case resolution.DistinctForm:
+		return form.Base.Name == "uuid"
+	case resolution.AliasForm:
+		return form.Target.Name == "uuid"
+	}
+	return false
+}
+
 func addCrossNamespaceImport(modulePath string, typeName string, data *templateData) string {
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
 		parentPath := strings.Join(parts[:len(parts)-1], ".")
 		moduleName := parts[len(parts)-1]
-		data.imports.addModuleImport(parentPath, moduleName)
-		return fmt.Sprintf("%s.%s", moduleName, typeName)
+		alias := data.imports.addModuleImport(parentPath, moduleName)
+		return fmt.Sprintf("%s.%s", alias, typeName)
 	}
 	// Fallback for single-level module path (rare case)
-	data.imports.addModuleImport("", modulePath)
-	return fmt.Sprintf("%s.%s", modulePath, typeName)
+	alias := data.imports.addModuleImport("", modulePath)
+	return fmt.Sprintf("%s.%s", alias, typeName)
 }
 
 func typeToPython(
@@ -734,10 +774,19 @@ type importManager struct {
 	ontology   []string              // imports from synnax.ontology.payload
 	namespaces []namespaceImportData // alias -> path
 	modules    []moduleImportData    // module name -> parent path (for "from parent import module")
+	fieldNames map[string]bool       // track all field names to detect conflicts with module imports
 }
 
 func newImportManager() *importManager {
-	return &importManager{}
+	return &importManager{
+		fieldNames: make(map[string]bool),
+	}
+}
+
+// registerFieldName adds a field name to the set of known field names.
+// This is used to detect conflicts with module import names.
+func (m *importManager) registerFieldName(name string) {
+	m.fieldNames[name] = true
 }
 
 func (m *importManager) addUUID(name string) {
@@ -775,10 +824,29 @@ func (m *importManager) addNamespace(alias, path string) {
 		m.namespaces = append(m.namespaces, namespaceImportData{Alias: alias, Path: path})
 	}
 }
-func (m *importManager) addModuleImport(parentPath, moduleName string) {
-	if !lo.ContainsBy(m.modules, func(mod moduleImportData) bool { return mod.Module == moduleName }) {
-		m.modules = append(m.modules, moduleImportData{Module: moduleName, Parent: parentPath})
+
+// addModuleImport adds a module import and returns the alias to use for referencing types.
+// If the module name conflicts with a field name, an alias with underscore suffix is used.
+func (m *importManager) addModuleImport(parentPath, moduleName string) string {
+	// Check if we already have this module imported
+	for _, mod := range m.modules {
+		if mod.Module == moduleName {
+			return mod.Alias
+		}
 	}
+
+	// Determine if we need an alias to avoid field name conflicts
+	alias := moduleName
+	if m.fieldNames[moduleName] {
+		alias = moduleName + "_"
+	}
+
+	m.modules = append(m.modules, moduleImportData{
+		Module: moduleName,
+		Parent: parentPath,
+		Alias:  alias,
+	})
+	return alias
 }
 
 // AddImport implements resolver.ImportAdder interface.
@@ -799,7 +867,9 @@ func (m *importManager) AddImport(category, path, name string) {
 		m.addOntology(name)
 	case "internal":
 		// For cross-namespace imports, use module imports
-		m.addModuleImport(path, name)
+		// Note: the alias is returned but not used here; type references
+		// use addCrossNamespaceImport which handles aliasing properly
+		_ = m.addModuleImport(path, name)
 	}
 }
 
@@ -896,6 +966,7 @@ type namespaceImportData struct {
 type moduleImportData struct {
 	Module string // module name to import (e.g., "status")
 	Parent string // parent path to import from (e.g., "synnax")
+	Alias  string // alias for the module (e.g., "color_" to avoid field name conflicts)
 }
 
 var templateFuncs = template.FuncMap{
@@ -929,7 +1000,11 @@ from synnax.ontology.payload import {{ join .OntologyImports ", " }}
 from {{ .Path }} import {{ .Alias }}
 {{- end }}
 {{- range .ModuleImports }}
+{{- if eq .Module .Alias }}
 from {{ .Parent }} import {{ .Module }}
+{{- else }}
+from {{ .Parent }} import {{ .Module }} as {{ .Alias }}
+{{- end }}
 {{- end }}
 {{- range .TypeDefs }}
 {{- if .IsDistinct }}

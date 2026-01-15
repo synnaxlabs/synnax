@@ -42,11 +42,7 @@ func pbDomains(goOutputPath string) map[string]resolution.Domain {
 }
 
 var _ = Describe("PbFormatter", func() {
-	var f *types.PbFormatter
-
-	BeforeEach(func() {
-		f = &types.PbFormatter{}
-	})
+	f := types.PbFormatter
 
 	Describe("FormatQualified", func() {
 		It("Should format qualified names with dot separator", func() {

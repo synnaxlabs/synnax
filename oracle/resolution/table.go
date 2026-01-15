@@ -130,27 +130,6 @@ func (t *Table) DistinctTypes() []Type {
 	})
 }
 
-func (t *Table) IsPrimitiveType(name string) bool {
-	typ, ok := t.Get(name)
-	if !ok {
-		return false
-	}
-	_, isPrimitive := typ.Form.(PrimitiveForm)
-	return isPrimitive
-}
-
-func (t *Table) IsStringPrimitiveType(name string) bool {
-	return name == "string" || name == "uuid"
-}
-
-func (t *Table) IsNumberPrimitiveType(name string) bool {
-	return lo.Contains([]string{
-		"int8", "int16", "int32", "int64",
-		"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
-		"float32", "float64",
-	}, name)
-}
-
 func (t *Table) MarkImported(path string) { t.Imports[path] = true }
 
 func (t *Table) IsImported(path string) bool { return t.Imports[path] }
@@ -161,16 +140,6 @@ func (t *Table) EnumsInNamespace(ns string) []Type {
 			return false
 		}
 		_, ok := typ.Form.(EnumForm)
-		return ok
-	})
-}
-
-func (t *Table) StructsInNamespace(ns string) []Type {
-	return lo.Filter(t.Types, func(typ Type, _ int) bool {
-		if typ.Namespace != ns {
-			return false
-		}
-		_, ok := typ.Form.(StructForm)
 		return ok
 	})
 }

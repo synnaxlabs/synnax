@@ -42,11 +42,6 @@ func (r *Request) ValidateOutputPath(path string) error {
 	return paths.ValidateOutput(path, r.RepoRoot)
 }
 
-// SchemaFile represents a single schema file.
-type SchemaFile struct {
-	FilePath string
-}
-
 // Response contains the generated files from a plugin.
 type Response struct {
 	Files []File

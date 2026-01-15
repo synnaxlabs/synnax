@@ -16,7 +16,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from synnax import color
+from synnax import color as color_
 
 Key: TypeAlias = UUID
 
@@ -24,7 +24,7 @@ Key: TypeAlias = UUID
 class Label(BaseModel):
     key: Key
     name: str = Field(min_length=1)
-    color: color.Color
+    color: color_.Color
 
     def __hash__(self) -> int:
         return hash(self.key)

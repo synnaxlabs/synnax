@@ -28,11 +28,7 @@ func TestCppTypes(t *testing.T) {
 }
 
 var _ = Describe("CppFormatter", func() {
-	var f *types.CppFormatter
-
-	BeforeEach(func() {
-		f = &types.CppFormatter{}
-	})
+	f := types.CppFormatter
 
 	Describe("FormatQualified", func() {
 		It("Should format qualified names with :: separator", func() {

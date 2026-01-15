@@ -61,14 +61,12 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.HasKeyDomain).To(BeTrue())
 			Expect(form.Fields).To(HaveLen(2))
 
-			// Check key field
 			keyField, found := form.Field("key")
 			Expect(found).To(BeTrue())
 			Expect(keyField.Type.Name).To(Equal("uuid"))
 			Expect(resolution.IsPrimitive(keyField.Type.Name)).To(BeTrue())
 			Expect(keyField.Domains).To(HaveKey("key"))
 
-			// Check name field
 			nameField, found := form.Field("name")
 			Expect(found).To(BeTrue())
 			Expect(nameField.Type.Name).To(Equal("string"))

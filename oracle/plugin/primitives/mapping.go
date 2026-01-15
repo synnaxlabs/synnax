@@ -29,3 +29,21 @@ type Mapper interface {
 	// Map returns the language-specific mapping for a primitive.
 	Map(name string) Mapping
 }
+
+// tableMapper implements Mapper using a lookup table.
+type tableMapper struct {
+	mappings     map[string]Mapping
+	fallbackType string
+}
+
+// NewMapper creates a Mapper from a mapping table and fallback type.
+func NewMapper(mappings map[string]Mapping, fallbackType string) Mapper {
+	return &tableMapper{mappings: mappings, fallbackType: fallbackType}
+}
+
+func (m *tableMapper) Map(name string) Mapping {
+	if mapping, ok := m.mappings[name]; ok {
+		return mapping
+	}
+	return Mapping{TargetType: m.fallbackType}
+}

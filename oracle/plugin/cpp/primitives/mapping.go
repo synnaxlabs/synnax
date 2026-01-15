@@ -12,8 +12,8 @@ package primitives
 
 import "github.com/synnaxlabs/oracle/plugin/primitives"
 
-// mapping contains C++-specific primitive type mappings.
-var mapping = map[string]primitives.Mapping{
+// Mappings contains C++-specific primitive type mappings.
+var Mappings = map[string]primitives.Mapping{
 	"uuid":    {TargetType: "std::string", Imports: []primitives.Import{{Category: "system", Path: "string"}}},
 	"string":  {TargetType: "std::string", Imports: []primitives.Import{{Category: "system", Path: "string"}}},
 	"bool":    {TargetType: "bool"},
@@ -34,13 +34,7 @@ var mapping = map[string]primitives.Mapping{
 	"any":     {TargetType: "x::json::json", Imports: []primitives.Import{{Category: "internal", Path: "x/cpp/json/json.h"}}},
 }
 
-// Mapper implements primitives.Mapper for C++ code generation.
-type Mapper struct{}
-
-// Map returns the C++-specific mapping for a primitive type.
-func (m *Mapper) Map(name string) primitives.Mapping {
-	if mapping, ok := mapping[name]; ok {
-		return mapping
-	}
-	return primitives.Mapping{TargetType: "void"}
+// Mapper returns a primitives.Mapper for C++ code generation.
+func Mapper() primitives.Mapper {
+	return primitives.NewMapper(Mappings, "void")
 }

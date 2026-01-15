@@ -28,11 +28,7 @@ func TestTypes(t *testing.T) {
 }
 
 var _ = Describe("TSFormatter", func() {
-	var f *types.TSFormatter
-
-	BeforeEach(func() {
-		f = &types.TSFormatter{}
-	})
+	f := types.TSFormatter
 
 	Describe("FormatQualified", func() {
 		It("Should format qualified names with dot separator", func() {

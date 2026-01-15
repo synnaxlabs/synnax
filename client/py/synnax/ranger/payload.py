@@ -9,28 +9,9 @@
 
 from uuid import UUID
 
-from freighter import Payload
-
-from synnax.color import Color
 from synnax.ontology import ID
-from synnax.telem import TimeRange
 
 RANGE_ONTOLOGY_TYPE = ID(type="range")
-
-
-def ontology_id(key: UUID) -> ID:
-    """Returns the ontology ID for the Range entity."""
-    return ID(type=RANGE_ONTOLOGY_TYPE.type, key=str(key))
-
-
-class RangePayload(Payload):
-    """Network transportable payload representing a range."""
-
-    key: UUID = UUID(int=0)
-    name: str = ""
-    time_range: TimeRange
-    color: Color | None = Color("#000000")
-
 
 RangeKey = UUID | str
 """The type for the key of a Range. A UUID."""

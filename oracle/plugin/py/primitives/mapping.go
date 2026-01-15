@@ -12,8 +12,8 @@ package primitives
 
 import "github.com/synnaxlabs/oracle/plugin/primitives"
 
-// mapping contains Python-specific primitive type mappings.
-var mapping = map[string]primitives.Mapping{
+// Mappings contains Python-specific primitive type mappings.
+var Mappings = map[string]primitives.Mapping{
 	"uuid":    {TargetType: "UUID", Imports: []primitives.Import{{Category: "uuid", Name: "UUID"}}},
 	"string":  {TargetType: "str"},
 	"bool":    {TargetType: "bool"},
@@ -34,13 +34,7 @@ var mapping = map[string]primitives.Mapping{
 	"any":     {TargetType: "Any", Imports: []primitives.Import{{Category: "typing", Name: "Any"}}},
 }
 
-// Mapper implements primitives.Mapper for Python code generation.
-type Mapper struct{}
-
-// Map returns the Python-specific mapping for a primitive type.
-func (m *Mapper) Map(name string) primitives.Mapping {
-	if mapping, ok := mapping[name]; ok {
-		return mapping
-	}
-	return primitives.Mapping{TargetType: "Any"}
+// Mapper returns a primitives.Mapper for Python code generation.
+func Mapper() primitives.Mapper {
+	return primitives.NewMapper(Mappings, "Any")
 }

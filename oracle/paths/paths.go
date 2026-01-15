@@ -41,16 +41,6 @@ func RepoRoot() (string, error) {
 	return findGitRoot(cwd)
 }
 
-// RepoRootFrom finds the git repository root starting from the given path.
-func RepoRootFrom(startPath string) (string, error) {
-	absPath, err := filepath.Abs(startPath)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to resolve path")
-	}
-
-	return findGitRoot(absPath)
-}
-
 // findGitRoot walks up the directory tree looking for a .git directory.
 func findGitRoot(startPath string) (string, error) {
 	current := startPath

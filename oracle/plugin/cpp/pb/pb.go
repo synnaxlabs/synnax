@@ -26,7 +26,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-var primitiveMapper = &cppprimitives.Mapper{}
+var primitiveMapper = cppprimitives.Mapper()
 
 type Plugin struct{ Options Options }
 
@@ -51,23 +51,16 @@ func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} 
 
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
-var clangFormatCmd = []string{"clang-format", "-i"}
+var cppPostWriter = &exec.PostWriter{
+	Extensions: []string{".h", ".hpp", ".cpp", ".cc"},
+	Commands:   [][]string{{"clang-format", "-i"}},
+}
 
 func (p *Plugin) PostWrite(files []string) error {
-	if p.Options.DisableFormatter || len(files) == 0 {
+	if p.Options.DisableFormatter {
 		return nil
 	}
-	var cppFiles []string
-	for _, f := range files {
-		if strings.HasSuffix(f, ".h") || strings.HasSuffix(f, ".hpp") ||
-			strings.HasSuffix(f, ".cpp") || strings.HasSuffix(f, ".cc") {
-			cppFiles = append(cppFiles, f)
-		}
-	}
-	if len(cppFiles) == 0 {
-		return nil
-	}
-	return exec.OnFiles(clangFormatCmd, cppFiles, "")
+	return cppPostWriter.PostWrite(files)
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
