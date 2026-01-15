@@ -377,14 +377,3 @@ var DomainDirectives = map[string]string{
 	"cpp": `@cpp output "out"`,
 	"pb":  `@go output "out"`, // pb derives from go output
 }
-
-// MultiDomainDirective returns a directive string for multiple domains.
-func MultiDomainDirective(domains ...string) string {
-	var result string
-	for _, d := range domains {
-		if directive, ok := DomainDirectives[d]; ok {
-			result += directive + "\n"
-		}
-	}
-	return result
-}

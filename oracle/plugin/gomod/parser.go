@@ -83,12 +83,6 @@ func ResolveImportPath(outputPath, repoRoot, fallbackPrefix string) string {
 	return fallbackPrefix + outputPath
 }
 
-// FileExists checks if a file exists and is not a directory.
-func FileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
 // FindRepoRoot walks up from the given path to find the git repository root.
 func FindRepoRoot(path string) string {
 	dir := filepath.Dir(path)

@@ -46,34 +46,6 @@ func GetStringFromField(f resolution.Field, domainName, exprName string) string 
 	return GetString(FieldHolder{f}, domainName, exprName)
 }
 
-func GetStrings(h Holder, domainName, exprName string) []string {
-	domain, ok := h.GetDomains()[domainName]
-	if !ok {
-		return nil
-	}
-	expr, ok := domain.Expressions.Find(exprName)
-	if !ok {
-		return nil
-	}
-	var result []string
-	for _, v := range expr.Values {
-		if v.StringValue != "" {
-			result = append(result, v.StringValue)
-		} else if v.IdentValue != "" {
-			result = append(result, v.IdentValue)
-		}
-	}
-	return result
-}
-
-func GetStringsFromType(t resolution.Type, domainName, exprName string) []string {
-	return GetStrings(TypeHolder{t}, domainName, exprName)
-}
-
-func GetStringsFromField(f resolution.Field, domainName, exprName string) []string {
-	return GetStrings(FieldHolder{f}, domainName, exprName)
-}
-
 // GetAllStrings collects string values from ALL expressions with the given name.
 // Unlike GetStrings which only finds the first matching expression, this function
 // finds all expressions with the name and collects all their string values.
@@ -103,22 +75,6 @@ func GetAllStringsFromType(t resolution.Type, domainName, exprName string) []str
 	return GetAllStrings(TypeHolder{t}, domainName, exprName)
 }
 
-func GetInt(h Holder, domainName, exprName string) int64 {
-	domain, ok := h.GetDomains()[domainName]
-	if !ok {
-		return 0
-	}
-	expr, ok := domain.Expressions.Find(exprName)
-	if !ok || len(expr.Values) == 0 {
-		return 0
-	}
-	return expr.Values[0].IntValue
-}
-
-func GetIntFromType(t resolution.Type, domainName, exprName string) int64 {
-	return GetInt(TypeHolder{t}, domainName, exprName)
-}
-
 func HasExpr(h Holder, domainName, exprName string) bool {
 	domain, ok := h.GetDomains()[domainName]
 	if !ok {
@@ -132,35 +88,11 @@ func HasExprFromType(t resolution.Type, domainName, exprName string) bool {
 	return HasExpr(TypeHolder{t}, domainName, exprName)
 }
 
-func HasExprFromField(f resolution.Field, domainName, exprName string) bool {
-	return HasExpr(FieldHolder{f}, domainName, exprName)
-}
-
-func HasDomain(h Holder, domainName string) bool {
-	_, ok := h.GetDomains()[domainName]
-	return ok
-}
-
-func HasDomainFromType(t resolution.Type, domainName string) bool {
-	return HasDomain(TypeHolder{t}, domainName)
-}
-
-func HasDomainFromField(f resolution.Field, domainName string) bool {
-	return HasDomain(FieldHolder{f}, domainName)
-}
-
 func GetName(t resolution.Type, domainName string) string {
 	if override := GetStringFromType(t, domainName, "name"); override != "" {
 		return override
 	}
 	return t.Name
-}
-
-func GetFieldName(f resolution.Field, domainName string) string {
-	if override := GetStringFromField(f, domainName, "name"); override != "" {
-		return override
-	}
-	return f.Name
 }
 
 func GetType(t resolution.Type, domainName string) string {

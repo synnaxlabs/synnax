@@ -766,15 +766,6 @@ func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *re
 	return "ArrayWrapper"
 }
 
-// getNestedArrayInnerType gets the innermost element type of a nested array.
-func (p *Plugin) getNestedArrayInnerType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return resolution.TypeRef{}, false
-	}
-	return p.getArrayElementType(elemType, table)
-}
-
 // isFixedSizeUint8Array checks if a type is a fixed-size uint8 array (like Color [4]uint8).
 // These are encoded as bytes in protobuf and need special conversion.
 func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {

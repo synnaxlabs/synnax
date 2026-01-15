@@ -122,7 +122,7 @@ var File_core_pkg_api_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/api/ranger/pb/ranger.proto\x12\rapi.ranger.pb\x1a\x19x/go/telem/pb/telem.proto\x1a\x19x/go/label/pb/label.proto\"\xe2\x01\n" +
+	"#core/pkg/api/ranger/pb/ranger.proto\x12\rapi.ranger.pb\x1a\x19x/go/label/pb/label.proto\x1a\x19x/go/telem/pb/telem.proto\"\xe2\x01\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +

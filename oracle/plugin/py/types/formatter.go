@@ -36,15 +36,6 @@ func (f *PyFormatter) FormatArray(elemType string) string {
 	return fmt.Sprintf("list[%s]", elemType)
 }
 
-func (f *PyFormatter) FormatFixedArray(elemType string, size int64) string {
-	// Python represents fixed-size arrays as tuples: tuple[int, int, int, int]
-	elements := make([]string, size)
-	for i := range elements {
-		elements[i] = elemType
-	}
-	return fmt.Sprintf("tuple[%s]", strings.Join(elements, ", "))
-}
-
 func (f *PyFormatter) FormatMap(keyType, valType string) string {
 	return fmt.Sprintf("dict[%s, %s]", keyType, valType)
 }
@@ -54,13 +45,3 @@ func (f *PyFormatter) FallbackType() string {
 }
 
 type PyImportResolver struct{}
-
-func (r *PyImportResolver) ResolveImport(outputPath string, ctx *resolver.Context) (importPath string, qualifier string, shouldImport bool) {
-	modulePath := toPythonModulePath(outputPath)
-	parts := strings.Split(modulePath, ".")
-	if len(parts) >= 2 {
-		moduleName := parts[len(parts)-1]
-		return modulePath, moduleName, true
-	}
-	return modulePath, modulePath, true
-}

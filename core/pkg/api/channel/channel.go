@@ -48,6 +48,7 @@ func NewService(cfg config.Config) *Service {
 		internal: cfg.Distribution.Channel,
 		ranger:   cfg.Service.Ranger,
 		db:       cfg.Distribution.DB,
+		alias:    cfg.Service.Alias,
 	}
 }
 
@@ -219,12 +220,13 @@ func (s *Service) Retrieve(
 	}
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
-		//for i, ch := range resChannels {
-		//al, err := resRng.RetrieveAlias(ctx, ch.Key())
-		//if err == nil {
-		//	oChannels[i].Alias = al
-		//}
-		//}
+		aliasReader := s.alias.NewReader(nil)
+		for i, ch := range resChannels {
+			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
+			if err == nil {
+				oChannels[i].Alias = al
+			}
+		}
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),

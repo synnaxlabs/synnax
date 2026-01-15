@@ -1098,25 +1098,6 @@ func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution
 	return p.isArrayType(elemType, table)
 }
 
-// getNestedArrayWrapperName returns the wrapper message name for a nested array element type.
-func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
-	elemType, ok := p.getArrayElementType(typeRef, table)
-	if !ok {
-		return "ArrayWrapper"
-	}
-
-	// Try to get a meaningful name from the element type
-	if resolved, ok := elemType.Resolve(table); ok {
-		return resolved.Name + "Wrapper"
-	}
-
-	if elemType.Name == "Array" {
-		return "ArrayWrapper"
-	}
-
-	return "ArrayWrapper"
-}
-
 // generateNestedArrayConversion generates conversion for nested array types (array of arrays).
 // This handles types like Strata which is Stratum[] where Stratum = string[].
 // Proto uses wrapper messages for these (e.g., StratumWrapper with repeated string values).
@@ -1325,10 +1306,6 @@ func primitiveToProtoType(primitive string) string {
 	default:
 		return primitive
 	}
-}
-
-func toPascalCase(s string) string {
-	return lo.PascalCase(s)
 }
 
 func toScreamingSnake(s string) string {

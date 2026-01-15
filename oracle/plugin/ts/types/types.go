@@ -827,11 +827,6 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	return sd
 }
 
-func isAliasType(typ resolution.Type) bool {
-	_, ok := typ.Form.(resolution.AliasForm)
-	return ok
-}
-
 func isOnlyOptionalityChange(parent, child resolution.Field) bool {
 	// Child must be optional and parent must NOT be optional
 	childIsOptional := child.IsOptional || child.IsHardOptional
@@ -1022,22 +1017,6 @@ func isForwardReference(t resolution.TypeRef, data *templateData, table *resolut
 	}
 
 	return checkRef(t)
-}
-
-// isJSONTypedField checks if a field has a JSON type (either primitive json or
-// a type parameter constrained to json).
-func isJSONTypedField(field resolution.Field) bool {
-	// Direct json primitive
-	if field.Type.Name == "json" {
-		return true
-	}
-	// Type parameter constrained to json
-	if field.Type.IsTypeParam() && field.Type.TypeParam != nil {
-		if field.Type.TypeParam.Constraint != nil && field.Type.TypeParam.Constraint.Name == "json" {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, useInput bool, needsTypeImports bool) fieldData {

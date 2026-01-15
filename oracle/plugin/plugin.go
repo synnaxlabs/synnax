@@ -93,14 +93,6 @@ func (r *Registry) All() []Plugin {
 	return result
 }
 
-func (r *Registry) Names() []string {
-	result := make([]string, 0, len(r.plugins))
-	for name := range r.plugins {
-		result = append(result, name)
-	}
-	return result
-}
-
 type DuplicatePluginError struct {
 	Name string
 }

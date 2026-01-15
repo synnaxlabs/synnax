@@ -55,25 +55,3 @@ var typeMapping = map[string]primitives.Mapping{
 	"bytes":   {TargetType: "Uint8Array"},
 	"any":     {TargetType: "unknown"},
 }
-
-// ZodMapper implements primitives.Mapper for TypeScript Zod schema code generation.
-type ZodMapper struct{}
-
-// Map returns the TypeScript Zod schema mapping for a primitive type.
-func (m *ZodMapper) Map(name string) primitives.Mapping {
-	if mapping, ok := zodMapping[name]; ok {
-		return mapping
-	}
-	return primitives.Mapping{TargetType: "z.unknown()"}
-}
-
-// TypeMapper implements primitives.Mapper for TypeScript type annotation code generation.
-type TypeMapper struct{}
-
-// Map returns the TypeScript type annotation mapping for a primitive type.
-func (m *TypeMapper) Map(name string) primitives.Mapping {
-	if mapping, ok := typeMapping[name]; ok {
-		return mapping
-	}
-	return primitives.Mapping{TargetType: "unknown"}
-}

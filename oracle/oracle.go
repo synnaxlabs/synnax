@@ -80,26 +80,6 @@ type GenerateResult struct {
 	Files map[string][]plugin.File
 }
 
-// WriteFiles writes all generated files to disk.
-// Returns the absolute paths of all files that were written.
-func (r *GenerateResult) WriteFiles(outputDir string) ([]string, error) {
-	var written []string
-	for _, files := range r.Files {
-		for _, f := range files {
-			fullPath := filepath.Join(outputDir, f.Path)
-			dir := filepath.Dir(fullPath)
-			if err := os.MkdirAll(dir, 0755); err != nil {
-				return nil, err
-			}
-			if err := os.WriteFile(fullPath, f.Content, 0644); err != nil {
-				return nil, err
-			}
-			written = append(written, fullPath)
-		}
-	}
-	return written, nil
-}
-
 // SyncResult contains the results of a sync operation.
 type SyncResult struct {
 	// Written contains files that were written (new or changed)

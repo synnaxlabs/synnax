@@ -33,19 +33,6 @@ func (f *PbFormatter) FormatArray(elemType string) string {
 	return elemType
 }
 
-// FormatFixedArray handles fixed-size arrays.
-// For uint8 arrays (like Color [4]uint8), we use bytes for compact encoding.
-// For other types, protobuf doesn't support fixed-size arrays, so we fall back to repeated.
-func (f *PbFormatter) FormatFixedArray(elemType string, size int64) string {
-	// uint8 fixed arrays become bytes (compact representation)
-	if elemType == "uint32" {
-		// uint8 maps to uint32 in proto, but for fixed-size arrays we use bytes
-		return "bytes"
-	}
-	// Other types don't have a compact representation, use the element type (repeated)
-	return elemType
-}
-
 func (f *PbFormatter) FormatMap(keyType, valType string) string {
 	return fmt.Sprintf("map<%s, %s>", keyType, valType)
 }

@@ -139,24 +139,6 @@ func (f *formatter) emitCommentsBefore(tokenIdx int) {
 	}
 }
 
-// emitCommentsAfter emits any trailing comments on the same line.
-func (f *formatter) emitTrailingComment(tokenIdx int) bool {
-	hiddenTokens := f.tokens.GetHiddenTokensToRight(tokenIdx, hiddenChan)
-	for _, tok := range hiddenTokens {
-		if tok.GetTokenIndex() <= f.lastTokenIdx {
-			continue
-		}
-		// Only emit if it's a line comment (trailing)
-		if tok.GetTokenType() == commentLine {
-			f.write("  ")
-			f.write(tok.GetText())
-			f.lastTokenIdx = tok.GetTokenIndex()
-			return true
-		}
-	}
-	return false
-}
-
 func (f *formatter) formatSchema(ctx parser.ISchemaContext) {
 	// Track what we've emitted for blank line logic
 	hasImports := len(ctx.AllImportStmt()) > 0
@@ -757,32 +739,6 @@ func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 		}
 		f.newline()
 		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
-	}
-}
-
-func (f *formatter) formatDomain(ctx parser.IDomainContext) {
-	f.emitCommentsBefore(ctx.GetStart().GetTokenIndex())
-	f.writeIndent()
-	f.write("@")
-	f.write(ctx.IDENT().GetText())
-	if ctx.DomainContent() != nil {
-		f.write(" ")
-		f.formatDomainContent(ctx.DomainContent(), true)
-	}
-	f.newline()
-	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
-}
-
-func (f *formatter) formatDomainContent(ctx parser.IDomainContentContext, allowBlock bool) {
-	if ctx.Expression() != nil {
-		f.formatExpression(ctx.Expression())
-	} else if ctx.DomainBlock() != nil {
-		if allowBlock {
-			f.formatDomainBlock(ctx.DomainBlock())
-		} else {
-			// Shouldn't happen, but handle gracefully
-			f.formatDomainBlock(ctx.DomainBlock())
-		}
 	}
 }
 

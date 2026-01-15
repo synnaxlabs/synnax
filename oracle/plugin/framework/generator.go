@@ -178,14 +178,3 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	return resp, nil
 }
-
-func DefaultGenerator(domain, filePattern string, fg FileGenerator) *Generator {
-	return &Generator{
-		Domain:          domain,
-		FilePattern:     filePattern,
-		FileGenerator:   fg,
-		MergeByName:     false,
-		CollectTypeDefs: true,
-		CollectEnums:    true,
-	}
-}

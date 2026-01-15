@@ -49,7 +49,7 @@ export const deviceZ = <
     make: make ?? z.string().min(1, "Make is required"),
     model: model ?? z.string().min(1, "Model is required"),
     name: z.string().min(1, "Name is required"),
-    configured: z.boolean(),
+    configured: z.boolean().default(false),
     properties: properties ?? record.nullishToEmpty,
     status: statusZ.optional(),
   });

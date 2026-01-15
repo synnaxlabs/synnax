@@ -116,16 +116,6 @@ func printSchemaCount(count int) {
 	fmt.Printf("%s %s %s found\n", infoStyle.Render(symbolCheck), c, word)
 }
 
-func printGeneratedCount(count int) {
-	c := countStyle.Render(fmt.Sprintf("%d", count))
-	word := "file"
-	if count != 1 {
-		word = "files"
-	}
-	msg := fmt.Sprintf("%s %s generated", c, word)
-	printSuccess(msg)
-}
-
 func printSyncedCount(written, unchanged int) {
 	if written == 0 {
 		fmt.Printf("%s %s\n", dimStyle.Render(symbolDot), dimStyle.Render("already up to date"))

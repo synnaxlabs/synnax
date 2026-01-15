@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Any, TypeAlias
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax import rack, status
 from synnax.ontology.payload import ID
@@ -36,7 +36,7 @@ class Device(BaseModel):
     make: Any
     model: Any
     name: str
-    configured: bool
+    configured: bool = Field(default=False)
     properties: Any
     status: Status | None = None
 

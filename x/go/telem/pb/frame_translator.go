@@ -48,38 +48,6 @@ func FrameFromPB[Key types.SizedNumeric](
 	return telem.MultiFrame(xunsafe.CastSlice[uint32, Key](pb.Keys), series), nil
 }
 
-// FramesToPB converts a slice of Frame to protobuf Frame.
-func FramesToPB[Key types.SizedNumeric](
-	ctx context.Context,
-	rs []telem.Frame[Key],
-) ([]*Frame, error) {
-	result := make([]*Frame, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = FrameToPB(ctx, rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// FramesFromPB converts a slice of protobuf Frame to telem.Frame.
-func FramesFromPB[Key types.SizedNumeric](
-	ctx context.Context,
-	pbs []*Frame,
-) ([]telem.Frame[Key], error) {
-	result := make([]telem.Frame[Key], len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = FrameFromPB[Key](ctx, pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // SeriesToPB converts Series to Series.
 func SeriesToPB(ctx context.Context, r telem.Series) (*Series, error) {
 	timeRangeVal, err := TimeRangeToPB(ctx, r.TimeRange)

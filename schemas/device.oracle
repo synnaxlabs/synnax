@@ -36,7 +36,7 @@ Device struct<
     make       Make       @validate required
     model      Model      @validate required
     name       string     @validate required
-    configured bool
+    configured bool       @validate default false
     properties Properties
     status     Status??
 
