@@ -645,7 +645,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`template <typename Details>`))
+			Expect(content).To(ContainSubstring(`template <typename Details = std::monostate>`))
 			Expect(content).To(ContainSubstring(`struct Status {`))
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
 		})

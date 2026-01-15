@@ -33,12 +33,12 @@ TEST(StatusTest, TestToJSON) {
     const Status stat{
         .key = "dog",
         .name = "dog status",
+        .variant = VARIANT_SUCCESS,
         .message = "the dog is happy",
         .description = "a longer description of the dog's status",
         .time = telem::TimeStamp::now(),
         .details = TestDetails{},
         .labels = {},
-        .variant = VARIANT_SUCCESS,
     };
     auto j = stat.to_json();
     ASSERT_EQ(j["key"], "dog");
@@ -72,12 +72,12 @@ TEST(StatusTest, TestProtobufRoundTrip) {
     const Status original{
         .key = "test-key",
         .name = "Test Status",
+        .variant = VARIANT_INFO,
         .message = "test message",
         .description = "test description",
         .time = telem::TimeStamp::now(),
         .details = json::json{{"field1", "hello"}, {"field2", 42}},
         .labels = {},
-        .variant = VARIANT_INFO,
     };
     const auto pb = original.to_proto();
     ASSERT_EQ(pb.key(), "test-key");

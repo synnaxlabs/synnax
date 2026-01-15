@@ -13,6 +13,7 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	xtypes "github.com/synnaxlabs/x/types"
 
 	"github.com/samber/lo"
@@ -38,6 +39,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *channel.Service
 	ranger   *ranger.Service
+	alias    *alias.Service
 }
 
 func NewService(cfg config.Config) *Service {
@@ -160,15 +162,17 @@ func (s *Service) Retrieve(
 		}
 		// We can still do a best effort search without the range even if we don't find it.
 		if !isNotFound && hasSearch {
-			//keys, err := resRng.SearchAliases(ctx, req.SearchTerm)
-			//if err != nil {
-			//	return RetrieveResponse{}, err
-			//}
-			//aliasChannels = make([]channel.Channel, 0, len(keys))
-			//err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
-			//if err != nil {
-			//	return RetrieveResponse{}, err
-			//}
+			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
+			if err != nil {
+				return RetrieveResponse{}, err
+			}
+			aliasChannels = make([]channel.Channel, 0, len(keys))
+			if err = s.internal.NewRetrieve().
+				WhereKeys(keys...).
+				Entries(&aliasChannels).
+				Exec(ctx, nil); err != nil {
+				return RetrieveResponse{}, err
+			}
 		}
 	}
 	if hasKeys {

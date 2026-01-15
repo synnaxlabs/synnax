@@ -560,7 +560,11 @@ describe("Task", async () => {
 
       const retrieved = await client.tasks.retrieve({
         key: t.key,
-        schemas: { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+        schemas: {
+          type: typeSchema,
+          config: configSchema,
+          statusData: statusDataSchema,
+        },
       });
       expect(retrieved.config.sampleRate).toBe(1000);
       expect(retrieved.config.channels).toEqual(["ch1", "ch2"]);
@@ -587,7 +591,11 @@ describe("Task", async () => {
 
       const retrieved = await client.tasks.retrieve({
         keys: [t1.key, t2.key],
-        schemas: { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+        schemas: {
+          type: typeSchema,
+          config: configSchema,
+          statusData: statusDataSchema,
+        },
       });
       expect(retrieved).toHaveLength(2);
       expect(retrieved[0].config.sampleRate).toBe(100);
@@ -607,7 +615,11 @@ describe("Task", async () => {
 
       const retrieved = await client.tasks.retrieve({
         name: uniqueName,
-        schemas: { type: typeSchema, config: configSchema, statusData: statusDataSchema },
+        schemas: {
+          type: typeSchema,
+          config: configSchema,
+          statusData: statusDataSchema,
+        },
       });
       expect(retrieved.name).toBe(uniqueName);
       expect(retrieved.config.sampleRate).toBe(500);

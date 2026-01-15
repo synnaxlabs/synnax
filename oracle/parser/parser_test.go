@@ -145,12 +145,12 @@ var _ = Describe("Parser", func() {
 
 			// labels uuid[]
 			tr0 := asTypeRefNormal(fields[0].TypeRef())
-			Expect(tr0.LBRACKET()).NotTo(BeNil())
+			Expect(tr0.ArrayModifier()).NotTo(BeNil())
 			Expect(tr0.TypeModifiers()).To(BeNil())
 
 			// tags string[]?
 			tr1 := asTypeRefNormal(fields[1].TypeRef())
-			Expect(tr1.LBRACKET()).NotTo(BeNil())
+			Expect(tr1.ArrayModifier()).NotTo(BeNil())
 			Expect(tr1.TypeModifiers()).NotTo(BeNil())
 			Expect(tr1.TypeModifiers().AllQUESTION()).To(HaveLen(1))
 		})
@@ -177,7 +177,7 @@ var _ = Describe("Parser", func() {
 			qualIdent2 := tr1.QualifiedIdent()
 			Expect(qualIdent2.IDENT(0).GetText()).To(Equal("label"))
 			Expect(qualIdent2.IDENT(1).GetText()).To(Equal("Label"))
-			Expect(tr1.LBRACKET()).NotTo(BeNil())
+			Expect(tr1.ArrayModifier()).NotTo(BeNil())
 		})
 
 		It("Should parse map type fields", func() {

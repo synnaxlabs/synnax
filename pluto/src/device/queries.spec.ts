@@ -1136,9 +1136,10 @@ describe("queries", () => {
           { properties: propertiesSchema, make: makeSchema },
         );
 
-        const { useRetrieve } = Device.createRetrieve(
-          { properties: propertiesSchema, make: makeSchema },
-        );
+        const { useRetrieve } = Device.createRetrieve({
+          properties: propertiesSchema,
+          make: makeSchema,
+        });
         const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
 
         await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -1162,9 +1163,10 @@ describe("queries", () => {
           { properties: propertiesSchema, make: makeSchema },
         );
 
-        const { useRetrieve } = Device.createRetrieve(
-          { properties: propertiesSchema, make: makeSchema },
-        );
+        const { useRetrieve } = Device.createRetrieve({
+          properties: propertiesSchema,
+          make: makeSchema,
+        });
         const { result } = renderHook(() => useRetrieve({ key: dev.key }), { wrapper });
 
         await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -1190,9 +1192,10 @@ describe("queries", () => {
     describe("createCreate", () => {
       it("should create a device with typed properties", async () => {
         const rack = await client.racks.create({ name: "schema-create-rack" });
-        const { useUpdate } = Device.createCreate(
-          { properties: propertiesSchema, make: makeSchema },
-        );
+        const { useUpdate } = Device.createCreate({
+          properties: propertiesSchema,
+          make: makeSchema,
+        });
         const { result } = renderHook(() => useUpdate(), { wrapper });
 
         const key = id.create();
@@ -1236,9 +1239,10 @@ describe("queries", () => {
           { properties: propertiesSchema, make: makeSchema },
         );
 
-        const useForm = Device.createForm(
-          { properties: propertiesSchema, make: makeSchema },
-        );
+        const useForm = Device.createForm({
+          properties: propertiesSchema,
+          make: makeSchema,
+        });
         const { result } = renderHook(() => useForm({ query: { key: dev.key } }), {
           wrapper,
         });
