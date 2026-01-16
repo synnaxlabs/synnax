@@ -594,7 +594,9 @@ describe("caseconv", () => {
         const inputUndefined = { channels: undefined };
 
         const resultNull = caseconv.snakeToCamel(inputNull, { schema }) as any;
-        const resultUndefined = caseconv.snakeToCamel(inputUndefined, { schema }) as any;
+        const resultUndefined = caseconv.snakeToCamel(inputUndefined, {
+          schema,
+        }) as any;
 
         // null/undefined should pass through (transform happens at validation time)
         expect(resultNull.channels).toBeNull();
@@ -682,7 +684,9 @@ describe("caseconv", () => {
             },
           ],
         };
-        const decoded = caseconv.snakeToCamel(response, { schema: retrieveResZ }) as any;
+        const decoded = caseconv.snakeToCamel(response, {
+          schema: retrieveResZ,
+        }) as any;
         expect(decoded.linePlots[0].data.myCustomKey).toBe(123);
         expect(decoded.linePlots[0].data.AnotherKey.nested_value).toBe(456);
         expect(decoded.linePlots[0].data.my_custom_key).toBeUndefined();

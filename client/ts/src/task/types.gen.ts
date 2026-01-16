@@ -53,7 +53,7 @@ export const commandZ = z.object({
   /** key is a unique identifier for this command instance. */
   key: z.string(),
   /** args contains optional arguments for the command. */
-  args: zod.nullToUndefined(record.unknownZ()),
+  args: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
 });
 export interface Command extends z.infer<typeof commandZ> {}
 
@@ -88,7 +88,7 @@ export const payloadZ = <
     key: keyZ,
     name: z.string(),
     type: type ?? z.string(),
-    config: caseconv.preserveCase(config ?? record.nullishToEmpty()),
+    config: config ?? record.nullishToEmpty(),
     internal: z.boolean().optional(),
     snapshot: z.boolean().optional(),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
@@ -123,25 +123,20 @@ export const newZ = <
   StatusData extends z.ZodType = z.ZodType,
 >({ type, config, statusData }: NewSchemas<Type, Config, StatusData> = {}) =>
   payloadZ({ type, config, statusData })
-    .omit({ internal: true, snapshot: true, status: true, config: true })
+    .omit({ internal: true, snapshot: true, status: true })
     .partial({ key: true })
     .extend({
       status: status.newZ({ details: newStatusDetailsZ(statusData) }).optional(),
-      config: config ?? record.nullishToEmpty(),
     });
 export type New<
   Type extends z.ZodType<string> = z.ZodString,
   Config extends z.ZodType = z.ZodType,
   StatusData extends z.ZodType = z.ZodType,
 > = optional.Optional<
-  Omit<
-    Payload<Type, Config, StatusData>,
-    "internal" | "snapshot" | "status" | "config"
-  >,
+  Omit<Payload<Type, Config, StatusData>, "internal" | "snapshot" | "status">,
   "key"
 > & {
   status?: NewStatus<StatusData>;
-  config: z.infer<Config>;
 };
 
 export const ontologyID = ontology.createIDFactory<Key>("task");

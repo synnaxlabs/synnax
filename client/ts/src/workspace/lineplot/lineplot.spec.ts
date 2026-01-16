@@ -102,7 +102,14 @@ describe("LinePlot", () => {
       expect(data.PascalCaseKey).toEqual("value2");
       expect(data.snake_case_key).toEqual("value3");
       expect((data.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
-      expect(((data.nested as Record<string, unknown>).InnerPascalCase as Record<string, unknown>).deepKey).toEqual(true);
+      expect(
+        (
+          (data.nested as Record<string, unknown>).InnerPascalCase as Record<
+            string,
+            unknown
+          >
+        ).deepKey,
+      ).toEqual(true);
       expect(Object.keys(data)).toContain("camelCaseKey");
       expect(Object.keys(data)).toContain("PascalCaseKey");
       expect(Object.keys(data)).toContain("snake_case_key");

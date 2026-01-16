@@ -69,8 +69,7 @@ Device struct<
         @validate default false
     }
     properties Properties {
-        @doc value        "contains device-specific configuration properties stored as JSON. Structure varies by device make and model."
-        @ts preserve_case
+        @doc value "contains device-specific configuration properties stored as JSON. Structure varies by device make and model."
     }
     status     Status??   {
         @doc value "is the current operational status of the device."
@@ -86,15 +85,11 @@ New struct<
     Make extends string = string,
     Model extends string = string
 > extends Device<Properties, Make, Model> {
-    key        Key?       {
+    key        Key?  {
         @doc value "is an optional key for the device. If not provided, one will be automatically assigned."
     }
-    configured bool?      {
+    configured bool? {
         @doc value "is an optional configuration status."
-    }
-    properties Properties {
-        @doc value           "is an optional device-specific configuration properties stored as JSON. Structure varies by device make and model."
-        @ts no_preserve_case
     }
 
     @doc value "contains parameters for creating or updating a device."

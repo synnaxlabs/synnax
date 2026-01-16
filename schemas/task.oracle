@@ -88,8 +88,7 @@ Task struct<
         @doc value "is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task."
     }
     config   Config               {
-        @doc value        "is task-specific configuration stored as JSON. Structure varies by task type."
-        @ts preserve_case
+        @doc value "is task-specific configuration stored as JSON. Structure varies by task type."
     }
     internal bool?                {
         @doc value "is true if this is an internal system task."
@@ -123,10 +122,6 @@ New struct<
     status NewStatus<StatusData>? {
         @doc value "is an optional initial status for the task."
     }
-    config Config                 {
-        @doc value           "is the task configuration."
-        @ts no_preserve_case
-    }
 
     @doc value "contains parameters for creating a new task."
     @ts {
@@ -150,7 +145,8 @@ Command struct {
         @doc value "is a unique identifier for this command instance."
     }
     args json?  {
-        @doc value "contains optional arguments for the command."
+        @doc value        "contains optional arguments for the command."
+        @ts preserve_case
     }
 
     @doc value "is a command to execute on a task in the Driver system."

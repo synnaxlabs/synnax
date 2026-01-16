@@ -80,7 +80,14 @@ describe("Workspace", () => {
       expect(layout.PascalCaseKey).toEqual("value2");
       expect(layout.snake_case_key).toEqual("value3");
       expect((layout.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
-      expect(((layout.nested as Record<string, unknown>).InnerPascalCase as Record<string, unknown>).deepKey).toEqual(true);
+      expect(
+        (
+          (layout.nested as Record<string, unknown>).InnerPascalCase as Record<
+            string,
+            unknown
+          >
+        ).deepKey,
+      ).toEqual(true);
       expect(Object.keys(layout)).toContain("camelCaseKey");
       expect(Object.keys(layout)).toContain("PascalCaseKey");
       expect(Object.keys(layout)).toContain("snake_case_key");
