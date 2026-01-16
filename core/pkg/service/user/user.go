@@ -16,6 +16,7 @@ package user
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ gorp.Entry[uuid.UUID] = User{}
@@ -25,3 +26,34 @@ func (u User) GorpKey() uuid.UUID { return u.Key }
 
 // SetOptions implements gorp.Entry.
 func (u User) SetOptions() []any { return nil }
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy "node_id"
+// and new "leaseholder" field names for backward compatibility.
+func (u *User) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias User
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(u)); err != nil {
+		return err
+	}
+	keyIsNil := u.Key == uuid.Nil
+	usernameEmpty := len(u.Username) == 0
+	if keyIsNil || usernameEmpty {
+		var legacy struct {
+			Key      Key
+			Username string
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		if keyIsNil {
+			u.Key = legacy.Key
+		}
+		if usernameEmpty {
+			u.Username = legacy.Username
+		}
+	}
+	return nil
+}

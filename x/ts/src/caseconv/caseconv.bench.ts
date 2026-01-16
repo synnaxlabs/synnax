@@ -11,6 +11,7 @@ import { bench, describe } from "vitest";
 import { z } from "zod";
 
 import { caseconv } from "@/caseconv";
+import { record } from "@/record";
 
 describe("caseconv string conversion", () => {
   bench("snakeToCamel - no conversion needed", () => {
@@ -196,5 +197,87 @@ describe("caseconv schema-based conversion", () => {
 
   bench("camelToSnake - with preserveCase schema", () => {
     caseconv.camelToSnake(inputWithOpcKeys, { schema: schemaWithPreserve });
+  });
+});
+
+describe("caseconv wrapper traversal performance", () => {
+  const simpleData = { key_one: 1, key_two: 2, key_three: 3 };
+
+  // Direct marker - no traversal needed
+  const directPreserve = z.object({
+    data: caseconv.preserveCase(z.record(z.string(), z.number())),
+  });
+
+  // Single wrapper - 1 level traversal
+  const optionalWrapped = z.object({
+    data: caseconv.preserveCase(z.record(z.string(), z.number())).optional(),
+  });
+
+  const nullableWrapped = z.object({
+    data: caseconv.preserveCase(z.record(z.string(), z.number())).nullable(),
+  });
+
+  const defaultWrapped = z.object({
+    data: caseconv.preserveCase(z.record(z.string(), z.number())).default({}),
+  });
+
+  const transformWrapped = z.object({
+    data: caseconv.preserveCase(z.record(z.string(), z.number())).transform((v) => v),
+  });
+
+  // Deep nesting - 4 level traversal (worst case)
+  const deeplyNested = z.object({
+    data: caseconv
+      .preserveCase(z.record(z.string(), z.number()))
+      .optional()
+      .nullable()
+      .default(null),
+  });
+
+  // Union traversal (like nullishToEmpty)
+  const unionSchema = z.object({
+    data: record.nullishToEmpty(true),
+  });
+
+  const unionSchemaNoPreserve = z.object({
+    data: record.nullishToEmpty(false),
+  });
+
+  const dataInput = { data: { key_one: 1, key_two: 2 } };
+
+  bench("direct preserveCase (no traversal)", () => {
+    caseconv.snakeToCamel(dataInput, { schema: directPreserve });
+  });
+
+  bench("optional wrapped (1 level)", () => {
+    caseconv.snakeToCamel(dataInput, { schema: optionalWrapped });
+  });
+
+  bench("nullable wrapped (1 level)", () => {
+    caseconv.snakeToCamel(dataInput, { schema: nullableWrapped });
+  });
+
+  bench("default wrapped (1 level)", () => {
+    caseconv.snakeToCamel(dataInput, { schema: defaultWrapped });
+  });
+
+  bench("transform wrapped (1 level pipe)", () => {
+    caseconv.snakeToCamel(dataInput, { schema: transformWrapped });
+  });
+
+  bench("deeply nested (4 levels)", () => {
+    caseconv.snakeToCamel(dataInput, { schema: deeplyNested });
+  });
+
+  bench("union with preserveCase (nullishToEmpty)", () => {
+    caseconv.snakeToCamel(dataInput, { schema: unionSchema });
+  });
+
+  bench("union without preserveCase", () => {
+    caseconv.snakeToCamel(dataInput, { schema: unionSchemaNoPreserve });
+  });
+
+  bench("no schema (baseline)", () => {
+    caseconv.snakeToCamel(dataInput);
   });
 });

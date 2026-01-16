@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { channel, type device } from "@synnaxlabs/client";
-import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -22,19 +21,17 @@ export const propertiesZ = z.object({
   analogInput: z.object({
     portCount: z.number(),
     index: channel.keyZ,
-    channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
+    channels: z.record(z.string(), channel.keyZ),
   }),
   analogOutput: z.object({
     portCount: z.number(),
     stateIndex: channel.keyZ,
-    channels: caseconv.preserveCase(
-      z.record(z.string(), Common.Device.commandStatePairZ),
-    ),
+    channels: z.record(z.string(), Common.Device.commandStatePairZ),
   }),
   counterInput: z.object({
     portCount: z.number(),
     index: channel.keyZ,
-    channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
+    channels: z.record(z.string(), channel.keyZ),
   }),
   digitalInputOutput: z.object({
     portCount: z.number(),
@@ -44,15 +41,13 @@ export const propertiesZ = z.object({
     portCount: z.number(),
     lineCounts: z.array(z.number()),
     index: channel.keyZ,
-    channels: caseconv.preserveCase(z.record(z.string(), channel.keyZ)),
+    channels: z.record(z.string(), channel.keyZ),
   }),
   digitalOutput: z.object({
     portCount: z.number(),
     lineCounts: z.array(z.number()),
     stateIndex: channel.keyZ,
-    channels: caseconv.preserveCase(
-      z.record(z.string(), Common.Device.commandStatePairZ),
-    ),
+    channels: z.record(z.string(), Common.Device.commandStatePairZ),
   }),
 });
 

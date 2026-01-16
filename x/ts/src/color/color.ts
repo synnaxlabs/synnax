@@ -155,7 +155,7 @@ export const hex = ((color?: Crude) => {
 /** @returns the color as a CSS RGBA string. i.e. rgba(r, g, b, a) */
 export const rgbaCSS = (color: Crude): string => {
   const [r, g, b, a] = construct(color);
-  return `rgba(${r}, ${g}, ${b}, ${a})`;
+  return `rgba(${r}, ${g}, ${b}, ${a / 255})`;
 };
 
 /** @returns the color as a CSS RGB string with no alpha value. i.e. rgb(r, g, b) */

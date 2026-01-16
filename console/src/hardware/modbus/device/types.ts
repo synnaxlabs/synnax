@@ -37,10 +37,10 @@ export const propertiesZ = z.object({
   connection: connectionConfigZ,
   read: z.object({
     index: z.number(),
-    channels: caseconv.preserveCase(z.record(z.string(), z.number())),
+    channels: z.record(z.string(), z.number()),
   }),
   write: z.object({
-    channels: caseconv.preserveCase(z.record(z.string(), z.number())),
+    channels: z.record(z.string(), z.number()),
   }),
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}

@@ -43,6 +43,7 @@ export const retrieveSingle = async ({
   const cached = store.schematics.get(key);
   if (cached != null) return cached;
   const s = await client.workspaces.schematics.retrieve({ key });
+  console.log(s.data);
   store.schematics.set(s);
   return s;
 };

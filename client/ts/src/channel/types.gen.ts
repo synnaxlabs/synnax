@@ -89,7 +89,7 @@ export const payloadZ = z.object({
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ
-  .omit({ leaseholder: true, operations: true, concurrency: true })
+  .omit({ leaseholder: true })
   .partial({
     key: true,
     index: true,
@@ -100,8 +100,6 @@ export const newZ = payloadZ
   })
   .extend({
     leaseholder: zod.uint12.optional(),
-    operations: zod.nullToUndefined(operationZ.array()),
-    concurrency: control.concurrencyZ.optional(),
   });
 export interface New extends z.input<typeof newZ> {}
 

@@ -88,7 +88,8 @@ Task struct<
         @doc value "is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task."
     }
     config   Config               {
-        @doc value "is task-specific configuration stored as JSON. Structure varies by task type."
+        @doc value        "is task-specific configuration stored as JSON. Structure varies by task type."
+        @ts preserve_case
     }
     internal bool?                {
         @doc value "is true if this is an internal system task."
@@ -114,18 +115,18 @@ New struct<
     Config extends json = json,
     StatusData extends json = json
 > extends Task<Type, Config, StatusData> {
+    -internal
+    -snapshot
     key    Key?                   {
         @doc value "is an optional key for the task. If not provided, one will be automatically assigned."
-    }
-    config Config                 {
-        @doc value    "is task-specific configuration."
-        @ts stringify
     }
     status NewStatus<StatusData>? {
         @doc value "is an optional initial status for the task."
     }
-    -internal
-    -snapshot
+    config Config                 {
+        @doc value           "is the task configuration."
+        @ts no_preserve_case
+    }
 
     @doc value "contains parameters for creating a new task."
     @ts {

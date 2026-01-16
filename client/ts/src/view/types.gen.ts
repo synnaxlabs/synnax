@@ -26,13 +26,11 @@ export const viewZ = z.object({
   /** type is the view type identifier (e.g., 'lineplot', 'table', 'schematic'). */
   type: z.string(),
   /** query is a type-agnostic JSON object containing view-specific configuration and query parameters. */
-  query: record.nullishToEmpty,
+  query: record.nullishToEmpty(),
 });
 export interface View extends z.infer<typeof viewZ> {}
 
-export const newZ = viewZ.omit({ query: true }).partial({ key: true }).extend({
-  query: record.nullishToEmpty,
-});
+export const newZ = viewZ.partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("view");

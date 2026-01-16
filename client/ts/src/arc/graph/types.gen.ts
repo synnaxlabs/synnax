@@ -21,7 +21,7 @@ export const nodeZ = z.object({
   /** type is the function type being instantiated. */
   type: z.string(),
   /** config contains configuration parameter values as a JSON object. */
-  config: record.nullishToEmpty,
+  config: record.nullishToEmpty(),
   /** position is the canvas position (x, y) for visual layout. */
   position: spatial.xyZ,
 });

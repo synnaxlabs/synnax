@@ -281,7 +281,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Entry("uint64", "uint64", "z.uint64()"),
 				Entry("float32", "float32", "z.number()"),
 				Entry("float64", "float64", "z.number()"),
-				Entry("json", "json", "record.nullishToEmpty"),
+				Entry("json", "json", "record.nullishToEmpty()"),
 				Entry("bytes", "bytes", "z.instanceof(Uint8Array)"),
 			)
 
@@ -478,7 +478,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`operations: zod.nullToUndefined(z.string().array())`))
 		})
 
-		It("Should handle required json fields with record.nullishToEmpty", func() {
+		It("Should handle required json fields with record.nullishToEmpty()", func() {
 			source := `
 				@ts output "out"
 
@@ -498,8 +498,8 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			// Required json fields use record.nullishToEmpty to coerce null -> {}
-			Expect(content).To(ContainSubstring(`layout: record.nullishToEmpty`))
+			// Required json fields use record.nullishToEmpty() to coerce null -> {}
+			Expect(content).To(ContainSubstring(`layout: record.nullishToEmpty()`))
 		})
 
 		It("Should handle optional json fields with zod.nullToUndefined", func() {
@@ -523,7 +523,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Optional json fields use zod.nullToUndefined to convert null -> undefined
-			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ)`))
+			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
 		})
 
 		It("Should handle hard optional json fields with zod.nullToUndefined", func() {
@@ -547,7 +547,123 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			// Hard optional json fields also use zod.nullToUndefined
-			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ)`))
+			Expect(content).To(ContainSubstring(`layout: zod.nullToUndefined(record.unknownZ())`))
+		})
+
+		It("Should wrap required json field with caseconv.preserveCase when @ts preserve_case is specified", func() {
+			source := `
+				@ts output "out"
+
+				Workspace struct {
+					key uuid
+					layout json {
+						@ts preserve_case
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Required json fields with preserve_case wrap with caseconv.preserveCase
+			Expect(content).To(ContainSubstring(`layout: caseconv.preserveCase(record.nullishToEmpty())`))
+			Expect(content).To(ContainSubstring(`import { caseconv`))
+		})
+
+		It("Should wrap optional json field with caseconv.preserveCase when @ts preserve_case is specified", func() {
+			source := `
+				@ts output "out"
+
+				Workspace struct {
+					key uuid
+					layout json? {
+						@ts preserve_case
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Optional json fields with preserve_case wrap with caseconv.preserveCase
+			Expect(content).To(ContainSubstring(`layout: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ()))`))
+			Expect(content).To(ContainSubstring(`import { caseconv`))
+		})
+
+		It("Should wrap type parameter field with caseconv.preserveCase when @ts preserve_case is specified", func() {
+			source := `
+				@ts output "out"
+
+				Task struct<Config extends json = json> {
+					name string
+					config Config {
+						@ts preserve_case
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Type parameter fields with preserve_case wrap with caseconv.preserveCase
+			Expect(content).To(ContainSubstring(`config: caseconv.preserveCase(config ?? record.nullishToEmpty())`))
+			Expect(content).To(ContainSubstring(`import { caseconv`))
+		})
+
+		It("Should not wrap field with caseconv.preserveCase when @ts no_preserve_case overrides inherited directive", func() {
+			source := `
+				@ts output "out"
+
+				Parent struct {
+					layout json {
+						@ts preserve_case
+					}
+				}
+
+				Child struct extends Parent {
+					layout json {
+						@ts no_preserve_case
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			// Parent should have preserve_case
+			Expect(content).To(ContainSubstring(`export const parentZ`))
+			// Child should NOT have preserve_case due to no_preserve_case override
+			Expect(content).To(ContainSubstring(`export const childZ`))
+			// Child's layout should not be wrapped with caseconv.preserveCase
+			Expect(content).NotTo(MatchRegexp(`childZ[^}]*caseconv\.preserveCase`))
 		})
 
 		It("Should generate error message for required validation", func() {
@@ -599,7 +715,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
-			Expect(content).To(ContainSubstring(`data: record.nullishToEmpty`))
+			Expect(content).To(ContainSubstring(`data: record.nullishToEmpty()`))
 		})
 
 		It("Should use z.record for json fields in child struct with type param", func() {
@@ -846,7 +962,7 @@ var _ = Describe("TS Types Plugin", func() {
 			// The 'type' field should use: type ?? z.string() since Type extends string
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback")
 			// The 'config' field should use fallback pattern since Config extends json
-			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty`), "config field should use type param with fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "config field should use type param with fallback")
 			// The 'name' field should just be z.string() (not a type param)
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 		})
@@ -881,7 +997,7 @@ var _ = Describe("TS Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			// Even with concrete_types, fields using type params should have the fallback pattern
 			Expect(content).To(ContainSubstring(`type: type ?? z.string()`), "type field should use type param with fallback even with concrete_types")
-			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty`), "config field should use type param with fallback")
+			Expect(content).To(ContainSubstring(`config: config ?? record.nullishToEmpty()`), "config field should use type param with fallback")
 		})
 
 		It("Should preserve type params when extending generic parent with pass-through type args", func() {

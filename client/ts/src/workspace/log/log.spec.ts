@@ -65,4 +65,35 @@ describe("Log", () => {
       );
     });
   });
+  describe("case preservation", () => {
+    test("should preserve key casing in data field on create/retrieve cycle", async () => {
+      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
+      const log = await client.workspaces.logs.create(ws.key, {
+        name: "CaseTest",
+        data: {
+          camelCaseKey: "value1",
+          PascalCaseKey: "value2",
+          snake_case_key: "value3",
+          nested: {
+            innerCamelCase: 123,
+            InnerPascalCase: { deepKey: true },
+          },
+        },
+      });
+
+      const retrieved = await client.workspaces.logs.retrieve({ key: log.key });
+
+      const data = retrieved.data as Record<string, unknown>;
+      expect(data.camelCaseKey).toEqual("value1");
+      expect(data.PascalCaseKey).toEqual("value2");
+      expect(data.snake_case_key).toEqual("value3");
+      expect((data.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
+      expect(((data.nested as Record<string, unknown>).InnerPascalCase as Record<string, unknown>).deepKey).toEqual(true);
+      expect(Object.keys(data)).toContain("camelCaseKey");
+      expect(Object.keys(data)).toContain("PascalCaseKey");
+      expect(Object.keys(data)).toContain("snake_case_key");
+      expect(Object.keys(data)).not.toContain("camel_case_key");
+      expect(Object.keys(data)).not.toContain("pascal_case_key");
+    });
+  });
 });

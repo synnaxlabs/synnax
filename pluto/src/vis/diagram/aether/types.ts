@@ -54,7 +54,7 @@ export const edgeZ = z.object({
   target: z.string(),
 
   id: z.string(),
-  data: record.unknownZ.optional(),
+  data: record.unknownZ().optional(),
 
   /**
    * Whether the edge is currently selected.
@@ -94,7 +94,7 @@ export const nodeZ = z.object({
   /** The type of the node. */
   type: z.string().optional(),
   /** The data associated with the node. */
-  data: record.unknownZ.optional(),
+  data: record.unknownZ().optional(),
   /** The measured dimensions of the node. */
   measured: z
     .object({ width: z.number().optional(), height: z.number().optional() })

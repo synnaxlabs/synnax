@@ -24,7 +24,8 @@ Table struct {
         @doc value "is a human-readable name for the table."
     }
     data json   {
-        @doc value "is the table configuration including column definitions, channel references, and formatting options."
+        @doc value        "is the table configuration including column definitions, channel references, and formatting options."
+        @ts preserve_case
     }
 
     @doc value     "is a tabular data display component for viewing structured telemetry data. Tables support multiple columns, channel data sources, and customizable formatting options."
@@ -32,12 +33,8 @@ Table struct {
 }
 
 New struct extends Table {
-    key  Key? {
+    key Key? {
         @doc value "is an optional key for the table. If not provided, one will be automatically assigned."
-    }
-    data json {
-        @doc value    "is the table configuration."
-        @ts stringify
     }
 
     @doc value    "contains parameters for creating a new table."

@@ -16,7 +16,7 @@ import { zod as zodUtil } from "@/zod";
  * Global symbol used to mark Zod schemas that should not have their keys converted.
  * Uses Symbol.for() to ensure the same symbol is used across different module instances.
  */
-const PRESERVE_CASE_SYMBOL = Symbol.for("synnax.caseconv.preserveCase");
+const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
 
 /**
  * Marks a Zod schema to prevent case conversion of its keys and nested content.
@@ -40,9 +40,52 @@ export const preserveCase = <T extends z.ZodType>(schema: T): T => {
 
 /**
  * Checks if a Zod schema has the preserve case marker.
+ * Traverses through wrapper schemas (optional, nullable, union, transform, etc.)
+ * to find markers on inner schemas.
  */
-const hasPreserveCaseMarker = (schema: unknown): boolean =>
-  schema != null && typeof schema === "object" && PRESERVE_CASE_SYMBOL in schema;
+const hasPreserveCaseMarker = (schema: unknown): boolean => {
+  if (schema == null || typeof schema !== "object") return false;
+
+  // Direct marker check
+  if (PRESERVE_CASE_SYMBOL in schema) return true;
+
+  const def = (schema as any)._zod?.def ?? (schema as any).def;
+  if (def == null) return false;
+
+  // Traverse through wrappers with innerType (optional, nullable, default, catch)
+  if (def.innerType && hasPreserveCaseMarker(def.innerType)) return true;
+
+  // Traverse through unions - check all options
+  if (def.type === "union" && Array.isArray(def.options))
+    return def.options.some(hasPreserveCaseMarker);
+
+  // Traverse through pipes/transforms - check both ends
+  if (def.type === "pipe")
+    return hasPreserveCaseMarker(def.in) || hasPreserveCaseMarker(def.out);
+
+  return false;
+};
+
+/**
+ * Unwraps an array schema to get its element schema.
+ * Handles direct arrays and unions containing arrays (e.g., from nullishToEmpty).
+ * Returns undefined if the schema is not an array or is undefined.
+ */
+const getArrayElementSchema = (
+  schema: z.ZodType | undefined,
+): z.ZodType | undefined => {
+  if (schema == null) return undefined;
+  const def = (schema as any).def;
+  if (def?.type === "array" && def.element != null) return def.element;
+  // Handle union types that may contain arrays (e.g., nullishToEmpty)
+  if (def?.type === "union" && Array.isArray(def.options))
+    for (const option of def.options) {
+      const result = getArrayElementSchema(option);
+      if (result != null) return result;
+    }
+
+  return undefined;
+};
 
 const snakeToCamelStr = (str: string): string => {
   if (str.length === 0) return str;
@@ -65,7 +108,10 @@ const createConverter = (
 ): (<V>(obj: V, opt?: Options) => V) => {
   const converter = <V>(obj: V, opt: Options = defaultOptions): V => {
     if (typeof obj === "string") return f(obj) as any;
-    if (Array.isArray(obj)) return obj.map((v) => converter(v, opt)) as V;
+    if (Array.isArray(obj)) {
+      const elementSchema = getArrayElementSchema(opt.schema);
+      return obj.map((v) => converter(v, { ...opt, schema: elementSchema })) as V;
+    }
     if (!isValidObject(obj)) return obj;
 
     if (opt.schema != null && hasPreserveCaseMarker(opt.schema)) return obj;
@@ -84,9 +130,14 @@ const createConverter = (
       let value = anyObj[key];
       const nkey = f(key);
 
+      // Look up schema using BOTH original key and converted key since:
+      // - For snakeToCamel: schema has camelCase keys, input has snake_case, nkey is camelCase (matches)
+      // - For camelToSnake: schema has camelCase keys, input has camelCase, nkey is snake_case (key matches)
       const propSchema: z.ZodType | undefined =
         schema != null
-          ? (zodUtil.getFieldSchema(schema, nkey, { optional: true }) ?? undefined)
+          ? (zodUtil.getFieldSchema(schema, key, { optional: true }) ??
+             zodUtil.getFieldSchema(schema, nkey, { optional: true }) ??
+             undefined)
           : undefined;
 
       if (recursive)
@@ -97,24 +148,26 @@ const createConverter = (
               recursiveInArray,
               schema: propSchema,
             });
-        } else if (recursiveInArray && Array.isArray(value))
+        } else if (recursiveInArray && Array.isArray(value)) {
+          const elementSchema = getArrayElementSchema(propSchema);
           value = (value as unknown[]).map((v) => {
             if (isValidObject(v)) {
               if (!isPreservedType(v))
                 return converter(v, {
                   recursive,
                   recursiveInArray,
-                  schema: propSchema,
+                  schema: elementSchema,
                 });
             } else if (Array.isArray(v)) {
               const temp: record.Unknown = converter(
                 { key: v },
-                { recursive, recursiveInArray, schema: propSchema },
+                { recursive, recursiveInArray, schema: elementSchema },
               );
               return temp.key;
             }
             return v;
           });
+        }
 
       res[nkey] = value;
     }

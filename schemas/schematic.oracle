@@ -24,7 +24,8 @@ Schematic struct {
         @doc value "is a human-readable name for the schematic."
     }
     data     json   {
-        @doc value "is the schematic content including symbols, connections, and layout configuration."
+        @doc value        "is the schematic content including symbols, connections, and layout configuration."
+        @ts preserve_case
     }
     snapshot bool   {
         @doc value "indicates whether this schematic represents a saved snapshot state."
@@ -37,10 +38,6 @@ Schematic struct {
 New struct extends Schematic {
     key      Key?  {
         @doc value "is an optional key for the schematic. If not provided, one will be automatically assigned."
-    }
-    data     json  {
-        @doc value    "is the schematic content."
-        @ts stringify
     }
     snapshot bool? {
         @doc value "is an optional snapshot flag."

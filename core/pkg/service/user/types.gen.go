@@ -30,17 +30,3 @@ type User struct {
 	// RootUser is true if this is a root/admin user with full system access. Root users cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
 }
-
-// New contains parameters for creating a new user.
-type New struct {
-	// Username is the unique login name for the user.
-	Username string `json:"username" msgpack:"username"`
-	// Key is an optional key for the user. If not provided, one will be automatically assigned.
-	Key Key `json:"key" msgpack:"key"`
-	// Password is the password for the new user account.
-	Password string `json:"password" msgpack:"password"`
-	// FirstName is an optional first name.
-	FirstName string `json:"first_name" msgpack:"first_name"`
-	// LastName is an optional last name.
-	LastName string `json:"last_name" msgpack:"last_name"`
-}

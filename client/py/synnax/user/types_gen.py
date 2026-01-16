@@ -39,20 +39,6 @@ class User(BaseModel):
         return hash(self.key)
 
 
-class New(User):
-    """New contains parameters for creating a new user."""
-
-    # key is an optional key for the user. If not provided, one will be automatically assigned.
-    key: Key | None = None
-    # password is the password for the new user account.
-    password: str = Field(min_length=1)
-    # first_name is an optional first name.
-    first_name: str | None = None
-    # last_name is an optional last name.
-    last_name: str | None = None
-    root_user: bool = Field(exclude=True)
-
-
 ONTOLOGY_TYPE = ID(type="user")
 
 

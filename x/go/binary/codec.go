@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/gob"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"reflect"
@@ -47,6 +48,9 @@ func sugarDecodingErr(data []byte, value any, base error) error {
 	}
 	val := reflect.ValueOf(value)
 	main := errors.Wrapf(DecodeError, "kind=%s, type=%s, data=%x", val.Kind(), val.Type(), string(data))
+	var out map[string]any
+	msgpack.Unmarshal(data, &out)
+	fmt.Println(out)
 	return errors.Combine(main, base)
 }
 
@@ -478,17 +482,17 @@ func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 	case string:
 		// If it's a string, unmarshal it as JSON
 		var m map[string]any
-		if err := json.Unmarshal([]byte(val), &m); err != nil {
-			return errors.Wrapf(err, "failed to unmarshal JSON string into map")
+		if v != "" {
+			if err = json.Unmarshal([]byte(val), &m); err != nil {
+				return errors.Wrapf(err, "failed to unmarshal JSON string into map")
+			}
 		}
-		*e = MsgpackEncodedJSON(m)
+		*e = m
 		return nil
 	case map[string]any:
-		// If it's already a map, use it directly
-		*e = MsgpackEncodedJSON(val)
+		*e = val
 		return nil
 	case map[any]any:
-		// Handle generic map[any]any (msgpack sometimes decodes to this)
 		m := make(map[string]any)
 		for k, v := range val {
 			if str, ok := k.(string); ok {
@@ -497,7 +501,7 @@ func (e *MsgpackEncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {
 				return errors.Newf("map key %v is not a string", k)
 			}
 		}
-		*e = MsgpackEncodedJSON(m)
+		*e = m
 		return nil
 	default:
 		return errors.Newf("cannot unmarshal %T into MsgpackEncodedJSON", v)

@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strconv"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // NewKey generates a new Key from the provided components.
@@ -227,4 +229,46 @@ func (c Channel) Storage() ts.Channel {
 // toStorage converts a slice of channels to their storage layer equivalent.
 func toStorage(channels []Channel) []ts.Channel {
 	return lo.Map(channels, func(c Channel, _ int) ts.Channel { return c.Storage() })
+}
+
+// UnmarshalJSON implements json.Unmarshaler, supporting both legacy "node_id"
+// and new "leaseholder" field names for backward compatibility.
+func (c *Channel) UnmarshalJSON(data []byte) error {
+	type alias Channel
+	if err := json.Unmarshal(data, (*alias)(c)); err != nil {
+		return err
+	}
+	if c.Leaseholder == 0 {
+		var legacy struct {
+			NodeID cluster.NodeKey `json:"node_id"`
+		}
+		if err := json.Unmarshal(data, &legacy); err != nil {
+			return err
+		}
+		c.Leaseholder = legacy.NodeID
+	}
+	return nil
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy "node_id"
+// and new "leaseholder" field names for backward compatibility.
+func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Channel
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(c)); err != nil {
+		return err
+	}
+	if c.Leaseholder == 0 {
+		var legacy struct {
+			NodeID cluster.NodeKey `msgpack:"node_id"`
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		c.Leaseholder = legacy.NodeID
+	}
+	return nil
 }

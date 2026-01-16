@@ -41,6 +41,7 @@ User struct {
 }
 
 New struct extends User {
+    -root_user
     key        Key?    {
         @doc value "is an optional key for the user. If not provided, one will be automatically assigned."
     }
@@ -54,8 +55,10 @@ New struct extends User {
     last_name  string? {
         @doc value "is an optional last name."
     }
-    -root_user
 
     @doc value    "contains parameters for creating a new user."
     @ts use_input
+    @go omit
+    @py omit
+    @cpp omit
 }

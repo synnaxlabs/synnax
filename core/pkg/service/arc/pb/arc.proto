@@ -5,8 +5,8 @@ syntax = "proto3";
 package service.arc.pb;
 
 import "arc/go/graph/pb/graph.proto";
-import "arc/go/module/pb/module.proto";
 import "arc/go/text/pb/text.proto";
+import "arc/go/module/pb/module.proto";
 import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";

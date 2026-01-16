@@ -24,7 +24,8 @@ Log struct {
         @doc value "is a human-readable name for the log."
     }
     data json   {
-        @doc value "is the log configuration including message formatting, filtering rules, and display options."
+        @doc value        "is the log configuration including message formatting, filtering rules, and display options."
+        @ts preserve_case
     }
 
     @doc value     "is a timestamped event and message logging component. Logs display chronological records of events, system messages, and audit trails with filtering and formatting capabilities."
@@ -32,12 +33,8 @@ Log struct {
 }
 
 New struct extends Log {
-    key  Key? {
+    key Key? {
         @doc value "is an optional key for the log. If not provided, one will be automatically assigned."
-    }
-    data json {
-        @doc value    "is the log configuration."
-        @ts stringify
     }
 
     @doc value    "contains parameters for creating a new log."

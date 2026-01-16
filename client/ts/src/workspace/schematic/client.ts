@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, record } from "@synnaxlabs/x";
+import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -25,7 +25,10 @@ import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/typ
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({ key: keyZ, data: record.unknownZ });
+const setDataReqZ = z.object({
+  key: keyZ,
+  data: caseconv.preserveCase(record.unknownZ()),
+});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -45,7 +48,7 @@ export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 export type CopyArgs = z.input<typeof copyReqZ>;
 
-const retrieveResZ = z.object({ schematics: array.nullishToEmpty(schematicZ) });
+const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
   workspace: workspaceKeyZ,

@@ -52,7 +52,7 @@ export const Picker = ({
   const pickerHandleChange = useCallback(
     (res: ColorResult): void => {
       if (res.hex === "transparent") onChange(color.ZERO);
-      const c = color.construct(res.hex, res.rgb.a);
+      const c = color.setAlpha(res.hex, res.rgb.a ?? 255);
       baseHandleChange(c);
     },
     [baseHandleChange, updateFreqDebounced],

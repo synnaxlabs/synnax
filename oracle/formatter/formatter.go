@@ -458,16 +458,16 @@ func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 		}
 	}
 
+	// Format field omissions (-fieldName) first
+	for _, omit := range fieldOmits {
+		f.emitCommentsBefore(omit.GetStart().GetTokenIndex())
+		f.formatFieldOmit(omit)
+	}
+
 	// Format fields with alignment
 	for _, field := range fields {
 		f.emitCommentsBefore(field.GetStart().GetTokenIndex())
 		f.formatFieldDefAligned(field, maxNameLen, maxTypeLen)
-	}
-
-	// Format field omissions (-fieldName)
-	for _, omit := range fieldOmits {
-		f.emitCommentsBefore(omit.GetStart().GetTokenIndex())
-		f.formatFieldOmit(omit)
 	}
 
 	// Blank line before struct-level domains if there are fields or omissions

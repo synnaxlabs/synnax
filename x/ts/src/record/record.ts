@@ -9,6 +9,8 @@
 
 import { z } from "zod";
 
+import { caseconv } from "@/caseconv";
+
 /**
  * Zod schema for validating record keys. Can be either a string or number.
  */
@@ -23,13 +25,13 @@ export type Key = z.infer<typeof keyZ>;
  * Zod schema for validating unknown records. Accepts objects with string or number keys
  * and unknown values.
  */
-export const unknownZ = z.record(keyZ, z.unknown());
+export const unknownZ = () => z.record(keyZ, z.unknown());
 
 /**
  * Represents a record with unknown values and string/number keys.
  * This is a generic type for objects where the value types are not known.
  */
-export interface Unknown extends z.infer<typeof unknownZ> {}
+export interface Unknown extends z.infer<ReturnType<typeof unknownZ>> {}
 
 /**
  * Interface for objects that have a key property.
@@ -149,8 +151,13 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
  * - undefined → {}
  * - {} → {}
  * - {data} → {data}
+ *
+ * @param preserveCase - If true, marks the record schema to preserve key casing
+ *   during case conversion. Use this when record keys are semantic values
+ *   (like OPC UA NodeIds or Modbus channel keys) rather than property names.
  */
-export const nullishToEmpty = z.union([
-  z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
-  unknownZ,
-]);
+export const nullishToEmpty = (preserveCase: boolean = false): z.ZodType<Unknown> =>
+  z.union([
+    z.union([z.null(), z.undefined()]).transform<Unknown>(() => ({})),
+    preserveCase ? caseconv.preserveCase(unknownZ()) : unknownZ(),
+  ]);
