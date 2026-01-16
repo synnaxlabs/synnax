@@ -77,11 +77,17 @@ func ResolvePrimitive(ref resolution.TypeRef, table *resolution.Table) string {
 	if resolution.IsPrimitive(ref.Name) {
 		return ref.Name
 	}
-	// Follow DistinctForm to base type
-	if typ, ok := table.Get(ref.Name); ok {
-		if form, ok := typ.Form.(resolution.DistinctForm); ok {
-			return ResolvePrimitive(form.Base, table)
-		}
+	// Use Resolve to get the type, which handles the name resolution
+	typ, ok := ref.Resolve(table)
+	if !ok {
+		return ""
+	}
+	// Follow DistinctForm or AliasForm to base type
+	switch form := typ.Form.(type) {
+	case resolution.DistinctForm:
+		return ResolvePrimitive(form.Base, table)
+	case resolution.AliasForm:
+		return ResolvePrimitive(form.Target, table)
 	}
 	return ""
 }

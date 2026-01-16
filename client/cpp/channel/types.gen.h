@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "client/cpp/cluster/types.gen.h"
+#include "client/cpp/ontology/id.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -124,4 +125,10 @@ struct Channel {
     static std::pair<Channel, x::errors::Error>
     from_proto(const ::api::channel::pb::Channel &pb);
 };
+
+const synnax::ontology::ID ONTOLOGY_TYPE("channel", "");
+
+inline synnax::ontology::ID ontology_id(const Key &key) {
+    return synnax::ontology::ID("channel", std::to_string(key));
+}
 }

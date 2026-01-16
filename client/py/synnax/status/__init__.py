@@ -11,8 +11,11 @@ from synnax.status.client import (
     DELETE_CHANNEL,
     SET_CHANNEL,
     Client,
+    ontology_id,
+    ONTOLOGY_TYPE,
 )
-from synnax.status.payload import (
+
+from synnax.status.types_gen import (
     DISABLED_VARIANT,
     ERROR_VARIANT,
     INFO_VARIANT,
@@ -21,7 +24,6 @@ from synnax.status.payload import (
     WARNING_VARIANT,
     Status,
     Variant,
-    ontology_id,
 )
 
 __all__ = [
@@ -34,6 +36,7 @@ __all__ = [
     "ontology_id",
     "SET_CHANNEL",
     "Status",
+    "ONTOLOGY_TYPE",
     "SUCCESS_VARIANT",
     "Variant",
     "WARNING_VARIANT",

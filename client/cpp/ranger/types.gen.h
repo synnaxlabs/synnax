@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
@@ -79,4 +80,10 @@ struct Range : public Base {
     // Custom methods
     kv::Client kv = kv::Client();
 };
+
+const synnax::ontology::ID ONTOLOGY_TYPE("range", "");
+
+inline synnax::ontology::ID ontology_id(const Key &key) {
+    return synnax::ontology::ID("range", key.to_string());
+}
 }

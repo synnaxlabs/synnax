@@ -24,6 +24,14 @@ from synnax.x import control
 
 Key = NewType("Key", int)
 
+MIN_OPERATIONTYPE: Literal["min"] = "min"
+
+MAX_OPERATIONTYPE: Literal["max"] = "max"
+
+AVG_OPERATIONTYPE: Literal["avg"] = "avg"
+
+NONE_OPERATIONTYPE: Literal["none"] = "none"
+
 
 OperationType = Literal["min", "max", "avg", "none"]
 

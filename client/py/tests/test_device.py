@@ -23,7 +23,7 @@ def basic_device(rack: int, n: int) -> sy.Device:
         location=f"dev{n}",
         make="test_make",
         model="test_model",
-        properties=dict(),
+        properties={"foo": "bar"},
     )
 
 

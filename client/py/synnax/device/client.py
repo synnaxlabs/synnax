@@ -11,10 +11,12 @@ from typing import Any, overload
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, Payload, UnaryClient, send_required
+from pydantic import BaseModel
 
 from synnax.device.types_gen import Device
 from synnax.exceptions import NotFoundError
 from synnax.util.normalize import check_for_none, normalize, override
+from synnax import rack as rack_
 
 
 class _CreateRequest(Payload):
@@ -59,7 +61,7 @@ class Client:
         *,
         key: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         make: str = "",
         model: str = "",
@@ -79,14 +81,18 @@ class Client:
         *,
         key: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         make: str = "",
         model: str = "",
         configured: bool = False,
-        properties: Any = None,
+        properties: dict[str, Any] | None = None,
     ):
         is_single = not isinstance(devices, list)
+        if properties is None:
+            properties = dict()
+        elif isinstance(properties, BaseModel):
+            properties = properties.model_dump()
         if devices is None:
             devices = [
                 Device(
@@ -173,3 +179,5 @@ class Client:
                 return None
             raise NotFoundError("Device not found")
         return res.devices if res.devices is not None else []
+
+

@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type Key = string
+
 type Variant string
 
 const (
@@ -32,7 +34,7 @@ const (
 // and can carry component-specific details.
 type Status[Details any] struct {
 	// Key is a unique identifier for this status, automatically generated if not provided.
-	Key string `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
 	// Variant is the severity or type of the status: success, info, warning, error, loading, or disabled.

@@ -15,6 +15,7 @@
 #include <string>
 #include <utility>
 
+#include "client/cpp/ontology/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
@@ -78,4 +79,10 @@ struct Arc {
     static std::pair<Arc, x::errors::Error>
     from_proto(const ::service::arc::pb::Arc &pb);
 };
+
+const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");
+
+inline synnax::ontology::ID ontology_id(const Key &key) {
+    return synnax::ontology::ID("arc", key.to_string());
+}
 }

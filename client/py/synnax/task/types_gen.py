@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, NewType, TypeAlias
+from typing import Any, Generic, NewType, TypeAlias, TypeVar
 
 from pydantic import BaseModel
 
@@ -34,7 +34,7 @@ class StatusDetails(BaseModel):
     task: Key
     running: bool
     cmd: str | None = None
-    data: Any | None = None
+    data: dict[str, Any] | None = None
 
 
 class Command(BaseModel):
@@ -75,8 +75,8 @@ class Payload(BaseModel):
 
     key: Key
     name: str
-    type: Any
-    config: Any
+    type: str
+    config: dict[str, Any]
     internal: bool | None = None
     snapshot: bool | None = None
     status: Status | None = None

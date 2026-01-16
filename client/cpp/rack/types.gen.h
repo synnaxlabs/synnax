@@ -16,6 +16,7 @@
 #include <string>
 #include <utility>
 
+#include "client/cpp/ontology/id.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -74,4 +75,10 @@ struct Rack {
     // Custom methods
     task::Client tasks;
 };
+
+const synnax::ontology::ID ONTOLOGY_TYPE("rack", "");
+
+inline synnax::ontology::ID ontology_id(const Key &key) {
+    return synnax::ontology::ID("rack", std::to_string(key));
+}
 }

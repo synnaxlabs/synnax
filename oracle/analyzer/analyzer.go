@@ -259,12 +259,10 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 		return
 	}
 
-	// Collect type params first so they're available when parsing the target type.
 	typeParams := collectTypeParams(def.TypeParams())
 	tr := def.TypeRef()
 	target := collectTypeRef(tr, typeParams)
 
-	// Handle array types (e.g., "Stratum = string[]" or "Color = uint8[4]")
 	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
 		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 			var arraySize *int64
@@ -393,7 +391,6 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		isOptional, isHardOptional = extractTypeModifiersNormal(normalCtx)
 		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 			isArray = true
-			// Check for fixed-size array [N]
 			if intLit := arrMod.INT_LIT(); intLit != nil {
 				size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
 				arraySize = &size
@@ -489,9 +486,7 @@ func collectDomainContent(entry *resolution.Domain, content parser.IDomainConten
 func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 	if ts := v.TRIPLE_STRING_LIT(); ts != nil {
 		t := ts.GetText()
-		// Strip the """ delimiters
 		content := t[3 : len(t)-3]
-		// Apply dedent to normalize indentation
 		dedented := dedent(content)
 		return resolution.ExpressionValue{
 			Kind:        resolution.ValueKindString,
@@ -500,10 +495,8 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 	}
 	if s := v.STRING_LIT(); s != nil {
 		t := s.GetText()
-		// Use strconv.Unquote to properly handle escape sequences like \" and \\
 		unquoted, err := strconv.Unquote(t)
 		if err != nil {
-			// Fallback to simple quote stripping if unquote fails
 			unquoted = t[1 : len(t)-1]
 		}
 		return resolution.ExpressionValue{
@@ -570,14 +563,12 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 				ev.Value = n
 			} else if s := v.STRING_LIT(); s != nil {
 				t := s.GetText()
-				// Use strconv.Unquote to properly handle escape sequences
 				unquoted, err := strconv.Unquote(t)
 				if err != nil {
 					unquoted = t[1 : len(t)-1]
 				}
 				ev.Value = unquoted
 			}
-			// Extract domains from enum value body if present
 			if body := v.EnumValueBody(); body != nil {
 				for _, d := range body.AllDomain() {
 					de := collectDomain(d)
@@ -615,12 +606,10 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 		return
 	}
 
-	// Collect type params first so they're available when parsing the base type.
 	typeParams := collectTypeParams(def.TypeParams())
 	tr := def.TypeRef()
 	base := collectTypeRef(tr, typeParams)
 
-	// Handle array types (e.g., "Params Param[]" or "Color uint8[4]")
 	if normalCtx, ok := tr.(*parser.TypeRefNormalContext); ok {
 		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 			var arraySize *int64
@@ -709,7 +698,6 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 		ns, name = parts[0], parts[1]
 	}
 
-	// Must use slice index to get pointer to actual TypeParam, not a copy.
 	if currentType != nil && len(parts) == 1 {
 		switch form := currentType.Form.(type) {
 		case resolution.StructForm:
@@ -911,7 +899,6 @@ func hasCircularInheritance(typ resolution.Type, table *resolution.Table, visite
 func dedent(s string) string {
 	lines := strings.Split(s, "\n")
 
-	// Find minimum indentation (ignoring empty lines)
 	minIndent := -1
 	for _, line := range lines {
 		if len(strings.TrimSpace(line)) == 0 {
@@ -924,11 +911,9 @@ func dedent(s string) string {
 	}
 
 	if minIndent <= 0 {
-		// No indentation to remove, just trim empty lines
 		return strings.TrimSpace(s)
 	}
 
-	// Remove the common indentation
 	var result []string
 	for _, line := range lines {
 		if len(strings.TrimSpace(line)) == 0 {
@@ -940,7 +925,6 @@ func dedent(s string) string {
 		}
 	}
 
-	// Trim leading and trailing empty lines
 	start, end := 0, len(result)
 	for start < end && strings.TrimSpace(result[start]) == "" {
 		start++

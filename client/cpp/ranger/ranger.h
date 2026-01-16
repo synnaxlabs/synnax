@@ -13,7 +13,6 @@
 #include <string>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "client/cpp/ranger/proto.gen.h"
@@ -32,24 +31,6 @@ using RetrieveClient = freighter::
 /// @brief type alias for the transport used to create ranges.
 using CreateClient = freighter::
     UnaryClient<grpc::ranger::CreateRequest, grpc::ranger::CreateResponse>;
-
-/// @brief Converts a range key to an ontology ID.
-/// @param key The range key.
-/// @returns An ontology ID with type "range" and the given key.
-inline ontology::ID ontology_id(const x::uuid::UUID &key) {
-    return ontology::ID("range", key.to_string());
-}
-
-/// @brief Converts a vector of range keys to a vector of ontology IDs.
-/// @param keys The range keys.
-/// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> ontology_ids(const std::vector<x::uuid::UUID> &keys) {
-    std::vector<ontology::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(ontology_id(key));
-    return ids;
-}
 
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
 class Client {

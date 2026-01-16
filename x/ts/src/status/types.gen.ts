@@ -33,6 +33,9 @@ export const loadingVariantZ = z.literal("loading");
 export const disabledVariantZ = z.literal("disabled");
 export type Variant = z.infer<typeof variantZ>;
 
+export const keyZ = z.string();
+export type Key = z.infer<typeof keyZ>;
+
 export interface StatusSchemas<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
@@ -46,7 +49,7 @@ export type StatusZodObject<
   V extends z.ZodType<Variant> = typeof variantZ,
 > = z.ZodObject<
   {
-    key: z.ZodDefault<z.ZodString>;
+    key: z.ZodDefault<z.ZodType>;
     name: z.ZodDefault<z.ZodString>;
     variant: V;
     message: z.ZodString;
@@ -79,7 +82,7 @@ export const statusZ: StatusZFunction = <
   { details, v }: StatusSchemas<Details, V> = {} as StatusSchemas<Details, V>,
 ) =>
   z.object({
-    key: z.string().default(() => id.create()),
+    key: keyZ.default(() => id.create()),
     name: z.string().default(""),
     variant: v ?? variantZ,
     message: z.string(),
@@ -92,7 +95,7 @@ export type Status<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 > = {
-  key: string;
+  key: Key;
   name: string;
   variant: z.infer<V>;
   message: string;

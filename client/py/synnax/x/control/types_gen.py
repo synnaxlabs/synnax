@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, TypeAlias
+from typing import Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel
 
@@ -21,6 +21,8 @@ class Concurrency(IntEnum):
     exclusive = 0
     shared = 1
 
+
+R = TypeVar("R")
 
 Authority: TypeAlias = int
 
@@ -37,7 +39,7 @@ class Subject(BaseModel):
     name: str
 
 
-class State(BaseModel):
+class State(BaseModel, Generic[R]):
     """Represents the state of control over a resource at a point in time,
     capturing who controls what and with how much authority.
 
@@ -48,5 +50,5 @@ class State(BaseModel):
     """
 
     subject: Subject
-    resource: Any
+    resource: R
     authority: Authority

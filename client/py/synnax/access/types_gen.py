@@ -13,4 +13,13 @@ from __future__ import annotations
 
 from typing import Literal
 
+CREATE_ACTION: Literal["create"] = "create"
+
+DELETE_ACTION: Literal["delete"] = "delete"
+
+RETRIEVE_ACTION: Literal["retrieve"] = "retrieve"
+
+UPDATE_ACTION: Literal["update"] = "update"
+
+
 Action = Literal["create", "delete", "retrieve", "update"]

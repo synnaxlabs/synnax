@@ -11,16 +11,34 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Generic, Literal, TypeAlias, TypeVar
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import label, telem
 
+SUCCESS_VARIANT: Literal["success"] = "success"
+
+INFO_VARIANT: Literal["info"] = "info"
+
+WARNING_VARIANT: Literal["warning"] = "warning"
+
+ERROR_VARIANT: Literal["error"] = "error"
+
+LOADING_VARIANT: Literal["loading"] = "loading"
+
+DISABLED_VARIANT: Literal["disabled"] = "disabled"
+
+
 Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
+Details = TypeVar("Details")
 
-class Status(BaseModel):
+Key: TypeAlias = str
+
+
+class Status(BaseModel, Generic[Details]):
     """Is a standardized message used to communicate state across the
     Synnax platform. Statuses support different severity variants
     and can carry component-specific details.
@@ -36,30 +54,14 @@ class Status(BaseModel):
         labels: Contains optional labels for categorization and filtering.
     """
 
-    key: str
+    key: Key = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(default="")
-    variant: Any
+    variant: Variant
     message: str
     description: str | None = None
-    time: telem.TimeStamp
-    details: Any | None = None
+    time: telem.TimeStamp = Field(default_factory=telem.TimeStamp.now)
+    details: Details | None = None
     labels: list[label.Label] | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class New(Status):
-    """Contains parameters for creating a new status. Most fields have
-    sensible defaults.
-
-    Attributes:
-        key: Is an optional key for the status. If not provided, one will
-            be automatically generated.
-        name: Is an optional name for the status.
-        time: Is an optional timestamp. Defaults to the current time.
-    """
-
-    key: str | None = None
-    name: str | None = None
-    time: telem.TimeStamp | None = None

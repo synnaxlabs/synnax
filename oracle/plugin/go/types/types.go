@@ -109,17 +109,15 @@ func generateGoFile(
 	pkg := gointernal.DerivePackageName(outputPath)
 	imports := gointernal.NewImportManager()
 
-	// Create resolver context
 	ctx := &resolver.Context{
 		Table:                         table,
 		OutputPath:                    outputPath,
 		Namespace:                     namespace,
 		RepoRoot:                      repoRoot,
 		DomainName:                    "go",
-		SubstituteDefaultedTypeParams: true, // Go doesn't support advanced generics
+		SubstituteDefaultedTypeParams: true,
 	}
 
-	// Create resolver with Go-specific components
 	r := &resolver.Resolver{
 		Formatter:       GoFormatter(),
 		ImportResolver:  &GoImportResolver{RepoRoot: repoRoot, CurrentPackage: pkg},
@@ -141,23 +139,19 @@ func generateGoFile(
 		ctx:        ctx,
 	}
 
-	// Process typedefs
 	for _, td := range typeDefs {
 		if !omit.IsType(td, "go") {
 			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, data))
 		}
 	}
 
-	// Process enums that are in the same namespace
 	for _, e := range enums {
 		if e.Namespace == namespace && !omit.IsType(e, "go") {
 			data.Enums = append(data.Enums, processEnum(e))
 		}
 	}
 
-	// Process structs
 	for _, entry := range structs {
-		// Skip omitted structs
 		if omit.IsType(entry, "go") {
 			continue
 		}
@@ -185,7 +179,6 @@ func processEnum(e resolution.Type) enumData {
 			IntValue: v.IntValue(),
 		})
 	}
-	// Check if enum values are continuous starting at 1 (e.g., 1, 2, 3, ...)
 	startsAtOne := form.IsIntEnum && len(values) > 0 && values[0].IntValue == 1
 	if startsAtOne {
 		for i, v := range values {
@@ -204,7 +197,6 @@ func processEnum(e resolution.Type) enumData {
 }
 
 func processTypeDef(td resolution.Type, data *templateData) typeDefData {
-	// Check for @go name override
 	name := getGoName(td)
 	if name == "" {
 		name = td.Name
@@ -215,37 +207,32 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		result := typeDefData{
 			Name:     name,
 			BaseType: data.resolver.ResolveTypeRef(form.Base, data.ctx),
-			IsAlias:  false, // DistinctForm → "type X Y" (distinct type)
+			IsAlias:  false,
 		}
 		for _, tp := range form.TypeParams {
 			if tp.HasDefault() {
-				continue // Skip defaulted type params
+				continue
 			}
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
 		result.IsGeneric = len(result.TypeParams) > 0
 		return result
 	case resolution.AliasForm:
-		// Check if target is a generic struct with optional type params
-		// that need types.Nil substitution
 		targetRef := form.Target
 		if targetResolved, ok := targetRef.Resolve(data.table); ok {
 			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				// Count how many non-defaulted type params the target has
 				var nonDefaultedParams []resolution.TypeParam
 				for _, tp := range targetForm.TypeParams {
 					if !tp.HasDefault() {
 						nonDefaultedParams = append(nonDefaultedParams, tp)
 					}
 				}
-				// If there are missing type args for optional params, synthesize nil refs
 				providedArgs := len(targetRef.TypeArgs)
 				if providedArgs < len(nonDefaultedParams) {
 					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
 					copy(newTypeArgs, targetRef.TypeArgs)
 					for i := providedArgs; i < len(nonDefaultedParams); i++ {
 						if nonDefaultedParams[i].Optional {
-							// Synthesize a nil type reference for optional param
 							newTypeArgs[i] = resolution.TypeRef{Name: "nil"}
 						}
 					}
@@ -260,11 +247,11 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		result := typeDefData{
 			Name:     name,
 			BaseType: baseType,
-			IsAlias:  true, // AliasForm → "type X = Y" (transparent alias)
+			IsAlias:  true,
 		}
 		for _, tp := range form.TypeParams {
 			if tp.HasDefault() {
-				continue // Skip defaulted type params
+				continue
 			}
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
@@ -284,31 +271,23 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		IsAlias: false,
 	}
 
-	// Check for @go name override
 	if name := domain.GetStringFromType(entry, "go", "name"); name != "" {
 		sd.Name = name
 	}
 
-	// Process type parameters, skipping defaulted ones
-	// (Go doesn't support advanced generics with defaults)
 	for _, tp := range form.TypeParams {
 		if tp.HasDefault() {
-			continue // Skip defaulted type params
+			continue
 		}
 		sd.TypeParams = append(sd.TypeParams, processTypeParam(tp, data))
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
-	// Handle struct extension
 	if len(form.Extends) > 0 {
-		// If omitting fields, fall back to field flattening
-		// since Go struct embedding can't exclude individual parent fields
 		if len(form.OmittedFields) > 0 {
-			// Use UnifiedFields() which respects OmittedFields
 			for _, field := range resolution.UnifiedFields(entry, data.table) {
 				sd.Fields = append(sd.Fields, processField(field, data))
 			}
-			// Process @go field and @go imports directives
 			sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
 			for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
 				data.imports.AddExternal(imp)
@@ -316,13 +295,10 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			return sd
 		}
 
-		// Check for field conflicts between parents (requires flattening)
 		if hasFieldConflicts(form.Extends, data.table) {
-			// Use UnifiedFields() which handles conflict resolution
 			for _, field := range resolution.UnifiedFields(entry, data.table) {
 				sd.Fields = append(sd.Fields, processField(field, data))
 			}
-			// Process @go field and @go imports directives
 			sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
 			for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
 				data.imports.AddExternal(imp)
@@ -330,7 +306,6 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			return sd
 		}
 
-		// Use struct embedding (idiomatic Go pattern)
 		sd.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)
@@ -339,11 +314,9 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			}
 		}
 
-		// Only include child's own fields (parent fields come via embedding)
 		for _, field := range form.Fields {
 			sd.Fields = append(sd.Fields, processField(field, data))
 		}
-		// Process @go field and @go imports directives
 		sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
 		for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
 			data.imports.AddExternal(imp)
@@ -351,15 +324,12 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		return sd
 	}
 
-	// Process fields for non-extending structs
 	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		sd.Fields = append(sd.Fields, processField(field, data))
 	}
 
-	// Process @go field directives for extra fields
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
 
-	// Process @go imports directives for extra imports
 	for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
 		data.imports.AddExternal(imp)
 	}
@@ -370,10 +340,9 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
 	tpd := typeParamData{
 		Name:       tp.Name,
-		Constraint: "any", // Default constraint
+		Constraint: "any",
 	}
 
-	// Map constraint to Go type
 	if tp.Constraint != nil {
 		tpd.Constraint = constraintToGo(*tp.Constraint, data)
 	}
@@ -401,8 +370,6 @@ func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 
 func processField(field resolution.Field, data *templateData) fieldData {
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	// Hard optional (??) fields become pointers in Go to distinguish nil from zero value.
-	// Arrays and maps are reference types and don't need pointers (nil is their zero value).
 	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "binary.MsgpackEncodedJSON") {
 		goType = "*" + goType
 	}
@@ -421,13 +388,12 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType
 		return baseName
 	}
 
-	// Filter type args, skipping those that correspond to defaulted params
 	var args []string
 	if targetType != nil {
 		if form, ok := targetType.Form.(resolution.StructForm); ok {
 			for i, arg := range typeArgs {
 				if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-					continue // Skip defaulted type args
+					continue
 				}
 				args = append(args, data.resolver.ResolveTypeRef(arg, data.ctx))
 			}
@@ -451,20 +417,16 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType
 func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
-	// Check for @go name override
 	name := getGoName(parent)
 	if name == "" {
 		name = parent.Name
 	}
 
-	// Same namespace AND same output path (or no output path) -> use unqualified name
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return buildGenericType(name, extendsRef.TypeArgs, &parent, data)
 	}
 
-	// Different output path -> need qualified name with import
 	if targetOutputPath == "" {
-		// No output path but different namespace - can't resolve package, use unqualified
 		return name
 	}
 	alias := gointernal.DerivePackageAlias(targetOutputPath, data.Package)
@@ -472,8 +434,6 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 	return fmt.Sprintf("%s.%s", alias, buildGenericType(name, extendsRef.TypeArgs, &parent, data))
 }
 
-// hasFieldConflicts checks if multiple parents have fields with the same name,
-// which would cause ambiguity in Go struct embedding.
 func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
 	if len(extends) < 2 {
 		return false
@@ -486,7 +446,7 @@ func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bo
 		}
 		for _, field := range resolution.UnifiedFields(parent, table) {
 			if seenFields[field.Name] {
-				return true // Conflict found
+				return true
 			}
 			seenFields[field.Name] = true
 		}

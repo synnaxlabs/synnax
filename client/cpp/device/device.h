@@ -21,7 +21,6 @@
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
@@ -47,24 +46,6 @@ using RetrieveClient = freighter::
 /// @brief Type alias for the transport used to delete a device.
 using DeleteClient = freighter::
     UnaryClient<grpc::device::DeleteRequest, google::protobuf::Empty>;
-
-/// @brief Converts a device key to an ontology ID.
-/// @param key The device key.
-/// @returns An ontology ID with type "device" and the given key.
-inline ontology::ID ontology_id(const std::string &key) {
-    return ontology::ID("device", key);
-}
-
-/// @brief Converts a vector of device keys to a vector of ontology IDs.
-/// @param keys The device keys.
-/// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> ontology_ids(const std::vector<std::string> &keys) {
-    std::vector<ontology::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(ontology_id(key));
-    return ids;
-}
 
 /// @brief Creates a map of device keys to devices.
 /// @param devices The devices to map.

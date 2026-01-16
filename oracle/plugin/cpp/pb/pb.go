@@ -72,14 +72,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if cppOutputPath == "" {
 			continue
 		}
-		// Skip if no @pb flag or if @pb omit
 		if !hasPBFlag(entry) {
 			continue
 		}
 		if omit.IsType(entry, "pb") {
 			continue
 		}
-		// Skip if @cpp omit - no C++ type exists to convert
 		if omit.IsType(entry, "cpp") {
 			continue
 		}
@@ -96,9 +94,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputStructs[cppOutputPath] = append(outputStructs[cppOutputPath], entry)
 	}
 
-	// Collect distinct types (array wrappers) that have pb support
-	// Array wrappers require an explicit @pb name directive, indicating a
-	// corresponding proto message exists (proto uses repeated fields by default)
 	for _, entry := range req.Resolutions.DistinctTypes() {
 		cppOutputPath := output.GetPath(entry, "cpp")
 		if cppOutputPath == "" {
@@ -111,7 +106,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			continue
 		}
 
-		// Only process array types
 		form, ok := entry.Form.(resolution.DistinctForm)
 		if !ok || form.Base.Name != "Array" {
 			continue
@@ -192,8 +186,6 @@ func hasPBFlag(t resolution.Type) bool {
 	return hasPB
 }
 
-// hasExplicitPBName returns true if the type has an explicit @pb name directive.
-// This is used to determine if an array wrapper has a corresponding proto message.
 func hasExplicitPBName(t resolution.Type) bool {
 	if domain, ok := t.Domains["pb"]; ok {
 		for _, expr := range domain.Expressions {
@@ -244,13 +236,9 @@ func (p *Plugin) generateProto(
 	}
 
 	for _, s := range structs {
-		// Skip if @pb omit (protobuf generation explicitly disabled)
 		if omit.IsType(s, "pb") {
 			continue
 		}
-		// Skip if @cpp omit - no C++ type exists to convert to/from proto
-		// Note: If you have a handwritten C++ type that needs proto conversion,
-		// remove @cpp omit and manually define the type in the schema
 		if omit.IsType(s, "cpp") {
 			continue
 		}
@@ -283,9 +271,6 @@ func (p *Plugin) generateProto(
 		}
 	}
 
-	// Process array wrapper distinct types (e.g., Params Param[])
-	// Proto uses repeated fields for arrays, not wrapper messages.
-	// So array wrappers need explicit @pb name indicating a manually-defined proto message.
 	for _, dt := range req.Resolutions.DistinctTypes() {
 		if output.GetPath(dt, "cpp") != outputPath {
 			continue
@@ -319,7 +304,6 @@ func (p *Plugin) generateProto(
 	return buf.Bytes(), nil
 }
 
-// canUseInheritance checks if a struct can use C++ multiple inheritance.
 func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
 	if len(form.Extends) == 0 {
 		return false
@@ -330,7 +314,6 @@ func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 	return !hasFieldConflicts(form.Extends, table)
 }
 
-// hasFieldConflicts returns true if multiple parents have overlapping field names.
 func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
 	if len(extends) < 2 {
 		return false
@@ -351,14 +334,12 @@ func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bo
 	return false
 }
 
-// resolveExtendsType converts a parent TypeRef to a fully qualified C++ type string.
 func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	name := domain.GetName(parent, "cpp")
 
 	if parent.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
-			// Add include for the parent's proto.gen.h
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "proto.gen.h")
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
@@ -366,13 +347,10 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 		}
 	}
 
-	// Handle generic parents with type arguments
 	if len(extendsRef.TypeArgs) > 0 {
 		args := make([]string, 0, len(extendsRef.TypeArgs))
-		// Get the parent's type params to filter defaulted ones
 		if parentForm, ok := parent.Form.(resolution.StructForm); ok {
 			for i, arg := range extendsRef.TypeArgs {
-				// Skip type args that correspond to defaulted params
 				if i < len(parentForm.TypeParams) && parentForm.TypeParams[i].HasDefault() {
 					continue
 				}
@@ -407,7 +385,6 @@ func (p *Plugin) processStructForTranslation(
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range form.TypeParams {
-		// Skip defaulted type params - they're handled by substituting the default
 		if tp.HasDefault() {
 			continue
 		}
@@ -420,7 +397,7 @@ func (p *Plugin) processStructForTranslation(
 		PBName:         pbName,
 		PBNamespace:    pbNamespace,
 		Fields:         make([]fieldTranslatorData, 0),
-		IsGeneric:      len(typeParams) > 0, // Only generic if non-defaulted type params remain
+		IsGeneric:      len(typeParams) > 0,
 		TypeParams:     typeParams,
 		TypeParamNames: strings.Join(typeParamNames, ", "),
 	}
@@ -430,7 +407,6 @@ func (p *Plugin) processStructForTranslation(
 		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
-	// Check if we can use C++ multiple inheritance
 	if canUseInheritance(form, data.table) {
 		translator.HasExtends = true
 		for _, extendsRef := range form.Extends {
@@ -443,18 +419,15 @@ func (p *Plugin) processStructForTranslation(
 				QualifiedName: qualifiedName,
 			})
 		}
-		// Only process child's own fields for to_proto (inherited fields use MergeFrom)
 		for _, field := range form.Fields {
 			fieldData := p.processFieldForTranslation(field, form, data)
 			translator.Fields = append(translator.Fields, fieldData)
 		}
-		// Process all unified fields for from_proto (can't call parent's from_proto due to type mismatch)
 		for _, field := range resolution.UnifiedFields(s, data.table) {
 			fieldData := p.processFieldForTranslation(field, form, data)
 			translator.AllFields = append(translator.AllFields, fieldData)
 		}
 	} else {
-		// Fall back to field flattening
 		for _, field := range resolution.UnifiedFields(s, data.table) {
 			fieldData := p.processFieldForTranslation(field, form, data)
 			translator.Fields = append(translator.Fields, fieldData)
@@ -471,8 +444,6 @@ func (p *Plugin) processFieldForTranslation(
 ) fieldTranslatorData {
 	pbFieldName := toSnakeCase(field.Name)
 
-	// Get the C++ field name, respecting @cpp name override
-	// If there's an override, use it directly; otherwise convert to snake_case
 	cppFieldName := domain.GetFieldName(field, "cpp")
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
@@ -481,7 +452,6 @@ func (p *Plugin) processFieldForTranslation(
 	isGenericField := false
 	typeParamName := ""
 	if field.Type.TypeParam != nil {
-		// For defaulted type params, don't treat as generic - the default type is used directly
 		if !field.Type.TypeParam.HasDefault() {
 			isGenericField = true
 			typeParamName = field.Type.TypeParam.Name
@@ -516,11 +486,9 @@ func (p *Plugin) generateFieldConversion(
 ) (forward, backward string) {
 	typeRef := field.Type
 	pbFieldName := toSnakeCase(field.Name)
-	// Escape field name for protobuf accessors if it's a C++ reserved keyword
 	pbAccessorName := escapePBFieldName(pbFieldName)
 	pbSetter := fmt.Sprintf("pb.set_%s", pbAccessorName)
 
-	// Handle fixed-size uint8 arrays (e.g., Color [4]uint8) as bytes
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
 		return p.generateFixedSizeUint8ArrayConversion(field, data)
 	}
@@ -538,9 +506,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if typeRef.TypeParam != nil {
-		// For defaulted type params, substitute the default and generate conversion
 		if typeRef.TypeParam.HasDefault() {
-			// Create a copy of the field with the substituted type
 			substitutedField := field
 			substitutedField.Type = *typeRef.TypeParam.Default
 			return p.generateFieldConversion(substitutedField, cppFieldName, data)
@@ -600,8 +566,6 @@ func (p *Plugin) generatePrimitiveConversion(
 ) (forward, backward string) {
 	switch primitive {
 	case "uuid":
-		// UUID to proto: convert to string via to_string()
-		// Proto to UUID: parse from string via UUID::parse()
 		if isOptional {
 			forward = fmt.Sprintf("if (this->%s.has_value()) %s(this->%s->to_string())", cppFieldName, pbSetter, cppFieldName)
 			backward = fmt.Sprintf(`if (!pb.%s().empty()) {
@@ -664,9 +628,6 @@ func (p *Plugin) generatePrimitiveConversion(
 		}
 		return forward, backward
 	case "bytes":
-		// bytes in C++ is std::vector<uint8_t>, but protobuf uses std::string
-		// to_proto: use data() and size() to set the bytes field
-		// from_proto: use assign with iterators to copy from string to vector
 		return fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", pbAccessorName, cppFieldName, cppFieldName),
 			fmt.Sprintf("cpp.%s.assign(pb.%s().begin(), pb.%s().end());", cppFieldName, pbAccessorName, pbAccessorName)
 	default:
@@ -822,7 +783,6 @@ func (p *Plugin) generateEnumConversion(
 ) (forward, backward string) {
 	enumName := resolved.Name
 
-	// Get the C++ type name, fully qualified if from a different namespace
 	cppEnumType := domain.GetName(resolved, "cpp")
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
@@ -832,7 +792,6 @@ func (p *Plugin) generateEnumConversion(
 		}
 	}
 
-	// Derive the pb namespace for the enum
 	pbOutputPath := enum.FindPBOutputPath(resolved, data.table)
 	pbNamespace := derivePBCppNamespace(pbOutputPath)
 
@@ -855,7 +814,6 @@ func (p *Plugin) generateDistinctConversion(
 ) (forward, backward string) {
 	cppName := domain.GetName(resolved, "cpp")
 
-	// Qualify with namespace if from a different namespace to avoid ambiguity
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
@@ -864,8 +822,6 @@ func (p *Plugin) generateDistinctConversion(
 		}
 	}
 
-	// Check if this distinct type has @cpp omit (meaning it's handwritten)
-	// Handwritten distinct types should provide their own to_proto()/from_proto() methods
 	if omit.IsType(resolved, "cpp") {
 		return fmt.Sprintf("%s(this->%s.to_proto())", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = %s::from_proto(pb.%s());", cppFieldName, cppName, pbAccessorName)
@@ -877,9 +833,7 @@ func (p *Plugin) generateDistinctConversion(
 			fmt.Sprintf("cpp.%s = %s(pb.%s());", cppFieldName, cppName, pbAccessorName)
 	}
 
-	// Check if the distinct type is based on an Array (e.g., Params Param[])
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
-		// Check if this is a nested array (array of arrays)
 		if p.isNestedArrayType(form.Base, data.table) {
 			return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, form.Base, data)
 		}
@@ -902,9 +856,7 @@ func (p *Plugin) generateAliasConversion(
 		return p.generatePrimitiveConversion(form.Target.Name, cppFieldName, pbAccessorName, pbSetter, isOptional, data)
 	}
 
-	// Check if the alias target is an Array (e.g., Params -> Param[])
 	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
-		// Check if this is a nested array (array of arrays)
 		if p.isNestedArrayType(form.Target, data.table) {
 			return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, form.Target, data)
 		}
@@ -912,17 +864,13 @@ func (p *Plugin) generateAliasConversion(
 		return p.generateArrayAliasConversion(cppFieldName, pbAccessorName, elemType, data)
 	}
 
-	// Follow through to the target type
 	targetResolved, ok := form.Target.Resolve(data.table)
 	if !ok {
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
 	}
 
-	// If the target is a struct, generate struct conversion
 	if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
-		// Add include for the target struct's proto.gen.h since that's where
-		// template implementations (to_proto/from_proto) are defined
 		if targetResolved.Namespace != data.rawNs {
 			targetOutputPath := output.GetPath(targetResolved, "cpp")
 			if targetOutputPath != "" {
@@ -930,8 +878,6 @@ func (p *Plugin) generateAliasConversion(
 				data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
 			}
 		}
-		// Use the alias type name for from_proto since that's what the field type is
-		// Get the C++ name directly from the resolved type (respects @cpp name directive)
 		cppType := domain.GetName(resolved, "cpp")
 		if resolved.Namespace != data.rawNs {
 			aliasOutputPath := output.GetPath(resolved, "cpp")
@@ -958,7 +904,6 @@ func (p *Plugin) generateAliasConversion(
 		return forward, backward
 	}
 
-	// If the target is another alias, recursively handle it
 	if targetForm, isAlias := targetResolved.Form.(resolution.AliasForm); isAlias {
 		return p.generateAliasConversion(targetResolved, targetForm, isOptional, cppFieldName, pbAccessorName, pbSetter, data)
 	}
@@ -980,7 +925,6 @@ func (p *Plugin) generateArrayConversion(
 		return "// TODO: array without type args", "// TODO: array without type args"
 	}
 
-	// Check if this is a nested array (array of arrays)
 	if p.isNestedArrayType(typeRef, data.table) {
 		return p.generateNestedArrayConversion(cppFieldName, pbAccessorName, typeRef, data)
 	}
@@ -989,7 +933,6 @@ func (p *Plugin) generateArrayConversion(
 	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, data)
 }
 
-// generateArrayAliasConversion handles aliases that point to arrays (e.g., Params -> Param[])
 func (p *Plugin) generateArrayAliasConversion(
 	cppFieldName, pbAccessorName string,
 	elemType resolution.TypeRef,
@@ -998,7 +941,6 @@ func (p *Plugin) generateArrayAliasConversion(
 	return p.generateArrayElementConversion(cppFieldName, pbAccessorName, elemType, data)
 }
 
-// generateArrayElementConversion generates conversion code for arrays, given the element type
 func (p *Plugin) generateArrayElementConversion(
 	cppFieldName, pbAccessorName string,
 	elemType resolution.TypeRef,
@@ -1031,7 +973,6 @@ func (p *Plugin) generateArrayElementConversion(
 	return forward, backward
 }
 
-// generateMapConversion generates conversion code for Map types
 func (p *Plugin) generateMapConversion(
 	field resolution.Field,
 	data *templateData,
@@ -1044,20 +985,13 @@ func (p *Plugin) generateMapConversion(
 		return "// TODO: map without enough type args", "// TODO: map without enough type args"
 	}
 
-	// For protobuf maps, we need to iterate and insert elements
-	// Forward: copy from C++ unordered_map to protobuf map
 	forward = fmt.Sprintf("for (const auto& [k, v] : this->%s) (*pb.mutable_%s())[k] = v", fieldName, accessorName)
-
-	// Backward: copy from protobuf map to C++ unordered_map
 	backward = fmt.Sprintf("for (const auto& [k, v] : pb.%s()) cpp.%s[k] = v;", accessorName, fieldName)
 
 	return forward, backward
 }
 
-// isFixedSizeUint8Array checks if a type is a fixed-size uint8 array (like Color [4]uint8).
-// These are converted to/from bytes in protobuf rather than repeated fields.
 func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
-	// Check if this is a distinct type wrapping a fixed-size uint8 array
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return false
@@ -1068,12 +1002,10 @@ func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolu
 		return false
 	}
 
-	// Check if base is an Array with ArraySize set
 	if form.Base.Name != "Array" || form.Base.ArraySize == nil {
 		return false
 	}
 
-	// Check if element type is uint8
 	if len(form.Base.TypeArgs) == 0 {
 		return false
 	}
@@ -1086,8 +1018,6 @@ func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolu
 	return false
 }
 
-// generateFixedSizeUint8ArrayConversion generates conversion for fixed-size uint8 arrays.
-// These are stored as bytes in protobuf and as std::array<uint8_t, N> in C++.
 func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	field resolution.Field,
 	data *templateData,
@@ -1095,21 +1025,13 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 	fieldName := toSnakeCase(field.Name)
 	accessorName := escapePBFieldName(fieldName)
 
-	// Forward: convert std::array to bytes string
-	// pb.set_color(this->color.data(), this->color.size())
 	forward = fmt.Sprintf("pb.set_%s(this->%s.data(), this->%s.size())", accessorName, fieldName, fieldName)
-
-	// Backward: copy bytes to std::array
-	// std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin())
 	backward = fmt.Sprintf("std::copy(pb.%s().begin(), pb.%s().end(), cpp.%s.begin());", accessorName, accessorName, fieldName)
-
-	// Add algorithm include for std::copy
 	data.includes.addSystem("algorithm")
 
 	return forward, backward
 }
 
-// isArrayType checks if a type is an array type (directly or through aliases).
 func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	if typeRef.Name == "Array" {
 		return true
@@ -1130,7 +1052,6 @@ func (p *Plugin) isArrayType(typeRef resolution.TypeRef, table *resolution.Table
 	return false
 }
 
-// getArrayElementType returns the element type of an array type (following aliases).
 func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resolution.Table) (resolution.TypeRef, bool) {
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		return typeRef.TypeArgs[0], true
@@ -1151,7 +1072,6 @@ func (p *Plugin) getArrayElementType(typeRef resolution.TypeRef, table *resoluti
 	return resolution.TypeRef{}, false
 }
 
-// isNestedArrayType checks if a type is an array of arrays (nested array).
 func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	if !p.isArrayType(typeRef, table) {
 		return false
@@ -1163,27 +1083,16 @@ func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution
 	return p.isArrayType(elemType, table)
 }
 
-// generateNestedArrayConversion generates conversion for nested array types (array of arrays).
-// This handles types like Strata which is Stratum[] where Stratum = string[].
-// Proto uses wrapper messages for these (e.g., StratumWrapper with repeated string values).
 func (p *Plugin) generateNestedArrayConversion(
 	cppFieldName, pbAccessorName string,
 	typeRef resolution.TypeRef,
 	data *templateData,
 ) (forward, backward string) {
-	// Forward: wrap each inner array in a wrapper message
-	// for (const auto& item : this->strata) {
-	//     auto* wrapper = pb.add_strata();
-	//     for (const auto& v : item) wrapper->add_values(v);
-	// }
 	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
         auto* wrapper = pb.add_%s();
         for (const auto& v : item) wrapper->add_values(v);
     }`, cppFieldName, pbAccessorName)
 
-	// Backward: unwrap each wrapper to get the inner array
-	// for (const auto& wrapper : pb.strata())
-	//     cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
 	backward = fmt.Sprintf(`for (const auto& wrapper : pb.%s())
         cpp.%s.push_back({wrapper.values().begin(), wrapper.values().end()});`, pbAccessorName, cppFieldName)
 
@@ -1203,7 +1112,6 @@ func (p *Plugin) processEnumForTranslation(
 		return nil
 	}
 
-	// Derive the pb namespace from the enum's pb output path
 	pbOutputPath := enum.FindPBOutputPath(e, data.table)
 	pbNamespace := derivePBCppNamespace(pbOutputPath)
 
@@ -1218,7 +1126,6 @@ func (p *Plugin) processEnumForTranslation(
 		})
 	}
 
-	// Use first enum value as default (oracle schema is source of truth)
 	firstPBValue := fmt.Sprintf("%s_%s", toScreamingSnake(e.Name), toScreamingSnake(form.Values[0].Name))
 	return &enumTranslatorData{
 		Name:        e.Name,
@@ -1246,7 +1153,6 @@ func (p *Plugin) processArrayWrapperForTranslation(
 	elemType := form.Base.TypeArgs[0]
 	elemCppType := p.typeRefToCppForTranslator(elemType, data)
 
-	// Check if element needs conversion (i.e., it's a struct)
 	elementNeedsConvert := false
 	forwardConv := "pb.add_%s(item)"
 	backwardConv := "cpp.push_back(item)"
@@ -1280,7 +1186,6 @@ func deriveNamespace(outputPath string) string {
 		return "synnax"
 	}
 
-	// Determine the top-level namespace based on the path prefix
 	var topLevel string
 	switch {
 	case len(parts) >= 2 && parts[0] == "x" && parts[1] == "cpp":
@@ -1299,11 +1204,6 @@ func deriveNamespace(outputPath string) string {
 	return fmt.Sprintf("%s::%s", topLevel, subNs)
 }
 
-// derivePBCppNamespace converts a pb output path to a fully qualified C++ namespace.
-// This mirrors the package derivation logic in pb/types plugin:
-// - For "core/pkg/{layer}/{service}/pb" -> "::{layer}::{service}::pb"
-// - For "x/go/{service}/pb" -> "::x::{service}::pb"
-// - For other paths -> "::{first}::{last-before-pb}::pb"
 func derivePBCppNamespace(pbOutputPath string) string {
 	if pbOutputPath == "" {
 		return "pb"
@@ -1313,13 +1213,11 @@ func derivePBCppNamespace(pbOutputPath string) string {
 		return "pb"
 	}
 
-	// Derive namespace (directory before /pb, or last component)
 	namespace := parts[len(parts)-1]
 	if namespace == "pb" && len(parts) >= 2 {
 		namespace = parts[len(parts)-2]
 	}
 
-	// Derive layer prefix (mirrors deriveLayerPrefix in pb/types)
 	var prefix string
 	if len(parts) >= 3 && parts[0] == "core" && parts[1] == "pkg" {
 		prefix = parts[2] // e.g., "distribution", "service", "api"
@@ -1381,8 +1279,6 @@ func toSnakeCase(s string) string {
 	return lo.SnakeCase(s)
 }
 
-// cppReservedKeywords is a set of C++ reserved keywords that protobuf escapes
-// by adding an underscore suffix to accessor methods.
 var cppReservedKeywords = map[string]bool{
 	"alignas": true, "alignof": true, "and": true, "and_eq": true, "asm": true,
 	"auto": true, "bitand": true, "bitor": true, "bool": true, "break": true,
@@ -1404,8 +1300,6 @@ var cppReservedKeywords = map[string]bool{
 	"xor_eq": true,
 }
 
-// escapePBFieldName returns the field name with underscore suffix if it's a C++ reserved keyword.
-// Protobuf C++ codegen escapes reserved keywords this way.
 func escapePBFieldName(name string) string {
 	if cppReservedKeywords[name] {
 		return name + "_"
@@ -1452,9 +1346,9 @@ type arrayWrapperTranslatorData struct {
 	PBName              string
 	PBNamespace         string
 	ElementType         string
-	ElementNeedsConvert bool   // True if element is a struct that needs to_proto()/from_proto()
-	ForwardConv         string // Code to convert element to proto
-	BackwardConv        string // Code to convert element from proto
+	ElementNeedsConvert bool
+	ForwardConv         string
+	BackwardConv        string
 }
 
 func (d *templateData) HasIncludes() bool {
@@ -1471,14 +1365,13 @@ type translatorData struct {
 	IsGeneric      bool
 	TypeParams     []typeParamData
 	TypeParamNames string
-	// Inheritance support
-	HasExtends  bool
-	ParentTypes []parentTypeData
-	AllFields   []fieldTranslatorData // All unified fields for from_proto when HasExtends
+	HasExtends     bool
+	ParentTypes    []parentTypeData
+	AllFields      []fieldTranslatorData
 }
 
 type parentTypeData struct {
-	QualifiedName string // e.g., "arc::ir::IR"
+	QualifiedName string
 }
 
 type typeParamData struct {

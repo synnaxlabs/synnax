@@ -17,7 +17,9 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
+	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
@@ -60,7 +62,6 @@ func (p *Plugin) Check(req *plugin.Request) error {
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
-	// Collect types using framework collectors
 	typeDefCollector, err := framework.CollectDistinct("cpp", req)
 	if err != nil {
 		return nil, err
@@ -76,7 +77,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	// Build combined order - structs first, then aliases that don't share path with structs
 	var combinedOrder []string
 	combinedOrder = append(combinedOrder, structCollector.Paths()...)
 	for _, path := range aliasCollector.Paths() {
@@ -85,7 +85,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
-	// Collect standalone enum output paths (for schemas where all structs are omitted but enums exist)
 	enumOutputPaths := make(map[string][]resolution.Type)
 	for _, e := range req.Resolutions.EnumTypes() {
 		if omit.IsType(e, "cpp") {
@@ -95,7 +94,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if enumPath == "" {
 			continue
 		}
-		// Only add if not already covered by structs, aliases, or typedefs
 		if !structCollector.Has(enumPath) && !aliasCollector.Has(enumPath) && !typeDefCollector.Has(enumPath) {
 			enumOutputPaths[enumPath] = append(enumOutputPaths[enumPath], e)
 		}
@@ -217,27 +215,21 @@ func (p *Plugin) generateFile(
 		rawNs:       namespace,
 	}
 
-	// Track declared type names to avoid duplicates
 	declaredNames := make(map[string]bool)
 
-	// Process enums that are in the same namespace
 	for _, e := range enums {
 		if e.Namespace == namespace && !omit.IsType(e, "cpp") {
 			data.Enums = append(data.Enums, p.processEnum(e))
 		}
 	}
 
-	// Combine typedefs, aliases and structs for topological sorting.
-	// We need to include omitted types (like parent structs) to maintain
-	// correct dependency ordering for child types.
+	data.Ontology = p.extractOntology(structs, table, data)
+
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, typeDefs...)
 	combinedTypes = append(combinedTypes, aliases...)
 	combinedTypes = append(combinedTypes, structs...)
 
-	// For structs that extend omitted parents, we need to add the parent types
-	// to the sort so their dependencies are considered. Get all structs in the
-	// same namespace from the resolution table.
 	if namespace != "" {
 		allNamespaceTypes := table.TypesInNamespace(namespace)
 		existingQNames := make(map[string]bool)
@@ -251,10 +243,8 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	// Sort topologically so dependencies come before dependents
 	allSortedTypes := table.TopologicalSort(combinedTypes)
 
-	// Now filter out omitted types while preserving the sorted order
 	var sortedTypes []resolution.Type
 	for _, typ := range allSortedTypes {
 		if !omit.IsType(typ, "cpp") {
@@ -262,10 +252,6 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	// Collect forward declarations for non-generic structs only.
-	// Template structs cannot use simple forward declarations - they require
-	// template<typename T> struct Foo; syntax, and even then std::optional<Foo<T>>
-	// needs the full definition. So we skip templates entirely.
 	for _, typ := range sortedTypes {
 		if form, ok := typ.Form.(resolution.StructForm); ok && !form.IsGeneric() {
 			name := domain.GetName(typ, "cpp")
@@ -394,7 +380,6 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	if !ok {
 		return typeDefData{Name: td.Name, CppType: "void"}
 	}
-	// Check for @cpp name override
 	name := domain.GetName(td, "cpp")
 
 	tdd := typeDefData{
@@ -402,14 +387,11 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		CppType: p.typeRefToCpp(form.Base, data),
 	}
 
-	// Check if this is an array type - if so, generate a wrapper struct
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
 		tdd.IsArrayWrapper = true
 		elemTypeRef := form.Base.TypeArgs[0]
 		tdd.ElementType = p.typeRefToCpp(elemTypeRef, data)
-		// Check if element is primitive - allows inline initializer_list constructor
 		tdd.ElementIsPrimitive = resolution.IsPrimitive(elemTypeRef.Name)
-		// Check for fixed-size array
 		if form.Base.ArraySize != nil {
 			tdd.IsFixedSizeArray = true
 			tdd.ArraySize = *form.Base.ArraySize
@@ -418,7 +400,6 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			data.includes.addSystem("vector")
 		}
 
-		// Extract custom methods from @cpp directives
 		if cppDomain, ok := td.Domains["cpp"]; ok {
 			if methodsExpr, found := cppDomain.Expressions.Find("methods"); found {
 				for _, v := range methodsExpr.Values {
@@ -427,7 +408,6 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 					}
 				}
 			}
-			// Add custom includes required by the methods
 			if includesExpr, found := cppDomain.Expressions.Find("includes"); found {
 				for _, v := range includesExpr.Values {
 					if v.StringValue != "" {
@@ -435,7 +415,6 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 					}
 				}
 			}
-			// Add system includes
 			if sysIncludesExpr, found := cppDomain.Expressions.Find("system_includes"); found {
 				for _, v := range sysIncludesExpr.Values {
 					if v.StringValue != "" {
@@ -445,32 +424,22 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			}
 		}
 
-		// Note: Array wrappers do NOT get proto support by default because
-		// proto uses repeated fields, not wrapper messages. Proto support for
-		// array wrappers requires an explicit @pb name directive indicating
-		// a corresponding proto message exists.
-		if hasPBFlag(td) && !omit.IsType(td, "pb") {
-			// Only generate proto for array wrappers if they have an explicit @pb name
-			// (meaning someone defined a proto message for this wrapper type)
-			if hasExplicitPBName(td) {
-				pbOutputPath := output.GetPBPath(td)
-				if pbOutputPath != "" {
-					pbName := getPBName(td)
-					pbNamespace := derivePBCppNamespace(pbOutputPath)
-					tdd.HasProto = true
-					tdd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
-					tdd.ProtoNamespace = pbNamespace
-					tdd.ProtoClass = pbName
-					data.includes.addSystem("utility")
-					data.includes.addInternal("x/cpp/errors/errors.h")
-					// Include the protobuf header
-					protoInclude := fmt.Sprintf("%s/%s.pb.h", pbOutputPath, td.Namespace)
-					data.includes.addInternal(protoInclude)
-				}
+		if hasPBFlag(td) && !omit.IsType(td, "pb") && hasExplicitPBName(td) {
+			pbOutputPath := output.GetPBPath(td)
+			if pbOutputPath != "" {
+				pbName := getPBName(td)
+				pbNamespace := derivePBCppNamespace(pbOutputPath)
+				tdd.HasProto = true
+				tdd.ProtoType = fmt.Sprintf("%s::%s", pbNamespace, pbName)
+				tdd.ProtoNamespace = pbNamespace
+				tdd.ProtoClass = pbName
+				data.includes.addSystem("utility")
+				data.includes.addInternal("x/cpp/errors/errors.h")
+				protoInclude := fmt.Sprintf("%s/%s.pb.h", pbOutputPath, td.Namespace)
+				data.includes.addInternal(protoInclude)
 			}
 		}
 
-		// Array wrappers need json.h for parse/to_json
 		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
@@ -483,17 +452,13 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 		return aliasData{Name: alias.Name, Target: "void"}
 	}
 
-	// Get the C++ name (respects @cpp name directive)
 	name := domain.GetName(alias, "cpp")
-
-	// Convert target type to C++ type string
 	target := p.aliasTargetToCpp(form.Target, data)
 
-	// Collect type parameters, skipping defaulted ones
 	var typeParams []string
 	for _, tp := range form.TypeParams {
 		if tp.HasDefault() {
-			continue // Skip defaulted type params
+			continue
 		}
 		typeParams = append(typeParams, tp.Name)
 	}
@@ -507,16 +472,13 @@ func (p *Plugin) processAlias(alias resolution.Type, data *templateData) aliasDa
 }
 
 func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData) string {
-	// Handle type parameters
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		// For defaulted type params, use the default type instead
 		if typeRef.TypeParam.HasDefault() {
 			return p.aliasTargetToCpp(*typeRef.TypeParam.Default, data)
 		}
 		return typeRef.TypeParam.Name
 	}
 
-	// Check for Array (built-in generic)
 	if typeRef.Name == "Array" {
 		data.includes.addSystem("vector")
 		elementType := "void"
@@ -526,7 +488,6 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 		return fmt.Sprintf("std::vector<%s>", elementType)
 	}
 
-	// Check for Map (built-in generic)
 	if typeRef.Name == "Map" {
 		data.includes.addSystem("unordered_map")
 		keyType := "std::string"
@@ -540,23 +501,19 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 		return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
 	}
 
-	// Check if it's a primitive
 	if resolution.IsPrimitive(typeRef.Name) {
 		return p.primitiveToCpp(typeRef.Name, data)
 	}
 
-	// Try to resolve the type
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return typeRef.Name
 	}
 
-	// Build the base name with namespace handling
 	name := resolved.Name
 	isOmitted := omit.IsType(resolved, "cpp")
 	targetOutputPath := output.GetPath(resolved, "cpp")
 
-	// Check for @cpp include and name overrides
 	var cppInclude string
 	if cppDomain, ok := resolved.Domains["cpp"]; ok {
 		for _, expr := range cppDomain.Expressions {
@@ -573,15 +530,11 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 		}
 	}
 
-	// Handle cross-namespace references
 	if resolved.Namespace != data.rawNs {
 		if isOmitted || targetOutputPath == "" {
-			// Handwritten type - use @cpp include and resolved namespace
 			if cppInclude != "" {
 				data.includes.addInternal(cppInclude)
 			}
-			// If there's an output path, derive the namespace from it (handles x/cpp/telem -> x::telem).
-			// Otherwise use the schema namespace directly.
 			if targetOutputPath != "" {
 				ns := deriveNamespace(targetOutputPath)
 				name = fmt.Sprintf("::%s::%s", ns, name)
@@ -589,8 +542,6 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {
-			// Generated type - include the generated header and add namespace prefix
-			// Must use :: prefix for absolute namespace resolution
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
@@ -598,23 +549,18 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 		}
 	}
 
-	// Build with type arguments, filtering out defaulted params
-	// For generic types with all-defaulted/optional params referenced without args, we need <>
-	// BUT only if the type is actually a C++ template (has params without explicit defaults)
 	if len(typeRef.TypeArgs) == 0 {
-		// Check if target is a C++ template with all params defaulted
 		if isCppTemplateWithAllDefaults(resolved) {
-			return name + "<>" // Need <> to instantiate template with defaults
+			return name + "<>"
 		}
 		return name
 	}
 
-	// Filter type args, skipping those for defaulted params
 	var args []string
 	if form, ok := resolved.Form.(resolution.StructForm); ok {
 		for i, arg := range typeRef.TypeArgs {
 			if i < len(form.TypeParams) && form.TypeParams[i].HasDefault() {
-				continue // Skip type args for defaulted params
+				continue
 			}
 			args = append(args, p.aliasTargetToCpp(arg, data))
 		}
@@ -625,7 +571,6 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 	}
 
 	if len(args) == 0 {
-		// All args were for defaulted params - check if we need <>
 		if isCppTemplateWithAllDefaults(resolved) {
 			return name + "<>"
 		}
@@ -650,11 +595,9 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		IsAlias: isAlias,
 	}
 
-	// Process type parameters, skipping those with explicit defaults but keeping optional ones
-	// Optional type params get implicit defaults (std::monostate) which C++ can handle
 	for _, tp := range form.TypeParams {
 		if tp.HasDefault() {
-			continue // Skip type params with explicit defaults (substitute default value)
+			continue
 		}
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, data))
 	}
@@ -665,7 +608,6 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		return sd
 	}
 
-	// Check if we can use C++ multiple inheritance
 	if canUseInheritance(form, data.table) {
 		sd.HasExtends = true
 		for _, extendsRef := range form.Extends {
@@ -676,23 +618,19 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 			qualifiedName := p.resolveExtendsType(extendsRef, parent, data)
 			sd.ExtendsTypes = append(sd.ExtendsTypes, qualifiedName)
 		}
-		// Only process child's own fields (not inherited)
 		for _, field := range form.Fields {
 			sd.Fields = append(sd.Fields, p.processField(field, entry, data))
 		}
 	} else {
-		// Fall back to field flattening (current behavior)
 		for _, field := range resolution.UnifiedFields(entry, data.table) {
 			sd.Fields = append(sd.Fields, p.processField(field, entry, data))
 		}
 	}
 
-	// Structs with fields or inheritance need json.h for parse/to_json methods
 	if len(sd.Fields) > 0 || sd.HasExtends {
 		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
-	// Generic structs need type_traits for if constexpr checks
 	if form.IsGeneric() {
 		data.includes.addSystem("type_traits")
 	}
@@ -708,13 +646,11 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 			sd.ProtoClass = pbName
 			data.includes.addSystem("utility")
 			data.includes.addInternal("x/cpp/errors/errors.h")
-			// Include the protobuf header
 			protoInclude := fmt.Sprintf("%s/%s.pb.h", pbOutputPath, entry.Namespace)
 			data.includes.addInternal(protoInclude)
 		}
 	}
 
-	// Extract custom method declarations and includes from @cpp directives
 	if cppDomain, ok := entry.Domains["cpp"]; ok {
 		if methodsExpr, found := cppDomain.Expressions.Find("methods"); found {
 			for _, v := range methodsExpr.Values {
@@ -723,7 +659,6 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 				}
 			}
 		}
-		// Add custom includes required by the methods
 		if includesExpr, found := cppDomain.Expressions.Find("includes"); found {
 			for _, v := range includesExpr.Values {
 				if v.StringValue != "" {
@@ -731,7 +666,6 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 				}
 			}
 		}
-		// Add system includes (e.g., <ostream>)
 		if sysIncludesExpr, found := cppDomain.Expressions.Find("system_includes"); found {
 			for _, v := range sysIncludesExpr.Values {
 				if v.StringValue != "" {
@@ -746,8 +680,6 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 
 func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData {
 	tpd := typeParamData{Name: tp.Name}
-	// Optional type params without explicit defaults get std::monostate as implicit default
-	// This mirrors TypeScript's approach of using z.ZodNever for optional type params
 	if tp.Optional {
 		tpd.HasDefault = true
 		tpd.Default = "std::monostate"
@@ -761,8 +693,6 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 // Returns empty string if no explicit default is needed (e.g., for types with
 // proper default constructors like std::string, std::vector, std::optional).
 func cppDefaultValue(cppType string, underlyingPrimitive string) string {
-	// First check for telem types with explicit constructors (must check before underlying primitive)
-	// These types are based on int64 but need explicit constructor calls
 	if strings.Contains(cppType, "::telem::TimeStamp") {
 		return "x::telem::TimeStamp(0)"
 	}
@@ -773,7 +703,6 @@ func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 		return "x::telem::TimeRange{}"
 	}
 
-	// Then check the underlying primitive type for aliases/distinct types
 	if underlyingPrimitive != "" {
 		switch underlyingPrimitive {
 		case "bool":
@@ -793,7 +722,6 @@ func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 		}
 	}
 
-	// Then check the C++ type string for direct primitive types
 	switch cppType {
 	case "bool":
 		return "false"
@@ -805,7 +733,6 @@ func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 		return "0"
 	}
 
-	// Telem types with explicit constructors need constructor syntax
 	if strings.HasPrefix(cppType, "x::telem::") {
 		switch cppType {
 		case "x::telem::TimeStamp":
@@ -815,40 +742,24 @@ func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 		case "x::telem::TimeRange":
 			return "x::telem::TimeRange{}"
 		default:
-			// Other telem types default to brace initialization
 			return "{}"
 		}
 	}
 
-	// Types that have proper default constructors don't need explicit defaults:
-	// - std::string defaults to ""
-	// - std::vector<T> defaults to empty
-	// - std::optional<T> defaults to nullopt
-	// - std::unordered_map<K,V> defaults to empty
-	// - x::mem::indirect<T> defaults to empty/null
-	// - User-defined structs have their own field defaults
 	return ""
 }
 
-// getUnderlyingPrimitive returns the underlying primitive type name for a type reference.
-// For primitives, returns the primitive name directly.
-// For distinct types (aliases), returns the underlying primitive if the alias is based on a primitive.
-// Returns empty string if not based on a primitive.
 func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table) string {
-	// Direct primitive check
 	if resolution.IsPrimitive(typeRef.Name) {
 		return typeRef.Name
 	}
 
-	// Try to resolve the type
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return ""
 	}
 
-	// Check for distinct type (type alias)
 	if form, ok := resolved.Form.(resolution.DistinctForm); ok {
-		// Recursively check the base type
 		return getUnderlyingPrimitive(form.Base, table)
 	}
 
@@ -858,29 +769,19 @@ func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table)
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
 	isSelfRef := isSelfReference(field.Type, entry)
-
-	// Get the underlying primitive type for determining default values
-	// This handles type aliases like `Key = uint32` where Key should get `= 0`
 	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
 
-	// Apply optional wrappers based on field flags
 	if field.IsHardOptional {
 		if isSelfRef {
-			// Self-referential types need indirect storage because std::optional<T>
-			// requires T to be complete, but T is incomplete inside its own definition.
-			// x::mem::indirect provides value semantics with deep copy support.
 			data.includes.addInternal("x/cpp/mem/indirect.h")
 			cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)
 		} else {
 			data.includes.addSystem("optional")
 			cppType = fmt.Sprintf("std::optional<%s>", cppType)
 		}
-		// Optional types don't need default values since std::optional defaults to nullopt
 		underlyingPrimitive = ""
 	}
 
-	// Get the C++ field name, respecting @cpp name override
-	// If there's an override, use it directly; otherwise convert to snake_case
 	cppFieldName := domain.GetFieldName(field, "cpp")
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
@@ -895,13 +796,10 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	}
 }
 
-// isSelfReference checks if a type reference refers to its containing type,
-// either directly or through type arguments (for generic recursive references).
 func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 	if t.Name == parent.QualifiedName {
 		return true
 	}
-	// Check type arguments for generic recursive references
 	for _, arg := range t.TypeArgs {
 		if isSelfReference(arg, parent) {
 			return true
@@ -911,16 +809,13 @@ func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
-	// Handle type parameters first
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
-		// For defaulted type params, use the default type instead
 		if typeRef.TypeParam.HasDefault() {
 			return p.typeRefToCpp(*typeRef.TypeParam.Default, data)
 		}
 		return typeRef.TypeParam.Name
 	}
 
-	// Check for Array (built-in generic)
 	if typeRef.Name == "Array" {
 		data.includes.addSystem("vector")
 		elementType := "void"
@@ -930,7 +825,6 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return fmt.Sprintf("std::vector<%s>", elementType)
 	}
 
-	// Check for Map (built-in generic)
 	if typeRef.Name == "Map" {
 		data.includes.addSystem("unordered_map")
 		keyType := "std::string"
@@ -944,12 +838,10 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return fmt.Sprintf("std::unordered_map<%s, %s>", keyType, valueType)
 	}
 
-	// Check if it's a primitive
 	if resolution.IsPrimitive(typeRef.Name) {
 		return p.primitiveToCpp(typeRef.Name, data)
 	}
 
-	// Try to resolve the type from the table
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return "void"
@@ -988,7 +880,6 @@ func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
 }
 
 func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resolution.TypeRef, data *templateData) string {
-	// Check if struct has a @cpp name override
 	name := resolved.Name
 	var cppInclude string
 	isOmitted := omit.IsType(resolved, "cpp")
@@ -1010,18 +901,11 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 
 	targetOutputPath := output.GetPath(resolved, "cpp")
 
-	// Handle cross-namespace references
 	if resolved.Namespace != data.rawNs {
 		if isOmitted || targetOutputPath == "" {
-			// This struct is omitted or has no @cpp output - it's handwritten.
-			// Use the @cpp include path if provided, otherwise we can't include it.
-			// Use global namespace prefix :: to avoid ambiguity with synnax::* namespaces
 			if cppInclude != "" {
 				data.includes.addInternal(cppInclude)
 			}
-			// Use namespace prefix for handwritten types.
-			// If there's an output path, derive the namespace from it (handles x/cpp/telem -> x::telem).
-			// Otherwise use the schema namespace directly.
 			if targetOutputPath != "" {
 				ns := deriveNamespace(targetOutputPath)
 				name = fmt.Sprintf("::%s::%s", ns, name)
@@ -1029,11 +913,8 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {
-			// Generated type - include the generated header
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
-			// Use namespace prefix for cross-namespace generated types
-			// Must use :: prefix for absolute namespace resolution
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
@@ -1043,7 +924,6 @@ func (p *Plugin) resolveStructType(resolved resolution.Type, typeArgs []resoluti
 }
 
 func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumForm, data *templateData) string {
-	// String enums in C++ are represented as std::string, not as an enum class
 	if !form.IsIntEnum {
 		data.includes.addSystem("string")
 		return "std::string"
@@ -1051,13 +931,11 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumF
 
 	name := resolved.Name
 
-	// For cross-namespace references, we need to add an include and namespace prefix
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := enum.FindOutputPath(resolved, data.table, "cpp")
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
-			// Use namespace-qualified name with :: prefix for absolute resolution
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
@@ -1067,7 +945,6 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumF
 }
 
 func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
-	// Check for @cpp name override
 	name := domain.GetName(resolved, "cpp")
 
 	if resolved.Namespace != data.rawNs {
@@ -1076,7 +953,6 @@ func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateDat
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
 		}
-		// Use namespace-qualified name with :: prefix for absolute resolution
 		ns := deriveNamespace(targetOutputPath)
 		return fmt.Sprintf("::%s::%s", ns, name)
 	}
@@ -1090,7 +966,6 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolutio
 		if targetOutputPath != "" {
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
 			data.includes.addInternal(includePath)
-			// Use :: prefix for absolute namespace resolution
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
@@ -1103,7 +978,6 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 		return baseName
 	}
 
-	// Filter type args, skipping those that correspond to defaulted params
 	var args []string
 	var typeParams []resolution.TypeParam
 	if targetType != nil {
@@ -1117,7 +991,7 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 		if len(typeParams) > 0 {
 			for i, arg := range typeArgs {
 				if i < len(typeParams) && typeParams[i].HasDefault() {
-					continue // Skip defaulted type args
+					continue
 				}
 				args = append(args, p.typeRefToCpp(arg, data))
 			}
@@ -1133,8 +1007,6 @@ func (p *Plugin) buildGenericType(baseName string, typeArgs []resolution.TypeRef
 	}
 
 	if len(args) == 0 {
-		// All args were for defaulted params - check if we need <>
-		// Only add <> if the type is actually a C++ template with all params defaulted
 		if targetType != nil && isCppTemplateWithAllDefaults(*targetType) {
 			return baseName + "<>"
 		}
@@ -1216,9 +1088,17 @@ type templateData struct {
 	TypeDefs     []typeDefData
 	Aliases      []aliasData
 	SortedDecls  []sortedDeclData
+	Ontology     *ontologyData
 	includes     *includeManager
 	table        *resolution.Table
 	rawNs        string
+}
+
+// ontologyData contains information for generating ontology ID support.
+type ontologyData struct {
+	TypeName      string // e.g., "channel", "device", "task"
+	KeyType       string // C++ type name, e.g., "Key"
+	KeyConversion string // Expression to convert key to string, e.g., "std::to_string(key)" or "key"
 }
 
 type sortedDeclData struct {
@@ -1386,6 +1266,48 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 
 	// Handle generic parents with type arguments
 	return p.buildGenericType(name, extendsRef.TypeArgs, &parent, data)
+}
+
+// extractOntology extracts ontology metadata from structs that have both @ontology domain
+// and a field with @key annotation. Returns nil if no suitable struct is found.
+func (p *Plugin) extractOntology(
+	structs []resolution.Type,
+	table *resolution.Table,
+	data *templateData,
+) *ontologyData {
+	skip := func(typ resolution.Type) bool { return omit.IsType(typ, "cpp") }
+	rawKeyFields := key.Collect(structs, table, skip)
+	ontData := ontology.Extract(structs, rawKeyFields, skip)
+	if ontData == nil || len(rawKeyFields) == 0 {
+		return nil
+	}
+
+	// Determine the C++ key type name
+	keyType := "Key" // Default - most schemas define a Key type
+
+	// Determine key conversion based on the underlying primitive type
+	primitive := ontData.KeyField.Primitive
+	var keyConversion string
+	switch primitive {
+	case "string":
+		// String types don't need conversion
+		keyConversion = "key"
+	case "uuid":
+		// UUID has a to_string() method
+		keyConversion = "key.to_string()"
+	default:
+		// Numeric types need std::to_string
+		keyConversion = "std::to_string(key)"
+	}
+
+	// Add the ontology include
+	data.includes.addInternal("client/cpp/ontology/id.h")
+
+	return &ontologyData{
+		TypeName:      ontData.TypeName,
+		KeyType:       keyType,
+		KeyConversion: keyConversion,
+	}
 }
 
 var templateFuncs = template.FuncMap{
@@ -1590,6 +1512,14 @@ using {{$td.Name}} = {{$td.CppType}};
 };
 {{- end}}
 {{- end}}
+{{- end}}
+{{- if .Ontology}}
+
+const synnax::ontology::ID ONTOLOGY_TYPE("{{.Ontology.TypeName}}", "");
+
+inline synnax::ontology::ID ontology_id(const {{.Ontology.KeyType}}& key) {
+    return synnax::ontology::ID("{{.Ontology.TypeName}}", {{.Ontology.KeyConversion}});
+}
 {{- end}}
 }
 `))

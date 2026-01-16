@@ -266,6 +266,63 @@ func processTypeDef(typ resolution.Type, table *resolution.Table, data *template
 	}
 }
 
+func processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *templateData) typeParamData {
+	tpd := typeParamData{
+		Name:       tp.Name,
+		IsOptional: tp.Optional,
+	}
+	if tp.Constraint != nil {
+		tpd.Constraint = constraintToPython(*tp.Constraint, table, data)
+	}
+	return tpd
+}
+
+func constraintToPython(constraint resolution.TypeRef, table *resolution.Table, data *templateData) string {
+	if resolution.IsPrimitive(constraint.Name) {
+		return primitiveToPython(constraint.Name, data)
+	}
+	resolved, ok := constraint.Resolve(table)
+	if !ok {
+		data.imports.addTyping("Any")
+		return "Any"
+	}
+	// Handle enums
+	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+		if resolved.Namespace != data.Namespace {
+			outputPath := enum.FindOutputPath(resolved, table, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+		}
+		return resolved.Name
+	}
+	// Handle structs
+	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, resolved.Name, data)
+		}
+		return resolved.Name
+	}
+	data.imports.addTyping("Any")
+	return "Any"
+}
+
+func containsTypeVar(typeVars []typeVarData, name string) bool {
+	for _, tv := range typeVars {
+		if tv.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, table *resolution.Table, data *templateData) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
@@ -335,6 +392,29 @@ func processStruct(
 		sd.PyName = name
 	}
 
+	// Process type parameters for generic structs
+	if len(form.TypeParams) > 0 {
+		sd.IsGeneric = true
+		data.imports.addTyping("Generic")
+		data.imports.addTyping("TypeVar")
+		for _, tp := range form.TypeParams {
+			// Type params with defaults are skipped (they get substituted with default value)
+			if tp.HasDefault() {
+				continue
+			}
+			tpd := processTypeParam(tp, table, data)
+			sd.TypeParams = append(sd.TypeParams, tpd)
+
+			// Collect TypeVars for module-level declaration (with or without constraints)
+			if !containsTypeVar(data.TypeVars, tp.Name) {
+				data.TypeVars = append(data.TypeVars, typeVarData{
+					Name:       tp.Name,
+					Constraint: tpd.Constraint,
+				})
+			}
+		}
+	}
+
 	// Handle struct aliases (AliasForm)
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd.IsAlias = true
@@ -351,7 +431,8 @@ func processStruct(
 				allParentsValid = false
 				break
 			}
-			sd.ExtendsNames = append(sd.ExtendsNames, getPyName(parent))
+			extendsExpr := buildExtendsExpr(extendsRef, parent, table, data)
+			sd.ExtendsNames = append(sd.ExtendsNames, extendsExpr)
 		}
 
 		if allParentsValid {
@@ -432,6 +513,46 @@ func processStruct(
 
 func getPyName(typ resolution.Type) string {
 	return domain.GetName(typ, "py")
+}
+
+// buildExtendsExpr builds the Python extends expression for a parent class.
+// If the parent has type params and type args are provided,
+// it returns something like "Status[D, V]" instead of just "Status".
+func buildExtendsExpr(extendsRef resolution.TypeRef, parent resolution.Type, table *resolution.Table, data *templateData) string {
+	baseName := getPyName(parent)
+
+	// Check if parent is generic
+	parentForm, ok := parent.Form.(resolution.StructForm)
+	if !ok || !parentForm.IsGeneric() {
+		return baseName
+	}
+
+	// Find which parent type params don't have defaults (those are the ones in Generic[])
+	var activeParamIndices []int
+	for i, tp := range parentForm.TypeParams {
+		if !tp.HasDefault() {
+			activeParamIndices = append(activeParamIndices, i)
+		}
+	}
+
+	if len(activeParamIndices) == 0 {
+		return baseName
+	}
+
+	// Build type arguments for the active params
+	var typeArgs []string
+	for _, idx := range activeParamIndices {
+		if idx < len(extendsRef.TypeArgs) {
+			arg := extendsRef.TypeArgs[idx]
+			typeArgs = append(typeArgs, typeToPython(arg, table, data))
+		}
+	}
+
+	if len(typeArgs) == 0 {
+		return baseName
+	}
+
+	return fmt.Sprintf("%s[%s]", baseName, strings.Join(typeArgs, ", "))
 }
 
 func processField(
@@ -567,6 +688,18 @@ func collectValidation(
 			constraints = append(constraints, fmt.Sprintf("default=%f", rules.Default.FloatValue))
 		case resolution.ValueKindString:
 			constraints = append(constraints, fmt.Sprintf("default=%q", rules.Default.StringValue))
+		case resolution.ValueKindIdent:
+			// Handle identifier-based defaults like "now" for timestamps
+			if rules.Default.IdentValue == "now" && isTimeStampType(typeRef, table) {
+				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
+			}
+			// Handle "create" for auto-generating string keys
+			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
+			primitive := key.ResolvePrimitive(typeRef, table)
+			if rules.Default.IdentValue == "create" && (isString || primitive == "string") {
+				data.imports.addUUID("uuid4")
+				constraints = append(constraints, "default_factory=lambda: str(uuid4())")
+			}
 		}
 	}
 	return constraints
@@ -592,6 +725,27 @@ func isUUIDType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
+// isTimeStampType checks if a type reference is or resolves to a TimeStamp type.
+func isTimeStampType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	name := typeRef.Name
+	// Check for direct TimeStamp reference (with or without namespace)
+	if name == "TimeStamp" || strings.HasSuffix(name, ".TimeStamp") {
+		return true
+	}
+	// Check if it resolves to a TimeStamp
+	typ, ok := table.Get(name)
+	if !ok {
+		return false
+	}
+	switch form := typ.Form.(type) {
+	case resolution.DistinctForm:
+		return form.Base.Name == "TimeStamp" || strings.HasSuffix(form.Base.Name, ".TimeStamp")
+	case resolution.AliasForm:
+		return form.Target.Name == "TimeStamp" || strings.HasSuffix(form.Target.Name, ".TimeStamp")
+	}
+	return false
+}
+
 func addCrossNamespaceImport(modulePath string, typeName string, data *templateData) string {
 	parts := strings.Split(modulePath, ".")
 	if len(parts) >= 2 {
@@ -610,6 +764,17 @@ func typeToPython(
 	table *resolution.Table,
 	data *templateData,
 ) string {
+	// Handle type parameter references (e.g., V, Details in Status<Details?, V>)
+	if typeRef.IsTypeParam() && typeRef.TypeParam != nil {
+		tp := typeRef.TypeParam
+		// Type params with defaults are substituted with their default value
+		if tp.HasDefault() && tp.Default != nil {
+			return typeToPython(*tp.Default, table, data)
+		}
+		// Return the type parameter name (e.g., "V", "Details")
+		return tp.Name
+	}
+
 	// Handle primitives directly
 	if resolution.IsPrimitive(typeRef.Name) {
 		return primitiveToPython(typeRef.Name, data)
@@ -883,6 +1048,7 @@ type templateData struct {
 	Enums       []enumData
 	TypeDefs    []typeDefData
 	SortedDecls []sortedDeclData // Topologically sorted aliases and structs
+	TypeVars    []typeVarData    // Module-level TypeVar declarations with constraints
 	imports     *importManager
 	Ontology    *ontologyData // Ontology data if domain ontology is present
 }
@@ -922,6 +1088,17 @@ type keyFieldData struct {
 	PyType string
 }
 
+type typeParamData struct {
+	Name       string // TypeVar name (e.g., "V")
+	Constraint string // Python bound type or empty
+	IsOptional bool   // True if optional (defaults to Any)
+}
+
+type typeVarData struct {
+	Name       string
+	Constraint string
+}
+
 type structData struct {
 	Name    string // Original struct name from schema
 	Doc     string // Documentation from @doc domain
@@ -930,6 +1107,10 @@ type structData struct {
 	Skip    bool   // If true, skip generating this struct (omit)
 	IsAlias bool   // If true, this struct is a type alias
 	AliasOf string // Python expression for the aliased type (e.g., "status.Status[StatusDetails]")
+
+	// Generic type support
+	IsGeneric  bool            // True if struct has type parameters
+	TypeParams []typeParamData // Type parameters for Generic[...] inheritance
 
 	// Extension support (single and multiple inheritance)
 	HasExtends   bool
@@ -996,12 +1177,24 @@ func hasDocumentation(s structData) bool {
 	return false
 }
 
+// genericArg returns the Python type argument for a type parameter in Generic[...].
+func genericArg(tpd typeParamData) string {
+	return tpd.Name
+}
+
+// hasTypeParams checks if there are any type params.
+func hasTypeParams(params []typeParamData) bool {
+	return len(params) > 0
+}
+
 var templateFuncs = template.FuncMap{
 	"title":                 lo.Capitalize,
 	"join":                  strings.Join,
 	"upper":                 strings.ToUpper,
 	"formatGoogleDocstring": formatGoogleDocstring,
 	"hasDocumentation":      hasDocumentation,
+	"genericArg":            genericArg,
+	"hasTypeParams":         hasTypeParams,
 }
 
 var fileTemplate = template.Must(template.New("python").Funcs(templateFuncs).Parse(`# Code generated by Oracle. DO NOT EDIT.
@@ -1053,10 +1246,19 @@ class {{ .Name }}(IntEnum):
     {{ .Name }} = {{ .IntValue }}
 {{- end }}
 {{- else }}
+{{- $enumName := .Name }}
+{{- range .Values }}
+
+{{ upper .Name }}_{{ upper $enumName }}: Literal["{{ .Value }}"] = "{{ .Value }}"
+{{- end }}
 
 
 {{ .Name }} = Literal[{{ .LiteralValues }}]
 {{- end }}
+{{- end }}
+{{- range .TypeVars }}
+
+{{ .Name }} = TypeVar("{{ .Name }}"{{ if .Constraint }}, bound={{ .Constraint }}{{ end }})
 {{- end }}
 {{- range .SortedDecls }}
 {{- if .IsTypeDef }}
@@ -1077,7 +1279,7 @@ class {{ .Name }}(IntEnum):
 {{- else if .HasExtends }}
 
 
-class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}):
+class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}{{ if hasTypeParams .TypeParams }}, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]{{ end }}):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}
@@ -1092,6 +1294,21 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 {{- end }}
 {{- else if not (hasDocumentation .) }}
     pass
+{{- end }}
+{{- else if hasTypeParams .TypeParams }}
+
+
+class {{ .PyName }}(BaseModel, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]):
+{{- if hasDocumentation . }}
+{{ formatGoogleDocstring . }}
+{{- end }}
+{{- range .Fields }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
+{{- if .KeyField }}
+
+    def __hash__(self) -> int:
+        return hash(self.{{ .KeyField }})
 {{- end }}
 {{- else }}
 

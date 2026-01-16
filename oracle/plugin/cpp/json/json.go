@@ -71,13 +71,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
-	// Also collect distinct types (typedefs) for array wrappers
 	distinctCollector, err := framework.CollectDistinct("cpp", req)
 	if err != nil {
 		return nil, err
 	}
 
-	// Combine paths from both collectors
 	allPaths := make(map[string]bool)
 	for _, path := range structCollector.Paths() {
 		allPaths[path] = true
@@ -147,7 +145,6 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	// Process distinct types that are array wrappers
 	for _, dt := range distinctTypes {
 		if omit.IsType(dt, "cpp") {
 			continue
@@ -169,22 +166,16 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
-// processArrayWrapper processes a distinct type that is an array to generate
-// JSON serialization for the wrapper struct.
 func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *arrayWrapperData {
 	form, ok := dt.Form.(resolution.DistinctForm)
 	if !ok {
 		return nil
 	}
 
-	// Only process array types
 	if form.Base.Name != "Array" || len(form.Base.TypeArgs) == 0 {
 		return nil
 	}
 
-	// Skip fixed-size arrays (e.g., Color [4]uint8) - they use std::array which
-	// doesn't have push_back, and need manual implementations with backward
-	// compatibility (e.g., hex string parsing)
 	if form.Base.ArraySize != nil {
 		return nil
 	}
@@ -193,7 +184,6 @@ func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *ar
 	elemType := form.Base.TypeArgs[0]
 	elemCppType := p.typeRefToCpp(elemType, data)
 
-	// Check if element type is a struct (needs to_json()/parse())
 	elemNeedsConversion := false
 	if elemResolved, ok := elemType.Resolve(data.table); ok {
 		if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
@@ -208,7 +198,6 @@ func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *ar
 	}
 }
 
-// canUseInheritance checks if a struct can use C++ multiple inheritance.
 func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
 	if len(form.Extends) == 0 {
 		return false
@@ -219,7 +208,6 @@ func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 	return !hasFieldConflicts(form.Extends, table)
 }
 
-// hasFieldConflicts returns true if multiple parents have overlapping field names.
 func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
 	if len(extends) < 2 {
 		return false
@@ -240,14 +228,12 @@ func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bo
 	return false
 }
 
-// resolveExtendsType converts a parent TypeRef to a fully qualified C++ type string.
 func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	name := domain.GetName(parent, "cpp")
 
 	if parent.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
-			// Add include for the parent's json.gen.h
 			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "json.gen.h")
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
@@ -255,7 +241,6 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 		}
 	}
 
-	// Handle generic parents with type arguments
 	if len(extendsRef.TypeArgs) > 0 {
 		args := make([]string, 0, len(extendsRef.TypeArgs))
 		for _, arg := range extendsRef.TypeArgs {
@@ -282,7 +267,6 @@ func (p *Plugin) processStruct(
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range form.TypeParams {
-		// Skip defaulted type params - they're handled by substituting the default
 		if tp.HasDefault() {
 			continue
 		}
@@ -302,7 +286,6 @@ func (p *Plugin) processStruct(
 		data.includes.addSystem("type_traits")
 	}
 
-	// Check if we can use C++ multiple inheritance
 	if canUseInheritance(form, data.table) {
 		serializer.HasExtends = true
 		for _, extendsRef := range form.Extends {
@@ -315,13 +298,11 @@ func (p *Plugin) processStruct(
 				QualifiedName: qualifiedName,
 			})
 		}
-		// Only process child's own fields (not inherited)
 		for _, field := range form.Fields {
 			fieldData := p.processField(field, s, data)
 			serializer.Fields = append(serializer.Fields, fieldData)
 		}
 	} else {
-		// Fall back to field flattening
 		for _, field := range resolution.UnifiedFields(s, data.table) {
 			fieldData := p.processField(field, s, data)
 			serializer.Fields = append(serializer.Fields, fieldData)
@@ -331,7 +312,6 @@ func (p *Plugin) processStruct(
 	return serializer, nil
 }
 
-// isSelfReference checks if a type reference refers to its containing type.
 func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 	if t.Name == parent.QualifiedName {
 		return true
@@ -344,28 +324,22 @@ func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
 	return false
 }
 
-// resolveToArrayElement checks if a type is an array or a typedef/alias that resolves to an array.
-// Returns (elementTypeRef, isArray).
 func (p *Plugin) resolveToArrayElement(typeRef resolution.TypeRef, data *templateData) (resolution.TypeRef, bool) {
-	// Direct Array type
 	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
 		return typeRef.TypeArgs[0], true
 	}
 
-	// Try to resolve the type (might be an alias or distinct type)
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return resolution.TypeRef{}, false
 	}
 
-	// Check if it's an alias to an Array (e.g., Stratum = string[])
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if aliasForm.Target.Name == "Array" && len(aliasForm.Target.TypeArgs) > 0 {
 			return aliasForm.Target.TypeArgs[0], true
 		}
 	}
 
-	// Check if it's a distinct type based on an Array (e.g., Params Param[])
 	if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 		if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
 			return distinctForm.Base.TypeArgs[0], true
@@ -379,22 +353,17 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	cppType := p.typeRefToCpp(field.Type, data)
 	jsonName := toSnakeCase(field.Name)
 
-	// Get the C++ field name, respecting @cpp name override
-	// If there's an override, use it directly; otherwise convert to snake_case
 	cppFieldName := domain.GetFieldName(field, "cpp")
 	if cppFieldName == field.Name {
 		cppFieldName = toSnakeCase(field.Name)
 	}
 
-	// Only treat as generic field if the type param does NOT have a default
-	// Defaulted type params are substituted with their default value
 	isGenericField := field.Type.IsTypeParam() && field.Type.TypeParam != nil && !field.Type.TypeParam.HasDefault()
 	typeParamName := ""
 	if isGenericField {
 		typeParamName = field.Type.TypeParam.Name
 	}
 
-	// Check if this field is a self-referential hard optional (uses indirect<T>)
 	isSelfRef := field.IsHardOptional && isSelfReference(field.Type, parent)
 
 	parseExpr := p.parseExprForField(field, parent, cppType, data, isSelfRef)
@@ -421,7 +390,6 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {
 	if typeRef.TypeParam != nil {
-		// For defaulted type params, substitute the default type
 		if typeRef.TypeParam.HasDefault() {
 			return p.typeRefToCpp(*typeRef.TypeParam.Default, data)
 		}
@@ -434,7 +402,6 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return fmt.Sprintf("std::vector<%s>", innerType)
 	}
 
-	// Handle Map (built-in generic)
 	if typeRef.Name == "Map" {
 		data.includes.addSystem("unordered_map")
 		keyType := "std::string"
@@ -472,8 +439,6 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return resolved.Name
 	}
 
-	// If this is an alias to a struct from a different namespace, we need to include
-	// that target's json.gen.h since that's where the template implementations are
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
 			if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
@@ -492,11 +457,8 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			// For fixed-size uint8 arrays (like Color), include the main header
-			// instead of json.gen.h since we don't generate json.gen.h for them
 			var includePath string
 			if p.isFixedSizeUint8ArrayType(resolved) {
-				// Use the type name in snake_case as the header file name
 				headerName := lo.SnakeCase(resolved.Name)
 				includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
 			} else {
@@ -524,8 +486,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 	jsonName := toSnakeCase(field.Name)
 	hasDefault := field.IsOptional
 
-	// Only treat as generic field if the type param does NOT have a default
-	// Defaulted type params are substituted with their default value
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		innerType := typeRef.TypeParam.Name
 		if field.IsHardOptional {
@@ -535,8 +495,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
 	}
 
-	// Check if the type is a distinct array wrapper (e.g., Params -> Param[])
-	// Parser::field<T> will call T::parse() automatically via has_static_parse trait
 	if resolved, ok := typeRef.Resolve(data.table); ok {
 		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
@@ -553,7 +511,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		}
 	}
 
-	// Check for raw Array or alias that resolves to Array (not a distinct wrapper)
 	if elemType, isArray := p.resolveToArrayElement(typeRef, data); isArray {
 		innerType := p.typeRefToCpp(elemType, data)
 
@@ -561,10 +518,8 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 			return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, elemType.TypeParam.Name, jsonName)
 		}
 
-		// Check if the element type is a struct (needs custom parsing)
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
-				// For arrays of structs, use parser.field<std::vector<StructType>>
 				structType := domain.GetName(elemResolved, "cpp")
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
@@ -585,7 +540,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 			if !enumForm.IsIntEnum {
 				if field.IsHardOptional {
-					// For hard optional string enums, use has() check with std::make_optional
 					return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<std::string>("%s")) : std::nullopt`, jsonName, jsonName)
 				}
 				if hasDefault {
@@ -593,7 +547,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				}
 				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 			}
-			// For int enums from different namespaces, qualify with namespace
 			enumType := domain.GetName(resolved, "cpp")
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
@@ -617,16 +570,13 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				}
 			}
 			if field.IsHardOptional {
-				// For self-referential types, wrap in x::mem::indirect and guard against infinite recursion
 				if isSelfRef {
 					return fmt.Sprintf(`parser.has("%s") ? x::mem::indirect<%s>(parser.field<%s>("%s")) : nullptr`, jsonName, structType, structType, jsonName)
 				}
-				// For non-self-referential hard optional structs, use has() check with std::make_optional
 				return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, structType, jsonName)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
-		// Check if it's an alias to a struct - treat the same as a struct for parsing
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
 				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
@@ -639,7 +589,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 						}
 					}
 					if field.IsHardOptional {
-						// For hard optional alias fields, use has() check with std::make_optional
 						return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, aliasType, jsonName)
 					}
 					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
@@ -650,7 +599,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 
 	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" && mapping.TargetType != "void" {
 		if field.IsHardOptional {
-			// For hard optional primitives, use has() check with std::make_optional
 			return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, cppType, jsonName)
 		}
 		if hasDefault {
@@ -664,7 +612,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		if isSelfRef {
 			return fmt.Sprintf(`parser.has("%s") ? x::mem::indirect<%s>(parser.field<%s>("%s")) : nullptr`, jsonName, cppType, cppType, jsonName)
 		}
-		// For non-self-referential hard optional fields, use has() check with std::make_optional
 		return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, cppType, jsonName)
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
@@ -716,14 +663,11 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
 
-	// Get the C++ field name, respecting @cpp name override
 	fieldName := domain.GetFieldName(field, "cpp")
 	if fieldName == field.Name {
 		fieldName = toSnakeCase(field.Name)
 	}
 
-	// Only treat as generic field if the type param does NOT have a default
-	// Defaulted type params are substituted with their default value
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		typeName := typeRef.TypeParam.Name
 		return fmt.Sprintf(`if constexpr (std::is_same_v<%s, x::json::json>)
@@ -734,8 +678,6 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
         j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, typeName, jsonName, jsonName, fieldName)
 	}
 
-	// Check if the type is a distinct array wrapper (e.g., Params -> Param[])
-	// These have their own to_json() method
 	if resolved, ok := typeRef.Resolve(data.table); ok {
 		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
@@ -744,7 +686,6 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 		}
 	}
 
-	// Check for raw Array or alias that resolves to Array (like Params -> Param[])
 	if elemType, isArray := p.resolveToArrayElement(typeRef, data); isArray {
 		if elemType.TypeParam != nil {
 			typeName := elemType.TypeParam.Name
@@ -761,7 +702,6 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
     }`, fieldName, typeName, typeName, jsonName)
 		}
 
-		// Check if element type is a struct (needs to_json())
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				return fmt.Sprintf(`{
@@ -777,19 +717,15 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 
 	resolved, resolvedOk := typeRef.Resolve(data.table)
 	if resolvedOk {
-		// Check if it's a struct
 		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			// For hard optional self-referential types (indirect<T>), use has_value() check and ->
 			if isSelfRef {
 				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
 			}
-			// For hard optional non-self-referential types (optional<T>), also use has_value() and ->
 			if field.IsHardOptional {
 				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
 			}
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 		}
-		// Check if it's an alias to a struct - treat the same as a struct
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
 				if _, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
@@ -802,14 +738,11 @@ func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Ty
 		}
 	}
 
-	// Check if type name matches timestamp/timespan (handle module-prefixed types)
 	lowerName := strings.ToLower(typeRef.Name)
 	if strings.HasSuffix(lowerName, "timestamp") || strings.HasSuffix(lowerName, "timespan") {
 		return fmt.Sprintf(`j["%s"] = this->%s.nanoseconds();`, jsonName, fieldName)
 	}
 
-	// Handle UUID type - use to_json() method
-	// Check both direct uuid type and aliases that resolve to uuid
 	if typeRef.Name == "uuid" || p.resolvesToUUID(typeRef, data) {
 		if field.IsHardOptional {
 			return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
@@ -899,24 +832,19 @@ func (m *includeManager) addInternal(path string) {
 	}
 }
 
-// resolvesToUUID checks if a type reference resolves to a uuid primitive through aliases.
-// This is needed because type aliases like Key = uuid don't have Name == "uuid" directly.
 func (p *Plugin) resolvesToUUID(typeRef resolution.TypeRef, data *templateData) bool {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
 		return false
 	}
 
-	// Check if it's an alias that resolves to uuid
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if aliasForm.Target.Name == "uuid" {
 			return true
 		}
-		// Recursively check nested aliases
 		return p.resolvesToUUID(aliasForm.Target, data)
 	}
 
-	// Check if it's a distinct type based on uuid
 	if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 		if distinctForm.Base.Name == "uuid" {
 			return true
@@ -926,8 +854,6 @@ func (p *Plugin) resolvesToUUID(typeRef resolution.TypeRef, data *templateData) 
 	return false
 }
 
-// isFixedSizeUint8ArrayType checks if a resolved type is a fixed-size uint8 array.
-// These types don't generate json.gen.h and need manual implementations.
 func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
 	form, ok := resolved.Form.(resolution.DistinctForm)
 	if !ok {

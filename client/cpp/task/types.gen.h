@@ -17,6 +17,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "client/cpp/ontology/id.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
@@ -101,4 +102,10 @@ struct Task {
     static std::pair<Task, x::errors::Error>
     from_proto(const ::service::task::pb::Task &pb);
 };
+
+const synnax::ontology::ID ONTOLOGY_TYPE("task", "");
+
+inline synnax::ontology::ID ontology_id(const Key &key) {
+    return synnax::ontology::ID("task", std::to_string(key));
+}
 }

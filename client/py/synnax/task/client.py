@@ -362,7 +362,7 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: Any,
+        config: dict[str, Any],
         rack: int = 0,
     ): ...
 
@@ -379,9 +379,13 @@ class Client:
         key: int = 0,
         name: str = "",
         type: str = "",
-        config: Any = None,
+        config: dict[str, Any] | None = None,
         rack: int = 0,
     ) -> Task | list[Task]:
+        if config is None:
+            config = dict()
+        elif isinstance(config, BaseModel):
+            config = config.model_dump()
         is_single = True
         if tasks is None:
             tasks = [TaskPayload(key=key, name=name, type=type, config=config)]

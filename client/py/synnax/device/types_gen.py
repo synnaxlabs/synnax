@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias
+from typing import Any, Generic, TypeAlias, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -60,11 +60,11 @@ class Device(BaseModel):
     key: Key
     rack: rack_.Key
     location: str
-    make: Any
-    model: Any
+    make: str
+    model: str
     name: str
     configured: bool = Field(default=False)
-    properties: Any
+    properties: dict[str, Any]
     status: Status | None = None
 
     def __hash__(self) -> int:

@@ -16,7 +16,6 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/task/json.gen.h"
 #include "client/cpp/task/proto.gen.h"
 #include "client/cpp/task/types.gen.h"
@@ -43,24 +42,6 @@ using RetrieveClient = freighter::
 /// @brief Type alias for the transport used to delete a task.
 using DeleteClient = freighter::
     UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
-
-/// @brief Converts a task key to an ontology ID.
-/// @param key The task key.
-/// @returns An ontology ID with type "task" and the given key.
-inline ontology::ID ontology_id(const Key key) {
-    return ontology::ID("task", std::to_string(key));
-}
-
-/// @brief Converts a vector of task keys to a vector of ontology IDs.
-/// @param keys The task keys.
-/// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> ontology_ids(const std::vector<Key> &keys) {
-    std::vector<ontology::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(ontology_id(key));
-    return ids;
-}
 
 /// @brief Creates a task key from a rack key and a local task key.
 /// @param rack The rack key.
