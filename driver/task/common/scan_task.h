@@ -443,12 +443,13 @@ public:
                     needs_update = true;
                 }
 
-                if (scanned_dev.rack != remote_dev.rack) {
+                if (scanned_dev.rack != remote_dev.rack && 
+                    this->update_threshold_exceeded(scanned_dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
                     needs_update = true;
                 }
 
-                if (needs_update && this->update_threshold_exceeded(scanned_dev.key)) {
+                if (needs_update) {
                     // Preserve user-configured properties
                     scanned_dev.properties = remote_dev.properties;
                     scanned_dev.name = remote_dev.name;
