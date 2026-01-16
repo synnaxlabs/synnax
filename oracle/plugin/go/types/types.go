@@ -632,7 +632,7 @@ const (
 {{- end}}
 {{range .Structs}}
 {{if .Doc -}}
-// {{.Doc}}
+// {{.Name}} {{.Doc}}
 {{end -}}
 {{if .IsAlias -}}
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} = {{.AliasOf}}
@@ -643,7 +643,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- end}}
 {{- range .Fields}}
 {{- if .Doc}}
-	// {{.Doc}}
+	// {{.GoName}} {{.Doc}}
 {{- end}}
 	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
 {{- end}}
@@ -655,7 +655,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} struct {
 {{- range .Fields}}
 {{- if .Doc}}
-	// {{.Doc}}
+	// {{.GoName}} {{.Doc}}
 {{- end}}
 	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
 {{- end}}

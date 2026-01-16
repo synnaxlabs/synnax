@@ -36,9 +36,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Running       bool                   `protobuf:"varint,1,opt,name=running,proto3" json:"running,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// running indicates whether the Arc module is currently executing.
+	Running       bool `protobuf:"varint,1,opt,name=running,proto3" json:"running,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -80,16 +82,25 @@ func (x *StatusDetails) GetRunning() bool {
 	return false
 }
 
+// Arc is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Graph         *pb.Graph              `protobuf:"bytes,3,opt,name=graph,proto3" json:"graph,omitempty"`
-	Text          *pb1.Text              `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
-	Module        *pb2.Module            `protobuf:"bytes,5,opt,name=module,proto3,oneof" json:"module,omitempty"`
-	Deploy        bool                   `protobuf:"varint,6,opt,name=deploy,proto3" json:"deploy,omitempty"`
-	Version       string                 `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
-	Status        *pb3.Status            `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for this module.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is a human-readable name for the module.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// graph is the visual dataflow graph representation of the module.
+	Graph *pb.Graph `protobuf:"bytes,3,opt,name=graph,proto3" json:"graph,omitempty"`
+	// text is the text-based Arc source code.
+	Text *pb1.Text `protobuf:"bytes,4,opt,name=text,proto3" json:"text,omitempty"`
+	// module is the compiled module output including IR and WebAssembly bytecode.
+	Module *pb2.Module `protobuf:"bytes,5,opt,name=module,proto3,oneof" json:"module,omitempty"`
+	// deploy indicates whether the module is deployed for execution.
+	Deploy bool `protobuf:"varint,6,opt,name=deploy,proto3" json:"deploy,omitempty"`
+	// version is the module version identifier.
+	Version string `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
+	// status is the current execution status of the module.
+	Status        *pb3.Status `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -17,10 +17,15 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** Base is a user-defined region of time in the Synnax cluster. Ranges act as a method for labeling and categorizing telemetry data within specific time periods. */
 export const baseZ = z.object({
+  /** key is the unique identifier for this range. */
   key: keyZ,
+  /** name is a human-readable name for the range. */
   name: z.string().min(1),
+  /** timeRange is the temporal extent of the range, defining its start and end timestamps. */
   timeRange: telem.timeRangeZ,
+  /** color is an optional display color for visual identification of the range in user interfaces. */
   color: color.colorZ.optional(),
 });
 export interface Base extends z.infer<typeof baseZ> {}

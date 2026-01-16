@@ -11,19 +11,32 @@
 @go output "core/pkg/service/workspace/lineplot"
 @pb
 
-Key = uuid
+Key = uuid {
+    @doc value "is a unique identifier for a line plot, represented as a UUID."
+}
 
 LinePlot struct {
-    key  Key    @key
-    name string
-    data json
+    key  Key    {
+        @doc value "is the unique identifier for this line plot."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the line plot."
+    }
+    data json   {
+        @doc value "is the line plot configuration including channel references, axis settings, and display options."
+    }
 
+    @doc value     "is a time-series visualization component for plotting telemetry data. Line plots support multiple channels, real-time streaming, and historical data display with zoom and pan capabilities."
     @ontology type "lineplot"
 }
 
 New struct extends LinePlot {
-    key Key?
+    key Key? {
+        @doc value "is an optional key for the line plot. If not provided, one will be automatically assigned."
+    }
 
+    @doc value    "contains parameters for creating a new line plot."
     @ts use_input
     @go omit
     @pb omit

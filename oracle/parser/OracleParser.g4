@@ -243,8 +243,14 @@ enumBody
     ;
 
 // Enum values require explicit values (integer or string)
+// Optional body block for value-level domains (e.g., @doc)
 enumValue
-    : IDENT EQUALS (INT_LIT | STRING_LIT)
+    : IDENT EQUALS (INT_LIT | STRING_LIT) enumValueBody?
+    ;
+
+// Optional body for enum values (domains only)
+enumValueBody
+    : nl* LBRACE nl* (domain nl*)* RBRACE
     ;
 
 // =============================================================================

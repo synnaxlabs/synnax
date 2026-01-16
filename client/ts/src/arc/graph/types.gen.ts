@@ -14,16 +14,24 @@ import { z } from "zod";
 
 import { ir } from "@/arc/ir";
 
+/** Node is a visual node in the Arc graph editor representing a function instantiation with position data. */
 export const nodeZ = z.object({
+  /** key is the unique identifier for this node instance. */
   key: z.string(),
+  /** type is the function type being instantiated. */
   type: z.string(),
+  /** config contains configuration parameter values as a JSON object. */
   config: record.nullishToEmpty,
+  /** position is the canvas position (x, y) for visual layout. */
   position: spatial.xyZ,
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
+/** Viewport is the camera state for viewing the Arc graph editor canvas. */
 export const viewportZ = z.object({
+  /** position is the camera pan offset (x, y). */
   position: spatial.xyZ,
+  /** zoom is the zoom level where 1.0 equals 100%. */
   zoom: z.number(),
 });
 export interface Viewport extends z.infer<typeof viewportZ> {}
@@ -31,10 +39,15 @@ export interface Viewport extends z.infer<typeof viewportZ> {}
 export const nodesZ = array.nullishToEmpty(nodeZ);
 export type Nodes = z.infer<typeof nodesZ>;
 
+/** Graph is a visual dataflow graph representation combining IR elements with canvas layout for the Arc graph editor. */
 export const graphZ = z.object({
+  /** viewport is the current camera state for the graph view. */
   viewport: viewportZ,
+  /** functions contains function definitions available in this graph. */
   functions: ir.functionsZ,
+  /** edges contains dataflow connections between node parameters. */
   edges: ir.edgesZ,
+  /** nodes contains visual nodes with canvas positions. */
   nodes: nodesZ,
 });
 export interface Graph extends z.infer<typeof graphZ> {}

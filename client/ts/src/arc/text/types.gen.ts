@@ -11,7 +11,9 @@
 
 import { z } from "zod";
 
+/** Text is text-based Arc source code with optional parsed AST for compilation. */
 export const textZ = z.object({
+  /** raw is the raw Arc source code in text form. */
   raw: z.string(),
 });
 export interface Text extends z.infer<typeof textZ> {}

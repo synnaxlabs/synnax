@@ -26,8 +26,13 @@ namespace arc::compiler {
 
 struct Output;
 
+/// @brief Output is compiled output from the Arc compiler including WebAssembly
+/// bytecode and memory layout.
 struct Output {
+    /// @brief wasm is compiled WebAssembly bytecode for sandboxed execution.
     std::vector<std::uint8_t> wasm;
+    /// @brief output_memory_bases contains memory base addresses for multi-output
+    /// functions, mapping function keys to their base addresses.
     std::unordered_map<std::string, std::uint32_t> output_memory_bases;
 
     static Output parse(x::json::Parser parser);

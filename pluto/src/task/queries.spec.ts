@@ -740,7 +740,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({ setting: z.string() }),
-          statusData: z.any().or(z.null()),
+          statusData: z.any().nullish(),
         },
         initialValues: {
           key: "0",
@@ -975,7 +975,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusDataSchema.or(z.null()),
+          statusData: statusDataSchema.nullish(),
         },
         initialValues: {
           key: testTask.key,
@@ -1109,7 +1109,7 @@ describe("queries", () => {
         schemas: {
           type: z.literal("testType"),
           config: z.object({}),
-          statusData: statusDataSchema.or(z.null()),
+          statusData: statusDataSchema.nullish(),
         },
         initialValues: {
           key: testTask.key,

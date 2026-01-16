@@ -16,8 +16,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
 
+// Alias associates a human-readable string alias with a channel within the context of a specific range. Enables semantic naming of channels that varies by range context.
 type Alias struct {
-	Range   ranger.Key  `json:"range" msgpack:"range"`
+	// Range is the unique identifier of the range containing this alias.
+	Range ranger.Key `json:"range" msgpack:"range"`
+	// Channel is the unique identifier of the channel being aliased.
 	Channel channel.Key `json:"channel" msgpack:"channel"`
-	Alias   string      `json:"alias" msgpack:"alias"`
+	// Alias is the human-readable name for the channel within this range context.
+	Alias string `json:"alias" msgpack:"alias"`
 }

@@ -34,9 +34,13 @@ export enum Concurrency {
 }
 export const concurrencyZ = z.enum(Concurrency);
 
+/** Operation defines an aggregation operation applied to channel data. Operations calculate min, max, or average values over a time duration or triggered by a reset channel. */
 export const operationZ = z.object({
+  /** type is the aggregation operation type: min, max, avg, or none. */
   type: operationTypeZ,
+  /** resetChannel is the channel key that triggers reset of the aggregation. If 0, duration-based reset is used. */
   resetChannel: keyZ.default(0),
+  /** duration is the time window for aggregation when reset_channel is 0. */
   duration: telem.timeSpanZ.default(TimeSpan.ZERO),
 });
 export interface Operation extends z.infer<typeof operationZ> {}
@@ -53,19 +57,33 @@ export type Name = z.infer<typeof nameZ>;
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
+/** Payload is a logical collection of samples emitted by or representing values from a single source. Channels are the fundamental unit of telemetry storage and streaming in Synnax. */
 export const payloadZ = z.object({
+  /** key is the unique identifier for this channel, automatically assigned by Synnax. */
   key: keyZ,
+  /** name is the human-readable channel name. */
   name: nameZ,
+  /** leaseholder is the cluster node that holds the lease for this channel. Mostly for internal use. */
   leaseholder: cluster.nodeKeyZ,
+  /** dataType is the data type of samples stored in this channel (e.g., Float64, Int32, TimeStamp). */
   dataType: telem.dataTypeZ,
+  /** isIndex is true if this is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps. */
   isIndex: z.boolean(),
+  /** index is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate. */
   index: keyZ,
+  /** alias is an optional alternate name for the channel within a specific context. */
   alias: z.string().optional(),
+  /** virtual is true if this channel does not store data in the database but can still be used for streaming purposes. */
   virtual: z.boolean().default(false),
+  /** internal is true if this is a system channel hidden from normal user queries. */
   internal: z.boolean().default(false),
+  /** expression is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual. */
   expression: z.string().default(""),
+  /** operations contains optional aggregation operations (min, max, avg) applied to channel data over time or triggered by a reset channel. */
   operations: zod.nullToUndefined(operationZ.array()),
+  /** concurrency sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency. */
   concurrency: control.concurrencyZ.optional(),
+  /** status is the current operational status of the channel. */
   status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}

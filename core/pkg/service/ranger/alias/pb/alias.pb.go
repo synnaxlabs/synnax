@@ -32,11 +32,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Alias associates a human-readable string alias with a channel within the context of a specific range. Enables semantic naming of channels that varies by range context.
 type Alias struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Range         string                 `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
-	Channel       uint32                 `protobuf:"varint,2,opt,name=channel,proto3" json:"channel,omitempty"`
-	Alias         string                 `protobuf:"bytes,3,opt,name=alias,proto3" json:"alias,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// range is the unique identifier of the range containing this alias.
+	Range string `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	// channel is the unique identifier of the channel being aliased.
+	Channel uint32 `protobuf:"varint,2,opt,name=channel,proto3" json:"channel,omitempty"`
+	// alias is the human-readable name for the channel within this range context.
+	Alias         string `protobuf:"bytes,3,opt,name=alias,proto3" json:"alias,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -24,6 +24,8 @@ namespace arc::module {
 
 struct Module;
 
+/// @brief Module is a compiled Arc module combining the intermediate representation
+/// with WebAssembly bytecode, ready for execution.
 struct Module : public ::arc::ir::IR, public ::arc::compiler::Output {
 
     static Module parse(x::json::Parser parser);

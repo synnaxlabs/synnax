@@ -11,57 +11,138 @@ import "schemas/spatial"
 
 @ts output "client/ts/src/workspace/schematic/symbol"
 
-Key = uuid
+Key = uuid {
+    @doc value "is a unique identifier for a schematic symbol."
+}
 
 Region struct {
-    key          string
-    name         string
-    selectors    string[]
-    stroke_color string?
-    fill_color   string?
+    key          string   {
+        @doc value "is the region identifier."
+    }
+    name         string   {
+        @doc value "is a human-readable name for the region."
+    }
+    selectors    string[] {
+        @doc value "contains CSS selectors targeting SVG elements within the symbol."
+    }
+    stroke_color string?  {
+        @doc value "is an optional stroke color in hex format (#RRGGBB)."
+    }
+    fill_color   string?  {
+        @doc value "is an optional fill color in hex format (#RRGGBB)."
+    }
+
+    @doc value "is a visual styling area within a symbol state, targeting specific SVG elements for dynamic coloring."
 }
 
 State struct {
-    key     string
-    name    string
-    regions Region[]
+    key     string   {
+        @doc value "is the state identifier."
+    }
+    name    string   {
+        @doc value "is a human-readable name for this state."
+    }
+    regions Region[] {
+        @doc value "contains style regions defining visual appearance for this state."
+    }
+
+    @doc value "is a named visual state of a symbol with regional styling configurations."
 }
 
 Handle struct {
-    key         string
-    position    spatial.XY
-    orientation spatial.OuterLocation
+    key         string                {
+        @doc value "is the handle identifier."
+    }
+    position    spatial.XY            {
+        @doc value "is the (x, y) coordinate within the symbol's local space."
+    }
+    orientation spatial.OuterLocation {
+        @doc value "is the direction the handle faces (top, right, bottom, left)."
+    }
+
+    @doc value "is a connection point on a symbol for linking to other diagram elements."
 }
 
 Viewport struct {
-    zoom     float64    @validate default 1
-    position spatial.XY
+    zoom     float64    {
+        @validate default 1
+        @doc value        "is the zoom level where 1.0 equals 100%."
+    }
+    position spatial.XY {
+        @doc value "is the (x, y) pan offset."
+    }
+
+    @doc value "is the camera state for viewing or previewing a symbol."
 }
 
 Spec struct {
-    svg              string    @validate min_length 1
-    states           State[]
-    variant          string    @validate min_length 1
-    handles          Handle[]
-    scale            float64   @validate default 1
-    scale_stroke     bool      @validate default false
-    preview_viewport Viewport?
+    svg              string    {
+        @validate min_length 1
+        @doc value           "is the SVG markup defining the symbol's visual geometry."
+    }
+    states           State[]   {
+        @doc value "contains available visual states with regional styling configurations."
+    }
+    variant          string    {
+        @validate min_length 1
+        @doc value           "is the symbol variant or category identifier (e.g., 'sensor', 'valve')."
+    }
+    handles          Handle[]  {
+        @doc value "contains connection points for linking to other diagram elements."
+    }
+    scale            float64   {
+        @validate default 1
+        @doc value        "is the symbol scale factor."
+    }
+    scale_stroke     bool      {
+        @validate default false
+        @doc value        "indicates whether stroke width scales with the symbol size."
+    }
+    preview_viewport Viewport? {
+        @doc value "is an optional viewport configuration for symbol preview rendering."
+    }
+
+    @doc value "is the complete symbol definition including geometry, states, handles, and rendering properties."
 }
 
 Symbol struct {
-    key     Key    @key
-    version uint32 @validate default 1
-    name    string @validate min_length 1
-    data    Spec
+    key     Key    {
+        @key
+        @doc value "is the unique identifier for this symbol."
+    }
+    version uint32 {
+        @validate default 1
+        @doc value        "is the symbol schema version for migration support."
+    }
+    name    string {
+        @validate min_length 1
+        @doc value           "is a human-readable name for the symbol."
+    }
+    data    Spec   {
+        @doc value "is the complete symbol specification."
+    }
 
+    @doc value     "is a persisted schematic symbol with versioning, defining reusable visual components for diagrams."
     @ontology type "schematic_symbol"
 }
 
 New struct {
-    key     Key?   @key
-    version uint32 @validate default 1
-    name    string @validate min_length 1
-    data    Spec
+    key     Key?   {
+        @key
+        @doc value "is an optional key for the symbol. If not provided, one will be automatically assigned."
+    }
+    version uint32 {
+        @validate default 1
+        @doc value        "is the symbol schema version."
+    }
+    name    string {
+        @validate min_length 1
+        @doc value           "is a human-readable name for the symbol."
+    }
+    data    Spec   {
+        @doc value "is the complete symbol specification."
+    }
 
+    @doc value    "contains parameters for creating a new schematic symbol."
     @ts use_input
 }

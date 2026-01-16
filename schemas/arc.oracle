@@ -21,34 +21,73 @@ import "schemas/arc/module"
 @pb
 
 StatusDetails struct {
-    running bool
+    running bool {
+        @doc value "indicates whether the Arc module is currently executing."
+    }
+
+    @doc value "contains Arc-specific status details for execution state."
 }
 
-Status = status.Status<StatusDetails>
+Status = status.Status<StatusDetails> {
+    @doc value "is the status of an Arc module including execution state."
+}
 
-Key = uuid
+Key = uuid {
+    @doc value "is a unique identifier for an Arc module."
+}
 
 Arc struct {
-    key     Key             @key
-    name    string
-    graph   graph.Graph
-    text    text.Text
-    module  module.Module??
-    deploy  bool
-    version string
-    status  Status??
+    key     Key             {
+        @key
+        @doc value "is the unique identifier for this module."
+    }
+    name    string          {
+        @doc value "is a human-readable name for the module."
+    }
+    graph   graph.Graph     {
+        @doc value "is the visual dataflow graph representation of the module."
+    }
+    text    text.Text       {
+        @doc value "is the text-based Arc source code."
+    }
+    module  module.Module?? {
+        @doc value "is the compiled module output including IR and WebAssembly bytecode."
+    }
+    deploy  bool            {
+        @doc value "indicates whether the module is deployed for execution."
+    }
+    version string          {
+        @doc value "is the module version identifier."
+    }
+    status  Status??        {
+        @doc value "is the current execution status of the module."
+    }
 
+    @doc value     "is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution."
     @ontology type "arc"
 }
 
 New struct {
-    key     Key?
-    name    string
-    graph   graph.Graph
-    text    text.Text
-    deploy  bool
-    version string
+    key     Key?        {
+        @doc value "is an optional key for the module. If not provided, one will be automatically assigned."
+    }
+    name    string      {
+        @doc value "is a human-readable name for the module."
+    }
+    graph   graph.Graph {
+        @doc value "is the visual dataflow graph representation."
+    }
+    text    text.Text   {
+        @doc value "is the text-based Arc source code."
+    }
+    deploy  bool        {
+        @doc value "indicates whether to deploy the module for execution."
+    }
+    version string      {
+        @doc value "is the module version identifier."
+    }
 
+    @doc value    "contains parameters for creating a new Arc module."
     @ts use_input
     @go omit
     @pb omit

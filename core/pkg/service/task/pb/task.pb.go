@@ -34,12 +34,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Task          uint64                 `protobuf:"varint,1,opt,name=task,proto3" json:"task,omitempty"`
-	Running       bool                   `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
-	Cmd           string                 `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
-	Data          *structpb.Struct       `protobuf:"bytes,4,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// task is the key of the task this status pertains to.
+	Task uint64 `protobuf:"varint,1,opt,name=task,proto3" json:"task,omitempty"`
+	// running is true if the task is currently executing.
+	Running bool `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
+	// cmd is the last command executed on this task.
+	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
+	// data contains task-specific status data.
+	Data          *structpb.Struct `protobuf:"bytes,4,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -102,15 +107,23 @@ func (x *StatusDetails) GetData() *structpb.Struct {
 	return nil
 }
 
+// Task is an executable unit of work in the Driver system. Tasks represent specific hardware operations such as reading sensor data, writing control signals, or scanning for devices.
 type Task struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           uint64                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	Config        *structpb.Struct       `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
-	Internal      bool                   `protobuf:"varint,5,opt,name=internal,proto3" json:"internal,omitempty"`
-	Snapshot      bool                   `protobuf:"varint,6,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
-	Status        *pb.Status             `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the composite identifier for this task.
+	Key uint64 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is a human-readable name for the task.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task.
+	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	// config is task-specific configuration stored as JSON. Structure varies by task type.
+	Config *structpb.Struct `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
+	// internal is true if this is an internal system task.
+	Internal bool `protobuf:"varint,5,opt,name=internal,proto3" json:"internal,omitempty"`
+	// snapshot indicates whether to persist this task's configuration.
+	Snapshot bool `protobuf:"varint,6,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	// status is the current execution status of the task.
+	Status        *pb.Status `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -194,12 +207,17 @@ func (x *Task) GetStatus() *pb.Status {
 	return nil
 }
 
+// Command is a command to execute on a task in the Driver system.
 type Command struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Task          uint64                 `protobuf:"varint,1,opt,name=task,proto3" json:"task,omitempty"`
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Key           string                 `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
-	Args          *structpb.Struct       `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// task is the key of the target task.
+	Task uint64 `protobuf:"varint,1,opt,name=task,proto3" json:"task,omitempty"`
+	// type is the command type (e.g., 'start', 'stop', 'configure').
+	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	// key is a unique identifier for this command instance.
+	Key string `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	// args contains optional arguments for the command.
+	Args          *structpb.Struct `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

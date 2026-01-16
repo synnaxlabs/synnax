@@ -59,8 +59,12 @@ enum class Kind : std::uint8_t {
     Stage = 22,
 };
 
+/// @brief Channels contains channel declarations for reading from and writing to Synnax
+/// channels.
 struct Channels {
+    /// @brief read contains readable channel indices mapped to parameter names.
     std::unordered_map<std::uint32_t, std::string> read;
+    /// @brief write contains writable channel indices mapped to parameter names.
     std::unordered_map<std::uint32_t, std::string> write;
 
     static Channels parse(x::json::Parser parser);
@@ -72,14 +76,24 @@ struct Channels {
     from_proto(const ::arc::types::pb::Channels &pb);
 };
 
+/// @brief Dimensions contains physical dimension exponents for dimensional analysis (SI
+/// base quantities).
 struct Dimensions {
+    /// @brief length is the length dimension exponent (meters).
     std::int8_t length = 0;
+    /// @brief mass is the mass dimension exponent (kilograms).
     std::int8_t mass = 0;
+    /// @brief time is the time dimension exponent (seconds).
     std::int8_t time = 0;
+    /// @brief current is the electric current dimension exponent (amperes).
     std::int8_t current = 0;
+    /// @brief temperature is the temperature dimension exponent (kelvin).
     std::int8_t temperature = 0;
+    /// @brief angle is the angle dimension exponent (radians).
     std::int8_t angle = 0;
+    /// @brief count is the count dimension exponent (dimensionless quantity).
     std::int8_t count = 0;
+    /// @brief data is the data size dimension exponent (bytes).
     std::int8_t data = 0;
 
     static Dimensions parse(x::json::Parser parser);
@@ -95,9 +109,14 @@ struct Dimensions {
     [[nodiscard]] bool is_zero() const;
 };
 
+/// @brief Unit is a physical unit with dimensions and scale factor for unit-aware
+/// computation.
 struct Unit {
+    /// @brief dimensions contains physical dimension exponents.
     Dimensions dimensions;
+    /// @brief scale is the scale factor relative to SI base units.
     double scale = 0;
+    /// @brief name is the unit name (e.g., 'psi', 'ns', 'm/s').
     std::string name;
 
     static Unit parse(x::json::Parser parser);
@@ -164,9 +183,14 @@ struct Params : private std::vector<Param> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief FunctionProperties contains common parameter definitions for function-like
+/// types.
 struct FunctionProperties {
+    /// @brief inputs contains input parameter definitions.
     Params inputs;
+    /// @brief outputs contains output parameter definitions.
     Params outputs;
+    /// @brief config contains configuration parameter definitions.
     Params config;
 
     static FunctionProperties parse(x::json::Parser parser);
@@ -178,11 +202,18 @@ struct FunctionProperties {
     from_proto(const ::arc::types::pb::FunctionProperties &pb);
 };
 
+/// @brief Type is a type in Arc's type system with optional element type for compounds,
+/// physical units, and constraints.
 struct Type : public FunctionProperties {
+    /// @brief kind is the type category (primitive, compound, or meta-type).
     Kind kind;
+    /// @brief name is the type name for variables and user-defined types.
     std::string name;
+    /// @brief elem is the element type for compound types (chan, series).
     x::mem::indirect<Type> elem;
+    /// @brief unit is the physical unit metadata for dimensional analysis.
     std::optional<Unit> unit;
+    /// @brief constraint is the type constraint for type variables.
     x::mem::indirect<Type> constraint;
 
     static Type parse(x::json::Parser parser);
@@ -202,9 +233,13 @@ struct Type : public FunctionProperties {
     friend std::ostream &operator<<(std::ostream &os, const Type &t);
 };
 
+/// @brief Param is a named, typed parameter with optional default value.
 struct Param {
+    /// @brief name is the parameter name.
     std::string name;
+    /// @brief type is the parameter type.
     Type type;
+    /// @brief value is an optional default value.
     x::json::json value;
 
     static Param parse(x::json::Parser parser);

@@ -566,6 +566,13 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 				}
 				ev.Value = unquoted
 			}
+			// Extract domains from enum value body if present
+			if body := v.EnumValueBody(); body != nil {
+				for _, d := range body.AllDomain() {
+					de := collectDomain(d)
+					ev.Domains[de.Name] = de
+				}
+			}
 			form.Values = append(form.Values, ev)
 		}
 		for _, d := range body.AllDomain() {

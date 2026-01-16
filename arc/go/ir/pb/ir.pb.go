@@ -33,6 +33,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind int32
 
 const (
@@ -82,10 +83,13 @@ func (EdgeKind) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{0}
 }
 
+// Handle is a reference to a specific parameter on a specific node in the dataflow graph.
 type Handle struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Node          string                 `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
-	Param         string                 `protobuf:"bytes,2,opt,name=param,proto3" json:"param,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// node is the node identifier.
+	Node string `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	// param is the parameter name (input or output).
+	Param         string `protobuf:"bytes,2,opt,name=param,proto3" json:"param,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -134,11 +138,15 @@ func (x *Handle) GetParam() string {
 	return ""
 }
 
+// Edge is a dataflow connection between node parameters in the Arc graph.
 type Edge struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Source        *Handle                `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
-	Target        *Handle                `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
-	Kind          EdgeKind               `protobuf:"varint,3,opt,name=kind,proto3,enum=arc.ir.pb.EdgeKind" json:"kind,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// source is the source node parameter producing data.
+	Source *Handle `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	// target is the target node parameter consuming data.
+	Target *Handle `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// kind defines execution semantics for this connection.
+	Kind          EdgeKind `protobuf:"varint,3,opt,name=kind,proto3,enum=arc.ir.pb.EdgeKind" json:"kind,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -238,11 +246,15 @@ func (x *StratumWrapper) GetValues() []string {
 	return nil
 }
 
+// Stage is a stage in a sequence state machine, containing active nodes and their execution stratification.
 type Stage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Nodes         []string               `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	Strata        []*StratumWrapper      `protobuf:"bytes,3,rep,name=strata,proto3" json:"strata,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the stage identifier.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// nodes contains node keys active in this stage.
+	Nodes []string `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	// strata contains execution stratification for nodes in this stage.
+	Strata        []*StratumWrapper `protobuf:"bytes,3,rep,name=strata,proto3" json:"strata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -298,10 +310,13 @@ func (x *Stage) GetStrata() []*StratumWrapper {
 	return nil
 }
 
+// Sequence is a state machine defining ordered stages of execution, where entry point is always the first stage.
 type Sequence struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Stages        []*Stage               `protobuf:"bytes,2,rep,name=stages,proto3" json:"stages,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the sequence identifier.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// stages contains ordered stages in this sequence.
+	Stages        []*Stage `protobuf:"bytes,2,rep,name=stages,proto3" json:"stages,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -350,9 +365,11 @@ func (x *Sequence) GetStages() []*Stage {
 	return nil
 }
 
+// Body is raw function body source code with optional parsed AST.
 type Body struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Raw           string                 `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// raw is the raw source code text.
+	Raw           string `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -394,14 +411,21 @@ func (x *Body) GetRaw() string {
 	return ""
 }
 
+// Function is a function template definition with typed parameters, serving as a blueprint for node instantiation.
 type Function struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Body          *Body                  `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
-	Config        []*pb.Param            `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
-	Inputs        []*pb.Param            `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty"`
-	Outputs       []*pb.Param            `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	Channels      *pb.Channels           `protobuf:"bytes,6,opt,name=channels,proto3" json:"channels,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the function identifier (template name).
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// body is raw source code for user-defined functions.
+	Body *Body `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
+	// config contains configuration parameter definitions.
+	Config []*pb.Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
+	// inputs contains input parameter definitions.
+	Inputs []*pb.Param `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	// outputs contains output parameter definitions.
+	Outputs []*pb.Param `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	// channels contains channel read/write declarations.
+	Channels      *pb.Channels `protobuf:"bytes,6,opt,name=channels,proto3" json:"channels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -478,14 +502,21 @@ func (x *Function) GetChannels() *pb.Channels {
 	return nil
 }
 
+// Node is a concrete instantiation of a function with typed parameters and configuration values.
 type Node struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Config        []*pb.Param            `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
-	Inputs        []*pb.Param            `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty"`
-	Outputs       []*pb.Param            `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	Channels      *pb.Channels           `protobuf:"bytes,6,opt,name=channels,proto3" json:"channels,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for this node instance.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// type is the function type being instantiated.
+	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	// config contains configuration parameter values.
+	Config []*pb.Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
+	// inputs contains input parameter type signatures.
+	Inputs []*pb.Param `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	// outputs contains output parameter type signatures.
+	Outputs []*pb.Param `protobuf:"bytes,5,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	// channels contains channel read/write mappings.
+	Channels      *pb.Channels `protobuf:"bytes,6,opt,name=channels,proto3" json:"channels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -562,13 +593,19 @@ func (x *Node) GetChannels() *pb.Channels {
 	return nil
 }
 
+// IR is the intermediate representation of an Arc program as a dataflow graph with stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Functions     []*Function            `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
-	Nodes         []*Node                `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	Edges         []*Edge                `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
-	Strata        []*StratumWrapper      `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
-	Sequences     []*Sequence            `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// functions contains function template definitions.
+	Functions []*Function `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
+	// nodes contains node instantiations.
+	Nodes []*Node `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	// edges contains dataflow connections.
+	Edges []*Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
+	// strata contains execution stratification layers.
+	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
+	// sequences contains state machine definitions.
+	Sequences     []*Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

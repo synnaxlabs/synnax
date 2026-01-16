@@ -19,7 +19,11 @@ DataType = NewType("DataType", str)
 
 
 class TimeRange(BaseModel):
+    """TimeRange is a time interval defined by a start and end timestamp. The range is start-inclusive and end-exclusive, following standard interval conventions for predictable boundary handling."""
+
+    # start is the inclusive start of the time range.
     start: TimeStamp
+    # end is the exclusive end of the time range.
     end: TimeStamp
 
 
@@ -27,7 +31,13 @@ TimeRangeBounded: TypeAlias = TimeRange
 
 
 class Series(BaseModel):
+    """Series is a strongly-typed array of telemetry samples backed by a binary buffer. Supports both fixed-density primitive types and variable-density types (strings, JSON). Designed for high-performance, memory-efficient storage and streaming of time-series data."""
+
+    # time_range is the time range covered by the samples in this series.
     time_range: TimeRange
+    # data_type is the data type of all samples in this series.
     data_type: DataType
+    # data is the raw binary buffer containing the sample data.
     data: bytes
+    # alignment defines the location of the series relative to other series in a logical group. Typically used for defining the position of the series within a channel's data.
     alignment: Alignment

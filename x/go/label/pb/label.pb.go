@@ -32,11 +32,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Label is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering.
 type Label struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Color         []byte                 `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for this label.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is a human-readable name for the label.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// color is the display color for visual identification of the label.
+	Color         []byte `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

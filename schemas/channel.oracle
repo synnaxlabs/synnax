@@ -18,17 +18,20 @@ import "schemas/status"
 @pb
 
 Key uint32 {
+    @doc value    "is a unique identifier for a channel in the Synnax database. Composed of a cluster node key (first 12 bits) and a local key (last 20 bits), enabling distributed assignment while maintaining global uniqueness."
     @go output    "core/pkg/distribution/channel"
     @ts to_number
 }
 
 LocalKey uint20 {
+    @doc value "is a 20-bit unsigned integer representing the locally-unique portion of a channel key within a node. Combined with a NodeKey to form the global channel Key."
     @go output "core/pkg/distribution/channel"
     @py omit
     @cpp omit
 }
 
 Name = string {
+    @doc value "is a human-readable name for a channel. Must start with a letter or underscore and contain only letters, digits, and underscores. Names are not guaranteed to be unique across channels."
     @validate {
         required
         pattern "^[a-zA-Z_][a-zA-Z0-9_]*$" "Name can only contain letters, digits, and underscores, and cannot start with a digit"
@@ -42,32 +45,65 @@ OperationType enum {
     avg  = "avg"
     none = "none"
 
+    @doc value "is the type of aggregation operation to apply to channel data over time."
     @go output "core/pkg/distribution/channel"
     @pb
 }
 
 Operation struct {
-    type          OperationType
-    reset_channel Key            @validate default 0
-    duration      telem.TimeSpan @validate default 0
+    type          OperationType  {
+        @doc value "is the aggregation operation type: min, max, avg, or none."
+    }
+    reset_channel Key            {
+        @doc value        "is the channel key that triggers reset of the aggregation. If 0, duration-based reset is used."
+        @validate default 0
+    }
+    duration      telem.TimeSpan {
+        @doc value        "is the time window for aggregation when reset_channel is 0."
+        @validate default 0
+    }
 
+    @doc value "defines an aggregation operation applied to channel data. Operations calculate min, max, or average values over a time duration or triggered by a reset channel."
     @go output "core/pkg/distribution/channel"
     @pb
 }
 
 Channel struct {
-    name        Name
-    leaseholder cluster.NodeKey
-    data_type   telem.DataType
-    is_index    bool
-    local_key   LocalKey
-    local_index LocalKey
-    virtual     bool
-    concurrency control.Concurrency
-    internal    bool
-    operations  Operation[]
-    expression  string
+    name        Name                {
+        @doc value "is the human-readable channel name."
+    }
+    leaseholder cluster.NodeKey     {
+        @doc value "is the cluster node that holds the lease for this channel and is authorized to accept writes."
+    }
+    data_type   telem.DataType      {
+        @doc value "is the data type of samples stored in this channel."
+    }
+    is_index    bool                {
+        @doc value "is true if this channel is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps."
+    }
+    local_key   LocalKey            {
+        @doc value "is the locally-unique portion of this channel's key."
+    }
+    local_index LocalKey            {
+        @doc value "is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate."
+    }
+    virtual     bool                {
+        @doc value "is true if this channel does not persist data and is used only for streaming."
+    }
+    concurrency control.Concurrency {
+        @doc value "sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency."
+    }
+    internal    bool                {
+        @doc value "is true if this is a system channel hidden from normal user queries."
+    }
+    operations  Operation[]         {
+        @doc value "contains aggregation operations applied to this channel's data."
+    }
+    expression  string              {
+        @doc value "is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual."
+    }
 
+    @doc value "is an internal representation of a channel containing all storage and distribution metadata. This type is used internally by the server; clients should use APIChannel instead."
     @go output "core/pkg/distribution/channel"
     @py omit
     @ts omit
@@ -76,27 +112,57 @@ Channel struct {
 }
 
 Status = status.Status {
+    @doc value "is channel-specific status information."
     @go output "core/pkg/api/channel"
 }
 
 APIChannel struct {
-    key         Key                  @key
-    name        Name
-    leaseholder cluster.NodeKey
-    data_type   telem.DataType
-    is_index    bool
-    index       Key
-    alias       string?
+    key         Key                  {
+        @doc value "is the unique identifier for this channel, automatically assigned by Synnax."
+        @key
+    }
+    name        Name                 {
+        @doc value "is the human-readable channel name."
+    }
+    leaseholder cluster.NodeKey      {
+        @doc value "is the cluster node that holds the lease for this channel. Mostly for internal use."
+    }
+    data_type   telem.DataType       {
+        @doc value "is the data type of samples stored in this channel (e.g., Float64, Int32, TimeStamp)."
+    }
+    is_index    bool                 {
+        @doc value "is true if this is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps."
+    }
+    index       Key                  {
+        @doc value "is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate."
+    }
+    alias       string?              {
+        @doc value "is an optional alternate name for the channel within a specific context."
+    }
     virtual     bool                 {
+        @doc value        "is true if this channel does not store data in the database but can still be used for streaming purposes."
         @validate default false
         @cpp name         "is_virtual"
     }
-    internal    bool                 @validate default false
-    expression  string               @validate default ""
-    operations  Operation[]?
-    concurrency control.Concurrency?
-    status      Status??
+    internal    bool                 {
+        @doc value        "is true if this is a system channel hidden from normal user queries."
+        @validate default false
+    }
+    expression  string               {
+        @doc value        "is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual."
+        @validate default ""
+    }
+    operations  Operation[]?         {
+        @doc value "contains optional aggregation operations (min, max, avg) applied to channel data over time or triggered by a reset channel."
+    }
+    concurrency control.Concurrency? {
+        @doc value "sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency."
+    }
+    status      Status??             {
+        @doc value "is the current operational status of the channel."
+    }
 
+    @doc value     "is a logical collection of samples emitted by or representing values from a single source. Channels are the fundamental unit of telemetry storage and streaming in Synnax."
     @go output     "core/pkg/api/channel"
     @ontology type "channel"
     @py name       "Payload"
@@ -107,16 +173,36 @@ APIChannel struct {
 }
 
 NewChannel struct extends APIChannel {
-    key         Key?
-    leaseholder uint12?
-    index       Key?
-    is_index    bool?
-    internal    bool?
-    virtual     bool?
-    expression  string?              @validate default ""
-    operations  Operation[]?
-    concurrency control.Concurrency?
+    key         Key?                 {
+        @doc value "is an optional key for the channel. If not provided, one will be automatically assigned."
+    }
+    leaseholder uint12?              {
+        @doc value "is an optional leaseholder node. If not provided, Synnax will assign one."
+    }
+    index       Key?                 {
+        @doc value "is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate."
+    }
+    is_index    bool?                {
+        @doc value "should be set to true to create an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order."
+    }
+    internal    bool?                {
+        @doc value "should be set to true to create a system channel hidden from normal user queries."
+    }
+    virtual     bool?                {
+        @doc value "should be set to true to create a streaming-only channel that does not persist data."
+    }
+    expression  string?              {
+        @doc value        "is an Arc expression for creating a calculated channel."
+        @validate default ""
+    }
+    operations  Operation[]?         {
+        @doc value "contains aggregation operations to apply to the channel data."
+    }
+    concurrency control.Concurrency? {
+        @doc value "sets the policy for concurrent writes. Only virtual channels can have shared concurrency."
+    }
 
+    @doc value    "contains parameters for creating a new channel. Most fields are optional and will be assigned default values by Synnax."
     @py name      "New"
     @ts name      "New"
     @ts use_input

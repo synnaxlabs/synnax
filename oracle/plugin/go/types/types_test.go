@@ -382,14 +382,14 @@ var _ = Describe("Go Types Plugin", func() {
 				@go output "core/user"
 
 				User struct {
-					@doc value "A User is a representation of a user in the Synnax cluster."
+					@doc value "is a representation of a user in the Synnax cluster."
 
 					key uuid @key {
-						@doc value "Key is the unique identifier for the user."
+						@doc value "is the unique identifier for the user."
 					}
 
 					username string {
-						@doc value "Username is the unique username for the user."
+						@doc value "is the unique username for the user."
 					}
 
 					first_name string
@@ -407,7 +407,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`// A User is a representation of a user in the Synnax cluster.`))
+				Expect(content).To(ContainSubstring(`// User is a representation of a user in the Synnax cluster.`))
 				Expect(content).To(ContainSubstring(`// Key is the unique identifier for the user.`))
 				Expect(content).To(ContainSubstring(`// Username is the unique username for the user.`))
 				// first_name has no doc, so no comment for it

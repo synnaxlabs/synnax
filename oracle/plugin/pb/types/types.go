@@ -744,7 +744,7 @@ option go_package = "{{.GoPackage}}";
 {{- range .Enums}}
 {{- if .Doc}}
 
-// {{ .Doc }}
+// {{ .Name }} {{ .Doc }}
 {{- end}}
 enum {{.Name}} {
 {{- range .Values}}
@@ -755,12 +755,12 @@ enum {{.Name}} {
 {{- range .Messages}}
 {{- if .Doc}}
 
-// {{ .Doc }}
+// {{ .Name }} {{ .Doc }}
 {{- end}}
 message {{.Name}} {
 {{- range .Fields}}
 {{- if .Doc}}
-  // {{ .Doc }}
+  // {{ .Name }} {{ .Doc }}
 {{- end}}
   {{if .IsRepeated}}repeated {{else if .IsOptional}}optional {{end}}{{.Type}} {{.Name}} = {{.Number}};
 {{- end}}

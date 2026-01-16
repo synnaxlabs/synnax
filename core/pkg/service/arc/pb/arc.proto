@@ -11,17 +11,28 @@ import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 
+// StatusDetails contains Arc-specific status details for execution state.
 message StatusDetails {
+  // running indicates whether the Arc module is currently executing.
   bool running = 1;
 }
 
+// Arc is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 message Arc {
+  // key is the unique identifier for this module.
   string key = 1;
+  // name is a human-readable name for the module.
   string name = 2;
+  // graph is the visual dataflow graph representation of the module.
   .arc.graph.pb.Graph graph = 3;
+  // text is the text-based Arc source code.
   .arc.text.pb.Text text = 4;
+  // module is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.module.pb.Module module = 5;
+  // deploy indicates whether the module is deployed for execution.
   bool deploy = 6;
+  // version is the module version identifier.
   string version = 7;
+  // status is the current execution status of the module.
   optional .x.status.pb.Status status = 8;
 }

@@ -18,8 +18,12 @@ import (
 
 type Key = uuid.UUID
 
+// LinePlot is a time-series visualization component for plotting telemetry data. Line plots support multiple channels, real-time streaming, and historical data display with zoom and pan capabilities.
 type LinePlot struct {
-	Key  Key                       `json:"key" msgpack:"key"`
-	Name string                    `json:"name" msgpack:"name"`
+	// Key is the unique identifier for this line plot.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the line plot.
+	Name string `json:"name" msgpack:"name"`
+	// Data is the line plot configuration including channel references, axis settings, and display options.
 	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
 }

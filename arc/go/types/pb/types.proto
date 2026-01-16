@@ -8,6 +8,7 @@ import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/arc/types/pb";
 
+// Kind is the type category for Arc's type system, including primitives, compound types, and meta-types.
 enum Kind {
   KIND_INVALID = 0;
   KIND_U_8 = 1;
@@ -32,47 +33,80 @@ enum Kind {
   KIND_STAGE = 22;
 }
 
+// FunctionProperties contains common parameter definitions for function-like types.
 message FunctionProperties {
+  // inputs contains input parameter definitions.
   repeated Param inputs = 1;
+  // outputs contains output parameter definitions.
   repeated Param outputs = 2;
+  // config contains configuration parameter definitions.
   repeated Param config = 3;
 }
 
+// Type is a type in Arc's type system with optional element type for compounds, physical units, and constraints.
 message Type {
+  // inputs contains input parameter definitions.
   repeated Param inputs = 1;
+  // outputs contains output parameter definitions.
   repeated Param outputs = 2;
+  // config contains configuration parameter definitions.
   repeated Param config = 3;
+  // kind is the type category (primitive, compound, or meta-type).
   Kind kind = 4;
+  // name is the type name for variables and user-defined types.
   string name = 5;
+  // elem is the element type for compound types (chan, series).
   optional Type elem = 6;
+  // unit is the physical unit metadata for dimensional analysis.
   optional Unit unit = 7;
+  // constraint is the type constraint for type variables.
   optional Type constraint = 8;
 }
 
+// Param is a named, typed parameter with optional default value.
 message Param {
+  // name is the parameter name.
   string name = 1;
+  // type is the parameter type.
   Type type = 2;
+  // value is an optional default value.
   google.protobuf.Value value = 3;
 }
 
+// Channels contains channel declarations for reading from and writing to Synnax channels.
 message Channels {
+  // read contains readable channel indices mapped to parameter names.
   map<uint32, string> read = 1;
+  // write contains writable channel indices mapped to parameter names.
   map<uint32, string> write = 2;
 }
 
+// Dimensions contains physical dimension exponents for dimensional analysis (SI base quantities).
 message Dimensions {
+  // length is the length dimension exponent (meters).
   int32 length = 1;
+  // mass is the mass dimension exponent (kilograms).
   int32 mass = 2;
+  // time is the time dimension exponent (seconds).
   int32 time = 3;
+  // current is the electric current dimension exponent (amperes).
   int32 current = 4;
+  // temperature is the temperature dimension exponent (kelvin).
   int32 temperature = 5;
+  // angle is the angle dimension exponent (radians).
   int32 angle = 6;
+  // count is the count dimension exponent (dimensionless quantity).
   int32 count = 7;
+  // data is the data size dimension exponent (bytes).
   int32 data = 8;
 }
 
+// Unit is a physical unit with dimensions and scale factor for unit-aware computation.
 message Unit {
+  // dimensions contains physical dimension exponents.
   Dimensions dimensions = 1;
+  // scale is the scale factor relative to SI base units.
   double scale = 2;
+  // name is the unit name (e.g., 'psi', 'ns', 'm/s').
   string name = 3;
 }

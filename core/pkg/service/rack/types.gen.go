@@ -19,14 +19,22 @@ type Key uint32
 
 type Status = status.Status[StatusDetails]
 
+// StatusDetails contains rack-specific status details.
 type StatusDetails struct {
+	// Rack is the key of the rack this status pertains to.
 	Rack Key `json:"rack" msgpack:"rack"`
 }
 
+// Rack is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system.
 type Rack struct {
-	Key         Key     `json:"key" msgpack:"key"`
-	Name        string  `json:"name" msgpack:"name"`
-	TaskCounter uint32  `json:"task_counter" msgpack:"task_counter"`
-	Embedded    bool    `json:"embedded" msgpack:"embedded"`
-	Status      *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	// Key is the composite identifier for this rack.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the rack.
+	Name string `json:"name" msgpack:"name"`
+	// TaskCounter is an internal counter used for generating unique local task keys.
+	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
+	// Embedded is true if this rack is embedded within the Synnax server process.
+	Embedded bool `json:"embedded" msgpack:"embedded"`
+	// Status is the current operational status of the rack.
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

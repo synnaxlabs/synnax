@@ -22,7 +22,11 @@ Key: TypeAlias = UUID
 
 
 class Group(BaseModel):
+    """Group is a named collection container for organizing related resources. Groups provide hierarchical organization through the ontology system."""
+
+    # key is the unique identifier for this group.
     key: Key
+    # name is a human-readable name for the group.
     name: str
 
     def __hash__(self) -> int:

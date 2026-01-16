@@ -1556,7 +1556,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{if or $i (gt (len $.Enums) 0)}}
 {{end}}
 {{- if $s.Doc}}
-/// @brief {{$s.Doc}}
+/// @brief {{$s.Name}} {{$s.Doc}}
 {{end}}
 {{- if $s.IsAlias}}
 {{- if $s.IsGeneric}}template <{{range $j, $p := $s.TypeParams}}{{if $j}}, {{end}}typename {{$p.Name}}{{if $p.HasDefault}} = {{$p.Default}}{{end}}{{end}}>
@@ -1566,7 +1566,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{end}}struct {{$s.Name}}{{if $s.HasExtends}} : {{range $i, $parent := $s.ExtendsTypes}}{{if $i}}, {{end}}public {{$parent}}{{end}}{{end}} {
 {{- range $s.Fields}}
 {{- if .Doc}}
-    /// @brief {{.Doc}}
+    /// @brief {{.Name}} {{.Doc}}
 {{- end}}
     {{.CppType}} {{.Name}}{{if .DefaultValue}} = {{.DefaultValue}}{{end}};
 {{- end}}

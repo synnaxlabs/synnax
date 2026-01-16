@@ -34,6 +34,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Variant is the severity or type of a status message.
 type Variant int32
 
 const (
@@ -92,16 +93,25 @@ func (Variant) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_status_pb_status_proto_rawDescGZIP(), []int{0}
 }
 
+// Status is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details.
 type Status struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Variant       Variant                `protobuf:"varint,3,opt,name=variant,proto3,enum=x.status.pb.Variant" json:"variant,omitempty"`
-	Message       string                 `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
-	Description   string                 `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
-	Time          int64                  `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
-	Details       *anypb.Any             `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
-	Labels        []*pb.Label            `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is a unique identifier for this status, automatically generated if not provided.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is an optional human-readable name for the status.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// variant is the severity or type of the status: success, info, warning, error, loading, or disabled.
+	Variant Variant `protobuf:"varint,3,opt,name=variant,proto3,enum=x.status.pb.Variant" json:"variant,omitempty"`
+	// message is the main message text describing the status.
+	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// description is an optional detailed description providing additional context.
+	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	// time is the timestamp when the status was created.
+	Time int64 `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
+	// details contains optional component-specific custom details for the status.
+	Details *anypb.Any `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
+	// labels contains optional labels for categorization and filtering.
+	Labels        []*pb.Label `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

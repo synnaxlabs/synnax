@@ -28,10 +28,16 @@ struct Node;
 struct Viewport;
 struct Graph;
 
+/// @brief Node is a visual node in the Arc graph editor representing a function
+/// instantiation with position data.
 struct Node {
+    /// @brief key is the unique identifier for this node instance.
     std::string key;
+    /// @brief type is the function type being instantiated.
     std::string type;
+    /// @brief config contains configuration parameter values as a JSON object.
     x::json::json config;
+    /// @brief position is the canvas position (x, y) for visual layout.
     ::x::spatial::XY position;
 
     static Node parse(x::json::Parser parser);
@@ -43,8 +49,11 @@ struct Node {
     from_proto(const ::arc::graph::pb::Node &pb);
 };
 
+/// @brief Viewport is the camera state for viewing the Arc graph editor canvas.
 struct Viewport {
+    /// @brief position is the camera pan offset (x, y).
     ::x::spatial::XY position;
+    /// @brief zoom is the zoom level where 1.0 equals 100%.
     double zoom = 0;
 
     static Viewport parse(x::json::Parser parser);
@@ -107,10 +116,16 @@ struct Nodes : private std::vector<Node> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Graph is a visual dataflow graph representation combining IR elements with
+/// canvas layout for the Arc graph editor.
 struct Graph {
+    /// @brief viewport is the current camera state for the graph view.
     Viewport viewport;
+    /// @brief functions contains function definitions available in this graph.
     ::arc::ir::Functions functions;
+    /// @brief edges contains dataflow connections between node parameters.
     ::arc::ir::Edges edges;
+    /// @brief nodes contains visual nodes with canvas positions.
     Nodes nodes;
 
     static Graph parse(x::json::Parser parser);

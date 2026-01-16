@@ -32,8 +32,12 @@ enum class Concurrency : std::uint8_t {
 
 using Authority = std::uint8_t;
 
+/// @brief Subject is an entity that can hold control authority over a resource.
+/// Typically represents a user, process, or service.
 struct Subject {
+    /// @brief key is a unique identifier for the subject.
     std::string key;
+    /// @brief name is a human-readable name for the subject.
     std::string name;
 
     static Subject parse(x::json::Parser parser);
@@ -45,10 +49,16 @@ struct Subject {
     from_proto(const ::x::control::pb::Subject &pb);
 };
 
+/// @brief State represents the state of control over a resource at a point in time,
+/// capturing who controls what and with how much authority.
 template<typename R>
 struct State {
+    /// @brief subject is the entity controlling the resource.
     Subject subject;
+    /// @brief resource is the resource being controlled.
     R resource;
+    /// @brief authority is the level of control authority the subject has over the
+    /// resource.
     Authority authority;
 
     static State parse(x::json::Parser parser);

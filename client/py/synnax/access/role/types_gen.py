@@ -22,9 +22,15 @@ Key: TypeAlias = UUID
 
 
 class Base(BaseModel):
+    """Base is a named collection of policies that can be assigned to users, enabling group-based permission management. Roles define what actions users can perform on resources."""
+
+    # key is the unique identifier for this role.
     key: Key
+    # name is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
     name: str
+    # description is an optional description explaining what permissions the role provides.
     description: str | None = None
+    # internal is true if this is a built-in system role that cannot be deleted.
     internal: bool | None = None
 
     def __hash__(self) -> int:
@@ -32,6 +38,9 @@ class Base(BaseModel):
 
 
 class Role(Base):
+    """Role contains parameters for creating a new role."""
+
+    # key is an optional key for the role. If not provided, one will be automatically assigned.
     key: Key | None = None
 
 

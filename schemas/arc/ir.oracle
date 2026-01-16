@@ -15,78 +15,172 @@ import "schemas/arc/types"
 @pb
 
 Handle struct {
-    node  string
-    param string
+    @doc value "is a reference to a specific parameter on a specific node in the dataflow graph."
+
+    node  string {
+        @doc value "is the node identifier."
+    }
+    param string {
+        @doc value "is the parameter name (input or output)."
+    }
 }
 
 EdgeKind enum {
-    unspecified = 0
-    continuous  = 1
-    one_shot    = 2
+    @doc value "defines execution semantics for dataflow edges between nodes."
+
+    unspecified = 0 {
+        @doc value "is the default behavior (treated as continuous)."
+    }
+    continuous  = 1 {
+        @doc value "means data flows continuously whenever the source updates."
+    }
+    one_shot    = 2 {
+        @doc value "means data flows once per reactive execution cycle."
+    }
 }
 
 Edge struct {
-    source Handle
-    target Handle
-    kind   EdgeKind?
+    @doc value "is a dataflow connection between node parameters in the Arc graph."
+
+    source Handle {
+        @doc value "is the source node parameter producing data."
+    }
+    target Handle {
+        @doc value "is the target node parameter consuming data."
+    }
+    kind   EdgeKind? {
+        @doc value "defines execution semantics for this connection."
+    }
 }
 
-Edges Edge[]
+Edges Edge[] {
+    @doc value "is a collection of dataflow edges in an Arc graph."
+}
 
 Stage struct {
-    key    string
-    nodes  string[]
-    strata Strata
+    @doc value "is a stage in a sequence state machine, containing active nodes and their execution stratification."
+
+    key    string {
+        @doc value "is the stage identifier."
+    }
+    nodes  string[] {
+        @doc value "contains node keys active in this stage."
+    }
+    strata Strata {
+        @doc value "contains execution stratification for nodes in this stage."
+    }
 }
 
-Stages Stage[]
+Stages Stage[] {
+    @doc value "is a collection of stages in an Arc sequence."
+}
 
 Sequence struct {
-    key    string
-    stages Stage[]
+    @doc value "is a state machine defining ordered stages of execution, where entry point is always the first stage."
+
+    key    string {
+        @doc value "is the sequence identifier."
+    }
+    stages Stage[] {
+        @doc value "contains ordered stages in this sequence."
+    }
 }
 
-Sequences Sequence[]
+Sequences Sequence[] {
+    @doc value "is a collection of sequences in an Arc module."
+}
 
 Body struct {
-    raw string
+    @doc value "is raw function body source code with optional parsed AST."
+
+    raw string {
+        @doc value "is the raw source code text."
+    }
 
     @go fields  "AST antlr.ParserRuleContext `json:\"-\"`"
     @go imports "github.com/antlr4-go/antlr/v4"
 }
 
 Function struct {
-    key      string
-    body     Body?
-    config   types.Params?
-    inputs   types.Params?
-    outputs  types.Params?
-    channels types.Channels?
+    @doc value "is a function template definition with typed parameters, serving as a blueprint for node instantiation."
+
+    key      string {
+        @doc value "is the function identifier (template name)."
+    }
+    body     Body? {
+        @doc value "is raw source code for user-defined functions."
+    }
+    config   types.Params? {
+        @doc value "contains configuration parameter definitions."
+    }
+    inputs   types.Params? {
+        @doc value "contains input parameter definitions."
+    }
+    outputs  types.Params? {
+        @doc value "contains output parameter definitions."
+    }
+    channels types.Channels? {
+        @doc value "contains channel read/write declarations."
+    }
 }
 
-Functions Function[]
+Functions Function[] {
+    @doc value "is a collection of function definitions in an Arc module."
+}
 
-Stratum = string[]
+Stratum = string[] {
+    @doc value "is a single execution layer containing node keys that can execute in parallel."
+}
 
-Strata Stratum[]
+Strata Stratum[] {
+    @doc value "contains stratified execution layers where stratum N depends only on strata 0 to N-1, enabling glitch-free reactive evaluation."
+}
 
 Node struct {
-    key      string
-    type     string
-    config   types.Params?
-    inputs   types.Params?
-    outputs  types.Params?
-    channels types.Channels?
+    @doc value "is a concrete instantiation of a function with typed parameters and configuration values."
+
+    key      string {
+        @doc value "is the unique identifier for this node instance."
+    }
+    type     string {
+        @doc value "is the function type being instantiated."
+    }
+    config   types.Params? {
+        @doc value "contains configuration parameter values."
+    }
+    inputs   types.Params? {
+        @doc value "contains input parameter type signatures."
+    }
+    outputs  types.Params? {
+        @doc value "contains output parameter type signatures."
+    }
+    channels types.Channels? {
+        @doc value "contains channel read/write mappings."
+    }
 }
 
-Nodes Node[]
+Nodes Node[] {
+    @doc value "is a collection of node instantiations in an Arc module."
+}
 
 IR struct {
-    functions Functions?
-    nodes     Nodes?
-    edges     Edges?
-    strata    Strata?
-    sequences Sequences?
+    @doc value "is the intermediate representation of an Arc program as a dataflow graph with stratified execution, bridging semantic analysis and WebAssembly compilation."
+
+    functions Functions? {
+        @doc value "contains function template definitions."
+    }
+    nodes     Nodes? {
+        @doc value "contains node instantiations."
+    }
+    edges     Edges? {
+        @doc value "contains dataflow connections."
+    }
+    strata    Strata? {
+        @doc value "contains execution stratification layers."
+    }
+    sequences Sequences? {
+        @doc value "contains state machine definitions."
+    }
 
     @go fields  "Symbols *symbol.Scope `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
     @go imports "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"

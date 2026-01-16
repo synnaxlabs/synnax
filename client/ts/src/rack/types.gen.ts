@@ -17,7 +17,9 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
+/** StatusDetails contains rack-specific status details. */
 export const statusDetailsZ = z.object({
+  /** rack is the key of the rack this status pertains to. */
   rack: keyZ,
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
@@ -25,11 +27,17 @@ export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
+/** Payload is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system. */
 export const payloadZ = z.object({
+  /** key is the composite identifier for this rack. */
   key: keyZ,
+  /** name is a human-readable name for the rack. */
   name: z.string().min(1, "Name is required"),
+  /** taskCounter is an internal counter used for generating unique local task keys. */
   taskCounter: z.uint32().optional(),
+  /** embedded is true if this rack is embedded within the Synnax server process. */
   embedded: z.boolean().optional(),
+  /** status is the current operational status of the rack. */
   status: statusZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}

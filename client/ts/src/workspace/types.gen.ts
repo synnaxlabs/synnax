@@ -17,10 +17,15 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** Workspace is a named, persistable container that stores the layout and organization of the Console application. Workspaces allow users to save and restore custom arrangements of visualizations, tabs, and window configurations. */
 export const workspaceZ = z.object({
+  /** key is the unique identifier for this workspace. */
   key: keyZ,
+  /** name is a human-readable name for the workspace. */
   name: z.string().min(1, "Name is required"),
+  /** author is the UUID of the user who created this workspace. */
   author: z.uuid().optional(),
+  /** layout is the mosaic tree structure that defines how visualizations are arranged. Contains tab layout, split configurations, and window positions. */
   layout: record.nullishToEmpty,
 });
 export interface Workspace extends z.infer<typeof workspaceZ> {}

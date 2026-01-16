@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -109,6 +100,9 @@ type OracleParserListener interface {
 	// EnterEnumValue is called when entering the enumValue production.
 	EnterEnumValue(c *EnumValueContext)
 
+	// EnterEnumValueBody is called when entering the enumValueBody production.
+	EnterEnumValueBody(c *EnumValueBodyContext)
+
 	// EnterTypeDefDef is called when entering the typeDefDef production.
 	EnterTypeDefDef(c *TypeDefDefContext)
 
@@ -207,6 +201,9 @@ type OracleParserListener interface {
 
 	// ExitEnumValue is called when exiting the enumValue production.
 	ExitEnumValue(c *EnumValueContext)
+
+	// ExitEnumValueBody is called when exiting the enumValueBody production.
+	ExitEnumValueBody(c *EnumValueBodyContext)
 
 	// ExitTypeDefDef is called when exiting the typeDefDef production.
 	ExitTypeDefDef(c *TypeDefDefContext)

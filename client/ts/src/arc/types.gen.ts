@@ -17,7 +17,9 @@ import { module } from "@/arc/module";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
 
+/** StatusDetails contains Arc-specific status details for execution state. */
 export const statusDetailsZ = z.object({
+  /** running indicates whether the Arc module is currently executing. */
   running: z.boolean(),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
@@ -28,24 +30,40 @@ export type Key = z.infer<typeof keyZ>;
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
+/** New contains parameters for creating a new Arc module. */
 export const newZ = z.object({
+  /** key is an optional key for the module. If not provided, one will be automatically assigned. */
   key: keyZ.optional(),
+  /** name is a human-readable name for the module. */
   name: z.string(),
+  /** graph is the visual dataflow graph representation. */
   graph: graph.graphZ,
+  /** text is the text-based Arc source code. */
   text: text.textZ,
+  /** deploy indicates whether to deploy the module for execution. */
   deploy: z.boolean(),
+  /** version is the module version identifier. */
   version: z.string(),
 });
 export interface New extends z.input<typeof newZ> {}
 
+/** Arc is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution. */
 export const arcZ = z.object({
+  /** key is the unique identifier for this module. */
   key: keyZ,
+  /** name is a human-readable name for the module. */
   name: z.string(),
+  /** graph is the visual dataflow graph representation of the module. */
   graph: graph.graphZ,
+  /** text is the text-based Arc source code. */
   text: text.textZ,
+  /** module is the compiled module output including IR and WebAssembly bytecode. */
   module: module.moduleZ.optional(),
+  /** deploy indicates whether the module is deployed for execution. */
   deploy: z.boolean(),
+  /** version is the module version identifier. */
   version: z.string(),
+  /** status is the current execution status of the module. */
   status: statusZ.optional(),
 });
 export interface Arc extends z.infer<typeof arcZ> {}

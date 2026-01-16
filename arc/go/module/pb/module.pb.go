@@ -77,15 +77,23 @@ func (x *StratumWrapper) GetValues() []string {
 	return nil
 }
 
+// Module is a compiled Arc module combining the intermediate representation with WebAssembly bytecode, ready for execution.
 type Module struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Functions         []*pb.Function         `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
-	Nodes             []*pb.Node             `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	Edges             []*pb.Edge             `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
-	Strata            []*StratumWrapper      `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
-	Sequences         []*pb.Sequence         `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
-	Wasm              []byte                 `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`
-	OutputMemoryBases map[string]uint32      `protobuf:"bytes,7,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// functions contains function template definitions.
+	Functions []*pb.Function `protobuf:"bytes,1,rep,name=functions,proto3" json:"functions,omitempty"`
+	// nodes contains node instantiations.
+	Nodes []*pb.Node `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	// edges contains dataflow connections.
+	Edges []*pb.Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
+	// strata contains execution stratification layers.
+	Strata []*StratumWrapper `protobuf:"bytes,4,rep,name=strata,proto3" json:"strata,omitempty"`
+	// sequences contains state machine definitions.
+	Sequences []*pb.Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	// wasm is compiled WebAssembly bytecode for sandboxed execution.
+	Wasm []byte `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`
+	// output_memory_bases contains memory base addresses for multi-output functions, mapping function keys to their base addresses.
+	OutputMemoryBases map[string]uint32 `protobuf:"bytes,7,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }

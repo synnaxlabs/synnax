@@ -20,26 +20,44 @@ type Key uint64
 
 type Status = status.Status[StatusDetails]
 
+// StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
-	Task    Key                       `json:"task" msgpack:"task"`
-	Running bool                      `json:"running" msgpack:"running"`
-	Cmd     string                    `json:"cmd" msgpack:"cmd"`
-	Data    binary.MsgpackEncodedJSON `json:"data,omitempty" msgpack:"data,omitempty"`
+	// Task is the key of the task this status pertains to.
+	Task Key `json:"task" msgpack:"task"`
+	// Running is true if the task is currently executing.
+	Running bool `json:"running" msgpack:"running"`
+	// Cmd is the last command executed on this task.
+	Cmd string `json:"cmd" msgpack:"cmd"`
+	// Data contains task-specific status data.
+	Data binary.MsgpackEncodedJSON `json:"data,omitempty" msgpack:"data,omitempty"`
 }
 
+// Task is an executable unit of work in the Driver system. Tasks represent specific hardware operations such as reading sensor data, writing control signals, or scanning for devices.
 type Task struct {
-	Key      Key                       `json:"key" msgpack:"key"`
-	Name     string                    `json:"name" msgpack:"name"`
-	Type     string                    `json:"type" msgpack:"type"`
-	Config   binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
-	Internal bool                      `json:"internal" msgpack:"internal"`
-	Snapshot bool                      `json:"snapshot" msgpack:"snapshot"`
-	Status   *Status                   `json:"status,omitempty" msgpack:"status,omitempty"`
+	// Key is the composite identifier for this task.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the task.
+	Name string `json:"name" msgpack:"name"`
+	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task.
+	Type string `json:"type" msgpack:"type"`
+	// Config is task-specific configuration stored as JSON. Structure varies by task type.
+	Config binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
+	// Internal is true if this is an internal system task.
+	Internal bool `json:"internal" msgpack:"internal"`
+	// Snapshot indicates whether to persist this task's configuration.
+	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
+	// Status is the current execution status of the task.
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
+// Command is a command to execute on a task in the Driver system.
 type Command struct {
-	Task Key                       `json:"task" msgpack:"task"`
-	Type string                    `json:"type" msgpack:"type"`
-	Key  string                    `json:"key" msgpack:"key"`
+	// Task is the key of the target task.
+	Task Key `json:"task" msgpack:"task"`
+	// Type is the command type (e.g., 'start', 'stop', 'configure').
+	Type string `json:"type" msgpack:"type"`
+	// Key is a unique identifier for this command instance.
+	Key string `json:"key" msgpack:"key"`
+	// Args contains optional arguments for the command.
 	Args binary.MsgpackEncodedJSON `json:"args" msgpack:"args"`
 }

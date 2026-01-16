@@ -29,10 +29,16 @@ struct Command;
 
 using Key = std::uint64_t;
 
+/// @brief StatusDetails contains task-specific status details including execution
+/// state.
 struct StatusDetails {
+    /// @brief task is the key of the task this status pertains to.
     Key task = 0;
+    /// @brief running is true if the task is currently executing.
     bool running = false;
+    /// @brief cmd is the last command executed on this task.
     std::string cmd;
+    /// @brief data contains task-specific status data.
     std::optional<x::json::json> data;
 
     static StatusDetails parse(x::json::Parser parser);
@@ -44,10 +50,15 @@ struct StatusDetails {
     from_proto(const ::service::task::pb::StatusDetails &pb);
 };
 
+/// @brief Command is a command to execute on a task in the Driver system.
 struct Command {
+    /// @brief task is the key of the target task.
     Key task = 0;
+    /// @brief type is the command type (e.g., 'start', 'stop', 'configure').
     std::string type;
+    /// @brief key is a unique identifier for this command instance.
     std::string key;
+    /// @brief args contains optional arguments for the command.
     x::json::json args;
 
     static Command parse(x::json::Parser parser);
@@ -61,13 +72,25 @@ struct Command {
 
 using Status = ::x::status::Status<StatusDetails>;
 
+/// @brief Task is an executable unit of work in the Driver system. Tasks represent
+/// specific hardware operations such as reading sensor data, writing control signals,
+/// or scanning for devices.
 struct Task {
+    /// @brief key is the composite identifier for this task.
     Key key = 0;
+    /// @brief name is a human-readable name for the task.
     std::string name;
+    /// @brief type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+    /// Determines which hardware integration handles the task.
     std::string type;
+    /// @brief config is task-specific configuration stored as JSON. Structure varies by
+    /// task type.
     x::json::json config;
+    /// @brief internal is true if this is an internal system task.
     bool internal = false;
+    /// @brief snapshot indicates whether to persist this task's configuration.
     bool snapshot = false;
+    /// @brief status is the current execution status of the task.
     std::optional<Status> status;
 
     static Task parse(x::json::Parser parser);

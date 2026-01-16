@@ -15,8 +15,11 @@ export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 
+/** XY is a 2D coordinate point with x and y values. Used for positioning elements in two-dimensional space. */
 export const xyZ = z.object({
+  /** x is the horizontal coordinate. */
   x: z.number(),
+  /** y is the vertical coordinate. */
   y: z.number(),
 });
 export interface XY extends z.infer<typeof xyZ> {}

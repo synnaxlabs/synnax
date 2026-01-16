@@ -30,7 +30,9 @@ struct Rack;
 
 using Key = std::uint32_t;
 
+/// @brief StatusDetails contains rack-specific status details.
 struct StatusDetails {
+    /// @brief rack is the key of the rack this status pertains to.
     Key rack = 0;
 
     static StatusDetails parse(x::json::Parser parser);
@@ -44,11 +46,21 @@ struct StatusDetails {
 
 using Status = ::x::status::Status<StatusDetails>;
 
+/// @brief Rack is a collection container for hardware devices and tasks running on a
+/// specific cluster node. Racks serve as the integration point between the Synnax
+/// server and physical hardware via the Driver system.
 struct Rack {
+    /// @brief key is the composite identifier for this rack.
     Key key = 0;
+    /// @brief name is a human-readable name for the rack.
     std::string name;
+    /// @brief task_counter is an internal counter used for generating unique local task
+    /// keys.
     std::uint32_t task_counter = 0;
+    /// @brief embedded is true if this rack is embedded within the Synnax server
+    /// process.
     bool embedded = false;
+    /// @brief status is the current operational status of the rack.
     std::optional<Status> status;
 
     static Rack parse(x::json::Parser parser);

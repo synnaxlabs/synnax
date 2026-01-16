@@ -11,8 +11,11 @@
 
 import { z } from "zod";
 
+/** Output is compiled output from the Arc compiler including WebAssembly bytecode and memory layout. */
 export const outputZ = z.object({
+  /** wasm is compiled WebAssembly bytecode for sandboxed execution. */
   wasm: z.instanceof(Uint8Array),
+  /** outputMemoryBases contains memory base addresses for multi-output functions, mapping function keys to their base addresses. */
   outputMemoryBases: z.record(z.string(), z.uint32()),
 });
 export interface Output extends z.infer<typeof outputZ> {}

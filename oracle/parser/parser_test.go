@@ -424,6 +424,39 @@ var _ = Describe("Parser", func() {
 			Expect(values[0].IDENT().GetText()).To(Equal("float32"))
 			Expect(values[0].STRING_LIT().GetText()).To(Equal(`"float32"`))
 		})
+
+		It("Should parse an enum value with a body block containing domains", func() {
+			schema, diag := parser.Parse(`
+				TaskState enum {
+					pending = 0 {
+						@doc description "The task is waiting to be executed"
+					}
+					running = 1 {
+						@doc description "The task is currently being executed"
+					}
+					completed = 2
+				}
+			`)
+			Expect(diag).To(BeNil())
+			enumDef := schema.Definition(0).EnumDef()
+			values := enumDef.EnumBody().AllEnumValue()
+			Expect(values).To(HaveLen(3))
+
+			// First value has a body with a domain
+			Expect(values[0].IDENT().GetText()).To(Equal("pending"))
+			Expect(values[0].EnumValueBody()).NotTo(BeNil())
+			domains0 := values[0].EnumValueBody().AllDomain()
+			Expect(domains0).To(HaveLen(1))
+			Expect(domains0[0].IDENT().GetText()).To(Equal("doc"))
+
+			// Second value also has a body
+			Expect(values[1].IDENT().GetText()).To(Equal("running"))
+			Expect(values[1].EnumValueBody()).NotTo(BeNil())
+
+			// Third value has no body
+			Expect(values[2].IDENT().GetText()).To(Equal("completed"))
+			Expect(values[2].EnumValueBody()).To(BeNil())
+		})
 	})
 
 	Describe("Struct Aliases", func() {

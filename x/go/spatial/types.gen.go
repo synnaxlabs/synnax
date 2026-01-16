@@ -20,7 +20,10 @@ const (
 	OuterLocationLeft   OuterLocation = "left"
 )
 
+// XY is a 2D coordinate point with x and y values. Used for positioning elements in two-dimensional space.
 type XY struct {
+	// X is the horizontal coordinate.
 	X float64 `json:"x" msgpack:"x"`
+	// Y is the vertical coordinate.
 	Y float64 `json:"y" msgpack:"y"`
 }

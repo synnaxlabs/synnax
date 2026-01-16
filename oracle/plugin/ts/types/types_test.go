@@ -1440,9 +1440,9 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`/** A User represents a user in the system. */`))
-				Expect(content).To(ContainSubstring(`/** The unique identifier for the user. */`))
-				Expect(content).To(ContainSubstring(`/** The user's display name. */`))
+				Expect(content).To(ContainSubstring(`/** User A User represents a user in the system. */`))
+				Expect(content).To(ContainSubstring(`/** key The unique identifier for the user. */`))
+				Expect(content).To(ContainSubstring(`/** name The user's display name. */`))
 			})
 		})
 	})

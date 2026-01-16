@@ -14,5 +14,6 @@
 @pb
 
 Color uint8[4] {
+    @doc value "is an RGBA color represented as an array of four 8-bit unsigned integers: [Red, Green, Blue, Alpha]. Each component ranges from 0-255. Supports conversion to/from hex strings and other color formats."
     @ts omit
 }

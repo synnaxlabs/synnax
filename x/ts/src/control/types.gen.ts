@@ -18,8 +18,11 @@ export enum Concurrency {
 }
 export const concurrencyZ = z.enum(Concurrency);
 
+/** Subject is an entity that can hold control authority over a resource. Typically represents a user, process, or service. */
 export const subjectZ = z.object({
+  /** key is a unique identifier for the subject. */
   key: z.string(),
+  /** name is a human-readable name for the subject. */
   name: z.string(),
 });
 export interface Subject extends z.infer<typeof subjectZ> {}

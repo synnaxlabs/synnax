@@ -9,11 +9,18 @@ import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/ranger/pb";
 
+// Range is a range with additional relationships for hierarchical organization and metadata. This is the primary type exposed through the API.
 message Range {
+  // key is the unique identifier for this range.
   string key = 1;
+  // name is a human-readable name for the range.
   string name = 2;
+  // time_range is the temporal extent of the range, defining its start and end timestamps.
   .x.telem.pb.TimeRange time_range = 3;
+  // color is an optional display color for visual identification of the range in user interfaces.
   bytes color = 4;
+  // labels contains optional labels attached to this range for categorization and filtering.
   repeated .x.label.pb.Label labels = 5;
+  // parent is an optional parent range for hierarchical organization. Ranges can be nested within other ranges.
   optional Range parent = 6;
 }

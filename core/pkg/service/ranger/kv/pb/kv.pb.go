@@ -32,11 +32,15 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Pair is a key-value metadata pair associated with a specific range, enabling arbitrary metadata storage on time ranges.
 type Pair struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Range         string                 `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
-	Key           string                 `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value         string                 `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// range is the unique identifier of the range owning this key-value pair.
+	Range string `protobuf:"bytes,1,opt,name=range,proto3" json:"range,omitempty"`
+	// key is the metadata key name.
+	Key string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	// value is the metadata value stored as a string for flexibility.
+	Value         string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

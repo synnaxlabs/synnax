@@ -29,8 +29,12 @@ struct StatusDetails;
 
 using Key = std::string;
 
+/// @brief StatusDetails contains device-specific status details identifying the device
+/// and its associated rack.
 struct StatusDetails {
+    /// @brief rack is the key of the rack this device belongs to.
     ::synnax::rack::Key rack = 0;
+    /// @brief device is the device identifier.
     std::string device;
 
     static StatusDetails parse(x::json::Parser parser);
@@ -44,15 +48,30 @@ struct StatusDetails {
 
 using Status = ::x::status::Status<StatusDetails>;
 
+/// @brief Device is a physical piece of hardware connected to Synnax through the Driver
+/// system. Devices represent external equipment like LabJack, National Instruments, OPC
+/// UA servers, or Modbus devices.
 struct Device {
+    /// @brief key is the unique identifier for this device.
     Key key;
+    /// @brief rack is the key of the rack that owns this device.
     ::synnax::rack::Key rack = 0;
+    /// @brief location is the physical location or address of the device.
     std::string location;
+    /// @brief make is the manufacturer of the device (e.g., 'LabJack', 'National
+    /// Instruments').
     std::string make;
+    /// @brief model is the device model identifier.
     std::string model;
+    /// @brief name is a human-readable name for the device.
     std::string name;
+    /// @brief configured indicates whether the device has been successfully configured
+    /// and is ready for use.
     bool configured = false;
+    /// @brief properties contains device-specific configuration properties stored as
+    /// JSON. Structure varies by device make and model.
     x::json::json properties;
+    /// @brief status is the current operational status of the device.
     std::optional<Status> status;
 
     static Device parse(x::json::Parser parser);

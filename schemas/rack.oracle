@@ -15,21 +15,42 @@ import "schemas/status"
 @go output  "core/pkg/service/rack"
 @pb
 
-Key uint32
-
-StatusDetails struct {
-    rack Key
+Key uint32 {
+    @doc value "is a composite identifier for a rack. The high 16 bits contain the cluster node key, and the low 16 bits contain the local sequential key. Racks are leased to specific nodes because task configuration signals are passed through gossip operations, which can take 15s+ to propagate through a large cluster. This structure minimizes hops and configuration latency."
 }
 
-Status = status.Status<StatusDetails>
+StatusDetails struct {
+    rack Key {
+        @doc value "is the key of the rack this status pertains to."
+    }
+
+    @doc value "contains rack-specific status details."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is rack-specific status information including operational state."
+}
 
 Rack struct {
-    key          Key      @key
-    name         string   @validate required
-    task_counter uint32?
-    embedded     bool?
-    status       Status??
+    key          Key      {
+        @doc value "is the composite identifier for this rack."
+        @key
+    }
+    name         string   {
+        @doc value         "is a human-readable name for the rack."
+        @validate required
+    }
+    task_counter uint32?  {
+        @doc value "is an internal counter used for generating unique local task keys."
+    }
+    embedded     bool?    {
+        @doc value "is true if this rack is embedded within the Synnax server process."
+    }
+    status       Status?? {
+        @doc value "is the current operational status of the rack."
+    }
 
+    @doc value     "is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system."
     @ts name       "Payload"
     @ontology type "rack"
     @py name       "Base"
@@ -38,10 +59,14 @@ Rack struct {
 }
 
 New struct extends Rack {
-    key uint32 @validate default 0
+    key uint32 {
+        @doc value        "is an optional key for the rack. If 0, one will be automatically assigned."
+        @validate default 0
+    }
     -task_counter
     -embedded
 
+    @doc value    "contains parameters for creating a new rack."
     @ts use_input
     @go omit
     @pb omit

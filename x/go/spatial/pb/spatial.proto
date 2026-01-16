@@ -6,6 +6,7 @@ package x.spatial.pb;
 
 option go_package = "github.com/synnaxlabs/x/spatial/pb";
 
+// OuterLocation is a position indicator for elements anchored to the outer edge of a container. Used for orientation and positioning of UI elements.
 enum OuterLocation {
   OUTER_LOCATION_TOP = 0;
   OUTER_LOCATION_RIGHT = 1;
@@ -13,7 +14,10 @@ enum OuterLocation {
   OUTER_LOCATION_LEFT = 3;
 }
 
+// XY is a 2D coordinate point with x and y values. Used for positioning elements in two-dimensional space.
 message XY {
+  // x is the horizontal coordinate.
   double x = 1;
+  // y is the vertical coordinate.
   double y = 2;
 }

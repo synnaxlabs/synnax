@@ -17,29 +17,65 @@ import "schemas/rack"
 @pb
 
 StatusDetails struct {
-    rack   rack.Key
-    device string
+    rack   rack.Key {
+        @doc value "is the key of the rack this device belongs to."
+    }
+    device string   {
+        @doc value "is the device identifier."
+    }
+
+    @doc value "contains device-specific status details identifying the device and its associated rack."
 }
 
-Status = status.Status<StatusDetails>
+Status = status.Status<StatusDetails> {
+    @doc value "is device-specific status information including operational state and device identification."
+}
 
-Key = string
+Key = string {
+    @doc value "is the device's serial number, used as its unique identifier."
+}
 
 Device struct<
     Properties extends json = json,
     Make extends string = string,
     Model extends string = string
 > {
-    key        Key        @key
-    rack       rack.Key   @validate required
-    location   string     @validate required
-    make       Make       @validate required
-    model      Model      @validate required
-    name       string     @validate required
-    configured bool       @validate default false
-    properties Properties
-    status     Status??
+    key        Key        {
+        @doc value "is the unique identifier for this device."
+        @key
+    }
+    rack       rack.Key   {
+        @doc value         "is the key of the rack that owns this device."
+        @validate required
+    }
+    location   string     {
+        @doc value         "is the physical location or address of the device."
+        @validate required
+    }
+    make       Make       {
+        @doc value         "is the manufacturer of the device (e.g., 'LabJack', 'National Instruments')."
+        @validate required
+    }
+    model      Model      {
+        @doc value         "is the device model identifier."
+        @validate required
+    }
+    name       string     {
+        @doc value         "is a human-readable name for the device."
+        @validate required
+    }
+    configured bool       {
+        @doc value        "indicates whether the device has been successfully configured and is ready for use."
+        @validate default false
+    }
+    properties Properties {
+        @doc value "contains device-specific configuration properties stored as JSON. Structure varies by device make and model."
+    }
+    status     Status??   {
+        @doc value "is the current operational status of the device."
+    }
 
+    @doc value         "is a physical piece of hardware connected to Synnax through the Driver system. Devices represent external equipment like LabJack, National Instruments, OPC UA servers, or Modbus devices."
     @ontology type     "device"
     @ts concrete_types
 }
@@ -49,10 +85,18 @@ New struct<
     Make extends string = string,
     Model extends string = string
 > extends Device<Properties, Make, Model> {
-    key        Key?
-    properties Properties @ts stringify
-    configured bool?
+    key        Key?       {
+        @doc value "is an optional key for the device. If not provided, one will be automatically assigned."
+    }
+    properties Properties {
+        @doc value    "contains device-specific configuration properties."
+        @ts stringify
+    }
+    configured bool?      {
+        @doc value "is an optional configuration status."
+    }
 
+    @doc value "contains parameters for creating or updating a device."
     @ts {
         use_input
         concrete_types

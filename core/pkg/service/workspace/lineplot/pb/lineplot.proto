@@ -8,8 +8,12 @@ import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot/pb";
 
+// LinePlot is a time-series visualization component for plotting telemetry data. Line plots support multiple channels, real-time streaming, and historical data display with zoom and pan capabilities.
 message LinePlot {
+  // key is the unique identifier for this line plot.
   string key = 1;
+  // name is a human-readable name for the line plot.
   string name = 2;
+  // data is the line plot configuration including channel references, axis settings, and display options.
   google.protobuf.Struct data = 3;
 }

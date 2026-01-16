@@ -33,6 +33,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Concurrency defines whether a resource can have multiple subjects acting on it at once.
 type Concurrency int32
 
 const (
@@ -79,10 +80,13 @@ func (Concurrency) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_control_pb_control_proto_rawDescGZIP(), []int{0}
 }
 
+// Subject is an entity that can hold control authority over a resource. Typically represents a user, process, or service.
 type Subject struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is a unique identifier for the subject.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is a human-readable name for the subject.
+	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -131,11 +135,15 @@ func (x *Subject) GetName() string {
 	return ""
 }
 
+// State represents the state of control over a resource at a point in time, capturing who controls what and with how much authority.
 type State struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Subject       *Subject               `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
-	Resource      *anypb.Any             `protobuf:"bytes,2,opt,name=resource,proto3" json:"resource,omitempty"`
-	Authority     uint32                 `protobuf:"varint,3,opt,name=authority,proto3" json:"authority,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// subject is the entity controlling the resource.
+	Subject *Subject `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	// resource is the resource being controlled.
+	Resource *anypb.Any `protobuf:"bytes,2,opt,name=resource,proto3" json:"resource,omitempty"`
+	// authority is the level of control authority the subject has over the resource.
+	Authority     uint32 `protobuf:"varint,3,opt,name=authority,proto3" json:"authority,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

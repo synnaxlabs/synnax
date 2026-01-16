@@ -221,6 +221,43 @@ class TestModbusReadTask:
                 address=65536, channel=1234, data_type="float32"
             )
 
+    def test_to_payload_serializes_config(self):
+        """Test that to_payload() correctly serializes the config into the payload.
+
+        This is a regression test for the JSONConfigMixin.to_payload() method which
+        must serialize self.config into the payload, not just return the internal task.
+        """
+        task = sy.modbus.ReadTask(
+            name="test-payload-serialization",
+            device="some-device-key",
+            sample_rate=50,
+            stream_rate=10,
+            data_saving=True,
+            auto_start=False,
+            channels=[
+                sy.modbus.HoldingRegisterInputChan(
+                    key="holding-reg-1",
+                    address=0,
+                    channel=1234,
+                    data_type="float32",
+                ),
+            ],
+        )
+
+        payload = task.to_payload()
+
+        # Verify the config is properly serialized in the payload
+        assert payload.config is not None
+        assert isinstance(payload.config, dict)
+        assert payload.config["sample_rate"] == 50
+        assert payload.config["stream_rate"] == 10
+        assert payload.config["device"] == "some-device-key"
+        assert payload.config["data_saving"] is True
+        assert payload.config["auto_start"] is False
+        assert len(payload.config["channels"]) == 1
+        assert payload.config["channels"][0]["address"] == 0
+        assert payload.config["channels"][0]["data_type"] == "float32"
+
     def test_create_and_retrieve_read_task(self, client: sy.Synnax):
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.modbus.ReadTask(
@@ -391,6 +428,35 @@ class TestModbusWriteTask:
         )
         assert channel.key != ""
         assert len(channel.key) > 0
+
+    def test_to_payload_serializes_config(self):
+        """Test that to_payload() correctly serializes the config into the payload.
+
+        This is a regression test for the JSONConfigMixin.to_payload() method which
+        must serialize self.config into the payload, not just return the internal task.
+        """
+        task = sy.modbus.WriteTask(
+            name="test-payload-serialization",
+            device="some-device-key",
+            auto_start=False,
+            channels=[
+                sy.modbus.CoilOutputChan(
+                    key="coil-1",
+                    address=5,
+                    channel=1234,
+                ),
+            ],
+        )
+
+        payload = task.to_payload()
+
+        # Verify the config is properly serialized in the payload
+        assert payload.config is not None
+        assert isinstance(payload.config, dict)
+        assert payload.config["device"] == "some-device-key"
+        assert payload.config["auto_start"] is False
+        assert len(payload.config["channels"]) == 1
+        assert payload.config["channels"][0]["address"] == 5
 
     def test_create_and_retrieve_write_task(self, client: sy.Synnax):
         """Test that WriteTask can be created and retrieved from the database."""

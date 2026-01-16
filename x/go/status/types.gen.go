@@ -27,13 +27,22 @@ const (
 	VariantDisabled Variant = "disabled"
 )
 
+// Status is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details.
 type Status[Details any] struct {
-	Key         string          `json:"key" msgpack:"key"`
-	Name        string          `json:"name" msgpack:"name"`
-	Variant     Variant         `json:"variant" msgpack:"variant"`
-	Message     string          `json:"message" msgpack:"message"`
-	Description string          `json:"description" msgpack:"description"`
-	Time        telem.TimeStamp `json:"time" msgpack:"time"`
-	Details     Details         `json:"details" msgpack:"details"`
-	Labels      []label.Label   `json:"labels" msgpack:"labels"`
+	// Key is a unique identifier for this status, automatically generated if not provided.
+	Key string `json:"key" msgpack:"key"`
+	// Name is an optional human-readable name for the status.
+	Name string `json:"name" msgpack:"name"`
+	// Variant is the severity or type of the status: success, info, warning, error, loading, or disabled.
+	Variant Variant `json:"variant" msgpack:"variant"`
+	// Message is the main message text describing the status.
+	Message string `json:"message" msgpack:"message"`
+	// Description is an optional detailed description providing additional context.
+	Description string `json:"description" msgpack:"description"`
+	// Time is the timestamp when the status was created.
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
+	// Details contains optional component-specific custom details for the status.
+	Details Details `json:"details" msgpack:"details"`
+	// Labels contains optional labels for categorization and filtering.
+	Labels []label.Label `json:"labels" msgpack:"labels"`
 }

@@ -39,56 +39,92 @@ const (
 	EdgeKindOneShot
 )
 
+// Handle is a reference to a specific parameter on a specific node in the dataflow graph.
 type Handle struct {
-	Node  string `json:"node" msgpack:"node"`
+	// Node is the node identifier.
+	Node string `json:"node" msgpack:"node"`
+	// Param is the parameter name (input or output).
 	Param string `json:"param" msgpack:"param"`
 }
 
+// Edge is a dataflow connection between node parameters in the Arc graph.
 type Edge struct {
-	Source Handle   `json:"source" msgpack:"source"`
-	Target Handle   `json:"target" msgpack:"target"`
-	Kind   EdgeKind `json:"kind" msgpack:"kind"`
+	// Source is the source node parameter producing data.
+	Source Handle `json:"source" msgpack:"source"`
+	// Target is the target node parameter consuming data.
+	Target Handle `json:"target" msgpack:"target"`
+	// Kind defines execution semantics for this connection.
+	Kind EdgeKind `json:"kind" msgpack:"kind"`
 }
 
+// Stage is a stage in a sequence state machine, containing active nodes and their execution stratification.
 type Stage struct {
-	Key    string   `json:"key" msgpack:"key"`
-	Nodes  []string `json:"nodes" msgpack:"nodes"`
-	Strata Strata   `json:"strata" msgpack:"strata"`
+	// Key is the stage identifier.
+	Key string `json:"key" msgpack:"key"`
+	// Nodes contains node keys active in this stage.
+	Nodes []string `json:"nodes" msgpack:"nodes"`
+	// Strata contains execution stratification for nodes in this stage.
+	Strata Strata `json:"strata" msgpack:"strata"`
 }
 
+// Sequence is a state machine defining ordered stages of execution, where entry point is always the first stage.
 type Sequence struct {
-	Key    string  `json:"key" msgpack:"key"`
+	// Key is the sequence identifier.
+	Key string `json:"key" msgpack:"key"`
+	// Stages contains ordered stages in this sequence.
 	Stages []Stage `json:"stages" msgpack:"stages"`
 }
 
+// Body is raw function body source code with optional parsed AST.
 type Body struct {
+	// Raw is the raw source code text.
 	Raw string                  `json:"raw" msgpack:"raw"`
 	AST antlr.ParserRuleContext `json:"-"`
 }
 
+// Function is a function template definition with typed parameters, serving as a blueprint for node instantiation.
 type Function struct {
-	Key      string         `json:"key" msgpack:"key"`
-	Body     Body           `json:"body" msgpack:"body"`
-	Config   types.Params   `json:"config" msgpack:"config"`
-	Inputs   types.Params   `json:"inputs" msgpack:"inputs"`
-	Outputs  types.Params   `json:"outputs" msgpack:"outputs"`
+	// Key is the function identifier (template name).
+	Key string `json:"key" msgpack:"key"`
+	// Body is raw source code for user-defined functions.
+	Body Body `json:"body" msgpack:"body"`
+	// Config contains configuration parameter definitions.
+	Config types.Params `json:"config" msgpack:"config"`
+	// Inputs contains input parameter definitions.
+	Inputs types.Params `json:"inputs" msgpack:"inputs"`
+	// Outputs contains output parameter definitions.
+	Outputs types.Params `json:"outputs" msgpack:"outputs"`
+	// Channels contains channel read/write declarations.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
+// Node is a concrete instantiation of a function with typed parameters and configuration values.
 type Node struct {
-	Key      string         `json:"key" msgpack:"key"`
-	Type     string         `json:"type" msgpack:"type"`
-	Config   types.Params   `json:"config" msgpack:"config"`
-	Inputs   types.Params   `json:"inputs" msgpack:"inputs"`
-	Outputs  types.Params   `json:"outputs" msgpack:"outputs"`
+	// Key is the unique identifier for this node instance.
+	Key string `json:"key" msgpack:"key"`
+	// Type is the function type being instantiated.
+	Type string `json:"type" msgpack:"type"`
+	// Config contains configuration parameter values.
+	Config types.Params `json:"config" msgpack:"config"`
+	// Inputs contains input parameter type signatures.
+	Inputs types.Params `json:"inputs" msgpack:"inputs"`
+	// Outputs contains output parameter type signatures.
+	Outputs types.Params `json:"outputs" msgpack:"outputs"`
+	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
+// IR is the intermediate representation of an Arc program as a dataflow graph with stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
-	Functions Functions                              `json:"functions" msgpack:"functions"`
-	Nodes     Nodes                                  `json:"nodes" msgpack:"nodes"`
-	Edges     Edges                                  `json:"edges" msgpack:"edges"`
-	Strata    Strata                                 `json:"strata" msgpack:"strata"`
+	// Functions contains function template definitions.
+	Functions Functions `json:"functions" msgpack:"functions"`
+	// Nodes contains node instantiations.
+	Nodes Nodes `json:"nodes" msgpack:"nodes"`
+	// Edges contains dataflow connections.
+	Edges Edges `json:"edges" msgpack:"edges"`
+	// Strata contains execution stratification layers.
+	Strata Strata `json:"strata" msgpack:"strata"`
+	// Sequences contains state machine definitions.
 	Sequences Sequences                              `json:"sequences" msgpack:"sequences"`
 	Symbols   *symbol.Scope                          `json:"-"`
 	TypeMap   map[antlr.ParserRuleContext]types.Type `json:"-"`

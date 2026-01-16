@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 )
 
+// Text is text-based Arc source code with optional parsed AST for compilation.
 type Text struct {
+	// Raw is the raw Arc source code in text form.
 	Raw string                 `json:"raw" msgpack:"raw"`
 	AST parser.IProgramContext `json:"-"`
 }

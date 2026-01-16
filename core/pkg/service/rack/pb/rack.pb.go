@@ -33,9 +33,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// StatusDetails contains rack-specific status details.
 type StatusDetails struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Rack          uint32                 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// rack is the key of the rack this status pertains to.
+	Rack          uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -77,13 +79,19 @@ func (x *StatusDetails) GetRack() uint32 {
 	return 0
 }
 
+// Rack is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system.
 type Rack struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           uint32                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	TaskCounter   uint32                 `protobuf:"varint,3,opt,name=task_counter,json=taskCounter,proto3" json:"task_counter,omitempty"`
-	Embedded      bool                   `protobuf:"varint,4,opt,name=embedded,proto3" json:"embedded,omitempty"`
-	Status        *pb.Status             `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the composite identifier for this rack.
+	Key uint32 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is a human-readable name for the rack.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// task_counter is an internal counter used for generating unique local task keys.
+	TaskCounter uint32 `protobuf:"varint,3,opt,name=task_counter,json=taskCounter,proto3" json:"task_counter,omitempty"`
+	// embedded is true if this rack is embedded within the Synnax server process.
+	Embedded bool `protobuf:"varint,4,opt,name=embedded,proto3" json:"embedded,omitempty"`
+	// status is the current operational status of the rack.
+	Status        *pb.Status `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

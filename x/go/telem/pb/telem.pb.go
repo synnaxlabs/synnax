@@ -32,10 +32,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// TimeRange is a time interval defined by a start and end timestamp. The range is start-inclusive and end-exclusive, following standard interval conventions for predictable boundary handling.
 type TimeRange struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Start         int64                  `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
-	End           int64                  `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// start is the inclusive start of the time range.
+	Start int64 `protobuf:"varint,1,opt,name=start,proto3" json:"start,omitempty"`
+	// end is the exclusive end of the time range.
+	End           int64 `protobuf:"varint,2,opt,name=end,proto3" json:"end,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

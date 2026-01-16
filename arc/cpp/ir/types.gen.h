@@ -42,8 +42,12 @@ enum class EdgeKind : std::uint8_t {
 
 using Stratum = std::vector<std::string>;
 
+/// @brief Handle is a reference to a specific parameter on a specific node in the
+/// dataflow graph.
 struct Handle {
+    /// @brief node is the node identifier.
     std::string node;
+    /// @brief param is the parameter name (input or output).
     std::string param;
 
     static Handle parse(x::json::Parser parser);
@@ -55,7 +59,9 @@ struct Handle {
     from_proto(const ::arc::ir::pb::Handle &pb);
 };
 
+/// @brief Body is raw function body source code with optional parsed AST.
 struct Body {
+    /// @brief raw is the raw source code text.
     std::string raw;
 
     static Body parse(x::json::Parser parser);
@@ -66,12 +72,20 @@ struct Body {
     static std::pair<Body, x::errors::Error> from_proto(const ::arc::ir::pb::Body &pb);
 };
 
+/// @brief Node is a concrete instantiation of a function with typed parameters and
+/// configuration values.
 struct Node {
+    /// @brief key is the unique identifier for this node instance.
     std::string key;
+    /// @brief type is the function type being instantiated.
     std::string type;
+    /// @brief config contains configuration parameter values.
     ::arc::types::Params config;
+    /// @brief inputs contains input parameter type signatures.
     ::arc::types::Params inputs;
+    /// @brief outputs contains output parameter type signatures.
     ::arc::types::Params outputs;
+    /// @brief channels contains channel read/write mappings.
     ::arc::types::Channels channels;
 
     static Node parse(x::json::Parser parser);
@@ -133,12 +147,20 @@ struct Strata : private std::vector<Stratum> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Function is a function template definition with typed parameters, serving as
+/// a blueprint for node instantiation.
 struct Function {
+    /// @brief key is the function identifier (template name).
     std::string key;
+    /// @brief body is raw source code for user-defined functions.
     Body body;
+    /// @brief config contains configuration parameter definitions.
     ::arc::types::Params config;
+    /// @brief inputs contains input parameter definitions.
     ::arc::types::Params inputs;
+    /// @brief outputs contains output parameter definitions.
     ::arc::types::Params outputs;
+    /// @brief channels contains channel read/write declarations.
     ::arc::types::Channels channels;
 
     static Function parse(x::json::Parser parser);
@@ -201,9 +223,13 @@ struct Nodes : private std::vector<Node> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Edge is a dataflow connection between node parameters in the Arc graph.
 struct Edge {
+    /// @brief source is the source node parameter producing data.
     Handle source;
+    /// @brief target is the target node parameter consuming data.
     Handle target;
+    /// @brief kind defines execution semantics for this connection.
     EdgeKind kind;
 
     static Edge parse(x::json::Parser parser);
@@ -214,9 +240,14 @@ struct Edge {
     static std::pair<Edge, x::errors::Error> from_proto(const ::arc::ir::pb::Edge &pb);
 };
 
+/// @brief Stage is a stage in a sequence state machine, containing active nodes and
+/// their execution stratification.
 struct Stage {
+    /// @brief key is the stage identifier.
     std::string key;
+    /// @brief nodes contains node keys active in this stage.
     std::vector<std::string> nodes;
+    /// @brief strata contains execution stratification for nodes in this stage.
     Strata strata;
 
     static Stage parse(x::json::Parser parser);
@@ -381,8 +412,12 @@ struct Stages : private std::vector<Stage> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Sequence is a state machine defining ordered stages of execution, where entry
+/// point is always the first stage.
 struct Sequence {
+    /// @brief key is the sequence identifier.
     std::string key;
+    /// @brief stages contains ordered stages in this sequence.
     std::vector<Stage> stages;
 
     static Sequence parse(x::json::Parser parser);
@@ -445,11 +480,18 @@ struct Sequences : private std::vector<Sequence> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief IR is the intermediate representation of an Arc program as a dataflow graph
+/// with stratified execution, bridging semantic analysis and WebAssembly compilation.
 struct IR {
+    /// @brief functions contains function template definitions.
     Functions functions;
+    /// @brief nodes contains node instantiations.
     Nodes nodes;
+    /// @brief edges contains dataflow connections.
     Edges edges;
+    /// @brief strata contains execution stratification layers.
     Strata strata;
+    /// @brief sequences contains state machine definitions.
     Sequences sequences;
 
     static IR parse(x::json::Parser parser);

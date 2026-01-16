@@ -9,6 +9,7 @@ import "x/go/label/pb/label.proto";
 
 option go_package = "github.com/synnaxlabs/x/status/pb";
 
+// Variant is the severity or type of a status message.
 enum Variant {
   VARIANT_SUCCESS = 0;
   VARIANT_INFO = 1;
@@ -18,13 +19,22 @@ enum Variant {
   VARIANT_DISABLED = 5;
 }
 
+// Status is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details.
 message Status {
+  // key is a unique identifier for this status, automatically generated if not provided.
   string key = 1;
+  // name is an optional human-readable name for the status.
   string name = 2;
+  // variant is the severity or type of the status: success, info, warning, error, loading, or disabled.
   Variant variant = 3;
+  // message is the main message text describing the status.
   string message = 4;
+  // description is an optional detailed description providing additional context.
   string description = 5;
+  // time is the timestamp when the status was created.
   int64 time = 6;
+  // details contains optional component-specific custom details for the status.
   google.protobuf.Any details = 7;
+  // labels contains optional labels for categorization and filtering.
   repeated .x.label.pb.Label labels = 8;
 }

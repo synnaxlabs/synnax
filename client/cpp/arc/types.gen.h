@@ -32,7 +32,9 @@ struct Arc;
 
 using Key = x::uuid::UUID;
 
+/// @brief StatusDetails contains Arc-specific status details for execution state.
 struct StatusDetails {
+    /// @brief running indicates whether the Arc module is currently executing.
     bool running = false;
 
     static StatusDetails parse(x::json::Parser parser);
@@ -46,14 +48,26 @@ struct StatusDetails {
 
 using Status = ::x::status::Status<StatusDetails>;
 
+/// @brief Arc is an Arc module combining visual graph representation and text-based
+/// source code for reactive control systems. Compiles to WebAssembly for sandboxed
+/// execution.
 struct Arc {
+    /// @brief key is the unique identifier for this module.
     Key key;
+    /// @brief name is a human-readable name for the module.
     std::string name;
+    /// @brief graph is the visual dataflow graph representation of the module.
     ::arc::graph::Graph graph;
+    /// @brief text is the text-based Arc source code.
     ::arc::text::Text text;
+    /// @brief module is the compiled module output including IR and WebAssembly
+    /// bytecode.
     std::optional<::arc::module::Module> module;
+    /// @brief deploy indicates whether the module is deployed for execution.
     bool deploy = false;
+    /// @brief version is the module version identifier.
     std::string version;
+    /// @brief status is the current execution status of the module.
     std::optional<Status> status;
 
     static Arc parse(x::json::Parser parser);

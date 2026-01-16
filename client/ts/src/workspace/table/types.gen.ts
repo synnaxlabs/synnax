@@ -17,9 +17,13 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** Table is a tabular data display component for viewing structured telemetry data. Tables support multiple columns, channel data sources, and customizable formatting options. */
 export const tableZ = z.object({
+  /** key is the unique identifier for this table. */
   key: keyZ,
+  /** name is a human-readable name for the table. */
   name: z.string(),
+  /** data is the table configuration including column definitions, channel references, and formatting options. */
   data: record.nullishToEmpty,
 });
 export interface Table extends z.infer<typeof tableZ> {}

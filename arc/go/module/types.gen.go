@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 )
 
+// Module is a compiled Arc module combining the intermediate representation with WebAssembly bytecode, ready for execution.
 type Module struct {
 	ir.IR
 	compiler.Output

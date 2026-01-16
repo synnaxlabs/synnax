@@ -32,9 +32,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Text is text-based Arc source code with optional parsed AST for compilation.
 type Text struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Raw           string                 `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// raw is the raw Arc source code in text form.
+	Raw           string `protobuf:"bytes,1,opt,name=raw,proto3" json:"raw,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

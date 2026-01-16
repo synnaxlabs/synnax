@@ -16,15 +16,27 @@ import "schemas/color"
 @cpp output "client/cpp/ranger"
 
 Key = uuid {
+    @doc value "is a unique identifier for a range, represented as a UUID."
     @go output "core/pkg/service/ranger"
 }
 
 Range struct {
-    key        Key             @key
-    name       string          @validate min_length 1
-    time_range telem.TimeRange
-    color      color.Color?
+    key        Key             {
+        @doc value "is the unique identifier for this range."
+        @key
+    }
+    name       string          {
+        @doc value           "is a human-readable name for the range."
+        @validate min_length 1
+    }
+    time_range telem.TimeRange {
+        @doc value "is the temporal extent of the range, defining its start and end timestamps."
+    }
+    color      color.Color?    {
+        @doc value "is an optional display color for visual identification of the range in user interfaces."
+    }
 
+    @doc value "is a user-defined region of time in the Synnax cluster. Ranges act as a method for labeling and categorizing telemetry data within specific time periods."
     @go output "core/pkg/service/ranger"
     @pb
     @cpp name  "Base"
@@ -33,9 +45,14 @@ Range struct {
 }
 
 APIRange struct extends Range {
-    labels label.Label[]?
-    parent APIRange??
+    labels label.Label[]? {
+        @doc value "contains optional labels attached to this range for categorization and filtering."
+    }
+    parent APIRange??     {
+        @doc value "is an optional parent range for hierarchical organization. Ranges can be nested within other ranges."
+    }
 
+    @doc value     "is a range with additional relationships for hierarchical organization and metadata. This is the primary type exposed through the API."
     @go output     "core/pkg/api/ranger"
     @go name       "Range"
     @pb name       "Range"
@@ -46,11 +63,18 @@ APIRange struct extends Range {
 }
 
 TSRange struct extends Range {
-    labels     label.Label[]?
-    parent     TSRange??
-    time_range telem.TimeRangeBounded
+    labels     label.Label[]?         {
+        @doc value "contains optional labels attached to this range."
+    }
+    parent     TSRange??              {
+        @doc value "is an optional parent range for hierarchical organization."
+    }
+    time_range telem.TimeRangeBounded {
+        @doc value "is the bounded temporal extent of the range."
+    }
 
-    @ts name  "Payload"
+    @doc value "is TypeScript-specific range representation with bounded time ranges."
+    @ts name   "Payload"
     @py omit
     @cpp omit
     @go omit
@@ -58,10 +82,13 @@ TSRange struct extends Range {
 }
 
 New struct extends TSRange {
-    key Key?
+    key Key? {
+        @doc value "is an optional key for the range. If not provided, one will be automatically assigned."
+    }
     -parent
     -labels
 
+    @doc value "contains parameters for creating a new range."
     @ts {
         name "New"
         use_input

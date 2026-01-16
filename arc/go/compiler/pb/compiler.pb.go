@@ -32,10 +32,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Output is compiled output from the Arc compiler including WebAssembly bytecode and memory layout.
 type Output struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Wasm              []byte                 `protobuf:"bytes,1,opt,name=wasm,proto3" json:"wasm,omitempty"`
-	OutputMemoryBases map[string]uint32      `protobuf:"bytes,2,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// wasm is compiled WebAssembly bytecode for sandboxed execution.
+	Wasm []byte `protobuf:"bytes,1,opt,name=wasm,proto3" json:"wasm,omitempty"`
+	// output_memory_bases contains memory base addresses for multi-output functions, mapping function keys to their base addresses.
+	OutputMemoryBases map[string]uint32 `protobuf:"bytes,2,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }

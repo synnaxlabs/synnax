@@ -18,8 +18,12 @@ import (
 
 type Key = uuid.UUID
 
+// Table is a tabular data display component for viewing structured telemetry data. Tables support multiple columns, channel data sources, and customizable formatting options.
 type Table struct {
-	Key  Key                       `json:"key" msgpack:"key"`
-	Name string                    `json:"name" msgpack:"name"`
+	// Key is the unique identifier for this table.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the table.
+	Name string `json:"name" msgpack:"name"`
+	// Data is the table configuration including column definitions, channel references, and formatting options.
 	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
 }

@@ -15,4 +15,6 @@ import "schemas/arc/compiler"
 @cpp output "arc/cpp/module"
 @pb
 
-Module struct extends ir.IR, compiler.Output {}
+Module struct extends ir.IR, compiler.Output {
+    @doc value "is a compiled Arc module combining the intermediate representation with WebAssembly bytecode, ready for execution."
+}

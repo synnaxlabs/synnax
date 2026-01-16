@@ -23,17 +23,28 @@ type Status = status.Status[StatusDetails]
 
 type Key = uuid.UUID
 
+// StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails struct {
+	// Running indicates whether the Arc module is currently executing.
 	Running bool `json:"running" msgpack:"running"`
 }
 
+// Arc is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
-	Key     Key            `json:"key" msgpack:"key"`
-	Name    string         `json:"name" msgpack:"name"`
-	Graph   graph.Graph    `json:"graph" msgpack:"graph"`
-	Text    text.Text      `json:"text" msgpack:"text"`
-	Module  *module.Module `json:"module,omitempty" msgpack:"module,omitempty"`
-	Deploy  bool           `json:"deploy" msgpack:"deploy"`
-	Version string         `json:"version" msgpack:"version"`
-	Status  *Status        `json:"status,omitempty" msgpack:"status,omitempty"`
+	// Key is the unique identifier for this module.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the module.
+	Name string `json:"name" msgpack:"name"`
+	// Graph is the visual dataflow graph representation of the module.
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
+	// Text is the text-based Arc source code.
+	Text text.Text `json:"text" msgpack:"text"`
+	// Module is the compiled module output including IR and WebAssembly bytecode.
+	Module *module.Module `json:"module,omitempty" msgpack:"module,omitempty"`
+	// Deploy indicates whether the module is deployed for execution.
+	Deploy bool `json:"deploy" msgpack:"deploy"`
+	// Version is the module version identifier.
+	Version string `json:"version" msgpack:"version"`
+	// Status is the current execution status of the module.
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

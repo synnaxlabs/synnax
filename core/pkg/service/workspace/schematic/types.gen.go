@@ -18,9 +18,14 @@ import (
 
 type Key = uuid.UUID
 
+// Schematic is a visual diagram editor component for drawing system schematics, control flows, and process diagrams. Schematics support interactive symbols, connection handles, and dynamic state visualization.
 type Schematic struct {
-	Key      Key                       `json:"key" msgpack:"key"`
-	Name     string                    `json:"name" msgpack:"name"`
-	Data     binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
-	Snapshot bool                      `json:"snapshot" msgpack:"snapshot"`
+	// Key is the unique identifier for this schematic.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the schematic.
+	Name string `json:"name" msgpack:"name"`
+	// Data is the schematic content including symbols, connections, and layout configuration.
+	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
+	// Snapshot indicates whether this schematic represents a saved snapshot state.
+	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 }

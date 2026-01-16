@@ -34,27 +34,48 @@ ResourceType enum {
     schematic_symbol = "schematic_symbol"
     status           = "status"
     view             = "view"
+
+    @doc value "is the type of a resource in the Synnax ontology system. Each resource type represents a distinct kind of entity that can have relationships with other resources."
 }
 
 ID struct {
-    type ResourceType
-    key  string
+    type ResourceType {
+        @doc value "is the type of the resource."
+    }
+    key  string       {
+        @doc value "is the unique key identifying the resource within its type."
+    }
 
+    @doc value "is a unique identifier for a resource in the ontology system, composed of its type and key."
     @ts omit
 }
 
 Resource struct {
-    id   ID
-    name string
-    data json?
+    id   ID     {
+        @doc value "is the unique identifier for this resource."
+    }
+    name string {
+        @doc value "is a human-readable name for the resource."
+    }
+    data json?  {
+        @doc value "is optional metadata associated with the resource."
+    }
 
+    @doc value "is a resource in the ontology system with its identifier, name, and optional metadata."
     @ts omit
 }
 
 Relationship struct {
-    from ID
-    type string
-    to   ID
+    from ID     {
+        @doc value "is the source resource of the relationship."
+    }
+    type string {
+        @doc value "is the type of relationship (e.g., 'parent_of', 'owns')."
+    }
+    to   ID     {
+        @doc value "is the target resource of the relationship."
+    }
 
+    @doc value "is a directional relationship between two resources in the ontology system."
     @ts omit
 }

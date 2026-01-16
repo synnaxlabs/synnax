@@ -37,38 +37,58 @@ export enum Kind {
 }
 export const kindZ = z.enum(Kind);
 
+/** Channels contains channel declarations for reading from and writing to Synnax channels. */
 export const channelsZ = z.object({
+  /** read contains readable channel indices mapped to parameter names. */
   read: z.record(z.uint32(), z.string()),
+  /** write contains writable channel indices mapped to parameter names. */
   write: z.record(z.uint32(), z.string()),
 });
 export interface Channels extends z.infer<typeof channelsZ> {}
 
+/** Dimensions contains physical dimension exponents for dimensional analysis (SI base quantities). */
 export const dimensionsZ = z.object({
+  /** length is the length dimension exponent (meters). */
   length: zod.int8,
+  /** mass is the mass dimension exponent (kilograms). */
   mass: zod.int8,
+  /** time is the time dimension exponent (seconds). */
   time: zod.int8,
+  /** current is the electric current dimension exponent (amperes). */
   current: zod.int8,
+  /** temperature is the temperature dimension exponent (kelvin). */
   temperature: zod.int8,
+  /** angle is the angle dimension exponent (radians). */
   angle: zod.int8,
+  /** count is the count dimension exponent (dimensionless quantity). */
   count: zod.int8,
+  /** data is the data size dimension exponent (bytes). */
   data: zod.int8,
 });
 export interface Dimensions extends z.infer<typeof dimensionsZ> {}
 
+/** Unit is a physical unit with dimensions and scale factor for unit-aware computation. */
 export const unitZ = z.object({
+  /** dimensions contains physical dimension exponents. */
   dimensions: dimensionsZ,
+  /** scale is the scale factor relative to SI base units. */
   scale: z.number(),
+  /** name is the unit name (e.g., 'psi', 'ns', 'm/s'). */
   name: z.string(),
 });
 export interface Unit extends z.infer<typeof unitZ> {}
 
+/** FunctionProperties contains common parameter definitions for function-like types. */
 export const functionPropertiesZ = z.object({
+  /** inputs contains input parameter definitions. */
   get inputs(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
+  /** outputs contains output parameter definitions. */
   get outputs(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
+  /** config contains configuration parameter definitions. */
   get config(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
@@ -88,9 +108,13 @@ export const typeZ = functionPropertiesZ.extend({
 });
 export interface Type extends z.infer<typeof typeZ> {}
 
+/** Param is a named, typed parameter with optional default value. */
 export const paramZ = z.object({
+  /** name is the parameter name. */
   name: z.string(),
+  /** type is the parameter type. */
   type: typeZ,
+  /** value is an optional default value. */
   value: z.unknown().optional(),
 });
 export interface Param extends z.infer<typeof paramZ> {}

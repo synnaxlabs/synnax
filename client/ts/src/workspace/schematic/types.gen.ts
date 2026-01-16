@@ -17,10 +17,15 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** Schematic is a visual diagram editor component for drawing system schematics, control flows, and process diagrams. Schematics support interactive symbols, connection handles, and dynamic state visualization. */
 export const schematicZ = z.object({
+  /** key is the unique identifier for this schematic. */
   key: keyZ,
+  /** name is a human-readable name for the schematic. */
   name: z.string(),
+  /** data is the schematic content including symbols, connections, and layout configuration. */
   data: record.nullishToEmpty,
+  /** snapshot indicates whether this schematic represents a saved snapshot state. */
   snapshot: z.boolean(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}

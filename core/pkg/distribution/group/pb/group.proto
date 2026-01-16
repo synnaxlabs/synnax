@@ -6,7 +6,10 @@ package distribution.group.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/group/pb";
 
+// Group is a named collection container for organizing related resources. Groups provide hierarchical organization through the ontology system.
 message Group {
+  // key is the unique identifier for this group.
   string key = 1;
+  // name is a human-readable name for the group.
   string name = 2;
 }

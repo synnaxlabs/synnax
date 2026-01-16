@@ -11,20 +11,36 @@
 @go output "core/pkg/service/workspace/log"
 @pb
 
-Key = uuid
+Key = uuid {
+    @doc value "is a unique identifier for a log, represented as a UUID."
+}
 
 Log struct {
-    key  Key    @key
-    name string
-    data json
+    key  Key    {
+        @doc value "is the unique identifier for this log."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the log."
+    }
+    data json   {
+        @doc value "is the log configuration including message formatting, filtering rules, and display options."
+    }
 
+    @doc value     "is a timestamped event and message logging component. Logs display chronological records of events, system messages, and audit trails with filtering and formatting capabilities."
     @ontology type "log"
 }
 
 New struct extends Log {
-    key  Key?
-    data json @ts stringify
+    key  Key? {
+        @doc value "is an optional key for the log. If not provided, one will be automatically assigned."
+    }
+    data json {
+        @doc value    "is the log configuration."
+        @ts stringify
+    }
 
+    @doc value    "contains parameters for creating a new log."
     @ts use_input
     @go omit
     @pb omit

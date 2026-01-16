@@ -26,11 +26,20 @@ Authority: TypeAlias = int
 
 
 class Subject(BaseModel):
+    """Subject is an entity that can hold control authority over a resource. Typically represents a user, process, or service."""
+
+    # key is a unique identifier for the subject.
     key: str
+    # name is a human-readable name for the subject.
     name: str
 
 
 class State(BaseModel):
+    """State represents the state of control over a resource at a point in time, capturing who controls what and with how much authority."""
+
+    # subject is the entity controlling the resource.
     subject: Subject
+    # resource is the resource being controlled.
     resource: Any
+    # authority is the level of control authority the subject has over the resource.
     authority: Authority

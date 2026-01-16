@@ -2302,13 +2302,12 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- else }}
 {{- if .Doc }}
 
-/** {{ .Doc }} */
+/** {{ .TSName }} {{ .Doc }} */
 {{- end }}
-
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
 {{- if .Doc }}
-  /** {{ .Doc }} */
+  /** {{ .TSName }} {{ .Doc }} */
 {{- end }}
 {{- if .IsSelfRef }}
   get {{ .TSName }}(): {{ .ZodSchemaType }} {

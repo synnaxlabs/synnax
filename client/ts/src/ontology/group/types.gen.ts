@@ -16,8 +16,11 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** Group is a named collection container for organizing related resources. Groups provide hierarchical organization through the ontology system. */
 export const groupZ = z.object({
+  /** key is the unique identifier for this group. */
   key: keyZ,
+  /** name is a human-readable name for the group. */
   name: z.string(),
 });
 export interface Group extends z.infer<typeof groupZ> {}

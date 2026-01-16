@@ -17,24 +17,37 @@ export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 
+/** Region is a visual styling area within a symbol state, targeting specific SVG elements for dynamic coloring. */
 export const regionZ = z.object({
+  /** key is the region identifier. */
   key: z.string(),
+  /** name is a human-readable name for the region. */
   name: z.string(),
+  /** selectors contains CSS selectors targeting SVG elements within the symbol. */
   selectors: array.nullishToEmpty(z.string()),
+  /** strokeColor is an optional stroke color in hex format (#RRGGBB). */
   strokeColor: z.string().optional(),
+  /** fillColor is an optional fill color in hex format (#RRGGBB). */
   fillColor: z.string().optional(),
 });
 export interface Region extends z.infer<typeof regionZ> {}
 
+/** Handle is a connection point on a symbol for linking to other diagram elements. */
 export const handleZ = z.object({
+  /** key is the handle identifier. */
   key: z.string(),
+  /** position is the (x, y) coordinate within the symbol's local space. */
   position: spatial.xyZ,
+  /** orientation is the direction the handle faces (top, right, bottom, left). */
   orientation: spatial.outerLocationZ,
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
+/** Viewport is the camera state for viewing or previewing a symbol. */
 export const viewportZ = z.object({
+  /** zoom is the zoom level where 1.0 equals 100%. */
   zoom: z.number().default(1),
+  /** position is the (x, y) pan offset. */
   position: spatial.xyZ,
 });
 export interface Viewport extends z.infer<typeof viewportZ> {}
@@ -42,36 +55,58 @@ export interface Viewport extends z.infer<typeof viewportZ> {}
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** State is a named visual state of a symbol with regional styling configurations. */
 export const stateZ = z.object({
+  /** key is the state identifier. */
   key: z.string(),
+  /** name is a human-readable name for this state. */
   name: z.string(),
+  /** regions contains style regions defining visual appearance for this state. */
   regions: array.nullishToEmpty(regionZ),
 });
 export interface State extends z.infer<typeof stateZ> {}
 
+/** Spec is the complete symbol definition including geometry, states, handles, and rendering properties. */
 export const specZ = z.object({
+  /** svg is the SVG markup defining the symbol's visual geometry. */
   svg: z.string().min(1),
+  /** states contains available visual states with regional styling configurations. */
   states: array.nullishToEmpty(stateZ),
+  /** variant is the symbol variant or category identifier (e.g., 'sensor', 'valve'). */
   variant: z.string().min(1),
+  /** handles contains connection points for linking to other diagram elements. */
   handles: array.nullishToEmpty(handleZ),
+  /** scale is the symbol scale factor. */
   scale: z.number().default(1),
+  /** scaleStroke indicates whether stroke width scales with the symbol size. */
   scaleStroke: z.boolean().default(false),
+  /** previewViewport is an optional viewport configuration for symbol preview rendering. */
   previewViewport: viewportZ.optional(),
 });
 export interface Spec extends z.infer<typeof specZ> {}
 
+/** Symbol is a persisted schematic symbol with versioning, defining reusable visual components for diagrams. */
 export const symbolZ = z.object({
+  /** key is the unique identifier for this symbol. */
   key: keyZ,
+  /** version is the symbol schema version for migration support. */
   version: z.uint32().default(1),
+  /** name is a human-readable name for the symbol. */
   name: z.string().min(1),
+  /** data is the complete symbol specification. */
   data: specZ,
 });
 export interface Symbol extends z.infer<typeof symbolZ> {}
 
+/** New contains parameters for creating a new schematic symbol. */
 export const newZ = z.object({
+  /** key is an optional key for the symbol. If not provided, one will be automatically assigned. */
   key: keyZ.optional(),
+  /** version is the symbol schema version. */
   version: z.uint32().default(1),
+  /** name is a human-readable name for the symbol. */
   name: z.string().min(1),
+  /** data is the complete symbol specification. */
   data: specZ,
 });
 export interface New extends z.input<typeof newZ> {}

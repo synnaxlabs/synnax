@@ -33,12 +33,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Range is a user-defined region of time in the Synnax cluster. Ranges act as a method for labeling and categorizing telemetry data within specific time periods.
 type Range struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	TimeRange     *pb.TimeRange          `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	Color         []byte                 `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for this range.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is a human-readable name for the range.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// time_range is the temporal extent of the range, defining its start and end timestamps.
+	TimeRange *pb.TimeRange `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
+	// color is an optional display color for visual identification of the range in user interfaces.
+	Color         []byte `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -1343,14 +1343,14 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp output "client/cpp/user"
 
 					User struct {
-						@doc value "A User represents a user in the system."
+						@doc value "is a representation of a user in the system."
 
 						key uint32 @key {
-							@doc value "The unique identifier for the user."
+							@doc value "is the unique identifier for the user."
 						}
 
 						name string {
-							@doc value "The user's display name."
+							@doc value "is the user's display name."
 						}
 
 						age int32
@@ -1360,9 +1360,9 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				testutil.ExpectContent(resp, "types.gen.h").
 					ToContain(
-						"/// @brief A User represents a user in the system.",
-						"/// @brief The unique identifier for the user.",
-						"/// @brief The user's display name.",
+						"/// @brief User is a representation of a user in the system.",
+						"/// @brief key is the unique identifier for the user.",
+						"/// @brief name is the user's display name.",
 					)
 			})
 		})

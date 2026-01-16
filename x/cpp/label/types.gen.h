@@ -28,9 +28,15 @@ struct New;
 
 using Key = x::uuid::UUID;
 
+/// @brief Label is a tagging and categorization entity with a name and associated
+/// color. Labels can be attached to resources like ranges for organization and
+/// filtering.
 struct Label {
+    /// @brief key is the unique identifier for this label.
     Key key;
+    /// @brief name is a human-readable name for the label.
     std::string name;
+    /// @brief color is the display color for visual identification of the label.
     ::x::color::Color color;
 
     static Label parse(x::json::Parser parser);
@@ -44,7 +50,10 @@ struct Label {
 
 using GoSVCLabel = Label;
 
+/// @brief New contains parameters for creating a new label.
 struct New : public Label {
+    /// @brief key is an optional key for the label. If not provided, one will be
+    /// automatically assigned.
     Key key;
 
     static New parse(x::json::Parser parser);

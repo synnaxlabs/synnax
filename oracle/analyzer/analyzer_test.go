@@ -115,6 +115,47 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Values[0].StringValue()).To(Equal("float32"))
 		})
 
+		It("Should collect enum value domains", func() {
+			source := `
+				TaskState enum {
+					pending = 0 {
+						@doc description "The task is waiting to be executed"
+					}
+					running = 1 {
+						@doc description "The task is currently being executed"
+						@deprecated reason "Use active instead"
+					}
+					completed = 2
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			Expect(diag.HasErrors()).To(BeFalse())
+
+			taskStateType := table.MustGet("task.TaskState")
+			form, ok := taskStateType.Form.(resolution.EnumForm)
+			Expect(ok).To(BeTrue())
+			Expect(form.Values).To(HaveLen(3))
+
+			// First value has a doc domain
+			Expect(form.Values[0].Name).To(Equal("pending"))
+			Expect(form.Values[0].Domains).To(HaveLen(1))
+			Expect(form.Values[0].Domains).To(HaveKey("doc"))
+			docDomain := form.Values[0].Domains["doc"]
+			Expect(docDomain.Expressions).To(HaveLen(1))
+			Expect(docDomain.Expressions[0].Name).To(Equal("description"))
+			Expect(docDomain.Expressions[0].Values[0].StringValue).To(Equal("The task is waiting to be executed"))
+
+			// Second value has two domains
+			Expect(form.Values[1].Name).To(Equal("running"))
+			Expect(form.Values[1].Domains).To(HaveLen(2))
+			Expect(form.Values[1].Domains).To(HaveKey("doc"))
+			Expect(form.Values[1].Domains).To(HaveKey("deprecated"))
+
+			// Third value has no domains
+			Expect(form.Values[2].Name).To(Equal("completed"))
+			Expect(form.Values[2].Domains).To(BeEmpty())
+		})
+
 		It("Should collect field domains", func() {
 			source := `
 				User struct {

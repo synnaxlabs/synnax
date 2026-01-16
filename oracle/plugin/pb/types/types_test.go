@@ -875,5 +875,33 @@ var _ = Describe("Plugin", func() {
 				Expect(content).To(ContainSubstring("repeated Item items = 1;"))
 			})
 		})
+
+		Context("documentation", func() {
+			It("Should generate proto comments from doc domain", func() {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					User struct {
+						@doc value "is a representation of a user in the system."
+
+						key uint32 {
+							@doc value "is the unique identifier for the user."
+						}
+
+						name string {
+							@doc value "is the user's display name."
+						}
+
+						age int32
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "user", loader, p)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring("// User is a representation of a user in the system."))
+				Expect(content).To(ContainSubstring("// key is the unique identifier for the user."))
+				Expect(content).To(ContainSubstring("// name is the user's display name."))
+			})
+		})
 	})
 })

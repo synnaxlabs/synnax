@@ -1055,12 +1055,12 @@ class {{ .Name }}(IntEnum):
 
 class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}):
 {{- if .Doc }}
-    """{{ .Doc }}"""
+    """{{ .PyName }} {{ .Doc }}"""
 {{- end }}
 {{- if or .Fields .KeyField }}
 {{- range .Fields }}
 {{- if .Doc }}
-    # {{ .Doc }}
+    # {{ .Name }} {{ .Doc }}
 {{- end }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}
@@ -1077,11 +1077,11 @@ class {{ .PyName }}({{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ 
 
 class {{ .PyName }}(BaseModel):
 {{- if .Doc }}
-    """{{ .Doc }}"""
+    """{{ .PyName }} {{ .Doc }}"""
 {{- end }}
 {{- range .Fields }}
 {{- if .Doc }}
-    # {{ .Doc }}
+    # {{ .Name }} {{ .Doc }}
 {{- end }}
     {{ .Name }}: {{ .PyType }}{{ .Default }}
 {{- end }}

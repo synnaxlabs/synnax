@@ -8,14 +8,22 @@ import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/rack/pb";
 
+// StatusDetails contains rack-specific status details.
 message StatusDetails {
+  // rack is the key of the rack this status pertains to.
   uint32 rack = 1;
 }
 
+// Rack is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system.
 message Rack {
+  // key is the composite identifier for this rack.
   uint32 key = 1;
+  // name is a human-readable name for the rack.
   string name = 2;
+  // task_counter is an internal counter used for generating unique local task keys.
   uint32 task_counter = 3;
+  // embedded is true if this rack is embedded within the Synnax server process.
   bool embedded = 4;
+  // status is the current operational status of the rack.
   optional .x.status.pb.Status status = 5;
 }

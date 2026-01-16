@@ -17,10 +17,15 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** View is a persisted view configuration storing visualization settings and query parameters for line plots, tables, schematics, and other view types. */
 export const viewZ = z.object({
+  /** key is the unique identifier for this view. */
   key: keyZ,
+  /** name is a human-readable name for the view. */
   name: z.string(),
+  /** type is the view type identifier (e.g., 'lineplot', 'table', 'schematic'). */
   type: z.string(),
+  /** query is a type-agnostic JSON object containing view-specific configuration and query parameters. */
   query: record.nullishToEmpty,
 });
 export interface View extends z.infer<typeof viewZ> {}

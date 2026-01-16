@@ -16,9 +16,13 @@ import { color } from "@/color";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+/** Label is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering. */
 export const labelZ = z.object({
+  /** key is the unique identifier for this label. */
   key: keyZ,
+  /** name is a human-readable name for the label. */
   name: z.string().min(1),
+  /** color is the display color for visual identification of the label. */
   color: color.colorZ,
 });
 export interface Label extends z.infer<typeof labelZ> {}

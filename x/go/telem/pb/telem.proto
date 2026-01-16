@@ -6,7 +6,10 @@ package x.telem.pb;
 
 option go_package = "github.com/synnaxlabs/x/telem/pb";
 
+// TimeRange is a time interval defined by a start and end timestamp. The range is start-inclusive and end-exclusive, following standard interval conventions for predictable boundary handling.
 message TimeRange {
+  // start is the inclusive start of the time range.
   int64 start = 1;
+  // end is the exclusive end of the time range.
   int64 end = 2;
 }

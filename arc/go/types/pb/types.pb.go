@@ -33,6 +33,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Kind is the type category for Arc's type system, including primitives, compound types, and meta-types.
 type Kind int32
 
 const (
@@ -136,11 +137,15 @@ func (Kind) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_types_pb_types_proto_rawDescGZIP(), []int{0}
 }
 
+// FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Inputs        []*Param               `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
-	Outputs       []*Param               `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	Config        []*Param               `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// inputs contains input parameter definitions.
+	Inputs []*Param `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	// outputs contains output parameter definitions.
+	Outputs []*Param `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	// config contains configuration parameter definitions.
+	Config        []*Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -196,16 +201,25 @@ func (x *FunctionProperties) GetConfig() []*Param {
 	return nil
 }
 
+// Type is a type in Arc's type system with optional element type for compounds, physical units, and constraints.
 type Type struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Inputs        []*Param               `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
-	Outputs       []*Param               `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	Config        []*Param               `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
-	Kind          Kind                   `protobuf:"varint,4,opt,name=kind,proto3,enum=arc.types.pb.Kind" json:"kind,omitempty"`
-	Name          string                 `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
-	Elem          *Type                  `protobuf:"bytes,6,opt,name=elem,proto3,oneof" json:"elem,omitempty"`
-	Unit          *Unit                  `protobuf:"bytes,7,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
-	Constraint    *Type                  `protobuf:"bytes,8,opt,name=constraint,proto3,oneof" json:"constraint,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// inputs contains input parameter definitions.
+	Inputs []*Param `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
+	// outputs contains output parameter definitions.
+	Outputs []*Param `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
+	// config contains configuration parameter definitions.
+	Config []*Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
+	// kind is the type category (primitive, compound, or meta-type).
+	Kind Kind `protobuf:"varint,4,opt,name=kind,proto3,enum=arc.types.pb.Kind" json:"kind,omitempty"`
+	// name is the type name for variables and user-defined types.
+	Name string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	// elem is the element type for compound types (chan, series).
+	Elem *Type `protobuf:"bytes,6,opt,name=elem,proto3,oneof" json:"elem,omitempty"`
+	// unit is the physical unit metadata for dimensional analysis.
+	Unit *Unit `protobuf:"bytes,7,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
+	// constraint is the type constraint for type variables.
+	Constraint    *Type `protobuf:"bytes,8,opt,name=constraint,proto3,oneof" json:"constraint,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -296,11 +310,15 @@ func (x *Type) GetConstraint() *Type {
 	return nil
 }
 
+// Param is a named, typed parameter with optional default value.
 type Param struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Type          *Type                  `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Value         *structpb.Value        `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// name is the parameter name.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// type is the parameter type.
+	Type *Type `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	// value is an optional default value.
+	Value         *structpb.Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -356,10 +374,13 @@ func (x *Param) GetValue() *structpb.Value {
 	return nil
 }
 
+// Channels contains channel declarations for reading from and writing to Synnax channels.
 type Channels struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Read          map[uint32]string      `protobuf:"bytes,1,rep,name=read,proto3" json:"read,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Write         map[uint32]string      `protobuf:"bytes,2,rep,name=write,proto3" json:"write,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// read contains readable channel indices mapped to parameter names.
+	Read map[uint32]string `protobuf:"bytes,1,rep,name=read,proto3" json:"read,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// write contains writable channel indices mapped to parameter names.
+	Write         map[uint32]string `protobuf:"bytes,2,rep,name=write,proto3" json:"write,omitempty" protobuf_key:"varint,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -408,16 +429,25 @@ func (x *Channels) GetWrite() map[uint32]string {
 	return nil
 }
 
+// Dimensions contains physical dimension exponents for dimensional analysis (SI base quantities).
 type Dimensions struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Length        int32                  `protobuf:"varint,1,opt,name=length,proto3" json:"length,omitempty"`
-	Mass          int32                  `protobuf:"varint,2,opt,name=mass,proto3" json:"mass,omitempty"`
-	Time          int32                  `protobuf:"varint,3,opt,name=time,proto3" json:"time,omitempty"`
-	Current       int32                  `protobuf:"varint,4,opt,name=current,proto3" json:"current,omitempty"`
-	Temperature   int32                  `protobuf:"varint,5,opt,name=temperature,proto3" json:"temperature,omitempty"`
-	Angle         int32                  `protobuf:"varint,6,opt,name=angle,proto3" json:"angle,omitempty"`
-	Count         int32                  `protobuf:"varint,7,opt,name=count,proto3" json:"count,omitempty"`
-	Data          int32                  `protobuf:"varint,8,opt,name=data,proto3" json:"data,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// length is the length dimension exponent (meters).
+	Length int32 `protobuf:"varint,1,opt,name=length,proto3" json:"length,omitempty"`
+	// mass is the mass dimension exponent (kilograms).
+	Mass int32 `protobuf:"varint,2,opt,name=mass,proto3" json:"mass,omitempty"`
+	// time is the time dimension exponent (seconds).
+	Time int32 `protobuf:"varint,3,opt,name=time,proto3" json:"time,omitempty"`
+	// current is the electric current dimension exponent (amperes).
+	Current int32 `protobuf:"varint,4,opt,name=current,proto3" json:"current,omitempty"`
+	// temperature is the temperature dimension exponent (kelvin).
+	Temperature int32 `protobuf:"varint,5,opt,name=temperature,proto3" json:"temperature,omitempty"`
+	// angle is the angle dimension exponent (radians).
+	Angle int32 `protobuf:"varint,6,opt,name=angle,proto3" json:"angle,omitempty"`
+	// count is the count dimension exponent (dimensionless quantity).
+	Count int32 `protobuf:"varint,7,opt,name=count,proto3" json:"count,omitempty"`
+	// data is the data size dimension exponent (bytes).
+	Data          int32 `protobuf:"varint,8,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -508,11 +538,15 @@ func (x *Dimensions) GetData() int32 {
 	return 0
 }
 
+// Unit is a physical unit with dimensions and scale factor for unit-aware computation.
 type Unit struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Dimensions    *Dimensions            `protobuf:"bytes,1,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
-	Scale         float64                `protobuf:"fixed64,2,opt,name=scale,proto3" json:"scale,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// dimensions contains physical dimension exponents.
+	Dimensions *Dimensions `protobuf:"bytes,1,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	// scale is the scale factor relative to SI base units.
+	Scale float64 `protobuf:"fixed64,2,opt,name=scale,proto3" json:"scale,omitempty"`
+	// name is the unit name (e.g., 'psi', 'ns', 'm/s').
+	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

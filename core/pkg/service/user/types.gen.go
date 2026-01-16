@@ -17,18 +17,30 @@ import (
 
 type Key = uuid.UUID
 
+// User is an account entity representing a person accessing the Synnax system. Users can have roles assigned for permission management.
 type User struct {
-	Key       Key    `json:"key" msgpack:"key"`
-	Username  string `json:"username" msgpack:"username"`
+	// Key is the unique identifier for this user.
+	Key Key `json:"key" msgpack:"key"`
+	// Username is the unique login name for the user.
+	Username string `json:"username" msgpack:"username"`
+	// FirstName is the user's first name.
 	FirstName string `json:"first_name" msgpack:"first_name"`
-	LastName  string `json:"last_name" msgpack:"last_name"`
-	RootUser  bool   `json:"root_user" msgpack:"root_user"`
+	// LastName is the user's last name.
+	LastName string `json:"last_name" msgpack:"last_name"`
+	// RootUser is true if this is a root/admin user with full system access. Root users cannot be deleted.
+	RootUser bool `json:"root_user" msgpack:"root_user"`
 }
 
+// New contains parameters for creating a new user.
 type New struct {
-	Username  string `json:"username" msgpack:"username"`
-	Key       Key    `json:"key" msgpack:"key"`
-	Password  string `json:"password" msgpack:"password"`
+	// Username is the unique login name for the user.
+	Username string `json:"username" msgpack:"username"`
+	// Key is an optional key for the user. If not provided, one will be automatically assigned.
+	Key Key `json:"key" msgpack:"key"`
+	// Password is the password for the new user account.
+	Password string `json:"password" msgpack:"password"`
+	// FirstName is an optional first name.
 	FirstName string `json:"first_name" msgpack:"first_name"`
-	LastName  string `json:"last_name" msgpack:"last_name"`
+	// LastName is an optional last name.
+	LastName string `json:"last_name" msgpack:"last_name"`
 }

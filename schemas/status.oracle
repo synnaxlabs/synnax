@@ -24,23 +24,45 @@ Variant enum {
     loading  = "loading"
     disabled = "disabled"
 
+    @doc value   "is the severity or type of a status message."
     @ts literals
 }
 
 Status struct<Details?, V extends Variant = Variant> {
-    key         string          @key generate
-    name        string          @validate default ""
-    variant     V
-    message     string
-    description string?
-    time        telem.TimeStamp @validate default now
-    details     Details?
-    labels      label.Label[]?
+    key         string          {
+        @doc value    "is a unique identifier for this status, automatically generated if not provided."
+        @key generate
+    }
+    name        string          {
+        @doc value        "is an optional human-readable name for the status."
+        @validate default ""
+    }
+    variant     V               {
+        @doc value "is the severity or type of the status: success, info, warning, error, loading, or disabled."
+    }
+    message     string          {
+        @doc value "is the main message text describing the status."
+    }
+    description string?         {
+        @doc value "is an optional detailed description providing additional context."
+    }
+    time        telem.TimeStamp {
+        @doc value        "is the timestamp when the status was created."
+        @validate default now
+    }
+    details     Details?        {
+        @doc value "contains optional component-specific custom details for the status."
+    }
+    labels      label.Label[]?  {
+        @doc value "contains optional labels for categorization and filtering."
+    }
 
+    @doc value         "is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details."
     @ts concrete_types
 }
 
 GoSVCStatus<Details?> = Status<Details?> {
+    @doc value "is a server-side status type alias for Go services."
     @go output "core/pkg/service/status"
     @go name   "Status"
     @ts omit
@@ -49,10 +71,17 @@ GoSVCStatus<Details?> = Status<Details?> {
 }
 
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
-    key  string?
-    name string?
-    time telem.TimeStamp?
+    key  string?          {
+        @doc value "is an optional key for the status. If not provided, one will be automatically generated."
+    }
+    name string?          {
+        @doc value "is an optional name for the status."
+    }
+    time telem.TimeStamp? {
+        @doc value "is an optional timestamp. Defaults to the current time."
+    }
 
+    @doc value         "contains parameters for creating a new status. Most fields have sensible defaults."
     @ts concrete_types
     @pb omit
     @cpp omit

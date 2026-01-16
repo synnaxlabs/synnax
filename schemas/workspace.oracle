@@ -11,21 +11,37 @@
 @go output "core/pkg/service/workspace"
 @pb
 
-Key = uuid
+Key = uuid {
+    @doc value "is a unique identifier for a workspace, represented as a UUID."
+}
 
 Workspace struct {
-    key    Key    @key
-    name   string @validate required
-    author uuid?
-    layout json
+    key    Key    {
+        @doc value "is the unique identifier for this workspace."
+        @key
+    }
+    name   string {
+        @doc value         "is a human-readable name for the workspace."
+        @validate required
+    }
+    author uuid?  {
+        @doc value "is the UUID of the user who created this workspace."
+    }
+    layout json   {
+        @doc value "is the mosaic tree structure that defines how visualizations are arranged. Contains tab layout, split configurations, and window positions."
+    }
 
+    @doc value     "is a named, persistable container that stores the layout and organization of the Console application. Workspaces allow users to save and restore custom arrangements of visualizations, tabs, and window configurations."
     @ontology type "workspace"
 }
 
 New struct extends Workspace {
-    key Key?
+    key Key? {
+        @doc value "is an optional key for the workspace. If not provided, one will be automatically assigned."
+    }
     -author
 
+    @doc value    "contains parameters for creating a new workspace."
     @ts use_input
     @go omit
     @pb omit

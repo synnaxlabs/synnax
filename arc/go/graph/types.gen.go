@@ -19,21 +19,34 @@ import (
 
 type Nodes []Node
 
+// Node is a visual node in the Arc graph editor representing a function instantiation with position data.
 type Node struct {
-	Key      string                    `json:"key" msgpack:"key"`
-	Type     string                    `json:"type" msgpack:"type"`
-	Config   binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
-	Position spatial.XY                `json:"position" msgpack:"position"`
-}
-
-type Viewport struct {
+	// Key is the unique identifier for this node instance.
+	Key string `json:"key" msgpack:"key"`
+	// Type is the function type being instantiated.
+	Type string `json:"type" msgpack:"type"`
+	// Config contains configuration parameter values as a JSON object.
+	Config binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
+	// Position is the canvas position (x, y) for visual layout.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	Zoom     float64    `json:"zoom" msgpack:"zoom"`
 }
 
+// Viewport is the camera state for viewing the Arc graph editor canvas.
+type Viewport struct {
+	// Position is the camera pan offset (x, y).
+	Position spatial.XY `json:"position" msgpack:"position"`
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `json:"zoom" msgpack:"zoom"`
+}
+
+// Graph is a visual dataflow graph representation combining IR elements with canvas layout for the Arc graph editor.
 type Graph struct {
-	Viewport  Viewport     `json:"viewport" msgpack:"viewport"`
+	// Viewport is the current camera state for the graph view.
+	Viewport Viewport `json:"viewport" msgpack:"viewport"`
+	// Functions contains function definitions available in this graph.
 	Functions ir.Functions `json:"functions" msgpack:"functions"`
-	Edges     ir.Edges     `json:"edges" msgpack:"edges"`
-	Nodes     Nodes        `json:"nodes" msgpack:"nodes"`
+	// Edges contains dataflow connections between node parameters.
+	Edges ir.Edges `json:"edges" msgpack:"edges"`
+	// Nodes contains visual nodes with canvas positions.
+	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 }

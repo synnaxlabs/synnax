@@ -35,12 +35,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// Node is a visual node in the Arc graph editor representing a function instantiation with position data.
 type Node struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	Config        *structpb.Struct       `protobuf:"bytes,3,opt,name=config,proto3" json:"config,omitempty"`
-	Position      *pb.XY                 `protobuf:"bytes,4,opt,name=position,proto3" json:"position,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for this node instance.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// type is the function type being instantiated.
+	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	// config contains configuration parameter values as a JSON object.
+	Config *structpb.Struct `protobuf:"bytes,3,opt,name=config,proto3" json:"config,omitempty"`
+	// position is the canvas position (x, y) for visual layout.
+	Position      *pb.XY `protobuf:"bytes,4,opt,name=position,proto3" json:"position,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -103,10 +108,13 @@ func (x *Node) GetPosition() *pb.XY {
 	return nil
 }
 
+// Viewport is the camera state for viewing the Arc graph editor canvas.
 type Viewport struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Position      *pb.XY                 `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
-	Zoom          float64                `protobuf:"fixed64,2,opt,name=zoom,proto3" json:"zoom,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// position is the camera pan offset (x, y).
+	Position *pb.XY `protobuf:"bytes,1,opt,name=position,proto3" json:"position,omitempty"`
+	// zoom is the zoom level where 1.0 equals 100%.
+	Zoom          float64 `protobuf:"fixed64,2,opt,name=zoom,proto3" json:"zoom,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -155,12 +163,17 @@ func (x *Viewport) GetZoom() float64 {
 	return 0
 }
 
+// Graph is a visual dataflow graph representation combining IR elements with canvas layout for the Arc graph editor.
 type Graph struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Viewport      *Viewport              `protobuf:"bytes,1,opt,name=viewport,proto3" json:"viewport,omitempty"`
-	Functions     []*pb1.Function        `protobuf:"bytes,2,rep,name=functions,proto3" json:"functions,omitempty"`
-	Edges         []*pb1.Edge            `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
-	Nodes         []*Node                `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// viewport is the current camera state for the graph view.
+	Viewport *Viewport `protobuf:"bytes,1,opt,name=viewport,proto3" json:"viewport,omitempty"`
+	// functions contains function definitions available in this graph.
+	Functions []*pb1.Function `protobuf:"bytes,2,rep,name=functions,proto3" json:"functions,omitempty"`
+	// edges contains dataflow connections between node parameters.
+	Edges []*pb1.Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
+	// nodes contains visual nodes with canvas positions.
+	Nodes         []*Node `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

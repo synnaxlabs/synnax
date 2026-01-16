@@ -33,22 +33,38 @@ const (
 	OperationTypeNone OperationType = "none"
 )
 
+// Operation defines an aggregation operation applied to channel data. Operations calculate min, max, or average values over a time duration or triggered by a reset channel.
 type Operation struct {
-	Type         OperationType  `json:"type" msgpack:"type"`
-	ResetChannel Key            `json:"reset_channel" msgpack:"reset_channel"`
-	Duration     telem.TimeSpan `json:"duration" msgpack:"duration"`
+	// Type is the aggregation operation type: min, max, avg, or none.
+	Type OperationType `json:"type" msgpack:"type"`
+	// ResetChannel is the channel key that triggers reset of the aggregation. If 0, duration-based reset is used.
+	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
+	// Duration is the time window for aggregation when reset_channel is 0.
+	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 
+// Channel is an internal representation of a channel containing all storage and distribution metadata. This type is used internally by the server; clients should use APIChannel instead.
 type Channel struct {
-	Name        Name                `json:"name" msgpack:"name"`
-	Leaseholder cluster.NodeKey     `json:"leaseholder" msgpack:"leaseholder"`
-	DataType    telem.DataType      `json:"data_type" msgpack:"data_type"`
-	IsIndex     bool                `json:"is_index" msgpack:"is_index"`
-	LocalKey    LocalKey            `json:"local_key" msgpack:"local_key"`
-	LocalIndex  LocalKey            `json:"local_index" msgpack:"local_index"`
-	Virtual     bool                `json:"virtual" msgpack:"virtual"`
+	// Name is the human-readable channel name.
+	Name Name `json:"name" msgpack:"name"`
+	// Leaseholder is the cluster node that holds the lease for this channel and is authorized to accept writes.
+	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
+	// DataType is the data type of samples stored in this channel.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// IsIndex is true if this channel is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps.
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
+	// LocalKey is the locally-unique portion of this channel's key.
+	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
+	// LocalIndex is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate.
+	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
+	// Virtual is true if this channel does not persist data and is used only for streaming.
+	Virtual bool `json:"virtual" msgpack:"virtual"`
+	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
-	Internal    bool                `json:"internal" msgpack:"internal"`
-	Operations  []Operation         `json:"operations" msgpack:"operations"`
-	Expression  string              `json:"expression" msgpack:"expression"`
+	// Internal is true if this is a system channel hidden from normal user queries.
+	Internal bool `json:"internal" msgpack:"internal"`
+	// Operations contains aggregation operations applied to this channel's data.
+	Operations []Operation `json:"operations" msgpack:"operations"`
+	// Expression is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual.
+	Expression string `json:"expression" msgpack:"expression"`
 }

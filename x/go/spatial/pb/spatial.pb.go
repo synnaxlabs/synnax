@@ -32,6 +32,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// OuterLocation is a position indicator for elements anchored to the outer edge of a container. Used for orientation and positioning of UI elements.
 type OuterLocation int32
 
 const (
@@ -84,10 +85,13 @@ func (OuterLocation) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{0}
 }
 
+// XY is a 2D coordinate point with x and y values. Used for positioning elements in two-dimensional space.
 type XY struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	X             float64                `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
-	Y             float64                `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// x is the horizontal coordinate.
+	X float64 `protobuf:"fixed64,1,opt,name=x,proto3" json:"x,omitempty"`
+	// y is the vertical coordinate.
+	Y             float64 `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }

@@ -10,21 +10,36 @@
 @ts output "client/ts/src/access/role"
 @py output "client/py/synnax/access/role"
 
-Key = uuid
+Key = uuid {
+    @doc value "is a unique identifier for a role, represented as a UUID."
+}
 
 Role struct {
-    key         Key     @key
-    name        string
-    description string?
-    internal    bool?
+    key         Key     {
+        @doc value "is the unique identifier for this role."
+        @key
+    }
+    name        string  {
+        @doc value "is a human-readable name for the role (e.g., 'Administrator', 'Engineer')."
+    }
+    description string? {
+        @doc value "is an optional description explaining what permissions the role provides."
+    }
+    internal    bool?   {
+        @doc value "is true if this is a built-in system role that cannot be deleted."
+    }
 
+    @doc value     "is a named collection of policies that can be assigned to users, enabling group-based permission management. Roles define what actions users can perform on resources."
     @ontology type "role"
     @py name       "Base"
 }
 
 New struct extends Role {
-    key Key?
+    key Key? {
+        @doc value "is an optional key for the role. If not provided, one will be automatically assigned."
+    }
 
+    @doc value    "contains parameters for creating a new role."
     @ts use_input
     @py name      "Role"
 }

@@ -27,8 +27,12 @@ constexpr const char *OUTER_LOCATION_RIGHT = "right";
 constexpr const char *OUTER_LOCATION_BOTTOM = "bottom";
 constexpr const char *OUTER_LOCATION_LEFT = "left";
 
+/// @brief XY is a 2D coordinate point with x and y values. Used for positioning
+/// elements in two-dimensional space.
 struct XY {
+    /// @brief x is the horizontal coordinate.
     double x = 0;
+    /// @brief y is the vertical coordinate.
     double y = 0;
 
     static XY parse(x::json::Parser parser);

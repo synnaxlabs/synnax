@@ -14,59 +14,80 @@
 @pb
 
 TimeStamp int64 {
+    @doc value "is a 64-bit signed integer representing nanoseconds since the Unix epoch (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry timestamps."
     @ts omit
     @cpp omit
     @py omit
 }
 
 TimeSpan int64 {
+    @doc value "is a 64-bit signed integer representing a duration in nanoseconds. Used for expressing time intervals, sampling periods, and durations throughout the telemetry system."
     @ts omit
     @cpp omit
     @py omit
 }
 
 Rate float64 {
+    @doc value "is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition frequencies and calculate sample counts over time intervals."
     @ts omit
     @cpp omit
     @py omit
 }
 
 Size int64 {
+    @doc value "is a byte measurement used for storage capacity and data volume representation. Supports conversion to human-readable formats (B, kB, MB, GB, TB)."
     @ts omit
     @cpp omit
     @py omit
 }
 
 TimeRange struct {
-    start TimeStamp
-    end   TimeStamp
+    start TimeStamp {
+        @doc value "is the inclusive start of the time range."
+    }
+    end   TimeStamp {
+        @doc value "is the exclusive end of the time range."
+    }
 
+    @doc value "is a time interval defined by a start and end timestamp. The range is start-inclusive and end-exclusive, following standard interval conventions for predictable boundary handling."
     @ts omit
     @cpp omit
 }
 
 TimeRangeBounded = TimeRange {
+    @doc value "is a TimeRange alias used for type-safety in contexts requiring bounded time ranges."
     @ts omit
     @cpp omit
 }
 
 DataType string {
+    @doc value "is a string identifier specifying the format of telemetry samples. Supports fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and variable-density types (String, JSON, Bytes) for flexible data storage."
     @ts omit
     @cpp omit
 }
 
 Alignment uint64 {
+    @doc value "is a 64-bit index for positioning samples within multi-array structures. Packs a domain index (which array) and sample index (position within array) into a single value for efficient multi-dimensional data access."
     @ts omit
     @cpp omit
     @py omit
 }
 
 Series struct {
-    time_range TimeRange
-    data_type  DataType
-    data       bytes
-    alignment  Alignment
+    time_range TimeRange {
+        @doc value "is the time range covered by the samples in this series."
+    }
+    data_type  DataType  {
+        @doc value "is the data type of all samples in this series."
+    }
+    data       bytes     {
+        @doc value "is the raw binary buffer containing the sample data."
+    }
+    alignment  Alignment {
+        @doc value "defines the location of the series relative to other series in a logical group. Typically used for defining the position of the series within a channel's data."
+    }
 
+    @doc value "is a strongly-typed array of telemetry samples backed by a binary buffer. Supports both fixed-density primitive types and variable-density types (strings, JSON). Designed for high-performance, memory-efficient storage and streaming of time-series data."
     @go fields "cachedLength *int64"
     @ts omit
     @cpp omit
@@ -74,9 +95,14 @@ Series struct {
 }
 
 Frame struct<Key extends uint32> {
-    keys   Key[]
-    series Series[]
+    keys   Key[]    {
+        @doc value "contains the channel keys identifying each series in the frame."
+    }
+    series Series[] {
+        @doc value "contains the series data for each corresponding channel key."
+    }
 
+    @doc value "is a performance-optimized record mapping numeric channel keys to their corresponding Series data. Used for efficient aggregation and transmission of telemetry data from multiple channels."
     @go omit
     @pb omit
     @ts omit

@@ -44,10 +44,15 @@ export type NewStatusDetails<Data extends z.ZodType = z.ZodType> = z.infer<
   ReturnType<typeof newStatusDetailsZ<Data>>
 >;
 
+/** Command is a command to execute on a task in the Driver system. */
 export const commandZ = z.object({
+  /** task is the key of the target task. */
   task: keyZ,
+  /** type is the command type (e.g., 'start', 'stop', 'configure'). */
   type: z.string(),
+  /** key is a unique identifier for this command instance. */
   key: z.string(),
+  /** args contains optional arguments for the command. */
   args: zod.nullToUndefined(record.unknownZ),
 });
 export interface Command extends z.infer<typeof commandZ> {}

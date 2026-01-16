@@ -33,10 +33,18 @@ struct Range;
 
 using Key = x::uuid::UUID;
 
+/// @brief Base is a user-defined region of time in the Synnax cluster. Ranges act as a
+/// method for labeling and categorizing telemetry data within specific time periods.
 struct Base {
+    /// @brief key is the unique identifier for this range.
     Key key;
+    /// @brief name is a human-readable name for the range.
     std::string name;
+    /// @brief time_range is the temporal extent of the range, defining its start and
+    /// end timestamps.
     ::x::telem::TimeRange time_range = x::telem::TimeRange{};
+    /// @brief color is an optional display color for visual identification of the range
+    /// in user interfaces.
     ::x::color::Color color;
 
     static Base parse(x::json::Parser parser);
@@ -48,8 +56,14 @@ struct Base {
     from_proto(const ::service::ranger::pb::Range &pb);
 };
 
+/// @brief Range is a range with additional relationships for hierarchical organization
+/// and metadata. This is the primary type exposed through the API.
 struct Range : public Base {
+    /// @brief labels contains optional labels attached to this range for categorization
+    /// and filtering.
     std::vector<::x::label::Label> labels;
+    /// @brief parent is an optional parent range for hierarchical organization. Ranges
+    /// can be nested within other ranges.
     x::mem::indirect<Range> parent;
 
     static Range parse(x::json::Parser parser);

@@ -13,7 +13,11 @@
 @pb
 
 Text struct {
-    raw string
+    @doc value "is text-based Arc source code with optional parsed AST for compilation."
+
+    raw string {
+        @doc value "is the raw Arc source code in text form."
+    }
 
     @go fields  "AST parser.IProgramContext `json:\"-\"`"
     @go imports "github.com/synnaxlabs/arc/parser"
