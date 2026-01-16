@@ -406,8 +406,8 @@ public:
             if (err) return err;
             this->scanner_ctx.count++;
 
-            // Step 1.5: Deduplicate by key (keep last). During physical device transitions 
-            // NI may briefly report the same device at multiple locations.
+            // Step 1.5: Deduplicate by key (keep last). During physical device
+            // transitions NI may briefly report the same device at multiple locations.
             {
                 std::unordered_set<std::string> seen;
                 std::vector<synnax::Device> deduped;
@@ -443,7 +443,7 @@ public:
                     needs_update = true;
                 }
 
-                if (scanned_dev.rack != remote_dev.rack && 
+                if (scanned_dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(scanned_dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
                     needs_update = true;
