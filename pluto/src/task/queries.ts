@@ -317,6 +317,7 @@ export const createForm = <
         const task = await retrieveSingle<Type, Config, StatusData>({
           ...args,
           query: { key },
+          schemas,
         });
         reset(taskToFormValues(task.payload));
       },

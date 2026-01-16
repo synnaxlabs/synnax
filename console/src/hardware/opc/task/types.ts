@@ -169,7 +169,7 @@ export const scanCommandResponseZ = z
     channels: z.array(scannedNodeZ),
     connection: connectionConfigZ,
   })
-  .or(z.null());
+  .nullish();
 export type ScanCommandResponse = z.infer<typeof scanCommandResponseZ>;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

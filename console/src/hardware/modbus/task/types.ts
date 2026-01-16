@@ -133,7 +133,7 @@ export const readStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .or(z.null());
+  .nullish();
 
 export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
@@ -217,7 +217,7 @@ export const writeStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .or(z.null());
+  .optional();
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);
@@ -257,7 +257,7 @@ const scanTypeZ = z.literal(SCAN_TYPE);
 
 const scanConfigZ = z.object({});
 
-const scanStatusDataZ = z.object({}).or(z.null());
+const scanStatusDataZ = z.object({}).optional();
 
 export const SCAN_SCHEMAS: task.PayloadSchemas<
   typeof scanTypeZ,

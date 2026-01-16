@@ -268,7 +268,7 @@ export const readStatusDataZ = z
   .object({
     errors: z.array(z.object({ message: z.string(), path: z.string() })),
   })
-  .or(z.null());
+  .nullish();
 
 export type ReadStatus = task.Status<typeof readStatusDataZ>;
 

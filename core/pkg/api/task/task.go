@@ -147,7 +147,7 @@ func (svc *Service) Retrieve(
 			return res, err
 		}
 		for i, stat := range statuses {
-			res.Tasks[i].Status = (*task.Status)(&stat)
+			res.Tasks[i].Status = &stat
 		}
 	}
 	if err = svc.access.Enforce(ctx, access.Request{
