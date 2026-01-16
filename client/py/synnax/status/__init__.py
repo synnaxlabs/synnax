@@ -26,14 +26,15 @@ from synnax.status.payload import (
 
 __all__ = [
     "Client",
-    "Variant",
-    "Status",
-    "SUCCESS_VARIANT",
-    "INFO_VARIANT",
-    "WARNING_VARIANT",
-    "ERROR_VARIANT",
+    "DELETE_CHANNEL",
     "DISABLED_VARIANT",
+    "ERROR_VARIANT",
+    "INFO_VARIANT",
     "LOADING_VARIANT",
     "ontology_id",
     "SET_CHANNEL",
+    "Status",
+    "SUCCESS_VARIANT",
+    "Variant",
+    "WARNING_VARIANT",
 ]

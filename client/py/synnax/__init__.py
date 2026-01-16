@@ -9,7 +9,7 @@
 
 __version__ = "0.3.0"
 
-from synnax import labjack, modbus, ni, opcua, sequence, status
+from synnax import group, labjack, modbus, ni, ontology, opcua, sequence, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
 from synnax.channel import Channel
@@ -139,7 +139,6 @@ __all__ = [
     "opcua",
     "sequence",
     "ontology",
-    "auth",
     "status",
     "Status",
     "group",

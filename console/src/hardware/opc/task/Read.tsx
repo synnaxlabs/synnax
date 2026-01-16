@@ -9,7 +9,7 @@
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
-import { DataType, primitive } from "@synnaxlabs/x";
+import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import type z from "zod";
 
@@ -42,7 +42,9 @@ export const READ_SELECTABLE: Selector.Selectable = {
 };
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
-  props.read.channels[nodeId] ?? 0;
+  props.read.channels[nodeId] ??
+  props.read.channels[caseconv.snakeToCamel(nodeId)] ??
+  0;
 
 interface IsIndexItemProps {
   path: string;

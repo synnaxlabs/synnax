@@ -9,6 +9,6 @@
 
 #pragma once
 
-#include "x/cpp/color/types.gen.h"
-#include "x/cpp/color/proto.gen.h"
 #include "x/cpp/color/json.gen.h"
+#include "x/cpp/color/proto.gen.h"
+#include "x/cpp/color/types.gen.h"
