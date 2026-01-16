@@ -43,6 +43,7 @@ type Device struct {
 	Properties    string                 `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	Configured    bool                   `protobuf:"varint,9,opt,name=configured,proto3" json:"configured,omitempty"`
 	Status        *status.PBStatus       `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	ParentDevice  string                 `protobuf:"bytes,11,opt,name=parent_device,json=parentDevice,proto3" json:"parent_device,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -138,6 +139,13 @@ func (x *Device) GetStatus() *status.PBStatus {
 		return x.Status
 	}
 	return nil
+}
+
+func (x *Device) GetParentDevice() string {
+	if x != nil {
+		return x.ParentDevice
+	}
+	return ""
 }
 
 type DeviceCreateRequest struct {
