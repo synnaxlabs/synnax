@@ -64,11 +64,11 @@ class TestRackClient:
         """Should raise a validation error if devices are attached to the rack"""
         rack = client.racks.create(name="test")
         client.devices.create(
-            key=str(uuid4()), 
-            name="test", 
-            rack=rack.key, 
-            location="dev1", 
-            properties={"foo": "bar"}
+            key=str(uuid4()),
+            name="test",
+            rack=rack.key,
+            location="dev1",
+            properties={"foo": "bar"},
         )
         with pytest.raises(
             sy.ValidationError,

@@ -15,6 +15,7 @@ cc_library(
         "//arc/cpp/module",
         "//arc/cpp/text",
         "//client/cpp/errors",
+        "//client/cpp/ontology",
         "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",

@@ -28,12 +28,8 @@ Variant enum {
     @ts literals
 }
 
-Key = string {
-    @doc value "is a unique identifier for a status."
-}
-
 Status struct<Details?, V extends Variant = Variant> {
-    key         Key             {
+    key         string          {
         @key
         @doc value        "is a unique identifier for this status, automatically generated if not provided."
         @validate default create
@@ -80,7 +76,7 @@ GoSVCStatus<Details?> = Status<Details?> {
 }
 
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
-    key  Key?             {
+    key  string?          {
         @doc value """
             is an optional key for the status. If not provided, one will
             be automatically generated.

@@ -1589,12 +1589,12 @@ func (d *templateData) InternalImports() []gointernal.InternalImportData {
 
 // translatorData holds data for a single type's translators.
 type translatorData struct {
-	Name           string
-	GoType         string
-	PBType         string
-	GoTypeShort    string
-	PBTypeShort    string
-	Fields         []fieldTranslatorData
+	Name        string
+	GoType      string
+	PBType      string
+	GoTypeShort string
+	PBTypeShort string
+	Fields      []fieldTranslatorData
 	// ErrorFields holds fields with error-returning conversions.
 	ErrorFields    []fieldTranslatorData
 	OptionalFields []fieldTranslatorData

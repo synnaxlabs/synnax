@@ -9,12 +9,11 @@
 
 from synnax.status.client import (
     DELETE_CHANNEL,
+    ONTOLOGY_TYPE,
     SET_CHANNEL,
     Client,
     ontology_id,
-    ONTOLOGY_TYPE,
 )
-
 from synnax.status.types_gen import (
     DISABLED_VARIANT,
     ERROR_VARIANT,

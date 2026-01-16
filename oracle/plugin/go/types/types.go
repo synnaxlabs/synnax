@@ -34,26 +34,35 @@ const goModulePrefix = "github.com/synnaxlabs/synnax/"
 // primitiveMapper is the Go-specific primitive type mapper.
 var primitiveMapper = goprimitives.Mapper()
 
+// Plugin generates Go type definitions from Oracle schema definitions.
 type Plugin struct{ Options Options }
 
+// Options configures the go/types plugin.
 type Options struct {
+	// FileNamePattern is the filename pattern for generated type files.
 	FileNamePattern string
 }
 
+// DefaultOptions returns the default plugin options.
 func DefaultOptions() Options {
 	return Options{
 		FileNamePattern: "types.gen.go",
 	}
 }
 
+// New creates a new go/types plugin with the given options.
 func New(opts Options) *Plugin { return &Plugin{Options: opts} }
 
+// Name returns the plugin identifier.
 func (p *Plugin) Name() string { return "go/types" }
 
+// Domains returns the domains this plugin handles.
 func (p *Plugin) Domains() []string { return []string{"go"} }
 
+// Requires returns plugin dependencies.
 func (p *Plugin) Requires() []string { return nil }
 
+// Check verifies generated files are up-to-date. Currently unimplemented.
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
@@ -66,6 +75,7 @@ func (p *Plugin) PostWrite(files []string) error {
 	return goPostWriter.PostWrite(files)
 }
 
+// Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{
 		Domain:          "go",
@@ -295,7 +305,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 			return sd
 		}
 
-		if hasFieldConflicts(form.Extends, data.table) {
+		if resolver.HasFieldConflicts(form.Extends, data.table) {
 			for _, field := range resolution.UnifiedFields(entry, data.table) {
 				sd.Fields = append(sd.Fields, processField(field, data))
 			}
@@ -434,26 +444,6 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 	return fmt.Sprintf("%s.%s", alias, buildGenericType(name, extendsRef.TypeArgs, &parent, data))
 }
 
-func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
-	if len(extends) < 2 {
-		return false
-	}
-	seenFields := make(map[string]bool)
-	for _, extendsRef := range extends {
-		parent, ok := extendsRef.Resolve(table)
-		if !ok {
-			continue
-		}
-		for _, field := range resolution.UnifiedFields(parent, table) {
-			if seenFields[field.Name] {
-				return true
-			}
-			seenFields[field.Name] = true
-		}
-	}
-	return false
-}
-
 type templateData struct {
 	Package    string
 	OutputPath string
@@ -468,10 +458,13 @@ type templateData struct {
 	ctx        *resolver.Context
 }
 
+// HasImports returns true if any imports are needed.
 func (d *templateData) HasImports() bool { return d.imports.HasImports() }
 
+// ExternalImports returns sorted external imports.
 func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
 
+// InternalImports returns sorted internal imports.
 func (d *templateData) InternalImports() []gointernal.InternalImportData {
 	return d.imports.InternalImports()
 }
@@ -484,10 +477,11 @@ type structData struct {
 	IsGeneric  bool
 	IsAlias    bool
 	AliasOf    string
-	// Extension support (multiple inheritance via embedding)
-	HasExtends   bool
-	ExtendsTypes []string // Parent types (may be qualified: "parent.Parent")
-	// Extra fields from @go field directives (raw Go field declarations)
+	// HasExtends indicates whether the struct uses extension (multiple inheritance via embedding).
+	HasExtends bool
+	// ExtendsTypes holds parent types, which may be qualified (e.g., "parent.Parent").
+	ExtendsTypes []string
+	// ExtraFields holds extra fields from @go field directives (raw Go field declarations).
 	ExtraFields []string
 }
 
@@ -505,6 +499,7 @@ type fieldData struct {
 	Doc            string
 }
 
+// TagSuffix returns the JSON/msgpack tag suffix for the field.
 func (f fieldData) TagSuffix() string {
 	if f.IsHardOptional {
 		return ",omitempty"
@@ -526,9 +521,10 @@ type enumValueData struct {
 }
 
 type typeDefData struct {
-	Name       string
-	BaseType   string
-	IsAlias    bool // If true, use "type X = Y", otherwise "type X Y"
+	Name     string
+	BaseType string
+	// IsAlias indicates whether to use "type X = Y" (true) or "type X Y" (false).
+	IsAlias    bool
 	TypeParams []typeParamData
 	IsGeneric  bool
 }

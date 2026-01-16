@@ -74,7 +74,7 @@ func StatusToPB[Details any](
 		return nil, err
 	}
 	pb := &Status{
-		Key:         string(r.Key),
+		Key:         r.Key,
 		Name:        r.Name,
 		Variant:     VariantToPB(r.Variant),
 		Message:     r.Message,
@@ -105,7 +105,7 @@ func StatusFromPB[Details any](
 	if err != nil {
 		return r, err
 	}
-	r.Key = status.Key(pb.Key)
+	r.Key = pb.Key
 	r.Name = pb.Name
 	r.Variant = VariantFromPB(pb.Variant)
 	r.Message = pb.Message

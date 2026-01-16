@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -304,36 +305,6 @@ func (p *Plugin) generateProto(
 	return buf.Bytes(), nil
 }
 
-func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
-	if len(form.Extends) == 0 {
-		return false
-	}
-	if len(form.OmittedFields) > 0 {
-		return false
-	}
-	return !hasFieldConflicts(form.Extends, table)
-}
-
-func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
-	if len(extends) < 2 {
-		return false
-	}
-	seen := make(map[string]bool)
-	for _, ext := range extends {
-		parent, ok := ext.Resolve(table)
-		if !ok {
-			continue
-		}
-		for _, f := range resolution.UnifiedFields(parent, table) {
-			if seen[f.Name] {
-				return true
-			}
-			seen[f.Name] = true
-		}
-	}
-	return false
-}
-
 func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	name := domain.GetName(parent, "cpp")
 
@@ -407,7 +378,7 @@ func (p *Plugin) processStructForTranslation(
 		data.includes.addInternal("x/cpp/json/json.h")
 	}
 
-	if canUseInheritance(form, data.table) {
+	if resolver.CanUseInheritance(form, data.table) {
 		translator.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)

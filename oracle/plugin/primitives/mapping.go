@@ -11,16 +11,22 @@ package primitives
 
 // Import represents an import/include required for a type mapping.
 type Import struct {
-	Category string // Import category (e.g., "external", "internal", "system", "typing")
-	Path     string // Import path or module name
-	Name     string // Specific import name (for "from X import Y" patterns)
+	// Category is the import category (e.g., "external", "internal", "system", "typing").
+	Category string
+	// Path is the import path or module name.
+	Path string
+	// Name is the specific import name (for "from X import Y" patterns).
+	Name string
 }
 
 // Mapping defines how a primitive maps to a target language.
 type Mapping struct {
-	TargetType string   // The type string in the target language
-	Imports    []Import // Required imports/includes
-	ZeroValue  string   // Default/zero value expression (optional)
+	// TargetType is the type string in the target language.
+	TargetType string
+	// Imports holds the required imports/includes.
+	Imports []Import
+	// ZeroValue is the default/zero value expression (optional).
+	ZeroValue string
 }
 
 // Mapper provides language-specific primitive type mappings.

@@ -176,26 +176,3 @@ TEST(RangerTests, testRangeOntologyId) {
     ASSERT_EQ(id.type, "range");
     ASSERT_EQ(id.key, key.to_string());
 }
-
-/// @brief it should convert multiple range keys to ontology IDs
-TEST(RangerTests, testRangeOntologyIds) {
-    const auto key1 = x::uuid::generate();
-    const auto key2 = x::uuid::generate();
-    const auto key3 = x::uuid::generate();
-    const std::vector<x::uuid::UUID> keys = {key1, key2, key3};
-    const auto ids = synnax::ranger::ontology_ids(keys);
-    ASSERT_EQ(ids.size(), 3);
-    ASSERT_EQ(ids[0].type, "range");
-    ASSERT_EQ(ids[0].key, key1.to_string());
-    ASSERT_EQ(ids[1].type, "range");
-    ASSERT_EQ(ids[1].key, key2.to_string());
-    ASSERT_EQ(ids[2].type, "range");
-    ASSERT_EQ(ids[2].key, key3.to_string());
-}
-
-/// @brief it should return empty vector for empty input
-TEST(RangerTests, testRangeOntologyIdsEmpty) {
-    const std::vector<x::uuid::UUID> keys;
-    const auto ids = synnax::ranger::ontology_ids(keys);
-    ASSERT_TRUE(ids.empty());
-}

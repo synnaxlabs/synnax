@@ -934,15 +934,19 @@ func primitiveToPython(primitive string, data *templateData) string {
 }
 
 type importManager struct {
-	uuid       []string
-	typing     []string
-	enum       []string
-	pydantic   []string
-	synnax     []string
-	ontology   []string              // imports from synnax.ontology.payload
-	namespaces []namespaceImportData // alias -> path
-	modules    []moduleImportData    // module name -> parent path (for "from parent import module")
-	fieldNames map[string]bool       // track all field names to detect conflicts with module imports
+	uuid     []string
+	typing   []string
+	enum     []string
+	pydantic []string
+	synnax   []string
+	// ontology holds imports from synnax.ontology.payload.
+	ontology []string
+	// namespaces maps alias to path.
+	namespaces []namespaceImportData
+	// modules holds module imports (for "from parent import module").
+	modules []moduleImportData
+	// fieldNames tracks all field names to detect conflicts with module imports.
+	fieldNames map[string]bool
 }
 
 func newImportManager() *importManager {
@@ -1061,9 +1065,12 @@ type sortedDeclData struct {
 }
 
 type typeDefData struct {
-	Name       string // Type definition name
-	BaseType   string // Python base type (e.g., "int", "str")
-	IsDistinct bool   // If true, use NewType; if false, use TypeAlias
+	// Name is the type definition name.
+	Name string
+	// BaseType is the Python base type (e.g., "int", "str").
+	BaseType string
+	// IsDistinct indicates whether to use NewType (true) or TypeAlias (false).
+	IsDistinct bool
 }
 
 type ontologyData struct {
@@ -1089,9 +1096,12 @@ type keyFieldData struct {
 }
 
 type typeParamData struct {
-	Name       string // TypeVar name (e.g., "V")
-	Constraint string // Python bound type or empty
-	IsOptional bool   // True if optional (defaults to Any)
+	// Name is the TypeVar name (e.g., "V").
+	Name string
+	// Constraint is the Python bound type, or empty.
+	Constraint string
+	// IsOptional is true if optional (defaults to Any).
+	IsOptional bool
 }
 
 type typeVarData struct {
@@ -1100,24 +1110,29 @@ type typeVarData struct {
 }
 
 type structData struct {
-	Name    string // Original struct name from schema
-	Doc     string // Documentation from @doc domain
-	PyName  string // Python name (can be overridden via py domain { name "..." })
-	Fields  []fieldData
-	Skip    bool   // If true, skip generating this struct (omit)
-	IsAlias bool   // If true, this struct is a type alias
-	AliasOf string // Python expression for the aliased type (e.g., "status.Status[StatusDetails]")
-
-	// Generic type support
-	IsGeneric  bool            // True if struct has type parameters
-	TypeParams []typeParamData // Type parameters for Generic[...] inheritance
-
-	// Extension support (single and multiple inheritance)
-	HasExtends   bool
-	ExtendsNames []string // Parent class names for multiple inheritance
-
-	// Key field support for __hash__ generation
-	KeyField string // Name of the key field (if any) for generating __hash__
+	// Name is the original struct name from schema.
+	Name string
+	// Doc is the documentation from @doc domain.
+	Doc string
+	// PyName is the Python name (can be overridden via py domain { name "..." }).
+	PyName string
+	Fields []fieldData
+	// Skip indicates whether to skip generating this struct (omit).
+	Skip bool
+	// IsAlias indicates whether this struct is a type alias.
+	IsAlias bool
+	// AliasOf is the Python expression for the aliased type (e.g., "status.Status[StatusDetails]").
+	AliasOf string
+	// IsGeneric is true if struct has type parameters.
+	IsGeneric bool
+	// TypeParams holds type parameters for Generic[...] inheritance.
+	TypeParams []typeParamData
+	// HasExtends indicates extension support (single and multiple inheritance).
+	HasExtends bool
+	// ExtendsNames holds parent class names for multiple inheritance.
+	ExtendsNames []string
+	// KeyField is the name of the key field (if any) for generating __hash__.
+	KeyField string
 }
 
 type fieldData struct {
@@ -1150,9 +1165,12 @@ type namespaceImportData struct {
 }
 
 type moduleImportData struct {
-	Module string // module name to import (e.g., "status")
-	Parent string // parent path to import from (e.g., "synnax")
-	Alias  string // alias for the module (e.g., "color_" to avoid field name conflicts)
+	// Module is the module name to import (e.g., "status").
+	Module string
+	// Parent is the parent path to import from (e.g., "synnax").
+	Parent string
+	// Alias is the alias for the module (e.g., "color_" to avoid field name conflicts).
+	Alias string
 }
 
 func formatGoogleDocstring(s structData) string {

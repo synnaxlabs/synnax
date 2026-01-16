@@ -166,9 +166,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 }
 
 type packageMapping struct {
-	pathPrefix     string // e.g., "client/ts/src"
-	packageName    string // e.g., "@synnaxlabs/client"
-	internalPrefix string // e.g., "@/"
+	// pathPrefix is the path prefix (e.g., "client/ts/src").
+	pathPrefix string
+	// packageName is the npm package name (e.g., "@synnaxlabs/client").
+	packageName string
+	// internalPrefix is the internal import prefix (e.g., "@/").
+	internalPrefix string
 }
 
 var knownPackages = []packageMapping{
@@ -1571,6 +1574,9 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 		return fmt.Sprintf("z.ZodRecord<%s, %s>", keyType, valueType)
 	}
 	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		resolved, ok = table.Lookup(data.Namespace, typeRef.Name)
+	}
 	if !ok {
 		return "z.ZodType"
 	}

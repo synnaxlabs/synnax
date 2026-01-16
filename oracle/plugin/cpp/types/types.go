@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -37,8 +38,9 @@ var primitiveMapper = cppprimitives.Mapper()
 type Plugin struct{ Options Options }
 
 type Options struct {
-	FileNamePattern  string
-	DisableFormatter bool // If true, skip running clang-format
+	FileNamePattern string
+	// DisableFormatter skips running clang-format if true.
+	DisableFormatter bool
 }
 
 func DefaultOptions() Options {
@@ -608,7 +610,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		return sd
 	}
 
-	if canUseInheritance(form, data.table) {
+	if resolver.CanUseInheritance(form, data.table) {
 		sd.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)
@@ -1096,9 +1098,12 @@ type templateData struct {
 
 // ontologyData contains information for generating ontology ID support.
 type ontologyData struct {
-	TypeName      string // e.g., "channel", "device", "task"
-	KeyType       string // C++ type name, e.g., "Key"
-	KeyConversion string // Expression to convert key to string, e.g., "std::to_string(key)" or "key"
+	// TypeName is the ontology type name (e.g., "channel", "device", "task").
+	TypeName string
+	// KeyType is the C++ type name (e.g., "Key").
+	KeyType string
+	// KeyConversion is the expression to convert key to string (e.g., "std::to_string(key)" or "key").
+	KeyConversion string
 }
 
 type sortedDeclData struct {
@@ -1111,18 +1116,24 @@ type sortedDeclData struct {
 }
 
 type typeDefData struct {
-	Name               string
-	CppType            string
-	IsArrayWrapper     bool     // True if this is an array distinct type that should be a wrapper struct
-	IsFixedSizeArray   bool     // True if this is a fixed-size array (uses std::array instead of std::vector)
-	ArraySize          int64    // Size of fixed-size array
-	ElementType        string   // The element type for array wrappers
-	ElementIsPrimitive bool     // True if element type is primitive (allows initializer_list constructor)
-	Methods            []string // Custom methods from @cpp methods
-	HasProto           bool
-	ProtoType          string
-	ProtoNamespace     string
-	ProtoClass         string
+	Name    string
+	CppType string
+	// IsArrayWrapper is true if this is an array distinct type that should be a wrapper struct.
+	IsArrayWrapper bool
+	// IsFixedSizeArray is true if this is a fixed-size array (uses std::array instead of std::vector).
+	IsFixedSizeArray bool
+	// ArraySize is the size of a fixed-size array.
+	ArraySize int64
+	// ElementType is the element type for array wrappers.
+	ElementType string
+	// ElementIsPrimitive is true if element type is primitive (allows initializer_list constructor).
+	ElementIsPrimitive bool
+	// Methods holds custom methods from @cpp methods.
+	Methods        []string
+	HasProto       bool
+	ProtoType      string
+	ProtoNamespace string
+	ProtoClass     string
 }
 
 type aliasData struct {
@@ -1153,9 +1164,10 @@ type structData struct {
 	ProtoNamespace string
 	ProtoClass     string
 	Methods        []string
-	// Inheritance support
-	HasExtends   bool
-	ExtendsTypes []string // e.g., ["arc::ir::IR", "arc::compiler::Output"]
+	// HasExtends indicates whether the struct uses C++ inheritance.
+	HasExtends bool
+	// ExtendsTypes holds parent types (e.g., ["arc::ir::IR", "arc::compiler::Output"]).
+	ExtendsTypes []string
 }
 
 type typeParamData struct {
@@ -1165,11 +1177,12 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	Name         string
-	CppType      string
-	Doc          string
-	IsSelfRef    bool
-	DefaultValue string // Default initializer (e.g., "0", "false", "{}")
+	Name      string
+	CppType   string
+	Doc       string
+	IsSelfRef bool
+	// DefaultValue is the default initializer (e.g., "0", "false", "{}").
+	DefaultValue string
 }
 
 type enumData struct {
@@ -1208,39 +1221,6 @@ func hasExplicitPBName(s resolution.Type) bool {
 			if expr.Name == "name" && len(expr.Values) > 0 && expr.Values[0].StringValue != "" {
 				return true
 			}
-		}
-	}
-	return false
-}
-
-// canUseInheritance checks if a struct can use C++ multiple inheritance.
-// Returns false if there are omitted fields or field name conflicts between parents.
-func canUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
-	if len(form.Extends) == 0 {
-		return false
-	}
-	if len(form.OmittedFields) > 0 {
-		return false // Can't omit fields with inheritance
-	}
-	return !hasFieldConflicts(form.Extends, table)
-}
-
-// hasFieldConflicts returns true if multiple parents have overlapping field names.
-func hasFieldConflicts(extends []resolution.TypeRef, table *resolution.Table) bool {
-	if len(extends) < 2 {
-		return false
-	}
-	seen := make(map[string]bool)
-	for _, ext := range extends {
-		parent, ok := ext.Resolve(table)
-		if !ok {
-			continue
-		}
-		for _, f := range resolution.UnifiedFields(parent, table) {
-			if seen[f.Name] {
-				return true
-			}
-			seen[f.Name] = true
 		}
 	}
 	return false

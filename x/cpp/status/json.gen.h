@@ -25,7 +25,7 @@ namespace x::status {
 template<typename Details>
 Status<Details> Status<Details>::parse(x::json::Parser parser) {
     return Status<Details>{
-        .key = parser.field<Key>("key"),
+        .key = parser.field<std::string>("key"),
         .name = parser.field<std::string>("name"),
         .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),

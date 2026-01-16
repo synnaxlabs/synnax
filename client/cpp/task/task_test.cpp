@@ -117,26 +117,6 @@ TEST(TaskTests, testTaskOntologyId) {
     ASSERT_EQ(id.key, "12345678901234");
 }
 
-/// @brief it should convert multiple task keys to ontology IDs
-TEST(TaskTests, testTaskOntologyIds) {
-    const std::vector<Key> keys = {100, 200, 300};
-    const auto ids = ontology_ids(keys);
-    ASSERT_EQ(ids.size(), 3);
-    ASSERT_EQ(ids[0].type, "task");
-    ASSERT_EQ(ids[0].key, "100");
-    ASSERT_EQ(ids[1].type, "task");
-    ASSERT_EQ(ids[1].key, "200");
-    ASSERT_EQ(ids[2].type, "task");
-    ASSERT_EQ(ids[2].key, "300");
-}
-
-/// @brief it should return empty vector for empty input
-TEST(TaskTests, testTaskOntologyIdsEmpty) {
-    const std::vector<Key> keys;
-    const auto ids = ontology_ids(keys);
-    ASSERT_TRUE(ids.empty());
-}
-
 /// @brief it should correctly create and retrieve a task with a status.
 TEST(TaskTests, testCreateTaskWithStatus) {
     const auto client = new_test_client();

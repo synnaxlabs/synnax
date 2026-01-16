@@ -13,7 +13,7 @@ from uuid import UUID
 from freighter import Empty, Payload, UnaryClient, send_required
 
 from synnax.ontology import ID
-from synnax.status.types_gen import Status, Key
+from synnax.status.types_gen import Status
 from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params
 
@@ -256,8 +256,9 @@ class Client:
             Empty,
         )
 
+
 ONTOLOGY_TYPE = ID(type="status")
 
 
-def ontology_id(key: Key) -> ID:
+def ontology_id(key: str) -> ID:
     return ID(type="status", key=str(key))

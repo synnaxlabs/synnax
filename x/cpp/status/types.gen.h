@@ -33,8 +33,6 @@ constexpr const char *VARIANT_ERROR = "error";
 constexpr const char *VARIANT_LOADING = "loading";
 constexpr const char *VARIANT_DISABLED = "disabled";
 
-using Key = std::string;
-
 /// @brief Status is a standardized message used to communicate state across the
 /// Synnax platform. Statuses support different severity variants
 /// and can carry component-specific details.
@@ -42,7 +40,7 @@ template<typename Details = std::monostate>
 struct Status {
     /// @brief key is a unique identifier for this status, automatically generated if
     /// not provided.
-    Key key;
+    std::string key;
     /// @brief name is an optional human-readable name for the status.
     std::string name;
     /// @brief variant is the severity or type of the status: success, info, warning,

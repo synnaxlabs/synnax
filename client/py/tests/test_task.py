@@ -131,7 +131,9 @@ class TestTaskClient:
         """Should list all tasks on the default rack."""
         # Create some tasks
         task1 = client.tasks.create(
-            name=str(uuid4()), type="test1", config={"foo": "bar"},
+            name=str(uuid4()),
+            type="test1",
+            config={"foo": "bar"},
         )
         task2 = client.tasks.create(
             name=str(uuid4()), type="test2", config={"foo": "bar"}

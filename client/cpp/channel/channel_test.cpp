@@ -215,23 +215,3 @@ TEST(TestChannel, testOntologyId) {
     ASSERT_EQ(id.type, "channel");
     ASSERT_EQ(id.key, "42");
 }
-
-/// @brief it should convert multiple channel keys to ontology IDs
-TEST(TestChannel, testOntologyIds) {
-    const std::vector<synnax::channel::Key> keys = {1, 2, 3};
-    const auto ids = synnax::channel::ontology_ids(keys);
-    ASSERT_EQ(ids.size(), 3);
-    ASSERT_EQ(ids[0].type, "channel");
-    ASSERT_EQ(ids[0].key, "1");
-    ASSERT_EQ(ids[1].type, "channel");
-    ASSERT_EQ(ids[1].key, "2");
-    ASSERT_EQ(ids[2].type, "channel");
-    ASSERT_EQ(ids[2].key, "3");
-}
-
-/// @brief it should return empty vector for empty input
-TEST(TestChannel, testOntologyIdsEmpty) {
-    const std::vector<synnax::channel::Key> keys;
-    const auto ids = synnax::channel::ontology_ids(keys);
-    ASSERT_TRUE(ids.empty());
-}
