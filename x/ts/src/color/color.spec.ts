@@ -477,6 +477,12 @@ describe("color.Color", () => {
       expect(result.length).toEqual(4);
       expect(typeof result[3]).toBe("number");
     });
+
+    test("accepts alpha values between 0 and 1", () => {
+      const color1 = color.construct("#ff0000");
+      const result = color.setAlpha(color1, 0.86);
+      expect(result[3]).toEqual(219);
+    });
   });
 
   describe("rgbaCSS", () => {

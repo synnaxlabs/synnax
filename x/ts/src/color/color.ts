@@ -23,7 +23,7 @@ const alphaZ = z
   .number()
   .min(0)
   .max(1)
-  .transform((v) => v * 255)
+  .transform((v) => Math.round(v * 255))
   .or(zod.uint8);
 /** A zod schema for an RGBA color. */
 const rgbaZ = z.tuple([rgbValueZ, rgbValueZ, rgbValueZ, alphaZ]);
