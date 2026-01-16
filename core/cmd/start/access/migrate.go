@@ -105,7 +105,7 @@ func MigratePermissions(
 		}
 	}
 
-	roleWriter := svc.RBAC.Role.NewWriter(tx, true)
+	roleWriter := svc.RBAC.Role.NewWriter(tx)
 	otgWriter := dist.Ontology.NewWriter(tx)
 
 	// Migrate each user

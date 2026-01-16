@@ -151,7 +151,7 @@ func (s *AccessService) CreateRole(
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Role.NewWriter(tx, false)
+		w := s.internal.Role.NewWriter(tx)
 		for i, r := range req.Roles {
 			if r.Key == uuid.Nil {
 				r.Key = uuid.New()
@@ -226,7 +226,7 @@ func (s *AccessService) DeleteRole(ctx context.Context, req AccessDeleteRoleRequ
 		}); err != nil {
 			return err
 		}
-		w := s.internal.Role.NewWriter(tx, false)
+		w := s.internal.Role.NewWriter(tx)
 		for _, key := range req.Keys {
 			if err := w.Delete(ctx, key); err != nil {
 				return err
@@ -254,7 +254,7 @@ func (s *AccessService) AssignRole(
 		}); err != nil {
 			return err
 		}
-		return s.internal.Role.NewWriter(tx, false).AssignRole(ctx, userID, req.Role)
+		return s.internal.Role.NewWriter(tx).AssignRole(ctx, userID, req.Role)
 	})
 }
 
@@ -273,6 +273,6 @@ func (s *AccessService) UnassignRole(ctx context.Context, req AccessUnassignRole
 		}); err != nil {
 			return err
 		}
-		return s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, userID, req.Role)
+		return s.internal.Role.NewWriter(tx).UnassignRole(ctx, userID, req.Role)
 	})
 }

@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
@@ -90,19 +89,4 @@ func (s *Service) Close() error {
 		return nil
 	}
 	return s.signals.Close()
-}
-
-// NewWriter opens a new Writer to create, update, and delete policies.
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
-}
-
-// NewRetrieve opens a new Retrieve query to fetch policies.
-func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		baseTx:   s.cfg.DB,
-		gorp:     gorp.NewRetrieve[uuid.UUID, Policy](),
-		ontology: s.cfg.Ontology,
-	}
 }

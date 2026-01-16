@@ -16,32 +16,28 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
 
+// OntologyType is the type of a role within the ontology.
 const OntologyType ontology.Type = "role"
 
 // OntologyID returns the unique ontology.ID for the Role with the given key.
-func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: OntologyType, Key: k.String()}
+func OntologyID(key uuid.UUID) ontology.ID {
+	return ontology.ID{Type: OntologyType, Key: key.String()}
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.UUID(),
-	"name":     zyn.String(),
-	"internal": zyn.Bool(),
-})
+var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(r Role) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
+	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
 }
 
-type change = xchange.Change[uuid.UUID, Role]
-
+// Type implements ontology.Service.
 func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
@@ -64,16 +60,18 @@ func (s *Service) RetrieveResource(
 	return newResource(r), nil
 }
 
-func translateChange(c change) ontology.Change {
+func translateChange(ch change.Change[uuid.UUID, Role]) ontology.Change {
 	return ontology.Change{
-		Variant: c.Variant,
-		Key:     OntologyID(c.Key),
-		Value:   newResource(c.Value),
+		Variant: ch.Variant,
+		Key:     OntologyID(ch.Key),
+		Value:   newResource(ch.Value),
 	}
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Role]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -81,7 +79,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Role](s.cfg.DB).OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

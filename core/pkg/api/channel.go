@@ -88,7 +88,7 @@ func (s *ChannelService) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: channel.OntologyIDsFromChannels(translated),
@@ -236,7 +236,7 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
@@ -306,7 +306,7 @@ func (s *ChannelService) Delete(
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
-				if err := s.access.Enforce(ctx, access.Request{
+				if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
 					Action:  access.ActionDelete,
 					Objects: req.Keys.OntologyIDs(),
@@ -323,7 +323,7 @@ func (s *ChannelService) Delete(
 				if err != nil {
 					return err
 				}
-				if err = s.access.Enforce(ctx, access.Request{
+				if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 					Subject: getSubject(ctx),
 					Action:  access.ActionDelete,
 					Objects: channel.OntologyIDsFromChannels(res),
@@ -346,7 +346,7 @@ func (s *ChannelService) Rename(
 	ctx context.Context,
 	req ChannelRenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: req.Keys.OntologyIDs(),
@@ -369,7 +369,7 @@ func (s *ChannelService) RetrieveGroup(
 	_ ChannelRetrieveGroupRequest,
 ) (ChannelRetrieveGroupResponse, error) {
 	g := s.internal.Group()
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},

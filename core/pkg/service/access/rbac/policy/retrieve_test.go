@@ -129,7 +129,7 @@ var _ = Describe("Retrieve", func() {
 			subject2 ontology.ID
 		)
 		BeforeEach(func() {
-			rw := roleSvc.NewWriter(tx, true)
+			rw := roleSvc.NewWriter(tx)
 			r = &role.Role{
 				Name:        "test-role",
 				Description: "Test role for subject queries",

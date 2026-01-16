@@ -86,7 +86,7 @@ func provisionRole(
 		return uuid.Nil, err
 	}
 	if rol.Key == uuid.Nil {
-		w := service.Role.NewWriter(tx, true)
+		w := service.Role.NewWriter(tx)
 		if err := w.Create(ctx, &rol); err != nil {
 			return uuid.Nil, err
 		}

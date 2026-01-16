@@ -47,7 +47,7 @@ type (
 )
 
 func (s *SchematicService) Create(ctx context.Context, req SchematicCreateRequest) (res SchematicCreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: schematic.OntologyIDsFromSchematics(req.Schematics),
@@ -72,7 +72,7 @@ type SchematicRenameRequest struct {
 }
 
 func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
@@ -90,7 +90,7 @@ type SchematicSetDataRequest struct {
 }
 
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
@@ -117,7 +117,7 @@ func (s *SchematicService) Retrieve(ctx context.Context, req SchematicRetrieveRe
 	if err != nil {
 		return SchematicRetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: schematic.OntologyIDs(req.Keys),
@@ -132,7 +132,7 @@ type SchematicDeleteRequest struct {
 }
 
 func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: schematic.OntologyIDs(req.Keys),
@@ -156,7 +156,7 @@ type (
 )
 
 func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (res SchematicCopyResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
@@ -168,7 +168,7 @@ func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (
 	}); err != nil {
 		return SchematicCopyResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{schematic.OntologyID(res.Schematic.Key)},
@@ -189,7 +189,7 @@ type (
 )
 
 func (s *SchematicService) CreateSymbol(ctx context.Context, req SchematicCreateSymbolRequest) (res SchematicCreateSymbolResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: symbol.OntologyIDsFromSymbols(req.Symbols),
@@ -231,7 +231,7 @@ func (s *SchematicService) RetrieveSymbol(ctx context.Context, req SchematicRetr
 	if err != nil {
 		return SchematicRetrieveSymbolResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: symbol.OntologyIDsFromSymbols(res.Symbols),
@@ -247,7 +247,7 @@ type SchematicRenameSymbolRequest struct {
 }
 
 func (s *SchematicService) RenameSymbol(ctx context.Context, req SchematicRenameSymbolRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{symbol.OntologyID(req.Key)},
@@ -264,7 +264,7 @@ type SchematicDeleteSymbolRequest struct {
 }
 
 func (s *SchematicService) DeleteSymbol(ctx context.Context, req SchematicDeleteSymbolRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: symbol.OntologyIDs(req.Keys),
@@ -287,7 +287,7 @@ func (s *SchematicService) RetrieveSymbolGroup(
 	_ SchematicRetrieveSymbolGroupRequest,
 ) (SchematicRetrieveSymbolGroupResponse, error) {
 	g := s.internal.Symbol.Group()
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},

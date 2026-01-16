@@ -45,7 +45,7 @@ type (
 )
 
 func (s *LogService) Create(ctx context.Context, req LogCreateRequest) (res LogCreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: log.OntologyIDsFromLogs(req.Logs),
@@ -70,7 +70,7 @@ type LogRenameRequest struct {
 }
 
 func (s *LogService) Rename(ctx context.Context, req LogRenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{log.OntologyID(req.Key)},
@@ -88,7 +88,7 @@ type LogSetDataRequest struct {
 }
 
 func (s *LogService) SetData(ctx context.Context, req LogSetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{log.OntologyID(req.Key)},
@@ -115,7 +115,7 @@ func (s *LogService) Retrieve(ctx context.Context, req LogRetrieveRequest) (res 
 	if err != nil {
 		return LogRetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: log.OntologyIDs(req.Keys),
@@ -130,7 +130,7 @@ type LogDeleteRequest struct {
 }
 
 func (s *LogService) Delete(ctx context.Context, req LogDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: log.OntologyIDs(req.Keys),

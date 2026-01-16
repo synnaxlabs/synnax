@@ -27,6 +27,15 @@ type Retrieve struct {
 	subject  ontology.ID
 }
 
+// NewRetrieve opens a new Retrieve query to fetch policies.
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{
+		baseTx:   s.cfg.DB,
+		gorp:     gorp.NewRetrieve[uuid.UUID, Policy](),
+		ontology: s.cfg.Ontology,
+	}
+}
+
 // WhereKeys filters the policies by the given keys.
 func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)

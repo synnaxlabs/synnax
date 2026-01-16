@@ -88,7 +88,7 @@ func (s *RangeService) Create(
 	if !req.Parent.IsZero() {
 		ids = append(ids, req.Parent)
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: ids,
@@ -189,7 +189,7 @@ func (s *RangeService) Retrieve(
 			apiRanges[i] = rng
 		}
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: rangeAccessOntologyIDs(apiRanges),
@@ -208,7 +208,7 @@ func (s *RangeService) Rename(
 	ctx context.Context,
 	req RangeRenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
@@ -228,7 +228,7 @@ func (s *RangeService) Delete(
 	ctx context.Context,
 	req RangeDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: ranger.OntologyIDs(req.Keys),
@@ -260,7 +260,7 @@ func (s *RangeService) KVGet(
 	ctx context.Context,
 	req RangeKVGetRequest,
 ) (RangeKVGetResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
@@ -304,7 +304,7 @@ func (s *RangeService) KVSet(
 	ctx context.Context,
 	req RangeKVSetRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
@@ -335,7 +335,7 @@ func (s *RangeService) KVDelete(
 	ctx context.Context,
 	req RangeKVDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
@@ -372,7 +372,7 @@ func (s *RangeService) AliasSet(
 	req RangeAliasSetRequest,
 ) (types.Nil, error) {
 	keys := lo.Keys(req.Aliases)
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
@@ -436,7 +436,7 @@ func (s *RangeService) AliasResolve(
 
 	keys := lo.Values(aliases)
 
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
@@ -456,7 +456,7 @@ func (s *RangeService) AliasDelete(
 	ctx context.Context,
 	req RangeAliasDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),
@@ -510,7 +510,7 @@ func (s *RangeService) AliasList(
 		return RangeAliasListResponse{}, err
 	}
 	keys := lo.Keys(aliases)
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, keys),
@@ -535,7 +535,7 @@ func (s *RangeService) AliasRetrieve(
 	ctx context.Context,
 	req RangeAliasRetrieveRequest,
 ) (RangeAliasRetrieveResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ranger.AliasOntologyIDs(req.Range, req.Channels),

@@ -24,6 +24,12 @@ type Writer struct {
 	otg ontology.Writer
 }
 
+// NewWriter opens a new Writer to create, update, and delete policies.
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	return Writer{tx: tx, otg: s.cfg.Ontology.NewWriter(tx)}
+}
+
 // Create creates a new policy. If the policy does not have a key, a new key will be
 // generated.
 func (w Writer) Create(ctx context.Context, policy *Policy) error {

@@ -15,28 +15,29 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
+// Writer is a writer used to create, delete, and assign roles.
 type Writer struct {
-	tx            gorp.Tx
-	otg           ontology.Writer
-	group         group.Group
-	allowInternal bool
+	tx    gorp.Tx
+	otg   ontology.Writer
+	group group.Group
+}
+
+// NewWriter opens a new Writer to create, delete, and assign roles.
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
+		tx:    gorp.OverrideTx(s.cfg.DB, tx),
+		otg:   s.cfg.Ontology.NewWriter(tx),
+		group: s.group,
+	}
 }
 
 // Create creates a new role in the database.
-func (w Writer) Create(
-	ctx context.Context,
-	r *Role,
-) error {
+func (w Writer) Create(ctx context.Context, r *Role) error {
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
-	}
-	if r.Internal && !w.allowInternal {
-		return errors.Wrap(validate.Error, "cannot create internal role")
 	}
 	if err := gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
@@ -44,18 +45,17 @@ func (w Writer) Create(
 	if err := w.otg.DefineResource(ctx, OntologyID(r.Key)); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, r.OntologyID())
+	return w.otg.DefineRelationship(
+		ctx,
+		w.group.OntologyID(),
+		ontology.ParentOf,
+		r.OntologyID(),
+	)
 }
 
-// Delete removes a role from the database. It will fail if the role is builtin
-// or if any users are assigned to the role.
+// Delete removes a role from the database.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
-		if r.Internal && !w.allowInternal {
-			return errors.Wrap(validate.Error, "cannot delete builtin role")
-		}
-		return nil
-	}).Exec(ctx, w.tx)
+	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Exec(ctx, w.tx)
 }
 
 // AssignRole assigns a role to a subject (typically a user) by creating an ontology
@@ -66,15 +66,25 @@ func (w Writer) AssignRole(
 	subject ontology.ID,
 	roleKey uuid.UUID,
 ) error {
-	return w.otg.DefineRelationship(ctx, OntologyID(roleKey), ontology.ParentOf, subject)
+	return w.otg.DefineRelationship(
+		ctx,
+		OntologyID(roleKey),
+		ontology.ParentOf,
+		subject,
+	)
 }
 
-// UnassignRole removes a role from a subject by deleting the ontology relationship.
-// If the relationship does not exist, this is a no-op.
+// UnassignRole removes a role from a subject by deleting the ontology relationship. If
+// the relationship does not exist, this is a no-op.
 func (w Writer) UnassignRole(
 	ctx context.Context,
 	subject ontology.ID,
 	roleKey uuid.UUID,
 ) error {
-	return w.otg.DeleteRelationship(ctx, OntologyID(roleKey), ontology.ParentOf, subject)
+	return w.otg.DeleteRelationship(
+		ctx,
+		OntologyID(roleKey),
+		ontology.ParentOf,
+		subject,
+	)
 }

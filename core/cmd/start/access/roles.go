@@ -68,7 +68,6 @@ var (
 	ownerRole     = role.Role{
 		Name:        ownerRoleName,
 		Description: "Full control of deployment, including user registration and security.",
-		Internal:    true,
 	}
 	ownerPolicy = policy.Policy{
 		Name: ownerRoleName,
@@ -81,7 +80,6 @@ var (
 	engineerRole     = role.Role{
 		Name:        engineerRoleName,
 		Description: "Full access to system configuration, except for user management.",
-		Internal:    true,
 	}
 	engineerPolicies = []policy.Policy{
 		{
@@ -99,7 +97,6 @@ var (
 	operatorRole     = role.Role{
 		Name:        operatorRoleName,
 		Description: "Can view workspaces and visualizations, control hardware and data acquisition tasks. Cannot modify system configuration.",
-		Internal:    true,
 	}
 	operatorPolicies = []policy.Policy{
 		{
@@ -117,7 +114,6 @@ var (
 	viewerRole     = role.Role{
 		Name:        viewerRoleName,
 		Description: "View access to all resources.",
-		Internal:    true,
 	}
 	viewerPolicy = policy.Policy{
 		Name: viewerRoleName,

@@ -58,7 +58,7 @@ type (
 )
 
 func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res ArcCreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: arc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
@@ -83,7 +83,7 @@ type ArcDeleteRequest struct {
 }
 
 func (s *ArcService) Delete(ctx context.Context, req ArcDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: arc.OntologyIDs(req.Keys),
@@ -165,7 +165,7 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 			res.Arcs[i].Status = &stat
 		}
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: arc.OntologyIDsFromArcs(svcArcs),

@@ -85,7 +85,7 @@ func (o *OntologyService) Retrieve(
 	if err := q.Entries(&resources).Exec(ctx, nil); err != nil {
 		return OntologyRetrieveResponse{}, err
 	}
-	if err := o.access.Enforce(ctx, access.Request{
+	if err := o.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ontology.ResourceIDs(resources),
@@ -104,7 +104,7 @@ func (o *OntologyService) AddChildren(
 	ctx context.Context,
 	req OntologyAddChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
@@ -131,7 +131,7 @@ func (o *OntologyService) RemoveChildren(
 	ctx context.Context,
 	req OntologyRemoveChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.ID),
@@ -159,7 +159,7 @@ func (o *OntologyService) MoveChildren(
 	ctx context.Context,
 	req OntologyMoveChildrenRequest,
 ) (res types.Nil, err error) {
-	if err = o.access.Enforce(ctx, access.Request{
+	if err = o.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(req.Children, req.From, req.To),

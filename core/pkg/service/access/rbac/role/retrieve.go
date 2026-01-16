@@ -22,17 +22,14 @@ type Retrieve struct {
 	gorp   gorp.Retrieve[uuid.UUID, Role]
 }
 
+// NewRetrieve opens a new Retrieve query to fetch roles.
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{baseTx: s.cfg.DB, gorp: gorp.NewRetrieve[uuid.UUID, Role]()}
+}
+
 // WhereKeys filters roles by their UUIDs.
 func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
-}
-
-// WhereInternal filters roles by their internal flag.
-func (r Retrieve) WhereInternal(internal bool) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, role *Role) (bool, error) {
-		return role.Internal == internal, nil
-	})
 	return r
 }
 

@@ -15,9 +15,9 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Role is a named collection of policies that can be assigned to users.
-// Roles enable easier permission management by grouping policies together.
-// When a user is assigned a role, they receive all permissions from that role's policies.
+// Role is a named collection of policies that can be assigned to users. Roles enable
+// easier permission management by grouping policies together. When a user is assigned a
+// role, they receive all permissions from that role's policies.
 type Role struct {
 	// Key is a unique UUID to identify the role.
 	Key uuid.UUID `json:"key" msgpack:"key"`
@@ -25,8 +25,6 @@ type Role struct {
 	Name string `json:"name" msgpack:"name"`
 	// Description explains what permissions this role provides.
 	Description string `json:"description" msgpack:"description"`
-	// Internal indicates whether the role is built-in to the system.
-	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Role{}

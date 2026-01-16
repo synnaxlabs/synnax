@@ -122,7 +122,7 @@ var _ = Describe("Writer", func() {
 			policies []policy.Policy
 		)
 		BeforeEach(func() {
-			rw := roleSvc.NewWriter(tx, true)
+			rw := roleSvc.NewWriter(tx)
 			r = &role.Role{
 				Name:        "test-role",
 				Description: "Test role",

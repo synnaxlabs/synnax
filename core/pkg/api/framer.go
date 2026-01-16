@@ -80,7 +80,7 @@ func (s *FrameService) FrameDelete(
 	ctx context.Context,
 	req FrameDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: framer.OntologyIDs(req.Keys),
@@ -151,7 +151,7 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	if err != nil {
 		return nil, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
@@ -215,7 +215,7 @@ func (s *FrameService) openStreamer(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
@@ -381,7 +381,7 @@ func (s *FrameService) openWriter(
 		return nil, err
 	}
 
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: framer.OntologyIDs(req.Config.Keys),

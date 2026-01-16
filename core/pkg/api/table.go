@@ -45,7 +45,7 @@ type (
 )
 
 func (s *TableService) Create(ctx context.Context, req TableCreateRequest) (res TableCreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: table.OntologyIDsFromTables(req.Tables),
@@ -70,7 +70,7 @@ type TableRenameRequest struct {
 }
 
 func (s *TableService) Rename(ctx context.Context, req TableRenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{table.OntologyID(req.Key)},
@@ -88,7 +88,7 @@ type TableSetDataRequest struct {
 }
 
 func (s *TableService) SetData(ctx context.Context, req TableSetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{table.OntologyID(req.Key)},
@@ -115,7 +115,7 @@ func (s *TableService) Retrieve(ctx context.Context, req TableRetrieveRequest) (
 	if err != nil {
 		return TableRetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: table.OntologyIDs(req.Keys),
@@ -130,7 +130,7 @@ type TableDeleteRequest struct {
 }
 
 func (s *TableService) Delete(ctx context.Context, req TableDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: table.OntologyIDs(req.Keys),

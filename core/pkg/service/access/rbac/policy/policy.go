@@ -11,6 +11,7 @@ package policy
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -52,3 +53,6 @@ func (p Policy) GorpKey() uuid.UUID { return p.Key }
 
 // SetOptions returns the options for the policy.
 func (p Policy) SetOptions() []any { return nil }
+
+// OntologyID returns the ontology ID for the policy.
+func (p Policy) OntologyID() ontology.ID { return OntologyID(p.Key) }

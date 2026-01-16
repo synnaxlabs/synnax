@@ -64,7 +64,7 @@ type (
 // Create registers the new users with the provided credentials. If successful, Create
 // returns a slice of the new users.
 func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (UserCreateResponse, error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: user.OntologyType}},
@@ -111,7 +111,7 @@ func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsername
 	if u.Username == req.Username {
 		return types.Nil{}, nil
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
@@ -139,7 +139,7 @@ type UserRenameRequest struct {
 // Rename changes the name for the user with the provided key. If either the first
 // or last name is empty, the corresponding field will not be updated.
 func (s *UserService) Rename(ctx context.Context, req UserRenameRequest) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{user.OntologyID(req.Key)},
@@ -175,7 +175,7 @@ func (s *UserService) Retrieve(ctx context.Context, req UserRetrieveRequest) (Us
 	if err := q.Entries(&users).Exec(ctx, nil); err != nil {
 		return UserRetrieveResponse{}, err
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: user.OntologyIDsFromUsers(users),
@@ -191,7 +191,7 @@ type UserDeleteRequest struct {
 
 // Delete removes the users with the provided keys from the Synnax cluster.
 func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: user.OntologyIDsFromKeys(req.Keys),

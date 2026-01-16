@@ -56,7 +56,7 @@ func (svc *TaskService) Create(
 	req TaskCreateRequest,
 ) (TaskCreateResponse, error) {
 	var res TaskCreateResponse
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: task.OntologyIDsFromTasks(req.Tasks),
@@ -153,7 +153,7 @@ func (svc *TaskService) Retrieve(
 			res.Tasks[i].Status = &stat
 		}
 	}
-	if err = svc.access.Enforce(ctx, access.Request{
+	if err = svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: task.OntologyIDsFromTasks(res.Tasks),
@@ -172,7 +172,7 @@ func (svc *TaskService) Delete(
 	req TaskDeleteRequest,
 ) (types.Nil, error) {
 	var res types.Nil
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: task.OntologyIDs(req.Keys),
@@ -206,7 +206,7 @@ func (svc *TaskService) Copy(
 	req TaskCopyRequest,
 ) (TaskCopyResponse, error) {
 	var res TaskCopyResponse
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{task.OntologyID(req.Key)},
@@ -225,7 +225,7 @@ func (svc *TaskService) Copy(
 	if err != nil {
 		return TaskCopyResponse{}, err
 	}
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{task.OntologyID(res.Task.Key)},

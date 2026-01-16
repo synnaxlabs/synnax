@@ -44,7 +44,7 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 // policies.
 func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
 	return lo.Map(policies, func(p Policy, _ int) ontology.ID {
-		return OntologyID(p.Key)
+		return p.OntologyID()
 	})
 }
 

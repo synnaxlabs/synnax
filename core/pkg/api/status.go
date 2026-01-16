@@ -85,7 +85,7 @@ func (s *StatusService) Set(
 	req StatusSetRequest,
 ) (res StatusSetResponse, err error) {
 	ids := statusAccessOntologyIDs(req.Statuses)
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: ids,
@@ -164,7 +164,7 @@ func (s *StatusService) Retrieve(
 		}
 	}
 
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ids,
@@ -183,7 +183,7 @@ func (s *StatusService) Delete(
 	ctx context.Context,
 	req StatusDeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: status.OntologyIDs(req.Keys),

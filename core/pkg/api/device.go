@@ -52,7 +52,7 @@ type DeviceCreateResponse struct {
 }
 
 func (svc *DeviceService) Create(ctx context.Context, req DeviceCreateRequest) (res DeviceCreateResponse, _ error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: device.OntologyIDsFromDevices(req.Devices),
@@ -144,7 +144,7 @@ func (svc *DeviceService) Retrieve(ctx context.Context, req DeviceRetrieveReques
 		}
 	}
 
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: device.OntologyIDsFromDevices(res.Devices),
@@ -162,7 +162,7 @@ type DeviceDeleteRequest struct {
 }
 
 func (svc *DeviceService) Delete(ctx context.Context, req DeviceDeleteRequest) (res types.Nil, _ error) {
-	if err := svc.access.Enforce(ctx, access.Request{
+	if err := svc.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: device.OntologyIDs(req.Keys),

@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Service", func() {
@@ -27,39 +29,87 @@ var _ = Describe("Service", func() {
 	BeforeEach(func() { tx = db.OpenTx() })
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
-	Describe("OpenService", func() {
+	Describe("Open", func() {
 		It("Should open a service with valid configuration", func() {
-			s, err := rbac.OpenService(ctx, rbac.ServiceConfig{
+			s := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
-			})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(s).ToNot(BeNil())
-			Expect(s.Policy).ToNot(BeNil())
-			Expect(s.Role).ToNot(BeNil())
+			}))
 			Expect(s.Close()).To(Succeed())
 		})
 		It("Should return error with missing DB", func() {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
+			Expect(rbac.OpenService(ctx, rbac.ServiceConfig{
 				Ontology: otg,
 				Group:    groupSvc,
-			})
-			Expect(err).To(HaveOccurred())
+			})).Error().To(MatchError(validate.Error))
 		})
 		It("Should return error with missing Ontology", func() {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
+			Expect(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:    db,
 				Group: groupSvc,
-			})
-			Expect(err).To(HaveOccurred())
+			})).Error().To(MatchError(validate.Error))
 		})
 		It("Should return error with missing Group", func() {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
+			Expect(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-			})
-			Expect(err).To(HaveOccurred())
+			})).Error().To(MatchError(validate.Error))
+		})
+	})
+
+	Describe("RetrievePoliciesForSubject", func() {
+		var (
+			policyWriter policy.Writer
+			roleWriter   role.Writer
+			subject      ontology.ID
+		)
+		BeforeEach(func() {
+			policyWriter = svc.Policy.NewWriter(tx)
+			roleWriter = svc.Role.NewWriter(tx)
+			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
+			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+		})
+
+		It("Should retrieve policies from assigned roles", func() {
+			r := &role.Role{
+				Name:        "admin",
+				Description: "Administrator role",
+			}
+			Expect(roleWriter.Create(ctx, r)).To(Succeed())
+
+			p1 := &policy.Policy{
+				Name:   "policy-1",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: access.AllActions,
+				},
+			}
+			p2 := &policy.Policy{
+				Name:   "policy-2",
+				Effect: policy.EffectAllow,
+				Constraint: constraint.Constraint{
+					IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
+			}
+			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
+			Expect(policyWriter.Create(ctx, p2)).To(Succeed())
+			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
+			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+
+			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(policies).To(HaveLen(2))
+			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
+			Expect(policyKeys).To(ContainElements(p1.Key, p2.Key))
+		})
+
+		It("Should return empty list when no roles assigned", func() {
+			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(policies).To(BeEmpty())
 		})
 	})
 
@@ -73,7 +123,7 @@ var _ = Describe("Service", func() {
 		)
 		BeforeEach(func() {
 			policyWriter = svc.Policy.NewWriter(tx)
-			roleWriter = svc.Role.NewWriter(tx, true)
+			roleWriter = svc.Role.NewWriter(tx)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj1 = ontology.ID{Type: "channel", Key: "channel-1"}
 			obj2 = ontology.ID{Type: "channel", Key: "channel-2"}
@@ -255,62 +305,6 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("RetrievePoliciesForSubject", func() {
-		var (
-			policyWriter policy.Writer
-			roleWriter   role.Writer
-			subject      ontology.ID
-		)
-		BeforeEach(func() {
-			policyWriter = svc.Policy.NewWriter(tx)
-			roleWriter = svc.Role.NewWriter(tx, true)
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
-		})
-
-		It("Should retrieve policies from assigned roles", func() {
-			r := &role.Role{
-				Name:        "admin",
-				Description: "Administrator role",
-				Internal:    true,
-			}
-			Expect(roleWriter.Create(ctx, r)).To(Succeed())
-
-			p1 := &policy.Policy{
-				Name:   "policy-1",
-				Effect: policy.EffectAllow,
-				Constraint: constraint.Constraint{
-					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: access.AllActions,
-				},
-			}
-			p2 := &policy.Policy{
-				Name:   "policy-2",
-				Effect: policy.EffectAllow,
-				Constraint: constraint.Constraint{
-					IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
-					Actions: []access.Action{access.ActionRetrieve},
-				},
-			}
-			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
-			Expect(policyWriter.Create(ctx, p2)).To(Succeed())
-			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
-			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(policies).To(HaveLen(2))
-			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
-			Expect(policyKeys).To(ContainElements(p1.Key, p2.Key))
-		})
-
-		It("Should return empty list when no roles assigned", func() {
-			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(policies).To(BeEmpty())
-		})
-	})
-
 	Describe("NewEnforcer", func() {
 		It("Should create a functional enforcer", func() {
 			enforcer := svc.NewEnforcer(nil)
@@ -332,7 +326,7 @@ var _ = Describe("Service", func() {
 			Expect(enforcer).ToNot(BeNil())
 
 			policyWriter := svc.Policy.NewWriter(tx)
-			roleWriter := svc.Role.NewWriter(tx, true)
+			roleWriter := svc.Role.NewWriter(tx)
 			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj := ontology.ID{Type: "channel", Key: "ch1"}
 			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())

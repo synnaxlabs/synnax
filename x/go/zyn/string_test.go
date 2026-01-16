@@ -43,7 +43,7 @@ var _ = Describe("String", func() {
 		It("Should return nil if the value is a valid string", func() {
 			Expect(zyn.String().Validate("hello")).To(Succeed())
 		})
-		It("Should return nil if the value is not a valid string", func() {
+		It("Should return an error if the value is not a valid string", func() {
 			Expect(zyn.String().Validate(struct{}{})).To(HaveOccurred())
 		})
 	})
@@ -332,6 +332,15 @@ var _ = Describe("String", func() {
 				u := uuid.New()
 				_, err := zyn.String().UUID().Dump(MyUUID(u))
 				Expect(err).To(MatchError(ContainSubstring("expected UUID or string")))
+			})
+		})
+
+		Describe("Validate", Focus, func() {
+			Specify("valid string UUID", func() {
+				Expect(zyn.String().UUID().Validate("123e4567-e89b-12d3-a456-426614174000")).To(Succeed())
+			})
+			Specify("invalid string UUID", func() {
+				Expect(zyn.String().UUID().Validate("not-a-uuid")).To(HaveOccurred())
 			})
 		})
 	})

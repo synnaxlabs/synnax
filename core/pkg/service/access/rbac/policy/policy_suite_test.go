@@ -27,7 +27,7 @@ import (
 
 var (
 	db       *gorp.DB
-	ctx      = context.Background()
+	ctx      context.Context
 	otg      *ontology.Ontology
 	groupSvc *group.Service
 	roleSvc  *role.Service
@@ -53,7 +53,7 @@ var _ = BeforeEach(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	roleSvc = MustSucceed(role.OpenService(ctx, role.Config{
+	roleSvc = MustSucceed(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,

@@ -15,9 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -73,7 +71,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}); err != nil {
 		return nil, err
 	}
-	if s.Role, err = role.OpenService(ctx, role.Config{
+	if s.Role, err = role.OpenService(ctx, role.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Signals:  cfg.Signals,
@@ -91,10 +89,6 @@ func (s *Service) Close() error {
 	return c.Error()
 }
 
-func (s *Service) Enforce(ctx context.Context, req access.Request) error {
-	return s.NewEnforcer(nil).Enforce(ctx, req)
-}
-
 // RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
 // This includes all policies from roles assigned to the subject via ontology
 // relationships.
@@ -104,69 +98,4 @@ func (s *Service) RetrievePoliciesForSubject(
 	tx gorp.Tx,
 ) ([]policy.Policy, error) {
 	return s.NewEnforcer(tx).retrievePolicies(ctx, subject)
-}
-
-type Enforcer struct {
-	policy *policy.Service
-	cfg    ServiceConfig
-	tx     gorp.Tx
-}
-
-func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
-	return &Enforcer{
-		policy: s.Policy,
-		cfg:    s.cfg,
-		tx:     gorp.OverrideTx(s.cfg.DB, tx),
-	}
-}
-
-// Enforce implements the access.Enforcer interface. It checks both direct user policies
-// and policies from all roles assigned to the user. Returns ErrDenied if ANY object in
-// the request is not accessible.
-func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
-	policies, err := e.retrievePolicies(ctx, req.Subject)
-	if err != nil {
-		return err
-	}
-	for _, p := range policies {
-		if p.Effect == policy.EffectDeny {
-			matches, err := p.Constraint.Enforce(ctx, constraint.EnforceParams{
-				Request:  req,
-				Ontology: e.cfg.Ontology,
-				Tx:       e.tx,
-			})
-			if err != nil {
-				return err
-			}
-			if matches {
-				return access.ErrDenied
-			}
-		}
-	}
-	for _, p := range policies {
-		if p.Effect == policy.EffectAllow {
-			if matches, err := p.Constraint.Enforce(ctx, constraint.EnforceParams{
-				Request:  req,
-				Ontology: e.cfg.Ontology,
-				Tx:       e.tx,
-			}); err != nil || matches {
-				return err
-			}
-		}
-	}
-	return access.ErrDenied
-}
-
-func (e *Enforcer) retrievePolicies(
-	ctx context.Context,
-	subject ontology.ID,
-) ([]policy.Policy, error) {
-	var policies []policy.Policy
-	if err := e.policy.NewRetrieve().
-		WhereSubject(subject).
-		Entries(&policies).
-		Exec(ctx, e.tx); err != nil {
-		return nil, err
-	}
-	return policies, nil
 }

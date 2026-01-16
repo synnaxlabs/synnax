@@ -19,14 +19,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	ctx      = context.Background()
 	db       *gorp.DB
+	ctx      context.Context
 	otg      *ontology.Ontology
 	groupSvc *group.Service
 	svc      *rbac.Service
@@ -35,7 +36,18 @@ var (
 
 var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+})
+
+var _ = AfterSuite(func() {
+	Expect(db.Close()).To(Succeed())
+})
+
+var _ = BeforeEach(func() {
+	ctx = context.Background()
+	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
+		DB:           db,
+		EnableSearch: config.False(),
+	}))
 	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -52,11 +64,11 @@ var _ = BeforeSuite(func() {
 	}))
 })
 
-var _ = AfterSuite(func() {
+var _ = AfterEach(func() {
 	Expect(svc.Close()).To(Succeed())
+	Expect(userSvc.Close()).To(Succeed())
 	Expect(groupSvc.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
 })
 
 func TestRBAC(t *testing.T) {
