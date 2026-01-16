@@ -20,14 +20,6 @@ func (c Constraint) enforceRelationship(
 	ctx context.Context,
 	params EnforceParams,
 ) (bool, error) {
-	// what does this relationship try to match? this constraint matches when the
-	// requested object matches the relationship to one of the given IDs in the
-	// constraint. so if we have labeled_by, this constraint matches when the requested
-	// object is labeled by one of c.Objects. This means we can start with the
-	// constraint objects and then traverse the ontology to find all objects labeled by
-	// that. However this is likely to be slow as that is likely to cause a lot of
-	// matches. Instead, we can start with the requested objects and then traverse the
-	// ontology backwards, and see if we match any or all of the c.Objects.
 	var resources []ontology.Resource
 	traverser := ontology.Traverser{
 		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
@@ -43,9 +35,6 @@ func (c Constraint) enforceRelationship(
 		return false, err
 	}
 	relatedIDs := ontology.ResourceIDs(resources)
-
-	// make a set of type IDs and normal IDs. This way the contains check for each
-	// constraint object is O(1) instead of O(n).
 	relatedIDsSet := set.FromSlice(relatedIDs)
 	relatedTypesSet := set.FromMapSlice(relatedIDs, func(id ontology.ID) ontology.Type {
 		return id.Type

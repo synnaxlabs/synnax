@@ -9,14 +9,12 @@
 
 package constraint
 
-import "slices"
-
 func (c Constraint) enforceAction(params EnforceParams) (bool, error) {
 	switch c.Operator {
 	case OpIsIn:
-		return slices.Contains(c.Actions, params.Request.Action), nil
+		return c.Actions.Contains(params.Request.Action), nil
 	case OpIsNotIn:
-		return !slices.Contains(c.Actions, params.Request.Action), nil
+		return !c.Actions.Contains(params.Request.Action), nil
 	default:
 		return false, ErrInvalidOperator
 	}

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ = Describe("Action", func() {
@@ -21,7 +22,7 @@ var _ = Describe("Action", func() {
 	BeforeEach(func() {
 		c = constraint.Constraint{
 			Kind:    constraint.KindAction,
-			Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
+			Actions: set.New(access.ActionRetrieve, access.ActionUpdate),
 		}
 	})
 	Describe("OpIsIn", func() {

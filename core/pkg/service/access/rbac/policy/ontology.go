@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
@@ -64,14 +64,12 @@ func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
 var schema = zyn.Object(map[string]zyn.Schema{
 	"key":    zyn.UUID(),
 	"name":   zyn.String(),
-	"effect": zyn.String(),
+	"effect": zyn.Enum(EffectAllow, EffectDeny),
 })
 
 func newResource(p Policy) ontology.Resource {
 	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
 }
-
-type change = xchange.Change[uuid.UUID, Policy]
 
 var _ ontology.Service = (*Service)(nil)
 
@@ -98,7 +96,10 @@ func (s *Service) RetrieveResource(
 	return newResource(p), nil
 }
 
-func translateChange(c change) ontology.Change {
+func translateChange(c change.Change[uuid.UUID, Policy]) ontology.Change {
+	if c.Variant == change.Delete {
+		return ontology.Change{Variant: c.Variant, Key: OntologyID(c.Key)}
+	}
 	return ontology.Change{
 		Variant: c.Variant,
 		Key:     OntologyID(c.Key),

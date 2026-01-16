@@ -20,7 +20,7 @@ var _ = Describe("Constraint", func() {
 	It("Should return ErrInvalidConstraintKind if the constraint kind is invalid", func() {
 		c := constraint.Constraint{}
 		Expect(c.Enforce(ctx, params)).Error().
-			To(MatchError(constraint.ErrInvalidConstraintKind))
+			To(MatchError(constraint.ErrInvalidKind))
 	})
 
 })

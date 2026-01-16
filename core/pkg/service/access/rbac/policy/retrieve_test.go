@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -34,7 +35,7 @@ var _ = Describe("Retrieve", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: []access.Action{access.ActionRetrieve},
+					Actions: set.New(access.ActionRetrieve),
 				},
 			},
 			{
@@ -42,7 +43,7 @@ var _ = Describe("Retrieve", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
-					Actions: []access.Action{access.ActionDelete},
+					Actions: set.New(access.ActionDelete),
 				},
 			},
 			{
@@ -50,7 +51,7 @@ var _ = Describe("Retrieve", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{{Type: "user", Key: "u1"}},
-					Actions: []access.Action{access.ActionUpdate},
+					Actions: set.New(access.ActionUpdate),
 				},
 			},
 		}

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -88,7 +89,7 @@ var _ = Describe("Ontology Integration", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: []access.Action{access.ActionRetrieve},
+					Actions: set.New(access.ActionRetrieve),
 				},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
@@ -121,7 +122,7 @@ var _ = Describe("Ontology Integration", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: []access.Action{access.ActionRetrieve},
+					Actions: set.New(access.ActionRetrieve),
 				},
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
@@ -149,7 +150,7 @@ var _ = Describe("Ontology Integration", func() {
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
-						Actions: []access.Action{access.ActionRetrieve},
+						Actions: set.New(access.ActionRetrieve),
 					},
 				}
 				keys[i] = key

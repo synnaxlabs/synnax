@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -83,7 +84,7 @@ var _ = Describe("Service", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{{Type: "channel", Key: "ch1"}},
-					Actions: access.AllActions,
+					Actions: set.New(access.AllActions...),
 				},
 			}
 			p2 := &policy.Policy{
@@ -91,7 +92,7 @@ var _ = Describe("Service", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{{Type: "workspace", Key: "ws1"}},
-					Actions: []access.Action{access.ActionRetrieve},
+					Actions: set.New(access.ActionRetrieve),
 				},
 			}
 			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
@@ -140,7 +141,7 @@ var _ = Describe("Service", func() {
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						IDs:     []ontology.ID{obj1},
-						Actions: []access.Action{access.ActionRetrieve},
+						Actions: set.New(access.ActionRetrieve),
 					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -173,7 +174,7 @@ var _ = Describe("Service", func() {
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						IDs:     []ontology.ID{obj1},
-						Actions: access.AllActions,
+						Actions: set.New(access.AllActions...),
 					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -205,7 +206,7 @@ var _ = Describe("Service", func() {
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						IDs:     []ontology.ID{typeWildcard},
-						Actions: []access.Action{access.ActionRetrieve},
+						Actions: set.New(access.ActionRetrieve),
 					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -229,7 +230,7 @@ var _ = Describe("Service", func() {
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						IDs:     []ontology.ID{obj1},
-						Actions: []access.Action{access.ActionRetrieve},
+						Actions: set.New(access.ActionRetrieve),
 					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -258,7 +259,7 @@ var _ = Describe("Service", func() {
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						IDs:     []ontology.ID{obj1},
-						Actions: []access.Action{access.ActionRetrieve},
+						Actions: set.New(access.ActionRetrieve),
 					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -285,7 +286,7 @@ var _ = Describe("Service", func() {
 					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						IDs:     []ontology.ID{obj1},
-						Actions: []access.Action{access.ActionRetrieve},
+						Actions: set.New(access.ActionRetrieve),
 					},
 				}
 				Expect(policyWriter.Create(ctx, p)).To(Succeed())
@@ -339,7 +340,7 @@ var _ = Describe("Service", func() {
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					IDs:     []ontology.ID{obj},
-					Actions: []access.Action{access.ActionRetrieve},
+					Actions: set.New(access.ActionRetrieve),
 				},
 			}
 			Expect(policyWriter.Create(ctx, p)).To(Succeed())

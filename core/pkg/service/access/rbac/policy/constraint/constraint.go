@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Kind discriminates between constraint types.
@@ -46,31 +47,27 @@ const (
 	OpIsNotIn      Operator = "is_not_in"
 )
 
-var ErrInvalidOperator = errors.New("invalid operator")
-var ErrInvalidConstraintKind = errors.New("invalid constraint kind")
+var ErrInvalidOperator = errors.New("invalid constraint operator")
+var ErrInvalidKind = errors.New("invalid constraint kind")
 
 // Constraint is a condition that must be satisfied for a policy to apply. The Kind
 // field determines which other fields are used.
 type Constraint struct {
-	// Kind specifies the type of constraint.
+	// Kind is the type of constraint.
 	Kind Kind `json:"kind" msgpack:"kind"`
 
-	// IDs specifies which ontology IDs this constraint applies to. Used to scope the
-	// constraint to specific resources.
+	// IDs is the list of ontology IDs that this constraint applies to. Used to scope
+	// the constraint to specific resources.
 	IDs []ontology.ID `json:"ids,omitempty" msgpack:"ids,omitempty"`
-	// Actions specifies which actions this constraint applies to.
-	Actions []access.Action `json:"actions,omitempty" msgpack:"actions,omitempty"`
-
-	// Properties is the list of properties that this policy applies to for
-	// KindProperties.
-	Properties []string `json:"properties,omitempty" msgpack:"properties,omitempty"`
-
-	// Operator for comparison.
+	// Operator is the operator used to compare the values in the constraint.
 	Operator Operator `json:"operator,omitempty" msgpack:"operator,omitempty"`
 
+	// Actions is the set of actions that this constraint applies to for KindAction.
+	Actions set.Set[access.Action] `json:"actions,omitempty" msgpack:"actions,omitempty"`
+	// Properties is the list of properties to check for KindProperties.
+	Properties []string `json:"properties,omitempty" msgpack:"properties,omitempty"`
 	// RelationshipType is the ontology edge type to traverse for KindRelationship.
-	RelationshipType ontology.RelationshipType `json:"relationship,omitempty" msgpack:"relationship,omitempty"`
-
+	RelationshipType ontology.RelationshipType `json:"relationship_type,omitempty" msgpack:"relationship_type,omitempty"`
 	// Constraints is the list of child constraints for KindLogical.
 	Constraints []Constraint `json:"constraints,omitempty" msgpack:"constraints,omitempty"`
 }
@@ -99,6 +96,6 @@ func (c Constraint) Enforce(ctx context.Context, params EnforceParams) (bool, er
 	case KindAction:
 		return c.enforceAction(params)
 	default:
-		return false, ErrInvalidConstraintKind
+		return false, ErrInvalidKind
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// ServiceConfig is the configuration for opening the RBAC service.
 type ServiceConfig struct {
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
@@ -33,7 +34,7 @@ type ServiceConfig struct {
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
 
-// Override implements [config.Config].
+// Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -42,7 +43,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Validate implements [config.Config].
+// Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("rbac")
 	validate.NotNil(v, "db", c.DB)
@@ -51,15 +52,21 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
+// Service is the main entrypoint for the RBAC service. It provides methods for
+// retrieving policies for a subject and enforcing access policies.
 type Service struct {
+	// Policy is the service for managing policies.
 	Policy *policy.Service
-	Role   *role.Service
-	cfg    ServiceConfig
+	// Role is the service for managing roles.
+	Role *role.Service
+	cfg  ServiceConfig
+	// defaultPolicies is a list of policies that are applied to all subjects.
+	defaultPolicies []policy.Policy
 }
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services.
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, configs...)
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -77,16 +84,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		Signals:  cfg.Signals,
 		Group:    cfg.Group,
 	}); err != nil {
-		return nil, err
+		return nil, errors.Combine(err, s.Policy.Close())
 	}
 	return s, nil
 }
 
-func (s *Service) Close() error {
-	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(s.Policy.Close)
-	c.Exec(s.Role.Close)
-	return c.Error()
+// AddDefaultPolicy adds a default policy to the service. This policy will be retrieved
+// and applied to all subjects.
+func (s *Service) AddDefaultPolicy(policy policy.Policy) {
+	s.defaultPolicies = append(s.defaultPolicies, policy)
 }
 
 // RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
@@ -98,4 +104,12 @@ func (s *Service) RetrievePoliciesForSubject(
 	tx gorp.Tx,
 ) ([]policy.Policy, error) {
 	return s.NewEnforcer(tx).retrievePolicies(ctx, subject)
+}
+
+// Close closes the RBAC service and releases any resources that it may have acquired.
+func (s *Service) Close() error {
+	c := errors.NewCatcher(errors.WithAggregation())
+	c.Exec(s.Policy.Close)
+	c.Exec(s.Role.Close)
+	return c.Error()
 }

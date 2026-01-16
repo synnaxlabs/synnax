@@ -91,10 +91,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 }
 
 // Entry binds the given policy to the query.
-func (r Retrieve) Entry(policy *Policy) Retrieve {
-	r.gorp = r.gorp.Entry(policy)
-	return r
-}
+func (r Retrieve) Entry(p *Policy) Retrieve { r.gorp = r.gorp.Entry(p); return r }
 
 // Entries binds the given slice of policies to the query.
 func (r Retrieve) Entries(policies *[]Policy) Retrieve {

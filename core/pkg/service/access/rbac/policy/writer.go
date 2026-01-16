@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	svcrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -53,13 +53,13 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 // SetOnRole associates the given policies with the role with the given key.
 func (w Writer) SetOnRole(
 	ctx context.Context,
-	roleKey uuid.UUID,
+	role uuid.UUID,
 	policies ...uuid.UUID,
 ) error {
 	for _, policy := range OntologyIDs(policies) {
 		if err := w.otg.DefineRelationship(
 			ctx,
-			role.OntologyID(roleKey),
+			svcrole.OntologyID(role),
 			ontology.ParentOf,
 			policy,
 		); err != nil {

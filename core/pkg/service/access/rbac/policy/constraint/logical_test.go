@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
+	"github.com/synnaxlabs/x/set"
 )
 
 var _ = Describe("Logical", func() {
@@ -22,17 +23,17 @@ var _ = Describe("Logical", func() {
 		trueConstraint = constraint.Constraint{
 			Kind:     constraint.KindAction,
 			Operator: constraint.OpIsIn,
-			Actions:  []access.Action{access.ActionRetrieve},
+			Actions:  set.New(access.ActionRetrieve),
 		}
 		falseConstraint = constraint.Constraint{
 			Kind:     constraint.KindAction,
 			Operator: constraint.OpIsIn,
-			Actions:  []access.Action{access.ActionDelete},
+			Actions:  set.New(access.ActionDelete),
 		}
 		invalidConstraint = constraint.Constraint{
 			Kind:     constraint.KindAction,
 			Operator: "invalid",
-			Actions:  []access.Action{access.ActionRetrieve},
+			Actions:  set.New(access.ActionRetrieve),
 		}
 		params.Request.Action = access.ActionRetrieve
 		c = constraint.Constraint{Kind: constraint.KindLogical}

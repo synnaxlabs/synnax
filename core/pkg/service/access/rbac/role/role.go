@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package role exposes the Role type and service for managing roles in Synnax. Roles
+// are used to group policies and subjects / tenants (typically users) together with an
+// associated name and description.
 package role
 
 import (
