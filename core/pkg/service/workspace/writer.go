@@ -25,6 +25,7 @@ type Writer struct {
 	group group.Group
 }
 
+// maybe this should return updated properties?
 func (w Writer) Create(
 	ctx context.Context,
 	ws *Workspace,

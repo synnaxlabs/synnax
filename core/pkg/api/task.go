@@ -43,7 +43,8 @@ type (
 
 type (
 	TaskCreateRequest struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		Tasks      []task.Task `json:"tasks" msgpack:"tasks"`
+		Properties []string    `json:"properties" msgpack:"properties"`
 	}
 	TaskCreateResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -65,6 +66,7 @@ func (svc *TaskService) Create(
 	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
 		w := svc.task.NewWriter(tx)
 		for i, m := range req.Tasks {
+			// we guarantee only names change here
 			if err := w.Create(ctx, &m); err != nil {
 				return err
 			}

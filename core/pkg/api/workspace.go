@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 type WorkspaceService struct {
@@ -43,7 +44,6 @@ type (
 )
 
 func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateRequest) (res WorkspaceCreateResponse, err error) {
-
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionCreate,
@@ -74,15 +74,19 @@ type WorkspaceRenameRequest struct {
 	Name string    `json:"name" msgpack:"name"`
 }
 
-func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+func (s *WorkspaceService) Rename(
+	ctx context.Context,
+	req WorkspaceRenameRequest,
+) (types.Nil, error) {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject:    getSubject(ctx),
+			Action:     access.ActionUpdate,
+			Objects:    []ontology.ID{workspace.OntologyID(req.Key)},
+			Properties: set.New("name"),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
 }
@@ -92,15 +96,19 @@ type WorkspaceSetLayoutRequest struct {
 	Layout string    `json:"layout" msgpack:"layout"`
 }
 
-func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+func (s *WorkspaceService) SetLayout(
+	ctx context.Context,
+	req WorkspaceSetLayoutRequest,
+) (types.Nil, error) {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject:    getSubject(ctx),
+			Action:     access.ActionUpdate,
+			Objects:    []ontology.ID{workspace.OntologyID(req.Key)},
+			Properties: set.New("layout"),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).SetLayout(ctx, req.Key, req.Layout)
 	})
 }
@@ -121,7 +129,7 @@ type (
 func (s *WorkspaceService) Retrieve(
 	ctx context.Context,
 	req WorkspaceRetrieveRequest,
-) (res WorkspaceRetrieveResponse, err error) {
+) (WorkspaceRetrieveResponse, error) {
 	q := s.internal.NewRetrieve().Search(req.SearchTerm)
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
@@ -135,30 +143,36 @@ func (s *WorkspaceService) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	err = q.Entries(&res.Workspaces).Exec(ctx, nil)
-	if eErr := s.access.Enforce(ctx, access.Request{
+	var res WorkspaceRetrieveResponse
+	if err := q.Entries(&res.Workspaces).Exec(ctx, nil); err != nil {
+		return WorkspaceRetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: workspace.OntologyIDsFromWorkspaces(res.Workspaces),
-	}); eErr != nil {
-		return WorkspaceRetrieveResponse{}, eErr
+	}); err != nil {
+		return WorkspaceRetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type WorkspaceDeleteRequest struct {
 	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
 }
 
-func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: getSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: workspace.OntologyIDs(req.Keys),
-	}); err != nil {
-		return res, err
-	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
+func (s *WorkspaceService) Delete(
+	ctx context.Context,
+	req WorkspaceDeleteRequest,
+) (types.Nil, error) {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: getSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: workspace.OntologyIDs(req.Keys),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }
