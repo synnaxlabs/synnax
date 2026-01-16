@@ -62,14 +62,15 @@ var (
 
 func translateDeviceForward(d *api.Device) (*gapi.Device, error) {
 	gd := &gapi.Device{
-		Key:        d.Key,
-		Name:       d.Name,
-		Location:   d.Location,
-		Rack:       uint32(d.Rack),
-		Make:       d.Make,
-		Model:      d.Model,
-		Properties: d.Properties,
-		Configured: d.Configured,
+		Key:          d.Key,
+		Name:         d.Name,
+		Location:     d.Location,
+		Rack:         uint32(d.Rack),
+		Make:         d.Make,
+		Model:        d.Model,
+		Properties:   d.Properties,
+		Configured:   d.Configured,
+		ParentDevice: d.ParentDevice,
 	}
 	if d.Status != nil {
 		var err error
@@ -83,14 +84,15 @@ func translateDeviceForward(d *api.Device) (*gapi.Device, error) {
 
 func translateDeviceBackward(d *gapi.Device) (*api.Device, error) {
 	ad := &api.Device{
-		Key:        d.Key,
-		Name:       d.Name,
-		Rack:       rack.Key(d.Rack),
-		Location:   d.Location,
-		Make:       d.Make,
-		Model:      d.Model,
-		Properties: d.Properties,
-		Configured: d.Configured,
+		Key:          d.Key,
+		Name:         d.Name,
+		Rack:         rack.Key(d.Rack),
+		Location:     d.Location,
+		Make:         d.Make,
+		Model:        d.Model,
+		Properties:   d.Properties,
+		Configured:   d.Configured,
+		ParentDevice: d.ParentDevice,
 	}
 	if d.Status != nil {
 		s, err := status.TranslateFromPB[device.StatusDetails](d.Status)
