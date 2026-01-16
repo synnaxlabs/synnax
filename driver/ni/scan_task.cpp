@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <string>
 #include <unordered_map>
 
@@ -209,6 +210,20 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
     for (const auto &[link, key] : link_to_device_key) {
         LOG(INFO) << SCAN_LOG_PREFIX << "  link '" << link << "' -> device " << key;
     }
+
+    // Sort devices so parents (chassis that provide links) come before children (modules
+    // that connect to links). This ensures parent devices exist in the database before
+    // children try to create relationships to them.
+    std::sort(ni_devices.begin(), ni_devices.end(), [](const Device &a, const Device &b) {
+        // Devices that provide links (chassis) should come first
+        const bool a_is_parent = !a.provides_link_name.empty();
+        const bool b_is_parent = !b.provides_link_name.empty();
+        if (a_is_parent != b_is_parent) return a_is_parent;
+        return a.key < b.key;
+    });
+
+    LOG(INFO) << SCAN_LOG_PREFIX << "sorted " << ni_devices.size()
+              << " devices (parents first)";
 
     // Second pass: resolve parent relationships and convert to synnax devices
     for (auto &dev : ni_devices) {
