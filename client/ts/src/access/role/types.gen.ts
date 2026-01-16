@@ -16,13 +16,23 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** Role is a named collection of policies that can be assigned to users, enabling group-based permission management. Roles define what actions users can perform on resources. */
+/**
+ * Role is a named collection of policies that can be assigned to users, enabling
+ * group-based permission management. Roles define what actions users can
+ * perform on resources.
+ */
 export const roleZ = z.object({
   /** key is the unique identifier for this role. */
   key: keyZ,
-  /** name is a human-readable name for the role (e.g., 'Administrator', 'Engineer'). */
+  /**
+   * name is a human-readable name for the role (e.g., 'Administrator',
+   * 'Engineer').
+   */
   name: z.string(),
-  /** description is an optional description explaining what permissions the role provides. */
+  /**
+   * description is an optional description explaining what permissions the role
+   * provides.
+   */
   description: z.string().optional(),
   /** internal is true if this is a built-in system role that cannot be deleted. */
   internal: z.boolean().optional(),

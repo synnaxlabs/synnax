@@ -14,7 +14,11 @@
 @pb
 
 Authority = uint8 {
-    @doc value "is a numeric value (0-255) representing the level of control authority a subject has over a resource. Higher values indicate greater authority. The maximum value of 255 represents absolute authority."
+    @doc value """
+        is a numeric value (0-255) representing the level of control authority a
+        subject has over a resource. Higher values indicate greater authority.
+        The maximum value of 255 represents absolute authority.
+    """
 }
 
 Concurrency enum {
@@ -43,9 +47,14 @@ State struct<R> {
         @doc value "is the resource being controlled."
     }
     authority Authority {
-        @doc value "is the level of control authority the subject has over the resource."
+        @doc value """
+            is the level of control authority the subject has over the resource.
+        """
     }
 
-    @doc value         "represents the state of control over a resource at a point in time, capturing who controls what and with how much authority."
+    @doc value         """
+        represents the state of control over a resource at a point in time,
+        capturing who controls what and with how much authority.
+    """
     @ts concrete_types
 }

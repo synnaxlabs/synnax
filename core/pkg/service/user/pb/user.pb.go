@@ -32,7 +32,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// User is an account entity representing a person accessing the Synnax system. Users can have roles assigned for permission management.
+// User is an account entity representing a person accessing the Synnax system.
+// Users can have roles assigned for permission management.
 type User struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this user.
@@ -43,7 +44,8 @@ type User struct {
 	FirstName string `protobuf:"bytes,3,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
 	// last_name is the user's last name.
 	LastName string `protobuf:"bytes,4,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
-	// root_user is true if this is a root/admin user with full system access. Root users cannot be deleted.
+	// root_user is true if this is a root/admin user with full system access. Root
+	// users cannot be deleted.
 	RootUser      bool `protobuf:"varint,5,opt,name=root_user,json=rootUser,proto3" json:"root_user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

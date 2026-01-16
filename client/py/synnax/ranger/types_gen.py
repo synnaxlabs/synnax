@@ -24,15 +24,22 @@ Key: TypeAlias = UUID
 
 
 class Payload(BaseModel):
-    """Payload is a user-defined region of time in the Synnax cluster. Ranges act as a method for labeling and categorizing telemetry data within specific time periods."""
+    """Is a user-defined region of time in the Synnax cluster. Ranges act as a
+    method for labeling and categorizing telemetry data within specific time
+    periods.
 
-    # key is the unique identifier for this range.
+    Attributes:
+        key: Is the unique identifier for this range.
+        name: Is a human-readable name for the range.
+        time_range: Is the temporal extent of the range, defining its start and end
+            timestamps.
+        color: Is an optional display color for visual identification of the range
+            in user interfaces.
+    """
+
     key: Key
-    # name is a human-readable name for the range.
     name: str = Field(min_length=1)
-    # time_range is the temporal extent of the range, defining its start and end timestamps.
     time_range: telem.TimeRange
-    # color is an optional display color for visual identification of the range in user interfaces.
     color: color_.Color | None = None
 
     def __hash__(self) -> int:
@@ -40,11 +47,17 @@ class Payload(BaseModel):
 
 
 class APIRange(Payload):
-    """APIRange is a range with additional relationships for hierarchical organization and metadata. This is the primary type exposed through the API."""
+    """Is a range with additional relationships for hierarchical organization
+    and metadata. This is the primary type exposed through the API.
 
-    # labels contains optional labels attached to this range for categorization and filtering.
+    Attributes:
+        labels: Contains optional labels attached to this range for categorization
+            and filtering.
+        parent: Is an optional parent range for hierarchical organization. Ranges
+            can be nested within other ranges.
+    """
+
     labels: list[label.Label] | None = None
-    # parent is an optional parent range for hierarchical organization. Ranges can be nested within other ranges.
     parent: APIRange | None = None
 
     def __hash__(self) -> int:

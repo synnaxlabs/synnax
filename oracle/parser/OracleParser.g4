@@ -219,7 +219,8 @@ expression
 
 // Expression values can be various literal types or identifiers
 expressionValue
-    : STRING_LIT
+    : TRIPLE_STRING_LIT
+    | STRING_LIT
     | INT_LIT
     | FLOAT_LIT
     | BOOL_LIT

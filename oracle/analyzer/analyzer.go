@@ -487,6 +487,17 @@ func collectDomainContent(entry *resolution.Domain, content parser.IDomainConten
 }
 
 func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
+	if ts := v.TRIPLE_STRING_LIT(); ts != nil {
+		t := ts.GetText()
+		// Strip the """ delimiters
+		content := t[3 : len(t)-3]
+		// Apply dedent to normalize indentation
+		dedented := dedent(content)
+		return resolution.ExpressionValue{
+			Kind:        resolution.ValueKindString,
+			StringValue: dedented,
+		}
+	}
 	if s := v.STRING_LIT(); s != nil {
 		t := s.GetText()
 		// Use strconv.Unquote to properly handle escape sequences like \" and \\
@@ -892,4 +903,53 @@ func hasCircularInheritance(typ resolution.Type, table *resolution.Table, visite
 		}
 	}
 	return false
+}
+
+// dedent removes leading indentation from a multi-line string.
+// It finds the minimum indentation (ignoring empty lines) and removes that
+// amount from each line. Leading/trailing empty lines are also trimmed.
+func dedent(s string) string {
+	lines := strings.Split(s, "\n")
+
+	// Find minimum indentation (ignoring empty lines)
+	minIndent := -1
+	for _, line := range lines {
+		if len(strings.TrimSpace(line)) == 0 {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		if minIndent < 0 || indent < minIndent {
+			minIndent = indent
+		}
+	}
+
+	if minIndent <= 0 {
+		// No indentation to remove, just trim empty lines
+		return strings.TrimSpace(s)
+	}
+
+	// Remove the common indentation
+	var result []string
+	for _, line := range lines {
+		if len(strings.TrimSpace(line)) == 0 {
+			result = append(result, "")
+		} else if len(line) >= minIndent {
+			result = append(result, line[minIndent:])
+		} else {
+			result = append(result, line)
+		}
+	}
+
+	// Trim leading and trailing empty lines
+	start, end := 0, len(result)
+	for start < end && strings.TrimSpace(result[start]) == "" {
+		start++
+	}
+	for end > start && strings.TrimSpace(result[end-1]) == "" {
+		end--
+	}
+	if start >= end {
+		return ""
+	}
+	return strings.Join(result[start:end], "\n")
 }

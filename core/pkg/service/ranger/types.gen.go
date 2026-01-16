@@ -19,14 +19,18 @@ import (
 
 type Key = uuid.UUID
 
-// Range is a user-defined region of time in the Synnax cluster. Ranges act as a method for labeling and categorizing telemetry data within specific time periods.
+// Range is a user-defined region of time in the Synnax cluster. Ranges act as a
+// method for labeling and categorizing telemetry data within specific time
+// periods.
 type Range struct {
 	// Key is the unique identifier for this range.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the range.
 	Name string `json:"name" msgpack:"name"`
-	// TimeRange is the temporal extent of the range, defining its start and end timestamps.
+	// TimeRange is the temporal extent of the range, defining its start and end
+	// timestamps.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
-	// Color is an optional display color for visual identification of the range in user interfaces.
+	// Color is an optional display color for visual identification of the range
+	// in user interfaces.
 	Color color.Color `json:"color" msgpack:"color"`
 }

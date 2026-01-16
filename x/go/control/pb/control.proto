@@ -22,7 +22,8 @@ message Subject {
   string name = 2;
 }
 
-// State represents the state of control over a resource at a point in time, capturing who controls what and with how much authority.
+// State represents the state of control over a resource at a point in time,
+// capturing who controls what and with how much authority.
 message State {
   // subject is the entity controlling the resource.
   Subject subject = 1;

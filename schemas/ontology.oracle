@@ -35,7 +35,11 @@ ResourceType enum {
     status           = "status"
     view             = "view"
 
-    @doc value "is the type of a resource in the Synnax ontology system. Each resource type represents a distinct kind of entity that can have relationships with other resources."
+    @doc value """
+        is the type of a resource in the Synnax ontology system. Each resource
+        type represents a distinct kind of entity that can have relationships
+        with other resources.
+    """
 }
 
 ID struct {
@@ -46,7 +50,10 @@ ID struct {
         @doc value "is the unique key identifying the resource within its type."
     }
 
-    @doc value "is a unique identifier for a resource in the ontology system, composed of its type and key."
+    @doc value """
+        is a unique identifier for a resource in the ontology system, composed
+        of its type and key.
+    """
     @ts omit
 }
 
@@ -61,7 +68,10 @@ Resource struct {
         @doc value "is optional metadata associated with the resource."
     }
 
-    @doc value "is a resource in the ontology system with its identifier, name, and optional metadata."
+    @doc value """
+        is a resource in the ontology system with its identifier, name, and
+        optional metadata.
+    """
     @ts omit
 }
 
@@ -76,6 +86,9 @@ Relationship struct {
         @doc value "is the target resource of the relationship."
     }
 
-    @doc value "is a directional relationship between two resources in the ontology system."
+    @doc value """
+        is a directional relationship between two resources in the ontology
+        system.
+    """
     @ts omit
 }

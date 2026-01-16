@@ -16,7 +16,10 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** User is an account entity representing a person accessing the Synnax system. Users can have roles assigned for permission management. */
+/**
+ * User is an account entity representing a person accessing the Synnax system.
+ * Users can have roles assigned for permission management.
+ */
 export const userZ = z.object({
   /** key is the unique identifier for this user. */
   key: keyZ,
@@ -26,7 +29,10 @@ export const userZ = z.object({
   firstName: z.string(),
   /** lastName is the user's last name. */
   lastName: z.string(),
-  /** rootUser is true if this is a root/admin user with full system access. Root users cannot be deleted. */
+  /**
+   * rootUser is true if this is a root/admin user with full system access. Root
+   * users cannot be deleted.
+   */
   rootUser: z.boolean().default(false),
 });
 export interface User extends z.infer<typeof userZ> {}

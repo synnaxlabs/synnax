@@ -82,7 +82,9 @@ func (x *StatusDetails) GetRunning() bool {
 	return false
 }
 
-// Arc is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution.
+// Arc is an Arc module combining visual graph representation and text-based
+// source code for reactive control systems. Compiles to WebAssembly for
+// sandboxed execution.
 type Arc struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this module.

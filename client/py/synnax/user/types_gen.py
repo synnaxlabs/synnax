@@ -22,17 +22,22 @@ Key: TypeAlias = UUID
 
 
 class User(BaseModel):
-    """User is an account entity representing a person accessing the Synnax system. Users can have roles assigned for permission management."""
+    """Is an account entity representing a person accessing the Synnax system.
+    Users can have roles assigned for permission management.
 
-    # key is the unique identifier for this user.
+    Attributes:
+        key: Is the unique identifier for this user.
+        username: Is the unique login name for the user.
+        first_name: Is the user's first name.
+        last_name: Is the user's last name.
+        root_user: Is true if this is a root/admin user with full system access. Root
+            users cannot be deleted.
+    """
+
     key: Key
-    # username is the unique login name for the user.
     username: str
-    # first_name is the user's first name.
     first_name: str
-    # last_name is the user's last name.
     last_name: str
-    # root_user is true if this is a root/admin user with full system access. Root users cannot be deleted.
     root_user: bool = Field(default=False)
 
     def __hash__(self) -> int:

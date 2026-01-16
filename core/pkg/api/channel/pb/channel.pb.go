@@ -35,32 +35,45 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Channel is a logical collection of samples emitted by or representing values from a single source. Channels are the fundamental unit of telemetry storage and streaming in Synnax.
+// Channel is a logical collection of samples emitted by or representing values
+// from a single source. Channels are the fundamental unit of telemetry
+// storage and streaming in Synnax.
 type Channel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the unique identifier for this channel, automatically assigned by Synnax.
+	// key is the unique identifier for this channel, automatically assigned
+	// by Synnax.
 	Key uint32 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is the human-readable channel name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// leaseholder is the cluster node that holds the lease for this channel. Mostly for internal use.
+	// leaseholder is the cluster node that holds the lease for this channel. Mostly
+	// for internal use.
 	Leaseholder uint32 `protobuf:"varint,3,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
-	// data_type is the data type of samples stored in this channel (e.g., Float64, Int32, TimeStamp).
+	// data_type is the data type of samples stored in this channel (e.g., Float64,
+	// Int32, TimeStamp).
 	DataType string `protobuf:"bytes,4,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
-	// is_index is true if this is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps.
+	// is_index is true if this is an index channel. Index channels must have int64
+	// values (TIMESTAMP data type) written in ascending order, and are
+	// most commonly unix nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,5,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
-	// index is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate.
+	// index is the channel used to index this channel's values, associating
+	// each value with a timestamp. If zero, the channel's data will be
+	// indexed using its rate.
 	Index uint32 `protobuf:"varint,6,opt,name=index,proto3" json:"index,omitempty"`
 	// alias is an optional alternate name for the channel within a specific context.
 	Alias string `protobuf:"bytes,7,opt,name=alias,proto3" json:"alias,omitempty"`
-	// virtual is true if this channel does not store data in the database but can still be used for streaming purposes.
+	// virtual is true if this channel does not store data in the database but can
+	// still be used for streaming purposes.
 	Virtual bool `protobuf:"varint,8,opt,name=virtual,proto3" json:"virtual,omitempty"`
 	// internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
-	// expression is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual.
+	// expression is an Arc expression for calculated channels. If set, the channel
+	// is automatically configured as virtual.
 	Expression string `protobuf:"bytes,10,opt,name=expression,proto3" json:"expression,omitempty"`
-	// operations contains optional aggregation operations (min, max, avg) applied to channel data over time or triggered by a reset channel.
+	// operations contains optional aggregation operations (min, max, avg) applied to
+	// channel data over time or triggered by a reset channel.
 	Operations []*pb.Operation `protobuf:"bytes,11,rep,name=operations,proto3" json:"operations,omitempty"`
-	// concurrency sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency.
+	// concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb1.Concurrency `protobuf:"varint,12,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
 	// status is the current operational status of the channel.
 	Status        *pb2.Status `protobuf:"bytes,13,opt,name=status,proto3,oneof" json:"status,omitempty"`

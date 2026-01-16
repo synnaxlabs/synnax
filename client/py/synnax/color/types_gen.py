@@ -15,13 +15,16 @@ from pydantic import BaseModel
 
 
 class Payload(BaseModel):
-    """Payload is an RGBA color with RGB as 0-255 and alpha as 0-1."""
+    """Is an RGBA color with RGB as 0-255 and alpha as 0-1.
 
-    # r is the red component (0-255).
+    Attributes:
+        r: Is the red component (0-255).
+        g: Is the green component (0-255).
+        b: Is the blue component (0-255).
+        a: Is the alpha component (0-1).
+    """
+
     r: int
-    # g is the green component (0-255).
     g: int
-    # b is the blue component (0-255).
     b: int
-    # a is the alpha component (0-1).
     a: float

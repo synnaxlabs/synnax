@@ -28,7 +28,8 @@ type Subject struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// State represents the state of control over a resource at a point in time, capturing who controls what and with how much authority.
+// State represents the state of control over a resource at a point in time,
+// capturing who controls what and with how much authority.
 type State[R any] struct {
 	// Subject is the entity controlling the resource.
 	Subject Subject `json:"subject" msgpack:"subject"`

@@ -22,9 +22,12 @@ Key = NewType("Key", int)
 
 
 class StatusDetails(BaseModel):
-    """StatusDetails contains rack-specific status details."""
+    """Contains rack-specific status details.
 
-    # rack is the key of the rack this status pertains to.
+    Attributes:
+        rack: Is the key of the rack this status pertains to.
+    """
+
     rack: Key
 
 
@@ -32,17 +35,22 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Base(BaseModel):
-    """Base is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system."""
+    """Is a collection container for hardware devices and tasks running on a
+    specific cluster node. Racks serve as the integration point between the
+    Synnax server and physical hardware via the Driver system.
 
-    # key is the composite identifier for this rack.
+    Attributes:
+        key: Is the composite identifier for this rack.
+        name: Is a human-readable name for the rack.
+        task_counter: Is an internal counter used for generating unique local task keys.
+        embedded: Is true if this rack is embedded within the Synnax server process.
+        status: Is the current operational status of the rack.
+    """
+
     key: Key
-    # name is a human-readable name for the rack.
     name: str
-    # task_counter is an internal counter used for generating unique local task keys.
     task_counter: int | None = None
-    # embedded is true if this rack is embedded within the Synnax server process.
     embedded: bool | None = None
-    # status is the current operational status of the rack.
     status: Status | None = None
 
     def __hash__(self) -> int:
@@ -50,9 +58,12 @@ class Base(BaseModel):
 
 
 class Rack(Base):
-    """Rack contains parameters for creating a new rack."""
+    """Contains parameters for creating a new rack.
 
-    # key is an optional key for the rack. If 0, one will be automatically assigned.
+    Attributes:
+        key: Is an optional key for the rack. If 0, one will be automatically assigned.
+    """
+
     key: int = Field(default=0)
     task_counter: int | None = Field(default=None, exclude=True)
     embedded: bool | None = Field(default=None, exclude=True)

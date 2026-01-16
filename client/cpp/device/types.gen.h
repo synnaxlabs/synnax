@@ -49,8 +49,8 @@ struct StatusDetails {
 using Status = ::x::status::Status<StatusDetails>;
 
 /// @brief Device is a physical piece of hardware connected to Synnax through the Driver
-/// system. Devices represent external equipment like LabJack, National Instruments, OPC
-/// UA servers, or Modbus devices.
+/// system. Devices represent external equipment like LabJack, National
+/// Instruments, OPC UA servers, or Modbus devices.
 struct Device {
     /// @brief key is the unique identifier for this device.
     Key key;
@@ -66,10 +66,12 @@ struct Device {
     /// @brief name is a human-readable name for the device.
     std::string name;
     /// @brief configured indicates whether the device has been successfully configured
-    /// and is ready for use.
+    /// and is
+    /// ready for use.
     bool configured = false;
     /// @brief properties contains device-specific configuration properties stored as
-    /// JSON. Structure varies by device make and model.
+    /// JSON.
+    /// Structure varies by device make and model.
     x::json::json properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;

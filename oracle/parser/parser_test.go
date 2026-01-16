@@ -332,6 +332,49 @@ var _ = Describe("Parser", func() {
 			qualIdent := exprs[1].ExpressionValue(0).QualifiedIdent()
 			Expect(qualIdent.IDENT(0).GetText()).To(Equal("many_to_many"))
 		})
+
+		It("Should parse domain expressions with triple-quoted strings", func() {
+			schema, diag := parser.Parse(`
+				Range struct {
+					name string @doc value """
+						This is a multi-line
+						documentation string.
+					"""
+				}
+			`)
+			Expect(diag).To(BeNil())
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			field := structDef.StructBody().FieldDef(0)
+			inlineDomains := field.AllInlineDomain()
+			Expect(inlineDomains).To(HaveLen(1))
+			Expect(inlineDomains[0].IDENT().GetText()).To(Equal("doc"))
+			content := inlineDomains[0].DomainContent()
+			Expect(content).NotTo(BeNil())
+			expr := content.Expression()
+			Expect(expr).NotTo(BeNil())
+			Expect(expr.IDENT().GetText()).To(Equal("value"))
+			Expect(expr.ExpressionValue(0).TRIPLE_STRING_LIT()).NotTo(BeNil())
+		})
+
+		It("Should parse a simple triple-quoted string", func() {
+			schema, diag := parser.Parse(`
+				Test struct {
+					@doc value """Hello, world!"""
+				}
+			`)
+			Expect(diag).To(BeNil())
+			structDef := asStructFull(schema.Definition(0).StructDef())
+			domains := structDef.StructBody().AllDomain()
+			Expect(domains).To(HaveLen(1))
+			Expect(domains[0].IDENT().GetText()).To(Equal("doc"))
+			content := domains[0].DomainContent()
+			Expect(content).NotTo(BeNil())
+			expr := content.Expression()
+			Expect(expr).NotTo(BeNil())
+			val := expr.ExpressionValue(0)
+			Expect(val.TRIPLE_STRING_LIT()).NotTo(BeNil())
+			Expect(val.TRIPLE_STRING_LIT().GetText()).To(Equal(`"""Hello, world!"""`))
+		})
 	})
 
 	Describe("Field Body Domains", func() {

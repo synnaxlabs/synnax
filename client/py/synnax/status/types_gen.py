@@ -21,23 +21,28 @@ Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 
 
 class Status(BaseModel):
-    """Status is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details."""
+    """Is a standardized message used to communicate state across the
+    Synnax platform. Statuses support different severity variants
+    and can carry component-specific details.
 
-    # key is a unique identifier for this status, automatically generated if not provided.
+    Attributes:
+        key: Is a unique identifier for this status, automatically generated if not provided.
+        name: Is an optional human-readable name for the status.
+        variant: Is the severity or type of the status: success, info, warning, error, loading, or disabled.
+        message: Is the main message text describing the status.
+        description: Is an optional detailed description providing additional context.
+        time: Is the timestamp when the status was created.
+        details: Contains optional component-specific custom details for the status.
+        labels: Contains optional labels for categorization and filtering.
+    """
+
     key: str
-    # name is an optional human-readable name for the status.
     name: str = Field(default="")
-    # variant is the severity or type of the status: success, info, warning, error, loading, or disabled.
     variant: Any
-    # message is the main message text describing the status.
     message: str
-    # description is an optional detailed description providing additional context.
     description: str | None = None
-    # time is the timestamp when the status was created.
     time: telem.TimeStamp
-    # details contains optional component-specific custom details for the status.
     details: Any | None = None
-    # labels contains optional labels for categorization and filtering.
     labels: list[label.Label] | None = None
 
     def __hash__(self) -> int:
@@ -45,11 +50,16 @@ class Status(BaseModel):
 
 
 class New(Status):
-    """New contains parameters for creating a new status. Most fields have sensible defaults."""
+    """Contains parameters for creating a new status. Most fields have
+    sensible defaults.
 
-    # key is an optional key for the status. If not provided, one will be automatically generated.
+    Attributes:
+        key: Is an optional key for the status. If not provided, one will
+            be automatically generated.
+        name: Is an optional name for the status.
+        time: Is an optional timestamp. Defaults to the current time.
+    """
+
     key: str | None = None
-    # name is an optional name for the status.
     name: str | None = None
-    # time is an optional timestamp. Defaults to the current time.
     time: telem.TimeStamp | None = None

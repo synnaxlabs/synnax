@@ -17,13 +17,20 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** LinePlot is a time-series visualization component for plotting telemetry data. Line plots support multiple channels, real-time streaming, and historical data display with zoom and pan capabilities. */
+/**
+ * LinePlot is a time-series visualization component for plotting telemetry data.
+ * Line plots support multiple channels, real-time streaming, and historical
+ * data display with zoom and pan capabilities.
+ */
 export const linePlotZ = z.object({
   /** key is the unique identifier for this line plot. */
   key: keyZ,
   /** name is a human-readable name for the line plot. */
   name: z.string(),
-  /** data is the line plot configuration including channel references, axis settings, and display options. */
+  /**
+   * data is the line plot configuration including channel references, axis
+   * settings, and display options.
+   */
   data: caseconv.preserveCase(record.nullishToEmpty()),
 });
 export interface LinePlot extends z.infer<typeof linePlotZ> {}

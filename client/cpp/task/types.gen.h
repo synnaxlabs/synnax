@@ -73,8 +73,8 @@ struct Command {
 using Status = ::x::status::Status<StatusDetails>;
 
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
-/// specific hardware operations such as reading sensor data, writing control signals,
-/// or scanning for devices.
+/// specific hardware operations such as reading sensor data, writing
+/// control signals, or scanning for devices.
 struct Task {
     /// @brief key is the composite identifier for this task.
     Key key = 0;

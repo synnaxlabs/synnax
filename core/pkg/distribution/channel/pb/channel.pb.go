@@ -86,12 +86,15 @@ func (OperationType) EnumDescriptor() ([]byte, []int) {
 	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{0}
 }
 
-// Operation defines an aggregation operation applied to channel data. Operations calculate min, max, or average values over a time duration or triggered by a reset channel.
+// Operation defines an aggregation operation applied to channel data. Operations
+// calculate min, max, or average values over a time duration or triggered
+// by a reset channel.
 type Operation struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// type is the aggregation operation type: min, max, avg, or none.
 	Type OperationType `protobuf:"varint,1,opt,name=type,proto3,enum=distribution.channel.pb.OperationType" json:"type,omitempty"`
-	// reset_channel is the channel key that triggers reset of the aggregation. If 0, duration-based reset is used.
+	// reset_channel is the channel key that triggers reset of the aggregation. If 0,
+	// duration-based reset is used.
 	ResetChannel uint32 `protobuf:"varint,2,opt,name=reset_channel,json=resetChannel,proto3" json:"reset_channel,omitempty"`
 	// duration is the time window for aggregation when reset_channel is 0.
 	Duration      int64 `protobuf:"varint,3,opt,name=duration,proto3" json:"duration,omitempty"`
@@ -150,30 +153,40 @@ func (x *Operation) GetDuration() int64 {
 	return 0
 }
 
-// Channel is an internal representation of a channel containing all storage and distribution metadata. This type is used internally by the server; clients should use APIChannel instead.
+// Channel is an internal representation of a channel containing all storage and
+// distribution metadata. This type is used internally by the server;
+// clients should use APIChannel instead.
 type Channel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// name is the human-readable channel name.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// leaseholder is the cluster node that holds the lease for this channel and is authorized to accept writes.
+	// leaseholder is the cluster node that holds the lease for this channel and is
+	// authorized to accept writes.
 	Leaseholder uint32 `protobuf:"varint,2,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	// data_type is the data type of samples stored in this channel.
 	DataType string `protobuf:"bytes,3,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
-	// is_index is true if this channel is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps.
+	// is_index is true if this channel is an index channel. Index channels must
+	// have int64 values (TIMESTAMP data type) written in ascending order,
+	// and are most commonly unix nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,4,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
 	// local_key is the locally-unique portion of this channel's key.
 	LocalKey uint32 `protobuf:"varint,5,opt,name=local_key,json=localKey,proto3" json:"local_key,omitempty"`
-	// local_index is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate.
+	// local_index is the channel used to index this channel's values, associating
+	// each value with a timestamp. If zero, the channel's data will be
+	// indexed using its rate.
 	LocalIndex uint32 `protobuf:"varint,6,opt,name=local_index,json=localIndex,proto3" json:"local_index,omitempty"`
-	// virtual is true if this channel does not persist data and is used only for streaming.
+	// virtual is true if this channel does not persist data and is used only for
+	// streaming.
 	Virtual bool `protobuf:"varint,7,opt,name=virtual,proto3" json:"virtual,omitempty"`
-	// concurrency sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency.
+	// concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb.Concurrency `protobuf:"varint,8,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
 	// internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
 	// operations contains aggregation operations applied to this channel's data.
 	Operations []*Operation `protobuf:"bytes,10,rep,name=operations,proto3" json:"operations,omitempty"`
-	// expression is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual.
+	// expression is an Arc expression for calculated channels. If set, the channel
+	// is automatically configured as virtual.
 	Expression    string `protobuf:"bytes,11,opt,name=expression,proto3" json:"expression,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

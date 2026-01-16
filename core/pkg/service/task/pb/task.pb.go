@@ -107,16 +107,20 @@ func (x *StatusDetails) GetData() *structpb.Struct {
 	return nil
 }
 
-// Task is an executable unit of work in the Driver system. Tasks represent specific hardware operations such as reading sensor data, writing control signals, or scanning for devices.
+// Task is an executable unit of work in the Driver system. Tasks represent
+// specific hardware operations such as reading sensor data, writing
+// control signals, or scanning for devices.
 type Task struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the composite identifier for this task.
 	Key uint64 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the task.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task.
+	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+	// Determines which hardware integration handles the task.
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	// config is task-specific configuration stored as JSON. Structure varies by task type.
+	// config is task-specific configuration stored as JSON. Structure varies by
+	// task type.
 	Config *structpb.Struct `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
 	// internal is true if this is an internal system task.
 	Internal bool `protobuf:"varint,5,opt,name=internal,proto3" json:"internal,omitempty"`

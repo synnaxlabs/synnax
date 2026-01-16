@@ -93,7 +93,9 @@ func (Variant) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_status_pb_status_proto_rawDescGZIP(), []int{0}
 }
 
-// Status is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details.
+// Status is a standardized message used to communicate state across the
+// Synnax platform. Statuses support different severity variants
+// and can carry component-specific details.
 type Status struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is a unique identifier for this status, automatically generated if not provided.

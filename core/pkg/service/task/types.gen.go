@@ -32,15 +32,19 @@ type StatusDetails struct {
 	Data binary.MsgpackEncodedJSON `json:"data,omitempty" msgpack:"data,omitempty"`
 }
 
-// Task is an executable unit of work in the Driver system. Tasks represent specific hardware operations such as reading sensor data, writing control signals, or scanning for devices.
+// Task is an executable unit of work in the Driver system. Tasks represent
+// specific hardware operations such as reading sensor data, writing
+// control signals, or scanning for devices.
 type Task struct {
 	// Key is the composite identifier for this task.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
-	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task.
+	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+	// Determines which hardware integration handles the task.
 	Type string `json:"type" msgpack:"type"`
-	// Config is task-specific configuration stored as JSON. Structure varies by task type.
+	// Config is task-specific configuration stored as JSON. Structure varies by
+	// task type.
 	Config binary.MsgpackEncodedJSON `json:"config" msgpack:"config"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`

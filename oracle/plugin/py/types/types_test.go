@@ -784,9 +784,10 @@ var _ = Describe("Python Types Plugin", func() {
 				`
 				resp := testutil.MustGenerate(ctx, source, "user", loader, typesPlugin)
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`"""User is a representation of a user in the system."""`))
-				Expect(content).To(ContainSubstring(`# key is the unique identifier for the user.`))
-				Expect(content).To(ContainSubstring(`# name is the user's display name.`))
+				Expect(content).To(ContainSubstring(`"""Is a representation of a user in the system.`))
+				Expect(content).To(ContainSubstring(`Attributes:`))
+				Expect(content).To(ContainSubstring(`key: Is the unique identifier for the user.`))
+				Expect(content).To(ContainSubstring(`name: Is the user's display name.`))
 			})
 		})
 	})

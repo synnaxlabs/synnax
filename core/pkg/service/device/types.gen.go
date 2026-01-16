@@ -29,7 +29,9 @@ type StatusDetails struct {
 	Device string `json:"device" msgpack:"device"`
 }
 
-// Device is a physical piece of hardware connected to Synnax through the Driver system. Devices represent external equipment like LabJack, National Instruments, OPC UA servers, or Modbus devices.
+// Device is a physical piece of hardware connected to Synnax through the Driver
+// system. Devices represent external equipment like LabJack, National
+// Instruments, OPC UA servers, or Modbus devices.
 type Device struct {
 	// Key is the unique identifier for this device.
 	Key Key `json:"key" msgpack:"key"`
@@ -37,15 +39,18 @@ type Device struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Location is the physical location or address of the device.
 	Location string `json:"location" msgpack:"location"`
-	// Make is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
+	// Make is the manufacturer of the device (e.g., 'LabJack', 'National
+	// Instruments').
 	Make string `json:"make" msgpack:"make"`
 	// Model is the device model identifier.
 	Model string `json:"model" msgpack:"model"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
-	// Configured indicates whether the device has been successfully configured and is ready for use.
+	// Configured indicates whether the device has been successfully configured and is
+	// ready for use.
 	Configured bool `json:"configured" msgpack:"configured"`
-	// Properties contains device-specific configuration properties stored as JSON. Structure varies by device make and model.
+	// Properties contains device-specific configuration properties stored as JSON.
+	// Structure varies by device make and model.
 	Properties binary.MsgpackEncodedJSON `json:"properties" msgpack:"properties"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`

@@ -135,7 +135,8 @@ func (x *Subject) GetName() string {
 	return ""
 }
 
-// State represents the state of control over a resource at a point in time, capturing who controls what and with how much authority.
+// State represents the state of control over a resource at a point in time,
+// capturing who controls what and with how much authority.
 type State struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// subject is the entity controlling the resource.

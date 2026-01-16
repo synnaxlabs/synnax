@@ -23,11 +23,14 @@ Key: TypeAlias = str
 
 
 class StatusDetails(BaseModel):
-    """StatusDetails contains device-specific status details identifying the device and its associated rack."""
+    """Contains device-specific status details identifying the device and its associated rack.
 
-    # rack is the key of the rack this device belongs to.
+    Attributes:
+        rack: Is the key of the rack this device belongs to.
+        device: Is the device identifier.
+    """
+
     rack: rack_.Key
-    # device is the device identifier.
     device: str
 
 
@@ -35,25 +38,33 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Device(BaseModel):
-    """Device is a physical piece of hardware connected to Synnax through the Driver system. Devices represent external equipment like LabJack, National Instruments, OPC UA servers, or Modbus devices."""
+    """Is a physical piece of hardware connected to Synnax through the Driver
+    system. Devices represent external equipment like LabJack, National
+    Instruments, OPC UA servers, or Modbus devices.
 
-    # key is the unique identifier for this device.
+    Attributes:
+        key: Is the unique identifier for this device.
+        rack: Is the key of the rack that owns this device.
+        location: Is the physical location or address of the device.
+        make: Is the manufacturer of the device (e.g., 'LabJack', 'National
+            Instruments').
+        model: Is the device model identifier.
+        name: Is a human-readable name for the device.
+        configured: Indicates whether the device has been successfully configured and is
+            ready for use.
+        properties: Contains device-specific configuration properties stored as JSON.
+            Structure varies by device make and model.
+        status: Is the current operational status of the device.
+    """
+
     key: Key
-    # rack is the key of the rack that owns this device.
     rack: rack_.Key
-    # location is the physical location or address of the device.
     location: str
-    # make is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
     make: Any
-    # model is the device model identifier.
     model: Any
-    # name is a human-readable name for the device.
     name: str
-    # configured indicates whether the device has been successfully configured and is ready for use.
     configured: bool = Field(default=False)
-    # properties contains device-specific configuration properties stored as JSON. Structure varies by device make and model.
     properties: Any
-    # status is the current operational status of the device.
     status: Status | None = None
 
     def __hash__(self) -> int:

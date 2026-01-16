@@ -19,7 +19,6 @@ from synnax.telem.series import (
 from synnax.telem.telem import (
     Alignment,
     Bounds,
-    convert_time_units,
     CrudeAlignment,
     CrudeDataType,
     CrudeDensity,
@@ -35,6 +34,7 @@ from synnax.telem.telem import (
     TimeSpan,
     TimeSpanUnits,
     TimeStamp,
+    convert_time_units,
 )
 
 __all__ = [

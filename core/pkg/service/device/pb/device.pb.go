@@ -89,7 +89,9 @@ func (x *StatusDetails) GetDevice() string {
 	return ""
 }
 
-// Device is a physical piece of hardware connected to Synnax through the Driver system. Devices represent external equipment like LabJack, National Instruments, OPC UA servers, or Modbus devices.
+// Device is a physical piece of hardware connected to Synnax through the Driver
+// system. Devices represent external equipment like LabJack, National
+// Instruments, OPC UA servers, or Modbus devices.
 type Device struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this device.
@@ -98,15 +100,18 @@ type Device struct {
 	Rack uint32 `protobuf:"varint,2,opt,name=rack,proto3" json:"rack,omitempty"`
 	// location is the physical location or address of the device.
 	Location string `protobuf:"bytes,3,opt,name=location,proto3" json:"location,omitempty"`
-	// make is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
+	// make is the manufacturer of the device (e.g., 'LabJack', 'National
+	// Instruments').
 	Make string `protobuf:"bytes,4,opt,name=make,proto3" json:"make,omitempty"`
 	// model is the device model identifier.
 	Model string `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
 	// name is a human-readable name for the device.
 	Name string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
-	// configured indicates whether the device has been successfully configured and is ready for use.
+	// configured indicates whether the device has been successfully configured and is
+	// ready for use.
 	Configured bool `protobuf:"varint,7,opt,name=configured,proto3" json:"configured,omitempty"`
-	// properties contains device-specific configuration properties stored as JSON. Structure varies by device make and model.
+	// properties contains device-specific configuration properties stored as JSON.
+	// Structure varies by device make and model.
 	Properties *structpb.Struct `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	// status is the current operational status of the device.
 	Status        *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`

@@ -17,13 +17,20 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** Log is a timestamped event and message logging component. Logs display chronological records of events, system messages, and audit trails with filtering and formatting capabilities. */
+/**
+ * Log is a timestamped event and message logging component. Logs display
+ * chronological records of events, system messages, and audit trails with
+ * filtering and formatting capabilities.
+ */
 export const logZ = z.object({
   /** key is the unique identifier for this log. */
   key: keyZ,
   /** name is a human-readable name for the log. */
   name: z.string(),
-  /** data is the log configuration including message formatting, filtering rules, and display options. */
+  /**
+   * data is the log configuration including message formatting, filtering
+   * rules, and display options.
+   */
   data: caseconv.preserveCase(record.nullishToEmpty()),
 });
 export interface Log extends z.infer<typeof logZ> {}

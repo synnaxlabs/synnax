@@ -57,7 +57,11 @@ Status struct<Details?, V extends Variant = Variant> {
         @doc value "contains optional labels for categorization and filtering."
     }
 
-    @doc value         "is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details."
+    @doc value         """
+        is a standardized message used to communicate state across the
+        Synnax platform. Statuses support different severity variants
+        and can carry component-specific details.
+    """
     @ts concrete_types
 }
 
@@ -72,7 +76,10 @@ GoSVCStatus<Details?> = Status<Details?> {
 
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
     key  string?          {
-        @doc value "is an optional key for the status. If not provided, one will be automatically generated."
+        @doc value """
+            is an optional key for the status. If not provided, one will
+            be automatically generated.
+        """
     }
     name string?          {
         @doc value "is an optional name for the status."
@@ -81,7 +88,10 @@ New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
         @doc value "is an optional timestamp. Defaults to the current time."
     }
 
-    @doc value         "contains parameters for creating a new status. Most fields have sensible defaults."
+    @doc value         """
+        contains parameters for creating a new status. Most fields have
+        sensible defaults.
+    """
     @ts concrete_types
     @pb omit
     @cpp omit

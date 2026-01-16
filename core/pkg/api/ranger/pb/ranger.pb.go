@@ -35,20 +35,25 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Range is a range with additional relationships for hierarchical organization and metadata. This is the primary type exposed through the API.
+// Range is a range with additional relationships for hierarchical organization
+// and metadata. This is the primary type exposed through the API.
 type Range struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this range.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the range.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// time_range is the temporal extent of the range, defining its start and end timestamps.
+	// time_range is the temporal extent of the range, defining its start and end
+	// timestamps.
 	TimeRange *pb.TimeRange `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	// color is an optional display color for visual identification of the range in user interfaces.
+	// color is an optional display color for visual identification of the range
+	// in user interfaces.
 	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
-	// labels contains optional labels attached to this range for categorization and filtering.
+	// labels contains optional labels attached to this range for categorization
+	// and filtering.
 	Labels []*pb2.Label `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
-	// parent is an optional parent range for hierarchical organization. Ranges can be nested within other ranges.
+	// parent is an optional parent range for hierarchical organization. Ranges
+	// can be nested within other ranges.
 	Parent        *Range `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

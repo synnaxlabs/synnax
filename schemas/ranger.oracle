@@ -30,13 +30,23 @@ Range struct {
         @validate min_length 1
     }
     time_range telem.TimeRange {
-        @doc value "is the temporal extent of the range, defining its start and end timestamps."
+        @doc value """
+            is the temporal extent of the range, defining its start and end
+            timestamps.
+        """
     }
     color      color.Color?    {
-        @doc value "is an optional display color for visual identification of the range in user interfaces."
+        @doc value """
+            is an optional display color for visual identification of the range
+            in user interfaces.
+        """
     }
 
-    @doc value "is a user-defined region of time in the Synnax cluster. Ranges act as a method for labeling and categorizing telemetry data within specific time periods."
+    @doc value """
+        is a user-defined region of time in the Synnax cluster. Ranges act as a
+        method for labeling and categorizing telemetry data within specific time
+        periods.
+    """
     @go output "core/pkg/service/ranger"
     @pb
     @cpp name  "Base"
@@ -46,13 +56,22 @@ Range struct {
 
 APIRange struct extends Range {
     labels label.Label[]? {
-        @doc value "contains optional labels attached to this range for categorization and filtering."
+        @doc value """
+            contains optional labels attached to this range for categorization
+            and filtering.
+        """
     }
     parent APIRange??     {
-        @doc value "is an optional parent range for hierarchical organization. Ranges can be nested within other ranges."
+        @doc value """
+            is an optional parent range for hierarchical organization. Ranges
+            can be nested within other ranges.
+        """
     }
 
-    @doc value     "is a range with additional relationships for hierarchical organization and metadata. This is the primary type exposed through the API."
+    @doc value     """
+        is a range with additional relationships for hierarchical organization
+        and metadata. This is the primary type exposed through the API.
+    """
     @go output     "core/pkg/api/ranger"
     @go name       "Range"
     @pb name       "Range"

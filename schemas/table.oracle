@@ -24,11 +24,18 @@ Table struct {
         @doc value "is a human-readable name for the table."
     }
     data json   {
-        @doc value        "is the table configuration including column definitions, channel references, and formatting options."
+        @doc value        """
+            is the table configuration including column definitions, channel
+            references, and formatting options.
+        """
         @ts preserve_case
     }
 
-    @doc value     "is a tabular data display component for viewing structured telemetry data. Tables support multiple columns, channel data sources, and customizable formatting options."
+    @doc value     """
+        is a tabular data display component for viewing structured telemetry
+        data. Tables support multiple columns, channel data sources, and
+        customizable formatting options.
+    """
     @ontology type "table"
 }
 

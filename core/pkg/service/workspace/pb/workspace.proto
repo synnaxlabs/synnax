@@ -8,7 +8,9 @@ import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/pb";
 
-// Workspace is a named, persistable container that stores the layout and organization of the Console application. Workspaces allow users to save and restore custom arrangements of visualizations, tabs, and window configurations.
+// Workspace is a named, persistable container that stores the layout and organization
+// of the Console application. Workspaces allow users to save and restore
+// custom arrangements of visualizations, tabs, and window configurations.
 message Workspace {
   // key is the unique identifier for this workspace.
   string key = 1;
@@ -16,6 +18,8 @@ message Workspace {
   string name = 2;
   // author is the UUID of the user who created this workspace.
   string author = 3;
-  // layout is the mosaic tree structure that defines how visualizations are arranged. Contains tab layout, split configurations, and window positions.
+  // layout is the mosaic tree structure that defines how visualizations are
+  // arranged. Contains tab layout, split configurations, and window
+  // positions.
   google.protobuf.Struct layout = 4;
 }

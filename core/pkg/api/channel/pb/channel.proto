@@ -10,31 +10,44 @@ import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
-// Channel is a logical collection of samples emitted by or representing values from a single source. Channels are the fundamental unit of telemetry storage and streaming in Synnax.
+// Channel is a logical collection of samples emitted by or representing values
+// from a single source. Channels are the fundamental unit of telemetry
+// storage and streaming in Synnax.
 message Channel {
-  // key is the unique identifier for this channel, automatically assigned by Synnax.
+  // key is the unique identifier for this channel, automatically assigned
+  // by Synnax.
   uint32 key = 1;
   // name is the human-readable channel name.
   string name = 2;
-  // leaseholder is the cluster node that holds the lease for this channel. Mostly for internal use.
+  // leaseholder is the cluster node that holds the lease for this channel. Mostly
+  // for internal use.
   uint32 leaseholder = 3;
-  // data_type is the data type of samples stored in this channel (e.g., Float64, Int32, TimeStamp).
+  // data_type is the data type of samples stored in this channel (e.g., Float64,
+  // Int32, TimeStamp).
   string data_type = 4;
-  // is_index is true if this is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps.
+  // is_index is true if this is an index channel. Index channels must have int64
+  // values (TIMESTAMP data type) written in ascending order, and are
+  // most commonly unix nanosecond timestamps.
   bool is_index = 5;
-  // index is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate.
+  // index is the channel used to index this channel's values, associating
+  // each value with a timestamp. If zero, the channel's data will be
+  // indexed using its rate.
   uint32 index = 6;
   // alias is an optional alternate name for the channel within a specific context.
   string alias = 7;
-  // virtual is true if this channel does not store data in the database but can still be used for streaming purposes.
+  // virtual is true if this channel does not store data in the database but can
+  // still be used for streaming purposes.
   bool virtual = 8;
   // internal is true if this is a system channel hidden from normal user queries.
   bool internal = 9;
-  // expression is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual.
+  // expression is an Arc expression for calculated channels. If set, the channel
+  // is automatically configured as virtual.
   string expression = 10;
-  // operations contains optional aggregation operations (min, max, avg) applied to channel data over time or triggered by a reset channel.
+  // operations contains optional aggregation operations (min, max, avg) applied to
+  // channel data over time or triggered by a reset channel.
   repeated .distribution.channel.pb.Operation operations = 11;
-  // concurrency sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency.
+  // concurrency sets the policy for concurrent writes to the channel's data. Only
+  // virtual channels can have a policy of shared concurrency.
   .x.control.pb.Concurrency concurrency = 12;
   // status is the current operational status of the channel.
   optional .x.status.pb.Status status = 13;

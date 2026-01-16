@@ -27,7 +27,11 @@ export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
-/** Payload is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system. */
+/**
+ * Payload is a collection container for hardware devices and tasks running on a
+ * specific cluster node. Racks serve as the integration point between the
+ * Synnax server and physical hardware via the Driver system.
+ */
 export const payloadZ = z.object({
   /** key is the composite identifier for this rack. */
   key: keyZ,

@@ -19,7 +19,9 @@ enum Variant {
   VARIANT_DISABLED = 5;
 }
 
-// Status is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details.
+// Status is a standardized message used to communicate state across the
+// Synnax platform. Statuses support different severity variants
+// and can carry component-specific details.
 message Status {
   // key is a unique identifier for this status, automatically generated if not provided.
   string key = 1;

@@ -22,28 +22,34 @@ Key = NewType("Key", int)
 
 
 class StatusDetails(BaseModel):
-    """StatusDetails contains task-specific status details including execution state."""
+    """Contains task-specific status details including execution state.
 
-    # task is the key of the task this status pertains to.
+    Attributes:
+        task: Is the key of the task this status pertains to.
+        running: Is true if the task is currently executing.
+        cmd: Is the last command executed on this task.
+        data: Contains task-specific status data.
+    """
+
     task: Key
-    # running is true if the task is currently executing.
     running: bool
-    # cmd is the last command executed on this task.
     cmd: str | None = None
-    # data contains task-specific status data.
     data: Any | None = None
 
 
 class Command(BaseModel):
-    """Command is a command to execute on a task in the Driver system."""
+    """Is a command to execute on a task in the Driver system.
 
-    # task is the key of the target task.
+    Attributes:
+        task: Is the key of the target task.
+        type: Is the command type (e.g., 'start', 'stop', 'configure').
+        key: Is a unique identifier for this command instance.
+        args: Contains optional arguments for the command.
+    """
+
     task: Key
-    # type is the command type (e.g., 'start', 'stop', 'configure').
     type: str
-    # key is a unique identifier for this command instance.
     key: str
-    # args contains optional arguments for the command.
     args: dict[str, Any] | None = None
 
 
@@ -51,21 +57,28 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Payload(BaseModel):
-    """Payload is an executable unit of work in the Driver system. Tasks represent specific hardware operations such as reading sensor data, writing control signals, or scanning for devices."""
+    """Is an executable unit of work in the Driver system. Tasks represent
+    specific hardware operations such as reading sensor data, writing
+    control signals, or scanning for devices.
 
-    # key is the composite identifier for this task.
+    Attributes:
+        key: Is the composite identifier for this task.
+        name: Is a human-readable name for the task.
+        type: Is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+            Determines which hardware integration handles the task.
+        config: Is task-specific configuration stored as JSON. Structure varies by
+            task type.
+        internal: Is true if this is an internal system task.
+        snapshot: Indicates whether to persist this task's configuration.
+        status: Is the current execution status of the task.
+    """
+
     key: Key
-    # name is a human-readable name for the task.
     name: str
-    # type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task.
     type: Any
-    # config is task-specific configuration stored as JSON. Structure varies by task type.
     config: Any
-    # internal is true if this is an internal system task.
     internal: bool | None = None
-    # snapshot indicates whether to persist this task's configuration.
     snapshot: bool | None = None
-    # status is the current execution status of the task.
     status: Status | None = None
 
     def __hash__(self) -> int:

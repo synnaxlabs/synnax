@@ -9,14 +9,18 @@ import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/pb";
 
-// Range is a user-defined region of time in the Synnax cluster. Ranges act as a method for labeling and categorizing telemetry data within specific time periods.
+// Range is a user-defined region of time in the Synnax cluster. Ranges act as a
+// method for labeling and categorizing telemetry data within specific time
+// periods.
 message Range {
   // key is the unique identifier for this range.
   string key = 1;
   // name is a human-readable name for the range.
   string name = 2;
-  // time_range is the temporal extent of the range, defining its start and end timestamps.
+  // time_range is the temporal extent of the range, defining its start and end
+  // timestamps.
   .x.telem.pb.TimeRange time_range = 3;
-  // color is an optional display color for visual identification of the range in user interfaces.
+  // color is an optional display color for visual identification of the range
+  // in user interfaces.
   .x.color.pb.Color color = 4;
 }

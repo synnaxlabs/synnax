@@ -619,6 +619,9 @@ func (f *formatter) formatExpressionToString(ctx parser.IExpressionContext) stri
 }
 
 func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueContext) string {
+	if ctx.TRIPLE_STRING_LIT() != nil {
+		return ctx.TRIPLE_STRING_LIT().GetText()
+	}
 	if ctx.STRING_LIT() != nil {
 		return ctx.STRING_LIT().GetText()
 	}
@@ -773,7 +776,9 @@ func (f *formatter) formatExpression(ctx parser.IExpressionContext) {
 }
 
 func (f *formatter) formatExpressionValue(ctx parser.IExpressionValueContext) {
-	if ctx.STRING_LIT() != nil {
+	if ctx.TRIPLE_STRING_LIT() != nil {
+		f.write(ctx.TRIPLE_STRING_LIT().GetText())
+	} else if ctx.STRING_LIT() != nil {
 		f.write(ctx.STRING_LIT().GetText())
 	} else if ctx.INT_LIT() != nil {
 		f.write(ctx.INT_LIT().GetText())

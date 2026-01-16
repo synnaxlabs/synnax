@@ -31,11 +31,17 @@ User struct {
         @doc value "is the user's last name."
     }
     root_user  bool   {
-        @doc value        "is true if this is a root/admin user with full system access. Root users cannot be deleted."
+        @doc value        """
+            is true if this is a root/admin user with full system access. Root
+            users cannot be deleted.
+        """
         @validate default false
     }
 
-    @doc value     "is an account entity representing a person accessing the Synnax system. Users can have roles assigned for permission management."
+    @doc value     """
+        is an account entity representing a person accessing the Synnax system.
+        Users can have roles assigned for permission management.
+    """
     @ontology type "user"
     @pb
 }

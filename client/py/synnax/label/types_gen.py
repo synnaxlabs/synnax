@@ -22,13 +22,16 @@ Key: TypeAlias = UUID
 
 
 class Label(BaseModel):
-    """Label is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering."""
+    """Is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering.
 
-    # key is the unique identifier for this label.
+    Attributes:
+        key: Is the unique identifier for this label.
+        name: Is a human-readable name for the label.
+        color: Is the display color for visual identification of the label.
+    """
+
     key: Key
-    # name is a human-readable name for the label.
     name: str = Field(min_length=1)
-    # color is the display color for visual identification of the label.
     color: color_.Color
 
     def __hash__(self) -> int:

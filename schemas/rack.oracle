@@ -16,7 +16,14 @@ import "schemas/status"
 @pb
 
 Key uint32 {
-    @doc value "is a composite identifier for a rack. The high 16 bits contain the cluster node key, and the low 16 bits contain the local sequential key. Racks are leased to specific nodes because task configuration signals are passed through gossip operations, which can take 15s+ to propagate through a large cluster. This structure minimizes hops and configuration latency."
+    @doc value """
+        is a composite identifier for a rack. The high 16 bits contain the
+        core node key, and the low 16 bits contain the local sequential key.
+        Racks are leased to specific nodes because task configuration signals
+        are passed through gossip operations, which can take 15s+ to propagate
+        through a large cluster. This structure minimizes hops and configuration
+        latency.
+    """
 }
 
 StatusDetails struct {
@@ -41,16 +48,24 @@ Rack struct {
         @validate required
     }
     task_counter uint32?  {
-        @doc value "is an internal counter used for generating unique local task keys."
+        @doc value """
+            is an internal counter used for generating unique local task keys.
+        """
     }
     embedded     bool?    {
-        @doc value "is true if this rack is embedded within the Synnax server process."
+        @doc value """
+            is true if this rack is embedded within the Synnax server process.
+        """
     }
     status       Status?? {
         @doc value "is the current operational status of the rack."
     }
 
-    @doc value     "is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system."
+    @doc value     """
+        is a collection container for hardware devices and tasks running on a
+        specific cluster node. Racks serve as the integration point between the
+        Synnax server and physical hardware via the Driver system.
+    """
     @ts name       "Payload"
     @ontology type "rack"
     @py name       "Base"

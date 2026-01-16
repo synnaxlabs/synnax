@@ -47,7 +47,11 @@ export const newZ = z.object({
 });
 export interface New extends z.input<typeof newZ> {}
 
-/** Arc is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution. */
+/**
+ * Arc is an Arc module combining visual graph representation and text-based
+ * source code for reactive control systems. Compiles to WebAssembly for
+ * sandboxed execution.
+ */
 export const arcZ = z.object({
   /** key is the unique identifier for this module. */
   key: keyZ,

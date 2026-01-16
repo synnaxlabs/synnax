@@ -14,7 +14,9 @@ message StatusDetails {
   uint32 rack = 1;
 }
 
-// Rack is a collection container for hardware devices and tasks running on a specific cluster node. Racks serve as the integration point between the Synnax server and physical hardware via the Driver system.
+// Rack is a collection container for hardware devices and tasks running on a
+// specific cluster node. Racks serve as the integration point between the
+// Synnax server and physical hardware via the Driver system.
 message Rack {
   // key is the composite identifier for this rack.
   uint32 key = 1;

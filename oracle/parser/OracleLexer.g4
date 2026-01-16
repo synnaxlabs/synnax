@@ -40,6 +40,9 @@ MINUS       : '-' ;
 // Literals
 // =============================================================================
 
+// Triple-quoted string literal (must come before STRING_LIT to match first)
+TRIPLE_STRING_LIT : '"""' .*? '"""' ;
+
 // String literal with escape sequences
 STRING_LIT  : '"' (~["\r\n\\] | ESCAPE_SEQUENCE)* '"' ;
 

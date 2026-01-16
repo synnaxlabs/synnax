@@ -27,7 +27,9 @@ const (
 	VariantDisabled Variant = "disabled"
 )
 
-// Status is a standardized message used to communicate state across the Synnax platform. Statuses support different severity variants and can carry component-specific details.
+// Status is a standardized message used to communicate state across the
+// Synnax platform. Statuses support different severity variants
+// and can carry component-specific details.
 type Status[Details any] struct {
 	// Key is a unique identifier for this status, automatically generated if not provided.
 	Key string `json:"key" msgpack:"key"`

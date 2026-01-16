@@ -33,14 +33,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// LinePlot is a time-series visualization component for plotting telemetry data. Line plots support multiple channels, real-time streaming, and historical data display with zoom and pan capabilities.
+// LinePlot is a time-series visualization component for plotting telemetry data.
+// Line plots support multiple channels, real-time streaming, and historical
+// data display with zoom and pan capabilities.
 type LinePlot struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this line plot.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the line plot.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// data is the line plot configuration including channel references, axis settings, and display options.
+	// data is the line plot configuration including channel references, axis
+	// settings, and display options.
 	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

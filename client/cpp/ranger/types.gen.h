@@ -34,14 +34,16 @@ struct Range;
 using Key = x::uuid::UUID;
 
 /// @brief Base is a user-defined region of time in the Synnax cluster. Ranges act as a
-/// method for labeling and categorizing telemetry data within specific time periods.
+/// method for labeling and categorizing telemetry data within specific time
+/// periods.
 struct Base {
     /// @brief key is the unique identifier for this range.
     Key key;
     /// @brief name is a human-readable name for the range.
     std::string name;
     /// @brief time_range is the temporal extent of the range, defining its start and
-    /// end timestamps.
+    /// end
+    /// timestamps.
     ::x::telem::TimeRange time_range = x::telem::TimeRange{};
     /// @brief color is an optional display color for visual identification of the range
     /// in user interfaces.

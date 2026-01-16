@@ -51,7 +51,9 @@ Arc struct {
         @doc value "is the text-based Arc source code."
     }
     module  module.Module?? {
-        @doc value "is the compiled module output including IR and WebAssembly bytecode."
+        @doc value """
+            is the compiled module output including IR and WebAssembly bytecode.
+        """
     }
     deploy  bool            {
         @doc value "indicates whether the module is deployed for execution."
@@ -63,7 +65,11 @@ Arc struct {
         @doc value "is the current execution status of the module."
     }
 
-    @doc value     "is an Arc module combining visual graph representation and text-based source code for reactive control systems. Compiles to WebAssembly for sandboxed execution."
+    @doc value     """
+        is an Arc module combining visual graph representation and text-based
+        source code for reactive control systems. Compiles to WebAssembly for
+        sandboxed execution.
+    """
     @ontology type "arc"
 }
 

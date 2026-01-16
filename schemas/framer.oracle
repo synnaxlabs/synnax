@@ -15,5 +15,9 @@ WriterCommand enum {
     Commit       = 2
     SetAuthority = 3
 
-    @doc value "defines commands controlling the lifecycle of frame write operations in the Synnax framer protocol. Writers follow a strict sequence: Open → Write+ → Commit → Close."
+    @doc value """
+        defines commands controlling the lifecycle of frame write operations in
+        the Synnax framer protocol. Writers follow a strict sequence:
+        Open → Write+ → Commit → Close.
+    """
 }

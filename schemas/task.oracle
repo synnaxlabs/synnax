@@ -16,7 +16,10 @@ import "schemas/status"
 @pb
 
 Key uint64 {
-    @doc value    "is a composite identifier for a task. The high 32 bits contain the rack key, and the low 32 bits contain the local task key within that rack."
+    @doc value    """
+        is a composite identifier for a task. The high 32 bits contain the rack
+        key, and the low 32 bits contain the local task key within that rack.
+    """
     @ts type      string
     @ts to_string
 }
@@ -85,10 +88,16 @@ Task struct<
         @doc value "is a human-readable name for the task."
     }
     type     Type                 {
-        @doc value "is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines which hardware integration handles the task."
+        @doc value """
+            is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+            Determines which hardware integration handles the task.
+        """
     }
     config   Config               {
-        @doc value "is task-specific configuration stored as JSON. Structure varies by task type."
+        @doc value """
+            is task-specific configuration stored as JSON. Structure varies by
+            task type.
+        """
     }
     internal bool?                {
         @doc value "is true if this is an internal system task."
@@ -100,7 +109,11 @@ Task struct<
         @doc value "is the current execution status of the task."
     }
 
-    @doc value     "is an executable unit of work in the Driver system. Tasks represent specific hardware operations such as reading sensor data, writing control signals, or scanning for devices."
+    @doc value     """
+        is an executable unit of work in the Driver system. Tasks represent
+        specific hardware operations such as reading sensor data, writing
+        control signals, or scanning for devices.
+    """
     @ts {
         name "Payload"
         concrete_types

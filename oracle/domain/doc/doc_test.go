@@ -53,3 +53,154 @@ var _ = Describe("Get", func() {
 			}, "First doc"),
 	)
 })
+
+var _ = Describe("FormatGo", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatGo("Name", "")).To(Equal(""))
+	})
+	It("should format single-line doc", func() {
+		Expect(doc.FormatGo("Name", "doc text")).To(Equal("// Name doc text"))
+	})
+	It("should format multi-line doc", func() {
+		result := doc.FormatGo("Name", "line1\nline2\nline3")
+		Expect(result).To(Equal("// Name line1\n// line2\n// line3"))
+	})
+})
+
+var _ = Describe("FormatTS", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatTS("Name", "")).To(Equal(""))
+	})
+	It("should format single-line doc", func() {
+		Expect(doc.FormatTS("Name", "doc text")).To(Equal("/** Name doc text */"))
+	})
+	It("should format multi-line doc", func() {
+		result := doc.FormatTS("Name", "line1\nline2\nline3")
+		Expect(result).To(Equal("/**\n * Name line1\n * line2\n * line3\n */"))
+	})
+	It("should handle empty lines in multi-line doc", func() {
+		result := doc.FormatTS("Name", "line1\n\nline3")
+		Expect(result).To(Equal("/**\n * Name line1\n *\n * line3\n */"))
+	})
+})
+
+var _ = Describe("FormatPyDocstring", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatPyDocstring("Name", "")).To(Equal(""))
+	})
+	It("should format single-line doc", func() {
+		Expect(doc.FormatPyDocstring("Name", "doc text")).To(Equal(`"""Name doc text"""`))
+	})
+	It("should format multi-line doc", func() {
+		result := doc.FormatPyDocstring("Name", "line1\nline2\nline3")
+		Expect(result).To(Equal(`"""Name line1` + "\nline2\nline3" + `"""`))
+	})
+})
+
+var _ = Describe("FormatPyComment", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatPyComment("Name", "")).To(Equal(""))
+	})
+	It("should format single-line doc", func() {
+		Expect(doc.FormatPyComment("Name", "doc text")).To(Equal("# Name doc text"))
+	})
+	It("should format multi-line doc", func() {
+		result := doc.FormatPyComment("Name", "line1\nline2\nline3")
+		Expect(result).To(Equal("# Name line1\n# line2\n# line3"))
+	})
+})
+
+var _ = Describe("FormatCpp", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatCpp("Name", "")).To(Equal(""))
+	})
+	It("should format single-line doc", func() {
+		Expect(doc.FormatCpp("Name", "doc text")).To(Equal("/// @brief Name doc text"))
+	})
+	It("should format multi-line doc", func() {
+		result := doc.FormatCpp("Name", "line1\nline2\nline3")
+		Expect(result).To(Equal("/// @brief Name line1\n/// line2\n/// line3"))
+	})
+})
+
+var _ = Describe("FormatProto", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatProto("Name", "")).To(Equal(""))
+	})
+	It("should format single-line doc", func() {
+		Expect(doc.FormatProto("Name", "doc text")).To(Equal("// Name doc text"))
+	})
+	It("should format multi-line doc", func() {
+		result := doc.FormatProto("Name", "line1\nline2\nline3")
+		Expect(result).To(Equal("// Name line1\n// line2\n// line3"))
+	})
+})
+
+var _ = Describe("FormatPyDocstringGoogle", func() {
+	It("should return empty string when no docs", func() {
+		Expect(doc.FormatPyDocstringGoogle("", nil)).To(Equal(""))
+		Expect(doc.FormatPyDocstringGoogle("", []doc.FieldDoc{})).To(Equal(""))
+	})
+	It("should format class doc only", func() {
+		result := doc.FormatPyDocstringGoogle("a status message.", nil)
+		expected := `    """A status message.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+	It("should format fields only", func() {
+		fields := []doc.FieldDoc{
+			{Name: "key", Doc: "unique identifier."},
+			{Name: "name", Doc: "human-readable name."},
+		}
+		result := doc.FormatPyDocstringGoogle("", fields)
+		expected := `    """
+    Attributes:
+        key: Unique identifier.
+        name: Human-readable name.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+	It("should format class doc with fields", func() {
+		fields := []doc.FieldDoc{
+			{Name: "key", Doc: "unique identifier."},
+		}
+		result := doc.FormatPyDocstringGoogle("a status message.", fields)
+		expected := `    """A status message.
+
+    Attributes:
+        key: Unique identifier.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+	It("should handle multi-line class doc", func() {
+		result := doc.FormatPyDocstringGoogle("first line.\nsecond line.", nil)
+		expected := `    """First line.
+    second line.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+	It("should handle multi-line field doc", func() {
+		fields := []doc.FieldDoc{
+			{Name: "key", Doc: "first line.\nsecond line."},
+		}
+		result := doc.FormatPyDocstringGoogle("", fields)
+		expected := `    """
+    Attributes:
+        key: First line.
+            second line.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+	It("should skip fields with empty docs", func() {
+		fields := []doc.FieldDoc{
+			{Name: "key", Doc: "has doc."},
+			{Name: "name", Doc: ""},
+		}
+		result := doc.FormatPyDocstringGoogle("", fields)
+		expected := `    """
+    Attributes:
+        key: Has doc.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+})

@@ -39,44 +39,66 @@ Status: TypeAlias = status_.Status
 
 
 class Operation(BaseModel):
-    """Operation defines an aggregation operation applied to channel data. Operations calculate min, max, or average values over a time duration or triggered by a reset channel."""
+    """Defines an aggregation operation applied to channel data. Operations
+    calculate min, max, or average values over a time duration or triggered
+    by a reset channel.
 
-    # type is the aggregation operation type: min, max, avg, or none.
+    Attributes:
+        type: Is the aggregation operation type: min, max, avg, or none.
+        reset_channel: Is the channel key that triggers reset of the aggregation. If 0,
+            duration-based reset is used.
+        duration: Is the time window for aggregation when reset_channel is 0.
+    """
+
     type: OperationType
-    # reset_channel is the channel key that triggers reset of the aggregation. If 0, duration-based reset is used.
     reset_channel: Key = Field(default=0)
-    # duration is the time window for aggregation when reset_channel is 0.
     duration: telem.TimeSpan = Field(default=0)
 
 
 class Payload(BaseModel):
-    """Payload is a logical collection of samples emitted by or representing values from a single source. Channels are the fundamental unit of telemetry storage and streaming in Synnax."""
+    """Is a logical collection of samples emitted by or representing values
+    from a single source. Channels are the fundamental unit of telemetry
+    storage and streaming in Synnax.
 
-    # key is the unique identifier for this channel, automatically assigned by Synnax.
+    Attributes:
+        key: Is the unique identifier for this channel, automatically assigned
+            by Synnax.
+        name: Is the human-readable channel name.
+        leaseholder: Is the cluster node that holds the lease for this channel. Mostly
+            for internal use.
+        data_type: Is the data type of samples stored in this channel (e.g., Float64,
+            Int32, TimeStamp).
+        is_index: Is true if this is an index channel. Index channels must have int64
+            values (TIMESTAMP data type) written in ascending order, and are
+            most commonly unix nanosecond timestamps.
+        index: Is the channel used to index this channel's values, associating
+            each value with a timestamp. If zero, the channel's data will be
+            indexed using its rate.
+        alias: Is an optional alternate name for the channel within a specific context.
+        virtual: Is true if this channel does not store data in the database but can
+            still be used for streaming purposes.
+        internal: Is true if this is a system channel hidden from normal user queries.
+        expression: Is an Arc expression for calculated channels. If set, the channel
+            is automatically configured as virtual.
+        operations: Contains optional aggregation operations (min, max, avg) applied to
+            channel data over time or triggered by a reset channel.
+        concurrency: Sets the policy for concurrent writes to the channel's data. Only
+            virtual channels can have a policy of shared concurrency.
+        status: Is the current operational status of the channel.
+    """
+
     key: Key
-    # name is the human-readable channel name.
     name: Name
-    # leaseholder is the cluster node that holds the lease for this channel. Mostly for internal use.
     leaseholder: cluster.NodeKey
-    # data_type is the data type of samples stored in this channel (e.g., Float64, Int32, TimeStamp).
     data_type: telem.DataType
-    # is_index is true if this is an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order, and are most commonly unix nanosecond timestamps.
     is_index: bool
-    # index is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate.
     index: Key
-    # alias is an optional alternate name for the channel within a specific context.
     alias: str | None = None
-    # virtual is true if this channel does not store data in the database but can still be used for streaming purposes.
     virtual: bool = Field(default=False)
-    # internal is true if this is a system channel hidden from normal user queries.
     internal: bool = Field(default=False)
-    # expression is an Arc expression for calculated channels. If set, the channel is automatically configured as virtual.
     expression: str = Field(default="")
-    # operations contains optional aggregation operations (min, max, avg) applied to channel data over time or triggered by a reset channel.
     operations: list[Operation] | None = None
-    # concurrency sets the policy for concurrent writes to the channel's data. Only virtual channels can have a policy of shared concurrency.
     concurrency: control.Concurrency | None = None
-    # status is the current operational status of the channel.
     status: Status | None = None
 
     def __hash__(self) -> int:
@@ -84,25 +106,37 @@ class Payload(BaseModel):
 
 
 class New(Payload):
-    """New contains parameters for creating a new channel. Most fields are optional and will be assigned default values by Synnax."""
+    """Contains parameters for creating a new channel. Most fields are optional
+    and will be assigned default values by Synnax.
 
-    # key is an optional key for the channel. If not provided, one will be automatically assigned.
+    Attributes:
+        key: Is an optional key for the channel. If not provided, one will be
+            automatically assigned.
+        leaseholder: Is an optional leaseholder node. If not provided, Synnax will assign one.
+        index: Is the channel used to index this channel's values, associating
+            each value with a timestamp. If zero, the channel's data will be
+            indexed using its rate.
+        is_index: Should be set to true to create an index channel. Index channels
+            must have int64 values (TIMESTAMP data type) written in ascending
+            order.
+        internal: Should be set to true to create a system channel hidden from normal
+            user queries.
+        virtual: Should be set to true to create a streaming-only channel that does
+            not persist data.
+        expression: Is an Arc expression for creating a calculated channel.
+        operations: Contains aggregation operations to apply to the channel data.
+        concurrency: Sets the policy for concurrent writes. Only virtual channels can
+            have shared concurrency.
+    """
+
     key: Key | None = None
-    # leaseholder is an optional leaseholder node. If not provided, Synnax will assign one.
     leaseholder: int | None = None
-    # index is the channel used to index this channel's values, associating each value with a timestamp. If zero, the channel's data will be indexed using its rate.
     index: Key | None = None
-    # is_index should be set to true to create an index channel. Index channels must have int64 values (TIMESTAMP data type) written in ascending order.
     is_index: bool | None = None
-    # internal should be set to true to create a system channel hidden from normal user queries.
     internal: bool | None = None
-    # virtual should be set to true to create a streaming-only channel that does not persist data.
     virtual: bool | None = None
-    # expression is an Arc expression for creating a calculated channel.
     expression: str | None = None
-    # operations contains aggregation operations to apply to the channel data.
     operations: list[Operation] | None = None
-    # concurrency sets the policy for concurrent writes. Only virtual channels can have shared concurrency.
     concurrency: control.Concurrency | None = None
 
 

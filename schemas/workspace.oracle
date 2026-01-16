@@ -28,11 +28,19 @@ Workspace struct {
         @doc value "is the UUID of the user who created this workspace."
     }
     layout json   {
-        @doc value        "is the mosaic tree structure that defines how visualizations are arranged. Contains tab layout, split configurations, and window positions."
+        @doc value        """
+            is the mosaic tree structure that defines how visualizations are
+            arranged. Contains tab layout, split configurations, and window
+            positions.
+        """
         @ts preserve_case
     }
 
-    @doc value     "is a named, persistable container that stores the layout and organization of the Console application. Workspaces allow users to save and restore custom arrangements of visualizations, tabs, and window configurations."
+    @doc value     """
+        is a named, persistable container that stores the layout and organization
+        of the Console application. Workspaces allow users to save and restore
+        custom arrangements of visualizations, tabs, and window configurations.
+    """
     @ontology type "workspace"
 }
 
