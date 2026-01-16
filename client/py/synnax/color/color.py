@@ -9,128 +9,109 @@
 
 from __future__ import annotations
 
-from typing import Any, List, Union
+from typing import Any, TypeAlias
 
-from pydantic_core import core_schema
+from pydantic import model_validator
 
-# Type alias for the 4-element RGBA tuple
-RGBA = tuple[int, int, int, int]
+from synnax.color.types_gen import Payload
 
 
-class Color(tuple[int, int, int, int]):
-    """RGBA color as 4 bytes (0-255 each).
-
-    Can be constructed from:
-    - Hex string: "#RRGGBB" or "#RRGGBBAA"
-    - RGBA tuple/list: [R, G, B, A] or (R, G, B, A)
-    - 4 bytes: bytes([R, G, B, A])
-    - Another Color instance
-    """
-
-    def __new__(
-        cls, value: Union[bytes, list[int], tuple[int, ...], str, "Color"]
-    ) -> "Color":
-        if isinstance(value, cls):
-            return value
-        if isinstance(value, str):
-            rgba = cls._from_hex(value)
-        elif isinstance(value, bytes) and len(value) == 4:
-            rgba = (value[0], value[1], value[2], value[3])
-        elif isinstance(value, (list, tuple)) and len(value) == 4:
-            rgba = (int(value[0]), int(value[1]), int(value[2]), int(value[3]))
-        else:
-            raise ValueError("Color must be hex string, [R,G,B,A], or 4 bytes")
-        return super().__new__(cls, rgba)
-
-    @property
-    def r(self) -> int:
-        """Red component (0-255)."""
-        return self[0]
-
-    @property
-    def g(self) -> int:
-        """Green component (0-255)."""
-        return self[1]
-
-    @property
-    def b(self) -> int:
-        """Blue component (0-255)."""
-        return self[2]
-
-    @property
-    def a(self) -> int:
-        """Alpha component (0-255)."""
-        return self[3]
+class Color(Payload):
+    @model_validator(mode="before")
+    @classmethod
+    def _parse_input(cls, data: Any) -> dict[str, Any]:
+        if isinstance(data, dict) and "r" in data:
+            return data
+        if isinstance(data, str):
+            r, g, b, a = cls._from_hex(data)
+            return {"r": r, "g": g, "b": b, "a": a}
+        if isinstance(data, (list, tuple)):
+            if len(data) == 4:
+                return {
+                    "r": int(data[0]),
+                    "g": int(data[1]),
+                    "b": int(data[2]),
+                    "a": float(data[3]),
+                }
+            if len(data) == 3:
+                return {
+                    "r": int(data[0]),
+                    "g": int(data[1]),
+                    "b": int(data[2]),
+                    "a": 1.0,
+                }
+        raise ValueError(
+            "Color must be hex string, [R,G,B,A] array, [R,G,B] array, or {r,g,b,a} dict"
+        )
 
     def hex(self, include_alpha: bool = True) -> str:
-        """Convert to hex string.
-
-        Args:
-            include_alpha: If True, always includes alpha. If False, omits alpha
-                when it's 255 (fully opaque).
-
-        Returns:
-            Hex string in format "#RRGGBB" or "#RRGGBBAA".
-        """
-        if include_alpha or self[3] != 255:
-            return f"#{self[0]:02x}{self[1]:02x}{self[2]:02x}{self[3]:02x}"
-        return f"#{self[0]:02x}{self[1]:02x}{self[2]:02x}"
+        alpha_byte = int(self.a * 255)
+        if include_alpha or alpha_byte != 255:
+            return f"#{self.r:02x}{self.g:02x}{self.b:02x}{alpha_byte:02x}"
+        return f"#{self.r:02x}{self.g:02x}{self.b:02x}"
 
     def is_zero(self) -> bool:
-        """Return True if all components are 0."""
-        return all(c == 0 for c in self)
+        return self.r == 0 and self.g == 0 and self.b == 0 and self.a == 0
 
     @staticmethod
-    def _from_hex(hex_str: str) -> tuple[int, int, int, int]:
-        """Parse hex string to RGBA tuple."""
+    def _from_hex(hex_str: str) -> tuple[int, int, int, float]:
         hex_str = hex_str.lstrip("#")
-        # Empty string returns zero color
         if len(hex_str) == 0:
-            return (0, 0, 0, 0)
-        if len(hex_str) == 6:
-            hex_str += "ff"
-        if len(hex_str) != 8:
+            return (0, 0, 0, 0.0)
+        if len(hex_str) not in (6, 8):
             raise ValueError("Hex color must be 6 or 8 hex digits")
+        alpha = int(hex_str[6:8], 16) / 255.0 if len(hex_str) == 8 else 1.0
         return (
             int(hex_str[0:2], 16),
             int(hex_str[2:4], 16),
             int(hex_str[4:6], 16),
-            int(hex_str[6:8], 16),
+            alpha,
         )
-
-    @classmethod
-    def __get_pydantic_core_schema__(
-        cls, source_type: Any, handler: Any
-    ) -> core_schema.CoreSchema:
-        """Pydantic v2 schema for validation and serialization."""
-        return core_schema.no_info_plain_validator_function(
-            cls._validate,
-            serialization=core_schema.plain_serializer_function_ser_schema(
-                lambda c: list(c)  # Serialize as [R, G, B, A]
-            ),
-        )
-
-    @classmethod
-    def _validate(cls, v: Any) -> "Color":
-        """Validate and convert input to Color."""
-        if isinstance(v, cls):
-            return v
-        return cls(v)
 
     def __repr__(self) -> str:
         return f"Color({self.hex()})"
 
     def __eq__(self, other: object) -> bool:
-        """Support equality with hex strings and other Colors."""
-        if isinstance(other, str):
-            try:
-                other_rgba = self._from_hex(other)
-                return tuple(self) == other_rgba
-            except ValueError:
-                return False
-        if isinstance(other, (list, tuple)) and len(other) == 4:
-            return tuple(self) == tuple(other)
-        return super().__eq__(other)
+        other_color = Color.model_validate(other)
+        return (
+            other_color.r == self.r
+            and other_color.g == self.g
+            and other_color.b == self.b
+            and abs(self.a - other_color.a) < 0.004
+        )
 
     def __hash__(self) -> int:
-        return super().__hash__()
+        return hash((self.r, self.g, self.b, round(self.a, 2)))
+
+
+# Crude color representations - defined after Color class to avoid forward reference issues
+Crude: TypeAlias = (
+    str
+    | tuple[int, int, int, float]
+    | tuple[int, int, int]
+    | dict[str, int | float]
+    | Color
+)
+"""
+An unparsed representation of a color that can be converted into a Color object.
+Supports:
+- Hex strings: '#ff0000', '#ff0000ff'
+- RGBA tuples: (255, 0, 0, 1.0)
+- RGB tuples: (255, 0, 0) - alpha defaults to 1.0
+- Dicts: {'r': 255, 'g': 0, 'b': 0, 'a': 1.0}
+- Color objects
+"""
+
+
+def is_crude(value: Any) -> bool:
+    """Check if a value can be parsed into a valid Color."""
+    try:
+        Color.model_validate(value)
+        return True
+    except (ValueError, TypeError):
+        return False
+
+
+def construct(color: Crude) -> Color:
+    """Construct a Color from a crude representation."""
+    return Color.model_validate(color)

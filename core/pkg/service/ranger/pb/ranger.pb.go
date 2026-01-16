@@ -18,6 +18,7 @@
 package pb
 
 import (
+	pb1 "github.com/synnaxlabs/x/color/pb"
 	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -43,7 +44,7 @@ type Range struct {
 	// time_range is the temporal extent of the range, defining its start and end timestamps.
 	TimeRange *pb.TimeRange `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
 	// color is an optional display color for visual identification of the range in user interfaces.
-	Color         []byte `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color         *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -99,7 +100,7 @@ func (x *Range) GetTimeRange() *pb.TimeRange {
 	return nil
 }
 
-func (x *Range) GetColor() []byte {
+func (x *Range) GetColor() *pb1.Color {
 	if x != nil {
 		return x.Color
 	}
@@ -110,13 +111,13 @@ var File_core_pkg_service_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a\x19x/go/telem/pb/telem.proto\"y\n" +
+	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a\x19x/go/color/pb/color.proto\x1a\x19x/go/telem/pb/telem.proto\"\x8c\x01\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
-	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x14\n" +
-	"\x05color\x18\x04 \x01(\fR\x05colorB\xbe\x01\n" +
+	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05colorB\xbe\x01\n" +
 	"\x15com.service.ranger.pbB\vRangerProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/ranger/pb\xa2\x02\x03SRP\xaa\x02\x11Service.Ranger.Pb\xca\x02\x11Service\\Ranger\\Pb\xe2\x02\x1dService\\Ranger\\Pb\\GPBMetadata\xea\x02\x13Service::Ranger::Pbb\x06proto3"
 
 var (
@@ -135,14 +136,16 @@ var file_core_pkg_service_ranger_pb_ranger_proto_msgTypes = make([]protoimpl.Mes
 var file_core_pkg_service_ranger_pb_ranger_proto_goTypes = []any{
 	(*Range)(nil),        // 0: service.ranger.pb.Range
 	(*pb.TimeRange)(nil), // 1: x.telem.pb.TimeRange
+	(*pb1.Color)(nil),    // 2: x.color.pb.Color
 }
 var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
 	1, // 0: service.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	2, // 1: service.ranger.pb.Range.color:type_name -> x.color.pb.Color
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_ranger_pb_ranger_proto_init() }

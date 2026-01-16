@@ -11,12 +11,13 @@
 
 #pragma once
 
-#include <algorithm>
 #include <type_traits>
 #include <utility>
 
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
+#include "x/cpp/color/json.gen.h"
+#include "x/cpp/color/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/proto.gen.h"
@@ -33,7 +34,7 @@ inline ::service::ranger::pb::Range Base::to_proto() const {
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     *pb.mutable_time_range() = this->time_range.to_proto();
-    pb.set_color(this->color.data(), this->color.size());
+    *pb.mutable_color() = this->color.to_proto();
     return pb;
 }
 
@@ -51,7 +52,11 @@ Base::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.time_range = val;
     }
-    std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin());
+    {
+        auto [val, err] = ::x::color::Color::from_proto(pb.color());
+        if (err) return {{}, err};
+        cpp.color = val;
+    }
     return {cpp, x::errors::NIL};
 }
 
@@ -60,7 +65,7 @@ inline ::api::ranger::pb::Range Range::to_proto() const {
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     *pb.mutable_time_range() = this->time_range.to_proto();
-    pb.set_color(this->color.data(), this->color.size());
+    *pb.mutable_color() = this->color.to_proto();
     for (const auto &item: this->labels)
         *pb.add_labels() = item.to_proto();
     if (this->parent.has_value()) *pb.mutable_parent() = this->parent->to_proto();
@@ -81,7 +86,11 @@ Range::from_proto(const ::api::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.time_range = val;
     }
-    std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin());
+    {
+        auto [val, err] = ::x::color::Color::from_proto(pb.color());
+        if (err) return {{}, err};
+        cpp.color = val;
+    }
     for (const auto &item: pb.labels()) {
         auto [v, err] = ::x::label::Label::from_proto(item);
         if (err) return {{}, err};

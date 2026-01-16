@@ -30,6 +30,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.color import Color
+from synnax.color import Crude as CrudeColor
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
 from synnax.framer.frame import CrudeFrame
@@ -277,7 +278,7 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
-        color: str = "",
+        color: CrudeColor | None = None,
         *,
         _frame_client: Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
@@ -435,7 +436,7 @@ class Range(RangePayload):
         *,
         name: str,
         time_range: TimeRange,
-        color: str = "",
+        color: CrudeColor | None = None,
         key: RangeKey = UUID(int=0),
     ) -> Range:
         return self._client.create(
@@ -451,7 +452,7 @@ class Range(RangePayload):
         *,
         name: str,
         time_range: TimeRange,
-        color: str = "",
+        color: CrudeColor | None = None,
         key: RangeKey = UUID(int=0),
     ) -> Range:
         """
@@ -522,7 +523,7 @@ class RangeClient:
         *,
         name: str,
         time_range: TimeRange,
-        color: str = "",
+        color: CrudeColor | None = None,
         retrieve_if_name_exists: bool = False,
         parent: ID | None = None,
         key: RangeKey = UUID(int=0),

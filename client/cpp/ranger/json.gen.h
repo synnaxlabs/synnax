@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "client/cpp/ranger/types.gen.h"
-#include "x/cpp/color/color.h"
+#include "x/cpp/color/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/telem/json.gen.h"

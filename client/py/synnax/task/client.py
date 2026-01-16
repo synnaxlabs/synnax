@@ -9,10 +9,8 @@
 
 from __future__ import annotations
 
-import json
 import warnings
 from contextlib import contextmanager
-from pickletools import stringnl_noescape_pair
 from typing import Any, Protocol, overload
 from uuid import uuid4
 
@@ -20,13 +18,13 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
+from synnax import status
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
-from synnax.exceptions import ConfigurationError, UnexpectedError
+from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import ERROR_VARIANT, SUCCESS_VARIANT
 from synnax.task.types_gen import Key
 from synnax.task.types_gen import Payload as TaskPayload
 from synnax.task.types_gen import Status, ontology_id
@@ -74,7 +72,6 @@ _DELETE_ENDPOINT = "/task/delete"
 _RETRIEVE_ENDPOINT = "/task/retrieve"
 _COPY_ENDPOINT = "/task/copy"
 
-_TASK_STATE_CHANNEL = "sy_status_set"
 _TASK_CMD_CHANNEL = "sy_task_cmd"
 
 
@@ -233,7 +230,7 @@ class Task(TaskPayload):
         :param timeout: The maximum time to wait for the driver to acknowledge the
         command before a timeout occurs.
         """
-        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
+        with self._frame_client.open_streamer(status.SET_CHANNEL) as s:
             key = self.execute_command(type_, args)
             while True:
                 frame = s.read(TimeSpan.from_seconds(timeout).seconds)
@@ -241,19 +238,15 @@ class Task(TaskPayload):
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
                     )
-                elif _TASK_STATE_CHANNEL not in frame:
+                elif status.SET_CHANNEL not in frame:
                     warnings.warn("task - unexpected missing state in frame")
                     continue
                 try:
-                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                    if status.details.cmd is not None and status.details.cmd == key:
-                        return status
-                except ValidationError as e:
-                    raise UnexpectedError(
-                        f"""
-                    Received invalid task state from driver.
-                    """
-                    ) from e
+                    stat = Status.model_validate(frame[status.SET_CHANNEL][0])
+                    if stat.details.cmd is not None and stat.details.cmd == key:
+                        return stat
+                except ValidationError:
+                    continue
 
 
 class TaskProtocol(Protocol):
@@ -424,7 +417,7 @@ class Client:
         if self._device_client is not None:
             task.update_device_properties(self._device_client)
 
-        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
+        with self._frame_client.open_streamer(status.SET_CHANNEL) as streamer:
             pld = self.maybe_assign_def_rack(task.to_payload())
             req = _CreateRequest(tasks=[pld])
             tasks = self.__exec_create(req)
@@ -437,18 +430,21 @@ class Client:
                         "acknowledge configuration"
                     )
                 elif (
-                    _TASK_STATE_CHANNEL not in frame
-                    or len(frame[_TASK_STATE_CHANNEL]) == 0
+                    status.SET_CHANNEL not in frame
+                    or len(frame[status.SET_CHANNEL]) == 0
                 ):
                     warnings.warn("task - unexpected missing state in frame")
                     continue
-                status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                if status.details.task != task.key:
+                try:
+                    stat = Status.model_validate(frame[status.SET_CHANNEL][0])
+                except ValidationError:
                     continue
-                if status.variant == SUCCESS_VARIANT:
+                if stat.details.task != task.key:
+                    continue
+                if stat.variant == status.SUCCESS_VARIANT:
                     break
-                if status.variant == ERROR_VARIANT:
-                    raise ConfigurationError(status.message)
+                if stat.variant == status.ERROR_VARIANT:
+                    raise ConfigurationError(stat.message)
         return task
 
     def delete(self, keys: int | list[int]):

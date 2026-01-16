@@ -18,7 +18,8 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/x/label/pb"
+	pb1 "github.com/synnaxlabs/x/color/pb"
+	pb2 "github.com/synnaxlabs/x/label/pb"
 	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -44,9 +45,9 @@ type Range struct {
 	// time_range is the temporal extent of the range, defining its start and end timestamps.
 	TimeRange *pb.TimeRange `protobuf:"bytes,3,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
 	// color is an optional display color for visual identification of the range in user interfaces.
-	Color []byte `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	// labels contains optional labels attached to this range for categorization and filtering.
-	Labels []*pb1.Label `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
+	Labels []*pb2.Label `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
 	// parent is an optional parent range for hierarchical organization. Ranges can be nested within other ranges.
 	Parent        *Range `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -104,14 +105,14 @@ func (x *Range) GetTimeRange() *pb.TimeRange {
 	return nil
 }
 
-func (x *Range) GetColor() []byte {
+func (x *Range) GetColor() *pb1.Color {
 	if x != nil {
 		return x.Color
 	}
 	return nil
 }
 
-func (x *Range) GetLabels() []*pb1.Label {
+func (x *Range) GetLabels() []*pb2.Label {
 	if x != nil {
 		return x.Labels
 	}
@@ -129,13 +130,13 @@ var File_core_pkg_api_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/api/ranger/pb/ranger.proto\x12\rapi.ranger.pb\x1a\x19x/go/label/pb/label.proto\x1a\x19x/go/telem/pb/telem.proto\"\xe2\x01\n" +
+	"#core/pkg/api/ranger/pb/ranger.proto\x12\rapi.ranger.pb\x1a\x19x/go/color/pb/color.proto\x1a\x19x/go/label/pb/label.proto\x1a\x19x/go/telem/pb/telem.proto\"\xf5\x01\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
-	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x14\n" +
-	"\x05color\x18\x04 \x01(\fR\x05color\x12)\n" +
+	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12)\n" +
 	"\x06labels\x18\x05 \x03(\v2\x11.x.label.pb.LabelR\x06labels\x121\n" +
 	"\x06parent\x18\x06 \x01(\v2\x14.api.ranger.pb.RangeH\x00R\x06parent\x88\x01\x01B\t\n" +
 	"\a_parentB\xa6\x01\n" +
@@ -157,17 +158,19 @@ var file_core_pkg_api_ranger_pb_ranger_proto_msgTypes = make([]protoimpl.Message
 var file_core_pkg_api_ranger_pb_ranger_proto_goTypes = []any{
 	(*Range)(nil),        // 0: api.ranger.pb.Range
 	(*pb.TimeRange)(nil), // 1: x.telem.pb.TimeRange
-	(*pb1.Label)(nil),    // 2: x.label.pb.Label
+	(*pb1.Color)(nil),    // 2: x.color.pb.Color
+	(*pb2.Label)(nil),    // 3: x.label.pb.Label
 }
 var file_core_pkg_api_ranger_pb_ranger_proto_depIdxs = []int32{
 	1, // 0: api.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
-	2, // 1: api.ranger.pb.Range.labels:type_name -> x.label.pb.Label
-	0, // 2: api.ranger.pb.Range.parent:type_name -> api.ranger.pb.Range
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // 1: api.ranger.pb.Range.color:type_name -> x.color.pb.Color
+	3, // 2: api.ranger.pb.Range.labels:type_name -> x.label.pb.Label
+	0, // 3: api.ranger.pb.Range.parent:type_name -> api.ranger.pb.Range
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_ranger_pb_ranger_proto_init() }

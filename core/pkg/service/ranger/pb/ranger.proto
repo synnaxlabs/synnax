@@ -4,6 +4,7 @@ syntax = "proto3";
 
 package service.ranger.pb;
 
+import "x/go/color/pb/color.proto";
 import "x/go/telem/pb/telem.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/pb";
@@ -17,5 +18,5 @@ message Range {
   // time_range is the temporal extent of the range, defining its start and end timestamps.
   .x.telem.pb.TimeRange time_range = 3;
   // color is an optional display color for visual identification of the range in user interfaces.
-  bytes color = 4;
+  .x.color.pb.Color color = 4;
 }

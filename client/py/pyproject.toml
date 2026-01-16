@@ -60,6 +60,7 @@ markers = [
     "auth: mark test as an auth test",
     "channel: mark test as a channel test",
     "cli: mark test as a cli test",
+    "color: mark test as a color test",
     "control: mark test as a control test",
     "device: mark test as a device test",
     "framer: mark test as a framer test",

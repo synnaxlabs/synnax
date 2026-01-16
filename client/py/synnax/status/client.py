@@ -49,6 +49,9 @@ _SET_ENDPOINT = "/status/set"
 _RETRIEVE_ENDPOINT = "/status/retrieve"
 _DELETE_ENDPOINT = "/status/delete"
 
+SET_CHANNEL = "sy_status_set"
+DELETE_CHANNEL = "sy_status_delete"
+
 
 class Client:
     """Client for managing statuses in a Synnax cluster.

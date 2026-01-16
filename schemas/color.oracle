@@ -13,7 +13,21 @@
 @cpp output "x/cpp/color"
 @pb
 
-Color uint8[4] {
-    @doc value "is an RGBA color represented as an array of four 8-bit unsigned integers: [Red, Green, Blue, Alpha]. Each component ranges from 0-255. Supports conversion to/from hex strings and other color formats."
+Color struct {
+    r uint8   {
+        @doc value "is the red component (0-255)."
+    }
+    g uint8   {
+        @doc value "is the green component (0-255)."
+    }
+    b uint8   {
+        @doc value "is the blue component (0-255)."
+    }
+    a float64 {
+        @doc value "is the alpha component (0-1)."
+    }
+
+    @doc value "is an RGBA color with RGB as 0-255 and alpha as 0-1."
     @ts omit
+    @py name   "Payload"
 }

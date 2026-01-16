@@ -11,10 +11,11 @@
 
 #pragma once
 
-#include <algorithm>
 #include <type_traits>
 #include <utility>
 
+#include "x/cpp/color/json.gen.h"
+#include "x/cpp/color/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/types.gen.h"
@@ -27,7 +28,7 @@ inline ::x::label::pb::Label Label::to_proto() const {
     ::x::label::pb::Label pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
-    pb.set_color(this->color.data(), this->color.size());
+    *pb.mutable_color() = this->color.to_proto();
     return pb;
 }
 
@@ -40,7 +41,11 @@ Label::from_proto(const ::x::label::pb::Label &pb) {
         cpp.key = parsed;
     }
     cpp.name = pb.name();
-    std::copy(pb.color().begin(), pb.color().end(), cpp.color.begin());
+    {
+        auto [val, err] = ::x::color::Color::from_proto(pb.color());
+        if (err) return {{}, err};
+        cpp.color = val;
+    }
     return {cpp, x::errors::NIL};
 }
 

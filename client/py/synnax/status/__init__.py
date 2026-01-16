@@ -7,7 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.status.client import Client
+from synnax.status.client import (
+    DELETE_CHANNEL,
+    SET_CHANNEL,
+    Client,
+)
 from synnax.status.payload import (
     DISABLED_VARIANT,
     ERROR_VARIANT,
@@ -31,4 +35,5 @@ __all__ = [
     "DISABLED_VARIANT",
     "LOADING_VARIANT",
     "ontology_id",
+    "SET_CHANNEL",
 ]

@@ -7,8 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#pragma once
+package color_test
 
-#include "x/cpp/color/types.gen.h"
-#include "x/cpp/color/proto.gen.h"
-#include "x/cpp/color/json.gen.h"
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestColor(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Color Suite")
+}

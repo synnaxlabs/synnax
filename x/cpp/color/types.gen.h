@@ -11,51 +11,35 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
-#include <vector>
+#include <utility>
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+
+#include "x/go/color/pb/color.pb.h"
 
 namespace x::color {
 
-struct Color : private std::array<std::uint8_t, 4> {
-    using Base = std::array<std::uint8_t, 4>;
+struct Color;
 
-    // Inherit constructors
-    using Base::Base;
-    Color() = default;
-
-    // Container interface
-    using Base::begin;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reverse_iterator;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::at;
-    using Base::back;
-    using Base::data;
-    using Base::fill;
-    using Base::front;
-    using Base::swap;
+/// @brief Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
+struct Color {
+    /// @brief r is the red component (0-255).
+    std::uint8_t r = 0;
+    /// @brief g is the green component (0-255).
+    std::uint8_t g = 0;
+    /// @brief b is the blue component (0-255).
+    std::uint8_t b = 0;
+    /// @brief a is the alpha component (0-1).
+    double a = 0;
 
     static Color parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::color::pb::Color;
+    [[nodiscard]] ::x::color::pb::Color to_proto() const;
+    static std::pair<Color, x::errors::Error>
+    from_proto(const ::x::color::pb::Color &pb);
 };
 }

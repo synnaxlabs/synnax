@@ -19,17 +19,20 @@
 namespace x::color {
 
 inline Color Color::parse(x::json::Parser parser) {
-    Color result;
-    for (auto &item: parser.field<std::vector<std::uint8_t>>())
-        result.push_back(std::move(item));
-    return result;
+    return Color{
+        .r = parser.field<std::uint8_t>("r"),
+        .g = parser.field<std::uint8_t>("g"),
+        .b = parser.field<std::uint8_t>("b"),
+        .a = parser.field<double>("a"),
+    };
 }
 
 inline x::json::json Color::to_json() const {
-    x::json::json j = x::json::json::array();
-    for (const auto &item: *this) {
-        j.push_back(item);
-    }
+    x::json::json j;
+    j["r"] = this->r;
+    j["g"] = this->g;
+    j["b"] = this->b;
+    j["a"] = this->a;
     return j;
 }
 

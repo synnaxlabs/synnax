@@ -17,6 +17,7 @@ cc_library(
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
         "//x/cpp/color",
+        "//x/go/color:color_grpc",
         "//x/cpp/errors",
         "//x/cpp/label",
         "//x/cpp/mem",

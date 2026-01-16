@@ -14,29 +14,37 @@ package pb
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/color"
+	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/label"
 )
 
 // LabelToPB converts Label to Label.
-func LabelToPB(_ context.Context, r label.Label) (*Label, error) {
+func LabelToPB(ctx context.Context, r label.Label) (*Label, error) {
+	colorVal, err := colorpb.ColorToPB(ctx, r.Color)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Label{
 		Key:   r.Key.String(),
 		Name:  r.Name,
-		Color: r.Color.Bytes(),
+		Color: colorVal,
 	}
 	return pb, nil
 }
 
 // LabelFromPB converts Label to Label.
-func LabelFromPB(_ context.Context, pb *Label) (label.Label, error) {
+func LabelFromPB(ctx context.Context, pb *Label) (label.Label, error) {
 	var r label.Label
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	r.Color, err = colorpb.ColorFromPB(ctx, pb.Color)
+	if err != nil {
+		return r, err
+	}
 	r.Key = label.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.Color = color.FromBytes(pb.Color)
 	return r, nil
 }
 

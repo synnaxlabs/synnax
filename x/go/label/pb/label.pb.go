@@ -18,6 +18,7 @@
 package pb
 
 import (
+	pb "github.com/synnaxlabs/x/color/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -40,7 +41,7 @@ type Label struct {
 	// name is a human-readable name for the label.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// color is the display color for visual identification of the label.
-	Color         []byte `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color         *pb.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -89,7 +90,7 @@ func (x *Label) GetName() string {
 	return ""
 }
 
-func (x *Label) GetColor() []byte {
+func (x *Label) GetColor() *pb.Color {
 	if x != nil {
 		return x.Color
 	}
@@ -101,11 +102,11 @@ var File_x_go_label_pb_label_proto protoreflect.FileDescriptor
 const file_x_go_label_pb_label_proto_rawDesc = "" +
 	"\n" +
 	"\x19x/go/label/pb/label.proto\x12\n" +
-	"x.label.pb\"C\n" +
+	"x.label.pb\x1a\x19x/go/color/pb/color.proto\"V\n" +
 	"\x05Label\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05color\x18\x03 \x01(\fR\x05colorB\x88\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05colorB\x88\x01\n" +
 	"\x0ecom.x.label.pbB\n" +
 	"LabelProtoP\x01Z github.com/synnaxlabs/x/label/pb\xa2\x02\x03XLP\xaa\x02\n" +
 	"X.Label.Pb\xca\x02\n" +
@@ -125,14 +126,16 @@ func file_x_go_label_pb_label_proto_rawDescGZIP() []byte {
 
 var file_x_go_label_pb_label_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_label_pb_label_proto_goTypes = []any{
-	(*Label)(nil), // 0: x.label.pb.Label
+	(*Label)(nil),    // 0: x.label.pb.Label
+	(*pb.Color)(nil), // 1: x.color.pb.Color
 }
 var file_x_go_label_pb_label_proto_depIdxs = []int32{
-	0, // [0:0] is the sub-list for method output_type
-	0, // [0:0] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	1, // 0: x.label.pb.Label.color:type_name -> x.color.pb.Color
+	1, // [1:1] is the sub-list for method output_type
+	1, // [1:1] is the sub-list for method input_type
+	1, // [1:1] is the sub-list for extension type_name
+	1, // [1:1] is the sub-list for extension extendee
+	0, // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_x_go_label_pb_label_proto_init() }

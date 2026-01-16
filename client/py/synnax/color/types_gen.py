@@ -11,6 +11,17 @@
 
 from __future__ import annotations
 
-from typing import NewType, Tuple
+from pydantic import BaseModel
 
-Color = NewType("Color", Tuple[int, int, int, int])
+
+class Payload(BaseModel):
+    """Payload is an RGBA color with RGB as 0-255 and alpha as 0-1."""
+
+    # r is the red component (0-255).
+    r: int
+    # g is the green component (0-255).
+    g: int
+    # b is the blue component (0-255).
+    b: int
+    # a is the alpha component (0-1).
+    a: float

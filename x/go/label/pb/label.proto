@@ -4,6 +4,8 @@ syntax = "proto3";
 
 package x.label.pb;
 
+import "x/go/color/pb/color.proto";
+
 option go_package = "github.com/synnaxlabs/x/label/pb";
 
 // Label is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering.
@@ -13,5 +15,5 @@ message Label {
   // name is a human-readable name for the label.
   string name = 2;
   // color is the display color for visual identification of the label.
-  bytes color = 3;
+  .x.color.pb.Color color = 3;
 }

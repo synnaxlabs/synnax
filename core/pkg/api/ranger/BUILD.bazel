@@ -8,6 +8,7 @@ proto_library(
     deps = [
         "//x/go/label:label_proto",
         "//x/go/telem:telem_proto",
+        "//x/go/color:color_proto"
     ],
 )
 
@@ -19,5 +20,6 @@ cpp_grpc_library(
     deps = [
         "//x/go/label:label_grpc",
         "//x/go/telem:telem_grpc",
+        "//x/go/color:color_grpc"
     ],
 )
