@@ -60,8 +60,6 @@ type Service struct {
 	// Role is the service for managing roles.
 	Role *role.Service
 	cfg  ServiceConfig
-	// defaultPolicies is a list of policies that are applied to all subjects.
-	defaultPolicies []policy.Policy
 }
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services.
@@ -87,12 +85,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, errors.Combine(err, s.Policy.Close())
 	}
 	return s, nil
-}
-
-// AddDefaultPolicy adds a default policy to the service. This policy will be retrieved
-// and applied to all subjects.
-func (s *Service) AddDefaultPolicy(policy policy.Policy) {
-	s.defaultPolicies = append(s.defaultPolicies, policy)
 }
 
 // RetrievePoliciesForSubject retrieves all policies that apply to the given subject.

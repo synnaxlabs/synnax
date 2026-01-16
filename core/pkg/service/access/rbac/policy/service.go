@@ -12,7 +12,9 @@ package policy
 import (
 	"context"
 	"io"
+	"sync"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
@@ -55,8 +57,10 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting policies. It also
 // provides mechanisms for listening to changes in policies.
 type Service struct {
-	cfg     ServiceConfig
-	signals io.Closer
+	cfg            ServiceConfig
+	signals        io.Closer
+	systemPolicies []Policy
+	mu             sync.RWMutex
 }
 
 var _ io.Closer = (*Service)(nil)
@@ -89,4 +93,26 @@ func (s *Service) Close() error {
 		return nil
 	}
 	return s.signals.Close()
+}
+
+// AddSystemPolicies adds system policies to the service. System policies are applied to
+// all subjects and are typically used for system-wide restrictions (e.g., preventing
+// modification of system-managed resources). If a policy has a nil key, a new UUID will
+// be generated for it.
+func (s *Service) AddSystemPolicies(policies ...Policy) {
+	for i := range policies {
+		if policies[i].Key == uuid.Nil {
+			policies[i].Key = uuid.New()
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.systemPolicies = append(s.systemPolicies, policies...)
+}
+
+// SystemPolicies returns all system policies that have been added to the service.
+func (s *Service) SystemPolicies() []Policy {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.systemPolicies
 }

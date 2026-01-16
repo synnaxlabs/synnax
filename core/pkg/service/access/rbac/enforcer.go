@@ -21,10 +21,9 @@ import (
 
 // Enforcer is an implementation of the access.Enforcer interface for the RBAC model.
 type Enforcer struct {
-	policy          *policy.Service
-	cfg             ServiceConfig
-	tx              gorp.Tx
-	defaultPolicies []policy.Policy
+	policy *policy.Service
+	cfg    ServiceConfig
+	tx     gorp.Tx
 }
 
 var _ access.Enforcer = &Enforcer{}
@@ -32,10 +31,9 @@ var _ access.Enforcer = &Enforcer{}
 // NewEnforcer creates a new Enforcer with the given transaction.
 func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 	return &Enforcer{
-		policy:          s.Policy,
-		cfg:             s.cfg,
-		tx:              gorp.OverrideTx(s.cfg.DB, tx),
-		defaultPolicies: s.defaultPolicies,
+		policy: s.Policy,
+		cfg:    s.cfg,
+		tx:     gorp.OverrideTx(s.cfg.DB, tx),
 	}
 }
 
@@ -88,5 +86,5 @@ func (e *Enforcer) retrievePolicies(
 		Exec(ctx, e.tx); err != nil {
 		return nil, err
 	}
-	return policies, nil
+	return append(policies, e.policy.SystemPolicies()...), nil
 }

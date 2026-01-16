@@ -51,7 +51,10 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 	return r
 }
 
-// WhereSubject filters for policies that are associated with the given subject.
+// WhereSubject filters for policies that are associated with the given subject via role
+// assignments in the ontology. Note that this does NOT include system policies that
+// have been added to the service - those must be retrieved separately using
+// Service.SystemPolicies().
 func (r Retrieve) WhereSubject(subject ontology.ID) Retrieve {
 	r.subject = subject
 	return r

@@ -101,6 +101,11 @@ func (s *AccessService) RetrievePolicy(
 	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return AccessRetrievePolicyResponse{}, err
 	}
+	// Include system policies when querying for a subject's policies, as these apply to
+	// all subjects.
+	if !req.Subject.IsZero() {
+		res.Policies = append(res.Policies, s.internal.Policy.SystemPolicies()...)
+	}
 	if err = s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,
