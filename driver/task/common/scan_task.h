@@ -419,9 +419,34 @@ public:
                     continue;
                 }
                 const auto remote_dev = iter->second;
+                // Check if device properties changed that require an update
+                bool needs_update = false;
+
+                // Location changed (e.g., renamed in NI MAX)
+                if (scanned_dev.location != remote_dev.location) {
+                    LOG(INFO) << this->log_prefix << "device " << scanned_dev.key
+                              << " location changed from '" << remote_dev.location
+                              << "' to '" << scanned_dev.location << "'";
+                    needs_update = true;
+                }
+
+                // Parent device changed
+                if (scanned_dev.parent_device != remote_dev.parent_device) {
+                    LOG(INFO) << this->log_prefix << "device " << scanned_dev.key
+                              << " parent changed from '" << remote_dev.parent_device
+                              << "' to '" << scanned_dev.parent_device << "'";
+                    needs_update = true;
+                }
+
+                // Rack changed (ownership transfer)
                 if (scanned_dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(scanned_dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
+                    needs_update = true;
+                }
+
+                if (needs_update) {
+                    // Preserve user-configured properties
                     scanned_dev.properties = remote_dev.properties;
                     scanned_dev.name = remote_dev.name;
                     scanned_dev.configured = remote_dev.configured;
