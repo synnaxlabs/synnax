@@ -423,7 +423,7 @@ public:
 
                 if (scanned_dev.location != remote_dev.location) {
                     LOG(INFO) << this->log_prefix << "device location changed from "
-                              << remote_dev.location << "to " << scanned_dev.location;
+                              << remote_dev.location << " to " << scanned_dev.location;
                     needs_update = true;
                 }
 
