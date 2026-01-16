@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -31,7 +30,6 @@ var (
 	otg      *ontology.Ontology
 	groupSvc *group.Service
 	svc      *rbac.Service
-	userSvc  *user.Service
 )
 
 var _ = BeforeSuite(func() {
@@ -52,11 +50,6 @@ var _ = BeforeEach(func() {
 		DB:       db,
 		Ontology: otg,
 	}))
-	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
-		DB:       db,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
 	svc = MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -66,7 +59,6 @@ var _ = BeforeEach(func() {
 
 var _ = AfterEach(func() {
 	Expect(svc.Close()).To(Succeed())
-	Expect(userSvc.Close()).To(Succeed())
 	Expect(groupSvc.Close()).To(Succeed())
 	Expect(otg.Close()).To(Succeed())
 })
