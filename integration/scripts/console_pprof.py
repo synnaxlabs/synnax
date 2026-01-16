@@ -43,11 +43,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-try:
-    from playwright.sync_api import CDPSession, Page, sync_playwright
-except ImportError:
-    print("Error: playwright is required. Install with: pip install playwright")
-    sys.exit(1)
+from playwright.sync_api import CDPSession, Page, sync_playwright
 
 from console.profiling.writer import ProfileWriter
 
@@ -82,18 +78,15 @@ def collect_cpu_profile(
     print("Interact with the Console now to capture performance data.")
     print()
 
-    # Start profiling (same CDP commands as integration tests)
     cdp_session.send("Profiler.enable")
     cdp_session.send("Profiler.start")
 
     if duration_seconds is not None:
-        # Show countdown
         for remaining in range(duration_seconds, 0, -1):
             print(f"\r  {remaining}s remaining", end="", flush=True)
             time.sleep(1)
         print("\r  Done!            ")
     else:
-        # Wait for Enter key (avoids Ctrl+C which kills Playwright connection)
         print("  Press Enter to stop profiling...")
         input()
         print("  Stopping...")
@@ -133,10 +126,8 @@ def collect_heap_snapshot(
     cdp_session.on("HeapProfiler.addHeapSnapshotChunk", on_chunk)
     cdp_session.send("HeapProfiler.takeHeapSnapshot", {"reportProgress": False})
 
-    # Wait for chunks (same as integration tests)
     page.wait_for_timeout(1000)
 
-    # Use shared ProfileWriter (same output format as integration tests)
     path = writer.write_heap_snapshot(name, chunks)
     size_mb = sum(len(c) for c in chunks) / 1024 / 1024
     print(f"Heap snapshot saved to: {path} ({size_mb:.1f} MB)")
@@ -238,7 +229,7 @@ def find_console_url(page: Page) -> str | None:
 
 def run_profiler(args: argparse.Namespace) -> None:
     """Run the profiler with the given arguments."""
-    # Set up output directory and writer (shared with integration tests)
+    # Same output dir as integration tests
     if args.output:
         output_dir = Path(args.output).parent.resolve()
         name = Path(args.output).stem
@@ -261,13 +252,11 @@ def run_profiler(args: argparse.Namespace) -> None:
             no_viewport=True,
         )
 
-        # Start tracing BEFORE page creation for complete capture (same as client)
         if args.trace:
             context.tracing.start(screenshots=True, snapshots=True, sources=True)
 
         page = context.new_page()
 
-        # Find Console URL (try 9090 first, then 5173)
         print("Looking for Console...")
         url = find_console_url(page)
         if url is None:
@@ -288,14 +277,12 @@ def run_profiler(args: argparse.Namespace) -> None:
 
         login_if_needed(page)
 
-        # Create CDP session (same approach as integration tests)
         cdp_session = context.new_cdp_session(page)
 
         try:
             print("Console loaded. Starting profiler...")
             print()
 
-            # CPU profile is always collected
             cpu_path = collect_cpu_profile(cdp_session, args.seconds, writer, name)
 
             heap_path = None
@@ -308,7 +295,6 @@ def run_profiler(args: argparse.Namespace) -> None:
                 context.tracing.stop(path=str(trace_path))
                 print(f"\nTrace saved to: {trace_path}")
 
-            # Show viewing instructions last
             if heap_path:
                 open_heap_in_chrome(heap_path)
             if trace_path:

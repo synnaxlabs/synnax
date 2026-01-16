@@ -15,12 +15,10 @@ Playwright browser sessions using the Chrome DevTools Protocol (CDP).
 
 from console.profiling.client import CDPProfiler
 from console.profiling.config import ProfilerConfig
-from console.profiling.protocol import Profiler
 from console.profiling.writer import ProfileWriter
 
 __all__ = [
     "CDPProfiler",
-    "Profiler",
     "ProfilerConfig",
     "ProfileWriter",
 ]
