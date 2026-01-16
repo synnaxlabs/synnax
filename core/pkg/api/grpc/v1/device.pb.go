@@ -16,13 +16,14 @@
 package v1
 
 import (
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+
 	status "github.com/synnaxlabs/x/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	reflect "reflect"
-	sync "sync"
-	unsafe "unsafe"
 )
 
 const (
@@ -452,7 +453,7 @@ var File_core_pkg_api_grpc_v1_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"\n" +
-	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18x/go/status/status.proto\"\xf2\x01\n" +
+	"!core/pkg/api/grpc/v1/device.proto\x12\x06api.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x18x/go/status/status.proto\"\x97\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -467,7 +468,8 @@ const file_core_pkg_api_grpc_v1_device_proto_rawDesc = "" +
 	"configured\x18\t \x01(\bR\n" +
 	"configured\x12(\n" +
 	"\x06status\x18\n" +
-	" \x01(\v2\x10.status.PBStatusR\x06status\"?\n" +
+	" \x01(\v2\x10.status.PBStatusR\x06status\x12#\n" +
+	"\rparent_device\x18\v \x01(\tR\fparentDevice\"?\n" +
 	"\x13DeviceCreateRequest\x12(\n" +
 	"\adevices\x18\x01 \x03(\v2\x0e.api.v1.DeviceR\adevices\"@\n" +
 	"\x14DeviceCreateResponse\x12(\n" +
