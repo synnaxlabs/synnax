@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <regex>
 #include <string>
+#include <unordered_map>
 
 #include "driver/ni/errors.h"
 #include "driver/ni/scan_task.h"
@@ -21,20 +21,6 @@ ni::Scanner::Scanner(
     cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
 
 const auto SKIP_DEVICE_ERR = xerrors::Error("ni.skip_device", "");
-
-/// @brief Extracts the parent device location from a module location string.
-/// For example, "cDAQ1Mod1" returns "cDAQ1", "PXI1Slot2" returns "PXI1".
-/// Returns empty string if the location doesn't match a child device pattern.
-/// TODO: Replace withe exact match of found chassis location.
-std::string extract_parent_from_location(const std::string &location) {
-    // Match pattern: parent identifier + "Mod" or "Slot" + number
-    static const std::regex pattern("^([a-zA-Z]+\\d+)(Mod|Slot)\\d+$");
-    std::smatch match;
-    if (std::regex_match(location, match, pattern)) {
-        return match[1].str();
-    }
-    return "";  // Root device (chassis or standalone), no parent
-}
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
 
 std::pair<ni::Device, xerrors::Error>
@@ -98,11 +84,21 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     }
     dev.location = property_value_buf;
 
-    dev.parent_device = extract_parent_from_location(dev.location);
-    if (!dev.parent_device.empty()) {
-        /// TODO: Consider no log output here.
-        VLOG(1) << SCAN_LOG_PREFIX << "device has parent: " << dev.parent_device;
-    }
+    // Get the link name this device connects to (modules connect to a chassis link)
+    if (!this->syscfg->GetResourceProperty(
+            resource,
+            NISysCfgResourcePropertyConnectsToLinkName,
+            property_value_buf
+        ))
+        dev.connects_to_link_name = property_value_buf;
+
+    // Get the link name this device provides (chassis provide a link for modules)
+    if (!this->syscfg->GetResourceProperty(
+            resource,
+            NISysCfgResourcePropertyProvidesLinkName,
+            property_value_buf
+        ))
+        dev.provides_link_name = property_value_buf;
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
             resource,
@@ -147,6 +143,7 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
 std::pair<std::vector<synnax::Device>, xerrors::Error>
 ni::Scanner::scan(const common::ScannerContext &ctx) {
     std::vector<synnax::Device> devices;
+    std::vector<ni::Device> ni_devices;
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
 
@@ -166,6 +163,8 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         return {devices, err};
     }
 
+    // First pass: collect all devices and build a map of link providers (chassis)
+    std::unordered_map<std::string, std::string> link_to_device_key;
     while (true) {
         if (const auto next_err = this->syscfg->NextResource(
                 this->session,
@@ -180,8 +179,29 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
             this->syscfg->CloseHandle(curr_resource);
             continue;
         }
-        devices.push_back(dev.to_synnax());
+
+        // If this device provides a link (i.e., it's a chassis), record the mapping
+        if (!dev.provides_link_name.empty()) {
+            link_to_device_key[dev.provides_link_name] = dev.key;
+            VLOG(1) << SCAN_LOG_PREFIX << "device " << dev.key
+                    << " provides link: " << dev.provides_link_name;
+        }
+
+        ni_devices.push_back(std::move(dev));
         this->syscfg->CloseHandle(curr_resource);
+    }
+
+    // Second pass: resolve parent relationships and convert to synnax devices
+    for (auto &dev : ni_devices) {
+        if (!dev.connects_to_link_name.empty()) {
+            auto it = link_to_device_key.find(dev.connects_to_link_name);
+            if (it != link_to_device_key.end()) {
+                dev.parent_device = it->second;
+                VLOG(1) << SCAN_LOG_PREFIX << "device " << dev.key
+                        << " parent resolved to: " << dev.parent_device;
+            }
+        }
+        devices.push_back(dev.to_synnax());
     }
 
     auto close_err = this->syscfg->CloseHandle(resources);

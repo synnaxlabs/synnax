@@ -50,6 +50,10 @@ struct Device : synnax::Device {
     std::string resource_name;
     /// @brief whether the device is simulated.
     bool is_simulated = false;
+    /// @brief the link name this device connects to (for modules in a chassis).
+    std::string connects_to_link_name;
+    /// @brief the link name this device provides (for chassis that host modules).
+    std::string provides_link_name;
 
     Device() = default;
 
