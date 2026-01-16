@@ -427,7 +427,6 @@ public:
                     needs_update = true;
                 }
 
-                // Rack changed (ownership transfer)
                 if (scanned_dev.rack != remote_dev.rack &&
                     this->update_threshold_exceeded(scanned_dev.key)) {
                     LOG(INFO) << this->log_prefix << "taking ownership over device";
