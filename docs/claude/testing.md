@@ -59,6 +59,16 @@ var _ = Describe("Feature", func() {
 - Matchers: `Equal`, `BeTrue`, `Eventually`, `Succeed`
 - Lifecycle: `BeforeAll`, `AfterAll`, `BeforeEach`, `AfterEach`
 - Helpers: `MustSucceed`, `ShouldNotLeakGoroutines()`
+- Error Testing: Use `.Error()` with functions returning `(value, error)`:
+  ```go
+  // Preferred: concise error assertion
+  Expect(OpenService(ctx, cfg)).Error().To(MatchError(ContainSubstring("db")))
+
+  // Avoid: separate variable assignment
+  _, err := OpenService(ctx, cfg)
+  Expect(err).To(HaveOccurred())
+  Expect(err.Error()).To(ContainSubstring("db"))
+  ```
 
 ## Python Testing (pytest)
 

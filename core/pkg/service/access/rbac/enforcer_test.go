@@ -15,77 +15,43 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Service", func() {
-	var tx gorp.Tx
-	BeforeEach(func() { tx = db.OpenTx() })
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+var _ = Describe("Enforcer", func() {
+	Describe("NewEnforcer", func() {
+		It("Should create an enforcer with nil transaction", func() {
+			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
+			obj := ontology.ID{Type: "channel", Key: "ch1"}
+			Expect(otg.NewWriter(nil).DefineResource(ctx, subject)).To(Succeed())
 
-	Describe("Open", func() {
-		It("Should open a service with valid configuration", func() {
-			s := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    groupSvc,
-			}))
-			Expect(s.Close()).To(Succeed())
-		})
-		It("Should return error with missing DB", func() {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
-				Ontology: otg,
-				Group:    groupSvc,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("db"))
-		})
-		It("Should return error with missing Ontology", func() {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
-				DB:    db,
-				Group: groupSvc,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("ontology"))
-		})
-		It("Should return error with missing Group", func() {
-			_, err := rbac.OpenService(ctx, rbac.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("group"))
-		})
-	})
-
-	Describe("RetrievePoliciesForSubject", func() {
-		var (
-			policyWriter policy.Writer
-			roleWriter   role.Writer
-			subject      ontology.ID
-		)
-		BeforeEach(func() {
-			policyWriter = svc.Policy.NewWriter(tx)
-			roleWriter = svc.Role.NewWriter(tx)
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
-		})
-
-		It("Should retrieve policies from assigned roles", func() {
-			r := &role.Role{
-				Name:        "admin",
-				Description: "Administrator role",
+			enforcer := svc.NewEnforcer(nil)
+			req := access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{obj},
+				Action:  access.ActionRetrieve,
 			}
+			Expect(enforcer.Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+		})
+
+		It("Should use provided transaction for policy retrieval", func() {
+			tx := db.OpenTx()
+
+			policyWriter := svc.Policy.NewWriter(tx)
+			roleWriter := svc.Role.NewWriter(tx)
+			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
+			obj := ontology.ID{Type: "channel", Key: "ch1"}
+			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+
+			r := &role.Role{Name: "test-role", Description: "Test role"}
 			Expect(roleWriter.Create(ctx, r)).To(Succeed())
 
-			p1 := &policy.Policy{
-				Name:   "policy-1",
+			p := &policy.Policy{
+				Name:   "allow-read",
 				Effect: policy.EffectAllow,
 				Constraint: constraint.Constraint{
 					Kind:     constraint.KindLogical,
@@ -94,27 +60,7 @@ var _ = Describe("Service", func() {
 						{
 							Kind:     constraint.KindMatch,
 							Operator: constraint.OpContainsAny,
-							IDs:      []ontology.ID{{Type: "channel", Key: "ch1"}},
-						},
-						{
-							Kind:     constraint.KindAction,
-							Operator: constraint.OpIsIn,
-							Actions:  set.New(access.AllActions...),
-						},
-					},
-				},
-			}
-			p2 := &policy.Policy{
-				Name:   "policy-2",
-				Effect: policy.EffectAllow,
-				Constraint: constraint.Constraint{
-					Kind:     constraint.KindLogical,
-					Operator: constraint.OpContainsAll,
-					Constraints: []constraint.Constraint{
-						{
-							Kind:     constraint.KindMatch,
-							Operator: constraint.OpContainsAny,
-							IDs:      []ontology.ID{{Type: "workspace", Key: "ws1"}},
+							IDs:      []ontology.ID{obj},
 						},
 						{
 							Kind:     constraint.KindAction,
@@ -124,27 +70,23 @@ var _ = Describe("Service", func() {
 					},
 				},
 			}
-			Expect(policyWriter.Create(ctx, p1)).To(Succeed())
-			Expect(policyWriter.Create(ctx, p2)).To(Succeed())
-			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
+			Expect(policyWriter.Create(ctx, p)).To(Succeed())
+			Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
 			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
-			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(policies).To(HaveLen(2))
-			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
-			Expect(policyKeys).To(ContainElements(p1.Key, p2.Key))
-		})
-
-		It("Should return empty list when no roles assigned", func() {
-			policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(policies).To(BeEmpty())
+			req := access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{obj},
+				Action:  access.ActionRetrieve,
+			}
+			Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
 		})
 	})
 
-	Describe("Enforcer", func() {
+	Describe("Enforce", func() {
 		var (
+			tx           gorp.Tx
 			policyWriter policy.Writer
 			roleWriter   role.Writer
 			subject      ontology.ID
@@ -152,6 +94,7 @@ var _ = Describe("Service", func() {
 			obj2         ontology.ID
 		)
 		BeforeEach(func() {
+			tx = db.OpenTx()
 			policyWriter = svc.Policy.NewWriter(tx)
 			roleWriter = svc.Role.NewWriter(tx)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
@@ -159,8 +102,9 @@ var _ = Describe("Service", func() {
 			obj2 = ontology.ID{Type: "channel", Key: "channel-2"}
 			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
 		})
+		AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
-		Describe("Enforce with role-based policies", func() {
+		Context("with role-based policies", func() {
 			It("Should allow access when policy allows action", func() {
 				r := &role.Role{Name: "test-role", Description: "Test role"}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
@@ -203,50 +147,8 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
-			})
-
-			It("Should allow access with ActionAll wildcard", func() {
-				r := &role.Role{Name: "test-role", Description: "Test role"}
-				Expect(roleWriter.Create(ctx, r)).To(Succeed())
-
-				p := &policy.Policy{
-					Name:   "allow-all-actions",
-					Effect: policy.EffectAllow,
-					Constraint: constraint.Constraint{
-						Kind:     constraint.KindLogical,
-						Operator: constraint.OpContainsAll,
-						Constraints: []constraint.Constraint{
-							{
-								Kind:     constraint.KindMatch,
-								Operator: constraint.OpContainsAny,
-								IDs:      []ontology.ID{obj1},
-							},
-							{
-								Kind:     constraint.KindAction,
-								Operator: constraint.OpIsIn,
-								Actions:  set.New(access.AllActions...),
-							},
-						},
-					},
-				}
-				Expect(policyWriter.Create(ctx, p)).To(Succeed())
-				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-				for _, action := range []access.Action{
-					access.ActionCreate,
-					access.ActionRetrieve,
-					access.ActionUpdate,
-					access.ActionDelete,
-				} {
-					req := access.Request{
-						Subject: subject,
-						Objects: []ontology.ID{obj1},
-						Action:  action,
-					}
-					Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
-				}
+				err := svc.NewEnforcer(tx).Enforce(ctx, req)
+				Expect(err).To(MatchError(access.ErrDenied))
 			})
 
 			It("Should allow access with type-based matching", func() {
@@ -286,6 +188,43 @@ var _ = Describe("Service", func() {
 				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			})
 
+			It("Should deny access when action doesn't match", func() {
+				r := &role.Role{Name: "test-role", Description: "Test role"}
+				Expect(roleWriter.Create(ctx, r)).To(Succeed())
+
+				p := &policy.Policy{
+					Name:   "allow-read-only",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Kind:     constraint.KindLogical,
+						Operator: constraint.OpContainsAll,
+						Constraints: []constraint.Constraint{
+							{
+								Kind:     constraint.KindMatch,
+								Operator: constraint.OpContainsAny,
+								IDs:      []ontology.ID{obj1},
+							},
+							{
+								Kind:     constraint.KindAction,
+								Operator: constraint.OpIsIn,
+								Actions:  set.New(access.ActionRetrieve),
+							},
+						},
+					},
+				}
+				Expect(policyWriter.Create(ctx, p)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+
+				req := access.Request{
+					Subject: subject,
+					Objects: []ontology.ID{obj1},
+					Action:  access.ActionDelete,
+				}
+				err := svc.NewEnforcer(tx).Enforce(ctx, req)
+				Expect(err).To(MatchError(access.ErrDenied))
+			})
+
 			// TODO: This test requires per-object enforcement logic in the Enforcer.
 			// Currently, the Enforcer checks if ANY policy matches the request, not
 			// if ALL objects in the request are covered. This needs a redesign of the
@@ -323,11 +262,12 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{obj1, obj2},
 					Action:  access.ActionRetrieve,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+				err := svc.NewEnforcer(tx).Enforce(ctx, req)
+				Expect(err).To(MatchError(access.ErrDenied))
 			})
 		})
 
-		Describe("Enforce with multiple roles", func() {
+		Context("with multiple roles", func() {
 			It("Should allow access via role assignment", func() {
 				r := &role.Role{
 					Name:        "reader",
@@ -406,86 +346,19 @@ var _ = Describe("Service", func() {
 				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 
 				Expect(roleWriter.UnassignRole(ctx, subject, r.Key)).To(Succeed())
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+				err := svc.NewEnforcer(tx).Enforce(ctx, req)
+				Expect(err).To(MatchError(access.ErrDenied))
 			})
-		})
-	})
 
-	Describe("NewEnforcer", func() {
-		It("Should create a functional enforcer", func() {
-			enforcer := svc.NewEnforcer(nil)
-			Expect(enforcer).ToNot(BeNil())
+			It("Should allow access when any assigned role permits it", func() {
+				r1 := &role.Role{Name: "role-1", Description: "Role 1"}
+				r2 := &role.Role{Name: "role-2", Description: "Role 2"}
+				Expect(roleWriter.Create(ctx, r1)).To(Succeed())
+				Expect(roleWriter.Create(ctx, r2)).To(Succeed())
 
-			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
-			obj := ontology.ID{Type: "channel", Key: "ch1"}
-			Expect(otg.NewWriter(nil).DefineResource(ctx, subject)).To(Succeed())
-			req := access.Request{
-				Subject: subject,
-				Objects: []ontology.ID{obj},
-				Action:  access.ActionRetrieve,
-			}
-			Expect(enforcer.Enforce(ctx, req)).To(MatchError(access.ErrDenied))
-		})
-
-		It("Should use provided transaction", func() {
-			enforcer := svc.NewEnforcer(tx)
-			Expect(enforcer).ToNot(BeNil())
-
-			policyWriter := svc.Policy.NewWriter(tx)
-			roleWriter := svc.Role.NewWriter(tx)
-			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
-			obj := ontology.ID{Type: "channel", Key: "ch1"}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
-
-			r := &role.Role{Name: "test-role", Description: "Test role"}
-			Expect(roleWriter.Create(ctx, r)).To(Succeed())
-
-			p := &policy.Policy{
-				Name:   "allow-read",
-				Effect: policy.EffectAllow,
-				Constraint: constraint.Constraint{
-					Kind:     constraint.KindLogical,
-					Operator: constraint.OpContainsAll,
-					Constraints: []constraint.Constraint{
-						{
-							Kind:     constraint.KindMatch,
-							Operator: constraint.OpContainsAny,
-							IDs:      []ontology.ID{obj},
-						},
-						{
-							Kind:     constraint.KindAction,
-							Operator: constraint.OpIsIn,
-							Actions:  set.New(access.ActionRetrieve),
-						},
-					},
-				},
-			}
-			Expect(policyWriter.Create(ctx, p)).To(Succeed())
-			Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
-			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-			req := access.Request{
-				Subject: subject,
-				Objects: []ontology.ID{obj},
-				Action:  access.ActionRetrieve,
-			}
-			Expect(enforcer.Enforce(ctx, req)).To(Succeed())
-		})
-	})
-
-	Describe("DefaultPolicies", func() {
-		var subject ontology.ID
-		BeforeEach(func() {
-			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
-		})
-
-		Describe("RetrievePoliciesForSubject", func() {
-			It("Should include default policies in retrieved policies", func() {
-				defaultPolicy := policy.Policy{
-					Key:    uuid.New(),
-					Name:   "system-protection",
-					Effect: policy.EffectDeny,
+				p := &policy.Policy{
+					Name:   "allow-read",
+					Effect: policy.EffectAllow,
 					Constraint: constraint.Constraint{
 						Kind:     constraint.KindLogical,
 						Operator: constraint.OpContainsAll,
@@ -493,68 +366,34 @@ var _ = Describe("Service", func() {
 							{
 								Kind:     constraint.KindMatch,
 								Operator: constraint.OpContainsAny,
-								IDs:      []ontology.ID{{Type: "metrics"}},
+								IDs:      []ontology.ID{obj1},
 							},
 							{
 								Kind:     constraint.KindAction,
 								Operator: constraint.OpIsIn,
-								Actions:  set.New(access.ActionUpdate, access.ActionDelete),
+								Actions:  set.New(access.ActionRetrieve),
 							},
 						},
 					},
 				}
-				svc.Policy.AddSystemPolicies(defaultPolicy)
+				Expect(policyWriter.Create(ctx, p)).To(Succeed())
+				Expect(policyWriter.SetOnRole(ctx, r2.Key, p.Key)).To(Succeed())
+				Expect(roleWriter.AssignRole(ctx, subject, r1.Key)).To(Succeed())
+				Expect(roleWriter.AssignRole(ctx, subject, r2.Key)).To(Succeed())
 
-				policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(policies).To(HaveLen(1))
-				Expect(policies[0].Key).To(Equal(defaultPolicy.Key))
-			})
-
-			It("Should combine default policies with role-based policies", func() {
-				defaultPolicy := policy.Policy{
-					Key:    uuid.New(),
-					Name:   "system-protection",
-					Effect: policy.EffectDeny,
-					Constraint: constraint.Constraint{
-						Kind:     constraint.KindMatch,
-						Operator: constraint.OpContainsAny,
-						IDs:      []ontology.ID{{Type: "metrics"}},
-					},
+				req := access.Request{
+					Subject: subject,
+					Objects: []ontology.ID{obj1},
+					Action:  access.ActionRetrieve,
 				}
-				svc.Policy.AddSystemPolicies(defaultPolicy)
-
-				roleWriter := svc.Role.NewWriter(tx)
-				policyWriter := svc.Policy.NewWriter(tx)
-
-				r := &role.Role{Name: "test-role", Description: "Test role"}
-				Expect(roleWriter.Create(ctx, r)).To(Succeed())
-
-				rolePolicy := &policy.Policy{
-					Name:   "allow-channels",
-					Effect: policy.EffectAllow,
-					Constraint: constraint.Constraint{
-						Kind:     constraint.KindMatch,
-						Operator: constraint.OpContainsAny,
-						IDs:      []ontology.ID{{Type: "channel"}},
-					},
-				}
-				Expect(policyWriter.Create(ctx, rolePolicy)).To(Succeed())
-				Expect(policyWriter.SetOnRole(ctx, r.Key, rolePolicy.Key)).To(Succeed())
-				Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
-
-				policies, err := svc.RetrievePoliciesForSubject(ctx, subject, tx)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(policies).To(HaveLen(2))
-				keys := []uuid.UUID{policies[0].Key, policies[1].Key}
-				Expect(keys).To(ContainElements(defaultPolicy.Key, rolePolicy.Key))
+				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			})
 		})
 
-		Describe("Enforcer with default policies", func() {
-			It("Should deny access based on default deny policy", func() {
+		Context("with system policies", func() {
+			It("Should deny access based on system deny policy", func() {
 				metricsObj := ontology.ID{Type: "metrics", Key: "cpu-usage"}
-				defaultPolicy := policy.Policy{
+				systemPolicy := policy.Policy{
 					Key:    uuid.New(),
 					Name:   "protect-metrics",
 					Effect: policy.EffectDeny,
@@ -575,20 +414,21 @@ var _ = Describe("Service", func() {
 						},
 					},
 				}
-				svc.Policy.AddSystemPolicies(defaultPolicy)
+				svc.Policy.AddSystemPolicies(systemPolicy)
 
 				req := access.Request{
 					Subject: subject,
 					Objects: []ontology.ID{metricsObj},
 					Action:  access.ActionDelete,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+				err := svc.NewEnforcer(tx).Enforce(ctx, req)
+				Expect(err).To(MatchError(access.ErrDenied))
 			})
 
-			It("Should allow access when default policy does not match", func() {
+			It("Should allow access when system policy does not match", func() {
 				channelObj := ontology.ID{Type: "channel", Key: "sensor-1"}
 
-				defaultPolicy := policy.Policy{
+				systemDenyPolicy := policy.Policy{
 					Key:    uuid.New(),
 					Name:   "protect-metrics",
 					Effect: policy.EffectDeny,
@@ -609,9 +449,9 @@ var _ = Describe("Service", func() {
 						},
 					},
 				}
-				svc.Policy.AddSystemPolicies(defaultPolicy)
+				svc.Policy.AddSystemPolicies(systemDenyPolicy)
 
-				allowPolicy := policy.Policy{
+				systemAllowPolicy := policy.Policy{
 					Key:    uuid.New(),
 					Name:   "allow-channels",
 					Effect: policy.EffectAllow,
@@ -621,7 +461,7 @@ var _ = Describe("Service", func() {
 						IDs:      []ontology.ID{{Type: "channel"}},
 					},
 				}
-				svc.Policy.AddSystemPolicies(allowPolicy)
+				svc.Policy.AddSystemPolicies(systemAllowPolicy)
 
 				req := access.Request{
 					Subject: subject,
@@ -631,10 +471,10 @@ var _ = Describe("Service", func() {
 				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(Succeed())
 			})
 
-			It("Should deny even with role allow when default deny matches", func() {
+			It("Should deny even with role allow when system deny matches", func() {
 				metricsObj := ontology.ID{Type: "metrics", Key: "cpu-usage"}
 
-				defaultDenyPolicy := policy.Policy{
+				systemDenyPolicy := policy.Policy{
 					Key:    uuid.New(),
 					Name:   "protect-metrics",
 					Effect: policy.EffectDeny,
@@ -655,10 +495,7 @@ var _ = Describe("Service", func() {
 						},
 					},
 				}
-				svc.Policy.AddSystemPolicies(defaultDenyPolicy)
-
-				roleWriter := svc.Role.NewWriter(tx)
-				policyWriter := svc.Policy.NewWriter(tx)
+				svc.Policy.AddSystemPolicies(systemDenyPolicy)
 
 				r := &role.Role{Name: "admin", Description: "Admin role"}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
@@ -681,7 +518,61 @@ var _ = Describe("Service", func() {
 					Objects: []ontology.ID{metricsObj},
 					Action:  access.ActionDelete,
 				}
-				Expect(svc.NewEnforcer(tx).Enforce(ctx, req)).To(MatchError(access.ErrDenied))
+				err := svc.NewEnforcer(tx).Enforce(ctx, req)
+				Expect(err).To(MatchError(access.ErrDenied))
+			})
+
+			It("Should process deny policies before allow policies", func() {
+				obj := ontology.ID{Type: "protected", Key: "resource-1"}
+
+				allowPolicy := policy.Policy{
+					Key:    uuid.New(),
+					Name:   "allow-all",
+					Effect: policy.EffectAllow,
+					Constraint: constraint.Constraint{
+						Kind:     constraint.KindMatch,
+						Operator: constraint.OpContainsAny,
+						IDs:      []ontology.ID{{Type: "protected"}},
+					},
+				}
+				denyPolicy := policy.Policy{
+					Key:    uuid.New(),
+					Name:   "deny-delete",
+					Effect: policy.EffectDeny,
+					Constraint: constraint.Constraint{
+						Kind:     constraint.KindLogical,
+						Operator: constraint.OpContainsAll,
+						Constraints: []constraint.Constraint{
+							{
+								Kind:     constraint.KindMatch,
+								Operator: constraint.OpContainsAny,
+								IDs:      []ontology.ID{{Type: "protected"}},
+							},
+							{
+								Kind:     constraint.KindAction,
+								Operator: constraint.OpIsIn,
+								Actions:  set.New(access.ActionDelete),
+							},
+						},
+					},
+				}
+				// Add allow first, then deny - deny should still take precedence
+				svc.Policy.AddSystemPolicies(allowPolicy, denyPolicy)
+
+				reqDelete := access.Request{
+					Subject: subject,
+					Objects: []ontology.ID{obj},
+					Action:  access.ActionDelete,
+				}
+				err := svc.NewEnforcer(tx).Enforce(ctx, reqDelete)
+				Expect(err).To(MatchError(access.ErrDenied))
+
+				reqRetrieve := access.Request{
+					Subject: subject,
+					Objects: []ontology.ID{obj},
+					Action:  access.ActionRetrieve,
+				}
+				Expect(svc.NewEnforcer(tx).Enforce(ctx, reqRetrieve)).To(Succeed())
 			})
 		})
 	})

@@ -155,6 +155,24 @@ var _ = Describe("Feature Behavior", func() {
 - `Eventually(func() bool).Should(BeTrue())` - Poll until condition met
 - `Consistently(func() bool).Should(BeTrue())` - Assert condition stays true
 
+### Error Testing
+
+Use Gomega's `.Error()` matcher for concise error assertions with functions returning
+`(value, error)`:
+
+```go
+// Preferred: concise, inline error assertion
+Expect(OpenService(ctx, cfg)).Error().To(MatchError(ContainSubstring("db")))
+
+// Also valid for matching specific error types
+Expect(OpenService(ctx, cfg)).Error().To(MatchError(ErrInvalidConfig))
+
+// Avoid: separate variable assignment when testing errors
+_, err := OpenService(ctx, cfg)
+Expect(err).To(HaveOccurred())
+Expect(err.Error()).To(ContainSubstring("db"))
+```
+
 ## 4-Layer Architecture (Server)
 
 The Synnax server (`/core/`) follows strict layering:
