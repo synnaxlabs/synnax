@@ -50,8 +50,8 @@ var _ = Describe("Ontology Integration", func() {
 				{Key: uuid.New(), Name: "policy2", Effect: policy.EffectAllow},
 			}
 			Expect(policy.OntologyIDsFromPolicies(policies)).To(Equal([]ontology.ID{
-				policy.OntologyID(policies[0].Key),
-				policy.OntologyID(policies[1].Key),
+				policies[0].OntologyID(),
+				policies[1].OntologyID(),
 			}))
 		})
 	})
@@ -128,7 +128,7 @@ var _ = Describe("Ontology Integration", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			ch := <-changesChan
 			Expect(ch.Variant).To(Equal(change.Set))
-			Expect(ch.Key).To(Equal(policy.OntologyID(p.Key)))
+			Expect(ch.Key).To(Equal(p.OntologyID()))
 			Expect(ch.Value.Name).To(Equal(p.Name))
 			tx := db.OpenTx()
 			Expect(svc.NewWriter(tx).Delete(ctx, p.Key)).To(Succeed())

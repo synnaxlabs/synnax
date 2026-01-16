@@ -66,7 +66,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, p)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(policy.OntologyID(p.Key)).
+				WhereIDs(p.OntologyID()).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID.Key).To(Equal(p.Key.String()))

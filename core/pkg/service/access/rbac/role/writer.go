@@ -42,7 +42,7 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	if err := gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DefineResource(ctx, OntologyID(r.Key)); err != nil {
+	if err := w.otg.DefineResource(ctx, r.OntologyID()); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(

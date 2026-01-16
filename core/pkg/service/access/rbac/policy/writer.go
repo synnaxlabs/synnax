@@ -42,7 +42,7 @@ func (w Writer) Create(ctx context.Context, policy *Policy) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResource(ctx, OntologyID(policy.Key))
+	return w.otg.DefineResource(ctx, policy.OntologyID())
 }
 
 // Delete removes policies with the given keys from the database.
