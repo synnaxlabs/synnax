@@ -212,7 +212,8 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "device",
   icon,
-  hasChildren: true,
+  // Use server-provided hasChildren which is computed from actual ontology relationships.
+  hasChildren: (resource) => resource.hasChildren === true,
   TreeContextMenu,
   Item,
 };

@@ -106,7 +106,7 @@ export interface TreeItemProps extends Omit<Tree.ItemProps<string>, "id" | "reso
 export interface Service {
   type: ontology.ResourceType;
   icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
-  hasChildren: boolean;
+  hasChildren: boolean | ((resource: ontology.Resource) => boolean);
   onSelect?: HandleSelect;
   canDrop: Haul.CanDrop;
   haulItems: (resource: ontology.Resource) => Haul.Item[];
@@ -122,5 +122,14 @@ export const NOOP_SERVICE: Omit<Service, "type"> = {
   canDrop: () => false,
   haulItems: () => [],
 };
+
+/** Resolves hasChildren for a service, handling both boolean and function forms. */
+export const resolveHasChildren = (
+  service: Service,
+  resource: ontology.Resource,
+): boolean =>
+  typeof service.hasChildren === "function"
+    ? service.hasChildren(resource)
+    : service.hasChildren;
 
 export interface Services extends Record<ontology.ResourceType, Service> {}

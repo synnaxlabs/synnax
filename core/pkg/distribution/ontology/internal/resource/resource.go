@@ -115,6 +115,9 @@ type Resource struct {
 	// Data is the data for the Resource. Data must be parseable by the Resource's
 	// schema.
 	Data any `json:"data" msgpack:"data"`
+	// HasChildren indicates whether this resource has any children in the ontology.
+	// This is computed during retrieval by checking for ParentOf relationships.
+	HasChildren bool `json:"hasChildren" msgpack:"hasChildren"`
 	// schema is the schema that this Resource matches.
 	schema zyn.Schema
 }

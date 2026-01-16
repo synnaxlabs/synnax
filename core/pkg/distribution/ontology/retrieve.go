@@ -268,7 +268,32 @@ func (r Retrieve) retrieveEntities(
 		}
 		return res, true, err
 	})
-	return entries.All(), err
+	if err != nil {
+		return nil, err
+	}
+	resources := entries.All()
+	// Compute HasChildren for each resource by checking for ParentOf relationships.
+	if err = r.populateHasChildren(ctx, tx, resources); err != nil {
+		return nil, err
+	}
+	return resources, nil
+}
+
+// populateHasChildren sets the HasChildren field for each resource by checking
+// if any ParentOf relationships exist where the resource is the parent.
+func (r Retrieve) populateHasChildren(ctx context.Context, tx gorp.Tx, resources []Resource) error {
+	for i := range resources {
+		var relationships []Relationship
+		if err := gorp.NewRetrieve[[]byte, Relationship]().
+			WherePrefix(childrenPrefix(resources[i].ID)).
+			Limit(1).
+			Entries(&relationships).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		resources[i].HasChildren = len(relationships) > 0
+	}
+	return nil
 }
 
 func (r Retrieve) extractIDs(clause gorp.Retrieve[ID, Resource]) []ID {
