@@ -85,20 +85,32 @@ ni::Scanner::parse_device(NISysCfgResourceHandle resource) const {
     dev.location = property_value_buf;
 
     // Get the link name this device connects to (modules connect to a chassis link)
-    if (!this->syscfg->GetResourceProperty(
+    if (const auto link_err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyConnectsToLinkName,
             property_value_buf
-        ))
+        )) {
+        VLOG(1) << SCAN_LOG_PREFIX << "device " << dev.key
+                << " has no ConnectsToLinkName: " << link_err.message();
+    } else {
         dev.connects_to_link_name = property_value_buf;
+        LOG(INFO) << SCAN_LOG_PREFIX << "device " << dev.key << " (" << dev.model
+                  << ") connects to link: '" << dev.connects_to_link_name << "'";
+    }
 
     // Get the link name this device provides (chassis provide a link for modules)
-    if (!this->syscfg->GetResourceProperty(
+    if (const auto link_err = this->syscfg->GetResourceProperty(
             resource,
             NISysCfgResourcePropertyProvidesLinkName,
             property_value_buf
-        ))
+        )) {
+        VLOG(1) << SCAN_LOG_PREFIX << "device " << dev.key
+                << " has no ProvidesLinkName: " << link_err.message();
+    } else {
         dev.provides_link_name = property_value_buf;
+        LOG(INFO) << SCAN_LOG_PREFIX << "device " << dev.key << " (" << dev.model
+                  << ") provides link: '" << dev.provides_link_name << "'";
+    }
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
             resource,
@@ -191,18 +203,31 @@ ni::Scanner::scan(const common::ScannerContext &ctx) {
         this->syscfg->CloseHandle(curr_resource);
     }
 
+    // Log the link provider map for debugging
+    LOG(INFO) << SCAN_LOG_PREFIX << "link provider map has " << link_to_device_key.size()
+              << " entries";
+    for (const auto &[link, key] : link_to_device_key) {
+        LOG(INFO) << SCAN_LOG_PREFIX << "  link '" << link << "' -> device " << key;
+    }
+
     // Second pass: resolve parent relationships and convert to synnax devices
     for (auto &dev : ni_devices) {
         if (!dev.connects_to_link_name.empty()) {
             auto it = link_to_device_key.find(dev.connects_to_link_name);
             if (it != link_to_device_key.end()) {
                 dev.parent_device = it->second;
-                VLOG(1) << SCAN_LOG_PREFIX << "device " << dev.key
-                        << " parent resolved to: " << dev.parent_device;
+                LOG(INFO) << SCAN_LOG_PREFIX << "device " << dev.key << " (" << dev.model
+                          << ") parent resolved to: " << dev.parent_device;
+            } else {
+                LOG(WARNING) << SCAN_LOG_PREFIX << "device " << dev.key << " (" << dev.model
+                             << ") connects to link '" << dev.connects_to_link_name
+                             << "' but no provider found";
             }
         }
         devices.push_back(dev.to_synnax());
     }
+
+    LOG(INFO) << SCAN_LOG_PREFIX << "scan complete: " << devices.size() << " devices found";
 
     auto close_err = this->syscfg->CloseHandle(resources);
     if (err.skip(SKIP_DEVICE_ERR)) return {devices, err};

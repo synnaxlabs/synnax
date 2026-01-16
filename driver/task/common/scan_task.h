@@ -450,6 +450,11 @@ public:
 
         xerrors::Error last_err = xerrors::NIL;
         for (auto &device: to_create) {
+            LOG(INFO) << this->log_prefix << "creating device " << device.key
+                      << " (model: " << device.model
+                      << ", parent_device: '"
+                      << (device.parent_device.empty() ? "<none>" : device.parent_device)
+                      << "')";
             std::vector single_device = {device};
             if (const auto create_err = this->client->create_devices(single_device)) {
                 LOG(WARNING) << this->log_prefix << "failed to create device "
