@@ -71,7 +71,7 @@ func (id ID) Validate() error {
 func (id ID) String() string { return string(id.Type) + ":" + id.Key }
 
 // IsZero returns true if the ID is the zero value (both Key and Type are empty).
-func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
+func (id ID) IsZero() bool { return id == ID{} }
 
 // IsType returns true if the ID represents a type identifier (has a Type but no Key).
 // Type IDs are used to identify resource types rather than specific resource instances.
