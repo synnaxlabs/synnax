@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -55,6 +56,8 @@ type ServiceConfig struct {
 	Framer  *framer.Service
 	Channel *channel.Service
 	Arc     *arc.Service
+	// Status is used for persisting calculation status updates.
+	Status *status.Service
 	alamos.Instrumentation
 }
 
@@ -70,6 +73,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
@@ -80,6 +84,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -129,6 +134,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Framer:            cfg.Framer,
 		Arc:               cfg.Arc,
 		ChannelObservable: cfg.Channel.NewObservable(),
+		Status:            cfg.Status,
 	})
 	if err != nil {
 		return nil, err

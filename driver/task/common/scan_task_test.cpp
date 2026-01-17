@@ -352,6 +352,303 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     EXPECT_TRUE(created_devices->at(0).configured);
 }
 
+/// @brief it should update device when location changes (e.g., renamed in NI MAX).
+TEST(TestScanTask, TestUpdateWhenLocationChanges) {
+    synnax::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.location = "old_location";
+    dev1.properties = "test_properties";
+    dev1.configured = true;
+
+    // Same device but with new location (simulating NI MAX rename)
+    synnax::Device dev1_renamed = dev1;
+    dev1_renamed.location = "new_location";
+    dev1_renamed.name = "scanner_name"; // Scanner might set different name
+    dev1_renamed.properties = ""; // Scanner doesn't preserve properties
+    dev1_renamed.configured = false; // Scanner always sets false
+
+    std::vector<std::vector<synnax::Device>> devices = {{dev1_renamed}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{}
+    );
+
+    // Device already exists on remote with old location
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    remote_devices->push_back(dev1);
+
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HERTZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+
+    // Device should be updated due to location change
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).location, "new_location");
+    // User-configured properties should be preserved
+    EXPECT_EQ(created_devices->at(0).name, "Device 1");
+    EXPECT_EQ(created_devices->at(0).properties, "test_properties");
+    EXPECT_TRUE(created_devices->at(0).configured);
+}
+
+/// @brief it should NOT update device when location is the same.
+TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
+    synnax::Device dev1;
+    dev1.key = "device1";
+    dev1.name = "Device 1";
+    dev1.rack = 1;
+    dev1.location = "same_location";
+    dev1.properties = "test_properties";
+    dev1.configured = true;
+
+    // Same device, same location
+    synnax::Device dev1_scanned = dev1;
+    dev1_scanned.name = "scanner_name";
+    dev1_scanned.properties = "";
+    dev1_scanned.configured = false;
+
+    std::vector<std::vector<synnax::Device>> devices = {{dev1_scanned}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    remote_devices->push_back(dev1);
+
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HERTZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+
+    EXPECT_EQ(created_devices->size(), 0);
+}
+
+/// @brief it should deduplicate devices keeping the last occurrence (new slot last).
+TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
+    synnax::Device dev1_old;
+    dev1_old.key = "device1";
+    dev1_old.name = "Device 1";
+    dev1_old.rack = 1;
+    dev1_old.location = "old_slot";
+
+    synnax::Device dev1_new = dev1_old;
+    dev1_new.location = "new_slot";
+
+    // Old slot first, new slot last -> new_slot should win
+    std::vector<std::vector<synnax::Device>> devices = {{dev1_old, dev1_new}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HERTZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).location, "new_slot");
+}
+
+/// @brief it should deduplicate devices keeping the last occurrence (old slot last).
+TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
+    synnax::Device dev1_old;
+    dev1_old.key = "device1";
+    dev1_old.name = "Device 1";
+    dev1_old.rack = 1;
+    dev1_old.location = "old_slot";
+
+    synnax::Device dev1_new = dev1_old;
+    dev1_new.location = "new_slot";
+
+    // New slot first, old slot last -> old_slot should win
+    std::vector<std::vector<synnax::Device>> devices = {{dev1_new, dev1_old}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HERTZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).location, "old_slot");
+}
+
+/// @brief it should deduplicate and use last occurrence when updating existing device.
+TEST(TestScanTask, TestDeduplicateOnUpdate) {
+    // Device exists on remote with original location
+    synnax::Device existing_dev;
+    existing_dev.key = "device1";
+    existing_dev.name = "Device 1";
+    existing_dev.rack = 1;
+    existing_dev.location = "original_slot";
+    existing_dev.properties = "user_properties";
+    existing_dev.configured = true;
+
+    // Scanner returns same device twice with different locations (transition state)
+    synnax::Device dev1_old;
+    dev1_old.key = "device1";
+    dev1_old.name = "Scanner Name";
+    dev1_old.rack = 1;
+    dev1_old.location = "intermediate_slot";
+
+    synnax::Device dev1_new = dev1_old;
+    dev1_new.location = "final_slot";
+
+    std::vector<std::vector<synnax::Device>> devices = {{dev1_old, dev1_new}};
+    auto scanner = std::make_unique<MockScanner>(
+        devices,
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{},
+        std::vector<xerrors::Error>{}
+    );
+
+    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    remote_devices->push_back(existing_dev);
+
+    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote_devices,
+        created_devices
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+
+    synnax::Task task;
+    task.key = 12345;
+    task.name = "Test Scan Task";
+
+    breaker::Config breaker_config;
+    telem::Rate scan_rate = telem::HERTZ * 1;
+
+    common::ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        breaker_config,
+        scan_rate,
+        std::move(cluster_api)
+    );
+
+    ASSERT_NIL(scan_task.init());
+    ASSERT_NIL(scan_task.scan());
+
+    // Should update with last occurrence's location, preserving user properties
+    ASSERT_EQ(created_devices->size(), 1);
+    EXPECT_EQ(created_devices->at(0).key, "device1");
+    EXPECT_EQ(created_devices->at(0).location, "final_slot");
+    EXPECT_EQ(created_devices->at(0).name, "Device 1");
+    EXPECT_EQ(created_devices->at(0).properties, "user_properties");
+    EXPECT_TRUE(created_devices->at(0).configured);
+}
+
 /// @brief it should propagate device status to cluster.
 TEST(TestScanTask, TestStatePropagation) {
     synnax::device::Device dev1;

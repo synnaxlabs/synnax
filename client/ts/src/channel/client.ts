@@ -215,8 +215,6 @@ export class Channel {
   }
 }
 
-export const CALCULATION_STATUS_CHANNEL_NAME = "sy_calculation_status";
-
 const retrieveGroupReqZ = z.object({});
 
 const retrieveGroupResZ = z.object({ group: group.groupZ });
