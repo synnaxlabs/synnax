@@ -17,7 +17,8 @@
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/scan_task.h"
 
-class MockScanner final : public driver::task::common::Scanner {
+namespace driver::task::common {
+class MockScanner final : public Scanner {
 public:
     size_t scan_count = 0;
     std::vector<std::vector<synnax::device::Device>> devices;
@@ -29,8 +30,8 @@ public:
     size_t stop_count = 0;
     std::vector<x::errors::Error> stop_errors;
 
-    driver::task::common::ScannerConfig config() const override {
-        return driver::task::common::ScannerConfig{.make = "", .log_prefix = "[mock] "};
+    ScannerConfig config() const override {
+        return ScannerConfig{.make = "", .log_prefix = "[mock] "};
     }
 
     MockScanner(
@@ -55,7 +56,7 @@ public:
     }
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-    scan(const driver::task::common::ScannerContext &ctx) override {
+    scan(const ScannerContext &ctx) override {
         std::vector<synnax::device::Device> devs = {};
         auto err = x::errors::NIL;
         if (this->scan_count < this->devices.size())
@@ -67,7 +68,7 @@ public:
     }
 };
 
-class MockClusterAPI : public driver::task::common::ClusterAPI {
+class MockClusterAPI : public ClusterAPI {
 public:
     std::shared_ptr<std::vector<synnax::device::Device>> remote;
     std::shared_ptr<std::vector<synnax::device::Device>> created;
@@ -122,9 +123,9 @@ public:
 };
 
 /// @brief Enhanced mock scanner that supports signal monitoring testing.
-class MockScannerWithSignals final : public driver::task::common::Scanner {
+class MockScannerWithSignals final : public Scanner {
 public:
-    driver::task::common::ScannerConfig scanner_config;
+    ScannerConfig scanner_config;
     std::vector<synnax::task::Command> exec_commands;
     bool exec_return_value = false;
     std::mutex mu;
@@ -134,22 +135,20 @@ public:
     std::vector<x::errors::Error> scan_errors;
 
     explicit MockScannerWithSignals(
-        const driver::task::common::ScannerConfig &config,
+        const ScannerConfig &config,
         const std::vector<std::vector<synnax::device::Device>> &devices_ = {},
         const std::vector<x::errors::Error> &scan_errors_ = {}
     ):
         scanner_config(config), devices(devices_), scan_errors(scan_errors_) {}
 
-    driver::task::common::ScannerConfig config() const override {
-        return scanner_config;
-    }
+    ScannerConfig config() const override { return scanner_config; }
 
     x::errors::Error start() override { return x::errors::NIL; }
 
     x::errors::Error stop() override { return x::errors::NIL; }
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-    scan(const driver::task::common::ScannerContext &) override {
+    scan(const ScannerContext &) override {
         std::vector<synnax::device::Device> devs = {};
         auto err = x::errors::NIL;
         if (this->scan_count < this->devices.size())
@@ -163,7 +162,7 @@ public:
     bool exec(
         synnax::task::Command &cmd,
         const synnax::task::Task &,
-        const std::shared_ptr<driver::task::Context> &
+        const std::shared_ptr<Context> &
     ) override {
         std::lock_guard lock(mu);
         exec_commands.push_back(cmd);
@@ -196,7 +195,7 @@ TEST(TestScanTask, testSingleScan) {
         created_devices
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -205,7 +204,7 @@ TEST(TestScanTask, testSingleScan) {
     x::breaker::Config breaker_config;
     x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -250,7 +249,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
         created_devices
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -259,7 +258,7 @@ TEST(TestScanTask, TestNoRecreateOnExistingRemote) {
     x::breaker::Config breaker_config;
     x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -318,7 +317,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
         created_devices
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -327,7 +326,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
     x::breaker::Config breaker_config;
     x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -354,7 +353,7 @@ TEST(TestScanTask, TestRecreateWhenRackChanges) {
 
 /// @brief it should update device when location changes (e.g., renamed in NI MAX).
 TEST(TestScanTask, TestUpdateWhenLocationChanges) {
-    synnax::Device dev1;
+    synnax::device::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
@@ -363,40 +362,40 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     dev1.configured = true;
 
     // Same device but with new location (simulating NI MAX rename)
-    synnax::Device dev1_renamed = dev1;
+    synnax::device::Device dev1_renamed = dev1;
     dev1_renamed.location = "new_location";
     dev1_renamed.name = "scanner_name"; // Scanner might set different name
     dev1_renamed.properties = ""; // Scanner doesn't preserve properties
     dev1_renamed.configured = false; // Scanner always sets false
 
-    std::vector<std::vector<synnax::Device>> devices = {{dev1_renamed}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_renamed}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{}
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
     );
 
     // Device already exists on remote with old location
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(dev1);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
     );
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
-    common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -420,7 +419,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
 
 /// @brief it should NOT update device when location is the same.
 TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
-    synnax::Device dev1;
+    synnax::device::Device dev1;
     dev1.key = "device1";
     dev1.name = "Device 1";
     dev1.rack = 1;
@@ -429,38 +428,38 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
     dev1.configured = true;
 
     // Same device, same location
-    synnax::Device dev1_scanned = dev1;
+    synnax::device::Device dev1_scanned = dev1;
     dev1_scanned.name = "scanner_name";
     dev1_scanned.properties = "";
     dev1_scanned.configured = false;
 
-    std::vector<std::vector<synnax::Device>> devices = {{dev1_scanned}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_scanned}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{}
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(dev1);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
     );
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
-    common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -477,26 +476,26 @@ TEST(TestScanTask, TestNoUpdateWhenLocationSame) {
 
 /// @brief it should deduplicate devices keeping the last occurrence (new slot last).
 TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
-    synnax::Device dev1_old;
+    synnax::device::Device dev1_old;
     dev1_old.key = "device1";
     dev1_old.name = "Device 1";
     dev1_old.rack = 1;
     dev1_old.location = "old_slot";
 
-    synnax::Device dev1_new = dev1_old;
+    synnax::device::Device dev1_new = dev1_old;
     dev1_new.location = "new_slot";
 
     // Old slot first, new slot last -> new_slot should win
-    std::vector<std::vector<synnax::Device>> devices = {{dev1_old, dev1_new}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_old, dev1_new}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{}
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -504,12 +503,12 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
     common::ScanTask scan_task(
         std::move(scanner),
@@ -530,26 +529,26 @@ TEST(TestScanTask, TestDeduplicateKeepsLastNewSlot) {
 
 /// @brief it should deduplicate devices keeping the last occurrence (old slot last).
 TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
-    synnax::Device dev1_old;
+    synnax::device::Device dev1_old;
     dev1_old.key = "device1";
     dev1_old.name = "Device 1";
     dev1_old.rack = 1;
     dev1_old.location = "old_slot";
 
-    synnax::Device dev1_new = dev1_old;
+    synnax::device::Device dev1_new = dev1_old;
     dev1_new.location = "new_slot";
 
     // New slot first, old slot last -> old_slot should win
-    std::vector<std::vector<synnax::Device>> devices = {{dev1_new, dev1_old}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_new, dev1_old}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{}
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -557,12 +556,12 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
     common::ScanTask scan_task(
         std::move(scanner),
@@ -584,7 +583,7 @@ TEST(TestScanTask, TestDeduplicateKeepsLastOldSlot) {
 /// @brief it should deduplicate and use last occurrence when updating existing device.
 TEST(TestScanTask, TestDeduplicateOnUpdate) {
     // Device exists on remote with original location
-    synnax::Device existing_dev;
+    synnax::device::Device existing_dev;
     existing_dev.key = "device1";
     existing_dev.name = "Device 1";
     existing_dev.rack = 1;
@@ -593,27 +592,27 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     existing_dev.configured = true;
 
     // Scanner returns same device twice with different locations (transition state)
-    synnax::Device dev1_old;
+    synnax::device::Device dev1_old;
     dev1_old.key = "device1";
     dev1_old.name = "Scanner Name";
     dev1_old.rack = 1;
     dev1_old.location = "intermediate_slot";
 
-    synnax::Device dev1_new = dev1_old;
+    synnax::device::Device dev1_new = dev1_old;
     dev1_new.location = "final_slot";
 
-    std::vector<std::vector<synnax::Device>> devices = {{dev1_old, dev1_new}};
+    std::vector<std::vector<synnax::device::Device>> devices = {{dev1_old, dev1_new}};
     auto scanner = std::make_unique<MockScanner>(
         devices,
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{},
-        std::vector<xerrors::Error>{}
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
     );
 
-    auto remote_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
     remote_devices->push_back(existing_dev);
 
-    auto created_devices = std::make_shared<std::vector<synnax::Device>>();
+    auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
@@ -621,12 +620,12 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
     task.name = "Test Scan Task";
 
-    breaker::Config breaker_config;
-    telem::Rate scan_rate = telem::HERTZ * 1;
+    x::breaker::Config breaker_config;
+    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
     common::ScanTask scan_task(
         std::move(scanner),
@@ -688,7 +687,7 @@ TEST(TestScanTask, TestStatePropagation) {
     );
     auto cluster_api_ptr = cluster_api.get();
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -697,7 +696,7 @@ TEST(TestScanTask, TestStatePropagation) {
     x::breaker::Config breaker_config;
     x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -746,7 +745,7 @@ TEST(TestScanTask, TestStatePropagation) {
 
 /// @brief it should delegate unknown commands to scanner exec handler.
 TEST(TestScanTask, testCustomCommandDelegation) {
-    driver::task::common::ScannerConfig cfg{.make = "test", .log_prefix = "[test] "};
+    ScannerConfig cfg{.make = "test", .log_prefix = "[test] "};
     auto scanner = std::make_unique<MockScannerWithSignals>(cfg);
     auto scanner_ptr = scanner.get();
     scanner_ptr->exec_return_value = true;
@@ -758,7 +757,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
         created_devices
     );
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = 12345;
@@ -767,7 +766,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
     x::breaker::Config breaker_config;
     x::telem::Rate scan_rate = x::telem::HERTZ * 1;
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -793,7 +792,7 @@ TEST(TestScanTask, testCustomCommandDelegation) {
 
 /// @brief it should return expected config values from scanner.
 TEST(TestScanTask, testScannerConfigReturnsExpectedValues) {
-    driver::task::common::ScannerConfig cfg{.make = "test_make"};
+    ScannerConfig cfg{.make = "test_make"};
     MockScannerWithSignals scanner(cfg);
 
     auto returned_cfg = scanner.config();
@@ -801,22 +800,20 @@ TEST(TestScanTask, testScannerConfigReturnsExpectedValues) {
 }
 
 /// @brief Mock scanner that captures ctx.devices for verification.
-class DeviceCapturingScanner final : public driver::task::common::Scanner {
+class DeviceCapturingScanner final : public Scanner {
 public:
-    driver::task::common::ScannerConfig scanner_config;
+    ScannerConfig scanner_config;
     mutable std::mutex mu;
     std::vector<std::unordered_map<std::string, synnax::device::Device>>
         captured_devices;
 
-    explicit DeviceCapturingScanner(const driver::task::common::ScannerConfig &config):
+    explicit DeviceCapturingScanner(const ScannerConfig &config):
         scanner_config(config) {}
 
-    driver::task::common::ScannerConfig config() const override {
-        return scanner_config;
-    }
+    ScannerConfig config() const override { return scanner_config; }
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
-    scan(const driver::task::common::ScannerContext &ctx) override {
+    scan(const ScannerContext &ctx) override {
         std::lock_guard lock(mu);
         if (ctx.devices != nullptr)
             captured_devices.push_back(*ctx.devices);
@@ -887,20 +884,17 @@ TEST(TestScanTask, testSignalMonitoringAddsDevicesToContext) {
     cluster_api->streamer_factory = streamer_factory;
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
-    driver::task::common::ScannerConfig cfg{
-        .make = "test_make",
-        .log_prefix = "[test] "
-    };
+    ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = synnax::task::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -964,20 +958,17 @@ TEST(TestScanTask, testSignalMonitoringRemovesDevicesFromContext) {
     cluster_api->streamer_factory = streamer_factory;
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
-    driver::task::common::ScannerConfig cfg{
-        .make = "test_make",
-        .log_prefix = "[test] "
-    };
+    ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = synnax::task::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -1038,20 +1029,17 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     cluster_api->signal_channels = {device_set_ch, device_delete_ch};
 
     // Scanner expects "test_make" but device has "other_make"
-    driver::task::common::ScannerConfig cfg{
-        .make = "test_make",
-        .log_prefix = "[test] "
-    };
+    ScannerConfig cfg{.make = "test_make", .log_prefix = "[test] "};
     auto scanner = std::make_unique<DeviceCapturingScanner>(cfg);
     auto scanner_ptr = scanner.get();
 
-    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    auto ctx = std::make_shared<MockContext>(nullptr);
 
     synnax::task::Task task;
     task.key = synnax::task::create_task_key(1, 12345);
     task.name = "Test Scan Task";
 
-    driver::task::common::ScanTask scan_task(
+    ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
@@ -1069,4 +1057,5 @@ TEST(TestScanTask, testSignalMonitoringFiltersByMake) {
     EXPECT_FALSE(scanner_ptr->has_device("wrong-make-device"));
 
     scan_task.stop();
+}
 }
