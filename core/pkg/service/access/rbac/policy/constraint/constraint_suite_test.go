@@ -91,6 +91,7 @@ var _ = BeforeEach(func() {
 	}))
 	// Register test services for relationship constraint tests
 	otg.RegisterService(&testService{resourceType: "test"})
+	otg.RegisterService(&testService{resourceType: "test1"})
 	otg.RegisterService(&testService{resourceType: "test2"})
 	tx = db.OpenTx()
 	params = constraint.EnforceParams{Tx: tx, Ontology: otg}

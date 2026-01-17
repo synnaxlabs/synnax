@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Enforcer is an implementation of the access.Enforcer interface for the RBAC model.
@@ -39,40 +40,55 @@ func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 
 // Enforce implements the access.Enforcer interface. It checks both direct user policies
 // and policies from all roles assigned to the user. Returns ErrDenied if ANY object in
-// the request is not accessible. If a policy has an EffectDeny, it will return
-// access.ErrDenied.
+// the request is explicitly denied OR if any object is not covered by an allow policy.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	policies, err := e.retrievePolicies(ctx, req.Subject)
 	if err != nil {
 		return err
 	}
+
+	params := constraint.EnforceParams{
+		Request:  req,
+		Ontology: e.cfg.Ontology,
+		Tx:       e.tx,
+	}
+
+	// First, check deny policies. If any deny policy covers any requested object,
+	// deny the entire request.
 	for _, p := range policies {
 		if p.Effect == policy.EffectDeny {
-			matches, err := p.Constraint.Enforce(ctx, constraint.EnforceParams{
-				Request:  req,
-				Ontology: e.cfg.Ontology,
-				Tx:       e.tx,
-			})
+			deniedObjects, err := p.Constraint.Enforce(ctx, params)
 			if err != nil {
 				return err
 			}
-			if matches {
+			if len(deniedObjects) > 0 {
 				return access.ErrDenied
 			}
 		}
 	}
+
+	// Track which objects are covered by allow policies.
+	coveredSet := make(set.Set[ontology.ID])
 	for _, p := range policies {
 		if p.Effect == policy.EffectAllow {
-			if matches, err := p.Constraint.Enforce(ctx, constraint.EnforceParams{
-				Request:  req,
-				Ontology: e.cfg.Ontology,
-				Tx:       e.tx,
-			}); err != nil || matches {
+			allowedObjects, err := p.Constraint.Enforce(ctx, params)
+			if err != nil {
 				return err
+			}
+			for _, obj := range allowedObjects {
+				coveredSet.Add(obj)
 			}
 		}
 	}
-	return access.ErrDenied
+
+	// Check if all requested objects are covered by at least one allow policy.
+	for _, obj := range req.Objects {
+		if !coveredSet.Contains(obj) {
+			return access.ErrDenied
+		}
+	}
+
+	return nil
 }
 
 func (e *Enforcer) retrievePolicies(

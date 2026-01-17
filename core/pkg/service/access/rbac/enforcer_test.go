@@ -225,11 +225,7 @@ var _ = Describe("Enforcer", func() {
 				Expect(err).To(MatchError(access.ErrDenied))
 			})
 
-			// TODO: This test requires per-object enforcement logic in the Enforcer.
-			// Currently, the Enforcer checks if ANY policy matches the request, not
-			// if ALL objects in the request are covered. This needs a redesign of the
-			// Enforcer to iterate through each object and verify coverage.
-			PIt("Should deny when multiple objects and only one is allowed", func() {
+			It("Should deny when multiple objects and only one is allowed", func() {
 				r := &role.Role{Name: "test-role", Description: "Test role"}
 				Expect(roleWriter.Create(ctx, r)).To(Succeed())
 

@@ -9,13 +9,24 @@
 
 package constraint
 
-func (c Constraint) enforceAction(params EnforceParams) (bool, error) {
+import "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+
+// enforceAction checks if the request's action matches this constraint.
+// If the action matches, all requested objects are covered (returned).
+// If the action doesn't match, no objects are covered (empty slice returned).
+func (c Constraint) enforceAction(params EnforceParams) ([]ontology.ID, error) {
 	switch c.Operator {
 	case OpIsIn:
-		return c.Actions.Contains(params.Request.Action), nil
+		if c.Actions.Contains(params.Request.Action) {
+			return params.Request.Objects, nil
+		}
+		return nil, nil
 	case OpIsNotIn:
-		return !c.Actions.Contains(params.Request.Action), nil
+		if !c.Actions.Contains(params.Request.Action) {
+			return params.Request.Objects, nil
+		}
+		return nil, nil
 	default:
-		return false, ErrInvalidOperator
+		return nil, ErrInvalidOperator
 	}
 }

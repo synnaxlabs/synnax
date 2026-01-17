@@ -14,55 +14,68 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-func (c Constraint) enforceMatch(params EnforceParams) (bool, error) {
-	requestedIDsSet := set.FromSlice(params.Request.Objects)
-	requestedTypesSet := set.FromMapSlice(params.Request.Objects, func(id ontology.ID) ontology.Type {
-		return id.Type
-	})
+// enforceMatch returns the subset of requested objects that match this constraint's IDs.
+// The behavior depends on the operator:
+//   - OpContainsAny: Returns requested objects that match ANY of the constraint's IDs
+//   - OpContainsAll: If ALL constraint IDs are present in the request, returns all
+//     requested objects; otherwise returns empty
+//   - OpContainsNone: Returns requested objects that match NONE of the constraint's IDs
+func (c Constraint) enforceMatch(params EnforceParams) ([]ontology.ID, error) {
+	constraintIDsSet := set.FromSlice(c.IDs)
+	// Only collect types from type-only IDs (where Key is empty)
+	constraintTypesSet := make(set.Set[ontology.Type])
+	for _, id := range c.IDs {
+		if id.IsType() {
+			constraintTypesSet.Add(id.Type)
+		}
+	}
+
 	switch c.Operator {
 	case OpContainsAny:
 		if len(c.IDs) == 0 {
-			return true, nil
+			// No constraint IDs means all objects match
+			return params.Request.Objects, nil
 		}
-		for _, id := range c.IDs {
-			if id.IsType() {
-				if requestedTypesSet.Contains(id.Type) {
-					return true, nil
-				}
-			} else {
-				if requestedIDsSet.Contains(id) {
-					return true, nil
-				}
+		// Return objects that match any constraint ID
+		var matched []ontology.ID
+		for _, obj := range params.Request.Objects {
+			if constraintIDsSet.Contains(obj) || constraintTypesSet.Contains(obj.Type) {
+				matched = append(matched, obj)
 			}
 		}
-		return false, nil
+		return matched, nil
+
 	case OpContainsAll:
+		// Check if ALL constraint IDs are present in the request
+		requestedIDsSet := set.FromSlice(params.Request.Objects)
+		requestedTypesSet := set.FromMapSlice(params.Request.Objects, func(id ontology.ID) ontology.Type {
+			return id.Type
+		})
 		for _, id := range c.IDs {
 			if id.IsType() {
 				if !requestedTypesSet.Contains(id.Type) {
-					return false, nil
+					return nil, nil
 				}
 			} else {
 				if !requestedIDsSet.Contains(id) {
-					return false, nil
+					return nil, nil
 				}
 			}
 		}
-		return true, nil
+		// All constraint IDs present, so all requested objects are covered
+		return params.Request.Objects, nil
+
 	case OpContainsNone:
-		for _, id := range c.IDs {
-			if id.IsType() {
-				if requestedTypesSet.Contains(id.Type) {
-					return false, nil
-				}
-			} else {
-				if requestedIDsSet.Contains(id) {
-					return false, nil
-				}
+		// Return objects that don't match any constraint ID
+		var matched []ontology.ID
+		for _, obj := range params.Request.Objects {
+			if !constraintIDsSet.Contains(obj) && !constraintTypesSet.Contains(obj.Type) {
+				matched = append(matched, obj)
 			}
 		}
-		return true, nil
+		return matched, nil
+
 	default:
-		return false, ErrInvalidOperator
+		return nil, ErrInvalidOperator
 	}
 }

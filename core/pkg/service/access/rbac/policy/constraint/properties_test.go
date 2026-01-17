@@ -12,8 +12,10 @@ package constraint_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Properties", func() {
@@ -23,80 +25,103 @@ var _ = Describe("Properties", func() {
 			Kind:       constraint.KindProperties,
 			Properties: []string{"name", "description"},
 		}
+		// Set up some objects for the request
+		params.Request.Objects = []ontology.ID{
+			{Type: "channel", Key: "1"},
+			{Type: "channel", Key: "2"},
+		}
 	})
 	Describe("OpContainsAny", func() {
 		BeforeEach(func() {
 			c.Operator = constraint.OpContainsAny
 		})
-		It("Should return true if the request contains any of the properties", func() {
+		It("Should return all objects if the request contains any of the properties", func() {
 			params.Request.Properties = set.New("name", "other")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the request contains none of the properties", func() {
+		It("Should return empty if the request contains none of the properties", func() {
 			params.Request.Properties = set.New("other", "another")
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should return true if all request properties match", func() {
+		It("Should return all objects if all request properties match", func() {
 			params.Request.Properties = set.New("name", "description")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return true if the constraint's properties list is empty", func() {
+		It("Should return all objects if the constraint's properties list is empty", func() {
 			c.Properties = nil
 			params.Request.Properties = set.New("name")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the request's properties set is nil", func() {
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+		It("Should return empty if the request's properties set is nil", func() {
+			params.Request.Properties = nil
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 	})
 	Describe("OpContainsAll", func() {
 		BeforeEach(func() {
 			c.Operator = constraint.OpContainsAll
 		})
-		It("Should return true if the request contains all of the properties", func() {
+		It("Should return all objects if the request contains all of the properties", func() {
 			params.Request.Properties = set.New("name", "description", "other")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the request is missing any of the properties", func() {
+		It("Should return empty if the request is missing any of the properties", func() {
 			params.Request.Properties = set.New("name", "other")
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should return true if request properties exactly match", func() {
+		It("Should return all objects if request properties exactly match", func() {
 			params.Request.Properties = set.New("name", "description")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return true if the constraint's properties list is empty", func() {
+		It("Should return all objects if the constraint's properties list is empty", func() {
 			c.Properties = nil
 			params.Request.Properties = set.New("name")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the request's properties set is empty", func() {
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+		It("Should return empty if the request's properties set is empty", func() {
+			params.Request.Properties = nil
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 	})
 	Describe("OpContainsNone", func() {
 		BeforeEach(func() {
 			c.Operator = constraint.OpContainsNone
 		})
-		It("Should return true if the request contains none of the properties", func() {
+		It("Should return all objects if the request contains none of the properties", func() {
 			params.Request.Properties = set.New("other", "another")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the request contains any of the properties", func() {
+		It("Should return empty if the request contains any of the properties", func() {
 			params.Request.Properties = set.New("name", "other")
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should return false if all request properties match", func() {
+		It("Should return empty if all request properties match", func() {
 			params.Request.Properties = set.New("name", "description")
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should not panic if the constraint's properties list is nil", func() {
+		It("Should return all objects if the constraint's properties list is nil", func() {
 			c.Properties = nil
 			params.Request.Properties = set.New("name")
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the request's properties set is empty", func() {
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+		It("Should return all objects if the request's properties set is empty", func() {
+			params.Request.Properties = nil
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
 	})
 	Describe("Invalid Operator", func() {

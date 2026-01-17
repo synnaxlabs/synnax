@@ -12,9 +12,11 @@ package constraint_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Action", func() {
@@ -24,47 +26,62 @@ var _ = Describe("Action", func() {
 			Kind:    constraint.KindAction,
 			Actions: set.New(access.ActionRetrieve, access.ActionUpdate),
 		}
+		// Set up some objects for the request
+		params.Request.Objects = []ontology.ID{
+			{Type: "channel", Key: "1"},
+			{Type: "channel", Key: "2"},
+		}
 	})
 	Describe("OpIsIn", func() {
 		BeforeEach(func() {
 			c.Operator = constraint.OpIsIn
 		})
-		It("Should return true if the action is in the list", func() {
+		It("Should return all objects if the action is in the list", func() {
 			params.Request.Action = access.ActionRetrieve
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the action is not in the list", func() {
+		It("Should return empty if the action is not in the list", func() {
 			params.Request.Action = access.ActionCreate
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should not panic if the constraint's actions list is nil", func() {
+		It("Should return empty if the constraint's actions list is nil", func() {
 			c.Actions = nil
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			params.Request.Action = access.ActionRetrieve
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should not panic if the request's action is empty", func() {
+		It("Should return empty if the request's action is empty", func() {
 			params.Request.Action = ""
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 	})
 	Describe("OpIsNotIn", func() {
 		BeforeEach(func() {
 			c.Operator = constraint.OpIsNotIn
 		})
-		It("Should return true if the action is not in the list", func() {
+		It("Should return all objects if the action is not in the list", func() {
 			params.Request.Action = access.ActionCreate
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the action is in the list", func() {
+		It("Should return empty if the action is in the list", func() {
 			params.Request.Action = access.ActionRetrieve
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should not panic if the constraint's actions list is nil", func() {
+		It("Should return all objects if the constraint's actions list is nil", func() {
 			c.Actions = nil
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			params.Request.Action = access.ActionCreate
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the request's action is empty", func() {
+		It("Should return all objects if the request's action is empty", func() {
 			params.Request.Action = ""
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
 	})
 	Describe("Invalid Operator", func() {

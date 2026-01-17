@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/constraint"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 const testType1 ontology.Type = "test1"
@@ -69,111 +70,142 @@ var _ = Describe("Relationship", func() {
 		BeforeEach(func() {
 			c.Operator = constraint.OpContainsAny
 		})
-		It("Should return true if the related resource matches any of the IDs", func() {
+		It("Should return all objects if the related resource matches any of the IDs", func() {
 			c.IDs = []ontology.ID{related1, notRelated}
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the related resource does not match any of the IDs", func() {
+		It("Should return empty if the related resource does not match any of the IDs", func() {
 			c.IDs = []ontology.ID{notRelated}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 		It("Should match by type when the constraint ID is a type-only ID", func() {
 			c.IDs = []ontology.ID{{Type: testType2}}
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not match type-only when related resource has different type", func() {
+		It("Should return empty when related resource has different type", func() {
 			c.IDs = []ontology.ID{{Type: testType1}}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should return false if the request has no related resources", func() {
+		It("Should return empty if the request has no related resources", func() {
 			unrelated := newTestID1("unrelated")
 			Expect(w.DefineResource(ctx, unrelated)).To(Succeed())
 			params.Request.Objects = []ontology.ID{unrelated}
 			c.IDs = []ontology.ID{related1}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should return true if the constraint's IDs list is empty", func() {
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+		It("Should return all objects if the constraint's IDs list is empty", func() {
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the request's objects list is empty", func() {
+		It("Should return empty if the request's objects list is empty", func() {
 			params.Request.Objects = nil
 			c.IDs = []ontology.ID{related1}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 	})
 	Describe("OpContainsAll", func() {
-		var requested2, related2 ontology.ID
+		var requested2, related2Extra ontology.ID
 		BeforeEach(func() {
 			c.Operator = constraint.OpContainsAll
 			requested2 = newTestID1("requested2")
-			related2 = newTestID2("related2")
+			related2Extra = newTestID2("related2Extra")
 			Expect(w.DefineResource(ctx, requested2)).To(Succeed())
-			Expect(w.DefineResource(ctx, related2)).To(Succeed())
-			Expect(w.DefineRelationship(ctx, requested2, testRelType, related2)).To(Succeed())
+			Expect(w.DefineResource(ctx, related2Extra)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, requested2, testRelType, related2Extra)).To(Succeed())
 		})
 		AfterEach(func() {
 			Expect(w.DeleteResource(ctx, requested2)).To(Succeed())
-			Expect(w.DeleteResource(ctx, related2)).To(Succeed())
+			Expect(w.DeleteResource(ctx, related2Extra)).To(Succeed())
 		})
-		It("Should return true if the related resources contain all of the IDs", func() {
+		It("Should return all objects if the related resources contain all of the IDs", func() {
 			c.IDs = []ontology.ID{related1}
 			params.Request.Objects = []ontology.ID{requested}
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return true when requesting multiple objects with all related in constraint", func() {
-			c.IDs = []ontology.ID{related1, related2}
+		It("Should return all objects when each object has all constraint relationships", func() {
+			// Add additional relationships so both objects have all constraint IDs
+			Expect(w.DefineRelationship(ctx, requested, testRelType, related2Extra)).To(Succeed())
+			Expect(w.DefineRelationship(ctx, requested2, testRelType, related1)).To(Succeed())
+			c.IDs = []ontology.ID{related1, related2Extra}
 			params.Request.Objects = []ontology.ID{requested, requested2}
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(ConsistOf(params.Request.Objects))
 		})
-		It("Should return false if the related resources are missing any of the IDs", func() {
+		It("Should return empty when objects only partially cover constraint IDs", func() {
+			// requested is related to related1 but NOT related2Extra
+			// requested2 is related to related2Extra but NOT related1
+			c.IDs = []ontology.ID{related1, related2Extra}
+			params.Request.Objects = []ontology.ID{requested, requested2}
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
+		})
+		It("Should return empty if the related resources are missing any of the IDs", func() {
 			c.IDs = []ontology.ID{related1, newTestID1("missing")}
 			params.Request.Objects = []ontology.ID{requested}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 		It("Should match by type when the constraint ID is a type-only ID", func() {
 			c.IDs = []ontology.ID{{Type: testType2}}
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the related resources have a different type", func() {
+		It("Should return empty if the related resources have a different type", func() {
 			c.IDs = []ontology.ID{{Type: "newTestType"}}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should return true if the constraint's IDs list is nil", func() {
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+		It("Should return all objects if the constraint's IDs list is nil", func() {
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the request's objects list is empty", func() {
+		It("Should return empty if the request's objects list is empty", func() {
 			params.Request.Objects = nil
 			c.IDs = []ontology.ID{related1}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 	})
 	Describe("OpContainsNone", func() {
 		BeforeEach(func() {
 			c.Operator = constraint.OpContainsNone
 		})
-		It("Should return true if the related resources contain none of the IDs", func() {
+		It("Should return all objects if the related resources contain none of the IDs", func() {
 			c.IDs = []ontology.ID{notRelated}
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should return false if the related resources contain any of the IDs", func() {
+		It("Should return empty if the related resources contain any of the IDs", func() {
 			c.IDs = []ontology.ID{related1}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should match by type when the constraint ID is a type-only ID", func() {
+		It("Should return empty when matching by type", func() {
 			c.IDs = []ontology.ID{{Type: testType2}}
-			Expect(c.Enforce(ctx, params)).To(BeFalse())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
-		It("Should return true when type does not match", func() {
+		It("Should return all objects when type does not match", func() {
 			c.IDs = []ontology.ID{{Type: testType1}}
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the constraint's IDs list is nil", func() {
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+		It("Should return all objects if the constraint's IDs list is nil", func() {
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(Equal(params.Request.Objects))
 		})
-		It("Should not panic if the request's objects list is empty", func() {
+		It("Should return empty if the request's objects list is empty", func() {
 			c.IDs = []ontology.ID{related1}
 			params.Request.Objects = nil
-			Expect(c.Enforce(ctx, params)).To(BeTrue())
+			covered := MustSucceed(c.Enforce(ctx, params))
+			Expect(covered).To(BeEmpty())
 		})
 	})
 	Describe("Invalid Operator", func() {

@@ -82,8 +82,11 @@ type EnforceParams struct {
 	Tx gorp.Tx
 }
 
-// Enforce checks if the constraint is satisfied.
-func (c Constraint) Enforce(ctx context.Context, params EnforceParams) (bool, error) {
+// Enforce checks which objects from the request are covered by this constraint.
+// It returns the subset of params.Request.Objects that satisfy the constraint.
+// An empty slice means no objects are covered. An error is only returned for
+// invalid configurations, not for access denials.
+func (c Constraint) Enforce(ctx context.Context, params EnforceParams) ([]ontology.ID, error) {
 	switch c.Kind {
 	case KindProperties:
 		return c.enforceProperties(params)
@@ -96,6 +99,6 @@ func (c Constraint) Enforce(ctx context.Context, params EnforceParams) (bool, er
 	case KindAction:
 		return c.enforceAction(params)
 	default:
-		return false, ErrInvalidKind
+		return nil, ErrInvalidKind
 	}
 }

@@ -9,31 +9,38 @@
 
 package constraint
 
-import "slices"
+import (
+	"slices"
 
-func (c Constraint) enforceProperties(params EnforceParams) (bool, error) {
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+)
+
+// enforceProperties checks if the request's properties match this constraint.
+// If the properties match, all requested objects are covered (returned).
+// If the properties don't match, no objects are covered (empty slice returned).
+func (c Constraint) enforceProperties(params EnforceParams) ([]ontology.ID, error) {
 	switch c.Operator {
 	case OpContainsAny:
 		if len(c.Properties) == 0 {
-			return true, nil
+			return params.Request.Objects, nil
 		}
 		if slices.ContainsFunc(c.Properties, params.Request.Properties.Contains) {
-			return true, nil
+			return params.Request.Objects, nil
 		}
-		return false, nil
+		return nil, nil
 	case OpContainsAll:
 		for _, property := range c.Properties {
 			if !params.Request.Properties.Contains(property) {
-				return false, nil
+				return nil, nil
 			}
 		}
-		return true, nil
+		return params.Request.Objects, nil
 	case OpContainsNone:
 		if slices.ContainsFunc(c.Properties, params.Request.Properties.Contains) {
-			return false, nil
+			return nil, nil
 		}
-		return true, nil
+		return params.Request.Objects, nil
 	default:
-		return false, ErrInvalidOperator
+		return nil, ErrInvalidOperator
 	}
 }
