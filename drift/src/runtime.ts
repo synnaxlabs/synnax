@@ -109,8 +109,8 @@ export interface Manager {
 }
 
 /**
- * An interface that represents the core runtime of the application.
- * Drift uses this runtime to manage windows and communicate between them.
+ * An interface that represents the main runtime of the application. Drift uses this
+ * runtime to manage windows and communicate between them.
  */
 export interface Runtime<S extends StoreState, A extends Action = UnknownAction>
   extends Communicator<S, A>, Properties, Manager {}

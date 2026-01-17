@@ -12,7 +12,7 @@ import "@/hardware/common/device/Configure.css";
 import { type device } from "@synnaxlabs/client";
 import {
   Button,
-  Device as Core,
+  Device as Base,
   Device,
   Flex,
   Form,
@@ -78,7 +78,7 @@ const Internal = <
       identifier: methods.get<string>("identifier").value,
     },
   });
-  const { update, variant } = Core.useCreate({
+  const { update, variant } = Base.useCreate({
     beforeUpdate: useCallback(async () => {
       if (isNameStep) {
         if (methods.validate("name")) {

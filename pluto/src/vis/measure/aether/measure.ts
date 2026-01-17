@@ -21,7 +21,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
-import { type Theme } from "@/theming/core/theme";
+import { type Theme } from "@/theming/base/theme";
 import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";

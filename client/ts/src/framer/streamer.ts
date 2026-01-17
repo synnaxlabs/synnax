@@ -111,7 +111,7 @@ export const createStreamOpener =
     if (cfg.useHighPerformanceCodec)
       client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);
-    const streamer = new CoreStreamer(
+    const streamer = new BaseStreamer(
       stream,
       adapter,
       cfg.downsampleFactor,
@@ -140,7 +140,7 @@ export const openStreamer = async (
   config: StreamerConfig,
 ): Promise<Streamer> => await createStreamOpener(retriever, client)(config);
 
-class CoreStreamer implements Streamer {
+class BaseStreamer implements Streamer {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
   private readonly adapter: ReadAdapter;
   private readonly downsampleFactor: number;

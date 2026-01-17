@@ -11,8 +11,8 @@ import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, type destructor, strings, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type ChannelListener, type Store, type StoreConfig } from "@/flux/core/store";
-import { type Status } from "@/status/core";
+import { type ChannelListener, type Store, type StoreConfig } from "@/flux/base/store";
+import { type Status } from "@/status/base";
 
 /**
  * Sorts channel names to ensure deletions are processed before other changes.

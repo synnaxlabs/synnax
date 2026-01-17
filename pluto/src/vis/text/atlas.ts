@@ -9,7 +9,7 @@
 
 import { color, type dimensions, unique } from "@synnaxlabs/x";
 
-import { dimensionsFromMetrics } from "@/text/core/dimensions";
+import { dimensionsFromMetrics } from "@/text/base/dimensions";
 
 export interface AtlasProps {
   font: string;

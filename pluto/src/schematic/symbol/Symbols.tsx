@@ -40,13 +40,13 @@ import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { Button as CoreButton } from "@/vis/button";
-import { Gauge as CoreGauge } from "@/vis/gauge";
-import { Input as CoreInput } from "@/vis/input";
-import { Light as CoreLight } from "@/vis/light";
-import { Setpoint as CoreSetpoint } from "@/vis/setpoint";
+import { Button as BaseButton } from "@/vis/button";
+import { Gauge as BaseGauge } from "@/vis/gauge";
+import { Input as BaseInput } from "@/vis/input";
+import { Light as BaseLight } from "@/vis/light";
+import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 import { Toggle } from "@/vis/toggle";
-import { Value as CoreValue } from "@/vis/value";
+import { Value as BaseValue } from "@/vis/value";
 
 export interface ControlStateProps extends Omit<Flex.BoxProps, "direction"> {
   show?: boolean;
@@ -664,7 +664,7 @@ export const BoxPreview = (props: BoxProps): ReactElement => (
 export interface InputProps
   extends
     Omit<Primitives.InputProps, "value" | "onChange">,
-    Omit<CoreInput.UseProps, "aetherKey"> {
+    Omit<BaseInput.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
 }
@@ -682,7 +682,7 @@ export const Input = ({
   disabled,
   draggable,
 }: SymbolProps<InputProps>): ReactElement => {
-  const { set } = CoreInput.use({ aetherKey: symbolKey, sink });
+  const { set } = BaseInput.use({ aetherKey: symbolKey, sink });
   const gridItems: GridItem[] = [];
   const controlItem = controlStateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
@@ -726,7 +726,7 @@ export const InputPreview = ({ color, className }: InputProps): ReactElement => 
 export interface SetpointProps
   extends
     Omit<Primitives.SetpointProps, "value" | "onChange">,
-    Omit<CoreSetpoint.UseProps, "aetherKey"> {
+    Omit<BaseSetpoint.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
 }
@@ -746,7 +746,7 @@ export const Setpoint = ({
   size,
   disabled,
 }: SymbolProps<SetpointProps>): ReactElement => {
-  const { value, set } = CoreSetpoint.use({ aetherKey: symbolKey, source, sink });
+  const { value, set } = BaseSetpoint.use({ aetherKey: symbolKey, source, sink });
   const gridItems: GridItem[] = [];
   const controlItem = controlStateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
@@ -794,13 +794,13 @@ export const SetpointPreview = ({
 );
 
 export interface ValueProps
-  extends Omit<CoreValue.UseProps, "box" | "aetherKey">, Primitives.ValueProps {
+  extends Omit<BaseValue.UseProps, "box" | "aetherKey">, Primitives.ValueProps {
   position?: xy.XY;
   label?: LabelExtensionProps;
   color?: color.Crude;
   textColor?: color.Crude;
   tooltip?: string[];
-  redline?: CoreValue.Redline;
+  redline?: BaseValue.Redline;
 }
 
 const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);
@@ -844,7 +844,7 @@ export const Value = ({
       outlet: "gradient",
     });
   }, [t, redline]);
-  const { width: oWidth } = CoreValue.use({
+  const { width: oWidth } = BaseValue.use({
     aetherKey: symbolKey,
     color: textColor,
     level,
@@ -895,7 +895,7 @@ export const ValuePreview = ({ color }: ValueProps): ReactElement => (
   </Primitives.Value>
 );
 
-export interface GaugeProps extends Omit<CoreGauge.UseProps, "box" | "aetherKey"> {
+export interface GaugeProps extends Omit<BaseGauge.UseProps, "box" | "aetherKey"> {
   position?: xy.XY;
   label?: LabelExtensionProps;
   color?: color.Crude;
@@ -930,7 +930,7 @@ export const Gauge = ({
   const baseMultiplier = GAUGE_SIZE_MULTIPLIER[level] ?? 100;
   const gaugeSize = baseMultiplier;
 
-  CoreGauge.use({
+  BaseGauge.use({
     aetherKey: symbolKey,
     box: box.construct(position || xy.ZERO, {
       height: gaugeSize,
@@ -1033,7 +1033,7 @@ export const GaugePreview = ({ color: c }: GaugeProps): ReactElement => {
 export interface ButtonProps
   extends
     Omit<Primitives.ButtonProps, "label" | "onClick">,
-    Omit<CoreButton.UseProps, "aetherKey"> {
+    Omit<BaseButton.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
 }
@@ -1050,7 +1050,7 @@ export const Button = ({
   mode,
   ...rest
 }: SymbolProps<ButtonProps>) => {
-  const { onMouseDown, onMouseUp } = CoreButton.use({
+  const { onMouseDown, onMouseUp } = BaseButton.use({
     aetherKey: symbolKey,
     sink,
     mode,
@@ -1090,7 +1090,7 @@ export const ButtonPreview = ({ label: _, ...rest }: ButtonProps): ReactElement 
 );
 
 export interface LightProps
-  extends Primitives.LightProps, Omit<CoreLight.UseProps, "aetherKey"> {
+  extends Primitives.LightProps, Omit<BaseLight.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
 }
 
@@ -1102,7 +1102,7 @@ export const Light = ({
   selected,
   ...rest
 }: SymbolProps<LightProps>): ReactElement => {
-  const { enabled } = CoreLight.use({ aetherKey: symbolKey, source });
+  const { enabled } = BaseLight.use({ aetherKey: symbolKey, source });
   const gridItems: GridItem[] = [];
   const labelItem = labelGridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);

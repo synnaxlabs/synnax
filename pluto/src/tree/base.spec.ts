@@ -28,9 +28,9 @@ import {
   shouldExpand,
   updateNode,
   updateNodeChildren,
-} from "@/tree/core";
+} from "@/tree/base";
 
-describe("tree/core", () => {
+describe("tree/base", () => {
   const simpleTree: Node[] = [
     {
       key: "root1",

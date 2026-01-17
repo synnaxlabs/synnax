@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Logo as CoreLogo } from "./Logo";
+import { Logo as BaseLogo } from "./Logo";
 import { LogoWatermark } from "./LogoWatermark";
 
 export { type LogoProps } from "./Logo";
 
-type CoreLogoType = typeof CoreLogo;
+type BaseLogoType = typeof BaseLogo;
 
-export interface LogoType extends CoreLogoType {
+export interface LogoType extends BaseLogoType {
   Watermark: typeof LogoWatermark;
 }
 
-export const Logo = CoreLogo as LogoType;
+export const Logo = BaseLogo as LogoType;
 
 Logo.Watermark = LogoWatermark;

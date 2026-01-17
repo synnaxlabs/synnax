@@ -18,7 +18,7 @@ import {
 import { type RefObject, useCallback, useRef, useSyncExternalStore } from "react";
 
 import { type flux } from "@/flux/aether";
-import { type core } from "@/flux/core";
+import { type base } from "@/flux/base";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -47,12 +47,12 @@ export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (keys: K[]): E[];
 }
 
-export interface AsyncListOptions extends core.FetchOptions {
+export interface AsyncListOptions extends base.FetchOptions {
   mode?: "append" | "replace";
 }
 
 export type UseListReturn<
-  Query extends core.Shape,
+  Query extends base.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
@@ -70,7 +70,7 @@ export type UseListReturn<
 };
 
 export interface RetrieveByKeyParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   K extends record.Key,
   Store extends flux.Store,
 > extends Omit<RetrieveParams<Query, Store>, "query"> {
@@ -79,7 +79,7 @@ export interface RetrieveByKeyParams<
 }
 
 export interface RetrieveCachedParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Store extends flux.Store,
 > {
   query: Partial<Query>;
@@ -87,7 +87,7 @@ export interface RetrieveCachedParams<
 }
 
 export interface CreateListParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
   Store extends flux.Store,
@@ -101,7 +101,7 @@ export interface CreateListParams<
 }
 
 export interface UseListParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -113,7 +113,7 @@ export interface UseListParams<
 }
 
 export interface UseList<
-  Query extends core.Shape,
+  Query extends base.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -142,7 +142,7 @@ const parseOnListChangeArgs = <K extends record.Key, E extends record.Keyed<K>>(
 };
 
 export interface ListMountListenersParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Key extends record.Key,
   Data extends record.Keyed<Key>,
   Store extends flux.Store,
@@ -159,7 +159,7 @@ const defaultFilter = () => true;
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 interface GetInitialDataParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
@@ -174,7 +174,7 @@ interface GetInitialDataParams<
 }
 
 const getInitialData = <
-  Query extends core.Shape,
+  Query extends base.Shape,
   K extends record.Key,
   E extends record.Keyed<K>,
   ScopedStore extends flux.Store,
@@ -198,7 +198,7 @@ const getInitialData = <
 
 export const createList =
   <
-    Query extends core.Shape,
+    Query extends base.Shape,
     Key extends record.Key,
     Data extends record.Keyed<Key>,
     ScopedStore extends flux.Store = {},
@@ -378,7 +378,7 @@ export const createList =
     );
 
     const retrieveSingle = useCallback(
-      (key: Key, options: core.FetchOptions = {}) => {
+      (key: Key, options: base.FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
           try {
@@ -451,7 +451,7 @@ export const createList =
 export interface UseListItemArgs<
   K extends record.Key,
   E extends record.Keyed<K>,
-> extends Pick<UseListReturn<core.Shape, K, E>, "subscribe" | "getItem"> {
+> extends Pick<UseListReturn<base.Shape, K, E>, "subscribe" | "getItem"> {
   key: K;
 }
 

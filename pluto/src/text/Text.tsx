@@ -20,7 +20,7 @@ import {
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Generic } from "@/generic";
-import { type text } from "@/text/core";
+import { type text } from "@/text/base";
 import { isValidElement } from "@/util/children";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;

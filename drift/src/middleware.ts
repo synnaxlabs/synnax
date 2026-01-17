@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type Action as CoreAction,
+  type Action as BaseAction,
   type configureStore,
   type Dispatch,
   type Middleware,
@@ -58,7 +58,7 @@ const EXCLUDE_SYNC_ACTIONS: string[] = [runtimeSetWindowProps.type, reloadWindow
  * @returns a Redux middleware.
  */
 export const middleware =
-  <S extends StoreState, A extends CoreAction = UnknownAction>(
+  <S extends StoreState, A extends BaseAction = UnknownAction>(
     runtime: Runtime<S, A | Action>,
     debug: boolean = false,
   ): Middleware<Dispatch<A | Action>, S, Dispatch<A | Action>> =>
@@ -133,7 +133,7 @@ export const middleware =
 export const configureMiddleware =
   <
     S extends StoreState,
-    A extends CoreAction = UnknownAction,
+    A extends BaseAction = UnknownAction,
     M extends Middlewares<S> = Middlewares<S>,
   >(
     mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
@@ -147,13 +147,13 @@ export const configureMiddleware =
 
 type ConfigureStoreOptions<
   S extends StoreState,
-  A extends CoreAction = UnknownAction,
+  A extends BaseAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
 > = Parameters<typeof configureStore<S, A, M>>[0];
 
 type MW<
   S extends StoreState,
-  A extends CoreAction = UnknownAction,
+  A extends BaseAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
 > = NonNullable<ConfigureStoreOptions<S, A, M>["middleware"]>;
 export type GetDefaultMiddleware<S extends StoreState> = Parameters<MW<S>>[0];

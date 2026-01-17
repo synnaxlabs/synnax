@@ -14,7 +14,7 @@ import {
   type axis,
   Channel,
   Icon,
-  LinePlot as Core,
+  LinePlot as Base,
   Menu as PMenu,
   Ranger,
   Status,
@@ -362,7 +362,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const props = PMenu.useContextMenu();
-  const linePlotRef = useRef<Core.LinePlotRef | null>(null);
+  const linePlotRef = useRef<Base.LinePlotRef | null>(null);
 
   interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
     layoutKey: string;
@@ -511,7 +511,7 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     );
 
 const useLoadRemote = createLoadRemote<lineplot.LinePlot>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),

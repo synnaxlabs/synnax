@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/status/core/Notification.css";
+import "@/status/base/Notification.css";
 
 import { array, primitive } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
@@ -16,8 +16,8 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type NotificationSpec } from "@/status/core/Aggregator";
-import { Indicator } from "@/status/core/Indicator";
+import { type NotificationSpec } from "@/status/base/Aggregator";
+import { Indicator } from "@/status/base/Indicator";
 import { Text as TelemText } from "@/telem/text";
 import { Text } from "@/text";
 

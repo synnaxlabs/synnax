@@ -19,9 +19,9 @@ import {
 
 import { CSS } from "@/css";
 import { useContext } from "@/lineplot/LinePlot";
-import { Viewport as Core } from "@/viewport";
+import { Viewport as Base } from "@/viewport";
 
-export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
+export interface ViewportProps extends PropsWithChildren, Base.UseProps {}
 
 export const selectViewportEl = (el: HTMLElement | null): Element | null =>
   el == null ? null : (el.closest(".pluto-line-plot__viewport") ?? null);
@@ -40,18 +40,18 @@ export const Viewport = ({
   }, [setViewport, initial]);
 
   const handleChange = useCallback(
-    (e: Core.UseEvent): void => {
+    (e: Base.UseEvent): void => {
       setViewport(e);
       onChange?.(e);
     },
     [onChange, setViewport],
   );
 
-  const maskProps = Core.use({ onChange: handleChange, initial, ref, ...rest });
+  const maskProps = Base.use({ onChange: handleChange, initial, ref, ...rest });
 
   return (
-    <Core.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>
+    <Base.Mask className={CSS.BE("line-plot", "viewport")} {...maskProps}>
       {children}
-    </Core.Mask>
+    </Base.Mask>
   );
 };

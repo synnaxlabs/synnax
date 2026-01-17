@@ -11,7 +11,7 @@ import { type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 
-import { type core } from "@/flux/core";
+import { type base } from "@/flux/base";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -24,12 +24,12 @@ import { useAsyncEffect } from "@/hooks";
 import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
-import { useAdder } from "@/status/core/Aggregator";
+import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface RetrieveParams<
-  Query extends core.Shape,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Store extends base.Store,
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
@@ -38,18 +38,18 @@ export interface RetrieveParams<
 }
 
 export interface RetrieveMountListenersParams<
-  Query extends core.Shape,
-  Data extends core.Shape,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Data extends base.Shape,
+  Store extends base.Store,
   AllowDisconnected extends boolean = false,
 > extends RetrieveParams<Query, Store, AllowDisconnected> {
   onChange: state.Setter<Data | undefined>;
 }
 
 export interface CreateRetrieveParams<
-  Query extends core.Shape,
-  Data extends core.Shape,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Data extends base.Shape,
+  Store extends base.Store,
   AllowDisconnected extends boolean = false,
 > {
   name: string;
@@ -60,12 +60,12 @@ export interface CreateRetrieveParams<
   allowDisconnected?: AllowDisconnected;
 }
 
-export interface BeforeRetrieveParams<Query extends core.Shape> {
+export interface BeforeRetrieveParams<Query extends base.Shape> {
   query: Query;
 }
 
 export interface UseObservableBaseRetrieveParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > {
   addStatusOnFailure?: boolean;
@@ -75,30 +75,30 @@ export interface UseObservableBaseRetrieveParams<
 }
 
 export interface UseRetrieveObservableParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > extends Omit<UseObservableBaseRetrieveParams<Query, Data>, "onChange"> {
   onChange: (result: Result<Data>, query: Query) => void;
 }
 
-export interface UseRetrieveObservableReturn<Query extends core.Shape> {
+export interface UseRetrieveObservableReturn<Query extends base.Shape> {
   retrieve: (
     query: state.SetArg<Query, Partial<Query>>,
-    options?: core.FetchOptions,
+    options?: base.FetchOptions,
   ) => void;
   retrieveAsync: (
     query: state.SetArg<Query, Partial<Query>>,
-    options?: core.FetchOptions,
+    options?: base.FetchOptions,
   ) => Promise<void>;
 }
 
 export type UseRetrieveStatefulReturn<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > = Result<Data> & UseRetrieveObservableReturn<Query>;
 
 export interface UseDirectRetrieveParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > extends Pick<
   UseObservableBaseRetrieveParams<Query, Data>,
@@ -110,7 +110,7 @@ export interface UseDirectRetrieveParams<
 export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 
 export interface UseRetrieveEffectParams<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > {
   scope?: string;
@@ -118,7 +118,7 @@ export interface UseRetrieveEffectParams<
   query?: Query;
 }
 
-export interface UseRetrieve<Query extends core.Shape, Data extends state.State> {
+export interface UseRetrieve<Query extends base.Shape, Data extends state.State> {
   (
     params: Query,
     opts?: Pick<
@@ -128,19 +128,19 @@ export interface UseRetrieve<Query extends core.Shape, Data extends state.State>
   ): UseDirectRetrieveReturn<Data>;
 }
 
-export interface UseRetrieveEffect<Query extends core.Shape, Data extends state.State> {
+export interface UseRetrieveEffect<Query extends base.Shape, Data extends state.State> {
   (params: UseRetrieveEffectParams<Query, Data>): void;
 }
 
 export interface UseRetrieveStateful<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > {
   (): UseRetrieveStatefulReturn<Query, Data>;
 }
 
 export interface UseRetrieveObservable<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > {
   (
@@ -149,7 +149,7 @@ export interface UseRetrieveObservable<
 }
 
 export interface CreateRetrieveReturn<
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
 > {
   useRetrieve: UseRetrieve<Query, Data>;
@@ -162,9 +162,9 @@ const initialResult = <Data extends state.State>(name: string): Result<Data> =>
   loadingResult<Data>(`Retrieving ${name}`, undefined);
 
 const useStateful = <
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
-  ScopedStore extends core.Store,
+  ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
 >(
   createParams: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,
@@ -179,9 +179,9 @@ const useStateful = <
 };
 
 const useObservableBase = <
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
-  ScopedStore extends core.Store,
+  ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
 >({
   retrieve,
@@ -218,7 +218,7 @@ const useObservableBase = <
   const retrieveAsync = useCallback(
     async (
       querySetter: state.SetArg<Query, Partial<Query>>,
-      options: core.FetchOptions = {},
+      options: base.FetchOptions = {},
     ) => {
       const { signal } = options;
       const query = state.executeSetter<Query, Partial<Query>>(
@@ -259,7 +259,7 @@ const useObservableBase = <
     [client, name, beforeRetrieve, addStatusOnFailure, onChange],
   );
   const retrieveSync = useCallback(
-    (query: state.SetArg<Query, Partial<Query>>, options?: core.FetchOptions) =>
+    (query: state.SetArg<Query, Partial<Query>>, options?: base.FetchOptions) =>
       void retrieveAsync(query, options),
     [retrieveAsync],
   );
@@ -270,9 +270,9 @@ const useObservableBase = <
 };
 
 const useDirect = <
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
-  ScopedStore extends core.Store,
+  ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
 >({
   query,
@@ -294,9 +294,9 @@ const useDirect = <
 };
 
 const useEffect = <
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
-  ScopedStore extends core.Store,
+  ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
 >({
   query,
@@ -330,9 +330,9 @@ const useEffect = <
 };
 
 export const useObservableRetrieve = <
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
-  ScopedStore extends core.Store,
+  ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
 >({
   onChange,
@@ -359,9 +359,9 @@ export const useObservableRetrieve = <
 };
 
 export const createRetrieve = <
-  Query extends core.Shape,
+  Query extends base.Shape,
   Data extends state.State,
-  ScopedStore extends core.Store = {},
+  ScopedStore extends base.Store = {},
   AllowDisconnected extends boolean = false,
 >(
   createParams: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,

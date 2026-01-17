@@ -43,7 +43,7 @@ export interface RetrieveOptions extends Pick<
 
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 
-/** The core client class for executing queries against a Synnax cluster ontology */
+/** The main client class for executing queries against a Synnax cluster ontology */
 export class Client {
   readonly type: string = "ontology";
   private readonly client: UnaryClient;
