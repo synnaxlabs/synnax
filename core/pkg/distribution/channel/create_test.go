@@ -71,7 +71,7 @@ var _ = Describe("Create", Ordered, func() {
 					Ontology.
 					NewRetrieve().
 					WhereIDs(ch.OntologyID()).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.ParentsTraverser).
 					Entries(&entries).
 					Exec(ctx, nil),
 				).To(Succeed())
