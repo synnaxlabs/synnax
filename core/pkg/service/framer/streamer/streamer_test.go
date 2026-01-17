@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -37,6 +39,19 @@ var _ = Describe("Streamer", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			DB:       dist.DB,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
+			Label:    labelSvc,
+		}))
 		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,

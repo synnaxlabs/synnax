@@ -25,6 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -35,8 +37,9 @@ import (
 
 var _ = Describe("Calculation", Ordered, func() {
 	var (
-		c    *calculation.Service
-		dist mock.Node
+		c         *calculation.Service
+		dist      mock.Node
+		statusSvc *status.Service
 	)
 	open := func(
 		indexChannels,
@@ -96,6 +99,19 @@ var _ = Describe("Calculation", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			DB:       dist.DB,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
+			Label:    labelSvc,
+		}))
 		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
@@ -461,22 +477,6 @@ var _ = Describe("Calculation", Ordered, func() {
 	})
 
 	Describe("Calculation Status", func() {
-		var statusSvc *status.Service
-		BeforeAll(func() {
-			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
-				DB:       dist.DB,
-				Ontology: dist.Ontology,
-				Group:    dist.Group,
-				Signals:  dist.Signals,
-			}))
-			statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
-				DB:       dist.DB,
-				Label:    labelSvc,
-				Ontology: dist.Ontology,
-				Group:    dist.Group,
-				Signals:  dist.Signals,
-			}))
-		})
 		Specify("Should persist error status on invalid expression request", func() {
 			calcs := []channel.Channel{{
 				Name:        channel.NewRandomName(),
