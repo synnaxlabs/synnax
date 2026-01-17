@@ -224,7 +224,7 @@ const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 /**
- * The main client class for executing channel operations against a Synnax cluster. This
+ * The main client class for executing channel operations against a Synnax Core. This
  * class should not be instantiated directly, and instead should be used through the
  * `channels` property of an {@link Synnax} client.
  */
