@@ -506,7 +506,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
-			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			statusKey := calcs[0].Key().OntologyID().String()
 			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
@@ -534,7 +534,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			calcs[0].Expression = "invalid expression without return"
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 			var st calculation.Status
-			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			statusKey := calcs[0].Key().OntologyID().String()
 			Eventually(func(g Gomega) {
 				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
 					WhereKeys(statusKey).
@@ -557,7 +557,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
-			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			statusKey := calcs[0].Key().OntologyID().String()
 			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
 				WhereKeys(statusKey).
 				Entry(&st).
@@ -577,7 +577,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			rm := c.OpenRequestManager()
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
-			expectedKey := channel.OntologyID(calcs[0].Key()).String()
+			expectedKey := calcs[0].Key().OntologyID().String()
 			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
 				WhereKeys(expectedKey).
 				Entry(&st).

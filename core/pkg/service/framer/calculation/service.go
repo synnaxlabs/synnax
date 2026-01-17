@@ -158,7 +158,7 @@ func (s *Service) setStatus(
 			s.cfg.L.Error("failed to parse channel key from status", zap.Error(err), zap.String("key", st.Key))
 			continue
 		}
-		statusKey := channel.OntologyID(chKey).String()
+		statusKey := chKey.OntologyID().String()
 		if err := s.statusWriter.Set(ctx, &Status{
 			Key:         statusKey,
 			Name:        st.Name,
