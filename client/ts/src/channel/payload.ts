@@ -58,6 +58,13 @@ export type Operation = z.infer<typeof operationZ>;
 
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
+
+export const calculationStatusDetailsZ = z.object({ channel: keyZ });
+export type CalculationStatusDetails = z.infer<typeof calculationStatusDetailsZ>;
+export const calculationStatusZ = status.statusZ(calculationStatusDetailsZ);
+export type CalculationStatus = z.infer<typeof calculationStatusZ>;
+
+export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 export const payloadZ = z.object({
   name: z.string(),
   key: keyZ,
