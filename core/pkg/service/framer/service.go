@@ -55,7 +55,7 @@ type ServiceConfig struct {
 	//  Distribution layer framer service.
 	Framer  *framer.Service
 	Channel *channel.Service
-	Arc *arc.Service
+	Arc     *arc.Service
 	// Status is used for persisting calculation status updates.
 	Status *status.Service
 	alamos.Instrumentation

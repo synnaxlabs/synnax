@@ -110,7 +110,6 @@ type Service struct {
 	}
 }
 
-
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
@@ -185,6 +184,7 @@ func (s *Service) handleChange(
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
 				Key:         ch.Key().String(),
+				Name:        ch.Name,
 				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
 				Description: err.Error(),
@@ -351,6 +351,7 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
 			statuses = append(statuses, calculator.Status{
 				Key:         ch.Key().String(),
+				Name:        ch.Name,
 				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
