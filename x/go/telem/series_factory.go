@@ -97,7 +97,7 @@ func MarshalStrings(data []string, dt DataType) []byte {
 // strings are separated by newline characters.
 func UnmarshalStrings(b []byte) []string {
 	var (
-		offset = 0
+		offset int
 		data   []string
 	)
 	for offset < len(b) {

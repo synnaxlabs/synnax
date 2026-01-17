@@ -58,11 +58,11 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, schematic_ := range req.Schematics {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schematic_); err != nil {
+		for i, schem := range req.Schematics {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schem); err != nil {
 				return err
 			}
-			req.Schematics[i] = schematic_
+			req.Schematics[i] = schem
 		}
 		res.Schematics = req.Schematics
 		return nil

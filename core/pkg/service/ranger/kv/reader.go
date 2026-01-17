@@ -33,7 +33,7 @@ func (r Reader) Get(ctx context.Context, rng uuid.UUID, key string) (string, err
 			Entry(&res).
 			Exec(ctx, r.tx)
 	)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		return "", errors.Wrapf(err, "key %s not found on range", key)
 	}
 	return res.Value, err

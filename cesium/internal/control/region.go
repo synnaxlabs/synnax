@@ -66,7 +66,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	for existingG := range r.gates {
 		if existingG.subject.Key == cfg.Subject.Key {
 			return g, t, errors.Wrapf(
-				validate.Error,
+				validate.ErrValidation,
 				"control subject %s is already registered in the region",
 				cfg.Subject,
 			)

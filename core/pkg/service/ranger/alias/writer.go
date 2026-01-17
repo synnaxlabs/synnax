@@ -34,7 +34,7 @@ func (w Writer) Set(ctx context.Context, rng uuid.UUID, ch channel.Key, alias st
 		return err
 	}
 	if !exists {
-		return errors.Wrapf(query.NotFound, "[alias] - cannot alias non-existent channel %s", ch)
+		return errors.Wrapf(query.ErrNotFound, "[alias] - cannot alias non-existent channel %s", ch)
 	}
 	if err := gorp.NewCreate[string, Alias]().
 		Entry(&Alias{Range: rng, Channel: ch, Alias: alias}).

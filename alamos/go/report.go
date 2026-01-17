@@ -72,21 +72,21 @@ func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
 // Debug environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Debug(key string, report ReportProvider) {
-	r.Attach(key, report, Debug)
+	r.Attach(key, report, EnvironmentDebug)
 }
 
 // Prod attaches the given ReportProvider to the Reporter with the given key in the
 // production (Prod) environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Prod(key string, report ReportProvider) {
-	r.Attach(key, report, Prod)
+	r.Attach(key, report, EnvironmentProd)
 }
 
 // Bench attaches the given ReportProvider to the Reporter with the given key in the
 // benchmark (Bench) environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Bench(key string, report ReportProvider) {
-	r.Attach(key, report, Bench)
+	r.Attach(key, report, EnvironmentBench)
 }
 
 // Attach attaches the given ReportProvider to the Reporter with the given key under
@@ -113,8 +113,8 @@ func (r Report) ZapFields() []zap.Field { return r.zapFields("") }
 func (r Report) zapFields(prefix string) []zap.Field {
 	args := make([]zap.Field, 0, len(r))
 	for k, v := range r {
-		if v_, ok := v.(Report); ok {
-			args = append(args, v_.zapFields(prefix+k+".")...)
+		if v, ok := v.(Report); ok {
+			args = append(args, v.zapFields(prefix+k+".")...)
 			continue
 		}
 		args = append(args, zap.Any(prefix+k, v))

@@ -132,7 +132,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -152,7 +152,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -177,16 +177,16 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent2.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
 				var res2 ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent1.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res2).
-					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 			It("Should create multiple ranges with the same parent", func() {
 				parent := ranger.Range{
@@ -206,7 +206,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
@@ -233,7 +233,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
 					_, err := svc.RetrieveParentKey(ctx, p.Key, tx)
-					Expect(err).To(HaveOccurredAs(query.NotFound))
+					Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 				})
 			})
 		})

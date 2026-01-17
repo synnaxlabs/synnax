@@ -43,7 +43,7 @@ func (rs *peerSwitchSender) _switch(
 	r Request,
 	oReqs map[address.Address]Request,
 ) error {
-	if r.Command == Write {
+	if r.Command == CommandWrite {
 		for nodeKey, frame := range r.Frame.SplitByLeaseholder() {
 			addr, ok := rs.addresses[nodeKey]
 			if !ok {

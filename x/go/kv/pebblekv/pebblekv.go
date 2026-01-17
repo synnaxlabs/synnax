@@ -114,15 +114,15 @@ func (d db) NewReader() kv.TxReader { return d.OpenTx().NewReader() }
 func (d db) withTx(ctx context.Context, f func(tx kv.Tx) error) error {
 	var (
 		err error
-		t   = d.OpenTx()
+		tx  = d.OpenTx()
 	)
 	defer func() {
-		err = errors.Combine(err, t.Close())
+		err = errors.Combine(err, tx.Close())
 	}()
-	if err = f(t); err != nil {
+	if err = f(tx); err != nil {
 		return err
 	}
-	err = t.Commit(ctx)
+	err = tx.Commit(ctx)
 	return err
 }
 
@@ -264,9 +264,9 @@ func (txn *tx) NewReader() kv.TxReader {
 func kindToVariant(kind pebble.InternalKeyKind) (change.Variant, bool) {
 	switch kind {
 	case pebble.InternalKeyKindSet:
-		return change.Set, true
+		return change.VariantSet, true
 	case pebble.InternalKeyKindDelete:
-		return change.Delete, true
+		return change.VariantDelete, true
 	default:
 		return 0, false
 	}
@@ -281,7 +281,7 @@ func parseIterOpts(opts kv.IteratorOptions) *pebble.IterOptions {
 
 func translateError(err error) error {
 	if errors.Is(err, pebble.ErrNotFound) {
-		return kv.NotFound
+		return kv.ErrNotFound
 	}
 	return err
 }

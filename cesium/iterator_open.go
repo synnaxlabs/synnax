@@ -53,7 +53,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 					vdb.Channel,
 				)
 			}
-			return nil, channel.NewErrNotFound(key)
+			return nil, channel.NewNotFoundError(key)
 		}
 		internal[i], err = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 		if err != nil {

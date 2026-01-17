@@ -89,7 +89,7 @@ func (s *Service) RetrieveFor(
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(id).
-		TraverseTo(Labels).
+		TraverseTo(LabelsOntologyTraverser).
 		Entries(&labelResources).
 		Exec(ctx, tx); err != nil {
 		return nil, err

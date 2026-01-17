@@ -49,7 +49,7 @@ var (
 	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
 	ErrNotVirtual = errors.New("channel is not virtual")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = resource.NewErrClosed("virtual.db")
+	ErrDBClosed = resource.NewClosedError("virtual.db")
 )
 
 // Config is the configuration for opening a DB.
@@ -100,7 +100,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapError := channel.NewErrWrapper(cfg.Channel)
+	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}

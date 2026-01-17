@@ -152,7 +152,7 @@ func (svc *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retr
 		return RetrieveResponse{}, err
 	}
 	if retErr != nil && req.IgnoreNotFound {
-		retErr = errors.Skip(retErr, query.NotFound)
+		retErr = errors.Skip(retErr, query.ErrNotFound)
 	}
 	return res, retErr
 }

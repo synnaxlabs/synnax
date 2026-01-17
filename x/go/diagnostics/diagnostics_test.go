@@ -23,10 +23,10 @@ var _ = Describe("Diagnostics", func() {
 			func(s diagnostics.Severity, expected string) {
 				Expect(s.String()).To(Equal(expected))
 			},
-			Entry("Error", diagnostics.Error, "error"),
-			Entry("Warning", diagnostics.Warning, "warning"),
-			Entry("Info", diagnostics.Info, "info"),
-			Entry("Hint", diagnostics.Hint, "hint"),
+			Entry("Error", diagnostics.SeverityError, "error"),
+			Entry("SeverityWarning", diagnostics.SeverityWarning, "warning"),
+			Entry("SeverityInfo", diagnostics.SeverityInfo, "info"),
+			Entry("SeverityHint", diagnostics.SeverityHint, "hint"),
 			Entry("Unknown", diagnostics.Severity(99), "Severity(99)"),
 		)
 	})
@@ -43,7 +43,7 @@ var _ = Describe("Diagnostics", func() {
 				Expect(d.Ok()).To(BeTrue())
 			})
 			It("Should return false when diagnostics exist", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityWarning, Message: "warn"})
 				Expect(d.Ok()).To(BeFalse())
 			})
 		})
@@ -53,11 +53,11 @@ var _ = Describe("Diagnostics", func() {
 				Expect(d.HasErrors()).To(BeFalse())
 			})
 			It("Should return false when only warnings exist", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityWarning, Message: "warn"})
 				Expect(d.HasErrors()).To(BeFalse())
 			})
 			It("Should return true when errors exist", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Message: "err"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityError, Message: "err"})
 				Expect(d.HasErrors()).To(BeTrue())
 			})
 		})
@@ -67,7 +67,7 @@ var _ = Describe("Diagnostics", func() {
 				Expect(d.Empty()).To(BeTrue())
 			})
 			It("Should return false when diagnostics exist", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Info, Message: "info"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityInfo, Message: "info"})
 				Expect(d.Empty()).To(BeFalse())
 			})
 		})
@@ -76,7 +76,7 @@ var _ = Describe("Diagnostics", func() {
 			It("Should add a diagnostic to the collection", func() {
 				d.Add(diagnostics.Diagnostic{
 					Key:      "test-key",
-					Severity: diagnostics.Error,
+					Severity: diagnostics.SeverityError,
 					Line:     10,
 					Column:   5,
 					Message:  "test message",
@@ -84,7 +84,7 @@ var _ = Describe("Diagnostics", func() {
 				})
 				Expect(d).To(HaveLen(1))
 				Expect(d[0].Key).To(Equal("test-key"))
-				Expect(d[0].Severity).To(Equal(diagnostics.Error))
+				Expect(d[0].Severity).To(Equal(diagnostics.SeverityError))
 				Expect(d[0].Line).To(Equal(10))
 				Expect(d[0].Column).To(Equal(5))
 				Expect(d[0].Message).To(Equal("test message"))
@@ -96,7 +96,7 @@ var _ = Describe("Diagnostics", func() {
 			It("Should add an error-level diagnostic", func() {
 				d.AddError(errors.New("something failed"), nil)
 				Expect(d).To(HaveLen(1))
-				Expect(d[0].Severity).To(Equal(diagnostics.Error))
+				Expect(d[0].Severity).To(Equal(diagnostics.SeverityError))
 				Expect(d[0].Message).To(Equal("something failed"))
 			})
 			It("Should include file when provided", func() {
@@ -109,7 +109,7 @@ var _ = Describe("Diagnostics", func() {
 			It("Should format the error message", func() {
 				d.AddErrorf(nil, "test.go", "expected %d but got %d", 1, 2)
 				Expect(d).To(HaveLen(1))
-				Expect(d[0].Severity).To(Equal(diagnostics.Error))
+				Expect(d[0].Severity).To(Equal(diagnostics.SeverityError))
 				Expect(d[0].Message).To(Equal("expected 1 but got 2"))
 				Expect(d[0].File).To(Equal("test.go"))
 			})
@@ -119,7 +119,7 @@ var _ = Describe("Diagnostics", func() {
 			It("Should add a warning-level diagnostic", func() {
 				d.AddWarning(errors.New("might fail"), nil)
 				Expect(d).To(HaveLen(1))
-				Expect(d[0].Severity).To(Equal(diagnostics.Warning))
+				Expect(d[0].Severity).To(Equal(diagnostics.SeverityWarning))
 				Expect(d[0].Message).To(Equal("might fail"))
 			})
 		})
@@ -127,7 +127,7 @@ var _ = Describe("Diagnostics", func() {
 		Describe("AddWarningf", func() {
 			It("Should format the warning message", func() {
 				d.AddWarningf(nil, "", "unused variable %s", "x")
-				Expect(d[0].Severity).To(Equal(diagnostics.Warning))
+				Expect(d[0].Severity).To(Equal(diagnostics.SeverityWarning))
 				Expect(d[0].Message).To(Equal("unused variable x"))
 			})
 		})
@@ -135,14 +135,14 @@ var _ = Describe("Diagnostics", func() {
 		Describe("AddInfo", func() {
 			It("Should add an info-level diagnostic", func() {
 				d.AddInfo(errors.New("processing started"), nil)
-				Expect(d[0].Severity).To(Equal(diagnostics.Info))
+				Expect(d[0].Severity).To(Equal(diagnostics.SeverityInfo))
 			})
 		})
 
 		Describe("AddHint", func() {
 			It("Should add a hint-level diagnostic", func() {
 				d.AddHint(errors.New("consider using const"), nil)
-				Expect(d[0].Severity).To(Equal(diagnostics.Hint))
+				Expect(d[0].Severity).To(Equal(diagnostics.SeverityHint))
 			})
 		})
 
@@ -163,10 +163,10 @@ var _ = Describe("Diagnostics", func() {
 
 		Describe("Errors", func() {
 			It("Should return only error-level diagnostics", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Message: "err1"})
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn"})
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Message: "err2"})
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Info, Message: "info"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityError, Message: "err1"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityWarning, Message: "warn"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityError, Message: "err2"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityInfo, Message: "info"})
 
 				errs := d.Errors()
 				Expect(errs).To(HaveLen(2))
@@ -174,17 +174,17 @@ var _ = Describe("Diagnostics", func() {
 				Expect(errs[1].Message).To(Equal("err2"))
 			})
 			It("Should return empty collection when no errors", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityWarning, Message: "warn"})
 				Expect(d.Errors()).To(BeEmpty())
 			})
 		})
 
 		Describe("Warnings", func() {
 			It("Should return only warning-level diagnostics", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Message: "err"})
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn1"})
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Message: "warn2"})
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Info, Message: "info"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityError, Message: "err"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityWarning, Message: "warn1"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityWarning, Message: "warn2"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityInfo, Message: "info"})
 
 				warns := d.Warnings()
 				Expect(warns).To(HaveLen(2))
@@ -192,7 +192,7 @@ var _ = Describe("Diagnostics", func() {
 				Expect(warns[1].Message).To(Equal("warn2"))
 			})
 			It("Should return empty collection when no warnings", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Message: "err"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityError, Message: "err"})
 				Expect(d.Warnings()).To(BeEmpty())
 			})
 		})
@@ -203,7 +203,7 @@ var _ = Describe("Diagnostics", func() {
 			})
 			It("Should format diagnostic without file", func() {
 				d.Add(diagnostics.Diagnostic{
-					Severity: diagnostics.Error,
+					Severity: diagnostics.SeverityError,
 					Line:     10,
 					Column:   5,
 					Message:  "undefined variable",
@@ -212,7 +212,7 @@ var _ = Describe("Diagnostics", func() {
 			})
 			It("Should format diagnostic with file", func() {
 				d.Add(diagnostics.Diagnostic{
-					Severity: diagnostics.Warning,
+					Severity: diagnostics.SeverityWarning,
 					Line:     20,
 					Column:   3,
 					Message:  "unused import",
@@ -221,15 +221,15 @@ var _ = Describe("Diagnostics", func() {
 				Expect(d.String()).To(Equal("main.go:20:3 warning: unused import"))
 			})
 			It("Should separate multiple diagnostics with newlines", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Line: 1, Column: 0, Message: "first"})
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Warning, Line: 2, Column: 0, Message: "second"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityError, Line: 1, Column: 0, Message: "first"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityWarning, Line: 2, Column: 0, Message: "second"})
 				Expect(d.String()).To(Equal("1:0 error: first\n2:0 warning: second"))
 			})
 		})
 
 		Describe("Error interface", func() {
 			It("Should implement error interface", func() {
-				d.Add(diagnostics.Diagnostic{Severity: diagnostics.Error, Line: 1, Column: 0, Message: "failed"})
+				d.Add(diagnostics.Diagnostic{Severity: diagnostics.SeverityError, Line: 1, Column: 0, Message: "failed"})
 				var err error = d
 				Expect(err.Error()).To(Equal("1:0 error: failed"))
 			})
@@ -242,7 +242,7 @@ var _ = Describe("Diagnostics", func() {
 			d := diagnostics.FromError(err)
 			Expect(d).ToNot(BeNil())
 			Expect(*d).To(HaveLen(1))
-			Expect((*d)[0].Severity).To(Equal(diagnostics.Error))
+			Expect((*d)[0].Severity).To(Equal(diagnostics.SeverityError))
 			Expect((*d)[0].Message).To(Equal("something went wrong"))
 		})
 	})

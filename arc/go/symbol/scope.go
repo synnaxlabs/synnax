@@ -247,7 +247,7 @@ func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
 		return s, nil
 	}
 	if s.Parent == nil {
-		return nil, errors.Wrap(query.NotFound, "undefined symbol")
+		return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
 	}
 	return s.Parent.ClosestAncestorOfKind(kind)
 }
@@ -260,7 +260,7 @@ func (s *Scope) FirstChildOfKind(kind Kind) (*Scope, error) {
 			return child, nil
 		}
 	}
-	return nil, errors.Wrap(query.NotFound, "undefined symbol")
+	return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
 }
 
 func (s *Scope) stringWithIndent(indent string) string {

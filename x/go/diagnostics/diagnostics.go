@@ -22,25 +22,25 @@ type Severity int
 
 //go:generate stringer -type=Severity
 const (
-	// Error indicates a critical issue that prevents compilation/code generation.
-	Error Severity = iota
-	// Warning indicates a potential problem that doesn't prevent compilation.
-	Warning
-	// Info provides informational messages about analysis decisions.
-	Info
-	// Hint suggests code improvements or best practices.
-	Hint
+	// SeverityError indicates a critical issue that prevents compilation/code generation.
+	SeverityError Severity = iota
+	// SeverityWarning indicates a potential problem that doesn't prevent compilation.
+	SeverityWarning
+	// SeverityInfo provides informational messages about analysis decisions.
+	SeverityInfo
+	// SeverityHint suggests code improvements or best practices.
+	SeverityHint
 )
 
 func (s Severity) String() string {
 	switch s {
-	case Error:
+	case SeverityError:
 		return "error"
-	case Warning:
+	case SeverityWarning:
 		return "warning"
-	case Info:
+	case SeverityInfo:
 		return "info"
-	case Hint:
+	case SeverityHint:
 		return "hint"
 	default:
 		return fmt.Sprintf("Severity(%d)", s)
@@ -71,7 +71,7 @@ func (d Diagnostics) Ok() bool {
 // HasErrors returns true if there are any error-level diagnostics.
 func (d Diagnostics) HasErrors() bool {
 	for _, diag := range d {
-		if diag.Severity == Error {
+		if diag.Severity == SeverityError {
 			return true
 		}
 	}
@@ -83,7 +83,7 @@ func (d Diagnostics) Empty() bool {
 	return len(d) == 0
 }
 
-// Error implements the error interface.
+// SeverityError implements the error interface.
 func (d Diagnostics) Error() string { return d.String() }
 
 // Add adds a diagnostic to the collection.
@@ -94,7 +94,7 @@ func (d *Diagnostics) Add(diag Diagnostic) {
 // AddError adds an error-level diagnostic with the given message and source location.
 // The file parameter is optional for backwards compatibility with Arc.
 func (d *Diagnostics) AddError(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: Error, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityError, Message: err.Error()}
 	if len(file) > 0 {
 		diag.File = file[0]
 	}
@@ -113,7 +113,7 @@ func (d *Diagnostics) AddErrorf(
 	args ...interface{},
 ) {
 	diag := Diagnostic{
-		Severity: Error,
+		Severity: SeverityError,
 		Message:  fmt.Sprintf(format, args...),
 		File:     file,
 	}
@@ -127,7 +127,7 @@ func (d *Diagnostics) AddErrorf(
 // AddWarning adds a warning-level diagnostic with the given message and source location.
 // The file parameter is optional for backwards compatibility with Arc.
 func (d *Diagnostics) AddWarning(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: Warning, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityWarning, Message: err.Error()}
 	if len(file) > 0 {
 		diag.File = file[0]
 	}
@@ -146,7 +146,7 @@ func (d *Diagnostics) AddWarningf(
 	args ...interface{},
 ) {
 	diag := Diagnostic{
-		Severity: Warning,
+		Severity: SeverityWarning,
 		Message:  fmt.Sprintf(format, args...),
 		File:     file,
 	}
@@ -160,7 +160,7 @@ func (d *Diagnostics) AddWarningf(
 // AddInfo adds an info-level diagnostic with the given message and source location.
 // The file parameter is optional for backwards compatibility with Arc.
 func (d *Diagnostics) AddInfo(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: Info, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityInfo, Message: err.Error()}
 	if len(file) > 0 {
 		diag.File = file[0]
 	}
@@ -174,7 +174,7 @@ func (d *Diagnostics) AddInfo(err error, ctx antlr.ParserRuleContext, file ...st
 // AddHint adds a hint-level diagnostic with the given message and source location.
 // The file parameter is optional for backwards compatibility with Arc.
 func (d *Diagnostics) AddHint(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: Hint, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityHint, Message: err.Error()}
 	if len(file) > 0 {
 		diag.File = file[0]
 	}
@@ -194,7 +194,7 @@ func (d *Diagnostics) Merge(other Diagnostics) {
 func (d Diagnostics) Errors() Diagnostics {
 	var errors Diagnostics
 	for _, diag := range d {
-		if diag.Severity == Error {
+		if diag.Severity == SeverityError {
 			errors = append(errors, diag)
 		}
 	}
@@ -205,7 +205,7 @@ func (d Diagnostics) Errors() Diagnostics {
 func (d Diagnostics) Warnings() Diagnostics {
 	var warnings Diagnostics
 	for _, diag := range d {
-		if diag.Severity == Warning {
+		if diag.Severity == SeverityWarning {
 			warnings = append(warnings, diag)
 		}
 	}
@@ -215,7 +215,7 @@ func (d Diagnostics) Warnings() Diagnostics {
 // FromError creates a Diagnostics with a single error from an error value.
 func FromError(err error) *Diagnostics {
 	d := &Diagnostics{}
-	d.Add(Diagnostic{Severity: Error, Message: err.Error()})
+	d.Add(Diagnostic{Severity: SeverityError, Message: err.Error()})
 	return d
 }
 

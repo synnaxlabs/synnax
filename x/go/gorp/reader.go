@@ -53,7 +53,7 @@ func WrapReader[K Key, E Entry[K]](base BaseReader) *Reader[K, E] {
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
-// query.NotFound is returned.
+// query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	bKey, err := encodeKey(ctx, r, r.prefix(ctx), key)
 	if err != nil {
@@ -61,7 +61,7 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	}
 	b, closer, err := r.BaseReader.Get(ctx, bKey)
 	if err != nil {
-		return e, lo.Ternary(errors.Is(err, kv.NotFound), query.NotFound, err)
+		return e, lo.Ternary(errors.Is(err, kv.ErrNotFound), query.ErrNotFound, err)
 	}
 	err = r.Decode(ctx, b, &e)
 	return e, errors.Combine(err, closer.Close())
@@ -79,7 +79,7 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 		if err != nil {
 			// We keep iterating here to ensure that we return all entries that
 			// can be found.
-			if errors.Is(err, query.NotFound) {
+			if errors.Is(err, query.ErrNotFound) {
 				notFound = append(notFound, keys[i])
 				continue
 			} else {
@@ -92,7 +92,7 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	}
 	if len(notFound) > 0 {
 		return entries, errors.Wrapf(
-			query.NotFound,
+			query.ErrNotFound,
 			fmt.Sprintf("%s with keys %v not found", types.PluralName[E](), notFound),
 		)
 	}
@@ -195,7 +195,7 @@ func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K
 				panic(err)
 			}
 			op.Variant = kvChange.Variant
-			if op.Variant == change.Set {
+			if op.Variant == change.VariantSet {
 				// Panicking in development here right now. Don't want to extend the
 				// footprint of TxReader to NexterCloser.
 				if err := tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {

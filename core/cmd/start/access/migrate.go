@@ -66,7 +66,7 @@ func MigratePermissions(
 ) error {
 	// Check if migration already performed
 	performed, closer, err := tx.Get(ctx, migrationKey)
-	if err != nil && !errors.Is(err, kv.NotFound) {
+	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return err
 	} else if err == nil {
 		if err := closer.Close(); err != nil {
@@ -122,7 +122,7 @@ func MigratePermissions(
 		if err = otgWriter.DeleteRelationship(
 			ctx,
 			svc.RBAC.Role.UsersGroup().OntologyID(),
-			ontology.ParentOf,
+			ontology.RelationshipTypeParentOf,
 			userOntologyID,
 		); err != nil {
 			return err

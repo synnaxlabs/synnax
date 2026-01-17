@@ -213,7 +213,7 @@ var _ = Describe("Alias", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
 			_, err := aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "not_an_alias")
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 
 		It("Should fallback to the parent range if the alias is not found", func() {

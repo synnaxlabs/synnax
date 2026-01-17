@@ -174,7 +174,7 @@ func (s *Service) Retrieve(
 	if req.IncludeParent {
 		for i, rng := range apiRanges {
 			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, nil)
-			if errors.Is(err, query.NotFound) {
+			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
 			if err != nil {

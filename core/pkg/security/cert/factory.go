@@ -167,7 +167,7 @@ func (c *Factory) CreateNodePair() error {
 	}
 
 	if len(c.Hosts) == 0 {
-		return errors.Wrap(validate.Error, "[cert] - no hosts provided")
+		return errors.Wrap(validate.ErrValidation, "[cert] - no hosts provided")
 	}
 
 	nodeKey, err := rsa.GenerateKey(rand.Reader, c.KeySize)

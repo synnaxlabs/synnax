@@ -16,10 +16,10 @@ func (r Rate) Period() TimeSpan { return TimeSpan(float64(Second) / float64(r)) 
 func (r Rate) SampleCount(t TimeSpan) int { return int(t.Seconds() * float64(r)) }
 
 const (
-	// Hz is a data rate of 1 Hz.
-	Hz Rate = 1
-	// KHz is a data rate of 1,000 Hz.
-	KHz = 1000 * Hz
-	// MHz is a data rate of 1,000,000 Hz
-	MHz = 1000 * KHz
+	// Hertz is a data rate of 1 Hz.
+	Hertz Rate = 1
+	// Kilohertz is a data rate of 1 kHz.
+	Kilohertz = 1000 * Hertz
+	// Megahertz is a data rate of 1 MHz.
+	Megahertz = 1000 * Kilohertz
 )

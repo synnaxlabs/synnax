@@ -42,7 +42,7 @@ func (w Writer) Create(
 	if err := w.otg.DefineRelationship(
 		ctx,
 		w.group.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	); err != nil {
 		return err
@@ -50,7 +50,7 @@ func (w Writer) Create(
 	if err := w.otg.DefineRelationship(
 		ctx,
 		user.OntologyID(ws.Author),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	); err != nil {
 		return err

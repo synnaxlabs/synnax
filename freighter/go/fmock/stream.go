@@ -131,7 +131,7 @@ func (s *StreamClient[RQ, RS]) Stream(
 			} else if s.Network != nil {
 				srv, ok := s.Network.resolveStreamTarget(target)
 				if !ok || srv.Handler == nil {
-					return oCtx, address.NewErrTargetNotFound(target)
+					return oCtx, address.NewTargetNotFoundError(target)
 				}
 				server = srv
 				targetBufferSize = srv.BufferSize
@@ -182,7 +182,7 @@ func (s *ServerStream[RQ, RS]) Send(res RS) error {
 	case <-s.ctx.Done():
 		return s.ctx.Err()
 	case <-s.serverClosed:
-		return freighter.StreamClosed
+		return freighter.ErrStreamClosed
 	case s.responses <- message[RS]{payload: res}:
 		return nil
 	}
@@ -200,7 +200,7 @@ func (s *ServerStream[RQ, RS]) Receive() (req RQ, err error) {
 	case <-s.ctx.Done():
 		return req, s.ctx.Err()
 	case <-s.serverClosed:
-		return req, freighter.StreamClosed
+		return req, freighter.ErrStreamClosed
 	case msg := <-s.requests:
 		// Any error message means the Stream should die.
 		if msg.error.Type != errors.TypeEmpty {
@@ -251,7 +251,7 @@ func (c *ClientStream[RQ, RS]) Send(req RQ) error {
 	case <-c.ctx.Done():
 		return c.ctx.Err()
 	case <-c.clientClosed:
-		return freighter.StreamClosed
+		return freighter.ErrStreamClosed
 	case <-c.serverClosed:
 		// If the server was serverClosed, we set the sendErr to EOF and let
 		// the client discover the server error by calling Receive.
@@ -287,7 +287,7 @@ func (c *ClientStream[RQ, RS]) CloseSend() error {
 	if c.sendErr != nil {
 		return nil
 	}
-	c.sendErr = freighter.StreamClosed
+	c.sendErr = freighter.ErrStreamClosed
 	c.requests <- message[RQ]{error: errors.Encode(c.ctx, freighter.EOF, true)}
 	close(c.clientClosed)
 	return nil

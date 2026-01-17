@@ -158,7 +158,7 @@ func (c *Codec) decodeWriteRequest(
 		if v.Type != fhttp.WSMessageTypeData {
 			return nil
 		}
-		if v.Payload.Command == writer.Open {
+		if v.Payload.Command == writer.CommandOpen {
 			return c.Update(ctx, v.Payload.Config.Keys)
 		}
 		return nil
@@ -168,7 +168,7 @@ func (c *Codec) decodeWriteRequest(
 	if err != nil {
 		return err
 	}
-	v.Payload.Command = writer.Write
+	v.Payload.Command = writer.CommandWrite
 	v.Payload.Frame = fr
 	return nil
 }
@@ -178,7 +178,7 @@ func (c *Codec) encodeWriteRequest(
 	w io.Writer,
 	v fhttp.WSMessage[framer.WriterRequest],
 ) error {
-	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.Write {
+	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.CommandWrite {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {

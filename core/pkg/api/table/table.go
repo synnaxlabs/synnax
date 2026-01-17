@@ -56,11 +56,11 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, table_ := range req.Tables {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &table_); err != nil {
+		for i, t := range req.Tables {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &t); err != nil {
 				return err
 			}
-			req.Tables[i] = table_
+			req.Tables[i] = t
 		}
 		res.Tables = req.Tables
 		return nil

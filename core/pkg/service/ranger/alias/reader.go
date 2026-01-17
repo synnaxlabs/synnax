@@ -36,12 +36,12 @@ func (r Reader) Retrieve(ctx context.Context, rng uuid.UUID, ch channel.Key) (st
 		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, r.tx)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		if r.parentRetriever == nil {
 			return res.Alias, err
 		}
 		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
-		if errors.Is(pErr, query.NotFound) {
+		if errors.Is(pErr, query.ErrNotFound) {
 			return res.Alias, err
 		}
 		if pErr != nil {
@@ -70,12 +70,12 @@ func (r Reader) Resolve(ctx context.Context, rng uuid.UUID, alias string) (chann
 		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		if r.parentRetriever == nil {
 			return 0, err
 		}
 		parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
-		if errors.Is(pErr, query.NotFound) {
+		if errors.Is(pErr, query.ErrNotFound) {
 			return 0, err
 		}
 		if pErr != nil {
@@ -120,7 +120,7 @@ func (r Reader) listAliases(
 		return nil
 	}
 	parentKey, pErr := r.parentRetriever.RetrieveParentKey(ctx, rng, r.tx)
-	if errors.Is(pErr, query.NotFound) {
+	if errors.Is(pErr, query.ErrNotFound) {
 		return nil
 	} else if pErr != nil {
 		return pErr

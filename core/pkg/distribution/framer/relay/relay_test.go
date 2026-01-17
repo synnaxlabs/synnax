@@ -113,7 +113,7 @@ var _ = Describe("Relay", func() {
 			_, err := svc.Framer.Relay.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 })
@@ -177,8 +177,8 @@ func peerOnlyScenario() scenario {
 }
 func mixedScenario() scenario {
 	channels := newChannelSet()
-	cluster_ := mock.ProvisionCluster(ctx, 3)
-	node := cluster_.Nodes[1]
+	clstr := mock.ProvisionCluster(ctx, 3)
+	node := clstr.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = cluster.NodeKey(i + 1)
 		channels[i] = ch
@@ -195,7 +195,7 @@ func mixedScenario() scenario {
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
 		dist:     node,
-		close:    cluster_,
+		close:    clstr,
 	}
 }
 
@@ -204,7 +204,7 @@ func freeScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.Free
+		ch.Leaseholder = cluster.NodeKeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}

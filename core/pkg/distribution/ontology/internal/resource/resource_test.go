@@ -30,14 +30,14 @@ var _ = Describe("Resource", func() {
 			It("Should return an error if the ID does not have a key", func() {
 				id := resource.ID{Type: "foo"}
 				Expect(id.Validate()).To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - key is required")),
 				))
 			})
 			It("Should return an error if the ID does not have a type", func() {
 				id := resource.ID{Key: "foo"}
 				Expect(id.Validate()).To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - type is required")),
 				))
 			})
@@ -83,7 +83,7 @@ var _ = Describe("Resource", func() {
 		It("Should return an error if the ID has an invalid structure", func() {
 			Expect(resource.ParseID("foo")).Error().
 				To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: foo")),
 				))
 		})
@@ -91,7 +91,7 @@ var _ = Describe("Resource", func() {
 		It("Should return an error if the ID is an empty string", func() {
 			Expect(resource.ParseID("")).Error().
 				To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: ")),
 				))
 		})
@@ -99,7 +99,7 @@ var _ = Describe("Resource", func() {
 		It("Should return an error if the ID has an empty type (leading colon)", func() {
 			Expect(resource.ParseID(":bar")).Error().
 				To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: :bar (empty type)")),
 				))
 		})
@@ -107,7 +107,7 @@ var _ = Describe("Resource", func() {
 		It("Should return an error if the ID has an empty type with colons in key", func() {
 			Expect(resource.ParseID(":word1:word2")).Error().
 				To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: :word1:word2 (empty type)")),
 				))
 		})
@@ -115,7 +115,7 @@ var _ = Describe("Resource", func() {
 		It("Should return an error if the ID has an empty type and key starts with colon", func() {
 			Expect(resource.ParseID("::word1")).Error().
 				To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: ::word1 (empty type)")),
 				))
 		})
@@ -142,7 +142,7 @@ var _ = Describe("Resource", func() {
 		It("Should return an error if any of the IDs have an invalid structure", func() {
 			Expect(resource.ParseIDs([]string{"foo:bar", "foo"})).Error().
 				To(And(
-					MatchError(validate.Error),
+					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: foo")),
 				))
 		})

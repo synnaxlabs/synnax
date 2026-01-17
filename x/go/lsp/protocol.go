@@ -19,13 +19,13 @@ import (
 // Severity converts a diagnostics.Severity to the corresponding LSP protocol severity.
 func Severity(s diagnostics.Severity) protocol.DiagnosticSeverity {
 	switch s {
-	case diagnostics.Error:
+	case diagnostics.SeverityError:
 		return protocol.DiagnosticSeverityError
-	case diagnostics.Warning:
+	case diagnostics.SeverityWarning:
 		return protocol.DiagnosticSeverityWarning
-	case diagnostics.Info:
+	case diagnostics.SeverityInfo:
 		return protocol.DiagnosticSeverityInformation
-	case diagnostics.Hint:
+	case diagnostics.SeverityHint:
 		return protocol.DiagnosticSeverityHint
 	default:
 		return protocol.DiagnosticSeverityError

@@ -37,11 +37,11 @@ var _ = BeforeSuite(func() {
 	db = gorp.Wrap(memkv.New())
 	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-	svc = MustSucceed(policy.OpenService(ctx, policy.Config{
+	svc = MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
-	roleSvc = MustSucceed(role.OpenService(ctx, role.Config{
+	roleSvc = MustSucceed(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

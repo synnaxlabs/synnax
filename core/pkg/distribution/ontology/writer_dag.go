@@ -197,15 +197,15 @@ func (d dagWriter) deleteOutgoingRelationships(ctx context.Context, from ID) err
 	}).Exec(ctx, d.tx)
 }
 
-func (d dagWriter) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, type_ RelationshipType) error {
+func (d dagWriter) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, relationshipType RelationshipType) error {
 	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
-		return rel.From == from && rel.Type == type_, nil
+		return rel.From == from && rel.Type == relationshipType, nil
 	}).Exec(ctx, d.tx)
 }
 
-func (d dagWriter) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, type_ RelationshipType) error {
+func (d dagWriter) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, relationshipType RelationshipType) error {
 	return gorp.NewDelete[[]byte, Relationship]().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
-		return rel.To == to && rel.Type == type_, nil
+		return rel.To == to && rel.Type == relationshipType, nil
 	}).Exec(ctx, d.tx)
 }
 

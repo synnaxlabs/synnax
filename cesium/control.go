@@ -96,7 +96,7 @@ func (db *DB) updateControlDigests(
 	return signal.SendUnderContext(
 		ctx,
 		db.mu.digests.inlet.Inlet(),
-		WriterRequest{Command: WriterWrite, Frame: db.ControlUpdateToFrame(ctx, u)},
+		WriterRequest{Command: WriterCommandWrite, Frame: db.ControlUpdateToFrame(ctx, u)},
 	)
 }
 

@@ -32,53 +32,53 @@ import (
 // edge validation, and stratified execution planning. Errors are collected
 // in the returned Diagnostics.
 func Analyze(
-	ctx_ context.Context,
+	ctx context.Context,
 	g Graph,
 	resolver symbol.Resolver,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	// Step 1: Build Root Context and Register All Functions
-	ctx := acontext.CreateRoot[antlr.ParserRuleContext](ctx_, nil, resolver)
+	aCtx := acontext.CreateRoot[antlr.ParserRuleContext](ctx, nil, resolver)
 	for _, fn := range g.Functions {
-		funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
+		funcScope, err := aCtx.Scope.Add(aCtx, symbol.Symbol{
 			Name: fn.Key,
 			Kind: symbol.KindFunction,
 			Type: fn.Type(),
 			AST:  fn.Body.AST,
 		})
 		if err != nil {
-			ctx.Diagnostics.AddError(err, fn.Body.AST)
-			return ir.IR{}, ctx.Diagnostics
+			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, aCtx.Diagnostics
 		}
-		if err = bindParams(ctx, funcScope, fn.Config, symbol.KindConfig); err != nil {
-			ctx.Diagnostics.AddError(err, fn.Body.AST)
-			return ir.IR{}, ctx.Diagnostics
+		if err = bindParams(aCtx, funcScope, fn.Config, symbol.KindConfig); err != nil {
+			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, aCtx.Diagnostics
 		}
-		if err = bindParams(ctx, funcScope, fn.Inputs, symbol.KindInput); err != nil {
-			ctx.Diagnostics.AddError(err, fn.Body.AST)
-			return ir.IR{}, ctx.Diagnostics
+		if err = bindParams(aCtx, funcScope, fn.Inputs, symbol.KindInput); err != nil {
+			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, aCtx.Diagnostics
 		}
-		if err = bindParams(ctx, funcScope, fn.Outputs, symbol.KindOutput); err != nil {
-			ctx.Diagnostics.AddError(err, fn.Body.AST)
-			return ir.IR{}, ctx.Diagnostics
+		if err = bindParams(aCtx, funcScope, fn.Outputs, symbol.KindOutput); err != nil {
+			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, aCtx.Diagnostics
 		}
 	}
 
 	// Step 2: Analyze Function Bodies
 	for i, fn := range g.Functions {
-		funcScope, err := ctx.Scope.GetChildByParserRule(fn.Body.AST)
+		funcScope, err := aCtx.Scope.GetChildByParserRule(fn.Body.AST)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, fn.Body.AST)
-			return ir.IR{}, ctx.Diagnostics
+			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			return ir.IR{}, aCtx.Diagnostics
 		}
 		funcScope.AccumulateReadChannels()
 		if fn.Body.Raw != "" {
 			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
 			if !ok {
-				ctx.Diagnostics.AddError(errors.New("function body must be a block"), fn.Body.AST)
-				return ir.IR{}, ctx.Diagnostics
+				aCtx.Diagnostics.AddError(errors.New("function body must be a block"), fn.Body.AST)
+				return ir.IR{}, aCtx.Diagnostics
 			}
-			if !analyzer.AnalyzeBlock(acontext.Child(ctx, blockCtx).WithScope(funcScope)) {
-				return ir.IR{}, ctx.Diagnostics
+			if !analyzer.AnalyzeBlock(acontext.Child(aCtx, blockCtx).WithScope(funcScope)) {
+				return ir.IR{}, aCtx.Diagnostics
 			}
 		}
 		fn.Channels = funcScope.Channels
@@ -89,10 +89,10 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		fnSym, err := ctx.Scope.Resolve(ctx, n.Type)
+		fnSym, err := aCtx.Scope.Resolve(aCtx, n.Type)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, nil)
-			return ir.IR{}, ctx.Diagnostics
+			aCtx.Diagnostics.AddError(err, nil)
+			return ir.IR{}, aCtx.Diagnostics
 		}
 		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
 		freshType := freshFuncTypes[n.Key]
@@ -113,19 +113,19 @@ func Analyze(
 			if configParam.Type.Kind == types.KindChan {
 				var k uint32
 				if err = zyn.Uint32().Coerce().Parse(configValue, &k); err != nil {
-					return ir.IR{}, ctx.Diagnostics
+					return ir.IR{}, aCtx.Diagnostics
 				}
-				channelSym, err := resolver.Resolve(ctx_, strconv.Itoa(int(k)))
+				channelSym, err := resolver.Resolve(ctx, strconv.Itoa(int(k)))
 				if err == nil && channelSym.Type.Kind == types.KindChan {
 					if err = atypes.Check(
-						ctx.Constraints,
+						aCtx.Constraints,
 						channelSym.Type,
 						configParam.Type,
 						nil,
 						"",
 					); err != nil {
-						ctx.Diagnostics.AddError(err, nil)
-						return ir.IR{}, ctx.Diagnostics
+						aCtx.Diagnostics.AddError(err, nil)
+						return ir.IR{}, aCtx.Diagnostics
 					}
 					node.Channels.Read[k] = ""
 				}
@@ -137,9 +137,9 @@ func Analyze(
 		// Validate all required config parameters are provided
 		for _, configParam := range freshType.Config {
 			if configParam.Value == nil {
-				ctx.Diagnostics.AddError(
+				aCtx.Diagnostics.AddError(
 					errors.Wrapf(
-						query.NotFound,
+						query.ErrNotFound,
 						"node '%s' (%s) missing required config parameter '%s'",
 						n.Key,
 						n.Type,
@@ -151,8 +151,8 @@ func Analyze(
 
 	// Step 5: Check Types Across Edges
 	for _, edge := range g.Edges {
-		if !validateEdge(ctx, edge, g.Nodes, freshFuncTypes) {
-			return ir.IR{}, ctx.Diagnostics
+		if !validateEdge(aCtx, edge, g.Nodes, freshFuncTypes) {
+			return ir.IR{}, aCtx.Diagnostics
 		}
 	}
 
@@ -163,7 +163,7 @@ func Analyze(
 			connectedInputs[edge.Target.Node] = make(map[string]bool)
 		}
 		if connectedInputs[edge.Target.Node][edge.Target.Param] {
-			ctx.Diagnostics.AddError(
+			aCtx.Diagnostics.AddError(
 				errors.Newf(
 					"multiple edges target node '%s' parameter '%s'",
 					edge.Target.Node,
@@ -172,8 +172,8 @@ func Analyze(
 		}
 		connectedInputs[edge.Target.Node][edge.Target.Param] = true
 	}
-	if !ctx.Diagnostics.Ok() {
-		return ir.IR{}, ctx.Diagnostics
+	if !aCtx.Diagnostics.Ok() {
+		return ir.IR{}, aCtx.Diagnostics
 	}
 
 	// Step 5B: Check Missing Required Inputs
@@ -188,9 +188,9 @@ func Analyze(
 				// Check if this parameter has a default value (is optional)
 				if inputParam.Value == nil {
 					// Required parameter is missing
-					ctx.Diagnostics.AddError(
+					aCtx.Diagnostics.AddError(
 						errors.Wrapf(
-							query.NotFound,
+							query.ErrNotFound,
 							"node '%s' (%s) missing required input '%s'",
 							n.Key,
 							n.Type,
@@ -200,19 +200,19 @@ func Analyze(
 			}
 		}
 	}
-	if !ctx.Diagnostics.Ok() {
-		return ir.IR{}, ctx.Diagnostics
+	if !aCtx.Diagnostics.Ok() {
+		return ir.IR{}, aCtx.Diagnostics
 	}
 
 	// Step 6: Unify Type Constraints
-	if err := ctx.Constraints.Unify(); err != nil {
-		ctx.Diagnostics.AddError(err, nil)
-		return ir.IR{}, ctx.Diagnostics
+	if err := aCtx.Constraints.Unify(); err != nil {
+		aCtx.Diagnostics.AddError(err, nil)
+		return ir.IR{}, aCtx.Diagnostics
 	}
 
 	// Step 7: Build IR Nodes with Unified Type Constraints
 	for i, n := range g.Nodes {
-		substituted := ctx.Constraints.ApplySubstitutions(freshFuncTypes[n.Key])
+		substituted := aCtx.Constraints.ApplySubstitutions(freshFuncTypes[n.Key])
 		irN := irNodes[i]
 		irN.Outputs = substituted.Outputs
 		irN.Inputs = substituted.Inputs
@@ -222,14 +222,14 @@ func Analyze(
 
 	// Step 8: Build Stratified Execution Plan
 	// Graph-based compilation doesn't support sequences, so pass nil
-	strata, err := stratifier.Stratify(ctx, irNodes, g.Edges, nil, ctx.Diagnostics)
+	strata, err := stratifier.Stratify(aCtx, irNodes, g.Edges, nil, aCtx.Diagnostics)
 	if err != nil {
-		return ir.IR{}, ctx.Diagnostics
+		return ir.IR{}, aCtx.Diagnostics
 	}
 
 	// Step 9: Substitute TypeMap after unification
-	for node, typ := range ctx.TypeMap {
-		ctx.TypeMap[node] = ctx.Constraints.ApplySubstitutions(typ)
+	for node, typ := range aCtx.TypeMap {
+		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
 	}
 
 	// Step 10: Return IR
@@ -237,10 +237,10 @@ func Analyze(
 		Functions: g.Functions,
 		Edges:     g.Edges,
 		Nodes:     irNodes,
-		Symbols:   ctx.Scope,
+		Symbols:   aCtx.Scope,
 		Strata:    strata,
-		TypeMap:   ctx.TypeMap,
-	}, ctx.Diagnostics
+		TypeMap:   aCtx.TypeMap,
+	}, aCtx.Diagnostics
 }
 
 // bindParams adds function parameters to the symbol scope with the specified kind.
@@ -276,7 +276,7 @@ func validateEdge(
 	sourceNode, ok := nodes.Find(edge.Source.Node)
 	if !ok {
 		ctx.Diagnostics.AddError(
-			errors.Wrapf(query.NotFound, "edge source node '%s' not found", edge.Source.Node),
+			errors.Wrapf(query.ErrNotFound, "edge source node '%s' not found", edge.Source.Node),
 			nil,
 		)
 		return false
@@ -284,7 +284,7 @@ func validateEdge(
 	targetNode, ok := nodes.Find(edge.Target.Node)
 	if !ok {
 		ctx.Diagnostics.AddError(
-			errors.Wrapf(query.NotFound, "edge target node '%s' not found", edge.Target.Node),
+			errors.Wrapf(query.ErrNotFound, "edge target node '%s' not found", edge.Target.Node),
 			nil,
 		)
 		return false
@@ -295,7 +295,7 @@ func validateEdge(
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
-				query.NotFound,
+				query.ErrNotFound,
 				"output '%s' not found in node '%s' (%s)",
 				edge.Source.Param,
 				edge.Source.Node,
@@ -309,7 +309,7 @@ func validateEdge(
 	if !ok {
 		ctx.Diagnostics.AddError(
 			errors.Wrapf(
-				query.NotFound,
+				query.ErrNotFound,
 				"input '%s' not found in node '%s' (%s)",
 				edge.Target.Param,
 				edge.Target.Node,

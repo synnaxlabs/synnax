@@ -296,9 +296,9 @@ var _ = Describe("IR", func() {
 
 			// Verify GetByKind works
 			continuous := restored.Edges.GetByKind(ir.EdgeKindContinuous)
-			EdgeKindOneShot := restored.Edges.GetByKind(ir.EdgeKindOneShot)
+			oneShot := restored.Edges.GetByKind(ir.EdgeKindOneShot)
 			Expect(continuous).To(HaveLen(1))
-			Expect(EdgeKindOneShot).To(HaveLen(1))
+			Expect(oneShot).To(HaveLen(1))
 		})
 
 		It("Should handle IR with no sequences", func() {
@@ -435,12 +435,12 @@ var _ = Describe("IR", func() {
 
 			// Verify edge classification
 			continuous := program.Edges.GetByKind(ir.EdgeKindContinuous)
-			EdgeKindOneShot := program.Edges.GetByKind(ir.EdgeKindOneShot)
+			oneShot := program.Edges.GetByKind(ir.EdgeKindOneShot)
 			Expect(continuous).To(HaveLen(1))
-			Expect(EdgeKindOneShot).To(HaveLen(4))
+			Expect(oneShot).To(HaveLen(4))
 
 			// All EdgeKindOneShot edges should target stage entries
-			for _, e := range EdgeKindOneShot {
+			for _, e := range oneShot {
 				Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			}
 

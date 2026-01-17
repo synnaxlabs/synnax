@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	// Unreachable is returned when a target cannot be reached.
-	Unreachable = errors.New("[freighter] - target unreachable")
-	// SecurityError is returned  when a security error occurs.
-	SecurityError = errors.New("[freighter] - security error")
+	// ErrUnreachable is returned when a target cannot be reached.
+	ErrUnreachable = errors.New("[freighter] - target unreachable")
+	// ErrSecurity is returned  when a security error occurs.
+	ErrSecurity = errors.New("[freighter] - security error")
 )
 
 // Payload represents a piece of data that can be sent over the freighter.

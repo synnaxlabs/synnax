@@ -87,7 +87,7 @@ func (s *Service) Resolve(
 
 	for _, a := range req.Aliases {
 		ch, err := r.Resolve(ctx, req.Range, a)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return ResolveResponse{}, err
 		}
 		if ch != 0 {
@@ -191,7 +191,7 @@ func (s *Service) Retrieve(
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
 		a, err := r.Retrieve(ctx, req.Range, ch)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RetrieveResponse{}, err
 		}
 		if a != "" {

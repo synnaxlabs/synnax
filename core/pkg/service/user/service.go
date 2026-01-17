@@ -40,8 +40,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	defaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	defaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements [config.Config].
@@ -70,7 +70,7 @@ type Service struct {
 
 // OpenService opens a new Service with the given context ctx and configurations configs.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(defaultConfig, configs...)
+	cfg, err := config.New(defaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -210,7 +210,7 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, err
 	for _, key := range req.Keys {
 		var u user.User
 		err := s.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return types.Nil{}, err
 		}
 		users = append(users, u)

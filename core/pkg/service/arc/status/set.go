@@ -86,7 +86,7 @@ type nodeConfig struct {
 
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
@@ -96,7 +96,7 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 	if err := s.stat.NewRetrieve().
 		WhereKeys(nodeCfg.StatusKey).
 		Entry(&stat).
-		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	stat.Key = nodeCfg.StatusKey

@@ -37,14 +37,14 @@ var _ = Describe("MapResolver", func() {
 			}
 			_, err := resolver.Resolve(bCtx, "y")
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should work with empty resolver", func() {
 			resolver := symbol.MapResolver{}
 			_, err := resolver.Resolve(bCtx, "anything")
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 

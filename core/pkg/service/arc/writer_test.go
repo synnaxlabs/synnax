@@ -174,7 +174,7 @@ var _ = Describe("Writer", func() {
 
 				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(statusKey).
-					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 
 			It("Should delete multiple statuses when multiple arcs are deleted", func() {
@@ -196,11 +196,11 @@ var _ = Describe("Writer", func() {
 
 				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(a1.Key.String()).
-					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 
 				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(a2.Key.String()).
-					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 
 			It("Should handle delete of non-existent arc gracefully", func() {

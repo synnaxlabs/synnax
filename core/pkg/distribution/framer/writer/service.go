@@ -133,7 +133,7 @@ func DefaultConfig() Config {
 		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
-		Mode:                     ts.WriterPersistStream,
+		Mode:                     ts.WriterModePersistStream,
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
@@ -429,7 +429,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	}
 	if len(channels) != len(keys) {
 		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return nil, errors.Wrapf(validate.Error, "missing channels: %v", missing)
+		return nil, errors.Wrapf(validate.ErrValidation, "missing channels: %v", missing)
 	}
 	return channels, nil
 }

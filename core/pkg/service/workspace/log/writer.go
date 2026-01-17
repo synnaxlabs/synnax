@@ -57,7 +57,7 @@ func (w Writer) Create(
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }

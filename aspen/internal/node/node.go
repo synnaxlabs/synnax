@@ -12,19 +12,18 @@ package node
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/x/math"
-	"github.com/synnaxlabs/x/types"
-
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/version"
 )
 
 type Key types.Uint12
 
 const (
-	Bootstrapper Key = 1
-	Free             = Key(math.MaxUint12)
+	KeyBootstrapper Key = 1
+	KeyFree             = Key(math.MaxUint12)
 )
 
 func (k Key) Parse(str string) (Key, error) {
@@ -32,9 +31,9 @@ func (k Key) Parse(str string) (Key, error) {
 	return Key(key), err
 }
 
-func (k Key) IsFree() bool { return k == Free }
+func (k Key) IsFree() bool { return k == KeyFree }
 
-func (k Key) IsBootstrapper() bool { return k == Bootstrapper }
+func (k Key) IsBootstrapper() bool { return k == KeyBootstrapper }
 
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }

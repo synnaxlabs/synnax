@@ -38,7 +38,7 @@ func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
 func ParseKey(s string) (Key, error) {
 	k, err := strconv.Atoi(s)
 	if err != nil {
-		return Key(0), errors.Wrapf(validate.Error, "%s is not a valid channel key", s)
+		return Key(0), errors.Wrapf(validate.ErrValidation, "%s is not a valid channel key", s)
 	}
 	return Key(k), nil
 }
@@ -49,7 +49,7 @@ func (c Key) Leaseholder() cluster.NodeKey { return cluster.NodeKey(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
-func (c Key) Free() bool { return c.Leaseholder() == cluster.Free }
+func (c Key) Free() bool { return c.Leaseholder() == cluster.NodeKeyFree }
 
 // StorageKey returns the storage layer representation of the channel key.
 func (c Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(c) }
@@ -200,7 +200,7 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // from.
 func (c Channel) SetOptions() []any {
 	if c.Free() {
-		return []any{cluster.Bootstrapper}
+		return []any{cluster.NodeKeyBootstrapper}
 	}
 	return []any{c.Lease()}
 }
@@ -210,7 +210,7 @@ func (c Channel) Lease() cluster.NodeKey { return c.Leaseholder }
 
 // Free returns true if the channel is leased to a particular node i.e. it is not
 // a non-leased virtual channel.
-func (c Channel) Free() bool { return c.Leaseholder == cluster.Free }
+func (c Channel) Free() bool { return c.Leaseholder == cluster.NodeKeyFree }
 
 // Storage returns the storage layer representation of the channel for creation
 // in the storage ts.DB.

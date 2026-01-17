@@ -41,11 +41,11 @@ type State = store.State
 // Change is information about a change to the Cluster's state.
 type Change = store.Change
 
-// NodeNotFound is returned when a node cannot be found in the Cluster.
-var NodeNotFound = errors.Wrap(query.NotFound, "node not found")
+// ErrNodeNotFound is returned when a node cannot be found in the Cluster.
+var ErrNodeNotFound = errors.Wrap(query.ErrNotFound, "node not found")
 
-func nodeNotFoundErr(key node.Key) error {
-	return errors.Wrapf(NodeNotFound, "node %d", key)
+func newNodeNotFoundError(key node.Key) error {
+	return errors.Wrapf(ErrNodeNotFound, "node %d", key)
 }
 
 // Open joins the host node to the Cluster and begins gossiping its state. The
@@ -72,7 +72,7 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 
 	// Attempt to open the Cluster store from kv. It's ok if we don't find it.
 	state, err := tryLoadPersistedState(ctx, cfg)
-	if err != nil && !errors.Is(err, kv.NotFound) {
+	if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return nil, err
 	}
 	c.SetState(ctx, state)
@@ -171,7 +171,7 @@ func (c *Cluster) Nodes() node.Group {
 func (c *Cluster) Node(key node.Key) (node.Node, error) {
 	n, ok := c.GetNode(key)
 	if !ok {
-		return n, nodeNotFoundErr(key)
+		return n, newNodeNotFoundError(key)
 	}
 	return n, nil
 }
@@ -240,7 +240,7 @@ func tryLoadPersistedState(ctx context.Context, cfg Config) (store.State, error)
 	}
 	encoded, closer, err := cfg.Storage.Get(ctx, cfg.StorageKey)
 	if err != nil {
-		return state, lo.Ternary(errors.Is(err, kv.NotFound), nil, err)
+		return state, lo.Ternary(errors.Is(err, kv.ErrNotFound), nil, err)
 	}
 	err = cfg.Codec.Decode(ctx, encoded, &state)
 	err = errors.Combine(err, closer.Close())
@@ -252,9 +252,9 @@ func newConfig(ctx context.Context, configs []Config) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	store_ := store.New(ctx)
-	cfg.Gossip.Store = store_
-	cfg.Pledge.Candidates = func() node.Group { return store_.CopyState().Nodes }
+	store := store.New(ctx)
+	cfg.Gossip.Store = store
+	cfg.Pledge.Candidates = func() node.Group { return store.CopyState().Nodes }
 	cfg.Gossip.Instrumentation = cfg.Child("gossip")
 	cfg.Pledge.Instrumentation = cfg.Child("pledge")
 	return cfg, nil

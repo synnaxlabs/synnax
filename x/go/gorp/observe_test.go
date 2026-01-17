@@ -36,7 +36,7 @@ var _ = Describe("Observe", Ordered, func() {
 		gorp.Observe[int, entry](db).OnChange(func(ctx context.Context, r gorp.TxReader[int, entry]) {
 			for ch := range r {
 				Expect(ch.Value).To(Equal(entry{ID: 42, Data: "data"}))
-				Expect(ch.Variant).To(Equal(change.Set))
+				Expect(ch.Variant).To(Equal(change.VariantSet))
 				called = true
 			}
 		})

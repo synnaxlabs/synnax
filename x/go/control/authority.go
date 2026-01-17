@@ -25,11 +25,11 @@ const (
 )
 
 var (
-	// Error is a general classification of control error.
-	Error = errors.New("control")
+	// ErrControl is a general classification of control error.
+	ErrControl = errors.New("control")
 	// ErrUnauthorized is returned when a subject does not have authority to perform
 	// actions on a resource.
-	ErrUnauthorized = errors.Wrap(Error, "unauthorized")
+	ErrUnauthorized = errors.Wrap(ErrControl, "unauthorized")
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
@@ -46,9 +46,7 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 	if p.Type == unauthorized {
 		return errors.Wrap(ErrUnauthorized, p.Data), true
 	}
-	return errors.Wrap(Error, p.Data), true
+	return errors.Wrap(ErrControl, p.Data), true
 }
 
-func init() {
-	errors.Register(encode, decode)
-}
+func init() { errors.Register(encode, decode) }

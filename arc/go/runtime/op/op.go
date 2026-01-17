@@ -89,7 +89,7 @@ func (o operatorFactory) Create(_ context.Context, cfg node.Config) (node.Node, 
 	if ok {
 		return &unary{Node: cfg.State, op: unOpFn}, nil
 	}
-	return nil, query.NotFound
+	return nil, query.ErrNotFound
 }
 
 func NewFactory() node.Factory { return operatorFactory{} }

@@ -65,7 +65,7 @@ var _ = Describe("Service", Ordered, func() {
 			virtualCh := channel.Channel{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Float64T,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Virtual:     true,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &virtualCh)).To(Succeed())

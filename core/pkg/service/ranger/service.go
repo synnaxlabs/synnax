@@ -52,8 +52,8 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a range service.
-	DefaultConfig = ServiceConfig{ForceMigration: config.False()}
+	// DefaultServiceConfig is the default configuration for opening a range service.
+	DefaultServiceConfig = ServiceConfig{ForceMigration: config.False()}
 )
 
 // Validate implements config.Config.
@@ -90,7 +90,7 @@ type Service struct {
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -146,14 +146,14 @@ func (s *Service) NewRetrieve() Retrieve {
 }
 
 // RetrieveParentKey returns the parent range key for the given range key.
-// Returns query.NotFound if the range has no parent.
+// Returns query.ErrNotFound if the range has no parent.
 // This method implements the alias.ParentRetriever interface.
 func (s *Service) RetrieveParentKey(ctx context.Context, key uuid.UUID, tx gorp.Tx) (uuid.UUID, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var resources []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().
 		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.Parents).
+		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(OntologyType).
 		ExcludeFieldData(true).
 		Entries(&resources).
@@ -161,7 +161,7 @@ func (s *Service) RetrieveParentKey(ctx context.Context, key uuid.UUID, tx gorp.
 		return uuid.Nil, err
 	}
 	if len(resources) == 0 {
-		return uuid.Nil, errors.Wrapf(query.NotFound, "range %s has no parent", key)
+		return uuid.Nil, errors.Wrapf(query.ErrNotFound, "range %s has no parent", key)
 	}
 	return KeyFromOntologyID(resources[0].ID)
 }

@@ -24,9 +24,7 @@ import (
 )
 
 var _ = Describe("StateConfig", Ordered, func() {
-	var (
-		dist mock.Node
-	)
+	var dist mock.Node
 
 	BeforeAll(func() {
 		distB := mock.NewCluster()

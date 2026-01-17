@@ -39,17 +39,17 @@ type sampleService struct {
 
 var _ ontology.Service = (*sampleService)(nil)
 
-const sampleType ontology.Type = "sample"
+const sampleOntologyType ontology.Type = "sample"
 
 type Sample struct{ Key string }
 
 func newSampleType(key string) ontology.ID {
-	return ontology.ID{Key: key, Type: sampleType}
+	return ontology.ID{Key: key, Type: sampleOntologyType}
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
-func (s *sampleService) Type() ontology.Type { return sampleType }
+func (s *sampleService) Type() ontology.Type { return sampleOntologyType }
 
 func (s *sampleService) Schema() zyn.Schema { return schema }
 

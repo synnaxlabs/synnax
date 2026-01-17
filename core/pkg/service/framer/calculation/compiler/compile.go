@@ -32,8 +32,8 @@ type Config struct {
 }
 
 var (
-	_                       config.Config[Config] = Config{}
-	DefaultCalculatorConfig                       = Config{}
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
 )
 
 // Override implements config.Config.
@@ -76,7 +76,7 @@ type Module struct {
 }
 
 func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
-	cfg, err := config.New(DefaultCalculatorConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return Module{}, err
 	}

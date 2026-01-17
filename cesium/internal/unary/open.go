@@ -97,7 +97,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapError := channel.NewErrWrapper(cfg.Channel)
+	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
 		return nil, wrapError(ErrVirtual)
 	}

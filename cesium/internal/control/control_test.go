@@ -139,10 +139,10 @@ var _ = Describe("Control", func() {
 				count := 0
 				cfg.OpenResource = func() (testResource, error) {
 					count++
-					return testResource{value: 11}, errors.Wrapf(validate.Error, "could not great gate")
+					return testResource{value: 11}, errors.Wrapf(validate.ErrValidation, "could not great gate")
 				}
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())
 			})
@@ -153,7 +153,7 @@ var _ = Describe("Control", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(g).ToNot(BeNil())
 				g, t, err := c.OpenGate(cfg)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(err).To(MatchError(ContainSubstring("control subject [test]<test> is already registered in the region")))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(g).To(BeNil())

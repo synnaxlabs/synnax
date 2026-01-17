@@ -572,13 +572,13 @@ var _ = Describe("Integration: Sequence with Edge Kinds", func() {
 
 		// Verify edge kinds
 		continuous := edges.GetByKind(ir.EdgeKindContinuous)
-		EdgeKindOneShot := edges.GetByKind(ir.EdgeKindOneShot)
+		oneShot := edges.GetByKind(ir.EdgeKindOneShot)
 
 		Expect(continuous).To(HaveLen(2))
-		Expect(EdgeKindOneShot).To(HaveLen(2))
+		Expect(oneShot).To(HaveLen(2))
 
 		// Verify EdgeKindOneShot edges target entry nodes
-		for _, e := range EdgeKindOneShot {
+		for _, e := range oneShot {
 			Expect(e.Target.Node).To(ContainSubstring("_entry"))
 			Expect(e.Target.Param).To(Equal("activate"))
 		}

@@ -95,7 +95,7 @@ var _ = Describe("Telem", func() {
 		})
 
 		Describe("Error Handling", func() {
-			It("Should return query.NotFound for unknown node type", func() {
+			It("Should return query.ErrNotFound for unknown node type", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "unknown",
@@ -104,7 +104,7 @@ var _ = Describe("Telem", func() {
 					State: s.Node("test"),
 				}
 				node, err := factory.Create(ctx, cfg)
-				Expect(err).To(Equal(query.NotFound))
+				Expect(err).To(Equal(query.ErrNotFound))
 				Expect(node).To(BeNil())
 			})
 			It("Should return error for invalid config", func() {

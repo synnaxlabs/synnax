@@ -57,7 +57,7 @@ func (w Writer) CreateWithParent(
 		NewRetrieve[uuid.UUID, Range]().
 		WhereKeys(r.Key).
 		Exists(ctx, w.tx)
-	if err != nil && !errors.Is(err, query.NotFound) {
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	if err = gorp.NewCreate[uuid.UUID, Range]().Entry(r).Exec(ctx, w.tx); err != nil {
@@ -74,7 +74,7 @@ func (w Writer) CreateWithParent(
 			if relAlreadyExists, err := w.otgWriter.HasRelationship(
 				ctx,
 				parent,
-				ontology.ParentOf,
+				ontology.RelationshipTypeParentOf,
 				otgID,
 			); relAlreadyExists || err != nil {
 				return err
@@ -82,7 +82,7 @@ func (w Writer) CreateWithParent(
 			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
 				ctx,
 				otgID,
-				ontology.ParentOf,
+				ontology.RelationshipTypeParentOf,
 			); err != nil {
 				return err
 			}
@@ -90,7 +90,7 @@ func (w Writer) CreateWithParent(
 		if err = w.otgWriter.DefineRelationship(
 			ctx,
 			parent,
-			ontology.ParentOf,
+			ontology.RelationshipTypeParentOf,
 			otgID,
 		); err != nil {
 			return err
@@ -160,12 +160,12 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 		otgWriter.
 		NewRetrieve().
 		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.Children).
+		TraverseTo(ontology.ChildrenTraverser).
 		Entries(&children).
 		ExcludeFieldData(true).
-		// The check for query.NotFound is necessary because the child may have already
+		// The check for query.ErrNotFound is necessary because the child may have already
 		// been deleted, and delete is idempotent.
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {

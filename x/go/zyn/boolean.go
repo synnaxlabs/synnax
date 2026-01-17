@@ -58,7 +58,7 @@ func (b BoolZ) Dump(data any) (any, error) {
 		if b.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() == reflect.Pointer {
@@ -66,7 +66,7 @@ func (b BoolZ) Dump(data any) (any, error) {
 			if b.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		dataVal = dataVal.Elem()
 	}
@@ -143,7 +143,7 @@ func Bool() BoolZ {
 
 func invalidBooleanStringError(v string) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.ErrValidation,
 		"invalid boolean string '%s': must be 'true', 'false', '1', or '0'",
 		v,
 	)

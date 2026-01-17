@@ -282,16 +282,16 @@ func analyzeExpression(
 // Analyze performs semantic analysis on parsed Arc code and builds the IR.
 // Returns a partially complete IR even on errors for LSP support.
 func Analyze(
-	ctx_ context.Context,
+	ctx context.Context,
 	t Text,
 	resolver symbol.Resolver,
 ) (ir.IR, *diagnostics.Diagnostics) {
 	var (
-		ctx = acontext.CreateRoot(ctx_, t.AST, resolver)
-		i   = ir.IR{Symbols: ctx.Scope, TypeMap: ctx.TypeMap}
+		aCtx = acontext.CreateRoot(ctx, t.AST, resolver)
+		i    = ir.IR{Symbols: aCtx.Scope, TypeMap: aCtx.TypeMap}
 	)
-	if !analyzer.AnalyzeProgram(ctx) {
-		return i, ctx.Diagnostics
+	if !analyzer.AnalyzeProgram(aCtx) {
+		return i, aCtx.Diagnostics
 	}
 
 	for _, c := range i.Symbols.Children {
@@ -319,16 +319,16 @@ func Analyze(
 	kg := newKeyGenerator()
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, ok := analyzeFlow(acontext.Child(ctx, flow), kg)
+			nodes, edges, ok := analyzeFlow(acontext.Child(aCtx, flow), kg)
 			if !ok {
-				return i, ctx.Diagnostics
+				return i, aCtx.Diagnostics
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			seq, nodes, edges, ok := analyzeSequence(acontext.Child(ctx, seqDecl), kg)
+			seq, nodes, edges, ok := analyzeSequence(acontext.Child(aCtx, seqDecl), kg)
 			if !ok {
-				return i, ctx.Diagnostics
+				return i, aCtx.Diagnostics
 			}
 			i.Sequences = append(i.Sequences, seq)
 			i.Nodes = append(i.Nodes, nodes...)
@@ -337,15 +337,15 @@ func Analyze(
 	}
 
 	if len(i.Nodes) > 0 {
-		strata, diag := stratifier.Stratify(ctx_, i.Nodes, i.Edges, i.Sequences, ctx.Diagnostics)
+		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, aCtx.Diagnostics)
 		if diag != nil && !diag.Ok() {
-			ctx.Diagnostics = diag
-			return i, ctx.Diagnostics
+			aCtx.Diagnostics = diag
+			return i, aCtx.Diagnostics
 		}
 		i.Strata = strata
 	}
 
-	return i, ctx.Diagnostics
+	return i, aCtx.Diagnostics
 }
 
 type flowChainProcessor struct {

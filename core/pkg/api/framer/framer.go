@@ -161,7 +161,7 @@ func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.
 	if err != nil {
 		return nil, err
 	}
-	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.AckResponse, Ack: true})
+	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.ResponseVariantAck, Ack: true})
 }
 
 type (
@@ -330,7 +330,7 @@ func (s *Service) Write(_ctx context.Context, stream WriterStream) error {
 		Receiver: stream,
 		Transform: func(_ context.Context, req WriterRequest) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == writer.SetAuthority {
+			if r.Command == writer.CommandSetAuthority {
 				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
 				for i, a := range req.Config.Authorities {
@@ -408,7 +408,7 @@ func (s *Service) openWriter(
 	}
 	// Let the client know the writer is ready to receive segments.
 	return w, srv.Send(WriterResponse{
-		Command: writer.Open,
+		Command: writer.CommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
 	})
 }

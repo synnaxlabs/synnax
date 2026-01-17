@@ -33,7 +33,7 @@ import (
 // the ranger service.
 type ParentRetriever interface {
 	// RetrieveParentKey returns the parent range key for the given range key.
-	// Returns query.NotFound if the range has no parent.
+	// Returns query.ErrNotFound if the range has no parent.
 	RetrieveParentKey(ctx context.Context, key uuid.UUID, tx gorp.Tx) (uuid.UUID, error)
 }
 

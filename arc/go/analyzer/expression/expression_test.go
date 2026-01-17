@@ -30,7 +30,7 @@ func expectOperatorTypeError(code string, typeName, operator string) {
 	ctx := context.CreateRoot(bCtx, ast, nil)
 	Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
 	Expect(*ctx.Diagnostics).To(HaveLen(1))
-	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.Error))
+	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(typeName))
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(operator))
 }

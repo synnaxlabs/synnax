@@ -68,7 +68,7 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 		WhereKeys(device.Key).
 		Entry(&existing).
 		Exec(ctx, w.tx)
-	isNotFound := errors.Is(err, query.NotFound)
+	isNotFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !isNotFound {
 		return err
 	}
@@ -100,14 +100,14 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	if err = w.otg.DeleteIncomingRelationshipsOfType(
 		ctx,
 		otgID,
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 	); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(
 		ctx,
 		device.Rack.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }

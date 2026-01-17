@@ -61,7 +61,7 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	if !res.Authorized && s.cycle.res.Authorized {
 		s.cycle.res.Authorized = false
 	}
-	if res.Command == Commit && res.End > s.cycle.res.End {
+	if res.Command == CommandCommit && res.End > s.cycle.res.End {
 		s.cycle.res.End = res.End
 	}
 	fulfilled := s.cycle.counter == s.nodeCount

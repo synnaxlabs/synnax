@@ -26,10 +26,10 @@ var _ = Describe("LSP", func() {
 			func(input diagnostics.Severity, expected protocol.DiagnosticSeverity) {
 				Expect(lsp.Severity(input)).To(Equal(expected))
 			},
-			Entry("Error", diagnostics.Error, protocol.DiagnosticSeverityError),
-			Entry("Warning", diagnostics.Warning, protocol.DiagnosticSeverityWarning),
-			Entry("Info", diagnostics.Info, protocol.DiagnosticSeverityInformation),
-			Entry("Hint", diagnostics.Hint, protocol.DiagnosticSeverityHint),
+			Entry("SeverityError", diagnostics.SeverityError, protocol.DiagnosticSeverityError),
+			Entry("SeverityWarning", diagnostics.SeverityWarning, protocol.DiagnosticSeverityWarning),
+			Entry("SeverityInfo", diagnostics.SeverityInfo, protocol.DiagnosticSeverityInformation),
+			Entry("SeverityHint", diagnostics.SeverityHint, protocol.DiagnosticSeverityHint),
 			Entry("Unknown defaults to error", diagnostics.Severity(99), protocol.DiagnosticSeverityError),
 		)
 	})
@@ -44,7 +44,7 @@ var _ = Describe("LSP", func() {
 
 		It("Should translate diagnostics with correct line offset", func() {
 			d := diagnostics.Diagnostics{
-				{Severity: diagnostics.Error, Line: 10, Column: 5, Message: "error message"},
+				{Severity: diagnostics.SeverityError, Line: 10, Column: 5, Message: "error message"},
 			}
 			cfg := lsp.TranslateConfig{Source: "test-analyzer"}
 			result := lsp.TranslateDiagnostics(d, cfg)
@@ -59,7 +59,7 @@ var _ = Describe("LSP", func() {
 
 		It("Should handle zero or negative line numbers", func() {
 			d := diagnostics.Diagnostics{
-				{Severity: diagnostics.Warning, Line: 0, Column: 0, Message: "at start"},
+				{Severity: diagnostics.SeverityWarning, Line: 0, Column: 0, Message: "at start"},
 			}
 			result := lsp.TranslateDiagnostics(d, lsp.TranslateConfig{})
 			Expect(result[0].Range.Start.Line).To(Equal(uint32(0)))
@@ -67,9 +67,9 @@ var _ = Describe("LSP", func() {
 
 		It("Should translate multiple diagnostics", func() {
 			d := diagnostics.Diagnostics{
-				{Severity: diagnostics.Error, Line: 1, Column: 0, Message: "first"},
-				{Severity: diagnostics.Warning, Line: 5, Column: 10, Message: "second"},
-				{Severity: diagnostics.Hint, Line: 10, Column: 2, Message: "third"},
+				{Severity: diagnostics.SeverityError, Line: 1, Column: 0, Message: "first"},
+				{Severity: diagnostics.SeverityWarning, Line: 5, Column: 10, Message: "second"},
+				{Severity: diagnostics.SeverityHint, Line: 10, Column: 2, Message: "third"},
 			}
 			result := lsp.TranslateDiagnostics(d, lsp.TranslateConfig{Source: "src"})
 
