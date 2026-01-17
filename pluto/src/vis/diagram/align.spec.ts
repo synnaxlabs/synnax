@@ -477,8 +477,8 @@ describe("distribute", () => {
       expect(outputs.map((o) => box.top(o.box))).toEqual([50, 100, 25]);
     });
 
-    it("should handle overlapping nodes with zero gap", () => {
-      // Nodes that would overlap - should stack with 0 gap instead
+    it("should distribute evenly even when nodes would overlap", () => {
+      // Nodes are bunched together - distribution results in overlapping
       const inputs = [
         new NodeLayout(
           "n1",
@@ -499,45 +499,45 @@ describe("distribute", () => {
       const outputs = distributeNodes(inputs, "x");
       // Total space: 100 - 100 = 0
       // Middle width: 100
-      // Gap would be negative: (0 - 100) / 2 = -50
-      // But Math.max(0, -50) = 0, so nodes touch with no overlap
+      // Gap: (0 - 100) / 2 = -50
+      // Middle node: 100 (first right) + (-50) = 50
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
-        { x: 100, y: 0 }, // 100 (first right) + 0 (gap) = 100
-        { x: 200, y: 0 }, // 100 + 100 (width) + 0 (gap) = 200
+        { x: 50, y: 0 }, // 100 (first right) + (-50 gap) = 50
+        { x: 100, y: 0 }, // Last stays at 100
       ]);
     });
 
-    it("should sort by vertical position when overlapping (except leftmost stays first)", () => {
-      // Negative overlap: leftmost node stays first, rest sorted by vertical position
+    it("should maintain original x-sorted order when distributing", () => {
+      // Nodes in different positions - sorted by x, then distributed evenly
       const inputs = [
         new NodeLayout(
           "n1",
           box.construct({ x: 50, y: 100 }, { width: 100, height: 100 }),
           [],
-        ), // Middle horizontally, middle vertically
+        ), // Middle horizontally
         new NodeLayout(
           "n2",
           box.construct({ x: 0, y: 200 }, { width: 100, height: 100 }),
           [],
-        ), // Leftmost, bottom
+        ), // Leftmost
         new NodeLayout(
           "n3",
           box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
           [],
-        ), // Rightmost, top
+        ), // Rightmost
       ];
       const outputs = distributeNodes(inputs, "x");
-      // n2 is leftmost (x=0), so it's positioned first at x=0
-      // Remaining nodes sorted by y: n3 (y=0) at x=100, n1 (y=100) at x=200
-      // Check each node's final position by finding it by key
+      // Sorted by x: n2 (x=0), n1 (x=50), n3 (x=100)
+      // Total space: 100 - 100 = 0, Gap: (0 - 100) / 2 = -50
+      // Middle (n1) at: 100 + (-50) = 50
       const n1 = outputs.find((o) => o.key === "n1")!;
       const n2 = outputs.find((o) => o.key === "n2")!;
       const n3 = outputs.find((o) => o.key === "n3")!;
 
-      expect(box.topLeft(n2.box)).toEqual({ x: 0, y: 200 }); // n2: leftmost, at x=0
-      expect(box.topLeft(n3.box)).toEqual({ x: 100, y: 0 }); // n3: sorted second (top), at x=100
-      expect(box.topLeft(n1.box)).toEqual({ x: 200, y: 100 }); // n1: sorted third (middle), at x=200
+      expect(box.topLeft(n2.box)).toEqual({ x: 0, y: 200 }); // n2: first, stays at x=0
+      expect(box.topLeft(n1.box)).toEqual({ x: 50, y: 100 }); // n1: middle, distributed to x=50
+      expect(box.topLeft(n3.box)).toEqual({ x: 100, y: 0 }); // n3: last, stays at x=100
     });
   });
 
@@ -622,8 +622,8 @@ describe("distribute", () => {
       expect(outputs.map((o) => box.left(o.box))).toEqual([50, 100, 25]);
     });
 
-    it("should handle overlapping nodes with zero gap", () => {
-      // Nodes that would overlap - should stack with 0 gap instead
+    it("should distribute evenly even when nodes would overlap", () => {
+      // Nodes are bunched together - distribution results in overlapping
       const inputs = [
         new NodeLayout(
           "n1",
@@ -644,12 +644,12 @@ describe("distribute", () => {
       const outputs = distributeNodes(inputs, "y");
       // Total space: 100 - 100 = 0
       // Middle height: 100
-      // Gap would be negative: (0 - 100) / 2 = -50
-      // But Math.max(0, -50) = 0, so nodes touch with no overlap
+      // Gap: (0 - 100) / 2 = -50
+      // Middle node: 100 (first bottom) + (-50) = 50
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
-        { x: 0, y: 100 }, // 100 (first bottom) + 0 (gap) = 100
-        { x: 0, y: 200 }, // 100 + 100 (height) + 0 (gap) = 200
+        { x: 0, y: 50 }, // 100 (first bottom) + (-50 gap) = 50
+        { x: 0, y: 100 }, // Last stays at 100
       ]);
     });
   });
