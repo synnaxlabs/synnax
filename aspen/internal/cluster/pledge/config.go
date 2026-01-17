@@ -35,6 +35,12 @@ type (
 // the config.ServiceConfig interface.
 type Config struct {
 	alamos.Instrumentation
+	// TransportClient is used for sending pledge information over the network.
+	// [Required]
+	TransportClient TransportClient
+	// TransportServer is used for receiving pledge information over the network.
+	// [Required]
+	TransportServer TransportServer
 	// Candidates is a group of nodes to contact as candidates for the formation
 	// of a jury.
 	// [Required]
@@ -42,16 +48,6 @@ type Config struct {
 	// Peers is a set of addresses a pledge can contact.
 	// [Required]
 	Peers []address.Address
-	// TransportClient is used for sending pledge information over the network.
-	// [Required]
-	TransportClient TransportClient
-	// TransportServer is used for receiving pledge information over the network.
-	// [Required]
-	TransportServer TransportServer
-	// ClusterKey is a unique key for the cluster. This value is consistent across
-	// all nodes in the cluster.
-	// [Required]
-	ClusterKey uuid.UUID
 	// RequestTimeout is the timeout for a peer to respond to a pledge or proposal
 	// request. If the request is not responded to before the timeout, a new jury
 	// will be formed and the request will be retried.
@@ -65,6 +61,10 @@ type Config struct {
 	// increase during a Pledge to a peer. For example, a value of 2 would result
 	// in a retry interval of 1,2, 4, 8, 16, 32, 64, ... seconds.
 	RetryScale float64
+	// ClusterKey is a unique key for the cluster. This value is consistent across
+	// all nodes in the cluster.
+	// [Required]
+	ClusterKey uuid.UUID
 }
 
 var _ config.Config[Config] = Config{}

@@ -38,7 +38,7 @@ var _ = Describe("Channel", func() {
 			Expect(c.ValidateSeries(s)).To(
 				And(
 					MatchError(ContainSubstring("invalid data type for channel [cat]<1>, expected int64, got float64")),
-					HaveOccurredAs(validate.Error),
+					HaveOccurredAs(validate.ErrValidation),
 				))
 		})
 		It("Should allow int64 series to pass as timestamps", func() {

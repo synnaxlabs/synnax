@@ -33,8 +33,8 @@ func NewMem() *MemFS { return &MemFS{root: newRootMemNode()} }
 
 // MemFS implements FS.
 type MemFS struct {
-	mu   sync.Mutex
 	root *memNode
+	mu   sync.Mutex
 }
 
 var _ FS = &MemFS{}
@@ -239,10 +239,9 @@ func (y *MemFS) Stat(name string) (os.FileInfo, error) {
 
 // memNode holds a file's data or a directory's children, and implements os.FileInfo.
 type memNode struct {
-	name  string
-	isDir bool
-	refs  atomic.Int32
-
+	children       map[string]*memNode
+	syncedChildren map[string]*memNode
+	name           string
 	// Mutable state.
 	//
 	// - For a file: data, syncedDate, modTime. A file is only being mutated by a single
@@ -252,14 +251,13 @@ type memNode struct {
 	// - For a directory: children and syncedChildren. Concurrent writes are possible,
 	//   and these are protected using MemFS.mu.
 	mu struct {
-		sync.Mutex
+		modTime    time.Time
 		data       []byte
 		syncedData []byte
-		modTime    time.Time
+		sync.Mutex
 	}
-
-	children       map[string]*memNode
-	syncedChildren map[string]*memNode
+	refs  atomic.Int32
+	isDir bool
 }
 
 func newRootMemNode() *memNode {
@@ -274,7 +272,7 @@ func (f *memNode) ModTime() time.Time {
 	return f.mu.modTime
 }
 
-const standardPerm = OwnerReadWriteExecute | GroupReadExecute | OthersReadExecute
+const standardPerm = UserRWX | GroupRX | OtherRX
 
 func (f *memNode) Mode() os.FileMode {
 	if f.isDir {

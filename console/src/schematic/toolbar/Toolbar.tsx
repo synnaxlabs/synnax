@@ -13,7 +13,7 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { EmptyAction, Toolbar as Core } from "@/components";
+import { EmptyAction, Toolbar as Base } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
@@ -110,8 +110,8 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   return (
     <Tabs.Provider value={value}>
-      <Core.Content>
-        <Core.Header>
+      <Base.Content>
+        <Base.Header>
           <Breadcrumb.Breadcrumb level="h5">
             <Breadcrumb.Segment weight={500} color={10} level="h5">
               <Icon.Schematic />
@@ -135,9 +135,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />
             )}
           </Flex.Box>
-        </Core.Header>
+        </Base.Header>
         <Tabs.Content />
-      </Core.Content>
+      </Base.Content>
     </Tabs.Provider>
   );
 };

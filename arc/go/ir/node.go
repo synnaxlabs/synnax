@@ -21,6 +21,8 @@ import (
 // Node represents an instantiated function or stage in the dataflow graph.
 // Each node is a concrete instance of a Function with specific configuration values.
 type Node struct {
+	// Channels contains references to external channels used by this node.
+	Channels symbol.Channels `json:"channels"`
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key"`
 	// Type is the name of the function or stage this node instantiates.
@@ -31,8 +33,6 @@ type Node struct {
 	Inputs types.Params `json:"inputs"`
 	// Outputs contains the type definitions of output parameters.
 	Outputs types.Params `json:"outputs"`
-	// Channels contains references to external channels used by this node.
-	Channels symbol.Channels `json:"channels"`
 }
 
 // Nodes is a collection of node instances.

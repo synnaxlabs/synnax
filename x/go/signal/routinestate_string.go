@@ -17,18 +17,18 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[Starting-0]
-	_ = x[Running-1]
-	_ = x[Stopping-2]
-	_ = x[Exited-3]
-	_ = x[Failed-4]
-	_ = x[ContextCanceled-5]
-	_ = x[Panicked-6]
+	_ = x[RoutineStateStarting-0]
+	_ = x[RoutineStateRunning-1]
+	_ = x[RoutineStateStopping-2]
+	_ = x[RoutineStateExited-3]
+	_ = x[RoutineStateFailed-4]
+	_ = x[RoutineStateContextCanceled-5]
+	_ = x[RoutineStatePanicked-6]
 }
 
-const _RoutineState_name = "StartingRunningStoppingExitedFailedContextCanceledPanicked"
+const _RoutineState_name = "RoutineStateStartingRoutineStateRunningRoutineStateStoppingRoutineStateExitedRoutineStateFailedRoutineStateContextCanceledRoutineStatePanicked"
 
-var _RoutineState_index = [...]uint8{0, 8, 15, 23, 29, 35, 50, 58}
+var _RoutineState_index = [...]uint8{0, 20, 39, 59, 77, 95, 122, 142}
 
 func (i RoutineState) String() string {
 	if i >= RoutineState(len(_RoutineState_index)-1) {

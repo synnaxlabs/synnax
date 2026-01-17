@@ -148,10 +148,7 @@ var _ = Describe("Pipeline", func() {
 			}
 			SetSegment[int, int](pipe, "t2", t2)
 
-			var (
-				evens []int
-				odds  []int
-			)
+			var evens, odds []int
 
 			evenSink := &confluence.UnarySink[int]{}
 			evenSink.Sink = func(ctx context.Context, v int) error {

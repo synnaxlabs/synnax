@@ -11,10 +11,8 @@ package label
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 
-const (
-	// LabeledBy indicates that a resource is labeled by another resource. When
-	// examining a Relationship of type LabeledBy, the Start field will be the
-	// resource that is labeled and the To field will be the resource that is
-	// doing the labeling (i.e. Start is LabeledBy To).
-	LabeledBy ontology.RelationshipType = "labeled_by"
-)
+// OntologyRelationshipTypeLabeledBy indicates that a resource is labeled by another
+// resource. When examining a Relationship of type OntologyRelationshipTypeLabeledBy,
+// the Start field will be the resource that is labeled and the To field will be the
+// resource that is doing the labeling (i.e. Start is labeled by To).
+const OntologyRelationshipTypeLabeledBy ontology.RelationshipType = "labeled_by"

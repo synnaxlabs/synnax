@@ -12,9 +12,9 @@ package alamos
 type Environment uint8
 
 const (
-	Bench Environment = iota + 1
-	Debug
-	Prod
+	EnvironmentBench Environment = iota + 1
+	EnvironmentDebug
+	EnvironmentProd
 )
 
 type EnvironmentFilter func(env Environment, key string) bool

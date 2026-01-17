@@ -17,17 +17,17 @@ import (
 )
 
 // ErrNotFound is returned when a particular channel cannot be found in the DB.
-var ErrNotFound = errors.Wrap(query.NotFound, "channel not found")
+var ErrNotFound = errors.Wrap(query.ErrNotFound, "channel not found")
 
-// NewErrNotFound returns a wrapper around ErrNotFound that includes the key of the the
-// missing channel.
-func NewErrNotFound(ch Key) error {
+// NewNotFoundError returns a wrapper around ErrNotFound that includes the key of the
+// the missing channel.
+func NewNotFoundError(ch Key) error {
 	return errors.Wrapf(ErrNotFound, "channel with key %d not found", ch)
 }
 
-// NewErrWrapper returns a function that wraps an error with information about the
+// NewErrorWrapper returns a function that wraps an error with information about the
 // channel that caused the error.
-func NewErrWrapper(ch Channel) func(error) error {
+func NewErrorWrapper(ch Channel) func(error) error {
 	msg := fmt.Sprintf("channel %v", ch)
 	return func(err error) error { return errors.Wrap(err, msg) }
 }

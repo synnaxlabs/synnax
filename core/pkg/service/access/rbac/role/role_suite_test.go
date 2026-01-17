@@ -44,11 +44,11 @@ var _ = BeforeSuite(func() {
 		Ontology: otg,
 		Group:    g,
 	}))
-	policySvc = MustSucceed(policy.OpenService(ctx, policy.Config{
+	policySvc = MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
-	svc = MustSucceed(role.OpenService(ctx, role.Config{
+	svc = MustSucceed(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,

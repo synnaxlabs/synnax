@@ -12,7 +12,7 @@ import { Access, Channel, Flex, Icon, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
@@ -34,9 +34,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const handleExport = useExport();
   if (state == null) return null;
   return (
-    <Core.Content>
-      <Core.Header>
-        <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
+    <Base.Content>
+      <Base.Header>
+        <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
         <Flex.Box x style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => handleExport(state.key)} />
           <Cluster.CopyLinkToolbarButton
@@ -44,7 +44,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             ontologyID={log.ontologyID(state.key)}
           />
         </Flex.Box>
-      </Core.Header>
+      </Base.Header>
       <Flex.Box full style={{ padding: "2rem" }}>
         <Input.Item label="Channel" grow>
           <Channel.SelectSingle
@@ -55,6 +55,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
           />
         </Input.Item>
       </Flex.Box>
-    </Core.Content>
+    </Base.Content>
   );
 };

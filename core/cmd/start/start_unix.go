@@ -20,6 +20,6 @@ func disablePermissionBits() {
 	// Mask the permission bits so all files are readable and writable by the user and
 	// readable by the group.
 	mask := unix.Umask(0)
-	mask |= int(fs.OthersReadWriteExecute)
+	mask |= int(fs.OtherRWX)
 	unix.Umask(mask)
 }

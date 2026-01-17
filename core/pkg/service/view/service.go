@@ -25,7 +25,6 @@ import (
 )
 
 type ServiceConfig struct {
-	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Views.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between views (parent-child) and
@@ -36,11 +35,12 @@ type ServiceConfig struct {
 	Group *group.Service
 	// Signals is used to publish signals when views are created, updated, or deleted.
 	Signals *signals.Provider
+	alamos.Instrumentation
 }
 
 var (
-	_             config.Config[ServiceConfig] = (*ServiceConfig)(nil)
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = (*ServiceConfig)(nil)
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -66,8 +66,8 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for listening to changes in views.
 type Service struct {
 	cfg             ServiceConfig
-	group           group.Group
 	shutdownSignals io.Closer
+	group           group.Group
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
@@ -76,7 +76,7 @@ type Service struct {
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{}
 	var err error
-	if s.cfg, err = config.New(DefaultConfig, cfgs...); err != nil {
+	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
 		return nil, err
 	}
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {

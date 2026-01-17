@@ -27,11 +27,11 @@ import (
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
+	handle func(ctx context.Context, rq RQ) (RS, error)
+	path   string
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	handle   func(ctx context.Context, rq RQ) (RS, error)
 	internal bool
-	path     string
 }
 
 func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
@@ -69,9 +69,9 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
+	codec httputil.Codec
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	codec httputil.Codec
 }
 
 func (u *unaryClient[RQ, RS]) Send(
@@ -136,8 +136,8 @@ func parseRequestCtx(socketCtx context.Context, fiberCtx *fiber.Ctx, target addr
 		Protocol: unaryReporter.Protocol,
 		Target:   target,
 		Sec:      parseSecurityInfo(fiberCtx),
-		Role:     freighter.Server,
-		Variant:  freighter.Unary,
+		Role:     freighter.RoleServer,
+		Variant:  freighter.VariantUnary,
 	}
 	headers := fiberCtx.GetReqHeaders()
 	md.Params = make(freighter.Params, len(headers))
@@ -180,8 +180,8 @@ func setResponseCtx(c *fiber.Ctx, md freighter.Context) {
 
 func parseResponseCtx(c *http.Response, target address.Address) freighter.Context {
 	md := freighter.Context{
-		Role:     freighter.Client,
-		Variant:  freighter.Unary,
+		Role:     freighter.RoleClient,
+		Variant:  freighter.VariantUnary,
 		Protocol: unaryReporter.Protocol,
 		Target:   target,
 		Params: lo.Ternary(

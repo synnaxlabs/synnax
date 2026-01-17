@@ -55,7 +55,7 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Label:    labelSvc,
 		}))
-		rackService = MustSucceed(rack.OpenService(ctx, rack.Config{
+		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
@@ -63,7 +63,7 @@ var _ = Describe("Task", Ordered, func() {
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
-		svc = MustSucceed(task.OpenService(ctx, task.Config{
+		svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -112,9 +112,9 @@ var _ = Describe("Task", Ordered, func() {
 		)
 		It("Should decode StatusDetails with task key as string", func() {
 			type statusDetailsWithString struct {
+				Data    map[string]any `msgpack:"data"`
 				Task    string         `msgpack:"task"`
 				Running bool           `msgpack:"running"`
-				Data    map[string]any `msgpack:"data"`
 			}
 			original := statusDetailsWithString{
 				Task:    "281543696187399",
@@ -129,9 +129,9 @@ var _ = Describe("Task", Ordered, func() {
 		})
 		It("Should decode StatusDetails with task key as float64", func() {
 			type statusDetailsWithFloat struct {
+				Data    map[string]any `msgpack:"data"`
 				Task    float64        `msgpack:"task"`
 				Running bool           `msgpack:"running"`
-				Data    map[string]any `msgpack:"data"`
 			}
 			original := statusDetailsWithFloat{
 				Task:    float64(65536),
@@ -316,12 +316,12 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
+			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(m.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -450,14 +450,14 @@ var _ = Describe("Task", Ordered, func() {
 				Group:    g,
 				Label:    labelSvc,
 			}))
-			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
 			}))
-			svc := MustSucceed(task.OpenService(ctx, task.Config{
+			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -476,9 +476,9 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(t.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, nil)).To(MatchError(query.NotFound))
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(task.OpenService(ctx, task.Config{
+			svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,

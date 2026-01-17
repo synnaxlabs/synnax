@@ -13,8 +13,8 @@ type Variant uint8
 
 //go:generate stringer -type=Variant
 const (
-	Set Variant = iota + 1
-	Delete
+	VariantSet Variant = iota + 1
+	VariantDelete
 )
 
 // Change is a mutation to a generic key-value pair. This change can either be a 'Label'
@@ -43,12 +43,12 @@ func Map[K comparable, V comparable](
 	for k, v := range prev {
 		next, ok := next[k]
 		if !ok || !equal(v, next) {
-			changes = append(changes, Change[K, V]{Key: k, Value: v, Variant: Delete})
+			changes = append(changes, Change[K, V]{Key: k, Value: v, Variant: VariantDelete})
 		}
 	}
 	for k := range next {
 		if _, ok := prev[k]; !ok {
-			changes = append(changes, Change[K, V]{Key: k, Value: next[k], Variant: Set})
+			changes = append(changes, Change[K, V]{Key: k, Value: next[k], Variant: VariantSet})
 		}
 	}
 	return changes

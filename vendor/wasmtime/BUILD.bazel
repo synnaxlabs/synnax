@@ -73,8 +73,12 @@ genrule(
         "@platforms//os:windows": """
             # Fix PATH: Use rustup's Rust instead of Chocolatey's
             # Chocolatey installs Rust to /c/ProgramData/chocolatey/bin but rustup
-            # manages toolchains in ~/.cargo/bin. We need rustup's version.
-            export PATH="$$HOME/.cargo/bin:$$PATH"
+            # manages toolchains in /c/Users/Administrator/.cargo/bin. We need rustup's version.
+            # Note: $$HOME in Git Bash points to system profile, not actual user directory
+            export PATH="/c/Users/Administrator/.cargo/bin:$$PATH"
+
+            # Force rustup to use Administrator's rustup directory, not system profile's
+            export RUSTUP_HOME="/c/Users/Administrator/.rustup"
 
             # Ensure MSVC target is installed
             rustup target add x86_64-pc-windows-msvc
@@ -82,18 +86,48 @@ genrule(
             # Build wasmtime for Windows
             cd vendor/wasmtime/wasmtime
 
-            # Clean any cached artifacts from previous builds with wrong target
-            # (e.g., x86_64-pc-windows-gnu vs x86_64-pc-windows-msvc)
-            rm -rf target/c-api target/x86_64-pc-windows-msvc target/release 2>/dev/null || true
+            # Force CMake to use rustup-managed rust binaries, not Chocolatey's
+            export RUSTC=$$(which rustc)
+            export CARGO=$$(which cargo)
 
-            # Force MSVC target to avoid Mingw/GNU detection in Git Bash
-            cmake -S crates/c-api -B target/c-api \
-                --install-prefix="$$(pwd)/artifacts" \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DBUILD_SHARED_LIBS=OFF \
-                -DWASMTIME_TARGET=x86_64-pc-windows-msvc
-            cmake --build target/c-api --config Release
-            cmake --install target/c-api --config Release
+            # Help cargo build scripts find their source files when invoked via CMake
+            export CARGO_BUILD_TARGET_DIR="$$(pwd)/target"
+
+            # Build wasmtime directly with cargo instead of CMake to avoid build script issues
+            # Disable profiling (ittapi-sys) and cache (zstd-sys) features that fail on Windows
+            # Use cargo rustc to explicitly build as staticlib
+            cd crates/c-api
+            cargo rustc --release --target x86_64-pc-windows-msvc \
+                --no-default-features \
+                --features wat,wasi,async,cranelift,threads \
+                --crate-type staticlib
+            cd ../..
+
+            # Install headers and library manually
+            mkdir -p artifacts/lib artifacts/include artifacts/include/wasmtime
+
+            # Copy the library file (cargo produces wasmtime_c_api.lib for staticlib)
+            cp target/x86_64-pc-windows-msvc/release/wasmtime_c_api.lib artifacts/lib/wasmtime.lib || \
+                cp target/x86_64-pc-windows-msvc/release/*.lib artifacts/lib/wasmtime.lib || \
+                ( ls target/x86_64-pc-windows-msvc/release/ && exit 1 )
+
+            # Headers are in crates/c-api/include (source tree location)
+            cp crates/c-api/include/*.h artifacts/include/
+            cp crates/c-api/include/*.hh artifacts/include/ 2>/dev/null || true
+            cp -r crates/c-api/include/wasmtime artifacts/include/ 2>/dev/null || true
+
+            # Generate conf.h with the features we built (CMake would normally do this)
+            cat > artifacts/include/wasmtime/conf.h << 'EOF'
+#ifndef WASMTIME_CONF_H
+#define WASMTIME_CONF_H
+#define WASMTIME_FEATURE_WAT
+#define WASMTIME_FEATURE_WASI
+#define WASMTIME_FEATURE_ASYNC
+#define WASMTIME_FEATURE_CRANELIFT
+#define WASMTIME_FEATURE_THREADS
+#define WASMTIME_FEATURE_COMPILER
+#endif
+EOF
 
             # Go back to execroot
             cd ../../..

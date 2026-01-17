@@ -27,9 +27,9 @@ import (
 )
 
 type Index struct {
-	Config
-	mapping *mapping.IndexMappingImpl
 	idx     bleve.Index
+	mapping *mapping.IndexMappingImpl
+	Config
 }
 
 type Config struct{ alamos.Instrumentation }
@@ -87,7 +87,7 @@ type Tx struct {
 
 func (t *Tx) Apply(changes ...resource.Change) error {
 	for _, ch := range changes {
-		if ch.Variant == change.Set {
+		if ch.Variant == change.VariantSet {
 			if err := t.batch.Index(ch.Key.String(), ch.Value); err != nil {
 				return err
 			}

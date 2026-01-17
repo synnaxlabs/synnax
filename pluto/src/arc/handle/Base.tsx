@@ -17,14 +17,14 @@ import {
 
 import { CSS } from "@/css";
 
-export interface CoreProps extends Omit<HandleProps, "position"> {
+export interface BaseProps extends Omit<HandleProps, "position"> {
   location: location.Outer;
 }
 
 export const locationToRFPosition = (location: location.Outer) =>
   Position[caseconv.capitalize(location) as keyof typeof Position];
 
-export const Core = ({ location, className, ...props }: CoreProps) => {
+export const Base = ({ location, className, ...props }: BaseProps) => {
   try {
     useUpdateNodeInternals();
   } catch {

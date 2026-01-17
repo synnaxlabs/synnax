@@ -36,6 +36,9 @@ import (
 // to the provided observable and writes changes to the provided channels. Higher
 // level Signals pipeline should be preferred, such as the PublishFromGorp.
 type ObservablePublisherConfig struct {
+	// Observable is the observable used to subscribe to changes. This observable should
+	// return byte slice keys that are properly encoded for the channel's data type.
+	Observable observe.Observable[[]change.Change[[]byte, struct{}]]
 	// Name is an optional name for the Signals pipeline, used for debugging purposes.
 	Name string
 	// SetChannel is the channel used to propagate set operations. Only Name and SetDataType
@@ -46,16 +49,13 @@ type ObservablePublisherConfig struct {
 	// SetDataType need to be provided. The config will automatically set Leaseholder
 	// to Free and Virtual to true.
 	DeleteChannel channel.Channel
-	// Observable is the observable used to subscribe to changes. This observable should
-	// return byte slice keys that are properly encoded for the channel's data type.
-	Observable observe.Observable[[]change.Change[[]byte, struct{}]]
 }
 
 var (
 	_ config.Config[ObservablePublisherConfig] = ObservablePublisherConfig{}
-	// DefaultObservableConfig is the default configuration for the PublishFromObservable
-	// Signals pipeline.
-	DefaultObservableConfig = ObservablePublisherConfig{}
+	// DefaultObservablePublisherConfig is the default configuration for the
+	// PublishFromObservable Signals pipeline.
+	DefaultObservablePublisherConfig = ObservablePublisherConfig{}
 )
 
 const (
@@ -84,8 +84,8 @@ func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) Obs
 	c.Observable = override.Nil(c.Observable, other.Observable)
 	c.SetChannel.Virtual = true
 	c.DeleteChannel.Virtual = true
-	c.SetChannel.Leaseholder = cluster.Free
-	c.DeleteChannel.Leaseholder = cluster.Free
+	c.SetChannel.Leaseholder = cluster.NodeKeyFree
+	c.DeleteChannel.Leaseholder = cluster.NodeKeyFree
 	return c
 }
 
@@ -93,7 +93,7 @@ func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) Obs
 // ObservableSubscriber and writes changes to the configured channels. The returned io.Closer
 // can be used to close the pipeline when done.
 func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...ObservablePublisherConfig) (io.Closer, error) {
-	cfg, err := config.New(DefaultObservableConfig, cfgs...)
+	cfg, err := config.New(DefaultObservablePublisherConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 				deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
 			)
 			for _, c := range r {
-				if c.Variant == change.Delete {
+				if c.Variant == change.VariantDelete {
 					deletes.Data = append(deletes.Data, c.Key...)
 				} else {
 					sets.Data = append(sets.Data, c.Key...)
@@ -141,7 +141,7 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 			if len(deletes.Data) > 0 {
 				frame = frame.Append(cfg.DeleteChannel.Key(), deletes)
 			}
-			return framer.WriterRequest{Command: writer.Write, Frame: frame}, true, nil
+			return framer.WriterRequest{Command: writer.CommandWrite, Frame: frame}, true, nil
 		},
 	}
 	p := plumber.New()

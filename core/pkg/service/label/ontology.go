@@ -26,17 +26,15 @@ import (
 
 const OntologyType ontology.Type = "label"
 
-// Labels is an ontology.Traverser that allows the caller to traverse an ontology.Retrieve
-// query to find all the labels for a particular resource. Pass this traverser to
-// ontology.Retrieve.TraverseTo.
-var (
-	Labels = ontology.Traverser{
-		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
-			return rel.Type == LabeledBy && rel.From == res.ID
-		},
-		Direction: ontology.Forward,
-	}
-)
+// LabelsOntologyTraverser is an ontology.Traverser that allows the caller to traverse
+// an ontology.Retrieve query to find all the labels for a particular resource. Pass
+// this traverser to ontology.Retrieve.TraverseTo.
+var LabelsOntologyTraverser = ontology.Traverser{
+	Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
+		return rel.Type == OntologyRelationshipTypeLabeledBy && rel.From == res.ID
+	},
+	Direction: ontology.DirectionForward,
+}
 
 // OntologyID constructs a unique ontology.ID for the label with the given key.
 func OntologyID(k uuid.UUID) ontology.ID {

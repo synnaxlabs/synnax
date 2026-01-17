@@ -36,10 +36,6 @@ var ErrVirtual = errors.New("cannot open a unary database on a virtual channel")
 // Config is the configuration for opening a DB.
 type Config struct {
 	alamos.Instrumentation
-	// Channel that the database will store data for. This only needs to be set when
-	// creating a new database. If the database already exists, the Channel information
-	// will be read from the DB's meta file.
-	Channel channel.Channel
 	// MetaCodec is used to encode and decode metadata about the channel.
 	// [REQUIRED]
 	MetaCodec binary.Codec
@@ -48,6 +44,10 @@ type Config struct {
 	// exclusive access, and it should be empty when the DB is first opened.
 	// [REQUIRED]
 	FS fs.FS
+	// Channel that the database will store data for. This only needs to be set when
+	// creating a new database. If the database already exists, the Channel information
+	// will be read from the DB's meta file.
+	Channel channel.Channel
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
 	// Note while that a file's size may still exceed this value, it is not likely to
 	// exceed by much with frequent commits.
@@ -97,7 +97,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapError := channel.NewErrWrapper(cfg.Channel)
+	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if cfg.Channel.Virtual {
 		return nil, wrapError(ErrVirtual)
 	}

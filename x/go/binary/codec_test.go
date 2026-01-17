@@ -54,8 +54,8 @@ var _ = Describe("Codec", func() {
 		)
 		DescribeTable("Custom Type", func(codec binary.Codec) {
 			type custom struct {
-				Value int
 				Chan  chan int
+				Value int
 			}
 			_, err := codec.Encode(ctx, custom{Chan: make(chan int)})
 			Expect(err).To(HaveOccurred())

@@ -70,7 +70,7 @@ func NewFactory() *Factory {
 
 func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	return &entry{Node: cfg.State}, nil
 }

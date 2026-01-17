@@ -20,21 +20,10 @@ import (
 )
 
 type region[R Resource] struct {
-	// RWMutex locks access to the region's state. Only specified fields in a region are
-	// safe for concurrent access without locking the mutex.
-	sync.RWMutex
-	// timeRange tracks the time period that the region controls. Gates that access
-	// independent regions can access a resource at the same time.
-	// [not safe for unprotected concurrent access]
-	timeRange telem.TimeRange
 	// resource is the resource being controlled by the region
 	// [not safe for unprotected concurrent access by external callers, but safe to
 	// call static properties like ChannelKey() concurrently]
 	resource R
-	// counter tracks the total number of gates opened in the region. This counter
-	// does not get decremented.
-	// [not safe for unprotected concurrent access]
-	counter uint
 	// curr is the gate currently in control of the region.
 	// [not safe for unprotected concurrent access]
 	curr *Gate[R]
@@ -45,6 +34,17 @@ type region[R Resource] struct {
 	// controller is the parent controller.
 	// [not safe for unprotected concurrent access]
 	controller *Controller[R]
+	// timeRange tracks the time period that the region controls. Gates that access
+	// independent regions can access a resource at the same time.
+	// [not safe for unprotected concurrent access]
+	timeRange telem.TimeRange
+	// counter tracks the total number of gates opened in the region. This counter
+	// does not get decremented.
+	// [not safe for unprotected concurrent access]
+	counter uint
+	// RWMutex locks access to the region's state. Only specified fields in a region are
+	// safe for concurrent access without locking the mutex.
+	sync.RWMutex
 }
 
 // open opens a new gate on the region with the given config.
@@ -66,7 +66,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	for existingG := range r.gates {
 		if existingG.subject.Key == cfg.Subject.Key {
 			return g, t, errors.Wrapf(
-				validate.Error,
+				validate.ErrValidation,
 				"control subject %s is already registered in the region",
 				cfg.Subject,
 			)
@@ -90,7 +90,7 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 		}
 		r.curr = g
 		t.To = g.state()
-	} else if *cfg.ErrOnUnauthorizedOpen && (r.controller.Concurrency != control.Shared || g.authority != r.curr.authority) {
+	} else if *cfg.ErrOnUnauthorizedOpen && (r.controller.Concurrency != control.ConcurrencyShared || g.authority != r.curr.authority) {
 		err = errors.Wrapf(
 			control.ErrUnauthorized,
 			"%s has no control authority - it is currently held by %s",

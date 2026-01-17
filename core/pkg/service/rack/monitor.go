@@ -39,14 +39,14 @@ type rackState struct {
 
 type monitor struct {
 	observe.Observer[Status]
-	alamos.Instrumentation
-	svc *Service
-	mu  struct {
-		sync.Mutex
-		racks map[Key]rackState
-	}
-	disconnectStatusObserver observe.Disconnect
 	shutdownRoutines         io.Closer
+	svc                      *Service
+	disconnectStatusObserver observe.Disconnect
+	alamos.Instrumentation
+	mu struct {
+		racks map[Key]rackState
+		sync.Mutex
+	}
 }
 
 func (m *monitor) Close() error {
@@ -81,7 +81,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	if err := m.svc.NewRetrieve().
 		WhereKeys(toAlert...).
 		Entries(&racks).
-		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
 
@@ -126,7 +126,7 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 			m.L.Error("failed to decode status key", zap.Error(err))
 			continue
 		}
-		if ch.Variant == xchange.Delete {
+		if ch.Variant == xchange.VariantDelete {
 			delete(m.mu.racks, key)
 			continue
 		}

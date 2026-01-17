@@ -22,18 +22,18 @@ import (
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
 	context.Context
+	AST     ASTNode
 	Imports *bindings.ImportIndex
 	Scope   *symbol.Scope
 	Writer  *wasm.Writer
 	Module  *wasm.Module
 	TypeMap map[antlr.ParserRuleContext]types.Type
-	AST     ASTNode
-	Hint    types.Type
-	// Outputs and OutputMemoryBase are set for multi-output functions
-	Outputs          types.Params
-	OutputMemoryBase uint32
 	// FunctionIndices maps function names to their WASM function indices for call resolution
 	FunctionIndices map[string]uint32
+	// Outputs and OutputMemoryBase are set for multi-output functions
+	Outputs          types.Params
+	Hint             types.Type
+	OutputMemoryBase uint32
 }
 
 func Child[P, ASTNode antlr.ParserRuleContext](ctx Context[P], node ASTNode) Context[ASTNode] {
@@ -67,13 +67,13 @@ func (c Context[ASTNode]) WithNewWriter() Context[ASTNode] {
 }
 
 func CreateRoot(
-	ctx_ context.Context,
+	ctx context.Context,
 	symbols *symbol.Scope,
 	typeMap map[antlr.ParserRuleContext]types.Type,
 	disableHostImports bool,
 ) Context[antlr.ParserRuleContext] {
-	ctx := Context[antlr.ParserRuleContext]{
-		Context:         ctx_,
+	compCtx := Context[antlr.ParserRuleContext]{
+		Context:         ctx,
 		Module:          wasm.NewModule(),
 		Scope:           symbols,
 		TypeMap:         typeMap,
@@ -81,7 +81,7 @@ func CreateRoot(
 		FunctionIndices: make(map[string]uint32),
 	}
 	if !disableHostImports {
-		ctx.Imports = bindings.SetupImports(ctx.Module)
+		compCtx.Imports = bindings.SetupImports(compCtx.Module)
 	}
-	return ctx
+	return compCtx
 }

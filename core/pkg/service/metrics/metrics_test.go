@@ -95,7 +95,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func() {
-			cfg := metrics.DefaultConfig.Override(metrics.ServiceConfig{
+			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,

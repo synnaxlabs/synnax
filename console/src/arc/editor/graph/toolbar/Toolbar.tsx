@@ -22,7 +22,7 @@ import {
 } from "@/arc/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 
@@ -107,7 +107,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   return (
     <Tabs.Provider value={contextValue}>
-      <Core.Header>
+      <Base.Header>
         <Breadcrumb.Breadcrumb level="h5">
           <Breadcrumb.Segment weight={500} color={10} level="h5">
             <Icon.Arc />
@@ -131,7 +131,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />
           )}
         </Flex.Box>
-      </Core.Header>
+      </Base.Header>
       <Tabs.Content />
     </Tabs.Provider>
   );

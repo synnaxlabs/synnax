@@ -11,4 +11,4 @@ package base
 
 import "github.com/synnaxlabs/x/errors"
 
-var AuthError = errors.New("auth error")
+var ErrAuth = errors.New("auth error")

@@ -27,7 +27,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
-var errIteratorClosed = resource.NewErrClosed("domain.iterator")
+var errIteratorClosed = resource.NewClosedError("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
@@ -44,25 +44,25 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 // lifetime. This means that the position of an iterator may shift unexpectedly. There
 // are plans to implement MVCC in the future, but until then you have been warned.
 type Iterator struct {
-	IteratorConfig
+	// idx is the index that the iterator is iterating over.
+	idx *index
+	// readerFactory gets a new reader for the given domain pointer.
+	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
+	// onClose is called when the iterator is closed.
+	onClose func()
 	alamos.Instrumentation
+	IteratorConfig
 	// position stores the current position of the iterator in the idx. NOTE: At the
 	// moment, this position may not hold a consistent reference to the same domain if
 	// the idx is modified during iteration.
 	position int
-	// idx is the index that the iterator is iterating over.
-	idx *index
 	// currPtr stores the current domain that the iterator is pointing to. This value
 	// is only valid if the iterator is valid.
 	currPtr pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
-	// readerFactory gets a new reader for the given domain pointer.
-	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
 	// closed stores whether the iterator is still open
 	closed bool
-	// onClose is called when the iterator is closed.
-	onClose func()
 }
 
 // OpenIterator opens a new invalidated Iterator using the given configuration. A

@@ -42,7 +42,7 @@ func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	if s, ok := m[name]; ok {
 		return s, nil
 	}
-	return Symbol{}, errors.Wrapf(query.NotFound, "symbol %s not found", name)
+	return Symbol{}, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
 }
 
 // ResolvePrefix returns all symbols whose names start with the given prefix.

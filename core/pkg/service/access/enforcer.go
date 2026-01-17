@@ -17,8 +17,8 @@ import (
 
 type Request struct {
 	Subject ontology.ID
-	Objects []ontology.ID
 	Action  Action
+	Objects []ontology.ID
 }
 
 type Enforcer interface {

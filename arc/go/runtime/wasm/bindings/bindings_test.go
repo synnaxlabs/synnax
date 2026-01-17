@@ -19,18 +19,18 @@ import (
 
 // typeOps provides type-specific operations for testing.
 type typeOps[T any] struct {
-	name        string
-	createEmpty func(ctx context.Context, length uint32) uint32
-	setElement  func(ctx context.Context, handle, index uint32, value T) uint32
-	index       func(ctx context.Context, handle, index uint32) T
-	elementAdd  func(ctx context.Context, handle uint32, value T) uint32
-	elementSub  func(ctx context.Context, handle uint32, value T) uint32
-	elementMul  func(ctx context.Context, handle uint32, value T) uint32
-	elementDiv  func(ctx context.Context, handle uint32, value T) uint32
-	elementMod  func(ctx context.Context, handle uint32, value T) uint32
-	elementRSub func(ctx context.Context, value T, handle uint32) uint32
+	v1          T
+	addScalar1  T
+	scalar      T
+	mod21       T
+	div21       T
+	mul12       T
+	sub12       T
+	add12       T
+	v3          T
+	v2          T
 	elementRDiv func(ctx context.Context, value T, handle uint32) uint32
-	seriesAdd   func(ctx context.Context, a, b uint32) uint32
+	scalarLE    func(ctx context.Context, handle uint32, value T) uint32
 	seriesSub   func(ctx context.Context, a, b uint32) uint32
 	seriesMul   func(ctx context.Context, a, b uint32) uint32
 	seriesDiv   func(ctx context.Context, a, b uint32) uint32
@@ -44,19 +44,21 @@ type typeOps[T any] struct {
 	scalarGT    func(ctx context.Context, handle uint32, value T) uint32
 	scalarLT    func(ctx context.Context, handle uint32, value T) uint32
 	scalarGE    func(ctx context.Context, handle uint32, value T) uint32
-	scalarLE    func(ctx context.Context, handle uint32, value T) uint32
+	seriesAdd   func(ctx context.Context, a, b uint32) uint32
 	scalarEQ    func(ctx context.Context, handle uint32, value T) uint32
 	scalarNE    func(ctx context.Context, handle uint32, value T) uint32
 	stateLoad   func(ctx context.Context, funcID, varID, initHandle uint32) uint32
 	stateStore  func(ctx context.Context, funcID, varID, handle uint32)
-	v1, v2, v3  T
-	add12       T
-	sub12       T
-	mul12       T
-	div21       T
-	mod21       T
-	scalar      T
-	addScalar1  T
+	createEmpty func(ctx context.Context, length uint32) uint32
+	elementRSub func(ctx context.Context, value T, handle uint32) uint32
+	elementMod  func(ctx context.Context, handle uint32, value T) uint32
+	elementDiv  func(ctx context.Context, handle uint32, value T) uint32
+	elementMul  func(ctx context.Context, handle uint32, value T) uint32
+	elementSub  func(ctx context.Context, handle uint32, value T) uint32
+	elementAdd  func(ctx context.Context, handle uint32, value T) uint32
+	index       func(ctx context.Context, handle, index uint32) T
+	setElement  func(ctx context.Context, handle, index uint32, value T) uint32
+	name        string
 }
 
 func buildU8Ops(rt *bindings.Runtime) typeOps[uint8] {

@@ -25,12 +25,12 @@ import (
 )
 
 type collector struct {
-	ins      alamos.Instrumentation
-	interval time.Duration
-	idx      channel.Channel
-	metrics  []metric
-	stop     chan struct{}
 	confluence.AbstractUnarySource[framer.WriterRequest]
+	stop     chan struct{}
+	ins      alamos.Instrumentation
+	metrics  []metric
+	idx      channel.Channel
+	interval time.Duration
 }
 
 var _ confluence.Source[framer.WriterRequest] = (*collector)(nil)
@@ -61,7 +61,7 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					frame = frame.Append(metric.ch.Key(), telem.NewSeriesFromAny(value, metric.ch.DataType))
 				}
 				if err := signal.SendUnderContext(ctx, c.Out.Inlet(), framer.WriterRequest{
-					Command: writer.Write,
+					Command: writer.CommandWrite,
 					Frame:   frame,
 				}); err != nil {
 					return err

@@ -9,7 +9,7 @@
 
 import { box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
-import { dimensionsFromMetrics } from "@/text/core/dimensions";
+import { dimensionsFromMetrics } from "@/text/base/dimensions";
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";
 

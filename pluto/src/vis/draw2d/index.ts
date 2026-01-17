@@ -18,10 +18,10 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type text } from "@/text/core";
-import { dimensions as textDimensions } from "@/text/core/dimensions";
+import { type text } from "@/text/base";
+import { dimensions as textDimensions } from "@/text/base/dimensions";
 import { type theming } from "@/theming/aether";
-import { fontString } from "@/theming/core/fontString";
+import { fontString } from "@/theming/base/fontString";
 import {
   type FillTextOptions,
   type SugaredOffscreenCanvasRenderingContext2D,

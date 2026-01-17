@@ -21,11 +21,11 @@ type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	dirname         string
 	fs              xfs.FS
 	metaCodec       binary.Codec
-	streamingConfig DBStreamingConfig
+	dirname         string
 	gcCfg           GCConfig
+	streamingConfig DBStreamingConfig
 	fileSize        telem.Size
 }
 

@@ -66,9 +66,9 @@ func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
 		var policyResources []ontology.Resource
 		if err := r.ontology.NewRetrieve().WhereIDs(r.whereSubjects...).
 			ExcludeFieldData(true).
-			TraverseTo(ontology.Parents).
+			TraverseTo(ontology.ParentsTraverser).
 			WhereTypes(role.OntologyType).
-			TraverseTo(ontology.Children).
+			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(OntologyType).
 			Entries(&policyResources).
 			Exec(ctx, tx); err != nil {

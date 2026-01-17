@@ -84,7 +84,7 @@ const resolveTriggerIndicator = (
  * handler. This will cause the button to render a progress bar that fills up over the
  * specified time before calling the handler.
  */
-const Core = <E extends ElementType = "button">({
+const Base = <E extends ElementType = "button">({
   size,
   variant = "outlined",
   className,
@@ -233,4 +233,4 @@ const Core = <E extends ElementType = "button">({
   );
 };
 
-export const Button = Tooltip.wrap(Core) as typeof Core;
+export const Button = Tooltip.wrap(Base) as typeof Base;

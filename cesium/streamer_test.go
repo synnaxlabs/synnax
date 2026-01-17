@@ -102,7 +102,7 @@ var _ = Describe("Streamer Behavior", func() {
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
 						Start:    10 * telem.SecondTS,
-						Mode:     cesium.WriterPersistOnly,
+						Mode:     cesium.WriterModePersistOnly,
 					}))
 					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic2},
@@ -150,11 +150,11 @@ var _ = Describe("Streamer Behavior", func() {
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{written},
 					)))
-					var f cesium.StreamerResponse
-					Eventually(o.Outlet()).Should(Receive(&f))
-					Expect(f.Frame.Count()).To(Equal(1))
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.Count()).To(Equal(1))
 					written.Alignment = alignment.Leading(1, 0)
-					Expect(f.Frame.SeriesAt(0)).To(Equal(written))
+					Expect(res.Frame.SeriesAt(0)).To(Equal(written))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -220,7 +220,7 @@ var _ = Describe("Streamer Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

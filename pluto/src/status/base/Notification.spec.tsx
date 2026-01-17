@@ -12,7 +12,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/button";
-import { Notification, type NotificationProps } from "@/status/core/Notification";
+import { Notification, type NotificationProps } from "@/status/base/Notification";
 
 const mockSilence = vi.fn();
 

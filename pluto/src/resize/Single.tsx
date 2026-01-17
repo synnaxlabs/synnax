@@ -13,11 +13,11 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from "rea
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { Core, type CoreProps } from "@/resize/Core";
+import { Base, type BaseProps } from "@/resize/Base";
 
 /** Props for the {@link Single} component. */
 export interface SingleProps extends Omit<
-  CoreProps,
+  BaseProps,
   "showHandle" | "size" | "onResize" | "onDragStart" | "ref"
 > {
   initialSize?: number;
@@ -113,7 +113,7 @@ export const Single = ({
   });
 
   return (
-    <Core
+    <Base
       ref={ref}
       location={loc}
       size={size}

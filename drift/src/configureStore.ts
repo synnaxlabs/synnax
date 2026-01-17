@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type Action as CoreAction,
+  type Action as BaseAction,
   configureStore as base,
   type ConfigureStoreOptions as BaseOpts,
   type EnhancedStore,
@@ -40,7 +40,7 @@ export type Enhancers = readonly StoreEnhancer[];
  */
 export interface ConfigureStoreOptions<
   S extends StoreState,
-  A extends CoreAction = UnknownAction,
+  A extends BaseAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
   E extends Tuple<Enhancers> = Tuple<Enhancers>,
 > extends Omit<BaseOpts<S, A, M, E>, "preloadedState"> {
@@ -54,7 +54,7 @@ export interface ConfigureStoreOptions<
 /* The internal function. We export with a strict type annotation so TS doesn't complain */
 const configureStoreInternal = async <
   S extends StoreState,
-  A extends CoreAction = UnknownAction,
+  A extends BaseAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
   E extends Tuple<Enhancers> = Tuple<Enhancers>,
 >({
@@ -96,7 +96,7 @@ const configureStoreInternal = async <
 
 const receivePreloadedStateAndListen = async <
   S extends StoreState,
-  A extends CoreAction = UnknownAction,
+  A extends BaseAction = UnknownAction,
 >(
   debug: boolean,
   runtime: Runtime<S, A>,
@@ -163,7 +163,7 @@ const receivePreloadedStateAndListen = async <
  * that enables drift to synchronize state between windows. The API is identical to the
  * standard configureStore function, except for two important differences.
  *
- * @param options.runtime - The core runtime of the application. This should be chosen
+ * @param options.runtime - The main runtime of the application. This should be chosen
  * based on the platform you are running on (Tauri, etc.).
  * @param options.debug - If true, drift will log debug information to the console.
  * @default false
@@ -182,7 +182,7 @@ const receivePreloadedStateAndListen = async <
  */
 export const configureStore: <
   S extends StoreState,
-  A extends CoreAction = UnknownAction,
+  A extends BaseAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
   E extends Tuple<Enhancers> = Tuple<Enhancers>,
 >(

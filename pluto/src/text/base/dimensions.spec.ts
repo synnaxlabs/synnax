@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { text } from "@/text/core";
+import { text } from "@/text/base";
 
 describe("dimensionsFromMetrics", () => {
   it("should calculate dimensions from positive metrics", () => {
