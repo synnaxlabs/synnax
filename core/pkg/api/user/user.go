@@ -100,8 +100,8 @@ func (svc *Service) Create(ctx context.Context, req CreateRequest) (CreateRespon
 }
 
 type ChangeUsernameRequest struct {
-	Key      uuid.UUID `json:"key" msgpack:"key"`
 	Username string    `json:"username" msgpack:"username"`
+	Key      uuid.UUID `json:"key" msgpack:"key"`
 }
 
 // ChangeUsername changes the username for the user with the given key.
@@ -137,9 +137,9 @@ func (s *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest)
 }
 
 type RenameRequest struct {
-	Key       uuid.UUID `json:"key" msgpack:"key"`
 	FirstName string    `json:"first_name" msgpack:"first_name"`
 	LastName  string    `json:"last_name" msgpack:"last_name"`
+	Key       uuid.UUID `json:"key" msgpack:"key"`
 }
 
 // Rename changes the name for the user with the provided key. If either the first

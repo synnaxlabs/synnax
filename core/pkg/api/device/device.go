@@ -72,13 +72,13 @@ func (svc *Service) Create(ctx context.Context, req CreateRequest) (res CreateRe
 }
 
 type RetrieveRequest struct {
+	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
 	Keys           []string   `json:"keys" msgpack:"keys"`
 	Names          []string   `json:"names" msgpack:"names"`
 	Makes          []string   `json:"makes" msgpack:"makes"`
 	Models         []string   `json:"models" msgpack:"models"`
 	Locations      []string   `json:"locations" msgpack:"locations"`
 	Racks          []rack.Key `json:"racks" msgpack:"racks"`
-	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
 	Limit          int        `json:"limit" msgpack:"limit"`
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`

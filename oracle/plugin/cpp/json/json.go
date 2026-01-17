@@ -338,7 +338,7 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	isSelfRef := field.IsHardOptional && isSelfReference(field.Type, parent)
 
 	parseExpr := p.parseExprForField(field, parent, cppType, data, isSelfRef)
-	toJsonExpr := p.toJsonExprForField(field, parent, data, isSelfRef)
+	toJSONExpr := p.toJSONExprForField(field, parent, data, isSelfRef)
 
 	var jsonParseExpr, structParseExpr string
 	if isGenericField {
@@ -348,13 +348,13 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 	return fieldData{
 		Name:            cppFieldName,
 		CppType:         cppType,
-		JsonName:        jsonName,
+		JSONName:        jsonName,
 		ParseExpr:       parseExpr,
-		ToJsonExpr:      toJsonExpr,
+		ToJSONExpr:      toJSONExpr,
 		IsGenericField:  isGenericField,
 		TypeParamName:   typeParamName,
 		IsHardOptional:  field.IsHardOptional,
-		JsonParseExpr:   jsonParseExpr,
+		JSONParseExpr:   jsonParseExpr,
 		StructParseExpr: structParseExpr,
 	}
 }
@@ -630,7 +630,7 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 	return jsonParseExpr, structParseExpr
 }
 
-func (p *Plugin) toJsonExprForField(field resolution.Field, parent resolution.Type, data *templateData, isSelfRef bool) string {
+func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Type, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
 
@@ -892,12 +892,12 @@ type typeParamData struct {
 type fieldData struct {
 	Name            string
 	CppType         string
-	JsonName        string
+	JSONName        string
 	ParseExpr       string
-	ToJsonExpr      string
+	ToJSONExpr      string
 	IsGenericField  bool
 	TypeParamName   string
 	IsHardOptional  bool
-	JsonParseExpr   string
+	JSONParseExpr   string
 	StructParseExpr string
 }

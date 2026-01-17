@@ -30,15 +30,15 @@ import (
 // Config is the configuration for a Server.
 type Config struct {
 	alamos.Instrumentation
+	// Security is the security configuration.
+	Security SecurityConfig
+	// Debug is a flag to enable debugging endpoints and utilities.
+	Debug *bool
 	// ListenAddress is the address the server will listen on. The server's name will be
 	// set to the host portion of the address.
 	ListenAddress address.Address
-	// Security is the security configuration.
-	Security SecurityConfig
 	// Branches is a list of branches to serve.
 	Branches []Branch
-	// Debug is a flag to enable debugging endpoints and utilities.
-	Debug *bool
 }
 
 // Report implements the alamos.ReportProvider interface.
@@ -102,8 +102,8 @@ func (c Config) Validate() error {
 // requests. A Server can be configured to multiplex multiple Branches on the same port.
 // It can also serve secure branches behind a TLS listener.
 type Server struct {
-	Config
 	shutdown io.Closer
+	Config
 }
 
 // Serve starts a new server using the provided configuration. If the configuration

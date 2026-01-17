@@ -430,10 +430,10 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	forwardExpr, backwardExpr := p.generateFieldConversion(field, cppFieldName, data)
-	forwardJsonExpr, backwardJsonExpr := "", ""
+	forwardJSONExpr, backwardJSONExpr := "", ""
 	if isGenericField {
 		pbAccessorName := escapePBFieldName(pbFieldName)
-		forwardJsonExpr, backwardJsonExpr = p.generateJsonFieldConversion(field, cppFieldName, pbAccessorName, data)
+		forwardJSONExpr, backwardJSONExpr = p.generateJSONFieldConversion(field, cppFieldName, pbAccessorName, data)
 	}
 
 	return fieldTranslatorData{
@@ -441,8 +441,8 @@ func (p *Plugin) processFieldForTranslation(
 		PBName:           pbFieldName,
 		ForwardExpr:      forwardExpr,
 		BackwardExpr:     backwardExpr,
-		ForwardJsonExpr:  forwardJsonExpr,
-		BackwardJsonExpr: backwardJsonExpr,
+		ForwardJSONExpr:  forwardJSONExpr,
+		BackwardJSONExpr: backwardJSONExpr,
 		IsOptional:       field.IsHardOptional,
 		IsArray:          field.Type.Name == "Array",
 		IsGenericField:   isGenericField,
@@ -506,7 +506,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 }
 
-func (p *Plugin) generateJsonFieldConversion(
+func (p *Plugin) generateJSONFieldConversion(
 	field resolution.Field,
 	cppFieldName string,
 	pbAccessorName string,
@@ -1354,8 +1354,8 @@ type fieldTranslatorData struct {
 	PBName           string
 	ForwardExpr      string
 	BackwardExpr     string
-	ForwardJsonExpr  string
-	BackwardJsonExpr string
+	ForwardJSONExpr  string
+	BackwardJSONExpr string
 	IsOptional       bool
 	IsArray          bool
 	IsGenericField   bool

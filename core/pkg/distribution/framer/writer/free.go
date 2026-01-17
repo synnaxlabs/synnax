@@ -24,8 +24,8 @@ import (
 )
 
 type freeWriteAlignments struct {
-	mu         sync.Mutex
 	alignments map[channel.Key]*atomic.Uint32
+	mu         sync.Mutex
 }
 
 func (f *freeWriteAlignments) increment(key channel.Key) telem.Alignment {

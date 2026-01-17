@@ -61,7 +61,7 @@ inline {{.PBNamespace}}::{{.PBName}} {{.CppName}}<{{.TypeParamNames}}>::to_proto
 {{- range .Fields}}
 {{- if .IsGenericField}}
     if constexpr (std::is_same_v<{{.TypeParamName}}, x::json::json>) {
-        {{.ForwardJsonExpr}};
+        {{.ForwardJSONExpr}};
     } else {
         {{.ForwardExpr}};
     }
@@ -80,7 +80,7 @@ inline std::pair<{{.CppName}}<{{.TypeParamNames}}>, x::errors::Error> {{.CppName
 {{- range .Fields}}
 {{- if .IsGenericField}}
     if constexpr (std::is_same_v<{{.TypeParamName}}, x::json::json>) {
-        {{.BackwardJsonExpr}}
+        {{.BackwardJSONExpr}}
     } else {
         {{.BackwardExpr}}
     }

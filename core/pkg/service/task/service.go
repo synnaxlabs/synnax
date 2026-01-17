@@ -35,7 +35,6 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	alamos.Instrumentation
 	// DB is the gorp database that tasks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -59,6 +58,7 @@ type ServiceConfig struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -93,8 +93,8 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
-	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	group                         group.Group
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {

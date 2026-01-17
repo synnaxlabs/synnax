@@ -39,8 +39,8 @@ func NewService(cfg config.Config) *Service {
 
 type (
 	CreateRequest struct {
-		Workspace uuid.UUID `json:"workspace" msgpack:"workspace"`
 		Logs      []log.Log `json:"logs" msgpack:"logs"`
+		Workspace uuid.UUID `json:"workspace" msgpack:"workspace"`
 	}
 	CreateResponse struct {
 		Logs []log.Log `json:"logs" msgpack:"logs"`
@@ -68,8 +68,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 }
 
 type RenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
@@ -86,8 +86,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
 	Data map[string]any `json:"data" msgpack:"data"`
+	Key  uuid.UUID      `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {

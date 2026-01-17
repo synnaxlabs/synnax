@@ -20,21 +20,21 @@ import (
 
 // node holds the runtime state for a single node in the scheduler.
 type node struct {
-	key string
 	// node is the executable node instance.
 	rnode.Node
 	// outgoing contains edges where this node is the source, keyed by output param.
 	// Used for efficient change propagation to downstream nodes.
 	outgoing map[string][]ir.Edge
+	key      string
 }
 
 // stage holds the runtime state for a single stage within a sequence.
 type stage struct {
-	// strata defines the topological execution order for nodes in this stage.
-	strata ir.Strata
 	// firedOneShots tracks which one-shot edges have already fired in this stage
 	// activation. Cleared when the stage is entered.
 	firedOneShots set.Set[ir.Edge]
+	// strata defines the topological execution order for nodes in this stage.
+	strata ir.Strata
 }
 
 // sequenceState holds the runtime state for a sequence.
@@ -53,12 +53,12 @@ type transitionTarget struct {
 // It maintains the execution graph, tracks changed nodes, and propagates changes
 // through the dependency graph. It supports stage-based filtering for sequences.
 type Scheduler struct {
-	// nodes maps node keys to their runtime state.
-	nodes map[string]node
-	// globalStrata defines the topological execution order for global nodes.
-	globalStrata ir.Strata
-	// sequences holds the runtime state for each sequence.
-	sequences []sequenceState
+	// nodeCtx is a reusable context struct passed to nodes during execution.
+	nodeCtx rnode.Context
+	// errorHandler receives errors from node execution.
+	errorHandler ErrorHandler
+	// cycleCallback is called at the end of each Next() cycle for cleanup.
+	cycleCallback CycleCallback
 	// transitions maps entry node keys to their target (seqIdx, stageIdx).
 	transitions map[string]transitionTarget
 	// changed tracks which nodes need execution in the current strata pass.
@@ -66,23 +66,21 @@ type Scheduler struct {
 	// globalFiredOneShots tracks which one-shot edges in global strata have fired.
 	// Unlike per-stage one-shots, global one-shots fire once ever and never reset.
 	globalFiredOneShots set.Set[ir.Edge]
-	// maxConvergenceIterations is the maximum iterations for stage convergence loop.
-	maxConvergenceIterations int
-
+	// nodes maps node keys to their runtime state.
+	nodes map[string]node
 	// Current execution context
 	// currNodeKey is the key of the currently executing node.
 	currNodeKey string
-	// currSeqIdx is the index of the currently executing sequence, or -1 if global.
-	currSeqIdx int
+	// globalStrata defines the topological execution order for global nodes.
+	globalStrata ir.Strata
+	// sequences holds the runtime state for each sequence.
+	sequences []sequenceState
+	// maxConvergenceIterations is the maximum iterations for stage convergence loop.
+	maxConvergenceIterations int
 	// currStageIdx is the index of the currently executing stage, or -1 if none.
 	currStageIdx int
-
-	// errorHandler receives errors from node execution.
-	errorHandler ErrorHandler
-	// cycleCallback is called at the end of each Next() cycle for cleanup.
-	cycleCallback CycleCallback
-	// nodeCtx is a reusable context struct passed to nodes during execution.
-	nodeCtx rnode.Context
+	// currSeqIdx is the index of the currently executing sequence, or -1 if global.
+	currSeqIdx int
 }
 
 // ErrorHandler receives errors from node execution.

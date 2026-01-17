@@ -148,9 +148,9 @@ func (s *Service) Delete(
 }
 
 type AddRequest struct {
+	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
 	Labels  []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
 	Replace bool        `json:"replace" msgpack:"replace"`
-	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
 }
 
 func (s *Service) Add(

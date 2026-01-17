@@ -103,30 +103,30 @@ func (s *Service) Create(
 // RetrieveRequest is a request for retrieving information about a Channel
 // from the cluster.
 type RetrieveRequest struct {
-	// Optional parameter that queries a Channel by its node Name.
-	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
-	// Optional parameter that queries a Channel by its key.
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
-	// Optional parameter that queries a Channel by its name.
-	Names []string `json:"names" msgpack:"names"`
-	// Optional search parameters that fuzzy match a Channel's properties.
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	// RangeKey is used for fetching aliases.
-	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
-	// Limit limits the number of results returned.
-	Limit int `json:"limit" msgpack:"limit"`
-	// Offset offsets the results returned.
-	Offset int `json:"offset" msgpack:"offset"`
-	// DataTypes filters for channels whose DataType attribute matches the provided data types.
-	DataTypes []telem.DataType `json:"data_types" msgpack:"data_types"`
-	// NotDataTypes filters for channels whose DataType attribute does not match the provided data types.
-	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
 	// Virtual filters for channels that are virtual if true, or are not virtual if false.
 	Virtual *bool `json:"virtual" msgpack:"virtual"`
 	// IsIndex filters for channels that are indexes if true, or are not indexes if false.
 	IsIndex *bool `json:"is_index" msgpack:"is_index"`
 	// Internal filters for channels that are internal if true, or are not internal if false.
 	Internal *bool `json:"internal" msgpack:"internal"`
+	// Optional search parameters that fuzzy match a Channel's properties.
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Optional parameter that queries a Channel by its key.
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Optional parameter that queries a Channel by its name.
+	Names []string `json:"names" msgpack:"names"`
+	// DataTypes filters for channels whose DataType attribute matches the provided data types.
+	DataTypes []telem.DataType `json:"data_types" msgpack:"data_types"`
+	// NotDataTypes filters for channels whose DataType attribute does not match the provided data types.
+	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
+	// Limit limits the number of results returned.
+	Limit int `json:"limit" msgpack:"limit"`
+	// Offset offsets the results returned.
+	Offset int `json:"offset" msgpack:"offset"`
+	// Optional parameter that queries a Channel by its node Name.
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
+	// RangeKey is used for fetching aliases.
+	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
 }
 
 // RetrieveResponse is the response for a RetrieveRequest.

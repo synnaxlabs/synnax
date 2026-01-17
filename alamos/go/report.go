@@ -52,9 +52,9 @@ func (r ReporterConfig) Override(other ReporterConfig) ReporterConfig {
 // Reporter is used to attach reports (key-value metadata) to Instrumentation. It's
 // typically used for recording the configuration of a service.
 type Reporter struct {
-	meta    InstrumentationMeta
 	reports map[string]ReportProvider
 	config  ReporterConfig
+	meta    InstrumentationMeta
 }
 
 // NewReporter instantiates a new Reporter using the given configurations. If no configurations

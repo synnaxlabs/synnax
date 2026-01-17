@@ -101,22 +101,22 @@ type IteratorRequest struct {
 // IteratorResponse is a response containing segments satisfying an iterator request as
 // well as any errors encountered during the retrieval.
 type IteratorResponse struct {
-	// Variant is the type of response being issued.
-	Variant IteratorResponseVariant
-	// SeqNum is the corresponding sequence number of the request. This is used to match
-	// the request with the response. Each request should increment the sequence number
-	// by 1.
-	SeqNum int
-	// Command defines the command that the response relates to.
-	Command IteratorCommand
-	// Ack is only valid when the response type is IteratorAckResponse. It indicates
-	// whether the command was successfully processed.
-	Ack bool
 	// Err is only set an IterError command is being responded to.
 	Err error
 	// Frame is the telemetry frame that was read from the DB. It is only set when the
 	// response type is IteratorDataResponse.
 	Frame Frame
+	// SeqNum is the corresponding sequence number of the request. This is used to match
+	// the request with the response. Each request should increment the sequence number
+	// by 1.
+	SeqNum int
+	// Variant is the type of response being issued.
+	Variant IteratorResponseVariant
+	// Command defines the command that the response relates to.
+	Command IteratorCommand
+	// Ack is only valid when the response type is IteratorAckResponse. It indicates
+	// whether the command was successfully processed.
+	Ack bool
 }
 
 type streamIterator struct {
@@ -128,11 +128,11 @@ type streamIterator struct {
 // IteratorConfig is the configuration for opening an iterator :). See the fields for
 // more information.
 type IteratorConfig struct {
+	// Channels is a list of channels to iterate over.
+	Channels []channel.Key
 	// Bounds sets the time range to iterator over. The lower bound is inclusive, while
 	// the upper bound is exclusive.
 	Bounds telem.TimeRange
-	// Channels is a list of channels to iterate over.
-	Channels []channel.Key
 	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
 	// or Prev() request it IteratorAutoSpan as the span.
 	AutoChunkSize int64

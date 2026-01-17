@@ -76,9 +76,9 @@ type core struct {
 	cancel   context.CancelFunc
 	internal errgroup.Group
 	mu       struct {
-		sync.RWMutex
-		routines []*routine
 		stopped  chan struct{}
+		routines []*routine
+		sync.RWMutex
 	}
 }
 

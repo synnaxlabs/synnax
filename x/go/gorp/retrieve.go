@@ -152,8 +152,8 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (int, error) {
 const filtersKey query.Parameter = "filters"
 
 type filter[K Key, E Entry[K]] struct {
-	filterOptions
 	f FilterFunc[K, E]
+	filterOptions
 }
 
 type filters[K Key, E Entry[K]] []filter[K, E]

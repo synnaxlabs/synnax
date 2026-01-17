@@ -49,22 +49,22 @@ import (
 // Config is the configuration for opening the service layer. See fields for
 // details on defining the configuration.
 type Config struct {
-	// Instrumentation is for logging, tracing, metrics, etc.
-	//
-	// [OPTIONAL] - Defaults to noop instrumentation.
-	alamos.Instrumentation
-	// Distribution is the underlying distribution layer.
-	//
-	// [REQUIRED]
-	Distribution *distribution.Layer
 	// Security provides TLS certificates and encryption keys for the service layer.
 	//
 	// [REQUIRED]
 	Security security.Provider
+	// Distribution is the underlying distribution layer.
+	//
+	// [REQUIRED]
+	Distribution *distribution.Layer
 	// Storage is the storage layer used for disk usage metrics.
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
+	// Instrumentation is for logging, tracing, metrics, etc.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
 }
 
 var (

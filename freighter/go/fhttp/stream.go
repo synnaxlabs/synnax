@@ -61,13 +61,13 @@ const (
 // close WSMessage type to correctly encode and transfer information about a closure
 // error across the socket.
 type WSMessage[P freighter.Payload] struct {
+	// Payload is the user payload to send if the WSMessage type is WSMessageTypeData.
+	Payload P `json:"payload" msgpack:"payload"`
+	// Err is the error payload to send if the WSMessage type is WSMessageTypeClose.
+	Err errors.Payload `json:"error" msgpack:"error"`
 	// Type represents the type of WSMessage being sent. One of WSMessageTypeData
 	// or WSMessageTypeClose.
 	Type WSMessageType `json:"type" msgpack:"type"`
-	// Err is the error payload to send if the WSMessage type is WSMessageTypeClose.
-	Err errors.Payload `json:"error" msgpack:"error"`
-	// Payload is the user payload to send if the WSMessage type is WSMessageTypeData.
-	Payload P `json:"payload" msgpack:"payload"`
 }
 
 const (
@@ -90,19 +90,19 @@ func newStreamCore[RQ, RS freighter.Payload](
 }
 
 type coreConfig struct {
+	codec binary.Codec
+	conn  *ws.Conn
 	alamos.Instrumentation
-	conn          *ws.Conn
-	codec         binary.Codec
 	writeDeadline time.Duration
 }
 
 // streamCore is the common functionality implemented by both the client and server streams.
 type streamCore[I, O freighter.Payload] struct {
-	coreConfig
+	peerCloseErr       error
 	serverShutdownSig  <-chan struct{}
 	normalShutdownSig  chan struct{}
 	successfulShutdown chan struct{}
-	peerCloseErr       error
+	coreConfig
 }
 
 func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
@@ -331,15 +331,15 @@ func mdToHeaders(md freighter.Context) http.Header {
 }
 
 type streamServer[RQ, RS freighter.Payload] struct {
+	alamos.Instrumentation
+	serverCtx context.Context
 	serverOptions
+	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	wg      *sync.WaitGroup
+	path    string
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	alamos.Instrumentation
-	serverCtx     context.Context
-	path          string
-	handler       func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 	writeDeadline time.Duration
-	wg            *sync.WaitGroup
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(

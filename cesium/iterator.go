@@ -27,10 +27,10 @@ var errIteratorClosed = resource.NewClosedError("cesium.iterator")
 type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]
 	outlet   confluence.Outlet[IteratorResponse]
-	frame    Frame
-	shutdown context.CancelFunc
 	wg       signal.WaitGroup
+	shutdown context.CancelFunc
 	logger   *zap.Logger
+	frame    Frame
 	closed   bool
 }
 

@@ -1058,7 +1058,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")
-	isJson := field.Type.Name == "json" || typeOverride == "json"
+	isJSON := field.Type.Name == "json" || typeOverride == "json"
 	if isArray {
 		if isAnyOptional {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
@@ -1069,7 +1069,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
 		}
-	} else if isJson {
+	} else if isJSON {
 		if isAnyOptional {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
 			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s)", fd.ZodType)

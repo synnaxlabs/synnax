@@ -74,11 +74,11 @@ func (s *Service) CreatePolicy(
 }
 
 type RetrievePolicyRequest struct {
+	Internal *bool         `json:"internal" msgpack:"internal"`
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
 	Keys     []uuid.UUID   `json:"keys" msgpack:"keys"`
 	Limit    int           `json:"limit" msgpack:"limit"`
 	Offset   int           `json:"offset" msgpack:"offset"`
-	Internal *bool         `json:"internal" msgpack:"internal"`
 }
 
 type RetrievePolicyResponse struct {
@@ -177,10 +177,10 @@ func (s *Service) CreateRole(
 
 type (
 	RetrieveRoleRequest struct {
+		Internal *bool       `json:"internal" msgpack:"internal"`
 		Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
 		Limit    int         `json:"limit" msgpack:"limit"`
 		Offset   int         `json:"offset" msgpack:"offset"`
-		Internal *bool       `json:"internal" msgpack:"internal"`
 	}
 	RetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles" msgpack:"roles"`

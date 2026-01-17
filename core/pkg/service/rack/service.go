@@ -36,7 +36,9 @@ import (
 
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
-	alamos.Instrumentation
+	// HostProvider is used to assign keys to racks.
+	// [REQUIRED]
+	HostProvider cluster.HostProvider
 	// DB is the gorp database that racks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -47,9 +49,6 @@ type ServiceConfig struct {
 	// Group is used to create rack related groups of ontology resources.
 	// [REQUIRED]
 	Group *group.Service
-	// HostProvider is used to assign keys to racks.
-	// [REQUIRED]
-	HostProvider cluster.HostProvider
 	// Status is used to define and process statuses for racks.
 	// [REQUIRED]
 	Status *status.Service
@@ -57,6 +56,7 @@ type ServiceConfig struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
 	// [OPTIONAL]
@@ -106,13 +106,13 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
-	ServiceConfig
-	EmbeddedKey     Key
+	shutdownSignals io.Closer
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
-	shutdownSignals io.Closer
-	group           group.Group
 	monitor         *monitor
+	ServiceConfig
+	group       group.Group
+	EmbeddedKey Key
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {

@@ -45,8 +45,8 @@ func (m *Module) OnCycleEnd() {
 }
 
 type ModuleConfig struct {
-	Module module.Module
 	State  *state.State
+	Module module.Module
 }
 
 func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {

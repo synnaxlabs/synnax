@@ -28,9 +28,9 @@ type JSONRPCMessage struct {
 
 type streamAdapter struct {
 	stream      freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
-	mu          sync.Mutex
 	buffer      []byte
 	writeBuffer []byte
+	mu          sync.Mutex
 	closed      bool
 }
 

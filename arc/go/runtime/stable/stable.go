@@ -44,11 +44,11 @@ var (
 
 type stableFor struct {
 	*state.Node
-	duration    telem.TimeSpan
 	value       *uint8
 	lastSent    *uint8
-	lastChanged telem.TimeStamp
 	now         func() telem.TimeStamp
+	duration    telem.TimeSpan
+	lastChanged telem.TimeStamp
 }
 
 // Reset resets the stableFor timer state when its stage is activated.

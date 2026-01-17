@@ -20,21 +20,21 @@ import (
 )
 
 type Builder struct {
-	PortRangeStart  int
-	DataDir         string
-	DefaultOptions  []aspen.Option
-	peerAddresses   []address.Address
 	TmpDirs         map[aspen.NodeKey]string
-	tmpDir          string
 	_addressFactory *address.Factory
 	Nodes           map[aspen.NodeKey]NodeInfo
+	DataDir         string
+	tmpDir          string
+	DefaultOptions  []aspen.Option
+	peerAddresses   []address.Address
+	PortRangeStart  int
 	memBacked       bool
 }
 
 type NodeInfo struct {
+	DB   *aspen.DB
 	Addr address.Address
 	Dir  string
-	DB   *aspen.DB
 }
 
 func (b *Builder) Dir() string {

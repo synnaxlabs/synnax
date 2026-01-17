@@ -76,16 +76,16 @@ func (svc *Service) Create(
 
 type (
 	RetrieveRequest struct {
-		Rack          rack.Key   `json:"rack" msgpack:"rack"`
-		Keys          []task.Key `json:"keys" msgpack:"keys"`
-		Names         []string   `json:"names" msgpack:"names"`
-		Types         []string   `json:"types" msgpack:"types"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 		Internal      *bool      `json:"internal" msgpack:"internal"`
 		Snapshot      *bool      `json:"snapshot" msgpack:"snapshot"`
 		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
+		Keys          []task.Key `json:"keys" msgpack:"keys"`
+		Names         []string   `json:"names" msgpack:"names"`
+		Types         []string   `json:"types" msgpack:"types"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
+		Rack          rack.Key   `json:"rack" msgpack:"rack"`
+		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -189,8 +189,8 @@ func (svc *Service) Delete(
 
 type (
 	CopyRequest struct {
-		Key      task.Key `json:"key" msgpack:"key"`
 		Name     string   `json:"name" msgpack:"name"`
+		Key      task.Key `json:"key" msgpack:"key"`
 		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {

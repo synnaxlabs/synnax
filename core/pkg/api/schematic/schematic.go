@@ -41,8 +41,8 @@ func NewService(cfg config.Config) *Service {
 
 type (
 	CreateRequest struct {
-		Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+		Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
 	}
 	CreateResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -70,8 +70,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 }
 
 type RenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
@@ -88,8 +88,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetDataRequest struct {
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
 	Data map[string]any `json:"data" msgpack:"data"`
+	Key  uuid.UUID      `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
@@ -149,8 +149,8 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil,
 
 type (
 	CopyRequest struct {
-		Key      uuid.UUID `json:"key" msgpack:"key"`
 		Name     string    `json:"name" msgpack:"name"`
+		Key      uuid.UUID `json:"key" msgpack:"key"`
 		Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
 	}
 	CopyResponse struct {
@@ -183,8 +183,8 @@ func (s *Service) Copy(ctx context.Context, req CopyRequest) (res CopyResponse, 
 
 type (
 	CreateSymbolRequest struct {
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 		Parent  ontology.ID     `json:"parent" msgpack:"parent"`
+		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 	CreateSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -214,8 +214,8 @@ func (s *Service) CreateSymbol(ctx context.Context, req CreateSymbolRequest) (re
 
 type (
 	RetrieveSymbolRequest struct {
-		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		SearchTerm string      `json:"search_term" msgpack:"search_term"`
+		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 	}
 	RetrieveSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -245,8 +245,8 @@ func (s *Service) RetrieveSymbol(ctx context.Context, req RetrieveSymbolRequest)
 }
 
 type RenameSymbolRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) RenameSymbol(ctx context.Context, req RenameSymbolRequest) (res types.Nil, err error) {

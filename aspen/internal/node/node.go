@@ -39,10 +39,10 @@ func (k Key) IsBootstrapper() bool { return k == KeyBootstrapper }
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 type Node struct {
-	Key       Key
 	Address   address.Address
-	State     State
 	Heartbeat version.Heartbeat
+	State     State
+	Key       Key
 }
 
 func (n Node) Digest() Digest { return Digest{Key: n.Key, Heartbeat: n.Heartbeat} }

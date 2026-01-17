@@ -72,8 +72,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 }
 
 type RenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
@@ -90,8 +90,8 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 }
 
 type SetLayoutRequest struct {
-	Key    uuid.UUID      `json:"key" msgpack:"key"`
 	Layout map[string]any `json:"layout" msgpack:"layout"`
+	Key    uuid.UUID      `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetLayout(ctx context.Context, req SetLayoutRequest) (res types.Nil, err error) {
@@ -109,11 +109,11 @@ func (s *Service) SetLayout(ctx context.Context, req SetLayoutRequest) (res type
 
 type (
 	RetrieveRequest struct {
-		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		SearchTerm string      `json:"search_term" msgpack:"search_term"`
-		Author     uuid.UUID   `json:"author" msgpack:"author"`
+		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		Limit      int         `json:"limit" msgpack:"limit"`
 		Offset     int         `json:"offset" msgpack:"offset"`
+		Author     uuid.UUID   `json:"author" msgpack:"author"`
 	}
 	RetrieveResponse struct {
 		Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`

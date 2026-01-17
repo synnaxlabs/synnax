@@ -58,15 +58,15 @@ var errIteratorClosed = resource.NewClosedError("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
-	IteratorConfig
-	Channel  channel.Channel
-	internal *domain.Iterator
-	view     telem.TimeRange
-	frame    channel.Frame
-	idx      *index.Domain
-	bounds   telem.TimeRange
 	err      error
-	closed   bool
+	internal *domain.Iterator
+	idx      *index.Domain
+	Channel  channel.Channel
+	frame    channel.Frame
+	IteratorConfig
+	view   telem.TimeRange
+	bounds telem.TimeRange
+	closed bool
 }
 
 func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {

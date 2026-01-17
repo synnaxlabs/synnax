@@ -25,11 +25,11 @@ import (
 
 // MockNode is a configurable mock for testing scheduler behavior.
 type MockNode struct {
-	NextCalled    int
-	ResetCalled   int
-	ElapsedValues []telem.TimeSpan
 	ParamTruthy   map[string]bool
 	OnNext        func(node.Context)
+	ElapsedValues []telem.TimeSpan
+	NextCalled    int
+	ResetCalled   int
 }
 
 func NewMockNode() *MockNode {
@@ -70,16 +70,16 @@ func (m *MockNode) ErrorOnNext(err error) {
 // MockErrorHandler collects errors for testing.
 type MockErrorHandler struct {
 	Errors []struct {
-		NodeKey string
 		Err     error
+		NodeKey string
 	}
 }
 
 func (h *MockErrorHandler) HandleError(nodeKey string, err error) {
 	h.Errors = append(h.Errors, struct {
-		NodeKey string
 		Err     error
-	}{nodeKey, err})
+		NodeKey string
+	}{err, nodeKey})
 }
 
 var _ = Describe("Scheduler", func() {

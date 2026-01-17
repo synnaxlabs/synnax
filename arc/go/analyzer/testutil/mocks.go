@@ -32,9 +32,9 @@ func (m *MockToken) String() string                              { return "" }
 
 // MockAST implements antlr.ParserRuleContext for testing purposes.
 type MockAST struct {
-	antlr.BaseParserRuleContext
-	id    int
 	token *MockToken
+	antlr.BaseParserRuleContext
+	id int
 }
 
 // NewMockAST creates a new mock AST node with the given ID.

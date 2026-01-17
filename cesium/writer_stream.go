@@ -44,33 +44,33 @@ var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrit
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
-	// Command is the command to execute on the Writer.
-	Command WriterCommand
-	// Frame is the arrow record to write to the DB.
-	Frame Frame
 	// Config is used for updating the parameters in WriterCommandSetAuthority.
 	Config WriterConfig
+	// Frame is the arrow record to write to the DB.
+	Frame Frame
 	// SeqNum is used to match the request with the response. The sequence number should
 	// be incremented with each request.
 	SeqNum int
+	// Command is the command to execute on the Writer.
+	Command WriterCommand
 }
 
 // WriterResponse contains any errors that occurred during write execution.
 type WriterResponse struct {
-	// Command is the command that is being responded to.
-	Command WriterCommand
+	// Err contains an error that occurred when attempting to execute a request on the
+	// writer.
+	Err error
 	// SeqNum is the current sequence number of the command being executed. This value
 	// will correspond to the WriterRequest.SeqNum that executed the command.
 	SeqNum int
 	// End is the end timestamp of the domain on commit. It is only valid during calls
 	// to WriterCommit.
 	End telem.TimeStamp
+	// Command is the command that is being responded to.
+	Command WriterCommand
 	// Authorized flags whether the write or commit operation was authorized. It is only
 	// valid during calls to WriterWrite and WriterCommit.
 	Authorized bool
-	// Err contains an error that occurred when attempting to execute a request on the
-	// writer.
-	Err error
 }
 
 // StreamWriter provides a streaming interface for writing telemetry to the DB.
@@ -99,14 +99,14 @@ type WriterResponse struct {
 type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 
 type streamWriter struct {
-	WriterConfig
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
 	relay           confluence.Inlet[Frame]
-	internal        []*idxWriter
+	accumulatedErr  error
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
-	accumulatedErr  error
+	internal        []*idxWriter
+	WriterConfig
 }
 
 // Flow implements the confluence.Flow interface.
@@ -316,22 +316,15 @@ func (w *streamWriter) close(ctx context.Context) error {
 }
 
 type unaryWriterState struct {
-	timesWritten int
 	unary.Writer
+	timesWritten int
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
-	domainAlignment uint32
-	start           telem.TimeStamp
 	// internal contains writers for each channel
 	internal map[ChannelKey]*unaryWriterState
-	// writingToIdx is true when the Write is writing to the index channel. This is
-	// typically true, which allows us to avoid unnecessary lookups.
-	writingToIdx bool
-	// numWriteCalls tracks the number of write calls made to the idxWriter.
-	numWriteCalls int
-	idx           struct {
+	idx      struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		*index.Domain
 		// Key is the channel key of the index.
@@ -340,10 +333,17 @@ type idxWriter struct {
 		// is only relevant when writingToIdx is true.
 		highWaterMark telem.TimeStamp
 	}
+	// numWriteCalls tracks the number of write calls made to the idxWriter.
+	numWriteCalls int
 	// sampleCount is the total number of samples written to the index as if it were a
 	// single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
-	sampleCount int64
+	sampleCount     int64
+	start           telem.TimeStamp
+	domainAlignment uint32
+	// writingToIdx is true when the Write is writing to the index channel. This is
+	// typically true, which allows us to avoid unnecessary lookups.
+	writingToIdx bool
 }
 
 func (w *idxWriter) write(

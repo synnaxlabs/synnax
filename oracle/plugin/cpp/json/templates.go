@@ -49,7 +49,7 @@ template <typename {{.TypeParamNames}}>
 x::json::json {{.Name}}<{{.TypeParamNames}}>::to_json() const {
     x::json::json j;
 {{- range .Fields}}
-    {{.ToJsonExpr}}
+    {{.ToJSONExpr}}
 {{- end}}
     return j;
 }
@@ -72,7 +72,7 @@ inline x::json::json {{.Name}}::to_json() const {
     for (auto& [k, v] : {{.QualifiedName}}::to_json().items()) j[k] = v;
 {{- end}}
 {{- range .Fields}}
-    {{.ToJsonExpr}}
+    {{.ToJSONExpr}}
 {{- end}}
     return j;
 }
@@ -89,7 +89,7 @@ inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
 inline x::json::json {{.Name}}::to_json() const {
     x::json::json j;
 {{- range .Fields}}
-    {{.ToJsonExpr}}
+    {{.ToJSONExpr}}
 {{- end}}
     return j;
 }

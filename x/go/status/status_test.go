@@ -10,6 +10,8 @@
 package status_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/status"
@@ -17,8 +19,12 @@ import (
 )
 
 type CustomDetails struct {
-	Code    int
 	Context string
+	Code    int
+}
+
+func (d CustomDetails) String() string {
+	return fmt.Sprintf("{%d %s}", d.Code, d.Context)
 }
 
 var _ = Describe("Status", func() {

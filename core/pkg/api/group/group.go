@@ -39,9 +39,9 @@ func NewService(cfg config.Config) *Service {
 
 type (
 	CreateRequest struct {
+		Parent ontology.ID `json:"parent" msgpack:"parent"`
 		Name   string      `json:"name" msgpack:"name" validate:"required"`
 		Key    uuid.UUID   `json:"key" msgpack:"key"`
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
 	}
 	CreateResponse struct {
 		Group group.Group `json:"group" msgpack:"group"`
@@ -95,8 +95,8 @@ func (s *Service) Delete(
 }
 
 type RenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
 	Name string    `json:"name" msgpack:"name" validate:"required"`
+	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
 }
 
 func (s *Service) Rename(

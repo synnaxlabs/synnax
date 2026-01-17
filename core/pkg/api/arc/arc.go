@@ -33,11 +33,11 @@ import (
 type Arc = arc.Arc
 
 type Service struct {
-	alamos.Instrumentation
 	db       *gorp.DB
 	access   *rbac.Service
 	internal *arc.Service
 	status   *status.Service
+	alamos.Instrumentation
 }
 
 func NewService(cfg config.Config) *Service {
@@ -97,9 +97,9 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil,
 
 type (
 	RetrieveRequest struct {
+		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
 		Keys          []uuid.UUID `json:"keys" msgpack:"keys"`
 		Names         []string    `json:"names" msgpack:"names"`
-		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
 		Limit         int         `json:"limit" msgpack:"limit"`
 		Offset        int         `json:"offset" msgpack:"offset"`
 		IncludeStatus bool        `json:"include_status" msgpack:"include_status"`

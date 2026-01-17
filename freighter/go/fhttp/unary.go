@@ -27,11 +27,11 @@ import (
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	serverOptions
+	handle func(ctx context.Context, rq RQ) (RS, error)
+	path   string
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	handle   func(ctx context.Context, rq RQ) (RS, error)
 	internal bool
-	path     string
 }
 
 func (s *unaryServer[RQ, RS]) BindHandler(handle func(ctx context.Context, rq RQ) (RS, error)) {
@@ -69,9 +69,9 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx *fiber.Ctx) error {
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
+	codec httputil.Codec
 	freighter.Reporter
 	freighter.MiddlewareCollector
-	codec httputil.Codec
 }
 
 func (u *unaryClient[RQ, RS]) Send(

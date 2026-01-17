@@ -72,9 +72,9 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
+	SearchTerm string      `json:"search_term" msgpack:"search_term"`
 	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 	Types      []string    `json:"types" msgpack:"types"`
-	SearchTerm string      `json:"search_term" msgpack:"search_term"`
 	Limit      int         `json:"limit" msgpack:"limit"`
 	Offset     int         `json:"offset" msgpack:"offset"`
 }
