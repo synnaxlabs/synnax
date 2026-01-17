@@ -170,8 +170,8 @@ public:
 
     /// @brief Executes the middleware chain.
     /// @param context - contains context information for the request that can be
-    /// modified by the middleware prior to it's executing. Middleware key-value
-    /// pairs should be sent to the server by the finalizer.
+    /// modified by the middleware prior to it's executing. Middleware key-value pairs
+    /// should be sent to the server by the finalizer.
     /// @param finalizer - A finalizer that represents the last middleware in the
     /// chain, and is responsible for executing the request.
     /// @param req - the request to execute.
@@ -254,8 +254,8 @@ public:
     virtual xerrors::Error send(RQ &request) const = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no
-    /// more requests will be sent, and (if desired) allowing the server to close
-    /// the receiving end of the stream.
+    /// more requests will be sent, and (if desired) allowing the server to close the
+    /// receiving end of the stream.
     virtual void close_send() = 0;
 
     virtual ~Stream() = default;

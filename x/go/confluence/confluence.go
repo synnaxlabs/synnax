@@ -8,34 +8,31 @@
 // included in the file licenses/APL.txt.
 
 // Package confluence implements a generic, template based component framework for
-// building concurrent value passing programs. Confluence is built around two core
+// building concurrent value passing programs. Confluence is built around two main
 // types: Value and Segment.
 //
-// A Value can is any piece of data that can be passed through
-// a go channel. Because channels are typically mutex locked, values should generally
-// be exchanged as batches of data as opposed to individual entities (i.e.
-// pass []int as the as opposed to int).
+// A Value can is any piece of data that can be passed through a go channel. Because
+// channels are typically mutex locked, values should generally be exchanged as batches
+// of data as opposed to individual entities (i.e. pass []int as the as opposed to int).
 //
-// A Segment is an entity that processes values. A Segment is typically
-// a goroutine that reads values from an input channel, does some operation on them
-// (sum, avg, IO write, network write, etc.), and passes a result to an output channel.
-// This is not to say that the functionality of a Segment cannot extend beyond a
-// simple transformation.
+// A Segment is an entity that processes values. A Segment is typically a goroutine that
+// reads values from an input channel, does some operation on them (sum, avg, IO write,
+// network write, etc.), and passes a result to an output channel. This is not to say
+// that the functionality of a Segment cannot extend beyond a simple transformation.
 //
-// For example, a Segment can route values from a set of inputs (called Outlets) to
-// a set of outputs (called Inlets). The input-Outlet, outlet-Inlet naming convention
+// For example, a Segment can route values from a set of inputs (called Outlets) to a
+// set of outputs (called Inlets). The input-Outlet, outlet-Inlet naming convention
 // might seem strange at first, but the general idea is that an Outlet is the end of a
 // stream that emits values (i.e. <-chan Value) and an Inlet is a stream that receives
 // values (i.e. chan<- Value). Inlets and Outlets are also addressable, which allows you
 // to send messages to segments with different addresses based on some criteria.
 //
-// Collections of segments also be composed into a pipeline using the plumber
-// package's plumber.Pipeline. The Pipeline type is itself a Segment that can be
-// connected to other Segments. This allows for a flexible and powerful
-// composition capabilities.
+// Collections of segments also be composed into a pipeline using the plumber package's
+// plumber.Pipeline. The Pipeline type is itself a Segment that can be connected to
+// other Segments. This allows for a flexible and powerful composition capabilities.
 //
-// The confluence package provides a number of built-in Frame that can be used
-// by themselves or embedded into custom Segment(sink) that provide functionality specific
+// The confluence package provides a number of built-in Frame that can be used by
+// themselves or embedded into custom Segment(sink) that provide functionality specific
 // to your use case.
 //
 // A Segment is a composition of three interfaces:

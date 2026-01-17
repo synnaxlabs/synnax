@@ -2,7 +2,7 @@
   "name": "@synnaxlabs/vite-plugin",
   "version": "0.43.0",
   "type": "module",
-  "description": "Vite plugin for Synnax Labs",
+  "description": "Vite plugin for Synnax",
   "scripts": {
     "build": "tsc",
     "lint": "eslint",
