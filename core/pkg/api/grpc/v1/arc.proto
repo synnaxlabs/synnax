@@ -39,7 +39,7 @@ message Arc {
   arc.v1.module.PBModule module = 5;
   bool deploy = 6;
   string version = 7;
-  string mode = 8;  // "graph" or "text"
+  string mode = 8; // "graph" or "text"
 }
 
 message ArcCreateRequest {

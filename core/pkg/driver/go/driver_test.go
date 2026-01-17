@@ -48,14 +48,23 @@ var _ = Describe("Config", Ordered, func() {
 		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
 		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
 		stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{Ontology: otg, DB: db, Group: g, Label: labelSvc}))
-		rackService = MustSucceed(rack.OpenService(ctx, rack.Config{
+		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
 		}))
-		taskService = MustSucceed(task.OpenService(ctx, task.Config{DB: db, Ontology: otg, Group: g, Rack: rackService, Status: stat}))
+		taskService = MustSucceed(task.OpenService(
+			ctx,
+			task.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    g,
+				Rack:     rackService,
+				Status:   stat,
+			}),
+		)
 		factory = &mockFactory{name: "test"}
 
 		DeferCleanup(func() {
@@ -183,14 +192,14 @@ var _ = Describe("Driver", Ordered, func() {
 				Label:    labelSvc,
 			}),
 		)
-		rackService = MustSucceed(rack.OpenService(ctx, rack.Config{
+		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           dist.DB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
 		}))
-		taskService = MustSucceed(task.OpenService(ctx, task.Config{
+		taskService = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
