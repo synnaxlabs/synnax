@@ -35,9 +35,9 @@ func (f *mockFactory) ConfigureTask(_ godriver.Context, t task.Task) (godriver.T
 func (f *mockFactory) Name() string { return f.name }
 
 type mockTask struct {
-	key      task.Key
 	execFunc func(cmd task.Command) error
 	stopFunc func() error
+	key      task.Key
 }
 
 func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {

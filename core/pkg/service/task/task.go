@@ -87,12 +87,12 @@ type Status = status.Status[StatusDetails]
 
 // Command represents a command to be executed by a task.
 type Command struct {
-	// Task is the key of the task to execute the command on.
-	Task Key `json:"task"`
 	// Type is the type of command (e.g. "start", "stop").
 	Type string `json:"type"`
 	// Key is the command key for acknowledgment.
 	Key string `json:"key"`
 	// Args contains command-specific arguments.
 	Args json.RawMessage `json:"args"`
+	// Task is the key of the task to execute the command on.
+	Task Key `json:"task"`
 }

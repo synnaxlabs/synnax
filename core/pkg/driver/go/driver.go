@@ -33,15 +33,15 @@ import (
 // Driver is the Go task executor that handles task lifecycle and command processing.
 type Driver struct {
 	Config
-	rack rack.Rack
-	ctx  Context
-	mu   struct {
-		sync.RWMutex
-		tasks map[task.Key]Task
-	}
 	shutdown           io.Closer
 	disconnectObserver observe.Disconnect
 	streamerRequests   confluence.Inlet[framer.StreamerRequest]
+	rack               rack.Rack
+	ctx                Context
+	mu                 struct {
+		tasks map[task.Key]Task
+		sync.RWMutex
+	}
 }
 
 // commandSink is a confluence sink that processes incoming command frames.

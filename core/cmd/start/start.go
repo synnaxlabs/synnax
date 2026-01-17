@@ -300,7 +300,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return nil
 	}
 
-	driverIns := cfg.Instrumentation.Child("driver")
+	driverIns := cfg.Child("driver")
 	if embeddedDriver, err = driver.Open(
 		ctx,
 		driver.Config{

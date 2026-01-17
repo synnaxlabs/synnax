@@ -45,24 +45,18 @@ import (
 
 // Task implements the godriver.Task interface and manages Arc program execution.
 type Task struct {
-	// Identity & compiled program
-	key  task.Key
-	prog arc.Arc // Contains Name, Graph, and compiled Module
-	cfg  TaskConfig
-
-	// Context for status updates
-	ctx godriver.Context
-	// Factory config (injected dependencies for runtime)
 	factoryCfg FactoryConfig
-
-	// Runtime state (nil/zero when stopped, initialized on start)
-	running   bool
-	scheduler *scheduler.Scheduler
-	streamer  *streamerSeg
-	writer    *writerSeg
-	state     *state.State
-	closer    io.Closer
-	startTime telem.TimeStamp
+	ctx        godriver.Context
+	closer     io.Closer
+	scheduler  *scheduler.Scheduler
+	streamer   *streamerSeg
+	writer     *writerSeg
+	state      *state.State
+	prog       arc.Arc
+	startTime  telem.TimeStamp
+	key        task.Key
+	cfg        TaskConfig
+	running    bool
 }
 
 func newTask(key task.Key, prog arc.Arc, cfg TaskConfig, ctx godriver.Context, factoryCfg FactoryConfig) *Task {
