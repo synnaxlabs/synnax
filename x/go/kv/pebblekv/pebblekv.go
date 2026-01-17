@@ -185,9 +185,9 @@ func (d db) Size() telem.Size { return telem.Size(d.DB.Metrics().DiskSpaceUsage(
 func (d db) Close() error { return d.DB.Close() }
 
 type tx struct {
-	db        db
-	committed bool
+	db db
 	*pebble.Batch
+	committed bool
 }
 
 var _ kv.Tx = (*tx)(nil)

@@ -29,8 +29,6 @@ import (
 // (via writers) against an underlying domain.DB. It also manages the channel's control
 // state, allowing for dynamic handoff between multiple writers.
 type DB struct {
-	// Config contains validated configuration parameters for the DB.
-	cfg Config
 	// domain is the underlying domain database on which writes will be executed.
 	domain     *domain.DB
 	controller *control.Controller[*controlledWriter]
@@ -39,6 +37,8 @@ type DB struct {
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
+	// Config contains validated configuration parameters for the DB.
+	cfg Config
 }
 
 // ErrDBClosed is returned when an operation is attempted on a closed unary database.

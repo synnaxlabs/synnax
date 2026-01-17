@@ -21,10 +21,10 @@ type BranchContext struct {
 	alamos.Instrumentation
 	// List is the listener the branch should listen for incoming requests on.
 	Lis net.Listener
-	// ServerName is the name of the Server this branch is running on.
-	ServerName string
 	// Security contains the security configuration for the Server.
 	Security SecurityConfig
+	// ServerName is the name of the Server this branch is running on.
+	ServerName string
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug bool
 }

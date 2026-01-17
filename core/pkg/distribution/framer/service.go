@@ -34,19 +34,22 @@ import (
 // To create a new service, call Open with a valid ServiceConfig. The framer service
 // must be closed after used.
 type Service struct {
-	cfg             ServiceConfig
 	Relay           *relay.Relay
 	writer          *writer.Service
 	iterator        *iterator.Service
 	deleter         *deleter.Service
+	cfg             ServiceConfig
 	controlStateKey channel.Key
 }
 
 // ServiceConfig is the configuration for the Service.
 type ServiceConfig struct {
-	// Instrumentation is used for logging, tracing, etc.
-	// [OPTIONAL]
-	alamos.Instrumentation
+	// Transport is the network transport for moving telemetry across nodes.
+	// [REQUIRED]
+	Transport Transport
+	// HostResolved is used to resolve address information about hosts on the network.
+	// [REQUIRED]
+	HostResolver cluster.HostResolver
 	// Channel is used to retrieve channel information.
 	//
 	// [REQUIRED]
@@ -54,12 +57,9 @@ type ServiceConfig struct {
 	// TS is the underlying storage time-series database for reading and writing telemetry.
 	// [REQUIRED]
 	TS *ts.DB
-	// Transport is the network transport for moving telemetry across nodes.
-	// [REQUIRED]
-	Transport Transport
-	// HostResolved is used to resolve address information about hosts on the network.
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
+	// Instrumentation is used for logging, tracing, etc.
+	// [OPTIONAL]
+	alamos.Instrumentation
 }
 
 var (

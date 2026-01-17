@@ -69,7 +69,6 @@ jobs:
         uses: golangci/golangci-lint-action@v9
         with:
           working-directory: core
-          args: --build-tags driver
 
       - name: Test
         run:

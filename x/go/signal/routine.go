@@ -25,14 +25,14 @@ import (
 type RoutineOption func(r *routineOptions)
 
 type RoutineInfo struct {
+	// FailureReason is the error that caused the routine to exit.
+	FailureReason error
 	// Key is a unique identifier for the routine within the parent context.
 	Key string
 	// ContextKey is the key of the context that the routine is running in.
 	ContextKey string
 	// State is the current state of the routine.
 	State RoutineState
-	// FailureReason is the error that caused the routine to exit.
-	FailureReason error
 }
 
 func (r RoutineInfo) PrettyString() string {
@@ -108,8 +108,8 @@ func WithKeyf(format string, args ...any) RoutineOption {
 }
 
 type deferral struct {
-	key string
 	f   func() error
+	key string
 }
 
 // RecoverWithErrOnPanic instructs the goroutine to recover if it panics, and fail with
@@ -210,19 +210,19 @@ type routineOptions struct {
 }
 
 type routine struct {
-	ctx *core
-	routineOptions
-	L *alamos.Logger
 	// span traces the goroutine's execution.
 	span alamos.Span
-	// breaker is the circuit breaker used in the goroutine
-	breaker breaker.Breaker
+	ctx  *core
+	L    *alamos.Logger
 	// state represents the current state of the routine
 	state struct {
-		state RoutineState
 		// err is the error that cause the routine to exit.
-		err error
+		err   error
+		state RoutineState
 	}
+	// breaker is the circuit breaker used in the goroutine
+	breaker breaker.Breaker
+	routineOptions
 }
 
 func (r *routine) info() RoutineInfo {

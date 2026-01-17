@@ -28,8 +28,6 @@ import (
 
 // ServiceConfig is the configuration for opening the ranger.Service.
 type ServiceConfig struct {
-	// Instrumentation for logging, tracing, and metrics.
-	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Ranges.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between ranges (parent-child) and
@@ -47,6 +45,8 @@ type ServiceConfig struct {
 	// ForceMigration will force all migrations to run, regardless of whether they have
 	// already been run.
 	ForceMigration *bool
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
@@ -83,8 +83,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // provides mechanisms for setting channel aliases for a specific range, and for setting
 // metadata on a range.
 type Service struct {
-	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	cfg             ServiceConfig
 }
 
 // OpenService opens a new ranger.Service with the provided configuration. If error is

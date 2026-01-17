@@ -100,9 +100,9 @@ func (aus *AbstractUnarySource[O]) CloseInlets() { aus.Out.Close() }
 // addressable map. This is ideal for use cases where the address of an Inlet is
 // relevant to the routing of the value (such as a Switch).
 type AbstractAddressableSource[O Value] struct {
-	PanicOnDuplicateAddress bool
 	// Out is an address map of all Inlet(sink) reachable by the Source.
-	Out map[address.Address]Inlet[O]
+	Out                     map[address.Address]Inlet[O]
+	PanicOnDuplicateAddress bool
 }
 
 // OutTo implements the Source interface. Inlets provided must have a valid InletAddress.

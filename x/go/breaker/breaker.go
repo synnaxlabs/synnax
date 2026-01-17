@@ -58,8 +58,8 @@ var (
 )
 
 type Breaker struct {
+	ctx context.Context
 	Config
-	ctx          context.Context
 	currInterval time.Duration
 	retryCount   int
 }

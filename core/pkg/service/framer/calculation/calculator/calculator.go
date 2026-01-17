@@ -37,10 +37,10 @@ import (
 // Calculator is an engine for executing expressions and operations in calculated
 // channels.
 type Calculator struct {
-	cfg       Config
 	state     *state.State
 	scheduler *scheduler.Scheduler
 	stateCfg  arcruntime.ExtendedStateConfig
+	cfg       Config
 	start     telem.TimeStamp
 }
 

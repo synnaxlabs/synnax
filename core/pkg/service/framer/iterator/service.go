@@ -63,9 +63,6 @@ func (c Config) distribution() framer.IteratorConfig {
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
 type ServiceConfig struct {
-	// Instrumentation is for logging, tracing, and metrics.
-	// [OPTIONAL] - defaults to noop instrumentation.
-	alamos.Instrumentation
 	// DistFramer is the distribution layer frame service to extend.
 	// [REQUIRED]
 	DistFramer *framer.Service
@@ -74,6 +71,9 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	Channel *channel.Service
 	Arc     *arc.Service
+	// Instrumentation is for logging, tracing, and metrics.
+	// [OPTIONAL] - defaults to noop instrumentation.
+	alamos.Instrumentation
 }
 
 var (

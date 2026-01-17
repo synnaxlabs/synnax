@@ -21,9 +21,9 @@ type FunctionType struct {
 
 // Function represents a WASM function
 type Function struct {
-	TypeIdx uint32
 	Locals  []ValueType
 	Body    []byte
+	TypeIdx uint32
 }
 
 // Import represents an imported function
@@ -42,8 +42,8 @@ type Export struct {
 
 // DataSegment represents a data segment to be placed in linear memory
 type DataSegment struct {
-	Offset uint32
 	Bytes  []byte
+	Offset uint32
 }
 
 // Module represents a complete WASM module
@@ -53,9 +53,9 @@ type Module struct {
 	functions  []Function
 	exports    []Export
 	data       []DataSegment
+	buf        bytes.Buffer
 	dataOffset uint32
 	memory     bool
-	buf        bytes.Buffer
 }
 
 // NewModule creates a new WASM module

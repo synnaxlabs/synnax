@@ -43,14 +43,31 @@ const (
 
 // WriterConfig sets the configuration used to open a new writer on the DB.
 type WriterConfig struct {
+	// ErrOnUnauthorized controls whether the writer will return an error when
+	// attempting to open a writer on a channel that it does not have authority over.
+	// This value should be set to false for control related scenarios.
+	//
+	// [OPTIONAL] - Defaults to false.
+	ErrOnUnauthorized *bool
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
+	// [OPTIONAL] - Defaults to true.
+	EnableAutoCommit *bool
+	// Sync sets whether the writer should acknowledge all write requests with a
+	// corresponding writer response. Defaults to false, in which the writer will
+	// acknowledge Commit() and SetAuthority() commands, but not Write commands. Using
+	// sync mode is useful for acknowledging writes, but can clobber performance as the
+	// next write cannot be started before the previous write is completed.
+	//
+	// [OPTIONAL] - Defaults to false.
+	Sync *bool
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
 	// [OPTIONAL] - Defaults to an empty string.
 	ControlSubject xcontrol.Subject
-	// Start marks the starting timestamp of the first sample to be written by the
-	// writer. If a sample exists for any channel at this timestamp, the writer will
-	// fail to open.
-	Start telem.TimeStamp
 	// Channels sets the channels that the writer will write to. If a channel does not
 	// exist, the writer fill fail to open.
 	Channels []channel.Key
@@ -61,38 +78,21 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to control.AuthorityAbsolute on all channels.
 	Authorities []xcontrol.Authority
-	// ErrOnUnauthorized controls whether the writer will return an error when
-	// attempting to open a writer on a channel that it does not have authority over.
-	// This value should be set to false for control related scenarios.
-	//
-	// [OPTIONAL] - Defaults to false.
-	ErrOnUnauthorized *bool
-	// Mode sets the persistence and streaming mode of the writer. The default mode is
-	// WriterModePersistStream. See the WriterMode documentation for more.
-	//
-	// [OPTIONAL] - Defaults to WriterModePersistStream.
-	Mode WriterMode
-	// EnableAutoCommit determines whether the writer will automatically commit after
-	// each write. If EnableAutoCommit is true, then the writer will commit after each
-	// write, and will flush that commit to index on FS after the specified
-	// AutoIndexPersistInterval.
-	//
-	// [OPTIONAL] - Defaults to true.
-	EnableAutoCommit *bool
+	// Start marks the starting timestamp of the first sample to be written by the
+	// writer. If a sample exists for any channel at this timestamp, the writer will
+	// fail to open.
+	Start telem.TimeStamp
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
 	// AutoIndexPersistInterval to AlwaysIndexPersistOnAutoCommit.
 	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// Sync sets whether the writer should acknowledge all write requests with a
-	// corresponding writer response. Defaults to false, in which the writer will
-	// acknowledge Commit() and SetAuthority() commands, but not Write commands. Using
-	// sync mode is useful for acknowledging writes, but can clobber performance as the
-	// next write cannot be started before the previous write is completed.
+	// Mode sets the persistence and streaming mode of the writer. The default mode is
+	// WriterModePersistStream. See the WriterMode documentation for more.
 	//
-	// [OPTIONAL] - Defaults to false.
-	Sync *bool
+	// [OPTIONAL] - Defaults to WriterModePersistStream.
+	Mode WriterMode
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1

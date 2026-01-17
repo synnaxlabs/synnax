@@ -69,11 +69,11 @@ type Instrumentation struct {
 	// R is the Reporter used by this instrumentation. This field should be considered
 	// read-only.
 	R *Reporter
+	// children stores all child instrumentation created by this instrumentation.
+	children map[string]Instrumentation
 	// Meta is the Metadata associated with this instrumentation. This field should be
 	// considered read-only.
 	Meta InstrumentationMeta
-	// children stores all child instrumentation created by this instrumentation.
-	children map[string]Instrumentation
 }
 
 // New instantiates new Instrumentation with the given key and options. The returned

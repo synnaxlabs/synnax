@@ -33,16 +33,16 @@ type Range struct {
 	tx    gorp.Tx
 	otg   *ontology.Ontology
 	label *label.Service
-	// Key is a unique identifier for the Range. If not provided on creation, a new one
-	// will be generated.
-	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the range. This name does not need to be
 	// unique.
 	Name string `json:"name" msgpack:"name"`
-	// TimeRange is the range of time occupied by the range.
-	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is the color used to represent the range in the UI.
 	Color string `json:"color" msgpack:"color"`
+	// TimeRange is the range of time occupied by the range.
+	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	// Key is a unique identifier for the Range. If not provided on creation, a new one
+	// will be generated.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}

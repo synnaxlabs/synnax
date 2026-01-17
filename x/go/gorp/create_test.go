@@ -22,8 +22,8 @@ import (
 )
 
 type entry struct {
-	ID   int
 	Data string
+	ID   int
 }
 
 func (m entry) GorpKey() int { return m.ID }
@@ -31,8 +31,8 @@ func (m entry) GorpKey() int { return m.ID }
 func (m entry) SetOptions() []any { return nil }
 
 type prefixEntry struct {
-	ID   int
 	Data string
+	ID   int
 }
 
 func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(m.ID)) }
@@ -40,8 +40,8 @@ func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(m
 func (m prefixEntry) SetOptions() []any { return nil }
 
 type entryTwo struct {
-	ID   int
 	Data string
+	ID   int
 }
 
 func (m entryTwo) GorpKey() int { return m.ID }

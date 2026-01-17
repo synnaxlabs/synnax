@@ -135,10 +135,10 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 }
 
 type Cluster struct {
-	Config
 	store.Store
-	gossip   *gossip.Gossip
 	shutdown io.Closer
+	gossip   *gossip.Gossip
+	Config
 }
 
 // Key implements the Cluster interface.

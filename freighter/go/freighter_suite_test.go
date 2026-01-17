@@ -19,13 +19,13 @@ import (
 )
 
 type request struct {
-	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msgpack:"id"`
 }
 
 type response struct {
-	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msgpack:"id"`
 }
 
 var errCustom = errors.New("my custom error")

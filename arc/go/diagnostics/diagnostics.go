@@ -50,10 +50,10 @@ func (s Severity) String() string {
 // Diagnostic represents a single issue found during analysis.
 type Diagnostic struct {
 	Key      string   `json:"key"`
+	Message  string   `json:"message"`
 	Severity Severity `json:"severity"`
 	Line     int      `json:"line"`
 	Column   int      `json:"column"`
-	Message  string   `json:"message"`
 }
 
 // Diagnostics is a collection of diagnostic messages.

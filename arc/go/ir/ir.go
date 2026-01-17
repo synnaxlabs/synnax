@@ -83,6 +83,10 @@ import (
 // definitions, instantiated nodes, dataflow edges, execution stratification, and
 // the symbol table from analysis.
 type IR struct {
+	// Symbols is the symbol table from semantic analysis.
+	Symbols *symbol.Scope `json:"-"`
+	// TypeMap contains inferred types from the analyzer.
+	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 	// Functions contains all function and stage definitions in the program.
 	Functions Functions `json:"functions"`
 	// Sequences contains all sequence (state machine) definitions in the program.
@@ -95,10 +99,6 @@ type IR struct {
 	Edges Edges `json:"edges"`
 	// Strata contains the execution stratification for deterministic reactive execution.
 	Strata Strata `json:"strata"`
-	// Symbols is the symbol table from semantic analysis.
-	Symbols *symbol.Scope `json:"-"`
-	// TypeMap contains inferred types from the analyzer.
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }
 
 func (i *IR) IsZero() bool {

@@ -30,12 +30,12 @@ import (
 
 // testHarness encapsulates common test setup for wasm module tests.
 type testHarness struct {
-	graph    arc.Graph
-	mod      module.Module
-	analyzed ir.IR
+	factory  node.Factory
 	state    *state.State
 	wasmMod  *wasm.Module
-	factory  node.Factory
+	mod      module.Module
+	analyzed ir.IR
+	graph    arc.Graph
 }
 
 // newHarness creates a new test harness from a graph definition.

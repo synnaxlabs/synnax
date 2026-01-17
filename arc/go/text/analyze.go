@@ -66,9 +66,9 @@ func (kg *keyGenerator) entry(seqName, stageName string) string {
 }
 
 type nodeResult struct {
-	node   ir.Node
 	input  ir.Handle
 	output ir.Handle
+	node   ir.Node
 }
 
 func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
@@ -349,16 +349,16 @@ func Analyze(
 }
 
 type flowChainProcessor struct {
-	ctx                acontext.Context[parser.IFlowStatementContext]
 	kg                 *keyGenerator
-	totalFlowNodes     int
-	currentIndex       int
-	prevOutput         ir.Handle
 	prevNode           *ir.Node
-	lastOpIndex        int
+	prevOutput         ir.Handle
 	nodes              []ir.Node
 	edges              []ir.Edge
 	additionalTriggers []nodeResult
+	ctx                acontext.Context[parser.IFlowStatementContext]
+	totalFlowNodes     int
+	currentIndex       int
+	lastOpIndex        int
 }
 
 func newFlowChainProcessor(ctx acontext.Context[parser.IFlowStatementContext], kg *keyGenerator) *flowChainProcessor {

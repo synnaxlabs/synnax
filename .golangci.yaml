@@ -3,6 +3,10 @@ linters:
   enable:
     - revive
   settings:
+    govet:
+      enable-all: true
+      disable:
+        - shadow
     revive:
       rules:
         - name: error-naming

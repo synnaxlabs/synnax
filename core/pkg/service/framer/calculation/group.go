@@ -28,9 +28,9 @@ import (
 )
 
 type group struct {
-	Calculators      []*calculator.Calculator
 	shutdown         io.Closer
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
+	Calculators      []*calculator.Calculator
 }
 
 func (g *group) Close() error {

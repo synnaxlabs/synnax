@@ -53,11 +53,11 @@ const (
 )
 
 type FrameService struct {
-	alamos.Instrumentation
 	dbProvider
 	accessProvider
 	Channel  *channel.Service
 	Internal *framer.Service
+	alamos.Instrumentation
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -72,8 +72,8 @@ func NewFrameService(p Provider) *FrameService {
 
 type FrameDeleteRequest struct {
 	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
 	Names  []string        `json:"names" msgpack:"names" validate:"names"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
 }
 
 func (s *FrameService) FrameDelete(
@@ -230,23 +230,28 @@ func (s *FrameService) openStreamer(
 }
 
 type FrameWriterConfig struct {
+	// ControlSubject is an identifier for the writer.
+	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Authorities is the authority to use when writing to the channels. We set this
 	// as an int and not control.Authorities because msgpack has a tough time decoding
 	// lists of uint8.
 	Authorities []uint32 `json:"authorities" msgpack:"authorities"`
-	// ControlSubject is an identifier for the writer.
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
-	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
-	// [REQUIRED]
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
 	// have an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Start marks the starting timestamp of the first sample in the first frame. If
+	// telemetry occupying the given timestamp already exists for the provided keys,
+	// the writer will fail to open.
+	// [REQUIRED]
+	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysAutoPersist.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL]
@@ -264,25 +269,20 @@ type FrameWriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
-	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 }
 
 // FrameWriterRequest represents a request to write CreateNet data for a set of channels.
 type FrameWriterRequest struct {
 	Config  FrameWriterConfig `json:"config" msgpack:"config"`
-	Command WriterCommand     `json:"command" msgpack:"command"`
 	Frame   Frame             `json:"frame" msgpack:"frame"`
+	Command WriterCommand     `json:"command" msgpack:"command"`
 }
 
 type FrameWriterResponse struct {
-	Command    writer.Command  `json:"command" msgpack:"command"`
-	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Authorized bool            `json:"authorized" msgpack:"authorized"`
 	Err        errors.Payload  `json:"err" msgpack:"err"`
+	End        telem.TimeStamp `json:"end" msgpack:"end"`
+	Command    writer.Command  `json:"command" msgpack:"command"`
+	Authorized bool            `json:"authorized" msgpack:"authorized"`
 }
 
 type (

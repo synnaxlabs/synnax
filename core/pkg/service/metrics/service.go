@@ -32,8 +32,10 @@ import (
 )
 
 type ServiceConfig struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	alamos.Instrumentation
+	// HostProvider is for identify the current host for channel naming.
+	//
+	// [REQUIRED]
+	HostProvider cluster.HostProvider
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
@@ -42,19 +44,17 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// HostProvider is for identify the current host for channel naming.
+	// Storage is the storage layer used for disk usage metrics.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	Storage *storage.Layer
+	// Instrumentation is used for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// CollectionInterval sets the interval at which metrics will be collected
 	// from the host machine.
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
-	// Storage is the storage layer used for disk usage metrics.
-	//
-	// [REQUIRED]
-	Storage *storage.Layer
 }
 
 var (
@@ -90,9 +90,9 @@ func (c ServiceConfig) Validate() error {
 // Service is used to collect metrics from the host machine (cpu, memory, disk) and
 // write them to channels.
 type Service struct {
-	cfg           ServiceConfig
-	stopCollector chan struct{}
 	shutdown      io.Closer
+	stopCollector chan struct{}
+	cfg           ServiceConfig
 }
 
 const (

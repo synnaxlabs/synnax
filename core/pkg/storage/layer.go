@@ -82,6 +82,10 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
+	// InMemory defines whether the node should use a memory-backed file system.
+	//
+	// [OPTIONAL] - Defaults to false.
+	InMemory *bool
 	// Dirname defines the root directory the Layer resides. Another process
 	// shouldn't use the given directory while the node is running.
 	//
@@ -91,10 +95,6 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to OS_USER_RWX
 	Perm fs.FileMode
-	// InMemory defines whether the node should use a memory-backed file system.
-	//
-	// [OPTIONAL] - Defaults to false.
-	InMemory *bool
 	// KVEngine is the key-value engine storage will use.
 	//
 	// [OPTIONAL] - Defaults to PebbleKV.
