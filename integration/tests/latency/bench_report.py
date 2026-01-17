@@ -77,7 +77,7 @@ class BenchReport(Latency):
 
         # Calculate average jitter (mean deviation between consecutive samples)
         consecutive_differences = np.abs(np.diff(times_ms))
-        average_jitter = np.mean(consecutive_differences)
+        average_jitter = float(np.mean(consecutive_differences))
 
         # Calculate percentiles
         p90 = np.percentile(times_ms, 90)
