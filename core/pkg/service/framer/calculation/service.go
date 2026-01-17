@@ -35,6 +35,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// legacyStatusChannels are channels used in previous versions to store calculation
+// status updates before the status service was introduced.
+var legacyStatusChannels = []string{"sy_calculation_status", "sy_calculation_state"}
+
 // StatusDetails contains calculation-specific status information.
 type StatusDetails struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
@@ -134,6 +138,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
+
+	if err := cfg.Channel.DeleteManyByNames(ctx, legacyStatusChannels, true); err != nil {
+		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
+	}
 
 	s.cfg.L.Info("calculation service initialized")
 
