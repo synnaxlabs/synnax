@@ -167,14 +167,6 @@ interface MultiElementPropertiesProps {
   layoutKey: string;
 }
 
-type LabelProps = {
-  maxInlineSize?: number;
-  level?: Text.Level;
-  align?: Flex.Alignment;
-  direction?: direction.Direction;
-  orientation?: location.Outer;
-};
-
 const MultiElementProperties = ({
   layoutKey,
 }: MultiElementPropertiesProps): ReactElement => {
@@ -197,7 +189,9 @@ const MultiElementProperties = ({
   });
 
   const firstNode = elements.find((e): e is NodeElementInfo => e.type === "node");
-  const firstNodeLabel = firstNode?.props.label as LabelProps | undefined;
+  const firstNodeLabel = firstNode?.props.label as
+    | Schematic.Symbol.LabelExtensionProps
+    | undefined;
 
   const store = useStore<RootState>();
 
@@ -355,9 +349,9 @@ const MultiElementProperties = ({
     handleRotateIndividual(dir);
   };
 
-  const handleLabelProp = <K extends keyof LabelProps>(
+  const handleLabelProp = <K extends keyof Schematic.Symbol.LabelExtensionProps>(
     key: K,
-    value: LabelProps[K],
+    value: Schematic.Symbol.LabelExtensionProps[K],
   ): void => {
     elements.forEach((e) => {
       if (e.type !== "node" || e.props.label == null) return;
