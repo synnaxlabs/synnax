@@ -507,14 +507,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
-					WhereKeys(statusKey).
-					Entry(&st).
-					Exec(ctx, nil)
-				g.Expect(err).To(Succeed())
-				g.Expect(st.Variant).To(Equal(xstatus.VariantError))
-			}).Should(Succeed())
+			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				WhereKeys(statusKey).
+				Entry(&st).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(st.Variant).To(Equal(xstatus.VariantError))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 		Specify("Should persist error status on calculation update failure", func() {
@@ -561,14 +558,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			statusKey := channel.OntologyID(calcs[0].Key()).String()
-			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
-					WhereKeys(statusKey).
-					Entry(&st).
-					Exec(ctx, nil)
-				g.Expect(err).To(Succeed())
-				g.Expect(st.Details.Channel).To(Equal(calcs[0].Key()))
-			}).Should(Succeed())
+			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				WhereKeys(statusKey).
+				Entry(&st).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(st.Details.Channel).To(Equal(calcs[0].Key()))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 		Specify("Should use channel ontology ID as status key", func() {
@@ -584,14 +578,11 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
 			var st calculation.Status
 			expectedKey := channel.OntologyID(calcs[0].Key()).String()
-			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[calculation.StatusDetails](statusSvc).
-					WhereKeys(expectedKey).
-					Entry(&st).
-					Exec(ctx, nil)
-				g.Expect(err).To(Succeed())
-				g.Expect(st.Key).To(Equal(expectedKey))
-			}).Should(Succeed())
+			Expect(status.NewRetrieve[calculation.StatusDetails](statusSvc).
+				WhereKeys(expectedKey).
+				Entry(&st).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(st.Key).To(Equal(expectedKey))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 	})

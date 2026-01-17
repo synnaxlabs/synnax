@@ -103,15 +103,15 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 type Service struct {
-	cfg                          ServiceConfig
-	disconnectFromChannelChanges observe.Disconnect
-	statusWriter                 status.Writer[StatusDetails]
-	mu                           struct {
+	mu struct {
+		sync.Mutex
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
 		groups      map[int]*group
-		sync.Mutex
 	}
+	cfg                          ServiceConfig
+	statusWriter                 status.Writer[StatusDetails]
+	disconnectFromChannelChanges observe.Disconnect
 }
 
 // OpenService opens the service with the provided configuration. The service must be closed
