@@ -17,14 +17,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var InvalidDestinationTypeError = errors.Wrap(
-	validate.Error,
+var ErrInvalidDestinationType = errors.Wrap(
+	validate.ErrValidation,
 	"invalid destination type",
 )
 
 func NewInvalidDestinationTypeError(expected string, received reflect.Value) error {
 	return errors.Wrapf(
-		InvalidDestinationTypeError,
+		ErrInvalidDestinationType,
 		"must be a non-nil pointer to a %s, but received %s",
 		expected,
 		types.ValueName(received),
@@ -51,5 +51,5 @@ func validateNilData(destVal reflect.Value, data any, base baseZ) (bool, error) 
 		}
 		return false, nil
 	}
-	return false, errors.WithStack(validate.RequiredError)
+	return false, errors.WithStack(validate.ErrRequired)
 }

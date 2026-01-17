@@ -29,13 +29,13 @@ import (
 
 // FactoryConfig is the configuration for creating a new Factory.
 type FactoryConfig struct {
-	LoaderConfig
-	// KeySize is the size of the private key to generate.
-	KeySize int
-	// Hosts is the list of hosts to use for the node certificate.
-	Hosts []address.Address
 	// AllowKeyReuse allows the CA key to be reused if it already exists.
 	AllowKeyReuse *bool
+	LoaderConfig
+	// Hosts is the list of hosts to use for the node certificate.
+	Hosts []address.Address
+	// KeySize is the size of the private key to generate.
+	KeySize int
 }
 
 var (
@@ -68,8 +68,8 @@ func (f FactoryConfig) Validate() error {
 
 // Factory generates self-signed certificates.
 type Factory struct {
-	FactoryConfig
 	Loader Loader
+	FactoryConfig
 }
 
 // NewFactory creates a new Factory.
@@ -167,7 +167,7 @@ func (c *Factory) CreateNodePair() error {
 	}
 
 	if len(c.Hosts) == 0 {
-		return errors.Wrap(validate.Error, "[cert] - no hosts provided")
+		return errors.Wrap(validate.ErrValidation, "[cert] - no hosts provided")
 	}
 
 	nodeKey, err := rsa.GenerateKey(rand.Reader, c.KeySize)

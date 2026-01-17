@@ -18,9 +18,9 @@ import (
 
 // GRPCBranch is a Branch that serves gRPC traffic.
 type GRPCBranch struct {
+	server *grpc.Server
 	// Transports is a list of bindable transports that the Branch will serve.
 	Transports []fgrpc.BindableTransport
-	server     *grpc.Server
 }
 
 var _ Branch = (*GRPCBranch)(nil)
@@ -28,7 +28,7 @@ var _ Branch = (*GRPCBranch)(nil)
 // Routing implements Branch.
 func (g *GRPCBranch) Routing() BranchRouting {
 	return BranchRouting{
-		Policy:   ServeAlwaysPreferSecure,
+		Policy:   RoutingPolicyServeAlwaysPreferSecure,
 		Matchers: []cmux.Matcher{cmux.Any()},
 	}
 }

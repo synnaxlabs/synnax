@@ -10,7 +10,7 @@
 import z from "zod";
 
 import { aether } from "@/aether/aether";
-import { core } from "@/flux/core";
+import { base } from "@/flux/base";
 import { useAsyncErrorHandler, useErrorHandler } from "@/status/aether/aggregator";
 import { synnax } from "@/synnax/aether";
 
@@ -25,13 +25,13 @@ export type ProviderState = z.input<typeof providerStateZ>;
  */
 interface InternalState {
   /** The store instance */
-  store: core.Client<core.Store>;
+  store: base.Client<base.Store>;
 }
 
 /**
  * Value stored in the Aether context for flux components.
  */
-export type ContextValue = core.Client<core.Store>;
+export type ContextValue = base.Client<base.Store>;
 
 /** Key used to store flux context in the Aether context */
 const CONTEXT_KEY = "flux-context";
@@ -46,17 +46,17 @@ export const PROVIDER_TYPE = "flux.Provider";
  * @param ctx - The Aether context
  * @returns The store instance from the context
  */
-export const useStore = <ScopedStore extends core.Store>(
+export const useStore = <ScopedStore extends base.Store>(
   ctx: aether.Context,
   scope: string,
 ): ScopedStore => ctx.get<ContextValue>(CONTEXT_KEY).scopedStore<ScopedStore>(scope);
 
-export type ProviderConfig<ScopedStore extends core.Store = core.Store> =
+export type ProviderConfig<ScopedStore extends base.Store = base.Store> =
   | {
-      client: core.Client;
+      client: base.Client;
     }
   | {
-      storeConfig: core.StoreConfig<ScopedStore>;
+      storeConfig: base.StoreConfig<ScopedStore>;
     };
 
 /**
@@ -67,18 +67,18 @@ export type ProviderConfig<ScopedStore extends core.Store = core.Store> =
  * @param storeConfig - Configuration for the store and its listeners
  * @returns A provider component class
  */
-const createProvider = <ScopedStore extends core.Store>(
+const createProvider = <ScopedStore extends base.Store>(
   cfg: ProviderConfig<ScopedStore>,
 ) => {
   const buildClient = (
     ctx: aether.Context,
-    prevClient: core.Client<ScopedStore>,
-  ): core.Client<ScopedStore> => {
+    prevClient: base.Client<ScopedStore>,
+  ): base.Client<ScopedStore> => {
     if ("client" in cfg) return cfg.client;
     const nextClient = synnax.use(ctx);
     if (prevClient != null && prevClient?.client?.key === nextClient?.key)
       return prevClient;
-    return new core.Client<ScopedStore>({
+    return new base.Client<ScopedStore>({
       client: nextClient,
       storeConfig: cfg.storeConfig,
       handleError: useErrorHandler(ctx),
@@ -104,6 +104,6 @@ const createProvider = <ScopedStore extends core.Store>(
  * @param storeConfig - Configuration for the store and its listeners
  * @returns An Aether component registry containing the provider
  */
-export const createRegistry = <ScopedStore extends core.Store>(
+export const createRegistry = <ScopedStore extends base.Store>(
   cfg: ProviderConfig<ScopedStore>,
 ): aether.ComponentRegistry => ({ [PROVIDER_TYPE]: createProvider(cfg) });

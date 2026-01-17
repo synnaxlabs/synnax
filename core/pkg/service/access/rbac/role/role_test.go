@@ -80,7 +80,7 @@ var _ = Describe("Writer", func() {
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes("group").
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
@@ -127,7 +127,7 @@ var _ = Describe("Writer", func() {
 
 			var r role.Role
 			err := svc.NewRetrieve().WhereKeys(roles[0].Key).Entry(&r).Exec(ctx, tx)
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete an internal role when allowInternal is true", func() {
@@ -141,7 +141,7 @@ var _ = Describe("Writer", func() {
 
 			var retrieved role.Role
 			err := svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieved).Exec(ctx, tx)
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should fail to delete an internal role when allowInternal is false", func() {
@@ -181,7 +181,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				ExcludeFieldData(true).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
 				WhereTypes(role.OntologyType).
 				Entries(&parents).
@@ -198,7 +198,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				ExcludeFieldData(true).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
 				WhereTypes(role.OntologyType).
 				Entries(&parents).
@@ -229,7 +229,7 @@ var _ = Describe("Writer", func() {
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes(role.OntologyType).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
@@ -243,7 +243,7 @@ var _ = Describe("Writer", func() {
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes(role.OntologyType).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
@@ -299,7 +299,7 @@ var _ = Describe("Retrieve", func() {
 				WhereKeys(uuid.New()).
 				Entry(&r).
 				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -319,7 +319,7 @@ var _ = Describe("Retrieve", func() {
 				WhereName("nonexistent").
 				Entry(&r).
 				Exec(ctx, tx)
-			Expect(err).To(MatchError(query.NotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 

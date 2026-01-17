@@ -66,7 +66,7 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 		}
 	}
 	if timedOutInlet >= 0 {
-		return errors.Wrapf(timeout.Timeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
+		return errors.Wrapf(timeout.ErrTimeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
 	}
 	return nil
 }
@@ -100,9 +100,9 @@ func (aus *AbstractUnarySource[O]) CloseInlets() { aus.Out.Close() }
 // addressable map. This is ideal for use cases where the address of an Inlet is
 // relevant to the routing of the value (such as a Switch).
 type AbstractAddressableSource[O Value] struct {
-	PanicOnDuplicateAddress bool
 	// Out is an address map of all Inlet(sink) reachable by the Source.
-	Out map[address.Address]Inlet[O]
+	Out                     map[address.Address]Inlet[O]
+	PanicOnDuplicateAddress bool
 }
 
 // OutTo implements the Source interface. Inlets provided must have a valid InletAddress.
@@ -127,7 +127,7 @@ func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target address.Address, v O) error {
 	inlet, ok := aas.Out[target]
 	if !ok {
-		return address.NewErrTargetNotFound(target)
+		return address.NewTargetNotFoundError(target)
 	}
 	return signal.SendUnderContext(ctx, inlet.Inlet(), v)
 }

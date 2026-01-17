@@ -83,7 +83,7 @@ func (s StringZ) Dump(data any) (any, error) {
 		if s.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
@@ -91,7 +91,7 @@ func (s StringZ) Dump(data any) (any, error) {
 			if s.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -100,7 +100,7 @@ func (s StringZ) Dump(data any) (any, error) {
 		case reflect.String:
 			if _, err := uuid.Parse(val.String()); err != nil {
 				return nil, errors.Wrap(
-					validate.Error,
+					validate.ErrValidation,
 					"invalid UUID format: must be a valid UUID string",
 				)
 			}
@@ -162,26 +162,26 @@ func (s StringZ) Parse(data any, dest any) error {
 			return newInvalidUUIDTypeError(reflect.ValueOf(dataVal))
 		}
 	}
-	data_, ok := data.(string)
+	strData, ok := data.(string)
 	if !ok {
 		if dataVal.Kind() == reflect.Pointer {
 			if dataVal.IsNil() {
-				return errors.WithStack(validate.RequiredError)
+				return errors.WithStack(validate.ErrRequired)
 			}
 			dataVal = dataVal.Elem()
 		}
 		switch dataVal.Kind() {
 		case reflect.String:
-			data_ = dataVal.String()
+			strData = dataVal.String()
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			data_ = strconv.FormatInt(dataVal.Int(), 10)
+			strData = strconv.FormatInt(dataVal.Int(), 10)
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32,
 			reflect.Uint64:
-			data_ = strconv.FormatUint(dataVal.Uint(), 10)
+			strData = strconv.FormatUint(dataVal.Uint(), 10)
 		case reflect.Float32, reflect.Float64:
-			data_ = strconv.FormatFloat(dataVal.Float(), 'f', -1, 64)
+			strData = strconv.FormatFloat(dataVal.Float(), 'f', -1, 64)
 		case reflect.Bool:
-			data_ = strconv.FormatBool(dataVal.Bool())
+			strData = strconv.FormatBool(dataVal.Bool())
 		default:
 			return invalidStringTypeError(dataVal)
 		}
@@ -196,7 +196,7 @@ func (s StringZ) Parse(data any, dest any) error {
 	}
 	// If UUID type is expected, handle both string and UUID destinations
 	if s.expectedType != nil && s.expectedType == reflect.TypeOf(uuid.UUID{}) {
-		parsedUUID, err := uuid.Parse(data_)
+		parsedUUID, err := uuid.Parse(strData)
 		if err != nil {
 			return invalidUUIDStringError()
 		}
@@ -210,13 +210,13 @@ func (s StringZ) Parse(data any, dest any) error {
 		}
 		return NewInvalidDestinationTypeError(s.expectedType.String(), destVal)
 	}
-	destVal.SetString(data_)
+	destVal.SetString(strData)
 	return nil
 }
 
 func invalidUUIDStringError() error {
 	return errors.Wrap(
-		validate.Error,
+		validate.ErrValidation,
 		"invalid UUID format: must be a valid UUID string",
 	)
 }

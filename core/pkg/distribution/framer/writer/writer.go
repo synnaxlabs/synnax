@@ -23,16 +23,16 @@ type StreamWriter = confluence.Segment[Request, Response]
 var ErrClosed = errors.New("writer closed")
 
 type Writer struct {
-	cfg       Config
 	requests  confluence.Inlet[Request]
 	responses confluence.Outlet[Response]
 	shutdown  io.Closer
 	closeErr  error
+	cfg       Config
 }
 
 // Write implements Writer.
 func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
-	res, err := w.exec(Request{Frame: frame, Command: Write}, *w.cfg.Sync)
+	res, err := w.exec(Request{Frame: frame, Command: CommandWrite}, *w.cfg.Sync)
 	if err != nil {
 		return false, err
 	}
@@ -41,12 +41,12 @@ func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
-	res, err := w.exec(Request{Command: Commit}, true)
+	res, err := w.exec(Request{Command: CommandCommit}, true)
 	return res.End, err
 }
 
 func (w *Writer) SetAuthority(cfg Config) error {
-	_, err := w.exec(Request{Command: SetAuthority, Config: cfg}, true)
+	_, err := w.exec(Request{Command: CommandSetAuthority, Config: cfg}, true)
 	return err
 }
 

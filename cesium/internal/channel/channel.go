@@ -27,30 +27,30 @@ type Key = uint32
 // values. A channel can also be used for storing derived data, such as a moving average
 // or signal processing result.
 type Channel struct {
-	// Key is a unique identifier to the channel within Cesium.
-	//
-	// [REQUIRED]
-	Key Key `json:"key" msgpack:"key"`
 	// Name is a non-unique, human-readable identifier to the channel within Cesium. It
 	// is never used to index or retrieve a channel.
 	//
 	// [REQUIRED]
 	Name string `json:"name" msgpack:"name"`
+	// DataType is the type of data stored in the channel.
+	//
+	// [REQUIRED]
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	// Key is a unique identifier to the channel within Cesium.
+	//
+	// [REQUIRED]
+	Key Key `json:"key" msgpack:"key"`
+	// Index is the key of the channel used to index the channel's values. The Index is
+	// used to associate a value in a data channel with a corresponding timestamp.
+	//
+	// [OPTIONAL if IsIndex is true and REQUIRED if IsIndex is false or Virtual is true]
+	Index Key `json:"index" msgpack:"index"`
 	// IsIndex determines whether the channel acts as an index channel. If false, then
 	// the channel is a data channel, and the Index field must be set to the key of an
 	// existing, valid index channel.
 	//
 	// [OPTIONAL]
 	IsIndex bool
-	// DataType is the type of data stored in the channel.
-	//
-	// [REQUIRED]
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// Index is the key of the channel used to index the channel's values. The Index is
-	// used to associate a value in a data channel with a corresponding timestamp.
-	//
-	// [OPTIONAL if IsIndex is true and REQUIRED if IsIndex is false or Virtual is true]
-	Index Key `json:"index" msgpack:"index"`
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
 	// any data and do not require an index.
 	//
@@ -83,7 +83,7 @@ func (c Channel) ValidateSeries(series telem.Series) error {
 	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) && (cDt == telem.Int64T || cDt == telem.TimeStampT)
 	if cDt != sDt && !isEquivalent {
 		return errors.Wrapf(
-			validate.Error,
+			validate.ErrValidation,
 			"invalid data type for channel %v, expected %s, got %s",
 			c,
 			cDt,

@@ -126,7 +126,7 @@ func userHasRole(
 	var roles []ontology.Resource
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
-		TraverseTo(ontology.Parents).
+		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(role.OntologyType).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {

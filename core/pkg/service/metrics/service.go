@@ -34,8 +34,10 @@ import (
 )
 
 type ServiceConfig struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	alamos.Instrumentation
+	// HostProvider is for identify the current host for channel naming.
+	//
+	// [REQUIRED]
+	HostProvider cluster.HostProvider
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
@@ -44,15 +46,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// HostProvider is for identify the current host for channel naming.
-	//
-	// [REQUIRED]
-	HostProvider cluster.HostProvider
-	// CollectionInterval sets the interval at which metrics will be collected from the
-	// host machine.
-	//
-	// [OPTIONAL] - Defaults to 2s
-	CollectionInterval time.Duration
 	// Storage is the storage layer used for disk usage metrics.
 	//
 	// [REQUIRED]
@@ -66,12 +59,19 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	alamos.Instrumentation
+	// CollectionInterval sets the interval at which metrics will be collected from the
+	// host machine.
+	//
+	// [OPTIONAL] - Defaults to 2s
+	CollectionInterval time.Duration
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for a metrics service.
-	DefaultConfig = ServiceConfig{CollectionInterval: 2 * time.Second}
+	// DefaultServiceConfig is the default configuration for a metrics service.
+	DefaultServiceConfig = ServiceConfig{CollectionInterval: 2 * time.Second}
 )
 
 // Override implements config.Config.
@@ -106,9 +106,9 @@ func (c ServiceConfig) Validate() error {
 // Service is used to collect metrics from the host machine (cpu, memory, disk) and
 // write them to channels.
 type Service struct {
-	cfg           ServiceConfig
-	stopCollector chan struct{}
 	shutdown      io.Closer
+	stopCollector chan struct{}
+	cfg           ServiceConfig
 }
 
 const (
@@ -123,7 +123,7 @@ const (
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
 // shut down by calling Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	); err != nil {
 		return nil, err
 	}
-	if err := cfg.Ontology.NewWriter(nil).DefineRelationship(ctx, nodeGroup.OntologyID(), ontology.ParentOf, c.idx.OntologyID()); err != nil {
+	if err := cfg.Ontology.NewWriter(nil).DefineRelationship(ctx, nodeGroup.OntologyID(), ontology.RelationshipTypeParentOf, c.idx.OntologyID()); err != nil {
 		return nil, err
 	}
 	metricChannels := make([]channel.Channel, len(allMetrics))
@@ -178,7 +178,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err := cfg.Ontology.NewWriter(nil).DefineFromOneToManyRelationships(
 		ctx,
 		nodeGroup.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		channel.OntologyIDsFromChannels(metricChannels),
 	); err != nil {
 		return nil, err
@@ -186,7 +186,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	// delete any existing relationships between the parent Channels group and the
 	// metrics channels
 	for _, ch := range metricChannels {
-		if err := cfg.Ontology.NewWriter(nil).DeleteRelationship(ctx, cfg.Channel.Group().OntologyID(), ontology.ParentOf, ch.OntologyID()); err != nil {
+		if err := cfg.Ontology.NewWriter(nil).DeleteRelationship(ctx, cfg.Channel.Group().OntologyID(), ontology.RelationshipTypeParentOf, ch.OntologyID()); err != nil {
 			return nil, err
 		}
 	}

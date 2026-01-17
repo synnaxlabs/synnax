@@ -86,7 +86,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
 }
 
 // Delete deletes the task with the given key and its associated status.

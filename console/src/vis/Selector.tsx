@@ -13,10 +13,10 @@ import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
-import { Selector as CoreSelector } from "@/selector";
+import { Selector as BaseSelector } from "@/selector";
 import { Table } from "@/table";
 
-export const SELECTABLES: CoreSelector.Selectable[] = [
+export const SELECTABLES: BaseSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
@@ -41,7 +41,7 @@ export const createSelectorLayout = (): Layout.BaseState => ({
 });
 
 export const Selector: Layout.Renderer = (props) => (
-  <CoreSelector.Selector
+  <BaseSelector.Selector
     selectables={SELECTABLES}
     text="Select a Visualization Type"
     {...props}

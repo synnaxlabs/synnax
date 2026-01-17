@@ -32,8 +32,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -56,12 +56,12 @@ func (c ServiceConfig) Validate() error {
 
 type Service struct {
 	cfg             ServiceConfig
-	group           group.Group
 	shutdownSignals io.Closer
+	group           group.Group
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

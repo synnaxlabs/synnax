@@ -105,7 +105,7 @@ type MapTargetedSender[M freighter.Payload] map[address.Address]freighter.Stream
 func (s MapTargetedSender[M]) Send(_ context.Context, target address.Address, msg M) error {
 	sender, ok := s[target]
 	if !ok {
-		return address.NewErrTargetNotFound(target)
+		return address.NewTargetNotFoundError(target)
 	}
 	return sender.Send(msg)
 }
@@ -176,9 +176,9 @@ o:
 // compatible interface for sending transformed messages over a network freighter.
 // MultiTransformSender transforms each input message and sends a copy to each sender.
 type MultiTransformSender[I confluence.Value, M freighter.Payload] struct {
-	Senders   []freighter.StreamSenderCloser[M]
-	Transform confluence.TransformFunc[I, M]
 	confluence.UnarySink[I]
+	Transform confluence.TransformFunc[I, M]
+	Senders   []freighter.StreamSenderCloser[M]
 }
 
 // Flow implements the Flow interface.

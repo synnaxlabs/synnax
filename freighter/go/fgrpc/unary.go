@@ -51,9 +51,6 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
-	// Internal indicates whether the service is for go-to-go communication only, allowing
-	// for more advanced error encoding that propagates stack traces, causes, etc.
-	Internal bool
 	// RequestTranslator translates the given GRPC request into a go type.
 	// See Translator for more information.
 	RequestTranslator Translator[RQ, RQT]
@@ -66,6 +63,9 @@ type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	// handler is the handler that will be called when a request is received.
 	handler func(context.Context, RQ) (RS, error)
 	freighter.MiddlewareCollector
+	// Internal indicates whether the service is for go-to-go communication only, allowing
+	// for more advanced error encoding that propagates stack traces, causes, etc.
+	Internal bool
 }
 
 func (u *UnaryClient[RQ, RQT, RS, RST]) Report() alamos.Report {
@@ -92,10 +92,10 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 		freighter.Context{
 			Context:  ctx,
 			Target:   address.Newf("%s.%s", target, u.ServiceDesc.ServiceName),
-			Role:     freighter.Client,
+			Role:     freighter.RoleClient,
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),
-			Variant:  freighter.Unary,
+			Variant:  freighter.VariantUnary,
 		},
 		freighter.FinalizerFunc(func(iCtx freighter.Context) (oCtx freighter.Context, err error) {
 			iCtx = attachContext(iCtx)
@@ -130,15 +130,15 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 // Exec implements the GRPC service interface.
 func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRes RST, err error) {
 	oCtx, err := u.MiddlewareCollector.Exec(
-		parseServerContext(ctx, u.ServiceDesc.ServiceName, freighter.Unary),
+		parseServerContext(ctx, u.ServiceDesc.ServiceName, freighter.VariantUnary),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
 				Context:  ctx.Context,
 				Protocol: Reporter.Protocol,
 				Target:   ctx.Target,
 				Params:   ctx.Params,
-				Role:     freighter.Server,
-				Variant:  freighter.Unary,
+				Role:     freighter.RoleServer,
+				Variant:  freighter.VariantUnary,
 			}
 			if u.handler == nil {
 				return oCtx, errors.New("[freighter] - no handler registered")

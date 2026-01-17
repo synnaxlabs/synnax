@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/resize/Core";
+export * from "@/resize/Base";
 export * from "@/resize/Multiple";
 export * from "@/resize/Single";

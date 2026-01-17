@@ -40,8 +40,6 @@ import (
 
 // ServiceConfig is the configuration for opening a Arc service.
 type ServiceConfig struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	alamos.Instrumentation
 	// DB is the database that the Arc service will store arcs in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -67,12 +65,14 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
 	// is nil.
 	Signals *signals.Provider
+	// Instrumentation is used for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a Arc service.
-	DefaultConfig = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a Arc service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -106,9 +106,9 @@ type Service struct {
 	cfg            ServiceConfig
 	symbolResolver arc.SymbolResolver
 	mu             struct {
-		sync.Mutex
-		entries map[uuid.UUID]*entry
 		closer  io.Closer
+		entries map[uuid.UUID]*entry
+		sync.Mutex
 	}
 }
 
@@ -166,7 +166,7 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

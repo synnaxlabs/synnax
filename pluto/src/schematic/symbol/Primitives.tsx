@@ -37,10 +37,10 @@ import {
   useState,
 } from "react";
 
-import { Button as CoreButton } from "@/button";
+import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
-import { Input as CoreInput } from "@/input";
+import { Input as BaseInput } from "@/input";
 import { useCustom } from "@/schematic/symbol/Custom";
 import { useRetrieve } from "@/schematic/symbol/queries";
 import { Text } from "@/text";
@@ -1976,7 +1976,7 @@ export const Switch = ({
   orientation = "left",
 }: SwitchProps): ReactElement => (
   <Div orientation={orientation}>
-    <CoreInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
+    <BaseInput.Switch value={enabled} onClick={onClick} onChange={() => {}} />
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
@@ -1987,7 +1987,7 @@ export const Switch = ({
 export interface ButtonProps
   extends
     Omit<DivProps, "onClick" | "onMouseDown" | "onMouseUp">,
-    Pick<CoreButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
+    Pick<BaseButton.ButtonProps, "color" | "size" | "level" | "onClickDelay"> {
   label?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
@@ -2007,7 +2007,7 @@ export const Button = ({
   onClickDelay: delay,
 }: ButtonProps): ReactElement => (
   <Div orientation={orientation}>
-    <CoreButton.Button
+    <BaseButton.Button
       variant="filled"
       onClick={onClick}
       onMouseDown={onMouseDown}
@@ -2018,7 +2018,7 @@ export const Button = ({
       onClickDelay={delay}
     >
       {label}
-    </CoreButton.Button>
+    </BaseButton.Button>
     <HandleBoundary orientation={orientation}>
       <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
       <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
@@ -2081,7 +2081,7 @@ export const TextBox = ({
 export interface InputProps
   extends
     Omit<DivProps, "onClick" | "value" | "onChange">,
-    Pick<CoreInput.TextProps, "size"> {
+    Pick<BaseInput.TextProps, "size"> {
   dimensions?: dimensions.Dimensions;
   color?: color.Crude;
   value: string;
@@ -2113,7 +2113,7 @@ export const Input = ({
       <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
       <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
     </HandleBoundary>
-    <CoreInput.Text
+    <BaseInput.Text
       value={value}
       onChange={onChange}
       size={size}
@@ -2121,22 +2121,22 @@ export const Input = ({
       disabled={disabled}
       color={colorVal}
     >
-      <CoreButton.Button
+      <BaseButton.Button
         size={size}
         variant="filled"
         onClick={() => onSend?.(value)}
         color={colorVal}
       >
         Send
-      </CoreButton.Button>
-    </CoreInput.Text>
+      </BaseButton.Button>
+    </BaseInput.Text>
   </Div>
 );
 export interface SetpointProps
   extends
     Omit<DivProps, "onClick" | "value" | "onChange">,
-    CoreInput.Control<number>,
-    Pick<CoreInput.NumericProps, "size"> {
+    BaseInput.Control<number>,
+    Pick<BaseInput.NumericProps, "size"> {
   dimensions?: dimensions.Dimensions;
   color?: color.Crude;
   units?: string;
@@ -2184,7 +2184,7 @@ export const Setpoint = ({
           id="4"
         />
       </HandleBoundary>
-      <CoreInput.Numeric
+      <BaseInput.Numeric
         size={size}
         value={currValue}
         onChange={setCurrValue}
@@ -2195,15 +2195,15 @@ export const Setpoint = ({
         borderWidth={1}
         disabled={disabled}
       >
-        <CoreButton.Button
+        <BaseButton.Button
           size={size}
           variant="filled"
           onClick={() => onChange(currValue)}
           color={color}
         >
           Set
-        </CoreButton.Button>
-      </CoreInput.Numeric>
+        </BaseButton.Button>
+      </BaseInput.Numeric>
     </Div>
   );
 };

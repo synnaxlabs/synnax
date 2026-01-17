@@ -22,12 +22,12 @@ import (
 // converting structured data. ObjectZ supports validation of structs and maps with
 // defined field schemas.
 type ObjectZ struct {
-	baseZ
-	fields          map[string]Schema
 	caseConversions struct {
 		snake  map[string]string
 		pascal map[string]string
 	}
+	fields map[string]Schema
+	baseZ
 }
 
 var _ Schema = (*ObjectZ)(nil)
@@ -45,8 +45,8 @@ func (o ObjectZ) Optional() ObjectZ { o.optional = true; return o }
 
 // objectShape represents the shape of an object schema.
 type objectShape struct {
-	baseZ
 	fields map[string]Shape
+	baseZ
 }
 
 // Shape returns the base shape of the object schema.
@@ -113,7 +113,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		if o.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	if dataMap, ok := data.(map[string]any); ok {
 		result := make(map[string]any)
@@ -123,7 +123,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 				if schema.Shape().Optional() {
 					continue
 				}
-				return nil, validate.PathedError(validate.RequiredError, fieldName)
+				return nil, validate.PathedError(validate.ErrRequired, fieldName)
 			}
 			fieldData, err := schema.Dump(fieldData)
 			if err != nil {
@@ -142,7 +142,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if o.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -159,7 +159,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if schema.Shape().Optional() {
 				continue
 			}
-			return nil, validate.PathedError(validate.RequiredError, fieldName)
+			return nil, validate.PathedError(validate.ErrRequired, fieldName)
 		}
 		fieldData, err := schema.Dump(field.Interface())
 		if err != nil {
@@ -190,7 +190,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 		if o.optional {
 			return nil
 		}
-		return errors.WithStack(validate.RequiredError)
+		return errors.WithStack(validate.ErrRequired)
 	}
 	destVal = destVal.Elem()
 	dataVal := reflect.ValueOf(data)
@@ -211,7 +211,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 			if fieldSchema.Shape().Optional() {
 				continue
 			}
-			return validate.PathedError(validate.RequiredError, fieldName)
+			return validate.PathedError(validate.ErrRequired, fieldName)
 		}
 		if err := fieldSchema.Parse(fieldData, field.Addr().Interface()); err != nil {
 			return validate.PathedError(err, fieldName)

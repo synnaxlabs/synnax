@@ -45,35 +45,12 @@ import (
 
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
-	// ControlSubject is an identifier for the writer.
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
-	// Keys are the channel keys to write to. At least one key must be provided. All
-	// Frames written to the Writer must have a array specified for each key, and all series must be the same length (i.e.
-	// calls Frame.Even must return true).
-	// [REQUIRED]
-	Keys channel.Keys `json:"keys" msgpack:"keys"`
-	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
-	// [REQUIRED]
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	// Authorities sets the control authority the writer has on each channel for the
-	// write. This should either be a single authority for all channels or a slice
-	// of authorities with the same length as the number of channels where each
-	// authority corresponds to the channel at the same index. Defaults to
-	// absolute authority for all channels.
-	// [OPTIONAL]
-	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
 	// ErrOnUnauthorized controls whether the writer will return an error when
 	// attempting to write to a channel that it does not have authority over.
 	// In non-control scenarios, this value should be set to true. In scenarios
 	// that require control handoff, this value should be set to false.
 	// [OPTIONAL] - Defaults to False
 	ErrOnUnauthorized *bool
-	// Mode sets the persistence and streaming mode for the writer. The default mode is
-	// WriterModePersistStream. See the ts.WriterMode documentation for more.
-	// [OPTIONAL] - Defaults to WriterModePersistStream.
-	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
 	// EnableAutoCommit determines whether the writer will automatically commit after
 	// each write. If EnableAutoCommit is true, then the writer will commit after each
 	// write, and will flush that commit to index on FS after the specified
@@ -81,11 +58,6 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to true.
 	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
-	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 	// Sync is set to true if the writer should send acknowledgements for every write
 	// request, not just on failed requests.
 	//
@@ -98,6 +70,34 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	Sync *bool `json:"sync" msgpack:"sync"`
+	// ControlSubject is an identifier for the writer.
+	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
+	// Keys are the channel keys to write to. At least one key must be provided. All
+	// Frames written to the Writer must have a array specified for each key, and all series must be the same length (i.e.
+	// calls Frame.Even must return true).
+	// [REQUIRED]
+	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Authorities sets the control authority the writer has on each channel for the
+	// write. This should either be a single authority for all channels or a slice
+	// of authorities with the same length as the number of channels where each
+	// authority corresponds to the channel at the same index. Defaults to
+	// absolute authority for all channels.
+	// [OPTIONAL]
+	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	// Start marks the starting timestamp of the first sample in the first frame. If
+	// telemetry occupying the given timestamp already exists for the provided keys,
+	// the writer will fail to open.
+	// [REQUIRED]
+	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysAutoPersist.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
+	// Mode sets the persistence and streaming mode for the writer. The default mode is
+	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	// [OPTIONAL] - Defaults to WriterModePersistStream.
+	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -133,7 +133,7 @@ func DefaultConfig() Config {
 		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        config.False(),
-		Mode:                     ts.WriterPersistStream,
+		Mode:                     ts.WriterModePersistStream,
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     config.False(),
@@ -198,7 +198,17 @@ func (c Config) Override(other Config) Config {
 
 // ServiceConfig is the configuration for opening a Writer or StreamWriter.
 type ServiceConfig struct {
-	alamos.Instrumentation
+	// Transport is the network transport for sending and receiving writes from other
+	// nodes in the cluster.
+	// [REQUIRED]
+	Transport Transport
+	// FreeWrites is the write pipeline where samples from free channels should be
+	// written.
+	FreeWrites confluence.Inlet[relay.Response]
+	// HostResolver is used to resolve the host address for nodes in the cluster in order
+	// to route writes.
+	// [REQUIRED]
+	HostResolver cluster.HostResolver
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB
@@ -207,17 +217,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// HostResolver is used to resolve the host address for nodes in the cluster in order
-	// to route writes.
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
-	// Transport is the network transport for sending and receiving writes from other
-	// nodes in the cluster.
-	// [REQUIRED]
-	Transport Transport
-	// FreeWrites is the write pipeline where samples from free channels should be
-	// written.
-	FreeWrites confluence.Inlet[relay.Response]
+	alamos.Instrumentation
 }
 
 var (
@@ -250,9 +250,9 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the central service for the writer package, allowing the caller to open
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
-	cfg                 ServiceConfig
 	server              *server
 	freeWriteAlignments *freeWriteAlignments
+	cfg                 ServiceConfig
 }
 
 // NewService opens the writer service using the given configuration. Also binds a
@@ -429,7 +429,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	}
 	if len(channels) != len(keys) {
 		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return nil, errors.Wrapf(validate.Error, "missing channels: %v", missing)
+		return nil, errors.Wrapf(validate.ErrValidation, "missing channels: %v", missing)
 	}
 	return channels, nil
 }

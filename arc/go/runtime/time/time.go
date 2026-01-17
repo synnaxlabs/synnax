@@ -149,7 +149,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 	case intervalSymbolName:
 		periodParam, ok := cfg.Node.Config.Get(periodConfigParam)
 		if !ok {
-			return nil, query.NotFound
+			return nil, query.ErrNotFound
 		}
 		period := telem.TimeSpan(toInt64(periodParam.Value))
 		f.updateTimingBase(period)
@@ -162,7 +162,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 	case waitSymbolName:
 		durationParam, ok := cfg.Node.Config.Get(durationConfigParam)
 		if !ok {
-			return nil, query.NotFound
+			return nil, query.ErrNotFound
 		}
 		duration := telem.TimeSpan(toInt64(durationParam.Value))
 		f.updateTimingBase(duration)
@@ -174,7 +174,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		}, nil
 
 	default:
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 }
 

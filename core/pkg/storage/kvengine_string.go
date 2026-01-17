@@ -17,12 +17,12 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[PebbleKV-1]
+	_ = x[KVEnginePebble-1]
 }
 
-const _KVEngine_name = "PebbleKV"
+const _KVEngine_name = "KVEnginePebble"
 
-var _KVEngine_index = [...]uint8{0, 8}
+var _KVEngine_index = [...]uint8{0, 14}
 
 func (i KVEngine) String() string {
 	i -= 1

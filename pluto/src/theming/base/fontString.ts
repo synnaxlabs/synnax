@@ -9,8 +9,8 @@
 
 import { type Component } from "@/component";
 import { isSize } from "@/component/size";
-import { text } from "@/text/core";
-import { type ThemeSpec } from "@/theming/core/theme";
+import { text } from "@/text/base";
+import { type ThemeSpec } from "@/theming/base/theme";
 
 interface FontStringOptions {
   level: text.Level | Component.Size;

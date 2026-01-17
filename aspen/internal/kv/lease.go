@@ -23,9 +23,9 @@ import (
 	xkv "github.com/synnaxlabs/x/kv"
 )
 
-var ErrLeaseNotTransferable = errors.New("[cesium] - cannot transfer leaseAlloc")
+var ErrLeaseNotTransferable = errors.New("[aspen] - cannot transfer lease")
 
-const DefaultLeaseholder node.Key = 0
+const nodeKeyDefaultLeaseholder node.Key = 0
 
 type leaseAllocator struct{ Config }
 
@@ -33,9 +33,9 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 	lh, err := la.getLease(ctx, op.Key)
 	// If we get a nil error, that means this key has been set before.
 	if err == nil {
-		if op.Leaseholder == DefaultLeaseholder {
+		if op.Leaseholder == nodeKeyDefaultLeaseholder {
 			op.Leaseholder = lh
-			if lh == DefaultLeaseholder {
+			if lh == nodeKeyDefaultLeaseholder {
 				la.L.DPanic("Lease allocator returned unexpected node key 0 for leaseholder")
 			}
 		} else if lh != op.Leaseholder {
@@ -43,8 +43,8 @@ func (la *leaseAllocator) allocate(ctx context.Context, op Operation) (Operation
 			// we return an error.
 			return op, ErrLeaseNotTransferable
 		}
-	} else if errors.Is(err, xkv.NotFound) && op.Variant == change.Set {
-		if op.Leaseholder == DefaultLeaseholder {
+	} else if errors.Is(err, xkv.ErrNotFound) && op.Variant == change.VariantSet {
+		if op.Leaseholder == nodeKeyDefaultLeaseholder {
 			// If we can't find the Leaseholder, and the op doesn't have a Leaseholder assigned,
 			// we assign the leaseAlloc to the cluster host.
 			op.Leaseholder = la.Cluster.HostKey()
@@ -63,10 +63,10 @@ func (la *leaseAllocator) getLease(ctx context.Context, key []byte) (node.Key, e
 }
 
 type leaseProxy struct {
-	Config
+	confluence.Switch[TxRequest]
 	localTo  address.Address
 	remoteTo address.Address
-	confluence.Switch[TxRequest]
+	Config
 }
 
 func newLeaseProxy(cfg Config, localTo address.Address, remoteTo address.Address) segment {
@@ -89,8 +89,8 @@ type (
 )
 
 type leaseSender struct {
-	Config
 	confluence.UnarySink[TxRequest]
+	Config
 }
 
 func newLeaseSender(cfg Config) sink {
@@ -110,9 +110,9 @@ func (lf *leaseSender) send(_ context.Context, br TxRequest) error {
 }
 
 type leaseReceiver struct {
-	Config
-	confluence.AbstractUnarySource[TxRequest]
 	confluence.NopFlow
+	confluence.AbstractUnarySource[TxRequest]
+	Config
 }
 
 func newLeaseReceiver(cfg Config) source {

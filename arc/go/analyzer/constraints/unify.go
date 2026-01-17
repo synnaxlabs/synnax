@@ -20,18 +20,18 @@ import (
 
 // Sentinel errors for type unification failures.
 var (
-	// Err is the base constraints error type.
-	Err = errors.New("constraints")
+	// ErrConstraints is the base constraints error type.
+	ErrConstraints = errors.New("constraints")
 	// ErrCyclicType indicates a type variable occurs within its own substitution.
-	ErrCyclicType = errors.Wrap(Err, "cyclic type dependency")
+	ErrCyclicType = errors.Wrap(ErrConstraints, "cyclic type dependency")
 	// ErrConstraintViolation indicates a type does not satisfy a type variable's constraint.
-	ErrConstraintViolation = errors.Wrap(Err, "constraint violation")
+	ErrConstraintViolation = errors.Wrap(ErrConstraints, "constraint violation")
 	// ErrUnresolvable indicates two types cannot be unified.
-	ErrUnresolvable = errors.Wrap(Err, "types are not unifiable")
+	ErrUnresolvable = errors.Wrap(ErrConstraints, "types are not unifiable")
 	// ErrUnresolvedVariable indicates a type variable could not be resolved to a concrete type.
-	ErrUnresolvedVariable = errors.Wrap(Err, "unresolved type variable")
+	ErrUnresolvedVariable = errors.Wrap(ErrConstraints, "unresolved type variable")
 	// ErrConvergence indicates the unification algorithm did not converge within iteration limit.
-	ErrConvergence = errors.Wrap(Err, "unification did not converge")
+	ErrConvergence = errors.Wrap(ErrConstraints, "unification did not converge")
 )
 
 const maxUnificationIterations = 100
@@ -41,7 +41,7 @@ const maxUnificationIterations = 100
 func (s *System) Unify() error {
 	for iteration := 0; iteration < maxUnificationIterations; iteration++ {
 		var (
-			changed      = false
+			changed      bool
 			previousSubs = maps.Clone(s.Substitutions)
 		)
 		for _, c := range s.Constraints {

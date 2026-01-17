@@ -101,22 +101,22 @@ var _ = Describe("Deleter", Ordered, func() {
 		Describe("Channel not found", func() {
 			Specify("By name", func() {
 				d = s.dist.Framer.NewDeleter()
-				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(MatchError(ts.ErrChannelNotfound))
+				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(MatchError(ts.ErrChannelNotFound))
 			})
 			Specify("By key", func() {
 				d = s.dist.Framer.NewDeleter()
-				Expect(d.DeleteTimeRange(ctx, 10, telem.TimeRangeMax)).To(MatchError(ts.ErrChannelNotfound))
+				Expect(d.DeleteTimeRange(ctx, 10, telem.TimeRangeMax)).To(MatchError(ts.ErrChannelNotFound))
 			})
 		})
 	}
 })
 
 type scenario struct {
+	dist   mock.Node
+	closer io.Closer
 	name   string
 	keys   channel.Keys
 	names  []string
-	dist   mock.Node
-	closer io.Closer
 }
 
 func newChannelSet() []channel.Channel {

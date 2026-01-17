@@ -155,13 +155,13 @@ func (d Dimensions) String() string {
 // Unit holds unit metadata for numeric types.
 // A Unit is attached to a Type to indicate that the value has physical dimensions.
 type Unit struct {
-	// Dimensions contains the dimension exponents for this unit.
-	Dimensions Dimensions `json:"dimensions" msgpack:"dimensions"`
+	// Name is the display name for this unit (e.g., "psi", "km", "ms").
+	Name string `json:"name" msgpack:"name"`
 	// Scale is the factor to convert this unit to SI base units.
 	// For example, km has Scale=1000 (1 km = 1000 m).
 	Scale float64 `json:"scale" msgpack:"scale"`
-	// Name is the display name for this unit (e.g., "psi", "km", "ms").
-	Name string `json:"name" msgpack:"name"`
+	// Dimensions contains the dimension exponents for this unit.
+	Dimensions Dimensions `json:"dimensions" msgpack:"dimensions"`
 }
 
 // Equal checks if two units are identical.

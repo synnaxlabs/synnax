@@ -39,16 +39,16 @@ func (m *mockNode) IsOutputTruthy(param string) bool {
 func (m *mockNode) Reset() {}
 
 type mockFactory struct {
-	nodeType     string
-	createCalled int
 	returnNode   node.Node
 	returnError  error
+	nodeType     string
+	createCalled int
 }
 
 func (m *mockFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	m.createCalled++
 	if cfg.Node.Type != m.nodeType {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	return m.returnNode, m.returnError
 }
@@ -95,7 +95,7 @@ var _ = Describe("Node", func() {
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 		})
@@ -141,7 +141,7 @@ var _ = Describe("Node", func() {
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 		})
 		It("Should handle single factory", func() {
 			var (
@@ -183,7 +183,7 @@ var _ = Describe("Node", func() {
 				}
 				_, err = multi.Create(ctx, cfg)
 			)
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 			Expect(factory3.createCalled).To(Equal(1))

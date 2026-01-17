@@ -93,7 +93,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCh.IsIndex).To(BeTrue())
 			})
 			It("Should not create the channel on another nodes time-series DB", func() {
-				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).Error().To(MatchError(query.NotFound))
+				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).Error().To(MatchError(query.ErrNotFound))
 			})
 			It("Should assign a sequential key to the channels on each node",
 				func() {
@@ -142,14 +142,14 @@ var _ = Describe("Create", Ordered, func() {
 		})
 		Context("Free", func() {
 			BeforeEach(func() {
-				ch.Leaseholder = cluster.Free
+				ch.Leaseholder = cluster.NodeKeyFree
 				ch.Virtual = true
 			})
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(query.NotFound))
+					Error().To(MatchError(query.ErrNotFound))
 			})
 		})
 
@@ -265,7 +265,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
 
 				err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
-				Expect(err).To(MatchError(query.NotFound))
+				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 			It("Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one", func() {
 				ch := channel.Channel{
@@ -298,15 +298,15 @@ var _ = Describe("Create", Ordered, func() {
 		It("Should not create a free channel if it already exists by name", func() {
 			ch.Name = "SG0002"
 			ch.Virtual = true
-			ch.Leaseholder = cluster.Free
+			ch.Leaseholder = cluster.NodeKeyFree
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
-			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 			k := ch.Key()
 			ch.LocalKey = 0
 			ch.Leaseholder = 0
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
-			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 		})
 	})
 	Context("Calculated Channel with Auto-Created Index", func() {
@@ -320,7 +320,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
 			// Verify calculated channel properties
-			Expect(calcCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(calcCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(calcCh.Virtual).To(BeTrue())
 			Expect(calcCh.LocalIndex).ToNot(BeZero())
 
@@ -338,7 +338,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(indexCh.IsIndex).To(BeTrue())
 			Expect(indexCh.DataType).To(Equal(telem.TimeStampT))
 			Expect(indexCh.Virtual).To(BeTrue())
-			Expect(indexCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(indexCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(indexCh.LocalKey).To(Equal(calcCh.LocalIndex))
 		})
 
@@ -489,7 +489,7 @@ var _ = Describe("Create", Ordered, func() {
 			ch.DataType = telem.Float64T
 			ch.Virtual = true
 			ch.Internal = false
-			ch.Leaseholder = cluster.Free
+			ch.Leaseholder = cluster.NodeKeyFree
 
 			ch2.IsIndex = true
 			ch2.Name = channel.NewRandomName()
@@ -584,7 +584,7 @@ var _ = Context("Name Validation Disabled", func() {
 				Name:        "sensor!@#$%",
 				DataType:    telem.Float64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key()).ToNot(BeZero())
@@ -616,7 +616,7 @@ var _ = Context("Name Validation Disabled", func() {
 				Name:        "",
 				DataType:    telem.Float64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 			}
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).
 				To(MatchError(ContainSubstring("name: required")))

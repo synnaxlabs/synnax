@@ -36,7 +36,7 @@ func (s *Service) handleChange(
 	for e := range reader {
 		a := e.Value
 		existing, found := s.mu.entries[e.Key]
-		isDelete := e.Variant == xchange.Delete
+		isDelete := e.Variant == xchange.VariantDelete
 		if found {
 			if err := existing.runtime.Close(); err != nil {
 				s.cfg.L.Error("arc shut down with error", zap.Error(err))

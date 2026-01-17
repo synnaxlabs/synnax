@@ -28,9 +28,9 @@ import (
 
 type (
 	Range struct {
-		ranger.Range
-		Labels []label.Label `json:"labels" msgpack:"labels"`
 		Parent *ranger.Range `json:"parent" msgpack:"parent"`
+		Labels []label.Label `json:"labels" msgpack:"labels"`
+		ranger.Range
 	}
 	RangeKVPair = ranger.KVPair
 )
@@ -114,11 +114,11 @@ func (s *RangeService) Create(
 
 type (
 	RangeRetrieveRequest struct {
+		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
 		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
 		Names         []string        `json:"names" msgpack:"names"`
-		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
-		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
+		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		Limit         int             `json:"limit" msgpack:"limit"`
 		Offset        int             `json:"offset" msgpack:"offset"`
 		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
@@ -179,7 +179,7 @@ func (s *RangeService) Retrieve(
 	if req.IncludeParent {
 		for i, rng := range apiRanges {
 			parent, err := rng.RetrieveParent(ctx)
-			if errors.Is(err, query.NotFound) {
+			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
 			if err != nil {
@@ -200,8 +200,8 @@ func (s *RangeService) Retrieve(
 }
 
 type RangeRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *RangeService) Rename(
@@ -248,8 +248,8 @@ func (s *RangeService) Delete(
 
 type (
 	RangeKVGetRequest struct {
-		Range uuid.UUID `json:"range" msgpack:"range"`
 		Keys  []string  `json:"keys" msgpack:"keys"`
+		Range uuid.UUID `json:"range" msgpack:"range"`
 	}
 	RangeKVGetResponse struct {
 		Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
@@ -296,8 +296,8 @@ func (s *RangeService) KVGet(
 }
 
 type RangeKVSetRequest struct {
-	Range uuid.UUID       `json:"range" msgpack:"range"`
 	Pairs []ranger.KVPair `json:"pairs" msgpack:"pairs"`
+	Range uuid.UUID       `json:"range" msgpack:"range"`
 }
 
 func (s *RangeService) KVSet(
@@ -327,8 +327,8 @@ func (s *RangeService) KVSet(
 }
 
 type RangeKVDeleteRequest struct {
-	Range uuid.UUID `json:"range" msgpack:"range"`
 	Keys  []string  `json:"keys" msgpack:"keys"`
+	Range uuid.UUID `json:"range" msgpack:"range"`
 }
 
 func (s *RangeService) KVDelete(
@@ -363,8 +363,8 @@ func (s *RangeService) KVDelete(
 }
 
 type RangeAliasSetRequest struct {
-	Range   uuid.UUID              `json:"range" msgpack:"range"`
 	Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+	Range   uuid.UUID              `json:"range" msgpack:"range"`
 }
 
 func (s *RangeService) AliasSet(
@@ -401,8 +401,8 @@ func (s *RangeService) AliasSet(
 
 type (
 	RangeAliasResolveRequest struct {
-		Range   uuid.UUID `json:"range" msgpack:"range"`
 		Aliases []string  `json:"aliases" msgpack:"aliases"`
+		Range   uuid.UUID `json:"range" msgpack:"range"`
 	}
 	RangeAliasResolveResponse struct {
 		Aliases map[string]channel.Key `json:"aliases" msgpack:"aliases"`
@@ -426,7 +426,7 @@ func (s *RangeService) AliasResolve(
 
 	for _, alias := range req.Aliases {
 		ch, err := r.ResolveAlias(ctx, alias)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RangeAliasResolveResponse{}, err
 		}
 		if ch != 0 {
@@ -448,8 +448,8 @@ func (s *RangeService) AliasResolve(
 }
 
 type RangeAliasDeleteRequest struct {
-	Range    uuid.UUID     `json:"range" msgpack:"range"`
 	Channels []channel.Key `json:"channels" msgpack:"channels"`
+	Range    uuid.UUID     `json:"range" msgpack:"range"`
 }
 
 func (s *RangeService) AliasDelete(
@@ -523,8 +523,8 @@ func (s *RangeService) AliasList(
 
 type (
 	RangeAliasRetrieveRequest struct {
-		Range    uuid.UUID     `json:"range" msgpack:"range"`
 		Channels []channel.Key `json:"channels" msgpack:"channels"`
+		Range    uuid.UUID     `json:"range" msgpack:"range"`
 	}
 	RangeAliasRetrieveResponse struct {
 		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
@@ -555,7 +555,7 @@ func (s *RangeService) AliasRetrieve(
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
 		alias, err := r.RetrieveAlias(ctx, ch)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return RangeAliasRetrieveResponse{}, err
 		}
 		if alias != "" {

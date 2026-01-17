@@ -11,22 +11,22 @@ import { direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Icon } from "@/icon";
-import { Select as CoreSelect } from "@/select";
+import { Select as BaseSelect } from "@/select";
 
 export interface SelectProps extends Omit<
-  CoreSelect.ButtonsProps<direction.Direction>,
+  BaseSelect.ButtonsProps<direction.Direction>,
   "keys"
 > {
   yDirection?: "up" | "down";
 }
 
 export const Select = ({ yDirection = "up", ...rest }: SelectProps): ReactElement => (
-  <CoreSelect.Buttons {...rest} keys={direction.DIRECTIONS}>
-    <CoreSelect.Button itemKey="x">
+  <BaseSelect.Buttons {...rest} keys={direction.DIRECTIONS}>
+    <BaseSelect.Button itemKey="x">
       <Icon.Arrow.Right />
-    </CoreSelect.Button>
-    <CoreSelect.Button itemKey="y">
+    </BaseSelect.Button>
+    <BaseSelect.Button itemKey="y">
       {yDirection === "up" ? <Icon.Arrow.Up /> : <Icon.Arrow.Down />}
-    </CoreSelect.Button>
-  </CoreSelect.Buttons>
+    </BaseSelect.Button>
+  </BaseSelect.Buttons>
 );

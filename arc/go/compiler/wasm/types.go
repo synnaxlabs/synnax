@@ -43,10 +43,10 @@ const (
 type ExportKind byte
 
 const (
-	ExportFunc   ExportKind = 0x00
-	ExportTable  ExportKind = 0x01
-	ExportMemory ExportKind = 0x02
-	ExportGlobal ExportKind = 0x03
+	ExportKindFunc   ExportKind = 0x00
+	ExportKindTable  ExportKind = 0x01
+	ExportKindMemory ExportKind = 0x02
+	ExportKindGlobal ExportKind = 0x03
 )
 
 var (

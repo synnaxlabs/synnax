@@ -37,7 +37,7 @@ var _ = Describe("Password", func() {
 			Expect(err).ToNot(HaveOccurred())
 			err = hashed.Validate("wrong")
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(password.Invalid))
+			Expect(err).To(MatchError(password.ErrInvalid))
 		})
 	})
 })

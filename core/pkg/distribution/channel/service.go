@@ -86,10 +86,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-var DefaultConfig = ServiceConfig{ValidateNames: config.True(), ForceMigration: config.False()}
+var DefaultServiceConfig = ServiceConfig{ValidateNames: config.True(), ForceMigration: config.False()}
 
 func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

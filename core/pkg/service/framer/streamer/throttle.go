@@ -20,9 +20,9 @@ import (
 )
 
 type throttle struct {
-	rate telem.Rate
-	fr   frame.Frame
 	confluence.LinearTransform[Response, Response]
+	fr   frame.Frame
+	rate telem.Rate
 }
 
 func newThrottle(cfg Config) responseSegment {

@@ -46,11 +46,6 @@ import (
 
 // Config is the configuration for an arc runtime.
 type Config struct {
-	Name string
-	// Module is the compiled arc module that needs to be executed.
-	//
-	// [REQUIRED]
-	Module arc.Module
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
@@ -63,6 +58,11 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	Name   string
+	// Module is the compiled arc module that needs to be executed.
+	//
+	// [REQUIRED]
+	Module arc.Module
 }
 
 var (
@@ -118,7 +118,7 @@ func (w *writerSeg) Write(ctx context.Context, fr framer.Frame) error {
 	return signal.SendUnderContext(
 		ctx,
 		w.Out.Inlet(),
-		framer.WriterRequest{Frame: fr, Command: writer.Write},
+		framer.WriterRequest{Frame: fr, Command: writer.CommandWrite},
 	)
 }
 

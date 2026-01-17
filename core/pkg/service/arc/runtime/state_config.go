@@ -21,8 +21,9 @@ import (
 )
 
 type ExtendedStateConfig struct {
-	State         state.Config
-	Reads, Writes set.Set[channel.Key]
+	Reads  set.Set[channel.Key]
+	Writes set.Set[channel.Key]
+	State  state.Config
 }
 
 func NewStateConfig(

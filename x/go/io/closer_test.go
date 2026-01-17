@@ -19,8 +19,8 @@ import (
 
 // mockCloser is a test helper that tracks Close() calls
 type mockCloser struct {
-	closed bool
 	err    error
+	closed bool
 }
 
 func (m *mockCloser) Close() error {

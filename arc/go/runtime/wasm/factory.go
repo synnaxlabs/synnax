@@ -25,7 +25,7 @@ type factory struct {
 func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error) {
 	irFn, ok := cfg.Module.Functions.Find(cfg.Node.Type)
 	if !ok {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
 	n := &nodeImpl{

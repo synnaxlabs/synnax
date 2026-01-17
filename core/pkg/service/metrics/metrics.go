@@ -18,8 +18,8 @@ import (
 )
 
 type metric struct {
-	ch      channel.Channel
 	collect func() (any, error)
+	ch      channel.Channel
 }
 
 func (svc *Service) buildMetrics() []metric {

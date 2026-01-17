@@ -32,7 +32,7 @@ func (c ClientFactoryConfig) Override(other ClientFactoryConfig) ClientFactoryCo
 	return c
 }
 
-var DefaultClientConfig = ClientFactoryConfig{
+var DefaultClientFactoryConfig = ClientFactoryConfig{
 	Codec: httputil.MsgPackCodec,
 }
 
@@ -41,7 +41,7 @@ type ClientFactory struct {
 }
 
 func NewClientFactory(configs ...ClientFactoryConfig) *ClientFactory {
-	cfg, err := config.New(DefaultClientConfig, configs...)
+	cfg, err := config.New(DefaultClientFactoryConfig, configs...)
 	if err != nil {
 		panic(err)
 	}

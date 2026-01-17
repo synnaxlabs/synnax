@@ -16,8 +16,8 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
+import { flatten, getNodeShape, type Node, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
-import { flatten, getNodeShape, type Node, type Shape } from "@/tree/core";
 import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree-item";

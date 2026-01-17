@@ -52,7 +52,7 @@ func (s *selectNode) Next(ctx node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	var trueCount int64 = 0
+	var trueCount int64
 	for _, v := range data.Data {
 		if v == 1 {
 			trueCount++
@@ -100,7 +100,7 @@ type selectFactory struct{}
 
 func (s *selectFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	return &selectNode{Node: cfg.State}, nil
 }

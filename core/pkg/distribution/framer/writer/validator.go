@@ -21,12 +21,12 @@ import (
 )
 
 type validator struct {
-	keys      channel.Keys
-	responses struct {
-		confluence.AbstractUnarySource[Response]
-		confluence.NopFlow
-	}
 	confluence.AbstractLinear[Request, Request]
+	responses struct {
+		confluence.NopFlow
+		confluence.AbstractUnarySource[Response]
+	}
+	keys   channel.Keys
 	seqNum int
 }
 
@@ -62,13 +62,13 @@ func (v *validator) validate(req Request) error {
 	if err := validateCommand(req.Command); err != nil {
 		return err
 	}
-	if req.Command == Write {
+	if req.Command == CommandWrite {
 		for rawI, k := range req.Frame.RawKeys() {
 			if req.Frame.ShouldExcludeRaw(rawI) {
 				continue
 			}
 			if !lo.Contains(v.keys, k) {
-				return errors.Wrapf(validate.Error, "invalid key: %s", k)
+				return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
 			}
 		}
 	}
