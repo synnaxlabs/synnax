@@ -42,9 +42,28 @@ func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 // and policies from all roles assigned to the user. Returns ErrDenied if ANY object in
 // the request is explicitly denied OR if any object is not covered by an allow policy.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
-	policies, err := e.retrievePolicies(ctx, req.Subject)
+	allowed, err := e.Filter(ctx, req)
 	if err != nil {
 		return err
+	}
+	// All requested objects must be allowed
+	if len(allowed) != len(req.Objects) {
+		return access.ErrDenied
+	}
+	return nil
+}
+
+// Filter implements the access.Enforcer interface. It returns the subset of requested
+// objects that are accessible to the subject. Objects that are explicitly denied or not
+// covered by any allow policy are excluded from the result.
+func (e *Enforcer) Filter(ctx context.Context, req access.Request) (set.Set[ontology.ID], error) {
+	if len(req.Objects) == 0 {
+		return nil, nil
+	}
+
+	policies, err := e.retrievePolicies(ctx, req.Subject)
+	if err != nil {
+		return nil, err
 	}
 
 	params := constraint.EnforceParams{
@@ -53,42 +72,47 @@ func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 		Tx:       e.tx,
 	}
 
-	// First, check deny policies. If any deny policy covers any requested object,
-	// deny the entire request.
+	// Start with all requested objects as candidates
+	candidateSet := set.FromSlice(req.Objects)
+
+	// First, check deny policies. Remove any denied objects from candidates.
 	for _, p := range policies {
-		if p.Effect == policy.EffectDeny {
-			deniedObjects, err := p.Constraint.Enforce(ctx, params)
-			if err != nil {
-				return err
-			}
-			if len(deniedObjects) > 0 {
-				return access.ErrDenied
-			}
+		if p.Effect != policy.EffectDeny {
+			continue
+		}
+		deniedObjects, err := p.Constraint.Enforce(ctx, params)
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range deniedObjects {
+			delete(candidateSet, obj)
 		}
 	}
 
-	// Track which objects are covered by allow policies.
+	// If all objects were denied, return early
+	if len(candidateSet) == 0 {
+		return nil, nil
+	}
+
+	// Track which remaining candidates are covered by allow policies
 	coveredSet := make(set.Set[ontology.ID])
 	for _, p := range policies {
-		if p.Effect == policy.EffectAllow {
-			allowedObjects, err := p.Constraint.Enforce(ctx, params)
-			if err != nil {
-				return err
-			}
-			for _, obj := range allowedObjects {
+		if p.Effect != policy.EffectAllow {
+			continue
+		}
+		allowedObjects, err := p.Constraint.Enforce(ctx, params)
+		if err != nil {
+			return nil, err
+		}
+		for _, obj := range allowedObjects {
+			// Only add if it wasn't denied
+			if candidateSet.Contains(obj) {
 				coveredSet.Add(obj)
 			}
 		}
 	}
 
-	// Check if all requested objects are covered by at least one allow policy.
-	for _, obj := range req.Objects {
-		if !coveredSet.Contains(obj) {
-			return access.ErrDenied
-		}
-	}
-
-	return nil
+	return coveredSet, nil
 }
 
 func (e *Enforcer) retrievePolicies(

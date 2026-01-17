@@ -52,7 +52,15 @@ type Request struct {
 
 // Enforcer evaluates access control requests.
 type Enforcer interface {
-	// Enforce checks if the request is allowed. Returns ErrDenied if an object in the
-	// request is not accessible.
+	// Enforce checks if ALL requested objects are accessible. Returns ErrDenied if any
+	// object in the request is not accessible, or nil if all objects are allowed. Use
+	// this for transactional operations where partial access is not acceptable.
 	Enforce(context.Context, Request) error
+
+	// Filter returns the subset of requested objects that are accessible to the
+	// subject. Unlike Enforce, Filter never returns ErrDenied - instead it returns an
+	// empty set if no objects are accessible. Only returns an error for
+	// system/configuration issues. Use this for discovery operations where partial
+	// results are acceptable.
+	Filter(context.Context, Request) (set.Set[ontology.ID], error)
 }
