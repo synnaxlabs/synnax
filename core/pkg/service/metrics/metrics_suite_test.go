@@ -59,10 +59,18 @@ var _ = BeforeSuite(func() {
 		Status:   statusSvc,
 		Signals:  dist.Signals,
 	}))
+	statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		DB:       dist.DB,
+		Label:    labelSvc,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Signals:  dist.Signals,
+	}))
 	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: dist.Channel,
 		Arc:     arcSvc,
+		Status:  statusSvc,
 		DB:      dist.DB,
 	}))
 })
