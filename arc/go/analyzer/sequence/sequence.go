@@ -20,29 +20,24 @@ import (
 // CollectDeclarations registers all sequences and their stages in the symbol table.
 // This is called during the first pass of AnalyzeProgram to establish scopes before
 // analyzing function bodies that may reference sequences or stages.
-func CollectDeclarations(ctx context.Context[parser.IProgramContext]) bool {
+func CollectDeclarations(ctx context.Context[parser.IProgramContext]) {
 	// First pass: collect all sequence names to establish their scopes
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			if !collectSequenceName(context.Child(ctx, seqDecl)) {
-				return false
-			}
+			collectSequenceName(context.Child(ctx, seqDecl))
 		}
 	}
 
 	// Second pass: collect all stages (now we can check for name collisions with all sequences)
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			if !collectSequenceStages(context.Child(ctx, seqDecl)) {
-				return false
-			}
+			collectSequenceStages(context.Child(ctx, seqDecl))
 		}
 	}
-	return true
 }
 
 // collectSequenceName registers a sequence in the symbol table (first pass).
-func collectSequenceName(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
+func collectSequenceName(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
@@ -51,31 +46,26 @@ func collectSequenceName(ctx context.Context[parser.ISequenceDeclarationContext]
 		AST:  ctx.AST,
 	}); err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
 	}
-	return true
 }
 
-func collectSequenceStages(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
+func collectSequenceStages(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	seqScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		return
 	}
 	stages := ctx.AST.AllStageDeclaration()
 	for _, stageDecl := range stages {
-		if !collectStage(context.Child(ctx, stageDecl).WithScope(seqScope), seqScope) {
-			return false
-		}
+		collectStage(context.Child(ctx, stageDecl).WithScope(seqScope), seqScope)
 	}
-	return true
 }
 
 func collectStage(
 	ctx context.Context[parser.IStageDeclarationContext],
 	seqScope *symbol.Scope,
-) bool {
+) {
 	stageName := ctx.AST.IDENTIFIER().GetText()
 	if _, err := seqScope.Add(ctx, symbol.Symbol{
 		Name: stageName,
@@ -84,43 +74,35 @@ func collectStage(
 		AST:  ctx.AST,
 	}); err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
 	}
-	return true
 }
 
 // Analyze performs semantic analysis on a sequence declaration.
 // This is called during the second pass after all declarations have been collected.
-func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) bool {
+func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	seqScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		return
 	}
 	for _, stageDecl := range ctx.AST.AllStageDeclaration() {
-		if !analyzeStage(context.Child(ctx, stageDecl).WithScope(seqScope)) {
-			return false
-		}
+		analyzeStage(context.Child(ctx, stageDecl).WithScope(seqScope))
 	}
-	return true
 }
 
 // analyzeStage performs semantic analysis on a stage declaration.
 // With unified flow statements, stages now just contain flows (no special transitions).
 func analyzeStage(
 	ctx context.Context[parser.IStageDeclarationContext],
-) bool {
+) {
 	stageBody := ctx.AST.StageBody()
 	if stageBody == nil {
-		return true
+		return
 	}
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			if !flow.Analyze(context.Child(ctx, flowStmt)) {
-				return false
-			}
+			flow.Analyze(context.Child(ctx, flowStmt))
 		}
 	}
-	return true
 }

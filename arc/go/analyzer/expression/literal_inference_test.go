@@ -138,7 +138,8 @@ var _ = Describe("Literal Type Inference", func() {
 				}
 			`))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
 			Expect(errorMsg).To(Or(
 				ContainSubstring("f64 and i8"),

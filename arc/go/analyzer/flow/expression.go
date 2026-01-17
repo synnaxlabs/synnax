@@ -22,7 +22,7 @@ import (
 // analyzeExpression converts an inline expression into a synthetic function that
 // can be used as a node in a flow graph. Pure literals are registered as KindConstant
 // symbols and don't require code compilation.
-func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
+func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
@@ -37,10 +37,10 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 		})
 		if err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
+			return
 		}
 		scope.AutoName("constant_")
-		return true
+		return
 	}
 
 	// Complex expressions become synthetic functions that need compilation
@@ -51,7 +51,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		return
 	}
 	fnScope = fnScope.AutoName("expression_")
 	fnScope.AccumulateReadChannels()
@@ -62,7 +62,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		return
 	}
-	return expression.Analyze(ctx.WithScope(blockScope))
+	expression.Analyze(ctx.WithScope(blockScope))
 }

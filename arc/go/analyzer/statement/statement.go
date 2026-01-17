@@ -26,60 +26,56 @@ import (
 )
 
 // AnalyzeBlock validates a block of statements in a new scope.
-func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) bool {
+func AnalyzeBlock(ctx context.Context[parser.IBlockContext]) {
 	blockScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
 		AST:  ctx.AST,
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		return
 	}
 	for _, stmt := range ctx.AST.AllStatement() {
-		if !Analyze(context.Child(ctx, stmt).WithScope(blockScope)) {
-			return false
-		}
+		Analyze(context.Child(ctx, stmt).WithScope(blockScope))
 	}
-	return true
 }
 
 // Analyze validates a statement and dispatches to specialized handlers based on statement type.
-func Analyze(ctx context.Context[parser.IStatementContext]) bool {
+func Analyze(ctx context.Context[parser.IStatementContext]) {
 	switch {
 	case ctx.AST.VariableDeclaration() != nil:
-		return analyzeVariableDeclaration(context.Child(ctx, ctx.AST.VariableDeclaration()))
+		analyzeVariableDeclaration(context.Child(ctx, ctx.AST.VariableDeclaration()))
 	case ctx.AST.IfStatement() != nil:
-		return analyzeIfStatement(context.Child(ctx, ctx.AST.IfStatement()))
+		analyzeIfStatement(context.Child(ctx, ctx.AST.IfStatement()))
 	case ctx.AST.ReturnStatement() != nil:
-		return analyzeReturnStatement(context.Child(ctx, ctx.AST.ReturnStatement()))
+		analyzeReturnStatement(context.Child(ctx, ctx.AST.ReturnStatement()))
 	case ctx.AST.Assignment() != nil:
-		return analyzeAssignment(context.Child(ctx, ctx.AST.Assignment()))
+		analyzeAssignment(context.Child(ctx, ctx.AST.Assignment()))
 	case ctx.AST.Expression() != nil:
-		return expression.Analyze(context.Child(ctx, ctx.AST.Expression()))
+		expression.Analyze(context.Child(ctx, ctx.AST.Expression()))
 	}
-	return true
 }
 
-func analyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) bool {
+func analyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationContext]) {
 	if local := ctx.AST.LocalVariable(); local != nil {
-		return analyzeLocalVariable(context.Child(ctx, local))
+		analyzeLocalVariable(context.Child(ctx, local))
+		return
 	}
 	if stateful := ctx.AST.StatefulVariable(); stateful != nil {
-		return analyzeStatefulVariable(context.Child(ctx, stateful))
+		analyzeStatefulVariable(context.Child(ctx, stateful))
 	}
-	return true
 }
 
 func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	expression parser.IExpressionContext,
 	typeCtx parser.ITypeContext,
-) (types.Type, bool) {
+) types.Type {
 	if typeCtx != nil {
 		varType, err := atypes.InferFromTypeContext(typeCtx)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return types.Type{}, false
+			return types.Type{}
 		}
 		if expression != nil {
 			exprType := atypes.InferFromExpression(context.Child(ctx, expression))
@@ -93,7 +89,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 				if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 					if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
 						ctx.Diagnostics.AddError(err, ctx.AST)
-						return types.Type{}, false
+						return types.Type{}
 					}
 				} else {
 					isLiteral := isLiteralExpression(context.Child(ctx, expression))
@@ -102,20 +98,20 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 							errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
 							ctx.AST,
 						)
-						return types.Type{}, false
+						return types.Type{}
 					}
 				}
 			}
 		}
-		return varType, true
+		return varType
 	}
 	if expression != nil {
-		return atypes.InferFromExpression(context.Child(ctx, expression)), true
+		return atypes.InferFromExpression(context.Child(ctx, expression))
 	}
 	ctx.Diagnostics.AddError(
 		errors.Newf("no type declaration found for %s", ctx.AST), ctx.AST,
 	)
-	return types.Type{}, false
+	return types.Type{}
 }
 
 func getPrimaryExpression(expr parser.IExpressionContext) parser.IPrimaryExpressionContext {
@@ -163,7 +159,7 @@ func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
 	return primary != nil && primary.Literal() != nil
 }
 
-func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) bool {
+func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	expr := ctx.AST.Expression()
 
@@ -180,25 +176,27 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 				})
 				if err != nil {
 					ctx.Diagnostics.AddError(err, ctx.AST)
-					return false
 				}
-				return true
+				return
 			}
 		}
 	}
 
 	if expr != nil {
-		if !expression.Analyze(context.Child(ctx, expr)) {
-			return false
-		}
+		expression.Analyze(context.Child(ctx, expr))
 	}
-	varType, ok := analyzeVariableDeclarationType(
+	varType := analyzeVariableDeclarationType(
 		ctx,
 		expr,
 		ctx.AST.Type_(),
 	)
-	if !ok {
-		return false
+	if !varType.IsValid() {
+		_, _ = ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: name,
+			Type: types.Type{},
+			AST:  ctx.AST,
+		})
+		return
 	}
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
@@ -207,9 +205,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) boo
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
 	}
-	return true
 }
 
 func isChannelIdentifier(ctx context.Context[parser.IExpressionContext]) bool {
@@ -236,16 +232,22 @@ func getChannelType(ctx context.Context[parser.IExpressionContext]) types.Type {
 	return sym.Type
 }
 
-func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) bool {
+func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	expr := ctx.AST.Expression()
-	varType, ok := analyzeVariableDeclarationType(
+	varType := analyzeVariableDeclarationType(
 		ctx,
 		expr,
 		ctx.AST.Type_(),
 	)
-	if !ok {
-		return false
+	if !varType.IsValid() {
+		_, _ = ctx.Scope.Add(ctx, symbol.Symbol{
+			Name: name,
+			Kind: symbol.KindStatefulVariable,
+			Type: types.Type{},
+			AST:  ctx.AST,
+		})
+		return
 	}
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
@@ -255,51 +257,39 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		return
 	}
 	if expr != nil {
-		return expression.Analyze(context.Child(ctx, expr))
+		expression.Analyze(context.Child(ctx, expr))
 	}
-	return true
 }
 
-func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) bool {
+func analyzeIfStatement(ctx context.Context[parser.IIfStatementContext]) {
 	if expr := ctx.AST.Expression(); expr != nil {
-		if !expression.Analyze(context.Child(ctx, expr)) {
-			return false
-		}
+		expression.Analyze(context.Child(ctx, expr))
 	}
 
 	if block := ctx.AST.Block(); block != nil {
-		if !AnalyzeBlock(context.Child(ctx, block)) {
-			return false
-		}
+		AnalyzeBlock(context.Child(ctx, block))
 	}
 
 	for _, elseIfClause := range ctx.AST.AllElseIfClause() {
 		if expr := elseIfClause.Expression(); expr != nil {
-			if !expression.Analyze(context.Child(ctx, expr)) {
-				return false
-			}
+			expression.Analyze(context.Child(ctx, expr))
 		}
 		if block := elseIfClause.Block(); block != nil {
-			if !AnalyzeBlock(context.Child(ctx, block)) {
-				return false
-			}
+			AnalyzeBlock(context.Child(ctx, block))
 		}
 	}
 
 	if elseClause := ctx.AST.ElseClause(); elseClause != nil {
 		if block := elseClause.Block(); block != nil {
-			if !AnalyzeBlock(context.Child(ctx, block)) {
-				return false
-			}
+			AnalyzeBlock(context.Child(ctx, block))
 		}
 	}
-	return true
 }
 
-func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext]) bool {
+func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext]) {
 	enclosingScope, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
 		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
@@ -308,7 +298,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 				errors.New("return statement not in function or fn"),
 				ctx.AST,
 			)
-			return false
+			return
 		}
 	}
 	var expectedReturnType types.Type
@@ -319,9 +309,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	}
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
-		if !expression.Analyze(context.Child(ctx, returnExpr)) {
-			return false
-		}
+		expression.Analyze(context.Child(ctx, returnExpr))
 		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType))
 
 		// Check for void function first - this error applies even in type inference mode
@@ -330,19 +318,19 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 				errors.New("unexpected return value in function/func with void return type"),
 				ctx.AST,
 			)
-			return false
+			return
 		}
 
 		// Skip type compatibility validation in type inference mode - we're just collecting types
 		if ctx.InTypeInferenceMode {
-			return true
+			return
 		}
 		if actualReturnType.IsValid() && expectedReturnType.IsValid() {
 			// If either type is a type variable, add a constraint instead of checking directly
 			if actualReturnType.Kind == types.KindVariable || expectedReturnType.Kind == types.KindVariable {
 				if err := atypes.Check(ctx.Constraints, expectedReturnType, actualReturnType, ctx.AST, "return type compatibility"); err != nil {
 					ctx.Diagnostics.AddError(err, ctx.AST)
-					return false
+					return
 				}
 			} else {
 				isLiteral := isLiteralExpression(context.Child(ctx, returnExpr))
@@ -357,7 +345,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 							),
 							ctx.AST,
 						)
-						return false
+						return
 					}
 				} else {
 					if !atypes.Compatible(expectedReturnType, actualReturnType) {
@@ -369,12 +357,12 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 							),
 							ctx.AST,
 						)
-						return false
+						return
 					}
 				}
 			}
 		}
-		return true
+		return
 	}
 	if expectedReturnType.IsValid() {
 		ctx.Diagnostics.AddError(
@@ -384,17 +372,15 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 			),
 			ctx.AST,
 		)
-		return false
 	}
-	return true
 }
 
-func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], channelSym *symbol.Symbol) bool {
+func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], channelSym *symbol.Symbol) {
 	// Validate we're in a function context (channel writes only allowed in imperative context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if errors.Skip(fnErr, query.ErrNotFound) != nil {
 		ctx.Diagnostics.AddError(fnErr, ctx.AST)
-		return false
+		return
 	}
 	if fn != nil {
 		fn.Channels.Write.Add(uint32(channelSym.ID))
@@ -405,17 +391,15 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 	// Analyze and type-check the expression
 	expr := ctx.AST.Expression()
 	if expr == nil {
-		return true
+		return
 	}
-	if !expression.Analyze(context.Child(ctx, expr)) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, expr))
 
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
 	chanValueType := channelSym.Type.Unwrap()
 
 	if !exprType.IsValid() || !chanValueType.IsValid() {
-		return true
+		return
 	}
 
 	// Check magnitude safety for unit conversions (warnings only)
@@ -427,7 +411,7 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 	if exprType.Kind == types.KindVariable || chanValueType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, chanValueType, exprType, ctx.AST, "channel write type compatibility"); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
+			return
 		}
 	} else {
 		isLiteral := isLiteralExpression(context.Child(ctx, expr))
@@ -436,11 +420,8 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 				errors.Newf("type mismatch: cannot write %s to channel of type %s", exprType, chanValueType),
 				ctx.AST,
 			)
-			return false
 		}
 	}
-
-	return true
 }
 
 // analyzeIndexedAssignment validates indexed assignment statements (series[i] = value)
@@ -448,14 +429,14 @@ func analyzeIndexedAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Scope,
 	indexOrSlice parser.IIndexOrSliceContext,
-) bool {
+) {
 	// 1. Verify base is a series type
 	if varScope.Type.Kind != types.KindSeries {
 		ctx.Diagnostics.AddError(
 			errors.New("indexed assignment only supported on series types"),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	// 2. Only support single index (not slices) for now
@@ -464,38 +445,33 @@ func analyzeIndexedAssignment(
 			errors.New("slice assignment not supported"),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	// 3. Analyze index expression
 	indexExprs := indexOrSlice.AllExpression()
 	if len(indexExprs) != 1 {
-		return false
+		return
 	}
-	if !expression.Analyze(context.Child(ctx, indexExprs[0])) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, indexExprs[0]))
 
 	// 4. Analyze value expression and check type compatibility
 	valueExpr := ctx.AST.Expression()
-	if !expression.Analyze(context.Child(ctx, valueExpr)) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, valueExpr))
 
 	elemType := *varScope.Type.Elem
 	exprType := atypes.InferFromExpression(context.Child(ctx, valueExpr))
 
 	if !exprType.IsValid() || !elemType.IsValid() {
-		return true
+		return
 	}
 
 	// If either type is a type variable, add a constraint instead of checking directly
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, elemType, exprType, ctx.AST, "indexed assignment type compatibility"); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
 		}
-		return true
+		return
 	}
 
 	isLiteral := isLiteralExpression(context.Child(ctx, valueExpr))
@@ -504,10 +480,7 @@ func analyzeIndexedAssignment(
 			errors.Newf("type mismatch: cannot assign %s to series element of type %s", exprType, elemType),
 			ctx.AST,
 		)
-		return false
 	}
-
-	return true
 }
 
 // analyzeIndexedCompoundAssignment validates indexed compound assignment statements (series[i] += value)
@@ -516,13 +489,13 @@ func analyzeIndexedCompoundAssignment(
 	varScope *symbol.Scope,
 	indexOrSlice parser.IIndexOrSliceContext,
 	compoundOp parser.ICompoundOpContext,
-) bool {
+) {
 	if varScope.Type.Kind != types.KindSeries {
 		ctx.Diagnostics.AddError(
 			errors.New("indexed compound assignment only supported on series types"),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	if indexOrSlice.COLON() != nil {
@@ -530,7 +503,7 @@ func analyzeIndexedCompoundAssignment(
 			errors.New("slice compound assignment not supported"),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	elemType := *varScope.Type.Elem
@@ -540,44 +513,39 @@ func analyzeIndexedCompoundAssignment(
 				errors.New("string series elements only support += operator"),
 				ctx.AST,
 			)
-			return false
+			return
 		}
 	} else if !elemType.IsNumeric() {
 		ctx.Diagnostics.AddError(
 			errors.Newf("compound assignment requires numeric element type, got %s", elemType),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	indexExpressions := indexOrSlice.AllExpression()
 	if len(indexExpressions) != 1 {
-		return false
+		return
 	}
-	if !expression.Analyze(context.Child(ctx, indexExpressions[0])) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, indexExpressions[0]))
 
 	expr := ctx.AST.Expression()
 	if expr == nil {
-		return true
+		return
 	}
-	if !expression.Analyze(context.Child(ctx, expr)) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, expr))
 
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
 	if !exprType.IsValid() || !elemType.IsValid() {
-		return true
+		return
 	}
 
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, elemType, exprType, ctx.AST,
 			"indexed compound assignment type compatibility"); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
 		}
-		return true
+		return
 	}
 
 	isLiteral := isLiteralExpression(context.Child(ctx, expr))
@@ -588,10 +556,7 @@ func analyzeIndexedCompoundAssignment(
 				exprType, elemType),
 			ctx.AST,
 		)
-		return false
 	}
-
-	return true
 }
 
 // analyzeSeriesCompoundAssignment validates whole-series compound assignment (series += value)
@@ -600,7 +565,7 @@ func analyzeSeriesCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Scope,
 	compoundOp parser.ICompoundOpContext,
-) bool {
+) {
 	elemType := *varScope.Type.Elem
 
 	if elemType.Kind == types.KindString {
@@ -609,27 +574,25 @@ func analyzeSeriesCompoundAssignment(
 				errors.New("string series only support += operator"),
 				ctx.AST,
 			)
-			return false
+			return
 		}
 	} else if !elemType.IsNumeric() {
 		ctx.Diagnostics.AddError(
 			errors.Newf("compound assignment requires numeric element type, got %s", elemType),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	expr := ctx.AST.Expression()
 	if expr == nil {
-		return true
+		return
 	}
-	if !expression.Analyze(context.Child(ctx, expr)) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, expr))
 
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
 	if !exprType.IsValid() || !elemType.IsValid() {
-		return true
+		return
 	}
 
 	if exprType.Kind == types.KindVariable || elemType.Kind == types.KindVariable {
@@ -640,9 +603,8 @@ func analyzeSeriesCompoundAssignment(
 		if err := atypes.Check(ctx.Constraints, elemType, targetType, ctx.AST,
 			"series compound assignment type compatibility"); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
 		}
-		return true
+		return
 	}
 
 	// Type compatibility: RHS must be scalar or series with matching element type
@@ -654,7 +616,6 @@ func analyzeSeriesCompoundAssignment(
 					exprType, varScope.Type),
 				ctx.AST,
 			)
-			return false
 		}
 	} else {
 		isLiteral := isLiteralExpression(context.Child(ctx, expr))
@@ -665,20 +626,18 @@ func analyzeSeriesCompoundAssignment(
 					exprType, elemType),
 				ctx.AST,
 			)
-			return false
 		}
 	}
-
-	return true
 }
 
 func analyzeCompoundAssignment(
 	ctx context.Context[parser.IAssignmentContext],
 	varScope *symbol.Scope,
 	compoundOp parser.ICompoundOpContext,
-) bool {
+) {
 	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
-		return analyzeIndexedCompoundAssignment(ctx, varScope, indexOrSlice, compoundOp)
+		analyzeIndexedCompoundAssignment(ctx, varScope, indexOrSlice, compoundOp)
+		return
 	}
 
 	varType := varScope.Type
@@ -688,11 +647,12 @@ func analyzeCompoundAssignment(
 			errors.New("compound assignment not supported on channels"),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	if varType.Kind == types.KindSeries {
-		return analyzeSeriesCompoundAssignment(ctx, varScope, compoundOp)
+		analyzeSeriesCompoundAssignment(ctx, varScope, compoundOp)
+		return
 	}
 
 	if varType.Kind == types.KindString {
@@ -701,74 +661,71 @@ func analyzeCompoundAssignment(
 				errors.New("strings only support += operator"),
 				ctx.AST,
 			)
-			return false
+			return
 		}
 	} else if !varType.IsNumeric() {
 		ctx.Diagnostics.AddError(
 			errors.Newf("compound assignment requires numeric type, got %s", varType),
 			ctx.AST,
 		)
-		return false
+		return
 	}
 
 	expr := ctx.AST.Expression()
 	if expr == nil {
-		return true
+		return
 	}
-	if !expression.Analyze(context.Child(ctx, expr)) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, expr))
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
 	if !exprType.IsValid() || !varType.IsValid() {
-		return true
+		return
 	}
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "compound assignment type compatibility"); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
 		}
-		return true
+		return
 	}
 	if atypes.Compatible(varType, exprType) {
-		return true
+		return
 	}
 	ctx.Diagnostics.AddError(
 		errors.Newf("type mismatch: cannot use %s in compound assignment to %s", exprType, varType),
 		ctx.AST,
 	)
-	return false
 }
 
-func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
+func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	varScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		return
 	}
 
 	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {
-		return analyzeCompoundAssignment(ctx, varScope, compoundOp)
+		analyzeCompoundAssignment(ctx, varScope, compoundOp)
+		return
 	}
 
 	if indexOrSlice := ctx.AST.IndexOrSlice(); indexOrSlice != nil {
-		return analyzeIndexedAssignment(ctx, varScope, indexOrSlice)
+		analyzeIndexedAssignment(ctx, varScope, indexOrSlice)
+		return
 	}
 
 	if varScope.Type.Kind == types.KindChan {
-		return analyzeChannelAssignment(ctx, &varScope.Symbol)
+		analyzeChannelAssignment(ctx, &varScope.Symbol)
+		return
 	}
 
 	expr := ctx.AST.Expression()
 	if expr == nil {
-		return true
+		return
 	}
-	if !expression.Analyze(context.Child(ctx, expr)) {
-		return false
-	}
+	expression.Analyze(context.Child(ctx, expr))
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr))
 	if !exprType.IsValid() || !varScope.Type.IsValid() {
-		return true
+		return
 	}
 	varType := varScope.Type
 
@@ -781,24 +738,22 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) bool {
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
 		}
-		return true
+		return
 	}
 	if atypes.Compatible(varType, exprType) {
-		return true
+		return
 	}
 	ctx.Diagnostics.AddError(
 		errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
 		ctx.AST,
 	)
-	return false
 }
 
 // AnalyzeFunctionBody analyzes a block and infers its return type by examining
 // all return statements across control flow paths.
-// Returns (ok bool, inferredReturnType types.Type)
-func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type, bool) {
+// Returns the inferred return type (invalid if error occurred).
+func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) types.Type {
 	ctx.InTypeInferenceMode = true
 	funcScope, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindFunction,
@@ -807,7 +762,7 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type,
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return types.Type{}, false
+		return types.Type{}
 	}
 	blockScope, err := funcScope.Add(ctx, symbol.Symbol{
 		Kind: symbol.KindBlock,
@@ -815,13 +770,11 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type,
 	})
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return types.Type{}, false
+		return types.Type{}
 	}
 	var collectedReturnTypes []types.Type
 	for _, stmt := range ctx.AST.AllStatement() {
-		if !Analyze(context.Child(ctx, stmt).WithScope(blockScope)) {
-			return types.Type{}, false
-		}
+		Analyze(context.Child(ctx, stmt).WithScope(blockScope))
 		returnTypes := collectStatementReturnTypes(
 			context.Child(ctx, stmt).WithScope(blockScope),
 		)
@@ -834,9 +787,9 @@ func AnalyzeFunctionBody(ctx context.Context[parser.IBlockContext]) (types.Type,
 	inferredType, err := unifyReturnTypes(collectedReturnTypes)
 	if err != nil {
 		ctx.Diagnostics.AddError(err, ctx.AST)
-		return types.Type{}, false
+		return types.Type{}
 	}
-	return inferredType.Unwrap(), true
+	return inferredType.Unwrap()
 }
 
 // collectStatementReturnTypes extracts all return types from a statement.

@@ -100,7 +100,8 @@ var _ = Describe("Expression func Conversion", func() {
 		It("should convert comparison expression to synthetic function", func() {
 			ast := MustSucceed(parser.Parse(`ox_pt_1 > 100 -> alarm{}`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(fnSym.Name).To(Equal("expression_0"))
 			Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
@@ -117,7 +118,8 @@ var _ = Describe("Expression func Conversion", func() {
 				(ox_pt_1 + ox_pt_2) / 2 -> display{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthFunc).ToNot(BeNil())
 			output := MustBeOk(synthFunc.Type.Outputs.Get(ir.DefaultOutputParam))
@@ -131,7 +133,8 @@ var _ = Describe("Expression func Conversion", func() {
 				ox_pt_1 > 100 and pressure > 50 -> alarm_ch
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			synthTask := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthTask).ToNot(BeNil())
 			Expect(synthTask.Type.Kind).To(Equal(types.KindFunction))
@@ -144,7 +147,8 @@ var _ = Describe("Expression func Conversion", func() {
 				unknown_channel > 100 -> alarm{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: unknown_channel"))
 		})
@@ -158,7 +162,8 @@ var _ = Describe("Expression func Conversion", func() {
 				f64(temp_sensor) * 1.8 + 32 -> display{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			fn0 := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			fn1 := MustSucceed(ctx.Scope.Resolve(ctx, "expression_1"))
 			fn2 := MustSucceed(ctx.Scope.Resolve(ctx, "expression_2"))
@@ -174,7 +179,8 @@ var _ = Describe("Expression func Conversion", func() {
 				((ox_pt_1 + ox_pt_2) * 2) > 100 -> alarm{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthFunc).ToNot(BeNil())
 		})
@@ -186,7 +192,8 @@ var _ = Describe("Expression func Conversion", func() {
 				f64(temp_sensor) -> display{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthFunc).ToNot(BeNil())
 		})

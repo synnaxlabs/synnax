@@ -34,12 +34,19 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		return context.CreateRoot(bCtx, block, nil)
 	}
 
+	// Helper to analyze function body and expect success
+	analyzeBodySuccess := func(ctx context.Context[parser.IBlockContext]) types.Type {
+		result := statement.AnalyzeFunctionBody(ctx)
+		ExpectWithOffset(1, ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		return result
+	}
+
 	Context("when inferring return type from single return statement", func() {
 		DescribeTable("explicit variable types",
 			func(code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
 			Entry("i32 variable", `{
@@ -56,7 +63,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string, expectedKind types.Kind) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType.Kind).To(Equal(expectedKind))
 			},
 			Entry("integer literal", `{ return 42 }`, types.KindI64),
@@ -66,7 +73,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		It("should infer string from single string return", func() {
 			block := MustSucceed(parser.ParseBlock(`{ return "hello" }`))
 			ctx := createContext(block)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.String()))
 		})
 
@@ -91,7 +98,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				}
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContextWithResolver(block, globalResolver)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
 			Entry("f32 channel with integer constant", `{
@@ -126,7 +133,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				},
 			}
 			ctx := createContextWithResolver(block, globalResolver)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
@@ -137,7 +144,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return x
 			}`))
 			ctx := createContext(block)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
@@ -157,7 +164,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				},
 			}
 			ctx := createContextWithResolver(block, globalResolver)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
@@ -171,8 +178,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				},
 			}
 			ctx := createContextWithResolver(block, globalResolver)
-			inferredType, ok := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeTrue(), ctx.Diagnostics.String())
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
@@ -194,7 +200,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				},
 			}
 			ctx := createContextWithResolver(block, globalResolver)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 
@@ -212,7 +218,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				},
 			}
 			ctx := createContextWithResolver(block, globalResolver)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType).To(Equal(types.F32()))
 		})
 	})
@@ -222,7 +228,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
 			Entry("matching i32 types", `{
@@ -261,8 +267,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string, expectedErrSubstring string) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				_, ok := statement.AnalyzeFunctionBody(ctx)
-				Expect(ok).To(BeFalse())
+				statement.AnalyzeFunctionBody(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedErrSubstring))
 			},
@@ -285,7 +291,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
 			Entry("nested if-else", `{
@@ -318,7 +324,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				else { return 3 }
 			}`))
 			ctx := createContext(block)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType.Kind).To(Equal(types.KindI64))
 		})
 	})
@@ -328,7 +334,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType.IsValid()).To(BeFalse())
 			},
 			Entry("empty block", `{}`),
@@ -348,7 +354,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
 			Entry("only if branch returns", `{
@@ -378,14 +384,14 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				if x > 0 { return }
 			}`))
 			ctx := createContext(block)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType.IsValid()).To(BeFalse())
 		})
 
 		It("should handle all same type returns", func() {
 			block := MustSucceed(parser.ParseBlock(`{ return 1 }`))
 			ctx := createContext(block)
-			inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+			inferredType := analyzeBodySuccess(ctx)
 			Expect(inferredType.Kind).To(Or(Equal(types.KindVariable), Equal(types.KindI64)))
 		})
 
@@ -393,7 +399,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
 			Entry("complex signed integer sizes", `{
@@ -419,8 +425,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 		It("should fail gracefully on undefined variable", func() {
 			block := MustSucceed(parser.ParseBlock(`{ return undefined_var }`))
 			ctx := createContext(block)
-			_, ok := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeFalse())
+			statement.AnalyzeFunctionBody(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol"))
 		})
@@ -433,8 +439,8 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 				return y
 			}`))
 			ctx := createContext(block)
-			_, ok := statement.AnalyzeFunctionBody(ctx)
-			Expect(ok).To(BeFalse())
+			statement.AnalyzeFunctionBody(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible return types"))
 		})
@@ -445,7 +451,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 			func(code string, expected types.Type) {
 				block := MustSucceed(parser.ParseBlock(code))
 				ctx := createContext(block)
-				inferredType := MustBeOk(statement.AnalyzeFunctionBody(ctx))
+				inferredType := analyzeBodySuccess(ctx)
 				Expect(inferredType).To(Equal(expected))
 			},
 			Entry("matching i8 types", `{

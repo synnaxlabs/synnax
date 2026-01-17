@@ -61,15 +61,17 @@ var resolver = symbol.MapResolver{
 func analyzeAndExpectSuccess(source string) {
 	ast := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, ast, resolver)
-	Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+	analyzer.AnalyzeProgram(ctx)
+	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
 
-// analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the error message.
+// analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the first error message.
 func analyzeAndExpectError(source string) string {
 	ast := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, ast, resolver)
-	Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-	Expect(*ctx.Diagnostics).To(HaveLen(1))
+	analyzer.AnalyzeProgram(ctx)
+	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+	Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))
 	return (*ctx.Diagnostics)[0].Message
 }
 

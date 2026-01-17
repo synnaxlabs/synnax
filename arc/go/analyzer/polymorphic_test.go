@@ -57,7 +57,7 @@ var _ = Describe("Polymorphic func Analysis", func() {
 		func(tc polymorphicCase) {
 			ast := MustSucceed(parser.Parse(tc.source))
 			ctx := acontext.CreateRoot(context.Background(), ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 
 			simpleSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "simple"))
