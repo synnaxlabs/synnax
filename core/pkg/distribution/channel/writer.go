@@ -33,6 +33,7 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 type CreateOptions struct {
 	RetrieveIfNameExists                        bool
 	OverwriteIfNameExistsAndDifferentProperties bool
+	CreateWithoutGroupRelationship              bool
 }
 
 type CreateOption func(*CreateOptions)
@@ -44,6 +45,12 @@ func RetrieveIfNameExists() CreateOption {
 func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 	return func(o *CreateOptions) {
 		o.OverwriteIfNameExistsAndDifferentProperties = true
+	}
+}
+
+func CreateWithoutGroupRelationship() CreateOption {
+	return func(o *CreateOptions) {
+		o.CreateWithoutGroupRelationship = true
 	}
 }
 

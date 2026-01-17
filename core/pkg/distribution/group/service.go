@@ -64,8 +64,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	return s, nil
 }
 
-func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
-	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (Group, error) {
+	var g Group
+	err := s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
+	if errors.Skip(err, query.ErrNotFound) != nil {
+		return Group{}, err
+	}
 	w := s.NewWriter(nil)
 	if errors.Is(err, query.ErrNotFound) {
 		return w.Create(ctx, groupName, parent)
