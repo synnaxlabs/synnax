@@ -8,27 +8,27 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type record } from "@synnaxlabs/x";
+import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/payload";
+import { symbol } from "@/workspace/schematic/symbol";
 import {
   type Key,
   keyZ,
   type New,
   newZ,
-  type Params,
-  remoteZ,
   type Schematic,
   schematicZ,
-} from "@/workspace/schematic/payload";
-import { symbol } from "@/workspace/schematic/symbol";
+} from "@/workspace/schematic/types.gen";
+import { type Key as WorkspaceKey, keyZ as workspaceKeyZ } from "@/workspace/types.gen";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({ key: keyZ, data: z.string() });
+const setDataReqZ = z.object({
+  key: keyZ,
+  data: caseconv.preserveCase(record.unknownZ()),
+});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -48,13 +48,13 @@ export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 export type CopyArgs = z.input<typeof copyReqZ>;
 
-const retrieveResZ = z.object({ schematics: array.nullableZ(remoteZ) });
+const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
   workspace: workspaceKeyZ,
   schematics: newZ.array(),
 });
-const createResZ = z.object({ schematics: remoteZ.array() });
+const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
@@ -99,7 +99,7 @@ export class Client {
     await sendRequired(
       this.client,
       "/workspace/schematic/set-data",
-      { key, data: JSON.stringify(data) },
+      { key, data },
       setDataReqZ,
       emptyResZ,
     );
@@ -122,7 +122,7 @@ export class Client {
     return isSingle ? res.schematics[0] : res.schematics;
   }
 
-  async delete(keys: Params): Promise<void> {
+  async delete(keys: Key | Key[]): Promise<void> {
     await sendRequired(
       this.client,
       "/workspace/schematic/delete",
@@ -143,6 +143,3 @@ export class Client {
     return res.schematic;
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("schematic");
-export const TYPE_ONTOLOGY_ID = ontologyID("");

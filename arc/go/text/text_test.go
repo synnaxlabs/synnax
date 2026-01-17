@@ -160,7 +160,7 @@ var _ = Describe("Text", func() {
 				Expect(channelNode.Config).To(HaveLen(1))
 				Expect(channelNode.Config[0].Name).To(Equal("channel"))
 				Expect(channelNode.Config[0].Type).To(Equal(types.Chan(types.I32())))
-				Expect(channelNode.Channels.Read.Contains(42)).To(BeTrue())
+				Expect(channelNode.Channels.Read).To(HaveKey(uint32(42)))
 
 				printNode := findNodeByKey(inter.Nodes, "print_0")
 				Expect(printNode.Type).To(Equal("print"))
@@ -636,12 +636,12 @@ var _ = Describe("Text", func() {
 
 				inputNode := inter.Nodes[0]
 				Expect(inputNode.Type).To(Equal("on"))
-				Expect(inputNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
+				Expect(inputNode.Channels.Read).To(HaveKey(uint32(1)))
 				Expect(inputNode.Outputs).To(HaveLen(1))
 
 				outputNode := inter.Nodes[2]
 				Expect(outputNode.Type).To(Equal("write"))
-				Expect(outputNode.Channels.Write.Contains(uint32(2))).To(BeTrue())
+				Expect(outputNode.Channels.Write).To(HaveKey(uint32(2)))
 				Expect(outputNode.Inputs).To(HaveLen(1))
 				Expect(outputNode.Inputs[0].Name).To(Equal("input"))
 				Expect(outputNode.Outputs).To(BeEmpty())
@@ -659,9 +659,9 @@ var _ = Describe("Text", func() {
 
 				Expect(inter.Nodes).To(HaveLen(2))
 				Expect(inter.Nodes[0].Type).To(Equal("on"))
-				Expect(inter.Nodes[0].Channels.Read.Contains(uint32(1))).To(BeTrue())
+				Expect(inter.Nodes[0].Channels.Read).To(HaveKey(uint32(1)))
 				Expect(inter.Nodes[1].Type).To(Equal("write"))
-				Expect(inter.Nodes[1].Channels.Write.Contains(uint32(2))).To(BeTrue())
+				Expect(inter.Nodes[1].Channels.Write).To(HaveKey(uint32(2)))
 			})
 
 			It("Should handle channel sinks in routing tables", func() {
@@ -856,7 +856,7 @@ var _ = Describe("Text", func() {
 				Expect(entryNode.Type).To(Equal("stage_entry"))
 
 				writeNode := findNodeByType(inter.Nodes, "write")
-				Expect(writeNode.Channels.Write.Contains(uint32(1))).To(BeTrue())
+				Expect(writeNode.Channels.Write).To(HaveKey(uint32(1)))
 
 				Expect(inter.Edges).To(HaveLen(2))
 
@@ -966,12 +966,12 @@ var _ = Describe("Text", func() {
 				// Verify trigger node was created
 				triggerNode := findNodeByKey(inter.Nodes, "on_sensor_0")
 				Expect(triggerNode.Type).To(Equal("on"))
-				Expect(triggerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(42)))
 
 				// Verify expression node exists and tracks channel dependency
 				exprNode := inter.Nodes[1]
 				Expect(exprNode.Type).To(HavePrefix("expression_"))
-				Expect(exprNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(42)))
 
 				// Verify edges: trigger -> expression -> alarm
 				Expect(inter.Edges).To(HaveLen(2))
@@ -1020,8 +1020,8 @@ var _ = Describe("Text", func() {
 					}
 				}
 				Expect(exprNode.Channels.Read).To(HaveLen(2))
-				Expect(exprNode.Channels.Read.Contains(uint32(1))).To(BeTrue())
-				Expect(exprNode.Channels.Read.Contains(uint32(2))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(1)))
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(2)))
 
 				// Should have 3 edges: 2 triggers -> expression, expression -> alarm
 				Expect(inter.Edges).To(HaveLen(3))
@@ -1101,7 +1101,7 @@ var _ = Describe("Text", func() {
 				Expect(triggerCount).To(Equal(1))
 
 				triggerNode := findNodeByType(inter.Nodes, "on")
-				Expect(triggerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(42)))
 			})
 		})
 	})

@@ -92,7 +92,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
-    request.body = this.encoder.encode(req ?? {}) as BodyInit;
+    request.body = this.encoder.encode(req ?? {}, reqSchema) as BodyInit;
     const [, err] = await this.executeMiddleware(
       {
         target: url.toString(),

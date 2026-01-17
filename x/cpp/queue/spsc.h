@@ -16,9 +16,7 @@
 
 #include "x/cpp/notify/notify.h"
 
-namespace queue {
-
-/// @brief Lock-free Single-Producer Single-Consumer queue with RT-safe signaling.
+namespace x::queue {
 template<typename T>
 class SPSC {
     class RingBuffer {

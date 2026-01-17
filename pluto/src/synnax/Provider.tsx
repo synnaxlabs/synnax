@@ -160,7 +160,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           connectivity.nodeVersion,
         );
 
-        addStatus<StatusDetails>({
+        addStatus<typeof statusDetailsSchema>({
           variant: "warning",
           message: "Incompatible Core version",
           description,

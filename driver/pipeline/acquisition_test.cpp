@@ -7,36 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/errors/errors.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/mock/pipeline.h"
 
-class MockSource final : public pipeline::Source {
+namespace driver::pipeline {
+class MockSource final : public Source {
 public:
-    telem::TimeStamp start_ts;
-    xerrors::Error stopped_err = xerrors::NIL;
-    xerrors::Error read_err = xerrors::NIL;
+    x::telem::TimeStamp start_ts;
+    x::errors::Error stopped_err = x::errors::NIL;
+    x::errors::Error read_err = x::errors::NIL;
 
     explicit MockSource(
-        const telem::TimeStamp start_ts,
-        const xerrors::Error &read_err = xerrors::NIL
+        const x::telem::TimeStamp start_ts,
+        const x::errors::Error &read_err = x::errors::NIL
     ):
         start_ts(start_ts), read_err(read_err) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
-        if (read_err != xerrors::NIL) return read_err;
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+        if (read_err != x::errors::NIL) return read_err;
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         fr.clear();
-        fr.emplace(1, telem::Series(start_ts));
-        return xerrors::NIL;
+        fr.emplace(1, x::telem::Series(start_ts));
+        return x::errors::NIL;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override {
+    void stopped_with_err(const x::errors::Error &err) override {
         this->stopped_err = err;
     }
 };
@@ -44,16 +44,16 @@ public:
 /// @brief it should correctly resolve the start timestamp for the pipeline from the
 /// first frame written.
 TEST(AcquisitionPipeline, testStartResolution) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    auto start_ts = telem::TimeStamp::now();
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    auto start_ts = x::telem::TimeStamp::now();
     const auto source = std::make_shared<MockSource>(start_ts);
-    synnax::WriterConfig writer_config{.channels = {1}};
-    auto pipeline = pipeline::Acquisition(
+    synnax::framer::WriterConfig writer_config{.channels = {1}};
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 5);
@@ -64,19 +64,23 @@ TEST(AcquisitionPipeline, testStartResolution) {
 /// @brief it should correctly retry opening the writer when an unreachable error
 /// occurs.
 TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
         writes,
-        std::vector{freighter::UNREACHABLE, freighter::UNREACHABLE, xerrors::NIL}
+        std::vector{
+            freighter::ERR_UNREACHABLE,
+            freighter::ERR_UNREACHABLE,
+            x::errors::NIL
+        }
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config{
+        x::breaker::Config{
             .name = "pipeline",
-            .base_interval = telem::MICROSECOND * 10,
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 3,
             .scale = 0,
         }
@@ -88,18 +92,18 @@ TEST(AcquisitionPipeline, testUnreachableRetrySuccess) {
 
 /// @brief it should not retry when a non-unreachable error occurs.
 TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
         writes,
-        std::vector{xerrors::Error(xerrors::UNAUTHORIZED), xerrors::NIL}
+        std::vector{x::errors::Error(x::errors::UNAUTHORIZED), x::errors::NIL}
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config{
-            .base_interval = telem::MICROSECOND * 10,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 3,
             .scale = 0,
         }
@@ -113,20 +117,20 @@ TEST(AcquisitionPipeline, testUnreachableUnauthorized) {
 /// @brief it should retry opening the writer when write returns false and the
 /// error is unreachable.
 TEST(AcquisitionPipeline, testWriteRetrySuccess) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
         writes,
-        std::vector<xerrors::Error>{},
-        std::vector{freighter::UNREACHABLE},
+        std::vector<x::errors::Error>{},
+        std::vector{freighter::ERR_UNREACHABLE},
         std::vector{1}
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config{
-            .base_interval = telem::MICROSECOND * 10,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 1,
             .scale = 0,
         }
@@ -140,40 +144,40 @@ TEST(AcquisitionPipeline, testWriteRetrySuccess) {
 /// @brief it should not retry opening the writer when write returns false and the
 /// error is not unreachable.
 TEST(AcquisitionPipeline, testWriteRetryUnauthorized) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(
         writes,
-        std::vector<xerrors::Error>{},
-        std::vector{xerrors::Error(xerrors::UNAUTHORIZED)},
+        std::vector<x::errors::Error>{},
+        std::vector{x::errors::Error(x::errors::UNAUTHORIZED)},
         std::vector{0}
     );
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config{
-            .base_interval = telem::MICROSECOND * 10,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 1,
             .scale = 0,
         }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens, 1);
-    ASSERT_EQ(source->stopped_err, xerrors::UNAUTHORIZED);
+    ASSERT_EQ(source->stopped_err, x::errors::UNAUTHORIZED);
     ASSERT_TRUE(pipeline.stop());
 }
 
 /// @brief it should not restart the pipeline if it has already been started.
 TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_FALSE(pipeline.start());
@@ -183,14 +187,14 @@ TEST(AcquisitionPipeline, testStartAlreadyStartedPipeline) {
 
 /// @brief it should not stop the pipeline if it has already been stopped.
 TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_EQ(writes->size(), 0);
@@ -201,18 +205,18 @@ TEST(AcquisitionPipeline, testStopAlreadyStoppedPipeline) {
 /// @brief it should stop the pipeline when the source returns an error on read,
 /// and communicate the error back to the source.
 TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    auto critical_error = xerrors::Error(driver::CRITICAL_HARDWARE_ERROR);
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    auto critical_error = x::errors::Error(CRITICAL_HARDWARE_ERROR);
     const auto source = std::make_shared<MockSource>(
-        telem::TimeStamp::now(),
+        x::telem::TimeStamp::now(),
         critical_error
     );
-    auto pipeline = pipeline::Acquisition(
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
 
     pipeline.start();
@@ -223,89 +227,89 @@ TEST(AcquisitionPipeline, testErrorCommunicationOnReadCriticalHardwareError) {
 
 /// @brief it should not stop the pipeline if it was never started.
 TEST(AcquisitionPipeline, testStopNeverStartedPipeline) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
-    const auto source = std::make_shared<MockSource>(telem::TimeStamp::now());
-    auto pipeline = pipeline::Acquisition(
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
     ASSERT_FALSE(pipeline.stop());
 }
 
 /// @brief MockSource that returns frames with multiple timestamp series
-class MultiTimestampSource final : public pipeline::Source {
+class MultiTimestampSource final : public Source {
 public:
-    std::vector<telem::TimeStamp> timestamps;
-    xerrors::Error read_err = xerrors::NIL;
+    std::vector<x::telem::TimeStamp> timestamps;
+    x::errors::Error read_err = x::errors::NIL;
 
     explicit MultiTimestampSource(
-        std::vector<telem::TimeStamp> timestamps,
-        const xerrors::Error &read_err = xerrors::NIL
+        std::vector<x::telem::TimeStamp> timestamps,
+        const x::errors::Error &read_err = x::errors::NIL
     ):
         timestamps(std::move(timestamps)), read_err(read_err) {}
 
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
-        if (read_err != xerrors::NIL) return read_err;
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
+        if (read_err != x::errors::NIL) return read_err;
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         fr.clear();
 
         for (size_t i = 0; i < timestamps.size(); i++) {
-            fr.emplace(i + 1, telem::Series(timestamps[i]));
+            fr.emplace(i + 1, x::telem::Series(timestamps[i]));
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override {}
+    void stopped_with_err(const x::errors::Error &err) override {}
 };
 
 /// @brief MockSource that returns frames with non-timestamp data
-class NonTimestampSource final : public pipeline::Source {
+class NonTimestampSource final : public Source {
 public:
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         fr.clear();
-        fr.emplace(1, telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
-        return xerrors::NIL;
+        fr.emplace(1, x::telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
+        return x::errors::NIL;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override {}
+    void stopped_with_err(const x::errors::Error &err) override {}
 };
 
 /// @brief MockSource that returns frames with empty timestamp series
-class EmptyTimestampSource final : public pipeline::Source {
+class EmptyTimestampSource final : public Source {
 public:
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &fr) override {
+    x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &fr) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         fr.clear();
-        fr.emplace(1, telem::Series(telem::TIMESTAMP_T, 0));
-        return xerrors::NIL;
+        fr.emplace(1, x::telem::Series(x::telem::TIMESTAMP_T, 0));
+        return x::errors::NIL;
     }
 
-    void stopped_with_err(const xerrors::Error &err) override {}
+    void stopped_with_err(const x::errors::Error &err) override {}
 };
 
 /// @brief it should resolve the minimum timestamp when multiple timestamp series exist
 TEST(AcquisitionPipeline, testStartResolutionMultipleTimestamps) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
 
-    auto ts1 = telem::TimeStamp(1000000000);
-    auto ts2 = telem::TimeStamp(2000000000);
-    auto ts3 = telem::TimeStamp(1500000000);
+    auto ts1 = x::telem::TimeStamp(1000000000);
+    auto ts2 = x::telem::TimeStamp(2000000000);
+    auto ts3 = x::telem::TimeStamp(1500000000);
 
     const auto source = std::make_shared<MultiTimestampSource>(
         std::vector{ts2, ts1, ts3}
     );
 
-    auto pipeline = pipeline::Acquisition(
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
 
     ASSERT_TRUE(pipeline.start());
@@ -317,24 +321,24 @@ TEST(AcquisitionPipeline, testStartResolutionMultipleTimestamps) {
 
 /// @brief it should fall back to now() when no timestamp series exist
 TEST(AcquisitionPipeline, testStartResolutionNoTimestamps) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
 
-    auto before = telem::TimeStamp::now();
+    auto before = x::telem::TimeStamp::now();
     const auto source = std::make_shared<NonTimestampSource>();
 
-    auto pipeline = pipeline::Acquisition(
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
 
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 5);
     ASSERT_TRUE(pipeline.stop());
 
-    auto after = telem::TimeStamp::now();
+    auto after = x::telem::TimeStamp::now();
 
     ASSERT_GE(mock_factory->config.start, before);
     ASSERT_LE(mock_factory->config.start, after);
@@ -342,25 +346,26 @@ TEST(AcquisitionPipeline, testStartResolutionNoTimestamps) {
 
 /// @brief it should ignore empty timestamp series and fall back to now()
 TEST(AcquisitionPipeline, testStartResolutionEmptyTimestamps) {
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    const auto mock_factory = std::make_shared<pipeline::mock::WriterFactory>(writes);
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto mock_factory = std::make_shared<mock::WriterFactory>(writes);
 
-    auto before = telem::TimeStamp::now();
+    auto before = x::telem::TimeStamp::now();
     const auto source = std::make_shared<EmptyTimestampSource>();
 
-    auto pipeline = pipeline::Acquisition(
+    auto pipeline = Acquisition(
         mock_factory,
-        synnax::WriterConfig(),
+        synnax::framer::WriterConfig(),
         source,
-        breaker::Config()
+        x::breaker::Config()
     );
 
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 5);
     ASSERT_TRUE(pipeline.stop());
 
-    auto after = telem::TimeStamp::now();
+    auto after = x::telem::TimeStamp::now();
 
     ASSERT_GE(mock_factory->config.start, before);
     ASSERT_LE(mock_factory->config.start, after);
+}
 }

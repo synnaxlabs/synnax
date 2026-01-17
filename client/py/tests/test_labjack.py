@@ -265,7 +265,7 @@ class TestLabJackReadTask:
         created_task = client.tasks.create(
             name="test-labjack-read-task",
             type="labjack_read",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.labjack.ReadTask(created_task)
 
@@ -443,7 +443,7 @@ class TestLabJackWriteTask:
         created_task = client.tasks.create(
             name="test-labjack-write-task",
             type="labjack_write",
-            config=task.config.model_dump_json(),
+            config=task.config,
         )
         sy.labjack.WriteTask(created_task)
 
@@ -475,20 +475,13 @@ class TestLabJackWriteTask:
             ],
         )
 
-        # Serialize to JSON
-        config_json = original_task.config.model_dump_json()
-
-        # Create task in database
         created_task = client.tasks.create(
             name="test-round-trip",
             type="labjack_write",
-            config=config_json,
+            config=original_task.config,
         )
 
-        # Deserialize from database
         retrieved_task = sy.labjack.WriteTask(created_task)
-
-        # Verify all fields match
         assert retrieved_task.config.device == original_task.config.device
         assert retrieved_task.config.state_rate == original_task.config.state_rate
         assert retrieved_task.config.data_saving == original_task.config.data_saving
@@ -574,7 +567,7 @@ class TestLabJackDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify read.channels mapping exists
         assert "read" in props
@@ -672,7 +665,7 @@ class TestLabJackDevicePropertyUpdates:
 
         # Retrieve device and check properties
         updated_device = client.devices.retrieve(key=device.key)
-        props = json.loads(updated_device.properties)
+        props = updated_device.properties
 
         # Verify write.channels mapping exists
         assert "write" in props

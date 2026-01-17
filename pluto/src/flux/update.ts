@@ -105,7 +105,7 @@ export interface AfterFailureParams<
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
-  status: status.Status<typeof status.exceptionDetailsSchema, "error">;
+  status: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
   data: Data;
 }
 

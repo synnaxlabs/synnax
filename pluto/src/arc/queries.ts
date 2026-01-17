@@ -144,7 +144,12 @@ export const formSchema = arc.newZ.extend({
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   version: "0.0.0",
-  graph: { nodes: [], edges: [] },
+  graph: {
+    nodes: [],
+    edges: [],
+    viewport: { position: { x: 0, y: 0 }, zoom: 1 },
+    functions: [],
+  },
   text: { raw: "" },
   deploy: true,
 };

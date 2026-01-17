@@ -11,139 +11,57 @@
 
 #include <string>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/channel/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/v1/channel.pb.h"
+#include "core/pkg/api/channel/pb/channel.pb.h"
+#include "core/pkg/api/grpc/channel/channel.pb.h"
 
-namespace synnax {
-/// @brief an alias for the type of channel's key.
-using ChannelKey = std::uint32_t;
-
+namespace synnax::channel {
 /// @brief freighter retrieve transport.
-using ChannelRetrieveClient = freighter::
-    UnaryClient<api::v1::ChannelRetrieveRequest, api::v1::ChannelRetrieveResponse>;
+using RetrieveClient = freighter::
+    UnaryClient<grpc::channel::RetrieveRequest, grpc::channel::RetrieveResponse>;
 
 /// @brief freighter create transport.
-using ChannelCreateClient = freighter::
-    UnaryClient<api::v1::ChannelCreateRequest, api::v1::ChannelCreateResponse>;
-
-class ChannelClient;
-
-/// @brief A channel is a logical collection of samples emitted by or representing
-/// the values of a single source, typically a sensor, actuator, or software
-/// generated value. See https://docs.synnaxlabs.com/reference/concepts/channels for
-/// an introduction to channels and how they work.
-struct Channel {
-    /// @brief A human-readable name for the channel.
-    std::string name;
-    /// @brief the data type of the channel.
-    telem::DataType data_type;
-    /// @brief the key of the channel. This is auto-assigned by the cluster on calls
-    /// to create and retrieve.
-    ChannelKey key = 0;
-    /// @brief The key of the channel that indexes this channel. This field must be
-    /// set if the channel is not an index channel.
-    ChannelKey index = 0;
-    /// @brief Sets whether the channel itself is an index channel.
-    bool is_index = false;
-    /// @brief The leaseholder of the channel.
-    std::uint32_t leaseholder = 0;
-    /// @brief Whether the channel is virtual. Virtual channels are not stored in
-    /// the Synnax database, and are purely used for streaming and communication
-    /// purposes.
-    bool is_virtual = false;
-    /// @brief Whether the channel is an internal channel. Internal channels are
-    /// created by the DB and generally should not be interacted with unless you
-    /// know what you're doing.
-    bool internal = false;
-
-    /// @brief constructs an empty, invalid channel.
-    Channel() = default;
-
-    /// @brief constructs a new index or indexed channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param index the index of the channel.
-    /// @param is_index whether the channel is an index channel.
-    Channel(
-        std::string name,
-        telem::DataType data_type,
-        ChannelKey index,
-        bool is_index = false
-    );
-
-    /// @brief constructs a new virtual channel.
-    /// @param name a human-readable name for the channel.
-    /// @param data_type the data type of the channel.
-    /// @param is_virtual whether the channel is virtual.
-    Channel(std::string name, telem::DataType data_type, bool is_virtual);
-
-    /// @brief constructs the channel from its protobuf type.
-    explicit Channel(const api::v1::Channel &ch);
-
-private:
-    /// @brief binds the channel's fields to the protobuf type.
-    void to_proto(api::v1::Channel *ch) const;
-
-    friend class ChannelClient;
-};
+using CreateClient = freighter::
+    UnaryClient<grpc::channel::CreateRequest, grpc::channel::CreateResponse>;
 
 /// @brief creates a vector of channel keys from a variadic list of channels.
 template<typename... Channels>
-std::vector<ChannelKey> keys_from_channels(const Channels &...channels) {
-    std::vector<ChannelKey> keys;
+std::vector<Key> keys_from_channels(const Channels &...channels) {
+    std::vector<Key> keys;
     keys.reserve(sizeof...(channels));
     ((keys.push_back(channels.key)), ...);
     return keys;
 }
 
 /// @brief creates a vector of channel keys from a vector of channels.
-inline std::vector<ChannelKey>
-keys_from_channels(const std::vector<Channel> &channels) {
-    std::vector<ChannelKey> keys;
+inline std::vector<Key> keys_from_channels(const std::vector<Channel> &channels) {
+    std::vector<Key> keys;
     keys.reserve(channels.size());
     for (const auto &channel: channels)
         keys.push_back(channel.key);
     return keys;
 }
 
-inline std::unordered_map<ChannelKey, Channel>
+inline std::unordered_map<Key, Channel>
 map_channel_Keys(const std::vector<Channel> &channels) {
-    std::unordered_map<ChannelKey, Channel> map;
+    std::unordered_map<Key, Channel> map;
     map.reserve(channels.size());
     for (const auto &channel: channels)
         map[channel.key] = channel;
     return map;
 }
 
-/// @brief Converts a channel key to an ontology ID.
-/// @param key The channel key.
-/// @returns An ontology ID with type "channel" and the given key.
-inline ontology::ID ontology_id(ChannelKey key) {
-    return ontology::ID("channel", std::to_string(key));
-}
-
-/// @brief Converts a vector of channel keys to a vector of ontology IDs.
-/// @param keys The channel keys.
-/// @returns A vector of ontology IDs.
-inline std::vector<ontology::ID> ontology_ids(const std::vector<ChannelKey> &keys) {
-    std::vector<ontology::ID> ids;
-    ids.reserve(keys.size());
-    for (const auto &key: keys)
-        ids.push_back(ontology_id(key));
-    return ids;
-}
-
 /// @brief ChannelClient for creating and retrieving channels from a Synnax cluster.
-class ChannelClient {
+class Client {
 public:
-    ChannelClient() = default;
+    Client() = default;
 
-    ChannelClient(
-        std::shared_ptr<ChannelRetrieveClient> retrieve_client,
-        std::shared_ptr<ChannelCreateClient> create_client
+    Client(
+        std::shared_ptr<RetrieveClient> retrieve_client,
+        std::shared_ptr<CreateClient> create_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)) {}
@@ -154,7 +72,7 @@ public:
     /// @returns an error where ok() is false if the channel could not be created.
     /// Use err.message() to get the error message or err.type to get the error
     /// type.
-    [[nodiscard]] xerrors::Error create(Channel &channel) const;
+    [[nodiscard]] x::errors::Error create(Channel &channel) const;
 
     /// @brief creates the given channels in the Synnax cluster.
     /// @details More efficient than calling create on each channel individually,
@@ -163,7 +81,7 @@ public:
     /// @returns an error where ok() is false if the channels could not be created.
     /// Use err.message() to get the error message or err.type to get the error
     /// type.
-    [[nodiscard]] xerrors::Error create(std::vector<Channel> &channels) const;
+    [[nodiscard]] x::errors::Error create(std::vector<Channel> &channels) const;
 
     /// @brief creates a new index or indexed channel.
     /// @param name a human-readable name for the channel.
@@ -174,16 +92,16 @@ public:
     /// false if the channel could not be created. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, xerrors::Error> create(
+    [[nodiscard]] std::pair<Channel, x::errors::Error> create(
         const std::string &name,
-        const telem::DataType &data_type,
-        ChannelKey index,
+        const x::telem::DataType &data_type,
+        Key index,
         bool is_index = false
     ) const;
 
-    [[nodiscard]] std::pair<Channel, xerrors::Error> create(
+    [[nodiscard]] std::pair<Channel, x::errors::Error> create(
         const std::string &name,
-        const telem::DataType &data_type,
+        const x::telem::DataType &data_type,
         bool is_virtual = true
     ) const;
 
@@ -196,7 +114,7 @@ public:
     /// false if the channel could not be retrieved. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, xerrors::Error>
+    [[nodiscard]] std::pair<Channel, x::errors::Error>
     retrieve(const std::string &name) const;
 
     /// @brief retrieves a channel with the given key.
@@ -207,7 +125,8 @@ public:
     /// false if the channel could not be retrieved. In the case of an error, the
     /// returned channel will be invalid. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<Channel, xerrors::Error> retrieve(std::uint32_t key) const;
+    [[nodiscard]] std::pair<Channel, x::errors::Error>
+    retrieve(std::uint32_t key) const;
 
     /// @brief retrieves channels with the given names.
     /// @param names the names of the channels to retrieve.
@@ -217,7 +136,7 @@ public:
     /// false if the channels could not be retrieved. In the case of an error, the
     /// returned channels will be invalid. Use err.message() to get the error
     /// message
-    [[nodiscard]] std::pair<std::vector<Channel>, xerrors::Error>
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
     retrieve(const std::vector<std::string> &names) const;
 
     /// @brief retrieves channels with the given keys.
@@ -228,13 +147,13 @@ public:
     /// false if the channels could not be retrieved. In the case of an error, the
     /// returned channels will be invalid. Use err.message() to get the error
     /// message.
-    [[nodiscard]] std::pair<std::vector<Channel>, xerrors::Error>
-    retrieve(const std::vector<ChannelKey> &keys) const;
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
+    retrieve(const std::vector<Key> &keys) const;
 
 private:
     /// @brief transport for retrieving channels.
-    std::shared_ptr<ChannelRetrieveClient> retrieve_client;
+    std::shared_ptr<RetrieveClient> retrieve_client;
     /// @brief transport for creating channels.
-    std::shared_ptr<ChannelCreateClient> create_client;
+    std::shared_ptr<CreateClient> create_client;
 };
 }

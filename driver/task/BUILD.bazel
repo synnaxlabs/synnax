@@ -6,9 +6,9 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//x/cpp/breaker",
-        "//x/cpp/xjson",
-        "//x/cpp/xlog",
-        "//x/cpp/xos",
+        "//x/cpp/json",
+        "//x/cpp/log",
+        "//x/cpp/os",
         "@glog",
         "@nlohmann_json//:json",
     ],

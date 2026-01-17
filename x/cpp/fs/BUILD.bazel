@@ -3,7 +3,7 @@ cc_library(
     hdrs = ["fs.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 
@@ -13,8 +13,8 @@ cc_test(
     srcs = ["fs_test.cpp"],
     deps = [
         "//x/cpp/fs",
-        "//x/cpp/xerrors",
-        "//x/cpp/xtest",
+        "//x/cpp/errors",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

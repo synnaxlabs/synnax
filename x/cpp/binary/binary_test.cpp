@@ -13,10 +13,11 @@
 
 #include "x/cpp/binary/binary.h"
 
+namespace x::binary {
 /// @brief it should correctly write multiple uint8 values to a buffer.
 TEST(BinaryWriter, testUint8Write) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 3);
+    Writer writer(buffer, 3);
 
     writer.uint8(0x12);
     writer.uint8(0x34);
@@ -31,7 +32,7 @@ TEST(BinaryWriter, testUint8Write) {
 /// @brief it should correctly write a uint32 value in little-endian byte order.
 TEST(BinaryWriter, testUint32Write) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 5);
+    Writer writer(buffer, 5);
 
     writer.uint32(0x12345678);
 
@@ -46,7 +47,7 @@ TEST(BinaryWriter, testUint32Write) {
 /// @brief it should correctly write a uint64 value in little-endian byte order.
 TEST(BinaryWriter, testUint64Write) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 8);
+    Writer writer(buffer, 8);
 
     writer.uint64(0x1234567890ABCDEF);
 
@@ -64,7 +65,7 @@ TEST(BinaryWriter, testUint64Write) {
 /// @brief it should correctly write raw bytes to a buffer.
 TEST(BinaryWriter, testRawWrite) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 5);
+    Writer writer(buffer, 5);
 
     const uint8_t data[] = {0x12, 0x34, 0x56, 0x78, 0x90};
     writer.write(data, 5);
@@ -80,7 +81,7 @@ TEST(BinaryWriter, testRawWrite) {
 /// @brief it should correctly write a sequence of different types to a buffer.
 TEST(BinaryWriter, testMultipleWrites) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 16);
+    Writer writer(buffer, 16);
 
     writer.uint8(0x01);
     writer.uint32(0x12345678);
@@ -112,7 +113,7 @@ TEST(BinaryWriter, testMultipleWrites) {
 /// @brief it should perform a partial write when the buffer is too small.
 TEST(BinaryWriter, testPartialWrite) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 15); // Buffer too small for all writes
+    Writer writer(buffer, 15); // Buffer too small for all writes
 
     ASSERT_EQ(writer.uint8(0x01), 1);
     ASSERT_EQ(writer.uint32(0x12345678), 4);
@@ -141,7 +142,7 @@ TEST(BinaryWriter, testStartingOffset) {
     buffer.resize(offset);
     for (size_t i = 0; i < offset; i++)
         buffer[i] = static_cast<uint8_t>(i + 1);
-    binary::Writer writer(buffer, offset + 5, offset);
+    Writer writer(buffer, offset + 5, offset);
 
     ASSERT_EQ(writer.uint8(0xAA), 1);
     ASSERT_EQ(writer.uint32(0xBBCCDDEE), 4);
@@ -160,7 +161,7 @@ TEST(BinaryWriter, testStartingOffset) {
 /// @brief it should return 0 when attempting to write to a full buffer.
 TEST(BinaryWriter, testBufferFull) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 5);
+    Writer writer(buffer, 5);
 
     // Write 5 bytes successfully
     ASSERT_EQ(writer.uint8(0x01), 1);
@@ -173,7 +174,7 @@ TEST(BinaryWriter, testBufferFull) {
 /// @brief it should perform a partial raw write when the buffer is too small.
 TEST(BinaryWriter, testRawWritePartial) {
     std::vector<uint8_t> buffer;
-    binary::Writer writer(buffer, 3);
+    Writer writer(buffer, 3);
 
     const uint8_t data[] = {0x01, 0x02, 0x03, 0x04, 0x05};
 
@@ -188,7 +189,7 @@ TEST(BinaryWriter, testRawWritePartial) {
 /// @brief it should correctly read multiple uint8 values from a buffer.
 TEST(BinaryReader, testUint8Read) {
     std::vector<uint8_t> buffer = {0x12, 0x34, 0x56};
-    binary::Reader reader(buffer);
+    Reader reader(buffer);
 
     ASSERT_EQ(reader.uint8(), 0x12);
     ASSERT_EQ(reader.uint8(), 0x34);
@@ -198,7 +199,7 @@ TEST(BinaryReader, testUint8Read) {
 /// @brief it should correctly read a uint32 value in little-endian byte order.
 TEST(BinaryReader, testUint32Read) {
     const std::vector<uint8_t> buffer = {0x78, 0x56, 0x34, 0x12, 0x00};
-    binary::Reader reader(buffer);
+    Reader reader(buffer);
 
     ASSERT_EQ(reader.uint32(), 0x12345678);
 }
@@ -207,7 +208,7 @@ TEST(BinaryReader, testUint32Read) {
 TEST(BinaryReader, testUint64Read) {
     const std::vector<uint8_t> buffer =
         {0xEF, 0xCD, 0xAB, 0x90, 0x78, 0x56, 0x34, 0x12};
-    binary::Reader reader(buffer);
+    Reader reader(buffer);
 
     ASSERT_EQ(reader.uint64(), 0x1234567890ABCDEF);
 }
@@ -215,7 +216,7 @@ TEST(BinaryReader, testUint64Read) {
 /// @brief it should correctly read raw bytes from a buffer.
 TEST(BinaryReader, testRawRead) {
     const std::vector<uint8_t> buffer = {0x12, 0x34, 0x56, 0x78, 0x90};
-    binary::Reader reader(buffer);
+    Reader reader(buffer);
 
     uint8_t data[5] = {};
     reader.read(data, 5);
@@ -248,7 +249,7 @@ TEST(BinaryReader, testMultipleReads) {
         0x11 // uint64
     };
 
-    binary::Reader reader(buffer);
+    Reader reader(buffer);
 
     ASSERT_EQ(reader.uint8(), 0x01);
     ASSERT_EQ(reader.uint32(), 0x12345678);
@@ -277,7 +278,7 @@ TEST(BinaryReader, testStartingOffset) {
     };
 
     constexpr size_t offset = 3;
-    binary::Reader reader(buffer, offset);
+    Reader reader(buffer, offset);
 
     ASSERT_EQ(reader.uint8(), 0xAA);
     ASSERT_EQ(reader.uint32(), 0xBBCCDDEE);
@@ -287,7 +288,7 @@ TEST(BinaryReader, testStartingOffset) {
 TEST(BinaryRoundTrip, testReadWriteRoundTrip) {
     std::vector<uint8_t> buffer;
     constexpr size_t size = 17;
-    binary::Writer writer(buffer, size);
+    Writer writer(buffer, size);
 
     writer.uint8(0x01);
     writer.uint32(0x12345678);
@@ -296,7 +297,7 @@ TEST(BinaryRoundTrip, testReadWriteRoundTrip) {
     constexpr uint8_t raw_data[] = {0xAA, 0xBB, 0xCC, 0xDD};
     writer.write(raw_data, 4);
 
-    binary::Reader reader(buffer);
+    Reader reader(buffer);
 
     ASSERT_EQ(reader.uint8(), 0x01);
     ASSERT_EQ(reader.uint32(), 0x12345678);
@@ -315,33 +316,33 @@ TEST(BinaryRoundTrip, testReadWriteRoundTrip) {
 TEST(BitUtils, testGetBit) {
     constexpr uint8_t byte = 0b10101010;
 
-    ASSERT_FALSE(binary::get_bit(byte, 0));
-    ASSERT_TRUE(binary::get_bit(byte, 1));
-    ASSERT_FALSE(binary::get_bit(byte, 2));
-    ASSERT_TRUE(binary::get_bit(byte, 3));
-    ASSERT_FALSE(binary::get_bit(byte, 4));
-    ASSERT_TRUE(binary::get_bit(byte, 5));
-    ASSERT_FALSE(binary::get_bit(byte, 6));
-    ASSERT_TRUE(binary::get_bit(byte, 7));
+    ASSERT_FALSE(get_bit(byte, 0));
+    ASSERT_TRUE(get_bit(byte, 1));
+    ASSERT_FALSE(get_bit(byte, 2));
+    ASSERT_TRUE(get_bit(byte, 3));
+    ASSERT_FALSE(get_bit(byte, 4));
+    ASSERT_TRUE(get_bit(byte, 5));
+    ASSERT_FALSE(get_bit(byte, 6));
+    ASSERT_TRUE(get_bit(byte, 7));
 }
 
 /// @brief it should correctly set individual bits in a byte.
 TEST(BitUtils, testSetBit) {
     uint8_t byte = 0b00000000;
 
-    byte = binary::set_bit(byte, 0, true);
+    byte = set_bit(byte, 0, true);
     ASSERT_EQ(byte, 0b00000001);
 
-    byte = binary::set_bit(byte, 1, true);
+    byte = set_bit(byte, 1, true);
     ASSERT_EQ(byte, 0b00000011);
 
-    byte = binary::set_bit(byte, 7, true);
+    byte = set_bit(byte, 7, true);
     ASSERT_EQ(byte, 0b10000011);
 
-    byte = binary::set_bit(byte, 0, false);
+    byte = set_bit(byte, 0, false);
     ASSERT_EQ(byte, 0b10000010);
 
-    byte = binary::set_bit(byte, 7, false);
+    byte = set_bit(byte, 7, false);
     ASSERT_EQ(byte, 0b00000010);
 }
 
@@ -349,10 +350,10 @@ TEST(BitUtils, testSetBit) {
 TEST(BitUtils, testSetBitNoChangeWhenSameValue) {
     constexpr uint8_t byte = 0b10101010;
 
-    uint8_t result = binary::set_bit(byte, 0, false);
+    uint8_t result = set_bit(byte, 0, false);
     ASSERT_EQ(result, byte);
 
-    result = binary::set_bit(byte, 1, true);
+    result = set_bit(byte, 1, true);
     ASSERT_EQ(result, byte);
 }
 
@@ -361,7 +362,7 @@ TEST(BitUtils, testFlipAllBits) {
     constexpr uint8_t original = 0b10101010;
     uint8_t flipped = original;
     for (uint8_t i = 0; i < 8; i++)
-        flipped = binary::set_bit(flipped, i, !binary::get_bit(flipped, i));
+        flipped = set_bit(flipped, i, !get_bit(flipped, i));
     ASSERT_EQ(flipped, 0b01010101);
 }
 
@@ -381,12 +382,13 @@ TEST(BinaryStressTest, testVariousBytePatterns) {
 
     for (const auto &value: test_values) {
         std::vector<uint8_t> buffer;
-        binary::Writer writer(buffer, 8);
+        Writer writer(buffer, 8);
         writer.uint64(value);
 
-        binary::Reader reader(buffer);
+        Reader reader(buffer);
         uint64_t decoded = reader.uint64();
 
         ASSERT_EQ(decoded, value) << "Failed for value 0x" << std::hex << value;
     }
+}
 }

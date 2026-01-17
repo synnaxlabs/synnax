@@ -11,15 +11,12 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Key, keyZ, type Label, labelZ } from "@/label/payload";
+import { type Key, keyZ, type Label, labelZ, type New, newZ } from "@/label/payload";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
-
-export const newZ = labelZ.extend({ key: keyZ.optional() });
-export interface New extends z.infer<typeof newZ> {}
 
 const createReqZ = z.object({ labels: newZ.array() });
 const createResZ = z.object({ labels: labelZ.array() });
@@ -55,7 +52,7 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveResponseZ = z.object({ labels: array.nullableZ(labelZ) });
+const retrieveResponseZ = z.object({ labels: array.nullishToEmpty(labelZ) });
 
 export class Client {
   readonly type: string = "label";

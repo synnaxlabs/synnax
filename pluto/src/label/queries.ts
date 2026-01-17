@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ontology } from "@synnaxlabs/client";
-import { primitive } from "@synnaxlabs/x";
+import { color, primitive } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { Flux } from "@/flux";
@@ -190,7 +190,7 @@ export const formSchema = label.labelZ.partial({ key: true });
 
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   name: "",
-  color: "#000000",
+  color: color.construct("#000000"),
 };
 
 export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStore>({

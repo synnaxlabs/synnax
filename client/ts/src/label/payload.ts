@@ -14,6 +14,8 @@ export type Params = label.Key | label.Key[];
 export const keyZ = label.keyZ;
 export type Key = label.Key;
 export const labelZ = label.labelZ;
-export type Label = label.Label;
+export interface Label extends label.Label {}
+export const newZ = label.newZ;
+export interface New extends label.New {}
 
 export const LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE = "labeled_by";

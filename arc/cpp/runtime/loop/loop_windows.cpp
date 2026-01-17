@@ -51,7 +51,7 @@ public:
         this->data_available_.store(true, std::memory_order_release);
     }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (!this->running_) return;
 
         switch (this->config_.mode) {
@@ -74,12 +74,12 @@ public:
         }
     }
 
-    xerrors::Error start() override {
-        if (this->running_) return xerrors::NIL;
+    x::errors::Error start() override {
+        if (this->running_) return x::errors::NIL;
 
         this->data_event_ = CreateEvent(NULL, TRUE, FALSE, NULL);
         if (this->data_event_ == NULL) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to create data event: " + std::to_string(GetLastError())
             );
         }
@@ -88,7 +88,7 @@ public:
             this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
             if (this->timer_event_ == NULL) {
                 CloseHandle(this->data_event_);
-                return xerrors::Error(
+                return x::errors::Error(
                     "Failed to create waitable timer: " + std::to_string(GetLastError())
                 );
             }
@@ -111,7 +111,7 @@ public:
                 )) {
                 CloseHandle(this->timer_event_);
                 CloseHandle(this->data_event_);
-                return xerrors::Error(
+                return x::errors::Error(
                     "Failed to set waitable timer: " + std::to_string(GetLastError())
                 );
             }
@@ -122,7 +122,7 @@ public:
         if (this->config_.mode == ExecutionMode::HIGH_RATE ||
             this->config_.mode == ExecutionMode::HYBRID) {
             if (this->config_.interval.nanoseconds() > 0) {
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             }
         }
 
@@ -142,7 +142,7 @@ public:
         this->running_ = true;
         this->data_available_.store(false, std::memory_order_release);
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void stop() override {
@@ -165,7 +165,7 @@ public:
         this->timer_enabled_ = false;
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         static bool warned = false;
         if (!warned) {
             LOG(WARNING) << "[loop] watch() not supported on Windows; "
@@ -177,7 +177,7 @@ public:
     }
 
 private:
-    void busy_wait(breaker::Breaker &breaker) {
+    void busy_wait(x::breaker::Breaker &breaker) {
         HANDLE handles[2];
         DWORD count = 1;
         handles[0] = this->data_event_;
@@ -210,7 +210,7 @@ private:
         }
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) {
+    void high_rate_wait(x::breaker::Breaker &breaker) {
         if (this->timer_) {
             this->timer_->wait(breaker);
         } else {
@@ -221,7 +221,7 @@ private:
         this->data_available_.store(false, std::memory_order_release);
     }
 
-    void event_driven_wait(breaker::Breaker &breaker, bool blocking) {
+    void event_driven_wait(x::breaker::Breaker &breaker, bool blocking) {
         HANDLE handles[2];
         DWORD count = 1;
         handles[0] = this->data_event_;
@@ -248,7 +248,7 @@ private:
         this->data_available_.store(false, std::memory_order_release);
     }
 
-    void hybrid_wait(breaker::Breaker &breaker) {
+    void hybrid_wait(x::breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -290,7 +290,7 @@ private:
         this->data_available_.store(false, std::memory_order_release);
     }
 
-    xerrors::Error set_thread_priority(int priority) {
+    x::errors::Error set_thread_priority(int priority) {
         int win_priority;
         if (priority >= 90) {
             win_priority = THREAD_PRIORITY_TIME_CRITICAL;
@@ -303,39 +303,39 @@ private:
         }
 
         if (!SetThreadPriority(GetCurrentThread(), win_priority)) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set thread priority: " + std::to_string(GetLastError())
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
-    xerrors::Error set_cpu_affinity(int cpu) {
+    x::errors::Error set_cpu_affinity(int cpu) {
         const DWORD_PTR mask = static_cast<DWORD_PTR>(1) << cpu;
 
         if (!SetThreadAffinityMask(GetCurrentThread(), mask)) {
-            return xerrors::Error(
+            return x::errors::Error(
                 "Failed to set thread affinity: " + std::to_string(GetLastError())
             );
         }
 
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     Config config_;
     HANDLE data_event_ = NULL;
     HANDLE timer_event_ = NULL;
     bool timer_enabled_ = false;
-    std::unique_ptr<::loop::Timer> timer_;
+    std::unique_ptr<::x::loop::Timer> timer_;
     std::atomic<bool> data_available_{false};
     std::atomic<bool> running_{false};
 };
 
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {
     auto loop = std::make_unique<WindowsLoop>(cfg);
     if (auto err = loop->start(); err) return {nullptr, err};
-    return {std::move(loop), xerrors::NIL};
+    return {std::move(loop), x::errors::NIL};
 }
 
 }

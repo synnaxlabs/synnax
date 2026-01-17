@@ -9,26 +9,13 @@
 
 cc_library(
     name = "loop",
-    hdrs = ["loop.h"],
     srcs = select({
         "@platforms//os:linux": ["loop_linux.cpp"],
         "@platforms//os:macos": ["loop_darwin.cpp"],
         "@platforms//os:windows": ["loop_windows.cpp"],
         "//conditions:default": ["loop_polling.cpp"],
     }),
-    deps = [
-        "//x/cpp/breaker",
-        "//x/cpp/loop",
-        "//x/cpp/notify",
-        "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "@glog",
-    ],
-    linkopts = select({
-        "@platforms//os:linux": ["-lpthread"],
-        "@platforms//os:windows": [],
-        "//conditions:default": [],
-    }),
+    hdrs = ["loop.h"],
     copts = select({
         "@platforms//os:windows": [
             "/D_WIN32_WINNT=0x0601",
@@ -37,7 +24,20 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "@platforms//os:linux": ["-lpthread"],
+        "@platforms//os:windows": [],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/breaker",
+        "//x/cpp/errors",
+        "//x/cpp/loop",
+        "//x/cpp/notify",
+        "//x/cpp/telem",
+        "@glog",
+    ],
 )
 
 cc_test(
@@ -46,7 +46,7 @@ cc_test(
     deps = [
         ":loop",
         "//x/cpp/breaker",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

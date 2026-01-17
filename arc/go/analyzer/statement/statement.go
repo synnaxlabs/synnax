@@ -397,7 +397,7 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 		return false
 	}
 	if fn != nil {
-		fn.Channels.Write.Add(uint32(channelSym.ID))
+		fn.Channels.Write[uint32(channelSym.ID)] = channelSym.Name
 	}
 
 	// Track this as a channel write in the function

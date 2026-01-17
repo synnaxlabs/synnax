@@ -12,9 +12,9 @@
 #include <memory>
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
 
 namespace arc::runtime::loop {
 
@@ -22,21 +22,21 @@ namespace arc::runtime::loop {
 namespace timing {
 /// @brief Default spin duration for HYBRID mode before blocking (100 microseconds).
 /// Balances latency (catches immediate data arrivals) vs CPU usage.
-inline const telem::TimeSpan HYBRID_SPIN_DEFAULT = 100 * telem::MICROSECOND;
+inline const x::telem::TimeSpan HYBRID_SPIN_DEFAULT = 100 * x::telem::MICROSECOND;
 
 /// @brief Fallback poll interval for HIGH_RATE mode when no timer configured.
-inline const telem::TimeSpan HIGH_RATE_POLL_INTERVAL = 100 * telem::MICROSECOND;
+inline const x::telem::TimeSpan HIGH_RATE_POLL_INTERVAL = 100 * x::telem::MICROSECOND;
 
 /// @brief Timeout for blocking wait in HYBRID mode after spin phase (10 milliseconds).
-inline const telem::TimeSpan HYBRID_BLOCK_TIMEOUT = 10 * telem::MILLISECOND;
+inline const x::telem::TimeSpan HYBRID_BLOCK_TIMEOUT = 10 * x::telem::MILLISECOND;
 
 /// @brief Minimum meaningful interval for kqueue EVFILT_TIMER on macOS (1 millisecond).
 /// Intervals below this threshold use software timing instead.
-inline const telem::TimeSpan KQUEUE_TIMER_MIN = telem::MILLISECOND;
+inline const x::telem::TimeSpan KQUEUE_TIMER_MIN = x::telem::MILLISECOND;
 
 /// @brief Threshold below which software timer (HIGH_RATE) is used for precision.
 /// Above this, OS timers (timerfd/kqueue/WaitableTimer) provide sufficient precision.
-inline const telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = telem::MILLISECOND;
+inline const x::telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = x::telem::MILLISECOND;
 }
 
 enum class ExecutionMode {
@@ -72,10 +72,10 @@ struct Config {
 
     /// @brief Periodic timer interval. Zero disables the timer.
     /// When enabled, wait() returns at least once per interval.
-    telem::TimeSpan interval = telem::TimeSpan(0);
+    x::telem::TimeSpan interval = x::telem::TimeSpan(0);
 
     /// @brief Spin duration for HYBRID mode before blocking on events.
-    telem::TimeSpan spin_duration = timing::HYBRID_SPIN_DEFAULT;
+    x::telem::TimeSpan spin_duration = timing::HYBRID_SPIN_DEFAULT;
 
     /// @brief Real-time priority for RT_EVENT mode (1-99 on Linux for SCHED_FIFO).
     /// -1 means no priority change. Requires CAP_SYS_NICE capability on Linux.
@@ -103,12 +103,12 @@ struct Loop {
     /// @brief Block until data/timer/external event or breaker stops.
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
-    virtual void wait(breaker::Breaker &breaker) = 0;
+    virtual void wait(x::breaker::Breaker &breaker) = 0;
 
     /// @brief Initialize loop resources. Must be called before wait().
     /// Applies RT configuration (priority, affinity, memory lock) if configured.
     /// @return Error if resource allocation fails.
-    virtual xerrors::Error start() = 0;
+    virtual x::errors::Error start() = 0;
 
     /// @brief Release loop resources. Safe to call multiple times.
     /// Signals any blocked wait() calls to return.
@@ -122,11 +122,11 @@ struct Loop {
     ///         - notifier.fd() returns -1 (no file descriptor)
     ///         - Platform doesn't support multiplexed watching (Windows, Polling)
     ///         - Registration failed (logged as ERROR)
-    virtual bool watch(notify::Notifier &notifier) = 0;
+    virtual bool watch(x::notify::Notifier &notifier) = 0;
 };
 
 /// @brief Creates a platform-specific loop implementation.
 /// @param cfg Loop configuration (mode, timing, RT settings).
 /// @return Pair of (loop, error). Loop is started on success.
-std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg);
+std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg);
 }

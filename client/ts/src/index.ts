@@ -35,11 +35,13 @@ export {
 } from "@/errors";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
+export { group } from "@/group";
 export { label } from "@/label";
 export { ontology } from "@/ontology";
-export { group } from "@/ontology/group";
 export { rack } from "@/rack";
-export { ranger } from "@/ranger";
+export { range, ranger } from "@/range";
+export { alias } from "@/range/alias";
+export { kv } from "@/range/kv";
 export { status } from "@/status";
 export { task } from "@/task";
 export { createTestClientWithPolicy } from "@/testutil/access";

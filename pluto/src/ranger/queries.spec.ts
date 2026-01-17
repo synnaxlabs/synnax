@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, ranger } from "@synnaxlabs/client";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -80,7 +80,7 @@ describe("queries", () => {
       const retrievedRange = result.current.getItem(testRange.key);
       expect(retrievedRange?.key).toEqual(testRange.key);
       expect(retrievedRange?.name).toEqual("testRange");
-      expect(retrievedRange?.color).toEqual("#FF5733");
+      expect(retrievedRange?.color).toEqual(color.construct("#FF5733"));
     });
 
     it("should filter ranges by search term", async () => {
@@ -321,7 +321,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const retrievedRange = result.current.getItem(coloredRange.key);
-      expect(retrievedRange?.color).toEqual("#E774D0");
+      expect(retrievedRange?.color).toEqual(color.construct("#E774D0"));
     });
 
     it("should handle ranges with different time spans", async () => {
@@ -417,7 +417,7 @@ describe("queries", () => {
       const retrievedChild = result.current.getItem(childRange.key);
       expect(retrievedChild?.key).toEqual(childRange.key);
       expect(retrievedChild?.name).toEqual("testChild");
-      expect(retrievedChild?.color).toEqual("#00FF00");
+      expect(retrievedChild?.color).toEqual(color.construct("#00FF00"));
     });
 
     it("should return empty list for range with no children", async () => {
@@ -643,7 +643,7 @@ describe("queries", () => {
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("newFormRange");
         expect(result.current.form.value().timeRange).toEqual(timeRange.numeric);
-        expect(result.current.form.value().color).toEqual("#FF0000");
+        expect(result.current.form.value().color).toEqual(color.construct("#FF0000"));
         expect(result.current.form.value().key).toBeDefined();
         expect(result.current.form.value().key).not.toEqual("");
       });
@@ -718,7 +718,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       expect(result.current.form.value().name).toEqual("existingRange");
-      expect(result.current.form.value().color).toEqual("#FFFF00");
+      expect(result.current.form.value().color).toEqual(color.construct("#FFFF00"));
       expect(result.current.form.value().timeRange).toEqual(timeRange.numeric);
 
       act(() => {
@@ -729,18 +729,18 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.form.value().name).toEqual("editedRange");
-        expect(result.current.form.value().color).toEqual("#00FFFF");
+        expect(result.current.form.value().color).toEqual(color.construct("#00FFFF"));
       });
     });
 
     it("should retrieve range with existing labels", async () => {
       const label1 = await client.labels.create({
         name: "existingLabel1",
-        color: "#FF00FF",
+        color: color.construct("#FF00FF"),
       });
       const label2 = await client.labels.create({
         name: "existingLabel2",
-        color: "#FFFF00",
+        color: color.construct("#FFFF00"),
       });
 
       const timeRange = TimeStamp.now().spanRange(TimeSpan.minutes(8));
@@ -954,7 +954,7 @@ describe("queries", () => {
         result.current.form.set("timeRange", complexTimeRange.numeric);
         result.current.form.set("parent", parentRange.key);
         result.current.form.set("labels", [label.key]);
-        result.current.form.set("color", "#654321");
+        result.current.form.set("color", color.construct("#654321"));
         result.current.save({ signal: controller.signal });
       });
 
@@ -962,7 +962,7 @@ describe("queries", () => {
         expect(result.current.form.value().name).toEqual("complexRange");
         expect(result.current.form.value().parent).toEqual(parentRange.key);
         expect(result.current.form.value().labels).toContain(label.key);
-        expect(result.current.form.value().color).toEqual("#654321");
+        expect(result.current.form.value().color).toEqual(color.construct("#654321"));
         expect(result.current.form.value().timeRange).toEqual(complexTimeRange.numeric);
         expect(result.current.form.value().key).toBeDefined();
       });

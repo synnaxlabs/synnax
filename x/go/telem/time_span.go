@@ -18,9 +18,6 @@ import (
 	"github.com/synnaxlabs/x/binary"
 )
 
-// TimeSpan represents a duration of time in nanoseconds.
-type TimeSpan int64
-
 const (
 	// TimeSpanZero represents the zero value for a TimeSpan.
 	TimeSpanZero = TimeSpan(0)

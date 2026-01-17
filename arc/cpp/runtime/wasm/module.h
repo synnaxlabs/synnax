@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/module/module.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -24,7 +24,7 @@
 namespace arc::runtime::wasm {
 
 /// Convert SampleValue to wasmtime::Val for WASM function calls
-inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
+inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
     return std::visit(
         []<typename T0>(T0 &&arg) -> wasmtime::Val {
             using T = std::decay_t<T0>;
@@ -36,7 +36,7 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
                 return wasmtime::Val(arg);
             } else if constexpr (std::is_same_v<T, uint64_t>) {
                 return wasmtime::Val(static_cast<int64_t>(arg));
-            } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
+            } else if constexpr (std::is_same_v<T, x::telem::TimeStamp>) {
                 return wasmtime::Val(static_cast<int64_t>(arg.nanoseconds()));
             } else if constexpr (std::is_same_v<T, std::string>) {
                 // Strings are passed as handles (uint32_t) which should already be
@@ -52,82 +52,77 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
 }
 
 /// Convert wasmtime::Val to SampleValue after WASM function returns
-inline telem::SampleValue
+inline x::telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
     // Check for timestamp (i64 with nanosecond time units)
-    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(val.i64()));
+    if (type.is_timestamp())
+        return x::telem::SampleValue(x::telem::TimeStamp(val.i64()));
 
     switch (type.kind) {
         case types::Kind::U8:
-            return telem::SampleValue(static_cast<uint8_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<uint8_t>(val.i32()));
         case types::Kind::U16:
-            return telem::SampleValue(static_cast<uint16_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<uint16_t>(val.i32()));
         case types::Kind::U32:
-            return telem::SampleValue(static_cast<uint32_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<uint32_t>(val.i32()));
         case types::Kind::U64:
-            return telem::SampleValue(static_cast<uint64_t>(val.i64()));
+            return x::telem::SampleValue(static_cast<uint64_t>(val.i64()));
         case types::Kind::I8:
-            return telem::SampleValue(static_cast<int8_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<int8_t>(val.i32()));
         case types::Kind::I16:
-            return telem::SampleValue(static_cast<int16_t>(val.i32()));
+            return x::telem::SampleValue(static_cast<int16_t>(val.i32()));
         case types::Kind::I32:
-            return telem::SampleValue(val.i32());
+            return x::telem::SampleValue(val.i32());
         case types::Kind::I64:
-            return telem::SampleValue(val.i64());
+            return x::telem::SampleValue(val.i64());
         case types::Kind::F32:
-            return telem::SampleValue(val.f32());
+            return x::telem::SampleValue(val.f32());
         case types::Kind::F64:
-            return telem::SampleValue(val.f64());
-        case types::Kind::Invalid:
-        case types::Kind::String:
-        case types::Kind::Chan:
-        case types::Kind::Series:
-            return telem::SampleValue(0);
+            return x::telem::SampleValue(val.f64());
+        default:
+            return x::telem::SampleValue(0);
     }
-    return telem::SampleValue(0);
+    return x::telem::SampleValue(0);
 }
 
 /// Convert raw memory bits to SampleValue based on Arc type
-inline telem::SampleValue
+inline x::telem::SampleValue
 sample_from_bits(const uint64_t bits, const types::Type &type) {
     // Check for timestamp (i64 with nanosecond time units)
-    if (type.is_timestamp()) return telem::SampleValue(telem::TimeStamp(bits));
+    if (type.is_timestamp()) return x::telem::SampleValue(x::telem::TimeStamp(bits));
 
     switch (type.kind) {
         case types::Kind::U8:
-            return telem::SampleValue(static_cast<uint8_t>(bits));
+            return x::telem::SampleValue(static_cast<uint8_t>(bits));
         case types::Kind::U16:
-            return telem::SampleValue(static_cast<uint16_t>(bits));
+            return x::telem::SampleValue(static_cast<uint16_t>(bits));
         case types::Kind::U32:
-            return telem::SampleValue(static_cast<uint32_t>(bits));
+            return x::telem::SampleValue(static_cast<uint32_t>(bits));
         case types::Kind::U64:
-            return telem::SampleValue(static_cast<uint64_t>(bits));
+            return x::telem::SampleValue(static_cast<uint64_t>(bits));
         case types::Kind::I8:
-            return telem::SampleValue(static_cast<int8_t>(bits));
+            return x::telem::SampleValue(static_cast<int8_t>(bits));
         case types::Kind::I16:
-            return telem::SampleValue(static_cast<int16_t>(bits));
+            return x::telem::SampleValue(static_cast<int16_t>(bits));
         case types::Kind::I32:
-            return telem::SampleValue(static_cast<int32_t>(bits));
+            return x::telem::SampleValue(static_cast<int32_t>(bits));
         case types::Kind::I64:
-            return telem::SampleValue(static_cast<int64_t>(bits));
+            return x::telem::SampleValue(static_cast<int64_t>(bits));
         case types::Kind::F32: {
             const auto bits32 = static_cast<uint32_t>(bits);
             float f;
             memcpy(&f, &bits32, sizeof(float));
-            return telem::SampleValue(f);
+            return x::telem::SampleValue(f);
         }
         case types::Kind::F64: {
             double d;
             memcpy(&d, &bits, sizeof(double));
-            return telem::SampleValue(d);
+            return x::telem::SampleValue(d);
         }
-        case types::Kind::Invalid:
-        case types::Kind::String:
-        case types::Kind::Chan:
-        case types::Kind::Series:
-            return telem::SampleValue(static_cast<int32_t>(0));
+        default:
+            return x::telem::SampleValue(static_cast<int32_t>(0));
     }
-    return telem::SampleValue(static_cast<int32_t>(0));
+    return x::telem::SampleValue(static_cast<int32_t>(0));
 }
 
 const auto BASE_ERROR = errors::BASE.sub("wasm");
@@ -164,12 +159,12 @@ public:
         memory(std::move(memory)),
         instance(std::move(instance)) {}
 
-    static std::pair<std::shared_ptr<Module>, xerrors::Error>
+    static std::pair<std::shared_ptr<Module>, x::errors::Error>
     open(const ModuleConfig &cfg) {
         if (cfg.module.wasm.empty())
             return {
                 nullptr,
-                xerrors::Error(xerrors::VALIDATION, "wasm bytes are empty")
+                x::errors::Error(x::errors::VALIDATION, "wasm bytes are empty")
             };
 
         wasmtime::Engine engine;
@@ -185,8 +180,8 @@ public:
             auto msg = err.message();
             return {
                 nullptr,
-                xerrors::Error(
-                    xerrors::VALIDATION,
+                x::errors::Error(
+                    x::errors::VALIDATION,
                     "failed to compile module: " + std::string(msg.data(), msg.size())
                 )
             };
@@ -198,8 +193,8 @@ public:
         if (!mem_opt)
             return {
                 nullptr,
-                xerrors::Error(
-                    xerrors::VALIDATION,
+                x::errors::Error(
+                    x::errors::VALIDATION,
                     "WASM module does not export 'memory'"
                 )
             };
@@ -208,8 +203,8 @@ public:
         if (!mem_ptr)
             return {
                 nullptr,
-                xerrors::Error(
-                    xerrors::VALIDATION,
+                x::errors::Error(
+                    x::errors::VALIDATION,
                     "export 'memory' is not a Memory type"
                 )
             };
@@ -227,7 +222,7 @@ public:
             cfg.bindings->set_memory(&module->memory);
             cfg.bindings->set_store(&module->store);
         }
-        return {module, xerrors::NIL};
+        return {module, x::errors::NIL};
     }
 
     Module(Module &&other) noexcept = default;
@@ -239,12 +234,12 @@ public:
     class Function {
         Module &module;
         wasmtime::Func fn;
-        ir::Params outputs;
+        types::Params outputs;
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
         struct Result {
-            telem::SampleValue value;
+            x::telem::SampleValue value;
             bool changed = false;
         };
         std::vector<Result> output_values;
@@ -253,8 +248,8 @@ public:
         Function(
             Module &module,
             wasmtime::Func fn,
-            const ir::Params &outputs,
-            const ir::Params &inputs,
+            const types::Params &outputs,
+            const types::Params &inputs,
             const uint32_t base
         ):
             module(module), fn(std::move(fn)), outputs(outputs), base(base) {
@@ -267,8 +262,8 @@ public:
             }
         }
 
-        std::pair<std::vector<Result>, xerrors::Error>
-        call(const std::vector<telem::SampleValue> &params) {
+        std::pair<std::vector<Result>, x::errors::Error>
+        call(const std::vector<x::telem::SampleValue> &params) {
             for (auto &[_, changed]: this->output_values)
                 changed = false;
 
@@ -281,18 +276,17 @@ public:
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
                 std::fprintf(stderr, "WASM trap: %s\n", trap_msg.c_str());
-                return {{}, xerrors::Error("WASM execution failed: " + trap_msg)};
+                return {{}, x::errors::Error("WASM execution failed: " + trap_msg)};
             }
 
             const auto results = result.ok();
-
             if (this->base == 0) {
                 if (!this->output_values.empty() && !results.empty())
                     this->output_values[0] = Result{
                         .value = sample_from_wasm(results[0], this->outputs[0].type),
                         .changed = true
                     };
-                return {this->output_values, xerrors::NIL};
+                return {this->output_values, x::errors::NIL};
             }
 
             const auto mem_span = this->module.memory.data(this->module.store);
@@ -300,7 +294,7 @@ public:
             const size_t mem_size = mem_span.size();
 
             if (this->base + sizeof(uint64_t) > mem_size)
-                return {{}, xerrors::Error("base address out of memory bounds")};
+                return {{}, x::errors::Error("base address out of memory bounds")};
 
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
@@ -317,7 +311,7 @@ public:
                 };
             }
 
-            return {this->output_values, xerrors::NIL};
+            return {this->output_values, x::errors::NIL};
         }
     };
 
@@ -327,16 +321,16 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    std::pair<Function, xerrors::Error> func(const std::string &name) {
+    std::pair<Function, x::errors::Error> func(const std::string &name) {
         const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
-        if (!export_opt) return {zero_func, xerrors::NOT_FOUND};
+        if (!export_opt) return {zero_func, x::errors::NOT_FOUND};
 
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
         if (!func_ptr)
             return {
                 zero_func,
-                xerrors::Error(xerrors::VALIDATION, "export is not a function")
+                x::errors::Error(x::errors::VALIDATION, "export is not a function")
             };
 
         const auto &func = this->cfg.module.function(name);
@@ -349,7 +343,7 @@ public:
 
         return {
             Function(*this, *func_ptr, func.outputs, func.inputs, base),
-            xerrors::NIL
+            x::errors::NIL
         };
     }
 };

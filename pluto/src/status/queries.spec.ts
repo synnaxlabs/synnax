@@ -261,7 +261,7 @@ describe("Status queries", () => {
     });
 
     it("should set status with parent", async () => {
-      const parentGroup = await client.ontology.groups.create({
+      const parentGroup = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "Parent Group",
       });

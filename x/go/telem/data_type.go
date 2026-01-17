@@ -16,9 +16,6 @@ import (
 	"github.com/synnaxlabs/x/types"
 )
 
-// DataType is a string that represents a data type.
-type DataType string
-
 // Density returns the density of the given data type. If the data type has no known
 // density, UnknownDensity is returned.
 func (dt DataType) Density() Density {

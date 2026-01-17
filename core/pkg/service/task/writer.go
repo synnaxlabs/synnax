@@ -30,9 +30,9 @@ type Writer struct {
 	status status.Writer[StatusDetails]
 }
 
-func resolveStatus(t *Task, provided *Status) *Status {
+func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
 	if provided == nil {
-		return &Status{
+		return &status.Status[StatusDetails]{
 			Key:     OntologyID(t.Key).String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
@@ -57,8 +57,8 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		}
 		t.Key = NewKey(t.Rack(), localKey)
 	}
-	providedStatus := t.Status // Preserve before clearing for gorp
-	t.Status = nil             // Status stored separately, not in gorp
+	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
+	t.Status = nil                                              // Status stored separately, not in gorp
 	if err := gorp.NewCreate[Key, Task]().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {

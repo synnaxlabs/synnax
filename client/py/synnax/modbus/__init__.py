@@ -20,3 +20,17 @@ from synnax.modbus.types import (
     WriteTask,
     WriteTaskConfig,
 )
+
+__all__ = [
+    "CoilInputChan",
+    "CoilOutputChan",
+    "Device",
+    "DiscreteInputChan",
+    "HoldingRegisterInputChan",
+    "HoldingRegisterOutputChan",
+    "InputRegisterChan",
+    "ReadTask",
+    "ReadTaskConfig",
+    "WriteTask",
+    "WriteTaskConfig",
+]

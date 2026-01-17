@@ -51,11 +51,10 @@ class NoDevice(ConsoleCase):
         rack = client.racks.create(name=rack_name)
         client.devices.create(
             [
-                sy.Device(
+                sy.ni.Device(
                     key="a0e37b26-5401-413e-8e65-c7ad9d9afd70",
                     rack=rack.key,
                     name=dev_name,
-                    make="NI",
                     model=dev_name,
                     location="dev3",
                     identifier="dev3",

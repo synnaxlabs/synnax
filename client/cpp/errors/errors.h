@@ -9,29 +9,29 @@
 
 #pragma once
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 namespace synnax {
-inline xerrors::Error unexpected_missing_error(const std::string &name) {
-    return xerrors::Error(
-        xerrors::UNEXPECTED,
+inline x::errors::Error unexpected_missing_error(const std::string &name) {
+    return x::errors::Error(
+        x::errors::UNEXPECTED,
         "No " + name +
             " returned from server on create. Please report this error to the Synnax team."
     );
 }
 
-inline xerrors::Error
+inline x::errors::Error
 not_found_error(const std::string &resource_name, const std::string &query) {
-    return xerrors::Error(
-        xerrors::NOT_FOUND,
+    return x::errors::Error(
+        x::errors::NOT_FOUND,
         resource_name + " matching " + query + " not found."
     );
 }
 
-inline xerrors::Error
+inline x::errors::Error
 multiple_found_error(const std::string &resource_name, const std::string &query) {
-    return xerrors::Error(
-        xerrors::MULTIPLE_RESULTS,
+    return x::errors::Error(
+        x::errors::MULTIPLE_RESULTS,
         "Multiple " + resource_name + " matching " + query + " not found."
     );
 }

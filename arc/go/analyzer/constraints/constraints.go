@@ -29,14 +29,14 @@ const (
 
 // Constraint represents a type relationship that must hold for successful type checking.
 type Constraint struct {
-	// Source is the AST node that generated this constraint for error reporting.
-	Source antlr.ParserRuleContext
-	// Reason describes why this constraint exists for debugging.
-	Reason string
 	// Left is the first type in the relationship.
 	Left types.Type
 	// Right is the second type in the relationship.
 	Right types.Type
+	// Source is the AST node that generated this constraint for error reporting.
+	Source antlr.ParserRuleContext
+	// Reason describes why this constraint exists for debugging.
+	Reason string
 	// Kind classifies the constraint as equality or compatibility.
 	Kind Kind
 }

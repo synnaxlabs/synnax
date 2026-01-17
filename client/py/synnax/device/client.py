@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Any, overload
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, Payload, UnaryClient, send_required
+from pydantic import BaseModel
 
-from synnax.device.payload import Device
+from synnax import rack as rack_
+from synnax.device.types_gen import Device
 from synnax.exceptions import NotFoundError
 from synnax.util.normalize import check_for_none, normalize, override
 
@@ -59,12 +61,12 @@ class Client:
         *,
         key: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         make: str = "",
         model: str = "",
         configured: bool = False,
-        properties: str = "",
+        properties: Any = None,
     ): ...
 
     @overload
@@ -79,14 +81,18 @@ class Client:
         *,
         key: str = "",
         location: str = "",
-        rack: int = 0,
+        rack: rack_.Key = 0,
         name: str = "",
         make: str = "",
         model: str = "",
         configured: bool = False,
-        properties: str = "",
+        properties: dict[str, Any] | None = None,
     ):
         is_single = not isinstance(devices, list)
+        if properties is None:
+            properties = dict()
+        elif isinstance(properties, BaseModel):
+            properties = properties.model_dump()
         if devices is None:
             devices = [
                 Device(

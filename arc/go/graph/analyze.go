@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/zyn"
@@ -127,7 +127,7 @@ func Analyze(
 						aCtx.Diagnostics.AddError(err, nil)
 						return ir.IR{}, aCtx.Diagnostics
 					}
-					node.Channels.Read.Add(k)
+					node.Channels.Read[k] = ""
 				}
 			}
 			node.Config[j].Value = configValue

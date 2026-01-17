@@ -1,0 +1,63 @@
+load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "api_proto",
+    srcs = [
+        "arc/arc.proto",
+        "auth/auth.proto",
+        "channel/channel.proto",
+        "connectivity/connectivity.proto",
+        "device/device.proto",
+        "framer/framer.proto",
+        "ranger/kv/kv.proto",
+        "rack/rack.proto",
+        "ranger/ranger.proto",
+        "status/status.proto",
+        "task/task.proto",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/go/graph:graph_proto",
+        "//arc/go/ir:ir_proto",
+        "//arc/go/module:module_proto",
+        "//arc/go/text:text_proto",
+        "//core/pkg/api/channel:channel_proto",
+        "//core/pkg/api/ranger:ranger_proto",
+        "//core/pkg/service/arc:arc_proto",
+        "//core/pkg/service/device:device_proto",
+        "//core/pkg/service/rack:rack_proto",
+        "//core/pkg/service/ranger/kv:kv_proto",
+        "//core/pkg/service/task:task_proto",
+        "//x/go/control:control_proto",
+        "//x/go/errors:errors_proto",
+        "//x/go/status:status_proto",
+        "//x/go/telem:telem_proto",
+        "@protobuf//:empty_proto",
+        "@protobuf//:struct_proto",
+    ],
+)
+
+cpp_grpc_library(
+    name = "api_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":api_proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/go/graph:graph_grpc",
+        "//arc/go/ir:ir_grpc",
+        "//arc/go/module:module_grpc",
+        "//arc/go/text:text_grpc",
+        "//core/pkg/api/channel:channel_grpc",
+        "//core/pkg/api/ranger:ranger_grpc",
+        "//core/pkg/service/arc:arc_grpc",
+        "//core/pkg/service/device:device_grpc",
+        "//core/pkg/service/rack:rack_grpc",
+        "//core/pkg/service/ranger/kv:kv_grpc",
+        "//core/pkg/service/task:task_grpc",
+        "//x/go/control:control_grpc",
+        "//x/go/errors:errors_grpc",
+        "//x/go/status:status_grpc",
+        "//x/go/telem:telem_grpc",
+    ],
+)

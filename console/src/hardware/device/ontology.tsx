@@ -19,7 +19,7 @@ import {
   Text,
   Tree,
 } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
+import { errors, type record } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Menu } from "@/components";
@@ -65,10 +65,8 @@ const useHandleChangeIdentifier = () => {
     const resource = getResource(ids[0]);
     handleError(async () => {
       const device = await client.devices.retrieve({ key: resource.id.key });
-      const identifier =
-        typeof device.properties.identifier === "string"
-          ? device.properties.identifier
-          : "";
+      const props = device.properties as record.Unknown;
+      const identifier = typeof props.identifier === "string" ? props.identifier : "";
       try {
         const newIdentifier = await rename(
           { initialValue: identifier, allowEmpty: false, label: "Identifier" },
@@ -80,7 +78,7 @@ const useHandleChangeIdentifier = () => {
         if (newIdentifier == null) return;
         await client.devices.create({
           ...device,
-          properties: { ...device.properties, identifier: newIdentifier },
+          properties: { ...props, identifier: newIdentifier },
         });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;

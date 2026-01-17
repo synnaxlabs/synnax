@@ -22,7 +22,7 @@ var _ = Describe("Writer", func() {
 		It("Should create a LinePlot", func() {
 			plot := lineplot.LinePlot{
 				Name: "test",
-				Data: "data",
+				Data: map[string]any{"key": "data"},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
@@ -30,7 +30,7 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Update", func() {
 		It("Should rename a LinePlot", func() {
-			plot := lineplot.LinePlot{Name: "test", Data: "data"}
+			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, plot.Key, "test2")).To(Succeed())
 			var res lineplot.LinePlot
@@ -40,12 +40,12 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("SetData", func() {
 		It("Should set the data of a LinePlot", func() {
-			plot := lineplot.LinePlot{Name: "test", Data: "data"}
+			plot := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, "data2")).To(Succeed())
+			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res lineplot.LinePlot
 			Expect(gorp.NewRetrieve[uuid.UUID, lineplot.LinePlot]().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Data).To(Equal("data2"))
+			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})
 })

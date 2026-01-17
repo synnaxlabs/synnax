@@ -21,7 +21,7 @@ extern "C" {
 /// internal.
 #include "driver/sequence/plugins/plugins.h"
 
-using json = nlohmann::json;
+using json = x::json::json;
 
 /// @brief it should apply JSON variables as Lua globals.
 TEST(JSONPluginTest, BasicVariableApplication) {
@@ -37,7 +37,7 @@ TEST(JSONPluginTest, BasicVariableApplication) {
     };
 
     plugins::JSON source(test_data);
-    ASSERT_EQ(source.before_all(L), xerrors::NIL);
+    ASSERT_EQ(source.before_all(L), x::errors::NIL);
 
     lua_getglobal(L, "number");
     ASSERT_TRUE(lua_isnumber(L, -1));

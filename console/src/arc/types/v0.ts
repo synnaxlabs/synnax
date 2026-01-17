@@ -48,7 +48,7 @@ export const stateZ = z.object({
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
-  text: arc.textZ,
+  text: arc.text.textZ,
 });
 
 export interface GraphState extends z.infer<typeof graphStateZ> {}
@@ -56,7 +56,7 @@ export interface GraphState extends z.infer<typeof graphStateZ> {}
 export interface State extends z.infer<typeof stateZ> {}
 
 export const copyBufferZ = z.object({
-  pos: xy.xy,
+  pos: xy.xyZ,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(z.unknown()),
   props: z.record(z.string(), z.unknown()),

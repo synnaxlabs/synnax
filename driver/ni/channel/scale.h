@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/ni/channel/units.h"
 #include "driver/ni/daqmx/sugared.h"
@@ -34,9 +34,9 @@ struct Scale {
 
     /// @brief applies the scale to the DAQmx task, returning a key for the scale
     /// and any error that occurred during application.
-    virtual std::pair<std::string, xerrors::Error>
+    virtual std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) {
-        return {"", xerrors::NIL};
+        return {"", x::errors::NIL};
     }
 };
 
@@ -47,7 +47,7 @@ struct BaseScale : Scale {
 
     bool is_none() override { return false; }
 
-    explicit BaseScale(xjson::Parser &cfg):
+    explicit BaseScale(x::json::Parser &cfg):
         type(cfg.field<std::string>("type")),
         scaled_units(cfg.field<std::string>("scaled_units", "Volts")),
         pre_scaled_units(parse_units(cfg, "pre_scaled_units")) {}
@@ -62,12 +62,12 @@ struct LinearScale final : BaseScale {
     /// @brief The y-intercept (b) in the linear equation
     const double offset;
 
-    explicit LinearScale(xjson::Parser &cfg):
+    explicit LinearScale(x::json::Parser &cfg):
         BaseScale(cfg),
         slope(cfg.field<double>("slope")),
         offset(cfg.field<double>("y_intercept")) {}
 
-    std::pair<std::string, xerrors::Error>
+    std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
@@ -96,14 +96,14 @@ struct MapScale final : BaseScale {
     /// @brief Maximum value in the scaled range
     const double scaled_max;
 
-    explicit MapScale(xjson::Parser &cfg):
+    explicit MapScale(x::json::Parser &cfg):
         BaseScale(cfg),
         pre_scaled_min(cfg.field<double>("pre_scaled_min")),
         pre_scaled_max(cfg.field<double>("pre_scaled_max")),
         scaled_min(cfg.field<double>("scaled_min")),
         scaled_max(cfg.field<double>("scaled_max")) {}
 
-    std::pair<std::string, xerrors::Error>
+    std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
@@ -140,7 +140,7 @@ struct PolynomialScale final : BaseScale {
     /// @brief Number of points used to compute reverse coefficients
     const size_t num_points_to_compute;
 
-    explicit PolynomialScale(xjson::Parser &cfg):
+    explicit PolynomialScale(x::json::Parser &cfg):
         BaseScale(cfg),
         forward_coeffs(cfg.field<std::vector<double>>("forward_coeffs")),
         min_x(cfg.field<double>("min_x")),
@@ -148,7 +148,7 @@ struct PolynomialScale final : BaseScale {
         reverse_poly_order(cfg.field<int>("poly_order", -1)),
         num_points_to_compute(cfg.field<size_t>("num_points_to_compute", 100)) {}
 
-    std::pair<std::string, xerrors::Error>
+    std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         std::vector<double> reverse_coeffs(this->forward_coeffs.size());
@@ -186,7 +186,7 @@ struct TableScale final : BaseScale {
     /// @brief Output values for the lookup table
     const std::vector<double> scaled;
 
-    explicit TableScale(xjson::Parser &cfg):
+    explicit TableScale(x::json::Parser &cfg):
         BaseScale(cfg),
         pre_scaled(cfg.field<std::vector<double>>("pre_scaled")),
         scaled(cfg.field<std::vector<double>>("scaled")) {
@@ -197,7 +197,7 @@ struct TableScale final : BaseScale {
         );
     }
 
-    std::pair<std::string, xerrors::Error>
+    std::pair<std::string, x::errors::Error>
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx) override {
         auto key = next_scale_key();
         return {
@@ -220,7 +220,7 @@ struct TableScale final : BaseScale {
 /// @param path The path to the scale configuration within the parent
 /// @return A unique pointer to the created Scale object
 inline std::unique_ptr<Scale>
-parse_scale(const xjson::Parser &parent_cfg, const std::string &path) {
+parse_scale(const x::json::Parser &parent_cfg, const std::string &path) {
     auto cfg = parent_cfg.child(path);
     const auto type = cfg.field<std::string>("type");
     if (type == "linear") return std::make_unique<LinearScale>(cfg);

@@ -69,10 +69,10 @@ var _ = Describe("Analyzer Integration", func() {
 
 	Describe("Type Unification Results", func() {
 		type unificationCase struct {
+			expectedType types.Type
 			source       string
 			funcName     string
 			varName      string
-			expectedType types.Type
 		}
 
 		DescribeTable("literal type inference",

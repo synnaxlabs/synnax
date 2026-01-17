@@ -10,8 +10,8 @@
 package text
 
 import (
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/diagnostics"
 )
 
 // Parse parses Arc source code into an AST.

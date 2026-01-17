@@ -60,11 +60,10 @@ class NIAnalogWriteForms(ConsoleCase):
         rack = self.client.racks.create(name=rack_name)
         self.client.devices.create(
             [
-                sy.Device(
-                    key=f"130227d7-02cc-4733-b370-0d590add1bc4",
+                sy.ni.Device(
+                    key="130227d7-02cc-4733-b370-0d590add1bc4",
                     rack=rack.key,
                     name=device_name,
-                    make="NI",
                     model="NI 9229",
                     location=device_name,
                     identifier=f"{device_name}Mod1",

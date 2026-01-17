@@ -13,7 +13,7 @@ import { box } from "@/spatial/box";
 import { location } from "@/spatial/location";
 import { xy as base } from "@/spatial/xy";
 
-export const completeXY = base.xy.extend({
+export const completeXY = base.xyZ.extend({
   root: location.corner,
   units: z.object({
     x: z.enum(["px", "decimal"]),

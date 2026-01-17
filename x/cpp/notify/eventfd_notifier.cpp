@@ -15,7 +15,7 @@
 
 #include "x/cpp/notify/notify.h"
 
-namespace notify {
+namespace x::notify {
 
 class EventFDNotifier final : public Notifier {
     int event_fd = -1;

@@ -67,7 +67,7 @@ export const ZERO_STATE: State = {
 };
 
 export const copyBufferZ = z.object({
-  pos: xy.xy,
+  pos: xy.xyZ,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(Diagram.edgeZ),
   props: z.record(z.string(), nodePropsZ),

@@ -11,15 +11,15 @@
 
 #include <string>
 
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xlib/xlib.h"
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/lib/lib.h"
 
 namespace driver {
-const xerrors::Error BASE_ERROR = xerrors::SY.sub("driver");
-const xerrors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
-const xerrors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
-const xerrors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
-const xerrors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
+const x::errors::Error BASE_ERROR = x::errors::SY.sub("driver");
+const x::errors::Error HARDWARE_ERROR = BASE_ERROR.sub("hardware");
+const x::errors::Error CRITICAL_HARDWARE_ERROR = HARDWARE_ERROR.sub("critical");
+const x::errors::Error TEMPORARY_HARDWARE_ERROR = HARDWARE_ERROR.sub("temporary");
+const x::errors::Error CONFIGURATION_ERROR = BASE_ERROR.sub("configuration");
 
 /// Vendor library definitions
 struct LibraryInfo {
@@ -28,24 +28,24 @@ struct LibraryInfo {
 };
 
 /// Standardized missing library error
-inline xerrors::Error missing_lib(const LibraryInfo &lib) {
+inline x::errors::Error missing_lib(const LibraryInfo &lib) {
     std::string message = lib.name + " library is not installed.";
     if (!lib.url.empty()) {
         message += " Download here: " + lib.url +
                    ". Restart Driver after installation.";
     }
-    return xerrors::Error(xlib::LOAD_ERROR, message);
+    return x::errors::Error(x::lib::ERR_LOAD, message);
 }
 
 /// @brief wraps an error with channel name and hardware location context for easier
 /// debugging. The hardware location is integration-specific (e.g., node_id for OPC UA,
 /// port for LabJack, physical_channel for NI, address for Modbus).
-inline xerrors::Error wrap_channel_error(
-    const xerrors::Error &err,
+inline x::errors::Error wrap_channel_error(
+    const x::errors::Error &err,
     const std::string &channel_name,
     const std::string &hardware_location
 ) {
-    return xerrors::Error(
+    return x::errors::Error(
         err,
         channel_name + " (" + hardware_location + "): " + err.data
     );

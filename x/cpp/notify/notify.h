@@ -13,14 +13,14 @@
 
 #include "x/cpp/telem/telem.h"
 
-namespace notify {
+namespace x::notify {
 
 struct Notifier {
     virtual ~Notifier() = default;
 
     virtual void signal() = 0;
 
-    virtual bool wait(telem::TimeSpan timeout = telem::TimeSpan::max()) = 0;
+    virtual bool wait(x::telem::TimeSpan timeout = x::telem::TimeSpan::max()) = 0;
 
     virtual bool poll() = 0;
 

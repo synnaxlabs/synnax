@@ -1,5 +1,0 @@
-cc_library(
-    name = "xos",
-    hdrs = ["xos.h"],
-    visibility = ["//visibility:public"],
-)

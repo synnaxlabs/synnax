@@ -17,14 +17,20 @@ const client = createTestClient();
 describe("Label", () => {
   describe("create", () => {
     it("should create a label", async () => {
-      const v = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const v = await client.labels.create({
+        name: "Label",
+        color: "#E774D0",
+      });
       expect(v.key).not.toHaveLength(0);
     });
   });
 
   describe("retrieve", () => {
     it("should retrieve a label by its key", async () => {
-      const v = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const v = await client.labels.create({
+        name: "Label",
+        color: "#E774D0",
+      });
       const retrieved = await client.labels.retrieve({ key: v.key });
       expect(retrieved).toEqual(v);
     });
@@ -32,7 +38,10 @@ describe("Label", () => {
 
   describe("delete", () => {
     it("should delete a label by its key", async () => {
-      const v = await client.labels.create({ name: "Label", color: "#E774D0" });
+      const v = await client.labels.create({
+        name: "Label",
+        color: "#E774D0",
+      });
       await client.labels.delete(v.key);
       await expect(
         async () => await client.labels.retrieve({ key: v.key }),
@@ -42,16 +51,28 @@ describe("Label", () => {
 
   describe("label", () => {
     it("should set a label on an item", async () => {
-      const l1 = await client.labels.create({ name: "Label One", color: "#E774D)" });
-      const l2 = await client.labels.create({ name: "Label Two", color: "#E774D)" });
+      const l1 = await client.labels.create({
+        name: "Label One",
+        color: "#E774D0",
+      });
+      const l2 = await client.labels.create({
+        name: "Label Two",
+        color: "#E774D0",
+      });
       await client.labels.label(label.ontologyID(l1.key), [l2.key]);
       const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });
       expect(labels).toHaveLength(1);
       expect(labels[0].key).toEqual(l2.key);
     });
     it("should replace the labels on an item", async () => {
-      const l1 = await client.labels.create({ name: "Label One", color: "#E774D)" });
-      const l2 = await client.labels.create({ name: "Label Two", color: "#E774D)" });
+      const l1 = await client.labels.create({
+        name: "Label One",
+        color: "#E774D0",
+      });
+      const l2 = await client.labels.create({
+        name: "Label Two",
+        color: "#E774D0",
+      });
       await client.labels.label(label.ontologyID(l1.key), [l2.key]);
       await client.labels.label(label.ontologyID(l1.key), [l1.key], { replace: true });
       const labels = await client.labels.retrieve({ for: label.ontologyID(l1.key) });

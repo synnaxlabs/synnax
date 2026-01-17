@@ -1,0 +1,201 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include "gtest/gtest.h"
+
+#include "x/cpp/env/env.h"
+
+namespace x::env {
+class EnvTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        set("TEST_STRING", "hello");
+        set("TEST_INT", "42");
+        set("TEST_FLOAT", "3.14");
+        set("TEST_INVALID_NUM", "not_a_number");
+        set("TEST_UINT16", "65000");
+    }
+
+    void TearDown() override {
+        unset("TEST_STRING");
+        unset("TEST_INT");
+        unset("TEST_FLOAT");
+        unset("TEST_INVALID_NUM");
+        unset("TEST_UINT16");
+    }
+};
+
+/// @brief it should load string values from environment variables.
+TEST_F(EnvTest, LoadString) {
+    EXPECT_EQ(load("TEST_STRING", std::string("default")), "hello");
+    EXPECT_EQ(load("NONEXISTENT_VAR", std::string("default")), "default");
+}
+
+/// @brief it should load integer values from environment variables.
+TEST_F(EnvTest, LoadInt) {
+    EXPECT_EQ(load("TEST_INT", 0), 42);
+    EXPECT_EQ(load("NONEXISTENT_VAR", 100), 100);
+    EXPECT_EQ(load("TEST_INVALID_NUM", 100), 100);
+}
+
+/// @brief it should load float values from environment variables.
+TEST_F(EnvTest, LoadFloat) {
+    EXPECT_FLOAT_EQ(load("TEST_FLOAT", 0.0f), 3.14f);
+    EXPECT_FLOAT_EQ(load("NONEXISTENT_VAR", 1.5f), 1.5f);
+    EXPECT_FLOAT_EQ(load("TEST_INVALID_NUM", 1.5f), 1.5f);
+}
+
+/// @brief it should load double values from environment variables.
+TEST_F(EnvTest, LoadDouble) {
+    EXPECT_DOUBLE_EQ(load("TEST_FLOAT", 0.0), 3.14);
+    EXPECT_DOUBLE_EQ(load("NONEXISTENT_VAR", 1.5), 1.5);
+    EXPECT_DOUBLE_EQ(load("TEST_INVALID_NUM", 1.5), 1.5);
+}
+
+/// @brief it should load long values from environment variables.
+TEST_F(EnvTest, LoadLong) {
+    EXPECT_EQ(load("TEST_INT", 0L), 42L);
+    EXPECT_EQ(load("NONEXISTENT_VAR", 100L), 100L);
+    EXPECT_EQ(load("TEST_INVALID_NUM", 100L), 100L);
+}
+
+/// @brief it should load uint16 values from environment variables.
+TEST_F(EnvTest, LoadUInt16) {
+    EXPECT_EQ(
+        load("TEST_UINT16", static_cast<uint16_t>(0)),
+        static_cast<uint16_t>(65000)
+    );
+    EXPECT_EQ(
+        load("NONEXISTENT_VAR", static_cast<uint16_t>(100)),
+        static_cast<uint16_t>(100)
+    );
+    EXPECT_EQ(
+        load("TEST_INVALID_NUM", static_cast<uint16_t>(100)),
+        static_cast<uint16_t>(100)
+    );
+}
+
+/// @brief it should load boolean values with true as default.
+TEST_F(EnvTest, LoadBooleanTrueDefault) {
+    set("TEST_BOOL_TRUE", "true");
+    EXPECT_EQ(load("TEST_BOOL_TRUE", false), true);
+
+    set("TEST_BOOL_ONE", "1");
+    EXPECT_EQ(load("TEST_BOOL_ONE", false), true);
+
+    set("TEST_BOOL_ZERO", "0");
+    EXPECT_EQ(load("TEST_BOOL_ZERO", true), false);
+
+    set("TEST_BOOL_FALSE", "false");
+    EXPECT_EQ(load("TEST_BOOL_FALSE", true), false);
+}
+
+/// @brief it should load boolean values with false as default.
+TEST_F(EnvTest, LoadBooleanFalseDefault) {
+    set("TEST_BOOL_TRUE", "true");
+    EXPECT_EQ(load("TEST_BOOL_TRUE", true), true);
+
+    set("TEST_BOOL_ONE", "1");
+    EXPECT_EQ(load("TEST_BOOL_ONE", true), true);
+
+    set("TEST_BOOL_ZERO", "0");
+    EXPECT_EQ(load("TEST_BOOL_ZERO", false), false);
+
+    set("TEST_BOOL_FALSE", "false");
+    EXPECT_EQ(load("TEST_BOOL_FALSE", false), false);
+}
+
+/// @brief it should automatically convert variable names to screaming case.
+TEST_F(EnvTest, AutomaticCaseConversion) {
+    set("HELLO_WORLD", "test_value");
+    set("ANOTHER_TEST_VAR", "42");
+
+    // Should work with snake_case input
+    EXPECT_EQ(load("hello_world", std::string("default")), "test_value");
+    EXPECT_EQ(load("another_test_var", 0), 42);
+
+    // Should also work with already screaming case
+    EXPECT_EQ(load("HELLO_WORLD", std::string("default")), "test_value");
+    EXPECT_EQ(load("ANOTHER_TEST_VAR", 0), 42);
+
+    unset("HELLO_WORLD");
+    unset("ANOTHER_TEST_VAR");
+}
+
+/// @brief it should handle mixed case variable names correctly.
+TEST_F(EnvTest, CaseConversionWithMixedCase) {
+    set("MIXED_CASE_VALUE", "success");
+
+    EXPECT_EQ(load("mixed_case_value", std::string("default")), "success");
+    EXPECT_EQ(load("MIXED_CASE_VALUE", std::string("default")), "success");
+    EXPECT_EQ(load("Mixed_Case_Value", std::string("default")), "success");
+
+    unset("MIXED_CASE_VALUE");
+}
+
+/// @brief it should support prefixed environment variable loading.
+TEST_F(EnvTest, ParserWithPrefix) {
+    set("APP_TEST_STRING", "prefixed");
+    set("APP_TEST_INT", "123");
+
+    // Test with prefix without underscore
+    Parser parser("app");
+    EXPECT_EQ(parser.field("test_string", std::string("default")), "prefixed");
+    EXPECT_EQ(parser.field("test_int", 0), 123);
+    EXPECT_EQ(parser.field("nonexistent", std::string("default")), "default");
+
+    // Test with prefix with underscore
+    Parser parser2("app_");
+    EXPECT_EQ(parser2.field("test_string", std::string("default")), "prefixed");
+    EXPECT_EQ(parser2.field("test_int", 0), 123);
+
+    unset("APP_TEST_STRING");
+    unset("APP_TEST_INT");
+}
+
+/// @brief it should handle mixed case prefixes correctly.
+TEST_F(EnvTest, ParserWithMixedCasePrefix) {
+    set("MY_APP_TEST_VALUE", "mixed_case_prefix");
+
+    // Test different prefix case styles - all should access the same env var
+    const Parser parser1("my_app");
+    const Parser parser2("MY_APP");
+    const Parser parser3("My_App");
+
+    EXPECT_EQ(parser1.field("test_value", std::string("default")), "mixed_case_prefix");
+    EXPECT_EQ(parser2.field("test_value", std::string("default")), "mixed_case_prefix");
+    EXPECT_EQ(parser3.field("test_value", std::string("default")), "mixed_case_prefix");
+
+    unset("MY_APP_TEST_VALUE");
+}
+
+/// @brief it should work correctly with an empty prefix.
+TEST_F(EnvTest, EmptyPrefix) {
+    // Ensure empty prefix works the same as the global load function
+    const Parser parser("");
+    EXPECT_EQ(parser.field("TEST_STRING", std::string("default")), "hello");
+    EXPECT_EQ(parser.field("TEST_INT", 0), 42);
+    EXPECT_EQ(parser.field("NONEXISTENT_VAR", std::string("default")), "default");
+}
+
+/// @brief it should support multiple parser instances with different prefixes.
+TEST_F(EnvTest, MultipleParserInstances) {
+    set("APP1_VALUE", "first");
+    set("APP2_VALUE", "second");
+
+    const Parser parser1("app1");
+    const Parser parser2("app2");
+
+    EXPECT_EQ(parser1.field("value", std::string("default")), "first");
+    EXPECT_EQ(parser2.field("value", std::string("default")), "second");
+
+    unset("APP1_VALUE");
+    unset("APP2_VALUE");
+}
+}

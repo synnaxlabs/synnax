@@ -1,0 +1,27 @@
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_proto_compile")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_compile")
+
+proto_library(
+    name = "service_proto",
+    srcs = ["service.proto"],
+    visibility = ["//visibility:public"],
+)
+
+cpp_grpc_library(
+    name = "service_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":service_proto"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "server",
+    srcs = [],
+    hdrs = ["server.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//freighter/cpp/grpc",
+        "//freighter/cpp/grpc/mock:service_grpc",
+    ],
+)

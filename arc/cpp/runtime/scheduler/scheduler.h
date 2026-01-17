@@ -17,7 +17,7 @@
 
 #include "glog/logging.h"
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
@@ -116,7 +116,7 @@ public:
     Scheduler &operator=(const Scheduler &) = delete;
 
     /// @brief Advances the scheduler by executing global and stage strata.
-    void next(const telem::TimeSpan elapsed) {
+    void next(const x::telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
         // Reset execution context for global strata (no active sequence/stage)
         this->curr_seq_idx = std::string::npos;
@@ -165,7 +165,7 @@ private:
     }
 
     /// @brief Logs an error reported by a node.
-    static void report_error(const xerrors::Error &e) {
+    static void report_error(const x::errors::Error &e) {
         LOG(ERROR) << "[arc] node encountered error: " << e;
     }
 

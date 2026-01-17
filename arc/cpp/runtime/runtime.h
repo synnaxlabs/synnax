@@ -16,7 +16,7 @@
 
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/xthread/xthread.h"
+#include "x/cpp/thread/thread.h"
 
 #include "arc/cpp/runtime/constant/constant.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -33,8 +33,8 @@
 namespace arc::runtime {
 struct Config {
     module::Module mod;
-    breaker::Config breaker;
-    std::function<std::pair<std::vector<state::ChannelDigest>, xerrors::Error>(
+    x::breaker::Config breaker;
+    std::function<std::pair<std::vector<state::ChannelDigest>, x::errors::Error>(
         const std::vector<types::ChannelKey> &
     )>
         retrieve_channels;
@@ -43,16 +43,16 @@ struct Config {
 };
 
 class Runtime {
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
     std::thread run_thread;
     std::shared_ptr<wasm::Module> mod;
     std::shared_ptr<wasm::Bindings> bindings;
     std::shared_ptr<state::State> state;
     std::unique_ptr<scheduler::Scheduler> scheduler;
     std::unique_ptr<loop::Loop> loop;
-    queue::SPSC<telem::Frame> inputs;
-    queue::SPSC<telem::Frame> outputs;
-    telem::TimeStamp start_time = telem::TimeStamp(0);
+    x::queue::SPSC<x::telem::Frame> inputs;
+    x::queue::SPSC<x::telem::Frame> outputs;
+    x::telem::TimeStamp start_time = x::telem::TimeStamp(0);
 
 public:
     std::vector<types::ChannelKey> read_channels;
@@ -73,28 +73,28 @@ public:
         state(std::move(state)),
         scheduler(std::move(scheduler)),
         loop(std::move(loop)),
-        inputs(queue::SPSC<telem::Frame>(cfg.input_queue_capacity)),
-        outputs(queue::SPSC<telem::Frame>(cfg.output_queue_capacity)),
+        inputs(x::queue::SPSC<x::telem::Frame>(cfg.input_queue_capacity)),
+        outputs(x::queue::SPSC<x::telem::Frame>(cfg.output_queue_capacity)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
     void run() {
-        this->start_time = telem::TimeStamp::now();
-        xthread::set_name("runtime");
+        this->start_time = x::telem::TimeStamp::now();
+        x::thread::set_name("runtime");
         this->loop->start();
         if (!this->loop->watch(this->inputs.notifier()))
             LOG(ERROR) << "[runtime] Failed to watch input notifier";
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
-            telem::Frame frame;
+            x::telem::Frame frame;
             bool first = true;
             while (this->inputs.try_pop(frame) || first) {
                 first = false;
                 this->state->ingest(frame);
-                const auto elapsed = telem::TimeStamp::now() - this->start_time;
+                const auto elapsed = x::telem::TimeStamp::now() - this->start_time;
                 this->scheduler->next(elapsed);
                 if (auto writes = this->state->flush(); !writes.empty()) {
-                    telem::Frame out_frame(writes.size());
+                    x::telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
                         out_frame.emplace(key, series->deep_copy());
                     this->outputs.push(std::move(out_frame));
@@ -123,16 +123,16 @@ public:
         return true;
     }
 
-    xerrors::Error write(telem::Frame frame) {
+    x::errors::Error write(x::telem::Frame frame) {
         if (!this->inputs.push(std::move(frame)))
-            return xerrors::Error("runtime closed");
-        return xerrors::NIL;
+            return x::errors::Error("runtime closed");
+        return x::errors::NIL;
     }
 
-    bool read(telem::Frame &frame) { return this->outputs.pop(frame); }
+    bool read(x::telem::Frame &frame) { return this->outputs.pop(frame); }
 };
 
-inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
+inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &cfg) {
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.mod.nodes) {
@@ -201,7 +201,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     auto [loop, err] = loop::create(
         loop::Config{
             .mode = mode,
-            .interval = has_intervals ? timing_interval : telem::TimeSpan(0),
+            .interval = has_intervals ? timing_interval : x::telem::TimeSpan(0),
             .rt_priority = 47,
             .cpu_affinity = -1,
         }
@@ -219,7 +219,7 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
             std::vector(reads.begin(), reads.end()),
             std::vector(writes.begin(), writes.end())
         ),
-        xerrors::NIL
+        x::errors::NIL
     };
 }
 

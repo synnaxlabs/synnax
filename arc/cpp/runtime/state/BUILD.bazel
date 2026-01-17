@@ -9,9 +9,9 @@ cc_library(
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [
         "//arc/cpp/ir",
+        "//x/cpp/errors",
+        "//x/cpp/mem",
         "//x/cpp/telem",
-        "//x/cpp/xerrors",
-        "//x/cpp/xmemory",
         "@glog",
     ],
 )
@@ -23,7 +23,7 @@ cc_test(
     ],
     deps = [
         ":state",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

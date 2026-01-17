@@ -118,7 +118,7 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
   const cellRef = useSyncedRef(cell?.key);
   const dispatchSync = useSyncComponent(tableKey);
   const handleChange = useCallback(
-    ({ values }: Form.OnChangeArgs<typeof record.unknownZ>) => {
+    ({ values }: Form.OnChangeArgs<ReturnType<typeof record.unknownZ>>) => {
       dispatchSync(
         setCellProps({
           key: tableRef.current,
@@ -129,15 +129,15 @@ const CellForm = ({ tableKey, cell, onVariantChange }: CellFormProps): ReactElem
     },
     [],
   );
-  const methods = Form.use<typeof record.unknownZ>({
+  const methods = Form.use<ReturnType<typeof record.unknownZ>>({
     values: deep.copy(cell.props),
-    schema: record.unknownZ,
+    schema: record.unknownZ(),
     onChange: handleChange,
     sync: true,
   });
   const F = TableCells.CELLS[cell.variant].Form;
   return (
-    <Form.Form<typeof record.unknownZ> {...methods}>
+    <Form.Form<ReturnType<typeof record.unknownZ>> {...methods}>
       <F onVariantChange={onVariantChange} />
     </Form.Form>
   );

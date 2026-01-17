@@ -546,8 +546,8 @@ inactive, they don't.
 **Two edge types**:
 
 - `->` (Continuous): Reactive flow that runs while the stage is active
-- `=>` (OneShot): Fires once when condition becomes true, then doesn't fire again until
-  stage is re-entered
+- `=>` (EdgeKindOneShot): Fires once when condition becomes true, then doesn't fire
+  again until stage is re-entered
 
 ### Sequence Syntax
 
@@ -556,11 +556,11 @@ SequenceDeclaration ::= 'sequence' Identifier '{' StageDeclaration+ '}'
 
 StageDeclaration ::= 'stage' Identifier '{' StageItem* '}'
 
-StageItem ::= ReactiveFlow | OneShotTransition
+StageItem ::= ReactiveFlow | EdgeKindOneShotTransition
 
 ReactiveFlow ::= Expression '->' FlowTarget
 
-OneShotTransition ::= Expression '=>' TransitionTarget
+EdgeKindOneShotTransition ::= Expression '=>' TransitionTarget
 ```
 
 ### Example

@@ -16,6 +16,8 @@ linters:
             - []
             - []
             - - skip-package-name-checks: true
+  exclusions:
+    generated: lax
 
 run:
   build-tags:

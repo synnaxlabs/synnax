@@ -1,0 +1,33 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output  "x/ts/src/color"
+@py output  "client/py/synnax/color"
+@go output  "x/go/color"
+@cpp output "x/cpp/color"
+@pb
+
+Color struct {
+    r uint8   {
+        @doc value "is the red component (0-255)."
+    }
+    g uint8   {
+        @doc value "is the green component (0-255)."
+    }
+    b uint8   {
+        @doc value "is the blue component (0-255)."
+    }
+    a float64 {
+        @doc value "is the alpha component (0-1)."
+    }
+
+    @doc value "is an RGBA color with RGB as 0-255 and alpha as 0-1."
+    @ts omit
+    @py name   "Payload"
+}
