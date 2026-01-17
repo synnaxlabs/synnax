@@ -26,9 +26,7 @@ import (
 )
 
 var _ = Describe("OperationSender", func() {
-	var (
-		net *fmock.Network[gossip.Message, gossip.Message]
-	)
+	var net *fmock.Network[gossip.Message, gossip.Message]
 	BeforeEach(func() {
 		net = fmock.NewNetwork[gossip.Message, gossip.Message]()
 	})

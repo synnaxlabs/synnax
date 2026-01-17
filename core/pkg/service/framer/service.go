@@ -59,8 +59,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -117,7 +117,7 @@ func (s *Service) Close() error {
 }
 
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

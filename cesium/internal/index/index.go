@@ -26,15 +26,15 @@ import (
 // time range.
 var ErrDiscontinuous = errors.New("discontinuous")
 
-func NewErrDiscontinuousTR(tr telem.TimeRange) error {
+func NewDiscontinuousTRError(tr telem.TimeRange) error {
 	return errors.Wrapf(ErrDiscontinuous, "the time range %s is not continuous in the index", tr)
 }
 
-func NewErrDiscontinuousOffset(offset int64, domainLen int64) error {
+func NewDiscontinuousOffsetError(offset int64, domainLen int64) error {
 	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
 }
 
-func NewErrDiscontinuousStamp(stamp telem.TimeStamp) error {
+func NewDiscontinuousStampError(stamp telem.TimeStamp) error {
 	return errors.Wrapf(ErrDiscontinuous, "the timestamp %s does not exist in the index", stamp)
 }
 

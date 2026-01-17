@@ -63,7 +63,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannel(key)
-						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -425,7 +425,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannels([]cesium.ChannelKey{key})
-						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})

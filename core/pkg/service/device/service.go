@@ -84,7 +84,7 @@ func (c ServiceConfig) Validate() error {
 	return v.Error()
 }
 
-var DefaultConfig = ServiceConfig{}
+var DefaultServiceConfig = ServiceConfig{}
 
 // Service is the main entrypoint for managing devices within Synnax. It provides
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
@@ -100,7 +100,7 @@ type Service struct {
 // is nil, the service is ready for use and must be closed by calling Close to
 // prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
 	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	existingKeys := make(map[string]bool)

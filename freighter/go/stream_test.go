@@ -246,7 +246,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(client.CloseSend()).To(Succeed())
 						err = client.Send(request{ID: 0, Message: "Hello"})
-						Expect(err).To(HaveOccurredAs(freighter.StreamClosed))
+						Expect(err).To(HaveOccurredAs(freighter.ErrStreamClosed))
 
 						_, err = client.Receive()
 

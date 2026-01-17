@@ -82,15 +82,15 @@ func (r Retrieve) ExcludeFieldData(excludeFieldData bool) Retrieve {
 type Direction uint8
 
 const (
-	// Forward represents a forward traversal i.e. Start -> To.
-	Forward Direction = iota + 1
-	// Backward represents a backward traversal i.e. To -> Start.
-	Backward Direction = 2
+	// DirectionForward represents a forward traversal i.e. Start -> To.
+	DirectionForward Direction = iota + 1
+	// DirectionBackward represents a backward traversal i.e. To -> Start.
+	DirectionBackward Direction = 2
 )
 
 // GetID returns the directional ID of the relationship.
 func (d Direction) GetID(rel *Relationship) ID {
-	return lo.Ternary(d == Forward, rel.To, rel.From)
+	return lo.Ternary(d == DirectionForward, rel.To, rel.From)
 }
 
 // Traverser is a struct that defines the traversal of a relationship between entities
@@ -107,22 +107,22 @@ type Traverser struct {
 }
 
 var (
-	// Parents traverses to the parents of a resource.
-	Parents = Traverser{
+	// ParentsTraverser traverses to the parents of a resource.
+	ParentsTraverser = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == ParentOf && rel.To == res.ID
+			return rel.Type == RelationshipTypeParentOf && rel.To == res.ID
 		},
-		Direction: Backward,
+		Direction: DirectionBackward,
 	}
-	// Children traverse to the children of a resource.
-	Children = Traverser{
+	// ChildrenTraverser traverse to the children of a resource.
+	ChildrenTraverser = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == ParentOf && rel.From == res.ID
+			return rel.Type == RelationshipTypeParentOf && rel.From == res.ID
 		},
-		Direction: Forward,
+		Direction: DirectionForward,
 		Prefix:    childrenPrefix,
 	}
-	childrenPrefixSuffix = []byte("->" + string(ParentOf) + "->")
+	childrenPrefixSuffix = []byte("->" + string(RelationshipTypeParentOf) + "->")
 )
 
 func childrenPrefix(id ID) []byte {
@@ -252,7 +252,7 @@ func (r Retrieve) retrieveEntities(
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
 			if !entries.IsMultiple() {
-				return res, false, query.NotFound
+				return res, false, query.ErrNotFound
 			}
 			return res, false, nil
 		}
@@ -260,7 +260,7 @@ func (r Retrieve) retrieveEntities(
 			return res, true, nil
 		}
 		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
-		if errors.Is(err, query.NotFound) && entries.IsMultiple() {
+		if errors.Is(err, query.ErrNotFound) && entries.IsMultiple() {
 			return res, false, nil
 		}
 		if excludeFieldData {

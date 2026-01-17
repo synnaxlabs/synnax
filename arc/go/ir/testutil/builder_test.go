@@ -68,7 +68,7 @@ var _ = Describe("IRBuilder", func() {
 				Build()
 
 			Expect(prog.Edges).To(HaveLen(1))
-			Expect(prog.Edges[0].Kind).To(Equal(ir.Continuous))
+			Expect(prog.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
 			Expect(prog.Edges[0].Source).To(Equal(ir.Handle{Node: "A", Param: "out"}))
 			Expect(prog.Edges[0].Target).To(Equal(ir.Handle{Node: "B", Param: "in"}))
 		})
@@ -81,7 +81,7 @@ var _ = Describe("IRBuilder", func() {
 				Build()
 
 			Expect(prog.Edges).To(HaveLen(1))
-			Expect(prog.Edges[0].Kind).To(Equal(ir.OneShot))
+			Expect(prog.Edges[0].Kind).To(Equal(ir.EdgeKindOneShot))
 		})
 	})
 })

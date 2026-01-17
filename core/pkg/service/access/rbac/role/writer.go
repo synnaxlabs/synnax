@@ -36,7 +36,7 @@ func (w Writer) Create(
 		r.Key = uuid.New()
 	}
 	if r.Internal && !w.allowInternal {
-		return errors.Wrap(validate.Error, "cannot create internal role")
+		return errors.Wrap(validate.ErrValidation, "cannot create internal role")
 	}
 	if err := gorp.NewCreate[uuid.UUID, Role]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
@@ -44,7 +44,7 @@ func (w Writer) Create(
 	if err := w.otg.DefineResource(ctx, OntologyID(r.Key)); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, r.OntologyID())
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, r.OntologyID())
 }
 
 // Delete removes a role from the database. It will fail if the role is builtin
@@ -52,7 +52,7 @@ func (w Writer) Create(
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	return gorp.NewDelete[uuid.UUID, Role]().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
 		if r.Internal && !w.allowInternal {
-			return errors.Wrap(validate.Error, "cannot delete builtin role")
+			return errors.Wrap(validate.ErrValidation, "cannot delete builtin role")
 		}
 		return nil
 	}).Exec(ctx, w.tx)
@@ -66,7 +66,7 @@ func (w Writer) AssignRole(
 	subject ontology.ID,
 	roleKey uuid.UUID,
 ) error {
-	return w.otg.DefineRelationship(ctx, OntologyID(roleKey), ontology.ParentOf, subject)
+	return w.otg.DefineRelationship(ctx, OntologyID(roleKey), ontology.RelationshipTypeParentOf, subject)
 }
 
 // UnassignRole removes a role from a subject by deleting the ontology relationship.
@@ -76,5 +76,5 @@ func (w Writer) UnassignRole(
 	subject ontology.ID,
 	roleKey uuid.UUID,
 ) error {
-	return w.otg.DeleteRelationship(ctx, OntologyID(roleKey), ontology.ParentOf, subject)
+	return w.otg.DeleteRelationship(ctx, OntologyID(roleKey), ontology.RelationshipTypeParentOf, subject)
 }

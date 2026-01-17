@@ -56,12 +56,12 @@ var _ = Describe("PebbleKV", func() {
 			Expect(closer.Close()).To(Succeed())
 
 			_, closer, err = db.Get(ctx, []byte("non-existent"))
-			Expect(err).To(Equal(kv.NotFound))
+			Expect(err).To(Equal(kv.ErrNotFound))
 			Expect(closer).To(BeNil())
 
 			Expect(db.Delete(ctx, key)).To(Succeed())
 			_, closer, err = db.Get(ctx, key)
-			Expect(err).To(Equal(kv.NotFound))
+			Expect(err).To(Equal(kv.ErrNotFound))
 			Expect(closer).To(BeNil())
 		})
 
@@ -85,7 +85,7 @@ var _ = Describe("PebbleKV", func() {
 			Expect(tx.Close()).To(Succeed())
 
 			_, closer, err = db.Get(ctx, rollbackKey)
-			Expect(err).To(Equal(kv.NotFound))
+			Expect(err).To(Equal(kv.ErrNotFound))
 			Expect(closer).To(BeNil())
 		})
 
@@ -95,7 +95,7 @@ var _ = Describe("PebbleKV", func() {
 			value := []byte("abc-tx-value")
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
 			v, closer, err := db.Get(ctx, key)
-			Expect(err).To(HaveOccurredAs(kv.NotFound))
+			Expect(err).To(HaveOccurredAs(kv.ErrNotFound))
 			Expect(v).To(BeNil())
 			Expect(closer).To(BeNil())
 		})
@@ -153,15 +153,15 @@ var _ = Describe("PebbleKV", func() {
 			}
 
 			Expect(changes).To(HaveLen(3))
-			Expect(changes[0].Variant).To(Equal(change.Set))
+			Expect(changes[0].Variant).To(Equal(change.VariantSet))
 			Expect(changes[0].Key).To(Equal([]byte("k1")))
 			Expect(changes[0].Value).To(Equal([]byte("v1")))
 
-			Expect(changes[1].Variant).To(Equal(change.Set))
+			Expect(changes[1].Variant).To(Equal(change.VariantSet))
 			Expect(changes[1].Key).To(Equal([]byte("k2")))
 			Expect(changes[1].Value).To(Equal([]byte("v2")))
 
-			Expect(changes[2].Variant).To(Equal(change.Delete))
+			Expect(changes[2].Variant).To(Equal(change.VariantDelete))
 			Expect(changes[2].Key).To(Equal([]byte("k1")))
 
 			Expect(tx.Close()).To(Succeed())
@@ -235,7 +235,7 @@ var _ = Describe("PebbleKV", func() {
 			value := []byte("tx-get-value")
 
 			_, closer, err := tx.Get(ctx, key)
-			Expect(err).To(Equal(kv.NotFound))
+			Expect(err).To(Equal(kv.ErrNotFound))
 			Expect(closer).To(BeNil())
 
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
@@ -307,7 +307,7 @@ var _ = Describe("PebbleKV", func() {
 
 				Eventually(func() bool { return notified }).Should(BeTrue())
 				Expect(receivedChanges).To(HaveLen(1))
-				Expect(receivedChanges[0].Variant).To(Equal(change.Set))
+				Expect(receivedChanges[0].Variant).To(Equal(change.VariantSet))
 				Expect(receivedChanges[0].Key).To(Equal(key))
 				Expect(receivedChanges[0].Value).To(Equal(value))
 			})
@@ -361,7 +361,7 @@ var _ = Describe("PebbleKV", func() {
 
 				Eventually(func() bool { return notified }).Should(BeTrue())
 				Expect(receivedChanges).To(HaveLen(1))
-				Expect(receivedChanges[0].Variant).To(Equal(change.Delete))
+				Expect(receivedChanges[0].Variant).To(Equal(change.VariantDelete))
 				Expect(receivedChanges[0].Key).To(Equal(key))
 			})
 
@@ -426,7 +426,7 @@ var _ = Describe("PebbleKV", func() {
 				Expect(db.Delete(ctx, key)).To(Succeed())
 
 				_, closer, err := db.Get(ctx, key)
-				Expect(err).To(Equal(kv.NotFound))
+				Expect(err).To(Equal(kv.ErrNotFound))
 				Expect(closer).To(BeNil())
 			})
 

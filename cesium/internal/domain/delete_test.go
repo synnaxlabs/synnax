@@ -447,7 +447,7 @@ var _ = Describe("Delete", Ordered, func() {
 							telem.TimeRangeMin,
 							fixedOffset(0),
 							fixedOffset(0),
-						)).To(HaveOccurredAs(resource.NewErrClosed("domain.db")))
+						)).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
 					})
 				})
 

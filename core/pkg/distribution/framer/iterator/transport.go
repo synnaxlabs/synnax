@@ -24,15 +24,15 @@ type Command uint8
 const AutoSpan = ts.AutoSpan
 
 const (
-	Next Command = iota + 1
-	Prev
-	SeekFirst
-	SeekLast
-	SeekLE
-	SeekGE
-	Valid
-	Error
-	SetBounds
+	CommandNext Command = iota + 1
+	CommandPrev
+	CommandSeekFirst
+	CommandSeekLast
+	CommandSeekLE
+	CommandSeekGE
+	CommandValid
+	CommandError
+	CommandSetBounds
 )
 
 // Request is a request to an Iterator.
@@ -61,10 +61,12 @@ type Request struct {
 type ResponseVariant uint8
 
 const (
-	// AckResponse is a response that indicates that an iteration request was acknowledged.
-	AckResponse ResponseVariant = iota + 1
-	// DataResponse is a response that indicates that an iteration request returned data.
-	DataResponse
+	// ResponseVariantAck is a response that indicates that an iteration request was
+	// acknowledged.
+	ResponseVariantAck ResponseVariant = iota + 1
+	// ResponseVariantData is a response that indicates that an iteration request
+	// returned data.
+	ResponseVariantData
 )
 
 // Response is a response from a remote Iterator.

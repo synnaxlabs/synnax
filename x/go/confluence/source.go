@@ -66,7 +66,7 @@ func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
 		}
 	}
 	if timedOutInlet >= 0 {
-		return errors.Wrapf(timeout.Timeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
+		return errors.Wrapf(timeout.ErrTimeout, "timed out sending to inlet %s", ams.Out[timedOutInlet].InletAddress())
 	}
 	return nil
 }
@@ -127,7 +127,7 @@ func (aas *AbstractAddressableSource[O]) OutTo(inlets ...Inlet[O]) {
 func (aas *AbstractAddressableSource[O]) Send(ctx context.Context, target address.Address, v O) error {
 	inlet, ok := aas.Out[target]
 	if !ok {
-		return address.NewErrTargetNotFound(target)
+		return address.NewTargetNotFoundError(target)
 	}
 	return signal.SendUnderContext(ctx, inlet.Inlet(), v)
 }

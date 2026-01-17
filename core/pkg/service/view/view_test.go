@@ -118,7 +118,7 @@ var _ = Describe("View", func() {
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, s.Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&view.View{}).Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&view.View{}).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 
 			It("Should be idempotent", func() {
@@ -143,7 +143,7 @@ var _ = Describe("View", func() {
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 				Expect(w.DeleteMany(ctx, views[0].Key, views[1].Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 		})
 	})

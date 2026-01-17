@@ -144,7 +144,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
@@ -181,7 +181,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 				}}
 			})
@@ -233,7 +233,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}}
 			)
@@ -278,7 +278,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.Free,
+						Leaseholder: cluster.NodeKeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -329,7 +329,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.Free,
+						Leaseholder: cluster.NodeKeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -384,7 +384,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.Free,
+						Leaseholder: cluster.NodeKeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -433,13 +433,13 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        calc1Name,
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
 				}}
 			})
@@ -486,7 +486,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)
@@ -527,7 +527,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(nil, &bases, &calcs, channel.KeysFromChannels)

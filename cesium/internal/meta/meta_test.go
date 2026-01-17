@@ -144,11 +144,11 @@ var _ = Describe("Meta", func() {
 				Expect(ch.Key).To(Equal(key))
 
 				Expect(meta.Create(ctx, subFs, &brokenCodec{}, ch)).Error().
-					To(MatchError(encodingError))
+					To(MatchError(errEncoding))
 				Expect(subFs.Exists("meta.json")).To(BeTrue())
 
 				Expect(meta.Read(ctx, subFs, &brokenCodec{})).Error().
-					To(MatchError(encodingError))
+					To(MatchError(errEncoding))
 				Expect(subFs.Exists("meta.json")).To(BeTrue())
 				Expect(subFs.Exists("meta.json.tmp")).To(BeFalse())
 
@@ -167,20 +167,20 @@ type brokenCodec struct{}
 
 var _ binary.Codec = (*brokenCodec)(nil)
 
-var encodingError = errors.New("broken codec")
+var errEncoding = errors.New("broken codec")
 
 func (b *brokenCodec) Encode(context.Context, any) ([]byte, error) {
-	return nil, encodingError
+	return nil, errEncoding
 }
 
 func (b *brokenCodec) EncodeStream(context.Context, io.Writer, any) error {
-	return encodingError
+	return errEncoding
 }
 
 func (b *brokenCodec) Decode(context.Context, []byte, any) error {
-	return encodingError
+	return errEncoding
 }
 
 func (b *brokenCodec) DecodeStream(context.Context, io.Reader, any) error {
-	return encodingError
+	return errEncoding
 }

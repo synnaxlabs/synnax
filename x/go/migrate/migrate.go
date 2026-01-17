@@ -130,13 +130,13 @@ func NewMigrator[I, O Migratable](cfg MigratorConfig[I, O]) func(I) O {
 			return cfg.Default, errors.Newf("no migration found for v %v", int(v))
 		}
 
-		new_, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)
+		next, err := migration(Context{Context: context.Background(), Instrumentation: cfg.Instrumentation}, old)
 		if err != nil {
 			return cfg.Default, err
 		}
 
 		applied = true
-		return migrate(new_)
+		return migrate(next)
 	}
 
 	return func(v I) O {

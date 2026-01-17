@@ -43,7 +43,7 @@ func analyzeExpectError(src string, resolver symbol.Resolver, msgMatcher OmegaMa
 	ctx := analyzeProgram(src, resolver)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
 	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.Error))
+	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
 	return ctx
 }
 
@@ -509,7 +509,7 @@ var _ = Describe("Function Analyzer", func() {
 					}
 				`, nil)
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.Warning))
+				Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("output 'result' is never assigned"))
 			})
 

@@ -51,7 +51,7 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 	return w.otgWriter.DefineRelationship(
 		ctx,
 		w.group.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }
@@ -73,7 +73,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	if err := gorp.
 		NewDelete[uuid.UUID, View]().
 		WhereKeys(key).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	return w.otgWriter.DeleteResource(ctx, OntologyID(key))

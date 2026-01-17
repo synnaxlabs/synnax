@@ -42,7 +42,7 @@ func Publish(
 				err error
 			)
 			for ch := range nexter {
-				if ch.Variant == change.Set {
+				if ch.Variant == change.VariantSet {
 					key, err = signals.MarshalJSON(ch.Value)
 					if err != nil {
 						otg.L.DPanic("unexpected failure to marshal ontology resource set", zap.Error(err))

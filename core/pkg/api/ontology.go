@@ -66,10 +66,10 @@ func (o *OntologyService) Retrieve(
 		q = q.WhereIDs(req.IDs...)
 	}
 	if req.Children {
-		q = q.TraverseTo(ontology.Children)
+		q = q.TraverseTo(ontology.ChildrenTraverser)
 	}
 	if req.Parents {
-		q = q.TraverseTo(ontology.Parents)
+		q = q.TraverseTo(ontology.ParentsTraverser)
 	}
 	if len(req.Types) > 0 {
 		q = q.WhereTypes(req.Types...)
@@ -114,7 +114,7 @@ func (o *OntologyService) AddChildren(
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
-			if err := w.DefineRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
+			if err := w.DefineRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
 				return err
 			}
 		}
@@ -141,7 +141,7 @@ func (o *OntologyService) RemoveChildren(
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
-			if err := w.DeleteRelationship(ctx, req.ID, ontology.ParentOf, child); err != nil {
+			if err := w.DeleteRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
 				return err
 			}
 		}
@@ -169,10 +169,10 @@ func (o *OntologyService) MoveChildren(
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.ontology.NewWriter(tx)
 		for _, child := range req.Children {
-			if err = w.DeleteRelationship(ctx, req.From, ontology.ParentOf, child); err != nil {
+			if err = w.DeleteRelationship(ctx, req.From, ontology.RelationshipTypeParentOf, child); err != nil {
 				return err
 			}
-			if err = w.DefineRelationship(ctx, req.To, ontology.ParentOf, child); err != nil {
+			if err = w.DefineRelationship(ctx, req.To, ontology.RelationshipTypeParentOf, child); err != nil {
 				return err
 			}
 		}

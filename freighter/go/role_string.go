@@ -17,13 +17,13 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[Client-1]
-	_ = x[Server-2]
+	_ = x[RoleClient-1]
+	_ = x[RoleServer-2]
 }
 
-const _Role_name = "ClientServer"
+const _Role_name = "RoleClientRoleServer"
 
-var _Role_index = [...]uint8{0, 6, 12}
+var _Role_index = [...]uint8{0, 10, 20}
 
 func (i Role) String() string {
 	i -= 1

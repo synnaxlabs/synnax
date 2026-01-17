@@ -51,14 +51,14 @@ func (b *tx) Set(ctx context.Context, key, value []byte, options ...any) error {
 		return err
 	}
 	return b.applyOp(ctx, Operation{
-		Change:      xkv.Change{Key: key, Value: value, Variant: change.Set},
+		Change:      xkv.Change{Key: key, Value: value, Variant: change.VariantSet},
 		Leaseholder: lease,
 	})
 }
 
 // Delete implements xkv.Tx.
 func (b *tx) Delete(ctx context.Context, key []byte, _ ...any) error {
-	op := Operation{Change: xkv.Change{Key: key, Variant: change.Delete}}
+	op := Operation{Change: xkv.Change{Key: key, Variant: change.VariantDelete}}
 	return b.applyOp(ctx, op)
 }
 
@@ -87,7 +87,7 @@ func (b *tx) applyOp(ctx context.Context, op Operation) error {
 	if err != nil {
 		return err
 	}
-	if op.Variant == change.Delete {
+	if op.Variant == change.VariantDelete {
 		if err := b.Tx.Delete(ctx, op.Key); err != nil {
 			return err
 		}
@@ -105,9 +105,9 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	dm := make(map[node.Key]TxRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
-		if op.Variant == change.Set {
+		if op.Variant == change.VariantSet {
 			v, closer, err := b.Get(ctx, dig.Key)
-			if errors.Is(err, xkv.NotFound) {
+			if errors.Is(err, xkv.ErrNotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
 			}
@@ -201,7 +201,7 @@ func (tr TxRequest) digests() []Digest {
 }
 
 func validateLeaseOption(maybeLease []any) (node.Key, error) {
-	lease := DefaultLeaseholder
+	lease := nodeKeyDefaultLeaseholder
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)
 		if !ok {

@@ -49,7 +49,7 @@ type Config struct {
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening a Controller.
-	DefaultConfig = Config{Concurrency: control.Exclusive}
+	DefaultConfig = Config{Concurrency: control.ConcurrencyExclusive}
 )
 
 // Validate implements config.Config.

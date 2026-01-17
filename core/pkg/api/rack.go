@@ -176,7 +176,7 @@ func embeddedGuard(_ gorp.Context, r Rack) error {
 	if !r.Embedded {
 		return nil
 	}
-	return errors.Wrapf(validate.Error, "cannot delete embedded rack")
+	return errors.Wrapf(validate.ErrValidation, "cannot delete embedded rack")
 }
 
 func (svc *RackService) Delete(
@@ -197,14 +197,14 @@ func (svc *RackService) Delete(
 			return err
 		}
 		if exists {
-			return errors.Wrapf(validate.Error, "cannot delete rack when devices are still attached")
+			return errors.Wrapf(validate.ErrValidation, "cannot delete rack when devices are still attached")
 		}
 		exists, err = svc.task.NewRetrieve().WhereInternal(false, gorp.Required()).WhereRacks(req.Keys...).Exists(ctx, tx)
 		if err != nil {
 			return err
 		}
 		if exists {
-			return errors.Wrapf(validate.Error, "cannot delete rack when tasks are still attached")
+			return errors.Wrapf(validate.ErrValidation, "cannot delete rack when tasks are still attached")
 		}
 		w := svc.rack.NewWriter(tx)
 		for _, k := range req.Keys {

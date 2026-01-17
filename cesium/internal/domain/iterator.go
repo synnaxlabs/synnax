@@ -27,7 +27,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
-var errIteratorClosed = resource.NewErrClosed("domain.iterator")
+var errIteratorClosed = resource.NewClosedError("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }

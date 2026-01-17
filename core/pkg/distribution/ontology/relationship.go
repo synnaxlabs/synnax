@@ -27,10 +27,11 @@ import (
 type RelationshipType string
 
 const (
-	// ParentOf indicates that a resource is the parent of another resource. When
-	// examining a Relationship of type ParentOf, the Start field will be the parent and
-	// the to field will be the child i.e. (Start is the ParentOf To).
-	ParentOf RelationshipType = "parent"
+	// RelationshipTypeParentOf indicates that a resource is the parent of another
+	// resource. When examining a Relationship of type RelationshipTypeParentOf, the
+	// From field will be the parent and the To field will be the child i.e. (From is
+	// the parent of To).
+	RelationshipTypeParentOf RelationshipType = "parent"
 )
 
 // Relationship is a struct that represents a relationship between two resources in the
@@ -60,7 +61,7 @@ func (r Relationship) SetOptions() []any { return nil }
 func ParseRelationship(key []byte) (Relationship, error) {
 	split := strings.Split(string(key), "->")
 	if len(split) != 3 {
-		return Relationship{}, errors.Wrapf(validate.Error, "invalid relationship key: %s", key)
+		return Relationship{}, errors.Wrapf(validate.ErrValidation, "invalid relationship key: %s", key)
 	}
 	var (
 		r   Relationship

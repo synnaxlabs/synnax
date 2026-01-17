@@ -198,7 +198,7 @@ var _ = Describe("WASM Module", func() {
 
 			typeIdx := mod.AddType(ft)
 			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{0x41, 0x2a})
-			mod.AddExport("exported", wasm.ExportFunc, funcIdx)
+			mod.AddExport("exported", wasm.ExportKindFunc, funcIdx)
 			Expect(mod.ImportCount()).To(Equal(uint32(1))) // Still 1 import
 		})
 	})
@@ -256,7 +256,7 @@ var _ = Describe("WASM Module", func() {
 			}
 			typeIdx := mod.AddType(ft)
 			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{})
-			mod.AddExport("exported_func", wasm.ExportFunc, funcIdx)
+			mod.AddExport("exported_func", wasm.ExportKindFunc, funcIdx)
 			_, _, exports := mod.Debug()
 			Expect(exports).To(Equal(1))
 		})
@@ -270,8 +270,8 @@ var _ = Describe("WASM Module", func() {
 			typeIdx := mod.AddType(ft)
 			func1 := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{})
 			func2 := mod.AddFunction(typeIdx, []wasm.ValueType{}, []byte{})
-			mod.AddExport("func1", wasm.ExportFunc, func1)
-			mod.AddExport("func2", wasm.ExportFunc, func2)
+			mod.AddExport("func1", wasm.ExportKindFunc, func1)
+			mod.AddExport("func2", wasm.ExportKindFunc, func2)
 			_, _, exports := mod.Debug()
 			Expect(exports).To(Equal(2))
 		})
@@ -279,7 +279,7 @@ var _ = Describe("WASM Module", func() {
 		It("Should support memory export", func() {
 			mod := wasm.NewModule()
 			mod.EnableMemory()
-			mod.AddExport("memory", wasm.ExportMemory, 0)
+			mod.AddExport("memory", wasm.ExportKindMemory, 0)
 			_, _, exports := mod.Debug()
 			Expect(exports).To(Equal(1))
 		})
@@ -334,7 +334,7 @@ var _ = Describe("WASM Module", func() {
 			funcIdx := mod.AddFunction(typeIdx, []wasm.ValueType{}, body)
 
 			// Add export
-			mod.AddExport("add", wasm.ExportFunc, funcIdx)
+			mod.AddExport("add", wasm.ExportKindFunc, funcIdx)
 
 			// Enable memory
 			mod.EnableMemory()

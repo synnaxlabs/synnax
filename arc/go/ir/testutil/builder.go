@@ -53,7 +53,7 @@ func (b *IRBuilder) Edge(srcNode, srcParam, tgtNode, tgtParam string) *IRBuilder
 	b.prog.Edges = append(b.prog.Edges, ir.Edge{
 		Source: ir.Handle{Node: srcNode, Param: srcParam},
 		Target: ir.Handle{Node: tgtNode, Param: tgtParam},
-		Kind:   ir.Continuous,
+		Kind:   ir.EdgeKindContinuous,
 	})
 	return b
 }
@@ -65,7 +65,7 @@ func (b *IRBuilder) OneShot(srcNode, srcParam, tgtNode, tgtParam string) *IRBuil
 	b.prog.Edges = append(b.prog.Edges, ir.Edge{
 		Source: ir.Handle{Node: srcNode, Param: srcParam},
 		Target: ir.Handle{Node: tgtNode, Param: tgtParam},
-		Kind:   ir.OneShot,
+		Kind:   ir.EdgeKindOneShot,
 	})
 	return b
 }
