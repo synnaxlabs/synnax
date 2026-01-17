@@ -69,7 +69,7 @@ func (s *NodeOntologyService) Type() ontology.Type { return OntologyTypeNode }
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
-	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(Free)); err != nil {
+	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(NodeKeyFree)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
 	}
 }
@@ -84,11 +84,9 @@ func translateNodeChange(ch NodeChange, _ int) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	var (
-		onChange = func(ctx context.Context, ch Change) {
-			f(ctx, slices.Values(lo.Map(ch.Changes, translateNodeChange)))
-		}
-	)
+	onChange := func(ctx context.Context, ch Change) {
+		f(ctx, slices.Values(lo.Map(ch.Changes, translateNodeChange)))
+	}
 	return s.Cluster.OnChange(onChange)
 }
 

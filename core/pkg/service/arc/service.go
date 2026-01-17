@@ -71,8 +71,8 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a Arc service.
-	DefaultConfig = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a Arc service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -166,7 +166,7 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

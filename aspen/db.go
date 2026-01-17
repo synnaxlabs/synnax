@@ -69,15 +69,15 @@ type (
 )
 
 const (
-	Free         = node.Free
-	Bootstrapper = node.Bootstrapper
-	Healthy      = node.StateHealthy
-	Left         = node.StateLeft
-	Dead         = node.StateDead
-	Suspect      = node.StateSuspect
+	NodeKeyFree         = node.KeyFree
+	NodeKeyBootstrapper = node.KeyBootstrapper
+	NodeStateHealthy    = node.StateHealthy
+	NodeStateLeft       = node.StateLeft
+	NodeStateDead       = node.StateDead
+	NodeStateSuspect    = node.StateSuspect
 )
 
-var NodeNotfound = cluster.NodeNotFound
+var ErrNodeNotFound = cluster.ErrNodeNotFound
 
 type DB struct {
 	Cluster *cluster.Cluster

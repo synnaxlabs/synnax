@@ -60,8 +60,9 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening the calculation
+	// service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -99,12 +100,12 @@ type Service struct {
 	stateKey channel.Key
 }
 
-const StatusChannelName = "sy_calculation_status"
+const statusChannelName = "sy_calculation_status"
 
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -118,15 +119,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 
 	calculationStateCh := channel.Channel{
-		Name:        StatusChannelName,
+		Name:        statusChannelName,
 		DataType:    telem.JSONT,
 		Virtual:     true,
-		Leaseholder: cluster.Free,
+		Leaseholder: cluster.NodeKeyFree,
 		Internal:    true,
 	}
 
 	if err = cfg.Channel.MapRename(ctx, map[string]string{
-		"sy_calculation_state": StatusChannelName,
+		"sy_calculation_state": statusChannelName,
 	}, true); err != nil {
 		return nil, err
 	}
@@ -155,7 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.groups = make(map[int]*group)
 
 	s.cfg.L.Info("calculation service initialized",
-		zap.String("status_channel", StatusChannelName),
+		zap.String("status_channel", statusChannelName),
 		zap.Uint32("status_channel_key", uint32(calculationStateCh.Key())),
 	)
 
@@ -182,7 +183,7 @@ func (s *Service) handleChange(
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Variant != change.Set || !ch.IsCalculated() {
+		if cg.Variant != change.VariantSet || !ch.IsCalculated() {
 			continue
 		}
 		s.mu.Lock()

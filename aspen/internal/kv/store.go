@@ -28,7 +28,7 @@ func (s storeState) Copy() storeState {
 func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
 	b := TxRequest{Context: ctx, Operations: make([]Operation, 0, len(s))}
 	for _, op := range s {
-		if op.state != infected {
+		if op.state != gossipStateInfected {
 			continue
 		}
 		// Since we're not writing to any underlying storage, any error

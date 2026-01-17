@@ -156,7 +156,7 @@ func (r *gossipRecoveryTransform) transform(
 	for _, op := range in.Operations {
 		key := string(lo.Must(xkv.CompositeKey(op.Key, op.Version)))
 		if r.repetitions[key] > r.RecoveryThreshold {
-			op.state = recovered
+			op.state = gossipStateRecovered
 			out.Operations = append(out.Operations, op)
 			delete(r.repetitions, key)
 		}

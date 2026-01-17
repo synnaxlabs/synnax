@@ -755,7 +755,7 @@ var _ = Describe("Text", func() {
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(edge.Target.Node).To(Equal("entry_main_run"))
 				Expect(edge.Target.Param).To(Equal("activate"))
-				Expect(edge.Kind).To(Equal(ir.OneShot))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
 			})
 
 			It("Should handle continuous flow to sequence", func() {
@@ -776,7 +776,7 @@ var _ = Describe("Text", func() {
 
 				Expect(inter.Edges).To(HaveLen(1))
 				edge := inter.Edges[0]
-				Expect(edge.Kind).To(Equal(ir.Continuous))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 				Expect(edge.Target.Node).To(Equal("entry_main_run"))
 				Expect(edge.Target.Param).To(Equal("activate"))
 			})
@@ -886,7 +886,7 @@ var _ = Describe("Text", func() {
 				// Should have edges connecting to the second stage's entry node
 				secondEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
 				Expect(secondEdge.Target.Param).To(Equal("activate"))
-				Expect(secondEdge.Kind).To(Equal(ir.OneShot))
+				Expect(secondEdge.Kind).To(Equal(ir.EdgeKindOneShot))
 			})
 		})
 
@@ -912,7 +912,7 @@ var _ = Describe("Text", func() {
 
 				nextEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
 				Expect(nextEdge.Target.Param).To(Equal("activate"))
-				Expect(nextEdge.Kind).To(Equal(ir.OneShot))
+				Expect(nextEdge.Kind).To(Equal(ir.EdgeKindOneShot))
 			})
 
 			DescribeTable("next keyword error cases",
@@ -980,13 +980,13 @@ var _ = Describe("Text", func() {
 				edge0 := inter.Edges[0]
 				Expect(edge0.Source.Node).To(Equal("on_sensor_0"))
 				Expect(edge0.Target.Node).To(Equal(exprNode.Key))
-				Expect(edge0.Kind).To(Equal(ir.Continuous))
+				Expect(edge0.Kind).To(Equal(ir.EdgeKindContinuous))
 
 				// Second edge: expression -> alarm (OneShot from =>)
 				edge1 := inter.Edges[1]
 				Expect(edge1.Source.Node).To(Equal(exprNode.Key))
 				Expect(edge1.Target.Node).To(Equal("alarm_0"))
-				Expect(edge1.Kind).To(Equal(ir.OneShot))
+				Expect(edge1.Kind).To(Equal(ir.EdgeKindOneShot))
 			})
 
 			It("Should inject multiple triggers for multi-channel expression", func() {
@@ -1031,7 +1031,7 @@ var _ = Describe("Text", func() {
 				for _, edge := range inter.Edges {
 					if edge.Target.Node == exprNode.Key {
 						exprEdgeCount++
-						Expect(edge.Kind).To(Equal(ir.Continuous))
+						Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 					}
 				}
 				Expect(exprEdgeCount).To(Equal(2))

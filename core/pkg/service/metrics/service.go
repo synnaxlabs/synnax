@@ -42,7 +42,7 @@ type ServiceConfig struct {
 	Channel *channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
-	// [REQUIRED}
+	// [REQUIRED]
 	Framer *framer.Service
 	// Storage is the storage layer used for disk usage metrics.
 	//
@@ -59,8 +59,8 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for a metrics service.
-	DefaultConfig = ServiceConfig{
+	// DefaultServiceConfig is the default configuration for a metrics service.
+	DefaultServiceConfig = ServiceConfig{
 		CollectionInterval: 2 * time.Second,
 	}
 )
@@ -107,7 +107,7 @@ const (
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
 // shut down by calling Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

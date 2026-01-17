@@ -19,9 +19,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const (
-	InfiniteRetries = math.MaxInt
-)
+const InfiniteRetries = math.MaxInt
 
 type Config struct {
 	// BaseInterval is the interval of time waited on the first time Wait is called on
@@ -56,9 +54,7 @@ func (c Config) Validate() error {
 
 var (
 	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{
-		Scale: 1,
-	}
+	defaultConfig                       = Config{Scale: 1}
 )
 
 type Breaker struct {

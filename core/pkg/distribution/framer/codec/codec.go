@@ -501,14 +501,14 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		dt, ok := currState.keyDataTypes[key]
 		if !ok {
 			return errors.Wrapf(
-				validate.Error,
+				validate.ErrValidation,
 				"encoder was provided a key %s not present in current state",
 				channel.TryToRetrieveStringer(ctx, c.channels, key),
 			)
 		}
 		if dt != s.DataType {
 			return errors.Wrapf(
-				validate.Error, "data type %s for channel %s does not match series data type %s",
+				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
 				dt, channel.TryToRetrieveStringer(ctx, c.channels, key), s.DataType,
 			)
 		}
@@ -546,11 +546,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 
 	// Calculate flags and byte size based on merged series
 	var (
-		curDataSize                   = -1
-		refTr                         = telem.TimeRangeZero
-		refAlignment  telem.Alignment = 0
-		byteArraySize                 = flagsSize + seqNumSize
-		fgs                           = newFlags()
+		curDataSize   = -1
+		refTr         = telem.TimeRangeZero
+		refAlignment  telem.Alignment
+		byteArraySize = flagsSize + seqNumSize
+		fgs           = newFlags()
 	)
 
 	if currState.hasVariableDataTypes {
@@ -680,7 +680,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
-		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
+		err = errors.Wrapf(validate.ErrValidation, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
 		return framer.Frame{}, err
 	}
 	fgs := decodeFlags(flagB)

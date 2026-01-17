@@ -277,8 +277,8 @@ var _ = Describe("Signal", func() {
 
 		It("Should try to restart when instructed to", func() {
 			var (
-				counter = 0
-				inc1    = func(ctx context.Context) error {
+				counter int
+				inc1    = func(context.Context) error {
 					counter += 1
 					panic("panicking once")
 				}
@@ -294,7 +294,7 @@ var _ = Describe("Signal", func() {
 		It("Should try to restart when instructed to and follow the panic policy", func() {
 			var (
 				counter = 0
-				inc1    = func(ctx context.Context) error {
+				inc1    = func(context.Context) error {
 					counter += 1
 					panic("panicking once")
 				}
@@ -310,7 +310,7 @@ var _ = Describe("Signal", func() {
 		It("Should indefinitely restart", func() {
 			var (
 				done = make(chan struct{})
-				wg   = sync.WaitGroup{}
+				wg   sync.WaitGroup
 				f    = func(ctx context.Context) error {
 					select {
 					case <-ctx.Done():
@@ -339,8 +339,8 @@ var _ = Describe("Signal", func() {
 		It("Should wait exponentially more time", func() {
 			var (
 				done         = make(chan struct{})
-				counter      = atomic.Int64Counter{}
-				succeedInTen = func(ctx context.Context) error {
+				counter      atomic.Int64Counter
+				succeedInTen = func(context.Context) error {
 					if counter.Add(1) < 10 {
 						panic("panicking")
 					}
@@ -369,16 +369,13 @@ var _ = Describe("Signal", func() {
 
 	Describe("Regression", func() {
 		// This test was added to address the bug where if maxRestart is set, even in
-		// the case where the goroutine did not panic, it would attempt to restart.
-		// This is not the desired behaviour since a goroutine should not attempt to
-		// restart if it did not panic.
+		// the case where the goroutine did not panic, it would attempt to restart. This
+		// is not the desired behavior since a goroutine should not attempt to restart
+		// if it did not panic.
 		It("Should NOT restart if there was not a panic - definite restart", func() {
 			var (
-				counter = 0
-				f       = func(ctx context.Context) error {
-					counter += 1
-					return nil
-				}
+				counter int
+				f       = func(context.Context) error { counter += 1; return nil }
 			)
 
 			ctx, _ := signal.Isolated()
@@ -390,11 +387,8 @@ var _ = Describe("Signal", func() {
 
 		It("Should NOT restart if there was not a panic - infinite restart", func() {
 			var (
-				counter = 0
-				f       = func(ctx context.Context) error {
-					counter += 1
-					return nil
-				}
+				counter int
+				f       = func(context.Context) error { counter += 1; return nil }
 			)
 
 			ctx, _ := signal.Isolated()

@@ -119,7 +119,7 @@ func (t telemFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 	isSource := cfg.Node.Type == sourceSymbolName
 	isSink := cfg.Node.Type == sinkSymbolName
 	if !isSource && !isSink {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var nodeCfg config
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {

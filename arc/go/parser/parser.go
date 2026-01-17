@@ -136,7 +136,7 @@ func (e *errorListener) SyntaxError(
 	_ antlr.RecognitionException,
 ) {
 	e.Add(diagnostics.Diagnostic{
-		Severity: diagnostics.Error,
+		Severity: diagnostics.SeverityError,
 		Line:     line,
 		Column:   column,
 		Message:  msg,

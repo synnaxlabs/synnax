@@ -34,8 +34,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for creating a Service.
-type Config struct {
+// ServiceConfig is the configuration for creating a Service.
+type ServiceConfig struct {
 	// HostProvider is used to assign keys to racks.
 	// [REQUIRED]
 	HostProvider cluster.HostProvider
@@ -69,15 +69,18 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a rack service. Note
-	// that this configuration is not valid. See the Config documentation for more
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a rack service.
+	// Note that this configuration is not valid. See the Config documentation for more
 	// details on which fields must be set.
-	DefaultConfig = Config{HealthCheckInterval: 5 * telem.Second, AlertEveryNChecks: 12}
+	DefaultServiceConfig = ServiceConfig{
+		HealthCheckInterval: 5 * telem.Second,
+		AlertEveryNChecks:   12,
+	}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -91,7 +94,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("hardware.rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -107,13 +110,13 @@ type Service struct {
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
 	monitor         *monitor
-	Config
+	ServiceConfig
 	group       group.Group
 	EmbeddedKey Key
 }
 
-func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +129,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
+	s := &Service{ServiceConfig: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
@@ -159,7 +162,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	// Check if a v1 rack exists.
 	v1RackName := fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
 	err := s.NewRetrieve().WhereNames(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
-	isNotFound := errors.Is(err, query.NotFound)
+	isNotFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !isNotFound {
 		return err
 	}
@@ -170,7 +173,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 			WhereEmbedded(true, gorp.Required()).
 			WhereNode(s.HostProvider.HostKey(), gorp.Required()).
 			Entry(&embeddedRack).Exec(ctx, s.DB)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 	}
@@ -199,7 +202,7 @@ func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
 	if err := status.NewRetrieve[StatusDetails](s.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	existingKeys := make(map[string]bool)

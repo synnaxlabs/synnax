@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.TODO()
+var ctx = context.Background()
 
 func TestMock(t *testing.T) {
 	RegisterFailHandler(Fail)

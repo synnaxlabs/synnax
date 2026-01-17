@@ -75,7 +75,7 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    config.False(),
 	}
-	errWriterClosed = resource.NewErrClosed("unary.writer")
+	errWriterClosed = resource.NewClosedError("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -213,8 +213,8 @@ func Write(
 		return db.wrapError(err)
 	}
 	defer func() {
-		_, err_ := w.Close()
-		err = db.wrapError(errors.Combine(err, err_))
+		_, errClose := w.Close()
+		err = db.wrapError(errors.Combine(err, errClose))
 	}()
 	if _, err = w.Write(series); err != nil {
 		return err
@@ -307,7 +307,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		}
 		if !approx.Exact() {
 			return 0, errors.Wrapf(
-				validate.Error,
+				validate.ErrValidation,
 				"writer start %s cannot be resolved in the index channel %v",
 				w.cfg.Start,
 				w.idx.Info(),

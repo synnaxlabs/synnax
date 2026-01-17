@@ -136,8 +136,8 @@ func parseRequestCtx(socketCtx context.Context, fiberCtx *fiber.Ctx, target addr
 		Protocol: unaryReporter.Protocol,
 		Target:   target,
 		Sec:      parseSecurityInfo(fiberCtx),
-		Role:     freighter.Server,
-		Variant:  freighter.Unary,
+		Role:     freighter.RoleServer,
+		Variant:  freighter.VariantUnary,
 	}
 	headers := fiberCtx.GetReqHeaders()
 	md.Params = make(freighter.Params, len(headers))
@@ -180,8 +180,8 @@ func setResponseCtx(c *fiber.Ctx, md freighter.Context) {
 
 func parseResponseCtx(c *http.Response, target address.Address) freighter.Context {
 	md := freighter.Context{
-		Role:     freighter.Client,
-		Variant:  freighter.Unary,
+		Role:     freighter.RoleClient,
+		Variant:  freighter.VariantUnary,
 		Protocol: unaryReporter.Protocol,
 		Target:   target,
 		Params: lo.Ternary(

@@ -236,11 +236,11 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		return &w, s.Size(), span.Error(err)
 	}
 
-	nextKey_, err := fc.counter.Add(1)
+	nextCtr, err := fc.counter.Add(1)
 	if err != nil {
 		return nil, 0, span.Error(err)
 	}
-	nextKey := uint16(nextKey_)
+	nextKey := uint16(nextCtr)
 	file, err := fc.FS.Open(
 		fileKeyToName(nextKey),
 		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
@@ -396,7 +396,7 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 
 	if w, ok := fc.writers.open[fileKey]; ok {
 		if !w.tryAcquire() {
-			return newErrResourceInUse("writer", fileKey)
+			return newResourceInUseError("writer", fileKey)
 		}
 		if err := w.TrackedWriteCloser.Close(); err != nil {
 			return err
@@ -441,7 +441,7 @@ func (fc *fileController) close() error {
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {
-				return newErrResourceInUse("writer", w.fileKey)
+				return newResourceInUseError("writer", w.fileKey)
 			}
 			return w.HardClose()
 		})
@@ -451,7 +451,7 @@ func (fc *fileController) close() error {
 		for _, r := range f.open {
 			c.Exec(func() error {
 				if !r.tryAcquire() {
-					return newErrResourceInUse("reader", r.fileKey)
+					return newResourceInUseError("reader", r.fileKey)
 				}
 				return r.HardClose()
 			})

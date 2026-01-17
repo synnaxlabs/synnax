@@ -55,11 +55,11 @@ func (s *SchematicService) Create(ctx context.Context, req SchematicCreateReques
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, schematic_ := range req.Schematics {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schematic_); err != nil {
+		for i, schematic := range req.Schematics {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schematic); err != nil {
 				return err
 			}
-			req.Schematics[i] = schematic_
+			req.Schematics[i] = schematic
 		}
 		res.Schematics = req.Schematics
 		return nil

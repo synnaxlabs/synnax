@@ -167,7 +167,7 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	if err != nil {
 		return nil, err
 	}
-	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.AckResponse, Ack: true})
+	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.ResponseVariantAck, Ack: true})
 }
 
 type (
@@ -336,7 +336,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Receiver: stream,
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == writer.SetAuthority {
+			if r.Command == writer.CommandSetAuthority {
 				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
 				for i, a := range req.Config.Authorities {
@@ -414,7 +414,7 @@ func (s *FrameService) openWriter(
 	}
 	// Let the client know the writer is ready to receive segments.
 	return w, srv.Send(FrameWriterResponse{
-		Command: writer.Open,
+		Command: writer.CommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
 	})
 }
@@ -550,7 +550,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 		if v.Type != fhttp.WSMessageTypeData {
 			return nil
 		}
-		if v.Payload.Command == writer.Open {
+		if v.Payload.Command == writer.CommandOpen {
 			return c.Update(ctx, v.Payload.Config.Keys)
 		}
 		return nil
@@ -560,7 +560,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 	if err != nil {
 		return err
 	}
-	v.Payload.Command = writer.Write
+	v.Payload.Command = writer.CommandWrite
 	v.Payload.Frame = fr
 	return nil
 }
@@ -570,7 +570,7 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	w io.Writer,
 	v fhttp.WSMessage[FrameWriterRequest],
 ) error {
-	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.Write {
+	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.CommandWrite {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {

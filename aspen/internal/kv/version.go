@@ -66,7 +66,7 @@ func (vc *versionFilter) filter(ctx context.Context, op Operation) bool {
 	if err != nil {
 		dig, err = getDigestFromKV(ctx, vc.Engine, op.Key)
 		if err != nil {
-			return errors.Is(err, xkv.NotFound)
+			return errors.Is(err, xkv.ErrNotFound)
 		}
 	}
 	// If the versions of the operation are equal, we select a winning operation

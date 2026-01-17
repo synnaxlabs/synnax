@@ -34,8 +34,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements [config.Config].
@@ -85,12 +85,12 @@ func (s *Service) RetrievePoliciesForSubject(
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 
-	policyService, err := policy.OpenService(ctx, policy.Config{
+	policyService, err := policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       cfg.DB,
 		Signals:  cfg.Signals,
 		Ontology: cfg.Ontology,
@@ -99,7 +99,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 
-	roleService, err := role.OpenService(ctx, role.Config{
+	roleService, err := role.OpenService(ctx, role.ServiceConfig{
 		DB:       cfg.DB,
 		Ontology: cfg.Ontology,
 		Signals:  cfg.Signals,

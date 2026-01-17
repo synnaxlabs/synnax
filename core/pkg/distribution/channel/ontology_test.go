@@ -65,7 +65,7 @@ var _ = Describe("Ontology", Ordered, func() {
 					c := <-changes
 					g.Expect(c).To(HaveLen(1))
 					v := c[0]
-					g.Expect(v.Variant).To(Equal(change.Set))
+					g.Expect(v.Variant).To(Equal(change.VariantSet))
 					g.Expect(v.Key.Key).To(Equal(ch.Key().String()))
 				}).Should(Succeed())
 			})

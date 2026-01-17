@@ -43,7 +43,7 @@ var (
 	migrateV0toV1 = migrate.CreateMigration(migrate.MigrationConfig[DBState, DBState]{
 		Name: "cesium.migrate",
 		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
-			state.Channel.Version = version.V1
+			state.Channel.Version = version.Version1
 			if state.Channel.Name == "" {
 				state.Channel.Name = fmt.Sprintf("Unknown %v", state.Channel.Key)
 			}
@@ -53,7 +53,7 @@ var (
 	migrateV1toV2 = migrate.CreateMigration(migrate.MigrationConfig[DBState, DBState]{
 		Name: "cesium.migrate",
 		Migrate: func(context migrate.Context, state DBState) (DBState, error) {
-			state.Channel.Version = version.V2
+			state.Channel.Version = version.Version2
 			if state.Channel.Virtual || state.Channel.IsIndex {
 				return state, nil
 			}

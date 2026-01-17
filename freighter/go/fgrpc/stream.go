@@ -61,7 +61,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 ) error {
 	attachedInitialMetaData := false
 	oCtx, err := s.Exec(
-		parseServerContext(ctx, s.ServiceDesc.ServiceName, freighter.Stream),
+		parseServerContext(ctx, s.ServiceDesc.ServiceName, freighter.VariantStream),
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
 			attachedInitialMetaData = true
 			if err := stream.SendHeader(metadata.Pairs()); err != nil {
@@ -102,8 +102,8 @@ func (s *StreamClient[RQ, RQT, RS, RST]) Stream(
 	_, err := s.Exec(
 		freighter.Context{
 			Context:  ctx,
-			Variant:  freighter.Stream,
-			Role:     freighter.Client,
+			Variant:  freighter.VariantStream,
+			Role:     freighter.RoleClient,
 			Target:   target,
 			Protocol: Reporter.Protocol,
 			Params:   make(freighter.Params),

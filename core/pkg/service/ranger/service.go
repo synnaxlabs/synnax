@@ -51,8 +51,8 @@ type ServiceConfig struct {
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a range service.
-	DefaultConfig = ServiceConfig{ForceMigration: config.False()}
+	// DefaultServiceConfig is the default configuration for opening a range service.
+	DefaultServiceConfig = ServiceConfig{ForceMigration: config.False()}
 )
 
 // Validate implements config.Config.
@@ -91,7 +91,7 @@ type Service struct {
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

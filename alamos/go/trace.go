@@ -11,6 +11,7 @@ package alamos
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -53,7 +54,7 @@ var (
 	_ config.Config[TracingConfig] = (*TracingConfig)(nil)
 	// DefaultTracingConfig is the default configuration for a Tracer.
 	DefaultTracingConfig = TracingConfig{
-		Filter: ThresholdEnvFilter(Bench),
+		Filter: ThresholdEnvFilter(EnvironmentBench),
 	}
 )
 
@@ -98,26 +99,26 @@ func NewTracer(configs ...TracingConfig) (*Tracer, error) {
 // Debug starts a span at the debug level with the given key. If the context is already
 // wrapped in a span, the span will be a child of the existing span.
 func (t *Tracer) Debug(ctx context.Context, key string) (context.Context, Span) {
-	return t.Trace(ctx, key, Debug)
+	return t.Trace(ctx, key, EnvironmentDebug)
 }
 
 // Prod starts a span at the production level. If the context is already wrapped in a
 // span, the span will be a child of the existing span.
 func (t *Tracer) Prod(ctx context.Context, key string) (context.Context, Span) {
-	return t.Trace(ctx, key, Prod)
+	return t.Trace(ctx, key, EnvironmentProd)
 }
 
 // Bench starts a span at the benchmark level. If the context is already wrapped in a
 // span, the span will be a child of the existing span.
 func (t *Tracer) Bench(ctx context.Context, key string) (context.Context, Span) {
-	return t.Trace(ctx, key, Bench)
+	return t.Trace(ctx, key, EnvironmentBench)
 }
 
 // Trace wraps the given context in a span with the given key and level. If the context
 // is already wrapped in a span, the span will be a child of the existing span.
 func (t *Tracer) Trace(ctx context.Context, key string, env Environment) (context.Context, Span) {
 	if t == nil || !t.config.Filter(env, key) {
-		return ctx, nopSpanV
+		return ctx, nopSpan{}
 	}
 	spanKey := t.meta.extendPath(key)
 	ctx, otel := t.otelTracer().Start(ctx, spanKey)
@@ -172,7 +173,7 @@ func (s span) Error(err error, exclude ...error) error {
 	}
 	s.otel.RecordError(err)
 	if !errors.IsAny(err, exclude...) {
-		s.Status(Error)
+		s.Status(StatusError)
 	}
 	return err
 }
@@ -196,8 +197,6 @@ func (s span) EndWith(err error, exclude ...error) error {
 
 // nopSpan is a span that does nothing.
 type nopSpan struct{}
-
-var nopSpanV Span = nopSpan{}
 
 func (s nopSpan) Key() string { return "" }
 

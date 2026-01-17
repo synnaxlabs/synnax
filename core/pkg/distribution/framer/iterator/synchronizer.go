@@ -43,7 +43,7 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 		return res, false, nil
 	}
 
-	if res.Variant == DataResponse {
+	if res.Variant == ResponseVariantData {
 		return res, true, nil
 	}
 

@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening a log service.
-type Config struct {
+// ServiceConfig is the configuration for opening a log service.
+type ServiceConfig struct {
 	// DB is the database that the log service will store logs in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -29,20 +29,20 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a log service.
-	DefaultConfig = Config{}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a log service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("log")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -50,17 +50,17 @@ func (c Config) Validate() error {
 }
 
 // Service is the primary service for retrieving and modifying logs from Synnax.
-type Service struct{ Config }
+type Service struct{ ServiceConfig }
 
 // NewService instantiates a new log service using the provided configurations. Each
 // configuration will be used as an override for the previous configuration in the list.
 // See the Config struct for information on which fields should be set.
-func NewService(cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	s := &Service{ServiceConfig: cfg}
 	cfg.Ontology.RegisterService(s)
 	return s, nil
 }

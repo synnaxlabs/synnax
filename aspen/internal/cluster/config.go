@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
-	pledge_ "github.com/synnaxlabs/aspen/internal/cluster/pledge"
+	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
@@ -45,7 +45,7 @@ type Config struct {
 	StorageKey []byte
 	// Pledge is the configuration for pledging to the Cluster upon a Open call.
 	// See the pledge package for more details on how to configure this.
-	Pledge pledge_.Config
+	Pledge pledge.Config
 	// StorageFlushInterval	is the interval at which the Cluster state is flushed
 	// to the backend. If this is set to FlushOnEvery, the Cluster state is flushed on
 	// every change.
@@ -92,7 +92,7 @@ func (cfg Config) Report() alamos.Report {
 
 var (
 	DefaultConfig = Config{
-		Pledge:               pledge_.DefaultConfig,
+		Pledge:               pledge.DefaultConfig,
 		StorageKey:           []byte("aspen.cluster"),
 		Gossip:               gossip.DefaultConfig,
 		StorageFlushInterval: 1 * time.Second,
@@ -101,11 +101,11 @@ var (
 		Codec: binary.NewDecodeFallbackCodec(&binary.JSONCodec{}, &binary.GobCodec{}),
 	}
 	FastConfig = DefaultConfig.Override(Config{
-		Pledge: pledge_.FastConfig,
+		Pledge: pledge.FastConfig,
 		Gossip: gossip.FastConfig,
 	})
 	BlazingFastConfig = DefaultConfig.Override(Config{
-		Pledge: pledge_.BlazingFastConfig,
+		Pledge: pledge.BlazingFastConfig,
 		Gossip: gossip.FastConfig,
 	})
 )

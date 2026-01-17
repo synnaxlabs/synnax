@@ -44,42 +44,42 @@ type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
 type IteratorResponseVariant uint8
 
 const (
-	// IteratorAckResponse is a response that indicates that an iteration request has
-	// completed successfully.
-	IteratorAckResponse IteratorResponseVariant = iota + 1
-	// IteratorDataResponse is a response that indicates that an iteration request
-	// returned data.
-	IteratorDataResponse
+	// IteratorResponseVariantAck is a response that indicates that an iteration request
+	// has completed successfully.
+	IteratorResponseVariantAck IteratorResponseVariant = iota + 1
+	// IteratorResponseVariantData is a response that indicates that an iteration
+	// request returned data.
+	IteratorResponseVariantData
 )
 
 // IteratorCommand is an enumeration of commands that can be sent to an Iterator.
 type IteratorCommand uint8
 
 const (
-	// IterNext represents a call to Iterator.Next.
-	IterNext IteratorCommand = iota + 1
-	// IterPrev represents a call to Iterator.Prev.
-	IterPrev
-	// IterSeekFirst represents a call to Iterator.SeekFirst.
-	IterSeekFirst
-	// IterSeekLast represents a call to Iterator.SeekLast.
-	IterSeekLast
-	// IterSeekLE represents a call to Iterator.SeekLE.
-	IterSeekLE
-	// IterSeekGE represents a call to Iterator.SeekGE.
-	IterSeekGE
-	// IterValid represents a call to Iterator.Valid.
-	IterValid
-	// IterError represents a call to Iterator.Error.
-	IterError
-	// IterSetBounds represents a call to Iterator.SetBounds.
-	IterSetBounds
+	// IteratorCommandNext represents a call to Iterator.Next.
+	IteratorCommandNext IteratorCommand = iota + 1
+	// IteratorCommandPrev represents a call to Iterator.Prev.
+	IteratorCommandPrev
+	// IteratorCommandSeekFirst represents a call to Iterator.SeekFirst.
+	IteratorCommandSeekFirst
+	// IteratorCommandSeekLast represents a call to Iterator.SeekLast.
+	IteratorCommandSeekLast
+	// IterCommandSeekLE represents a call to Iterator.SeekLE.
+	IterCommandSeekLE
+	// IteratorCommandSeekGE represents a call to Iterator.SeekGE.
+	IteratorCommandSeekGE
+	// IteratorCommandValid represents a call to Iterator.Valid.
+	IteratorCommandValid
+	// IteratorCommandError represents a call to Iterator.Error.
+	IteratorCommandError
+	// IteratorCommandSetBounds represents a call to Iterator.SetBounds.
+	IteratorCommandSetBounds
 )
 
-var validateIteratorCommand = validate.NewInclusiveBoundsChecker(IterNext, IterSetBounds)
+var validateIteratorCommand = validate.NewInclusiveBoundsChecker(IteratorCommandNext, IteratorCommandSetBounds)
 
 // HasOps returns true if the IteratorCommand has any associated on disk operations.
-func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
+func (i IteratorCommand) HasOps() bool { return i <= IteratorCommandPrev }
 
 // IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
 //
@@ -87,11 +87,11 @@ func (i IteratorCommand) HasOps() bool { return i <= IterPrev }
 type IteratorRequest struct {
 	// Command is the command to execute.
 	Command IteratorCommand
-	// Stamp should be set during a request to IterSeekLE or IterSeekGE.
+	// Stamp should be set during a request to IteratorCommandSeekLE or IteratorCommandSeekGE.
 	Stamp telem.TimeStamp
-	// Span should be set during a request to IterNext or IterPrev.
+	// Span should be set during a request to IteratorCommandNext or IteratorCommandPrev.
 	Span telem.TimeSpan
-	// Bounds should be set during a request to IterSetBounds.
+	// Bounds should be set during a request to IteratorCommandSetBounds.
 	Bounds telem.TimeRange
 	// SeqNum is the sequence number of the request. This is used to match the request
 	// with the response. Each request should increment the sequence number by 1.
@@ -153,7 +153,7 @@ func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 				ok, err := s.exec(ctx, req)
 				s.Out.Inlet() <- IteratorResponse{
-					Variant: IteratorAckResponse,
+					Variant: IteratorResponseVariantAck,
 					Command: req.Command,
 					SeqNum:  req.SeqNum,
 					Ack:     ok,
@@ -169,23 +169,23 @@ func (s *streamIterator) exec(ctx context.Context, req IteratorRequest) (ok bool
 		return false, err
 	}
 	switch req.Command {
-	case IterNext:
+	case IteratorCommandNext:
 		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Next(ctx, req.Span) })
-	case IterPrev:
+	case IteratorCommandPrev:
 		ok = s.execWithResponse(req.SeqNum, func(i *unary.Iterator) bool { return i.Prev(ctx, req.Span) })
-	case IterSeekFirst:
+	case IteratorCommandSeekFirst:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekFirst(ctx) })
-	case IterSeekLast:
+	case IteratorCommandSeekLast:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLast(ctx) })
-	case IterSeekLE:
+	case IterCommandSeekLE:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekLE(ctx, req.Stamp) })
-	case IterSeekGE:
+	case IteratorCommandSeekGE:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.SeekGE(ctx, req.Stamp) })
-	case IterValid:
+	case IteratorCommandValid:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { return i.Valid() })
-	case IterError:
+	case IteratorCommandError:
 		err = s.error()
-	case IterSetBounds:
+	case IteratorCommandSetBounds:
 		ok = s.execWithoutResponse(func(i *unary.Iterator) bool { i.SetBounds(req.Bounds); return true })
 	}
 	return
@@ -196,8 +196,8 @@ func (s *streamIterator) execWithResponse(seqNum int, f func(i *unary.Iterator) 
 		if f(i) {
 			ok = true
 			s.Out.Inlet() <- IteratorResponse{
-				Variant: IteratorDataResponse,
-				Command: IterNext,
+				Variant: IteratorResponseVariantData,
+				Command: IteratorCommandNext,
 				SeqNum:  seqNum,
 				Frame:   i.Value(),
 			}

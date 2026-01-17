@@ -11,6 +11,7 @@ package alamos_test
 
 import (
 	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -25,7 +26,7 @@ var _ = Describe("Trace", func() {
 			cfg := alamos.TracingConfig{
 				OtelProvider:   otel.GetTracerProvider(),
 				OtelPropagator: otel.GetTextMapPropagator(),
-				Filter:         alamos.ThresholdEnvFilter(alamos.Debug),
+				Filter:         alamos.ThresholdEnvFilter(alamos.EnvironmentDebug),
 			}
 			tracer := MustSucceed(alamos.NewTracer(cfg))
 			Expect(tracer).ToNot(BeNil())

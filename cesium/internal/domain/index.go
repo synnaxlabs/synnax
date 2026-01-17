@@ -51,7 +51,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.Unlock()
-				return span.Error(NewErrRangeWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
+				return span.Error(NewRangeWriteConflictError(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -103,7 +103,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeNotFound(p.TimeRange))
+		return span.Error(NewRangeNotFoundError(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -120,16 +120,16 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// database to reach this inconceivable state.
 		idx.L.DPanic("cannot update a pointer with a different start timestamp")
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeNotFound(p.TimeRange))
+		return span.Error(NewRangeNotFoundError(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+		return span.Error(NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt-1].TimeRange))
 	} else if overlapsWithNext {
 		idx.mu.Unlock()
-		return span.Error(NewErrRangeWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
+		return span.Error(NewRangeWriteConflictError(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}

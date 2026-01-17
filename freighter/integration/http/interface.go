@@ -11,10 +11,11 @@ package http
 
 import (
 	"context"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/errors"
 	"strconv"
 	"strings"
+
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Message struct {
@@ -39,14 +40,14 @@ func (t TestError) Error() string {
 }
 
 func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
-	var te TestError
-	ok := errors.As(err, &te)
+	var errTest TestError
+	ok := errors.As(err, &errTest)
 	if !ok {
 		return errors.Payload{}, false
 	}
 	return errors.Payload{
 		Type: "integration.error",
-		Data: strconv.Itoa(te.Code) + "," + te.Message,
+		Data: strconv.Itoa(errTest.Code) + "," + errTest.Message,
 	}, true
 }
 

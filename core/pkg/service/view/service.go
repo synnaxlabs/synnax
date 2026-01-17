@@ -39,8 +39,8 @@ type ServiceConfig struct {
 }
 
 var (
-	_             config.Config[ServiceConfig] = (*ServiceConfig)(nil)
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = (*ServiceConfig)(nil)
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -76,7 +76,7 @@ type Service struct {
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{}
 	var err error
-	if s.cfg, err = config.New(DefaultConfig, cfgs...); err != nil {
+	if s.cfg, err = config.New(DefaultServiceConfig, cfgs...); err != nil {
 		return nil, err
 	}
 	if s.group, err = s.cfg.Group.CreateOrRetrieve(ctx, "Views", ontology.RootID); err != nil {

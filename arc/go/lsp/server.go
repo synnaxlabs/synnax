@@ -274,13 +274,13 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	var out protocol.DiagnosticSeverity
 	switch in {
-	case diagnostics.Warning:
+	case diagnostics.SeverityWarning:
 		out = protocol.DiagnosticSeverityWarning
-	case diagnostics.Info:
+	case diagnostics.SeverityInfo:
 		out = protocol.DiagnosticSeverityInformation
-	case diagnostics.Hint:
+	case diagnostics.SeverityHint:
 		out = protocol.DiagnosticSeverityHint
-	case diagnostics.Error:
+	case diagnostics.SeverityError:
 		out = protocol.DiagnosticSeverityError
 	}
 	return out

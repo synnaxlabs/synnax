@@ -160,7 +160,7 @@ func binaryOpGraph(
 	}
 }
 
-var _ = Describe("Wasm", func() {
+var _ = Describe("WASM", func() {
 	Describe("Next with mismatched input lengths", func() {
 		It("Should repeat shorter input values to match longest input", func() {
 			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)

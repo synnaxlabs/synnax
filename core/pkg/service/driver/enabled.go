@@ -94,11 +94,11 @@ func (d *Driver) start(ctx context.Context) error {
 			return err
 		}
 		workDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
-		if err = os.MkdirAll(workDir, xfs.OwnerReadWriteExecute); err != nil {
+		if err = os.MkdirAll(workDir, xfs.UserRWX); err != nil {
 			return err
 		}
 		cfgFileName := filepath.Join(workDir, configFileName)
-		if err = os.WriteFile(cfgFileName, b, xfs.OwnerReadWrite); err != nil {
+		if err = os.WriteFile(cfgFileName, b, xfs.UserRW); err != nil {
 			return err
 		}
 		data, err := executable.ReadFile(embeddedDriverPath)
@@ -106,7 +106,7 @@ func (d *Driver) start(ctx context.Context) error {
 			return err
 		}
 		driverFileName := filepath.Join(workDir, driverName)
-		if err = os.WriteFile(driverFileName, data, xfs.OwnerReadWriteExecute); err != nil {
+		if err = os.WriteFile(driverFileName, data, xfs.UserRWX); err != nil {
 			return err
 		}
 		defer func() {

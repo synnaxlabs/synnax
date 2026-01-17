@@ -42,7 +42,7 @@ type DB struct {
 }
 
 // ErrDBClosed is returned when an operation is attempted on a closed unary database.
-var ErrDBClosed = resource.NewErrClosed("unary.db")
+var ErrDBClosed = resource.NewClosedError("unary.db")
 
 // Channel returns the channel for this unary database.
 func (db *DB) Channel() channel.Channel { return db.cfg.Channel }

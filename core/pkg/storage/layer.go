@@ -51,27 +51,29 @@ import (
 )
 
 type (
-	// KVEngine is an enumeration of  the available key-value storage engines synnax can use.
+	// KVEngine is an enumeration of  the available key-value storage engines Synnax can
+	// use.
 	KVEngine uint8
-	// TSEngine is an enumeration of the available time-series storage engines delta can use.
+	// TSEngine is an enumeration of the available time-series storage engines Synnax
+	// can use.
 	TSEngine uint8
 )
 
 //go:generate stringer -type=KVEngine
 const (
-	// PebbleKV uses cockroach's pebble key-value store.
-	PebbleKV KVEngine = iota + 1
+	// KVEnginePebble uses CockroachDB's pebble key-value store.
+	KVEnginePebble KVEngine = iota + 1
 )
 
-var kvEngines = []KVEngine{PebbleKV}
+var kvEngines = []KVEngine{KVEnginePebble}
 
 //go:generate stringer -type=TSEngine
 const (
-	// CesiumTS uses synnax's cesium time-series engine.
-	CesiumTS TSEngine = iota + 1
+	// TSEngineCesium uses Synnax's Cesium time-series engine.
+	TSEngineCesium TSEngine = iota + 1
 )
 
-var tsEngines = []TSEngine{CesiumTS}
+var tsEngines = []TSEngine{TSEngineCesium}
 
 // Config is used to configure the Synnax storage layer. See fields for details on
 // defining the configuration.
@@ -107,10 +109,10 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig returns the default configuration for the storage layer.
 	DefaultConfig = Config{
-		Perm:     xfs.OwnerReadWriteExecute,
+		Perm:     xfs.UserRWX,
 		InMemory: config.False(),
-		KVEngine: PebbleKV,
-		TSEngine: CesiumTS,
+		KVEngine: KVEnginePebble,
+		TSEngine: TSEngineCesium,
 	}
 )
 
@@ -245,12 +247,6 @@ func (s *Layer) TSSize() telem.Size { return s.TS.Metrics().DiskSize }
 // Size returns the total disk space used by the storage layer in bytes.
 func (s *Layer) Size() telem.Size { return s.KVSize() + s.TSSize() }
 
-const (
-	kvDirname     = "kv"
-	lockFileName  = "LOCK"
-	cesiumDirname = "cesium"
-)
-
 func openFileSystems(cfg Config) (vfs.FS, xfs.FS) {
 	if *cfg.InMemory {
 		return vfs.NewMem(), xfs.NewMem()
@@ -311,7 +307,7 @@ Is there another Synnax node using the same directory?
 `
 
 func acquireLock(cfg Config, fs vfs.FS) (io.Closer, error) {
-	fName := filepath.Join(cfg.Dirname, lockFileName)
+	fName := filepath.Join(cfg.Dirname, "LOCK")
 	release, err := fs.Lock(fName)
 	if err == nil {
 		return release, nil
@@ -340,11 +336,11 @@ func openPebbleCache(cfg Config) (*pebble.Cache, io.Closer, error) {
 }
 
 func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
-	if cfg.KVEngine != PebbleKV {
+	if cfg.KVEngine != KVEnginePebble {
 		return nil, errors.Newf("[storage] - unsupported key-value engine: %s", cfg.KVEngine)
 	}
 	ins := cfg.Child("kv")
-	dirname := filepath.Join(cfg.Dirname, kvDirname)
+	dirname := filepath.Join(cfg.Dirname, "kv")
 	requiresMigration, err := pebblekv.RequiresMigration(dirname, fs)
 	if err != nil {
 		return nil, err
@@ -407,12 +403,12 @@ func openKV(cfg Config, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 }
 
 func openTS(ctx context.Context, cfg Config, fs xfs.FS) (*ts.DB, error) {
-	if cfg.TSEngine != CesiumTS {
+	if cfg.TSEngine != TSEngineCesium {
 		return nil, errors.Newf("[storage] - unsupported time-series engine: %s", cfg.TSEngine)
 	}
 	return ts.Open(ctx, ts.Config{
 		Instrumentation: cfg.Child("ts"),
-		Dirname:         filepath.Join(cfg.Dirname, cesiumDirname),
+		Dirname:         filepath.Join(cfg.Dirname, "cesium"),
 		FS:              fs,
 	})
 }

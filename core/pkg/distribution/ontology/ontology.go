@@ -123,7 +123,7 @@ func Open(ctx context.Context, configs ...Config) (*Ontology, error) {
 		registrar:            serviceRegistrar{TypeBuiltIn: &builtinService{}},
 	}
 
-	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.NotFound) {
+	if err = o.NewRetrieve().WhereIDs(RootID).Exec(ctx, cfg.DB); errors.Is(err, query.ErrNotFound) {
 		err = o.NewWriter(cfg.DB).DefineResource(ctx, RootID)
 	}
 	if err != nil {
@@ -173,12 +173,12 @@ type Writer interface {
 	// types from the resource with the given ID. If the resource does not exist, or if
 	// it has no outgoing relationships of the given types,
 	// DeleteOutgoingRelationshipsOfTypes does nothing.
-	DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, type_ RelationshipType) error
+	DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, relationshipType RelationshipType) error
 	// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
 	// types to the resource with the given ID. If the resource does not exist, or if it
 	// has no incoming relationships of the given types,
 	// DeleteIncomingRelationshipsOfTypes does nothing.
-	DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, type_ RelationshipType) error
+	DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, relationshipType RelationshipType) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending operations
 	// merged with the underlying database. If the Writer is executing directly against
 	// the underlying database, the Retrieve query behaves exactly as if calling
@@ -193,7 +193,7 @@ func (o *Ontology) Search(ctx context.Context, req search.Request) ([]Resource, 
 	}
 	resources := make([]Resource, 0, len(ids))
 	err = o.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, o.DB)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		err = nil
 	}
 	if err != nil {

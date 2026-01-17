@@ -118,7 +118,7 @@ func (w *writerSeg) Write(ctx context.Context, fr framer.Frame) error {
 	return signal.SendUnderContext(
 		ctx,
 		w.Out.Inlet(),
-		framer.WriterRequest{Frame: fr, Command: writer.Write},
+		framer.WriterRequest{Frame: fr, Command: writer.CommandWrite},
 	)
 }
 

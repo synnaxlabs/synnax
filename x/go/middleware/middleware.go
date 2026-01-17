@@ -9,32 +9,34 @@
 
 package middleware
 
-// Middleware is a function that can act on a request of type I, pass it on to the
-// next middleware, and process a response of type O.
+// Middleware is a function that can act on a request of type I, pass it on to the next
+// middleware, and process a response of type O.
 type Middleware[I, O any] interface {
-	// Exec executes the middleware. It receives a context and a request. It also receives
-	// a next function that can be used to execute the next middleware in the chain.
-	Exec(in I, next func(I) (O, error)) (out O, err error)
+	// Exec executes the middleware. It receives a context and a request. It also
+	// receives a next function that can be used to execute the next middleware in the
+	// chain.
+	Exec(I, func(I) (O, error)) (O, error)
 }
 
 // Finalizer is the final middleware in a chain, and is expected to execute the request.
 type Finalizer[I, O any] interface {
-	// Finalize is a special middleware that is executed after the middleware chain
-	// has completed. It receives the context and the request that was sent.
-	Finalize(in I) (out O, err error)
+	// Finalize is a special middleware that is executed after the middleware chain has
+	// completed. It receives the context and the request that was sent.
+	Finalize(in I) (O, error)
 }
 
 // Chain is a chain of middleware that can be executed sequentially.
 type Chain[I, O any] []Middleware[I, O]
 
-// Exec executes the middleware chain sequentially given a value. The first
-// middleware will be the first to receive the incoming, and the last to receive the outgoing value.
-func (c Chain[I, O]) Exec(in I, finalizer Finalizer[I, O]) (out O, err error) {
+// Exec executes the middleware chain sequentially given a value. The first middleware
+// will be the first to receive the incoming, and the last to receive the outgoing
+// value.
+func (c Chain[I, O]) Exec(in I, finalizer Finalizer[I, O]) (O, error) {
 	var (
-		i    = 0
+		i    int
 		next func(I) (O, error)
 	)
-	next = func(_in I) (out O, err error) {
+	next = func(_in I) (O, error) {
 		if i == len(c) {
 			return finalizer.Finalize(_in)
 		}

@@ -185,7 +185,7 @@ var Factory node.Factory = &statFactory{}
 func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	reductionMap, ok := ops[nodeCfg.Node.Type]
 	if !ok {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var (
 		inputData   = nodeCfg.State.Input(0)

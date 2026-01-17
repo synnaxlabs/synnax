@@ -32,20 +32,19 @@ import (
 type WriterCommand uint8
 
 const (
-	// WriterWrite represents a call to Writer.Write.
-	WriterWrite WriterCommand = iota + 1
-	// WriterCommit represents a call to Writer.Commit.
-	WriterCommit
-	// WriterSetAuthority represents a call to Writer.SetAuthority.
-	WriterSetAuthority
+	// WriterCommandWrite represents a call to Writer.Write.
+	WriterCommandWrite WriterCommand = iota + 1
+	// WriterCommandCommit represents a call to Writer.Commit.
+	WriterCommandCommit
+	// WriterCommandSetAuthority represents a call to Writer.SetAuthority.
+	WriterCommandSetAuthority
 )
 
-var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterWrite, WriterSetAuthority)
+var validateWriterCommand = validate.NewInclusiveBoundsChecker(WriterCommandWrite, WriterCommandSetAuthority)
 
 // WriterRequest is a request containing a frame to write to the DB.
 type WriterRequest struct {
-	// Config is used for updating the parameters in WriterSetAuthority and
-	// WriterSetMode.
+	// Config is used for updating the parameters in WriterCommandSetAuthority.
 	Config WriterConfig
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
@@ -151,11 +150,11 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) (commitEn
 	if err = validateWriterCommand(req.Command); err != nil {
 		return 0, err
 	}
-	if req.Command == WriterSetAuthority {
+	if req.Command == WriterCommandSetAuthority {
 		err = w.setAuthority(ctx, req.Config)
 		return
 	}
-	if req.Command == WriterCommit {
+	if req.Command == WriterCommandCommit {
 		commitEnd, err = w.commit(ctx)
 		return
 	}
@@ -220,7 +219,7 @@ func (w *streamWriter) maybeSendRes(
 		res.Authorized = false
 	}
 	res.Err = w.accumulatedErr
-	if res.Err == nil && req.Command == WriterWrite && !*w.Sync {
+	if res.Err == nil && req.Command == WriterCommandWrite && !*w.Sync {
 		return nil
 	}
 	return signal.SendUnderContext(ctx, w.Out.Inlet(), res)
@@ -280,30 +279,30 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	c := errors.NewCatcher(errors.WithAggregation())
-	u := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
+	parentUpdate := ControlUpdate{Transfers: make([]control.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
-			u_, err := idx.Close()
+			u, err := idx.Close()
 			if err != nil {
 				return err
 			}
-			u.Transfers = append(u.Transfers, u_.Transfers...)
+			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
 			return nil
 		})
 	}
 	if w.virtual.internal != nil {
 		c.Exec(func() error {
-			u_, err := w.virtual.Close()
+			u, err := w.virtual.Close()
 			if err != nil {
 				return err
 			}
-			u.Transfers = append(u.Transfers, u_.Transfers...)
+			parentUpdate.Transfers = append(parentUpdate.Transfers, u.Transfers...)
 			return nil
 		})
 	}
 
-	if len(u.Transfers) > 0 {
-		_ = w.updateDBControl(ctx, u)
+	if len(parentUpdate.Transfers) > 0 {
+		_ = w.updateDBControl(ctx, parentUpdate)
 	}
 
 	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
@@ -432,7 +431,7 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 
 func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.ErrValidation,
 		`invalid data type for channel %v, expected %s, got %s`,
 		expectedCh,
 		expectedCh.DataType,
@@ -442,7 +441,7 @@ func invalidDataTypeError(expectedCh Channel, received telem.DataType) error {
 
 func oneSeriesPerChannelError(expected Channel) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.ErrValidation,
 		`frame must have exactly one series per channel, found more than one for channel %v`,
 		expected,
 	)
@@ -454,7 +453,7 @@ func sameLengthForAllSeriesError(
 	series telem.Series,
 ) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.ErrValidation,
 		`
 frame must have the same length for all series. Rest of the series in the frame have
 length %d, while series for channel %v has length %d. See https://docs.synnaxlabs.com/reference/concepts/writes#rule-1
@@ -472,14 +471,14 @@ func missingChannelError(
 ) error {
 	if index.Key == missing.Key {
 		return errors.Wrapf(
-			validate.Error,
+			validate.ErrValidation,
 			`received no data for index channel %v that must be provided when writing to related data channels %v`,
 			missing,
 			stringer.TruncateAndFormatSlice(dataChannels, 8),
 		)
 	}
 	return errors.Wrapf(
-		validate.Error,
+		validate.ErrValidation,
 		`frame must have exactly one series for each data channel associated with index %v, but is missing a series for channel %v`,
 		index,
 		missing,
@@ -492,7 +491,7 @@ func incorrectNumberOfSeriesError(
 
 ) error {
 	return errors.Wrapf(
-		validate.Error,
+		validate.ErrValidation,
 		`frame must have exactly one series for each data channel associated with an index. Expected
 			%d series, got %d.
 			See https://docs.synnaxlabs.com/reference/concepts/writes#the-rules-of-writes

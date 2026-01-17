@@ -51,7 +51,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = resource.NewErrClosed("domain.writer")
+	errWriterClosed     = resource.NewClosedError("domain.writer")
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -161,7 +161,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	}
 	if db.idx.overlap(cfg.Domain()) {
 		return nil, errors.Wrap(
-			NewErrRangeWriteConflict(cfg.Domain(), db.idx.timeRange()),
+			NewRangeWriteConflictError(cfg.Domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}
@@ -338,10 +338,10 @@ func (w *Writer) Close() error {
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
 	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
-		return errors.Wrapf(validate.Error, "commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v", end, w.prevCommit, end.Span(w.prevCommit))
+		return errors.Wrapf(validate.ErrValidation, "commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v", end, w.prevCommit, end.Span(w.prevCommit))
 	}
 	if !w.Start.Before(end) {
-		return errors.Wrapf(validate.Error, "commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v", end, w.Start, end.Span(w.Start))
+		return errors.Wrapf(validate.ErrValidation, "commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v", end, w.Start, end.Span(w.Start))
 	}
 	return nil
 }

@@ -122,7 +122,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	db_ := &DB{
+	db := &DB{
 		config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
@@ -134,12 +134,12 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	db_.config.L.Debug("opening cluster KV", db_.config.Report().ZapFields()...)
+	db.config.L.Debug("opening cluster KV", db.config.Report().ZapFields()...)
 
 	st := newStore()
 
 	pipe := plumber.New()
-	plumber.SetSource[TxRequest](pipe, executorAddr, &db_.source)
+	plumber.SetSource[TxRequest](pipe, executorAddr, &db.source)
 	plumber.SetSource[TxRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
@@ -184,7 +184,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
-	db_.Observable = observable
+	db.Observable = observable
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},
@@ -258,7 +258,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		confluence.RecoverWithoutErrOnPanic(),
 		confluence.WithRetryOnPanic(100),
 	)
-	return db_, runRecovery(ctx, cfg)
+	return db, runRecovery(ctx, cfg)
 }
 
 func (d *DB) Close() error { return d.shutdown.Close() }

@@ -22,25 +22,25 @@ type Severity int
 
 //go:generate stringer -type=Severity
 const (
-	// Error indicates a critical issue that prevents compilation.
-	Error Severity = iota
-	// Warning indicates a potential problem that doesn't prevent compilation.
-	Warning
-	// Info provides informational messages about analysis decisions.
-	Info
-	// Hint suggests code improvements or best practices.
-	Hint
+	// SeverityError indicates a critical issue that prevents compilation.
+	SeverityError Severity = iota
+	// SeverityWarning indicates a potential problem that doesn't prevent compilation.
+	SeverityWarning
+	// SeverityInfo provides informational messages about analysis decisions.
+	SeverityInfo
+	// SeverityHint suggests code improvements or best practices.
+	SeverityHint
 )
 
 func (s Severity) String() string {
 	switch s {
-	case Error:
+	case SeverityError:
 		return "error"
-	case Warning:
+	case SeverityWarning:
 		return "warning"
-	case Info:
+	case SeverityInfo:
 		return "info"
-	case Hint:
+	case SeverityHint:
 		return "hint"
 	default:
 		return fmt.Sprintf("Severity(%d)", s)
@@ -78,7 +78,7 @@ func (d *Diagnostics) AddError(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	diag := Diagnostic{Severity: Error, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityError, Message: err.Error()}
 	if ctx != nil {
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
@@ -91,7 +91,7 @@ func (d *Diagnostics) AddWarning(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	diag := Diagnostic{Severity: Warning, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityWarning, Message: err.Error()}
 	if ctx != nil {
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
@@ -104,7 +104,7 @@ func (d *Diagnostics) AddInfo(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	diag := Diagnostic{Severity: Info, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityInfo, Message: err.Error()}
 	if ctx != nil {
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
@@ -117,7 +117,7 @@ func (d *Diagnostics) AddHint(
 	err error,
 	ctx antlr.ParserRuleContext,
 ) {
-	diag := Diagnostic{Severity: Hint, Message: err.Error()}
+	diag := Diagnostic{Severity: SeverityHint, Message: err.Error()}
 	if ctx != nil {
 		diag.Line = ctx.GetStart().GetLine()
 		diag.Column = ctx.GetStart().GetColumn()
@@ -129,7 +129,7 @@ func (d *Diagnostics) AddHint(
 func (d Diagnostics) Errors() []Diagnostic {
 	var errors []Diagnostic
 	for _, diag := range d {
-		if diag.Severity == Error {
+		if diag.Severity == SeverityError {
 			errors = append(errors, diag)
 		}
 	}
@@ -140,7 +140,7 @@ func (d Diagnostics) Errors() []Diagnostic {
 func (d Diagnostics) Warnings() []Diagnostic {
 	var warnings []Diagnostic
 	for _, diag := range d {
-		if diag.Severity == Warning {
+		if diag.Severity == SeverityWarning {
 			warnings = append(warnings, diag)
 		}
 	}

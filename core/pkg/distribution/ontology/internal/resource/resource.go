@@ -49,10 +49,10 @@ type ID struct {
 // Validate ensures that the given ID has both a Key and Type.
 func (id ID) Validate() error {
 	if id.Key == "" {
-		return errors.Wrapf(validate.Error, "[ontology.resource] - key is required")
+		return errors.Wrapf(validate.ErrValidation, "[ontology.resource] - key is required")
 	}
 	if id.Type == "" {
-		return errors.Wrapf(validate.Error, "[ontology.resource] - type is required")
+		return errors.Wrapf(validate.ErrValidation, "[ontology.resource] - type is required")
 	}
 	return nil
 }
@@ -74,14 +74,14 @@ func ParseID(key string) (ID, error) {
 	split := strings.SplitN(key, ":", 2)
 	if len(split) != 2 {
 		return ID{}, errors.Wrapf(
-			validate.Error,
+			validate.ErrValidation,
 			"[ontology.resource] - failed to parse id: %s",
 			key,
 		)
 	}
 	if split[0] == "" {
 		return ID{}, errors.Wrapf(
-			validate.Error,
+			validate.ErrValidation,
 			"[ontology.resource] - failed to parse id: %s (empty type)",
 			key,
 		)

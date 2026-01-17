@@ -170,7 +170,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 		if n.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
@@ -178,7 +178,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 			if n.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -402,7 +402,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 		}
 		if intVal > (1<<(destType.Bits()-1)-1) || intVal < -(1<<(destType.Bits()-1)) {
 			return errors.Wrap(
-				validate.ConversionError,
+				validate.ErrConversion,
 				"integer value out of range for destination type",
 			)
 		}
@@ -456,7 +456,7 @@ func Uint16() NumberZ { return Number().Uint16() }
 
 func fractionalPartError(float float64) error {
 	return errors.Wrapf(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"cannot convert float %v with fractional part to integer",
 		float,
 	)
@@ -464,7 +464,7 @@ func fractionalPartError(float float64) error {
 
 func negativeToUnsignedError[T types.Numeric](value T) error {
 	return errors.Wrapf(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"cannot convert negative value %v to unsigned integer",
 		value,
 	)
@@ -472,7 +472,7 @@ func negativeToUnsignedError[T types.Numeric](value T) error {
 
 func valueOutOfRangeError[T types.Numeric](value T, destinationType string) error {
 	return errors.Wrapf(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"integer value %v out of range for destination type %s",
 		value,
 		destinationType,
@@ -488,7 +488,7 @@ func cannotConvertToNumberError(val reflect.Value) error {
 
 func unsignedIntegerTooLargeError() error {
 	return errors.Wrap(
-		validate.ConversionError,
+		validate.ErrConversion,
 		"unsigned integer value too large for conversion to signed integer",
 	)
 }

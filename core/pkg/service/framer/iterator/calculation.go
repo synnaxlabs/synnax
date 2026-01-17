@@ -68,18 +68,18 @@ func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Opti
 }
 
 func (t *calculationTransform) processResponse(ctx context.Context, res Response) {
-	if res.Command == Error {
+	if res.Command == CommandError {
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
 		t.Out.Inlet() <- res
 		return
 	}
-	if res.Variant == DataResponse {
+	if res.Variant == ResponseVariantData {
 		if res.Frame.Count() > 0 {
 			t.pendingFrames = append(t.pendingFrames, res.Frame)
 		}
 		return
 	}
-	if res.Variant == AckResponse {
+	if res.Variant == ResponseVariantAck {
 		t.processBufferedFrames(ctx, res)
 		return
 	}
@@ -107,7 +107,7 @@ func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes
 	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
 	if mergedFrame.Count() > 0 {
 		t.Out.Inlet() <- Response{
-			Variant: DataResponse,
+			Variant: ResponseVariantData,
 			Command: ackRes.Command,
 			SeqNum:  ackRes.SeqNum,
 			Frame:   mergedFrame,

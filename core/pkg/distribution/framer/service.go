@@ -38,12 +38,12 @@ type Service struct {
 	writer          *writer.Service
 	iterator        *iterator.Service
 	deleter         *deleter.Service
-	cfg             Config
+	cfg             ServiceConfig
 	controlStateKey channel.Key
 }
 
-// Config is the configuration for the Service.
-type Config struct {
+// ServiceConfig is the configuration for the Service.
+type ServiceConfig struct {
 	// Transport is the network transport for moving telemetry across nodes.
 	// [REQUIRED]
 	Transport Transport
@@ -63,15 +63,15 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening the framer service.
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening the framer service.
 	// This configuration is not valid on its own and must be overridden by a
 	// user-provided configuration. See Config for more information.
-	DefaultConfig = Config{}
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "ts", c.TS)
@@ -81,7 +81,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.TS = override.Nil(c.TS, other.TS)
@@ -100,8 +100,8 @@ const freeWritePipelineBuffer = 4000
 // non-nil error if the configuration is invalid or another error occurs.
 //
 // The Service must be closed after use.
-func OpenService(cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

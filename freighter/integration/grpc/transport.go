@@ -22,9 +22,7 @@ type Server = fgrpc.UnaryServer[
 	*echov1.Message,
 ]
 
-var (
-	_ echov1.EchoServiceServer = (*Server)(nil)
-)
+var _ echov1.EchoServiceServer = (*Server)(nil)
 
 func New() *Server {
 	return &Server{

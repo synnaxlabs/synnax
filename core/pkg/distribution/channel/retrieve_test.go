@@ -175,7 +175,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				WhereKeys(0).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(MatchError(query.NotFound))
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 
 	})

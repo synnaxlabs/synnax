@@ -45,18 +45,14 @@ type leaseProxy struct {
 	keyRouter    proxy.BatchFactory[Key]
 }
 
-const (
-	leasedCounterSuffix       = ".distribution.channel.leasedCounter"
-	freeCounterSuffix         = ".distribution.channel.counter.free"
-	calculatedIndexNameSuffix = "_time"
-)
+const calculatedIndexNameSuffix = "_time"
 
 func newLeaseProxy(
 	ctx context.Context,
 	cfg ServiceConfig,
 	group group.Group,
 ) (*leaseProxy, error) {
-	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
+	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
 	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
 		return nil, err
@@ -82,8 +78,8 @@ func newLeaseProxy(
 		group:         group,
 	}
 	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
-		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
+	if cfg.HostResolver.HostKey() == cluster.NodeKeyBootstrapper {
+		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
 		if err != nil {
 			return nil, err
@@ -140,11 +136,11 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			// Reject manually-specified indexes on calculated channels
 			if ch.LocalIndex != 0 && ch.LocalKey == 0 {
 				return validate.PathedError(
-					errors.Wrap(validate.Error, "calculated channels cannot specify an index manually"),
+					errors.Wrap(validate.ErrValidation, "calculated channels cannot specify an index manually"),
 					"local_index",
 				)
 			}
-			channels[i].Leaseholder = cluster.Free
+			channels[i].Leaseholder = cluster.NodeKeyFree
 			channels[i].Virtual = true
 			if lp.analyzeCalculation != nil {
 				dt, err := lp.analyzeCalculation(ctx, ch.Expression)
@@ -168,7 +164,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannels = append(indexChannels, indexCh)
@@ -189,7 +185,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	if len(batch.Free) > 0 {
 		if !lp.cfg.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, cluster.Bootstrapper, batch.Free, opts)
+			remoteChannels, err := lp.createRemote(ctx, cluster.NodeKeyBootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
@@ -249,7 +245,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					}
 					return c, nil
 				}).
-			Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
+			Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 	}
@@ -270,7 +266,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannelsForExisting = append(indexChannelsForExisting, indexCh)
@@ -370,7 +366,7 @@ func (lp *leaseProxy) validateChannelNames(
 	for i, name := range names {
 		if namesSeen.Contains(name) {
 			return validate.PathedError(
-				errors.Wrapf(validate.Error, "duplicate channel name '%s' in request", name),
+				errors.Wrapf(validate.ErrValidation, "duplicate channel name '%s' in request", name),
 				fmt.Sprintf("[%d].name", i),
 			)
 		}
@@ -385,7 +381,7 @@ func (lp *leaseProxy) validateChannelNames(
 			return namesSeen.Contains(c.Name), nil
 		}).
 		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
-		return errors.Skip(err, query.NotFound)
+		return errors.Skip(err, query.ErrNotFound)
 	}
 	nameConflicts := make(map[string]int, len(conflictingChannels))
 	for i, ch := range conflictingChannels {
@@ -401,7 +397,7 @@ func (lp *leaseProxy) validateChannelNames(
 			continue
 		}
 		return validate.PathedError(
-			errors.Wrapf(validate.Error, "channel with name '%s' already exists", name),
+			errors.Wrapf(validate.ErrValidation, "channel with name '%s' already exists", name),
 			fmt.Sprintf("[%d].name", i),
 		)
 	}
@@ -411,7 +407,7 @@ func (lp *leaseProxy) validateChannelNames(
 func (lp *leaseProxy) validateFreeVirtual(channels *[]Channel) error {
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
-			return validate.PathedError(validate.RequiredError, "name")
+			return validate.PathedError(validate.ErrRequired, "name")
 		}
 	}
 	return nil
@@ -549,18 +545,18 @@ func (lp *leaseProxy) maybeSetResources(
 	if lp.cfg.Ontology == nil || lp.cfg.Group == nil {
 		return nil
 	}
-	externalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
 	w := lp.cfg.Ontology.NewWriter(txn)
-	if err := w.DefineManyResources(ctx, externalIds); err != nil {
+	if err := w.DefineManyResources(ctx, externalIDs); err != nil {
 		return err
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
 		group.OntologyID(lp.group.Key),
-		ontology.ParentOf,
-		externalIds,
+		ontology.RelationshipTypeParentOf,
+		externalIDs,
 	)
 }
 
@@ -707,7 +703,7 @@ func (lp *leaseProxy) rename(
 	allowInternal bool,
 ) error {
 	if len(keys) != len(names) {
-		return errors.Wrap(validate.Error, "keys and names must be the same length")
+		return errors.Wrap(validate.ErrValidation, "keys and names must be the same length")
 	}
 	if *lp.cfg.ValidateNames {
 		if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
@@ -747,7 +743,7 @@ func (lp *leaseProxy) renameRemote(ctx context.Context, target cluster.NodeKey, 
 func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.ChangeFunc[Key, Channel] {
 	return func(_ gorp.Context, c Channel) (Channel, error) {
 		if c.Internal && !allowInternal {
-			return c, errors.Wrapf(validate.Error, "cannot rename internal channel %v", c)
+			return c, errors.Wrapf(validate.ErrValidation, "cannot rename internal channel %v", c)
 		}
 		c.Name = names[lo.IndexOf(keys, c.Key())]
 		return c, nil
