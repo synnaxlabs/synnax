@@ -38,7 +38,7 @@ type File interface {
 
 type FileInfo = fs.FileInfo
 
-const defaultPerm = OwnerReadWriteExecute | GroupReadExecute | OthersReadExecute
+const defaultPerm = UserRWX | GroupRX | OtherRX
 
 type FS interface {
 	// Open opens a file according to the provided flag. The provided flag can be OR-ed
@@ -61,8 +61,8 @@ type FS interface {
 }
 
 type subFS struct {
-	dir string
 	FS
+	dir string
 }
 
 func (s *subFS) Open(name string, flag int) (File, error) {

@@ -9,11 +9,11 @@
 
 import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
 
-import { type AxisRenderProps, CoreAxis, coreAxisStateZ } from "@/lineplot/aether/axis";
+import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { line } from "@/vis/line/aether";
 import { rule } from "@/vis/rule/aether";
 
-export const yAxisStateZ = coreAxisStateZ.extend({
+export const yAxisStateZ = baseAxisStateZ.extend({
   location: location.x.default("left"),
 });
 
@@ -33,9 +33,9 @@ const invalidArea = (region: box.Box): boolean =>
   box.signedWidth(region) < INVALID_SIZE_THRESHOLD ||
   box.signedHeight(region) < INVALID_SIZE_THRESHOLD;
 
-export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
+export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
   static readonly TYPE = "YAxis";
-  schema = coreAxisStateZ;
+  schema = baseAxisStateZ;
 
   xBounds(): bounds.Bounds {
     return bounds.max(

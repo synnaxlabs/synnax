@@ -47,7 +47,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 			Expect(db.Cluster.Nodes()).To(HaveLen(1))
 
 			By("By setting its state to healthy")
-			Expect(db.Cluster.Host().State).To(Equal(aspen.Healthy))
+			Expect(db.Cluster.Host().State).To(Equal(aspen.NodeStateHealthy))
 
 			Expect(db.Close()).To(Succeed())
 		})
@@ -217,7 +217,7 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					Eventually(func(g Gomega) {
 						n2, err := ctx1.DB.Cluster.Node(2)
 						g.Expect(err).ToNot(HaveOccurred())
-						g.Expect(n2.State).To(Equal(aspen.Healthy))
+						g.Expect(n2.State).To(Equal(aspen.NodeStateHealthy))
 						g.Expect(n2.Heartbeat.Generation).To(Equal(uint32(1)))
 					}).Should(Succeed())
 

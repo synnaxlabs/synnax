@@ -56,10 +56,10 @@ type BatchSwitchFunc[I, O Value] func(context.Context, I, map[address.Address]O)
 // BatchSwitch should be used in cases where certain parts of a value may need to be
 // routed to different locations.
 type BatchSwitch[I, O Value] struct {
-	Switch BatchSwitchFunc[I, O]
 	UnarySink[I]
-	AbstractAddressableSource[O]
+	Switch  BatchSwitchFunc[I, O]
 	addrMap map[address.Address]O
+	AbstractAddressableSource[O]
 }
 
 // Flow implements the Flow interface, reading batches from the Outlet, resolving their

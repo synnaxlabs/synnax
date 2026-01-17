@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -50,17 +51,19 @@ type (
 )
 
 type ServiceConfig struct {
-	alamos.Instrumentation
 	DB *gorp.DB
 	//  Distribution layer framer service.
 	Framer  *framer.Service
 	Channel *channel.Service
 	Arc     *arc.Service
+	// Status is used for persisting calculation status updates.
+	Status *status.Service
+	alamos.Instrumentation
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -70,6 +73,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
@@ -80,14 +84,15 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
 type Service struct {
-	cfg      ServiceConfig
+	closer   io.Closer
 	Streamer *streamer.Service
 	Iterator *iterator.Service
-	closer   io.Closer
+	cfg      ServiceConfig
 }
 
 func (s *Service) OpenIterator(ctx context.Context, cfg IteratorConfig) (*Iterator, error) {
@@ -117,7 +122,7 @@ func (s *Service) Close() error {
 }
 
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,6 +134,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Framer:            cfg.Framer,
 		Arc:               cfg.Arc,
 		ChannelObservable: cfg.Channel.NewObservable(),
+		Status:            cfg.Status,
 	})
 	if err != nil {
 		return nil, err

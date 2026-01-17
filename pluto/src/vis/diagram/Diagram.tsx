@@ -62,7 +62,7 @@ import { Select } from "@/select";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
-import { Viewport as CoreViewport } from "@/viewport";
+import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
 import {
@@ -98,7 +98,7 @@ export const use = ({
   initialViewport = { position: xy.ZERO, zoom: 1 },
 }: UseProps): UseReturn => {
   const [editable, onEditableChange] = useState(allowEdit);
-  const [viewportMode, onViewportModeChange] = useState<CoreViewport.Mode>("select");
+  const [viewportMode, onViewportModeChange] = useState<BaseViewport.Mode>("select");
   const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
   const [edges, onEdgesChange] = useState<Edge[]>(initialEdges);
   const [viewport, onViewportChange] = useState<Viewport>(initialViewport);
@@ -133,8 +133,8 @@ export interface UseReturn {
   viewport: Viewport;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
-  viewportMode: CoreViewport.Mode;
-  onViewportModeChange: (v: CoreViewport.Mode) => void;
+  viewportMode: BaseViewport.Mode;
+  onViewportModeChange: (v: BaseViewport.Mode) => void;
 }
 
 const EDITABLE_PROPS: ReactFlowProps = {
@@ -183,7 +183,7 @@ export interface DiagramProps
       ReactFlowProps,
       "minZoom" | "maxZoom" | "fitViewOptions" | "snapGrid" | "snapToGrid"
     > {
-  triggers?: CoreViewport.UseTriggers;
+  triggers?: BaseViewport.UseTriggers;
   dragHandleSelector?: string;
 }
 
@@ -193,8 +193,8 @@ interface ContextValue {
   onEditableChange: (v: boolean) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
   registerEdgeRenderer: (renderer: RenderProp<EdgeProps<record.Unknown>>) => void;
-  viewportMode: CoreViewport.Mode;
-  onViewportModeChange: (v: CoreViewport.Mode) => void;
+  viewportMode: BaseViewport.Mode;
+  onViewportModeChange: (v: BaseViewport.Mode) => void;
   registerConnectionLineComponent: (component: ConnectionLineComponent<RFNode>) => void;
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
@@ -241,7 +241,7 @@ export interface EdgeRendererProps<D extends record.Unknown> {
   children: RenderProp<EdgeProps<D>>;
 }
 
-const CoreEdgeRenderer = memo(
+const BaseEdgeRenderer = memo(
   <D extends record.Unknown>({
     children,
     connectionLineComponent,
@@ -258,8 +258,8 @@ const CoreEdgeRenderer = memo(
     return null;
   },
 );
-CoreEdgeRenderer.displayName = "EdgeRenderer";
-export const EdgeRenderer = CoreEdgeRenderer as <D extends record.Unknown>(
+BaseEdgeRenderer.displayName = "EdgeRenderer";
+export const EdgeRenderer = BaseEdgeRenderer as <D extends record.Unknown>(
   props: EdgeRendererProps<D>,
 ) => ReactElement | null;
 
@@ -267,7 +267,7 @@ export type FitViewOptions = RFFitViewOptions;
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
-const Core = ({
+const Base = ({
   aetherKey,
   onNodesChange,
   onEdgesChange,
@@ -322,7 +322,7 @@ const Core = ({
   const defaultEdgeColor = color.hex(Theming.use().colors.gray.l11);
 
   const triggers = useMemoCompare(
-    () => pTriggers ?? CoreViewport.DEFAULT_TRIGGERS.zoom,
+    () => pTriggers ?? BaseViewport.DEFAULT_TRIGGERS.zoom,
     Triggers.compareModeConfigs,
     [pTriggers],
   );
@@ -661,7 +661,7 @@ export const SelectViewportModeControl = (): ReactElement => {
       <Select.Button
         itemKey="pan"
         size="small"
-        tooltip={<CoreViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
+        tooltip={<BaseViewport.TooltipText mode="pan" triggers={PAN_TRIGGER} />}
         tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Pan />
@@ -669,7 +669,7 @@ export const SelectViewportModeControl = (): ReactElement => {
       <Select.Button
         itemKey="select"
         size="small"
-        tooltip={<CoreViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
+        tooltip={<BaseViewport.TooltipText mode="select" triggers={SELECT_TRIGGER} />}
         tooltipLocation={location.BOTTOM_LEFT}
       >
         <Icon.Selection />
@@ -680,6 +680,6 @@ export const SelectViewportModeControl = (): ReactElement => {
 
 export const Diagram = (props: DiagramProps): ReactElement => (
   <ReactFlowProvider>
-    <Core {...props} />
+    <Base {...props} />
   </ReactFlowProvider>
 );

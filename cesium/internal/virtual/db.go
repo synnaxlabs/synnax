@@ -37,34 +37,34 @@ type controlResource struct {
 func (r *controlResource) ChannelKey() channel.Key { return r.ck }
 
 type DB struct {
-	cfg              Config
 	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
 	openWriters      *atomic.Int32
+	cfg              Config
 }
 
 var (
 	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
 	ErrNotVirtual = errors.New("channel is not virtual")
 	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = resource.NewErrClosed("virtual.db")
+	ErrDBClosed = resource.NewClosedError("virtual.db")
 )
 
 // Config is the configuration for opening a DB.
 type Config struct {
 	alamos.Instrumentation
-	// Channel that the database will operate on. This only needs to be set when creating
-	// a new database. If the database already exists, this field will be read from the
-	// DB's meta file.
-	Channel channel.Channel
 	// MetaCodec is used to encode and decode the channel metadata.
 	// [REQUIRED]
 	MetaCodec binary.Codec
 	// FS is the filesystem that the DB will use to store metadata about the channel.
 	// [REQUIRED]
 	FS fs.FS
+	// Channel that the database will operate on. This only needs to be set when creating
+	// a new database. If the database already exists, this field will be read from the
+	// DB's meta file.
+	Channel channel.Channel
 }
 
 var (
@@ -100,12 +100,12 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapError := channel.NewErrWrapper(cfg.Channel)
+	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
 	c, err := control.New[*controlResource](control.Config{
-		Concurrency:     xcontrol.Shared,
+		Concurrency:     xcontrol.ConcurrencyShared,
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

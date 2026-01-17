@@ -12,7 +12,7 @@ import { type destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
-import { type core } from "@/flux/core";
+import { type base } from "@/flux/base";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -27,12 +27,12 @@ import {
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
 import { state } from "@/state";
-import { useAdder } from "@/status/core/Aggregator";
+import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<
-  Input extends core.Shape,
-  Store extends core.Store,
+  Input extends base.Shape,
+  Store extends base.Store,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -44,28 +44,28 @@ export interface UpdateParams<
 }
 
 export type CreateUpdateParams<
-  Input extends core.Shape,
-  ScopedStore extends core.Store,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  ScopedStore extends base.Store,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > = {
   name: string;
-  verbs: core.Verbs;
+  verbs: base.Verbs;
   update: (
     params: UpdateParams<Input, ScopedStore, StatusDetails, AllowDisconnected>,
   ) => Promise<Output | false>;
   allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
-export interface UseObservableUpdateReturn<Input extends core.Shape> {
-  update: (data: Input, opts?: core.FetchOptions) => void;
-  updateAsync: (data: Input, opts?: core.FetchOptions) => Promise<boolean>;
+export interface UseObservableUpdateReturn<Input extends base.Shape> {
+  update: (data: Input, opts?: base.FetchOptions) => void;
+  updateAsync: (data: Input, opts?: base.FetchOptions) => Promise<boolean>;
 }
 
 export interface UseObservableUpdateParams<
-  Input extends core.Shape,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -84,7 +84,7 @@ export interface UseObservableUpdateParams<
 }
 
 export interface BeforeUpdateParams<
-  Data extends core.Shape,
+  Data extends base.Shape,
   AllowDisconnected extends boolean = false,
 > {
   rollbacks: destructor.Destructor[];
@@ -93,7 +93,7 @@ export interface BeforeUpdateParams<
 }
 
 export interface AfterSuccessParams<
-  Output extends core.Shape,
+  Output extends base.Shape,
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
@@ -101,7 +101,7 @@ export interface AfterSuccessParams<
 }
 
 export interface AfterFailureParams<
-  Data extends core.Shape,
+  Data extends base.Shape,
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
@@ -110,8 +110,8 @@ export interface AfterFailureParams<
 }
 
 export interface UseDirectUpdateParams<
-  Input extends core.Shape,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > extends Omit<
@@ -120,13 +120,13 @@ export interface UseDirectUpdateParams<
 > {}
 
 export type UseDirectUpdateReturn<
-  Input extends core.Shape,
+  Input extends base.Shape,
   StatusDetails extends z.ZodType = z.ZodNever,
 > = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
-  Input extends core.Shape,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -136,8 +136,8 @@ export interface UseObservableUpdate<
 }
 
 export interface UseUpdate<
-  Input extends core.Shape,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -147,8 +147,8 @@ export interface UseUpdate<
 }
 
 export interface CreateUpdateReturn<
-  Input extends core.Shape,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -162,9 +162,9 @@ export interface CreateUpdateReturn<
 }
 
 const useObservable = <
-  Input extends core.Shape,
-  Store extends core.Store,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  Store extends base.Store,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 >(
@@ -187,7 +187,7 @@ const useObservable = <
   const store = useStore<Store>(scope);
   const addStatus = useAdder();
   const handleUpdate = useDebouncedCallback(
-    async (data: Input, opts: core.FetchOptions = {}): Promise<boolean> => {
+    async (data: Input, opts: base.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
       const rollbacks: destructor.Destructor[] = [];
@@ -275,16 +275,16 @@ const useObservable = <
     [name, onChange, beforeUpdate, afterSuccess, afterFailure],
   );
   const handleSyncUpdate = useCallback(
-    (data: Input, opts?: core.FetchOptions) => void handleUpdate(data, opts),
+    (data: Input, opts?: base.FetchOptions) => void handleUpdate(data, opts),
     [handleUpdate],
   );
   return { update: handleSyncUpdate, updateAsync: handleUpdate };
 };
 
 const useDirect = <
-  Input extends core.Shape,
-  Store extends core.Store = {},
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  Store extends base.Store = {},
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 >(
@@ -313,9 +313,9 @@ const useDirect = <
 };
 
 export const createUpdate = <
-  Input extends core.Shape,
-  ScopedStore extends core.Store,
-  Output extends core.Shape = Input,
+  Input extends base.Shape,
+  ScopedStore extends base.Store,
+  Output extends base.Shape = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 >(

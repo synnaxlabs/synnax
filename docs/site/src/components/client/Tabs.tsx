@@ -10,11 +10,11 @@
 import { useLayoutEffect } from "react";
 
 import { type Client, CLIENTS, getFromURL, setInURL } from "@/components/client/client";
-import { Tabs as Core, type TabsProps as CoreProps } from "@/components/Tabs";
+import { Tabs as Base, type TabsProps as BaseProps } from "@/components/Tabs";
 
 const TABS = CLIENTS.map(({ key, ...c }) => ({ ...c, tabKey: key }));
 
-export interface TabsProps extends Omit<CoreProps, "tabs" | "queryParamKey"> {
+export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
   exclude?: Client[];
   priority?: Client[];
 }
@@ -37,5 +37,5 @@ export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
       return aIndex - bIndex;
     });
 
-  return <Core queryParamKey="client" tabs={tabs} {...rest} />;
+  return <Base queryParamKey="client" tabs={tabs} {...rest} />;
 };

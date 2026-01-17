@@ -19,7 +19,7 @@ import {
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Core } from "@/resize/Core";
+import { Base } from "@/resize/Base";
 
 /** Props for the {@link Resize.Multiple} component. */
 export interface MultipleProps extends Flex.BoxProps {
@@ -172,7 +172,7 @@ export const Multiple = ({
       grow
     >
       {children.map((child, i) => (
-        <Core
+        <Base
           onDragStart={(e) => onDrag(e, i)}
           key={i}
           location={direction.location(dir)}
@@ -181,7 +181,7 @@ export const Multiple = ({
           showHandle={i !== children.length - 1}
         >
           {child}
-        </Core>
+        </Base>
       ))}
     </Flex.Box>
   );

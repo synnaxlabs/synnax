@@ -24,8 +24,8 @@ import (
 )
 
 type freeWriteAlignments struct {
-	mu         sync.Mutex
 	alignments map[channel.Key]*atomic.Uint32
+	mu         sync.Mutex
 }
 
 func (f *freeWriteAlignments) increment(key channel.Key) telem.Alignment {
@@ -108,7 +108,7 @@ func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 }
 
 func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
-	if req.Command == Write && w.mode.Stream() {
+	if req.Command == CommandWrite && w.mode.Stream() {
 		if err = signal.SendUnderContext(
 			ctx, w.freeWrites.Inlet(),
 			relay.Response{Frame: w.alignFrame(req.Frame)},

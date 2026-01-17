@@ -57,7 +57,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Group:    g,
 			Label:    label,
 		}))
-		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
@@ -176,12 +176,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
 			var res rack.Rack
-			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
+			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
 				WhereKeys(rack.OntologyID(r.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -403,7 +403,7 @@ var _ = Describe("Migration", func() {
 			Group:    g,
 			Label:    labelSvc,
 		}))
-		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -417,9 +417,9 @@ var _ = Describe("Migration", func() {
 		Expect(status.NewRetrieve[rack.StatusDetails](stat).
 			WhereKeys(rack.OntologyID(r.Key).String()).
 			Entry(&deletedStatus).
-			Exec(ctx, nil)).To(MatchError(query.NotFound))
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		Expect(svc.Close()).To(Succeed())
-		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -465,7 +465,7 @@ var _ = Describe("Migration", func() {
 			Entry(&v1EmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,

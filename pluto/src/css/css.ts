@@ -12,7 +12,7 @@ import { color, direction, location, type spatial } from "@synnaxlabs/x";
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
-import { type text } from "@/text/core";
+import { type text } from "@/text/base";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;

@@ -12,7 +12,7 @@ import { uuid } from "@synnaxlabs/x";
 import { Arc } from "@/arc";
 import { Hardware } from "@/hardware";
 import { type Layout } from "@/layout";
-import { Selector as CoreSelector } from "@/selector";
+import { Selector as BaseSelector } from "@/selector";
 import { Vis } from "@/vis";
 
 // It's OK to call this in a map as SELECTABLES is a global constant. All hooks are
@@ -40,14 +40,14 @@ export const createSelectorLayout = (
   key: uuid.create(),
 });
 
-const SELECTABLES: CoreSelector.Selectable[] = [
+const SELECTABLES: BaseSelector.Selectable[] = [
   ...Vis.SELECTABLES,
   ...Hardware.SELECTABLES,
   ...Arc.SELECTABLES,
 ];
 
 export const Selector: Layout.Renderer = (props) => (
-  <CoreSelector.Selector
+  <BaseSelector.Selector
     selectables={SELECTABLES}
     text="Select a Component Type"
     {...props}

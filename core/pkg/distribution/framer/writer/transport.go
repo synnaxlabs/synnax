@@ -22,23 +22,21 @@ import (
 type Command uint8
 
 const (
-	Open Command = iota
-	// Write represents a call to Writer.Write.
-	Write
-	// Commit represents a call to Writer.Commit.
-	Commit
-	// SetAuthority represents a call to Writer.SetAuthority
-	SetAuthority
+	CommandOpen Command = iota
+	// CommandWrite represents a call to Writer.Write.
+	CommandWrite
+	// CommandCommit represents a call to Writer.Commit.
+	CommandCommit
+	// CommandSetAuthority represents a call to Writer.SetAuthority
+	CommandSetAuthority
 )
 
-var validateCommand = validate.NewInclusiveBoundsChecker(Open, SetAuthority)
+var validateCommand = validate.NewInclusiveBoundsChecker(CommandOpen, CommandSetAuthority)
 
 type Mode = ts.WriterMode
 
 // Request represents a streaming call to a Writer.
 type Request struct {
-	// Command is the command to execute on the writer.
-	Command Command `json:"command" msgpack:"command"`
 	// Config sets the configuration to use when opening the writer. Only used internally
 	// when an open command is sent.
 	Config Config `json:"config" msgpack:"config"`
@@ -46,26 +44,28 @@ type Request struct {
 	Frame frame.Frame `json:"frame" msgpack:"keys"`
 	// SeqNum is used to match the request with the response.
 	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	// Command is the command to execute on the writer.
+	Command Command `json:"command" msgpack:"command"`
 }
 
 // Response represents a response to a streaming call to a Writer.
 type Response struct {
-	// Command is the command that was executed on the writer.
-	Command Command `json:"command" msgpack:"command"`
-	// SeqNum is the current sequence number of the command. This value will
-	// correspond to the Request.SeqNum that executed the command.
-	SeqNum int `json:"seq_num" msgpack:"seq_num"`
-	// The NodeKey of the node that sent the response.
-	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
-	// End is the end timestamp of the domain on commit. This value is only
-	// validate during calls to WriterCommit.
-	End telem.TimeStamp `json:"end" msgpack:"end"`
-	// Authorized flags whether the writer or commit operation was authorized. It is only
-	// valid during calls to WriterWrite and WriterCommit.
-	Authorized bool `json:"authorized" msgpack:"authorized"`
 	// Err contains an error that occurred when attempting to execute a request on
 	// a writer.
 	Err error `json:"err" msgpack:"err"`
+	// SeqNum is the current sequence number of the command. This value will
+	// correspond to the Request.SeqNum that executed the command.
+	SeqNum int `json:"seq_num" msgpack:"seq_num"`
+	// End is the end timestamp of the domain on commit. This value is only
+	// validate during calls to WriterCommit.
+	End telem.TimeStamp `json:"end" msgpack:"end"`
+	// The NodeKey of the node that sent the response.
+	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
+	// Command is the command that was executed on the writer.
+	Command Command `json:"command" msgpack:"command"`
+	// Authorized flags whether the writer or commit operation was authorized. It is only
+	// valid during calls to WriterWrite and WriterCommit.
+	Authorized bool `json:"authorized" msgpack:"authorized"`
 }
 
 type (

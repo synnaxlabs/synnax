@@ -11,24 +11,24 @@ package freighter_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errors"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type request struct {
-	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msgpack:"id"`
 }
 
 type response struct {
-	ID      int    `json:"id" msgpack:"id"`
 	Message string `json:"message" msgpack:"message"`
+	ID      int    `json:"id" msgpack:"id"`
 }
 
-var myCustomError = errors.New("my custom error")
+var errCustom = errors.New("my custom error")
 
 func TestGo(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -38,7 +38,7 @@ func TestGo(t *testing.T) {
 var _ = BeforeSuite(func() {
 	errors.Register(
 		func(_ context.Context, err error) (errors.Payload, bool) {
-			if errors.Is(err, myCustomError) {
+			if errors.Is(err, errCustom) {
 				return errors.Payload{
 					Type: "myCustomError",
 					Data: err.Error(),
@@ -50,7 +50,7 @@ var _ = BeforeSuite(func() {
 			if f.Type != "myCustomError" {
 				return nil, false
 			}
-			return myCustomError, true
+			return errCustom, true
 		},
 	)
 })

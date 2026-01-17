@@ -24,11 +24,11 @@ import (
 // SecureHTTPBranch is a Branch that serves HTTP requests behind a TLS multiplexer in
 // secure mode.
 type SecureHTTPBranch struct {
-	// Transports is a list of transports that the Branch will serve.
-	Transports []fhttp.BindableTransport
 	// ContentTypes is a  list of content types that the Branch will serve.
 	// internal is the underlying fiber.App instance used to serve requests.
 	internal *fiber.App
+	// Transports is a list of transports that the Branch will serve.
+	Transports []fhttp.BindableTransport
 }
 
 var _ Branch = (*SecureHTTPBranch)(nil)
@@ -36,7 +36,7 @@ var _ Branch = (*SecureHTTPBranch)(nil)
 // Routing implements Branch.
 func (b *SecureHTTPBranch) Routing() BranchRouting {
 	return BranchRouting{
-		Policy:   ServeAlwaysPreferSecure,
+		Policy:   RoutingPolicyServeAlwaysPreferSecure,
 		Matchers: []cmux.Matcher{cmux.HTTP1Fast()},
 	}
 }

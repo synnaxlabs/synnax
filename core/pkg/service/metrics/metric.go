@@ -18,10 +18,10 @@ import (
 )
 
 type metric struct {
-	ch channel.Channel
 	// Go does not allow unions, so we use an any type here.
 	// Data types for the channels are float32 and int32.
 	collect func() (any, error)
+	ch      channel.Channel
 }
 
 func (svc *Service) buildMetrics() []metric {

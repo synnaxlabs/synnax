@@ -12,9 +12,9 @@
 
 package date
 
-// DaysInMonth is a map that represents the number of days in each month for a
+// daysInMonth is a map that represents the number of days in each month for a
 // non-leap year
-var DaysInMonth = map[int]int{
+var daysInMonth = map[int]int{
 	1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
 	7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31,
 }
@@ -38,7 +38,7 @@ func DateExists(year, month, day int) bool {
 	}
 
 	// Check if the day is valid
-	daysInMonth := DaysInMonth[month]
+	daysInMonth := daysInMonth[month]
 	if month == 2 && IsLeapYear(year) {
 		daysInMonth = 29
 	}

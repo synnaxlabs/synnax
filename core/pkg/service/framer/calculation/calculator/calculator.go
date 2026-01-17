@@ -37,10 +37,10 @@ import (
 // Calculator is an engine for executing expressions and operations in calculated
 // channels.
 type Calculator struct {
-	cfg       Config
 	state     *state.State
 	scheduler *scheduler.Scheduler
 	stateCfg  arcruntime.ExtendedStateConfig
+	cfg       Config
 	start     telem.TimeStamp
 }
 
@@ -49,8 +49,8 @@ type Config struct {
 }
 
 var (
-	_                       config.Config[Config] = Config{}
-	DefaultCalculatorConfig                       = Config{}
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
 )
 
 // Override implements config.Config.
@@ -75,7 +75,7 @@ func Open(
 	ctx context.Context,
 	cfgs ...Config,
 ) (*Calculator, error) {
-	cfg, err := config.New(DefaultCalculatorConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

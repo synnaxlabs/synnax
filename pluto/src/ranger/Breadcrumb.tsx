@@ -10,10 +10,10 @@
 import { type ranger } from "@synnaxlabs/client";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 
-import { Breadcrumb as Core } from "@/breadcrumb";
+import { Breadcrumb as Base } from "@/breadcrumb";
 import { StageIcon } from "@/ranger/StageIcon";
 
-export interface BreadcrumbProps extends Omit<Core.BreadcrumbProps, "children"> {
+export interface BreadcrumbProps extends Omit<Base.BreadcrumbProps, "children"> {
   timeRange?: CrudeTimeRange;
   name: string;
   showParent?: boolean;
@@ -27,15 +27,15 @@ export const Breadcrumb = ({
   showParent = true,
   ...rest
 }: BreadcrumbProps) => (
-  <Core.Breadcrumb {...rest}>
-    <Core.Segment weight={450} color={10}>
+  <Base.Breadcrumb {...rest}>
+    <Base.Segment weight={450} color={10}>
       {timeRange != null && <StageIcon timeRange={timeRange} />}
       {name}
-    </Core.Segment>
+    </Base.Segment>
     {parent != null && showParent && (
-      <Core.Segment weight={400} color={9}>
+      <Base.Segment weight={400} color={9}>
         {parent.name}
-      </Core.Segment>
+      </Base.Segment>
     )}
-  </Core.Breadcrumb>
+  </Base.Breadcrumb>
 );

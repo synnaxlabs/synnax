@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@/context";
-import { type NodeShape } from "@/tree/core";
+import { type NodeShape } from "@/tree/base";
 
 export const [Context, useContext] = context.create<NodeShape[]>({
   displayName: "Tree.Context",

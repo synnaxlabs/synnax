@@ -15,11 +15,11 @@ import {
   PLATFORMS,
   setInURL,
 } from "@/components/platform/platform";
-import { Tabs as Core, type TabsProps as CoreProps } from "@/components/Tabs";
+import { Tabs as Base, type TabsProps as BaseProps } from "@/components/Tabs";
 
 const TABS = PLATFORMS.map(({ key, ...p }) => ({ ...p, tabKey: key }));
 
-export interface TabsProps extends Omit<CoreProps, "tabs" | "queryParamKey"> {
+export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
   exclude?: Platform[];
   priority?: Platform[];
 }
@@ -42,5 +42,5 @@ export const Tabs = ({ exclude = [], priority = [], ...rest }: TabsProps) => {
       return aIndex - bIndex;
     });
 
-  return <Core queryParamKey="platform" tabs={tabs} {...rest} />;
+  return <Base queryParamKey="platform" tabs={tabs} {...rest} />;
 };

@@ -35,9 +35,9 @@ func (f *mockFactory) ConfigureTask(_ godriver.Context, t task.Task) (godriver.T
 func (f *mockFactory) Name() string { return f.name }
 
 type mockTask struct {
-	key      task.Key
 	execFunc func(cmd task.Command) error
 	stopFunc func() error
+	key      task.Key
 }
 
 func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
@@ -57,6 +57,10 @@ func (t *mockTask) Stop(_ context.Context, _ bool) error {
 func (t *mockTask) Key() task.Key { return t.key }
 
 var _ = Describe("MultiFactory", func() {
+	var driverCtx godriver.Context
+	BeforeEach(func() {
+		driverCtx = godriver.Context{Context: ctx}
+	})
 	Describe("ConfigureTask", func() {
 		It("should return task from first matching factory", func() {
 			expectedTask := &mockTask{key: 1}
@@ -73,12 +77,11 @@ var _ = Describe("MultiFactory", func() {
 					return nil, false, nil
 				},
 			}
-
 			mf := godriver.MultiFactory{f1, f2}
-			result, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ok).To(BeTrue())
+			result := MustBeOk(MustSucceed2(mf.ConfigureTask(
+				driverCtx,
+				task.Task{Type: "test"},
+			)))
 			Expect(result).To(Equal(expectedTask))
 		})
 
@@ -96,12 +99,11 @@ var _ = Describe("MultiFactory", func() {
 					return expectedTask, true, nil
 				},
 			}
-
 			mf := godriver.MultiFactory{f1, f2}
-			result, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(ok).To(BeTrue())
+			result := MustBeOk(MustSucceed2(mf.ConfigureTask(
+				driverCtx,
+				task.Task{Type: "test"}),
+			))
 			Expect(result).To(Equal(expectedTask))
 		})
 
@@ -120,10 +122,9 @@ var _ = Describe("MultiFactory", func() {
 					return nil, false, nil
 				},
 			}
-
 			mf := godriver.MultiFactory{f1, f2}
-			_, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
-
+			t, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
+			Expect(t).To(BeNil())
 			Expect(err).To(MatchError(expectedErr))
 			Expect(ok).To(BeTrue())
 		})
@@ -141,11 +142,11 @@ var _ = Describe("MultiFactory", func() {
 					return nil, false, nil
 				},
 			}
-
 			mf := godriver.MultiFactory{f1, f2}
-			result, ok, err := mf.ConfigureTask(godriver.Context{Context: ctx}, task.Task{Type: "test"})
-
-			Expect(err).ToNot(HaveOccurred())
+			result, ok := MustSucceed2(mf.ConfigureTask(
+				godriver.Context{Context: ctx},
+				task.Task{Type: "test"}),
+			)
 			Expect(ok).To(BeFalse())
 			Expect(result).To(BeNil())
 		})

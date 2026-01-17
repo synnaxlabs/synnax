@@ -94,8 +94,8 @@ func (svc *UserService) Create(ctx context.Context, req UserCreateRequest) (User
 }
 
 type UserChangeUsernameRequest struct {
-	Key      uuid.UUID `json:"key" msgpack:"key"`
 	Username string    `json:"username" msgpack:"username"`
+	Key      uuid.UUID `json:"key" msgpack:"key"`
 }
 
 // ChangeUsername changes the username for the user with the given key.
@@ -131,9 +131,9 @@ func (s *UserService) ChangeUsername(ctx context.Context, req UserChangeUsername
 }
 
 type UserRenameRequest struct {
-	Key       uuid.UUID `json:"key" msgpack:"key"`
 	FirstName string    `json:"first_name" msgpack:"first_name"`
 	LastName  string    `json:"last_name" msgpack:"last_name"`
+	Key       uuid.UUID `json:"key" msgpack:"key"`
 }
 
 // Rename changes the name for the user with the provided key. If either the first
@@ -204,7 +204,7 @@ func (s *UserService) Delete(ctx context.Context, req UserDeleteRequest) (types.
 	for _, key := range req.Keys {
 		var u user.User
 		err := s.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return types.Nil{}, err
 		}
 		users = append(users, u)

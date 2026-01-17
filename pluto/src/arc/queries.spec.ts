@@ -324,7 +324,9 @@ describe("Arc queries", () => {
         { wrapper },
       );
 
-      await waitFor(() => expect(result.current.variant).toBe("success"));
+      await waitFor(() => {
+        expect(result.current.variant).toBe("success");
+      });
 
       expect(result.current.form.value().name).toEqual(existingArc.name);
       expect(result.current.form.value().version).toEqual("1.0.0");

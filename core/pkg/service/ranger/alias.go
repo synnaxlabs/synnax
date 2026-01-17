@@ -51,9 +51,9 @@ func parseAliasKey(key string) (uuid.UUID, channel.Key, error) {
 }
 
 type Alias struct {
-	Range   uuid.UUID   `json:"range" msgpack:"range"`
-	Channel channel.Key `json:"channel" msgpack:"channel"`
 	Alias   string      `json:"alias" msgpack:"alias"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	Range   uuid.UUID   `json:"range" msgpack:"range"`
 }
 
 var _ gorp.Entry[string] = Alias{}

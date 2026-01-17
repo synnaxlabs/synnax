@@ -54,19 +54,19 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var errIteratorClosed = resource.NewErrClosed("unary.iterator")
+var errIteratorClosed = resource.NewClosedError("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
-	IteratorConfig
-	Channel  channel.Channel
-	internal *domain.Iterator
-	view     telem.TimeRange
-	frame    channel.Frame
-	idx      *index.Domain
-	bounds   telem.TimeRange
 	err      error
-	closed   bool
+	internal *domain.Iterator
+	idx      *index.Domain
+	Channel  channel.Channel
+	frame    channel.Frame
+	IteratorConfig
+	view   telem.TimeRange
+	bounds telem.TimeRange
+	closed bool
 }
 
 func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
@@ -173,10 +173,10 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		i.err = errIteratorClosed
 		return false
 	}
-	ctx, span_ := i.T.Bench(ctx, "Next")
+	ctx, spn := i.T.Bench(ctx, "Next")
 	defer func() {
 		ok = i.Valid()
-		span_.End()
+		spn.End()
 	}()
 	if i.atEnd() {
 		i.reset(i.bounds.End.SpanRange(0))
@@ -327,10 +327,10 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		i.err = errIteratorClosed
 		return false
 	}
-	ctx, span_ := i.T.Bench(ctx, "Prev")
+	ctx, spn := i.T.Bench(ctx, "Prev")
 	defer func() {
 		ok = i.Valid()
-		span_.End()
+		spn.End()
 	}()
 
 	if i.atStart() {
@@ -366,7 +366,7 @@ func (i *Iterator) Len() int64 { return i.frame.Len() }
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.
 func (i *Iterator) Error() error {
-	wrap := channel.NewErrWrapper(i.Channel)
+	wrap := channel.NewErrorWrapper(i.Channel)
 	return wrap(i.err)
 }
 
@@ -384,7 +384,7 @@ func (i *Iterator) Close() (err error) {
 		return nil
 	}
 	i.closed = true
-	wrap := channel.NewErrWrapper(i.Channel)
+	wrap := channel.NewErrorWrapper(i.Channel)
 	return wrap(i.internal.Close())
 }
 

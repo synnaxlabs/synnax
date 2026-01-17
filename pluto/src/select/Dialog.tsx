@@ -14,15 +14,15 @@ import { plural } from "pluralize";
 import { memo, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { Dialog as CoreDialog } from "@/dialog";
+import { Dialog as BaseDialog } from "@/dialog";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { Text } from "@/text";
 
 export interface DialogProps<K extends record.Key>
   extends
-    Omit<CoreDialog.DialogProps, "children">,
+    Omit<BaseDialog.DialogProps, "children">,
     Omit<SearchInputProps, "searchPlaceholder">,
     Pick<List.ItemsProps<K>, "emptyContent" | "children"> {
   status?: status.Status;
@@ -39,7 +39,7 @@ const DefaultEmptyContent = ({ resourceName }: DefaultEmptyContentProps) => (
   </Text.Text>
 );
 
-const Core = memo(
+const Base = memo(
   <K extends record.Key>({
     onSearch,
     children,
@@ -71,7 +71,7 @@ const Core = memo(
       return emptyContent;
     }, [status?.key, emptyContent]);
     return (
-      <CoreDialog.Dialog
+      <BaseDialog.Dialog
         {...rest}
         className={CSS.BE("select", "dialog")}
         bordered={false}
@@ -94,11 +94,11 @@ const Core = memo(
         >
           {children}
         </List.Items>
-      </CoreDialog.Dialog>
+      </BaseDialog.Dialog>
     );
   },
 );
-Core.displayName = "Select.Dialog";
-export const Dialog = Core as <K extends record.Key>(
+Base.displayName = "Select.Dialog";
+export const Dialog = Base as <K extends record.Key>(
   props: DialogProps<K>,
 ) => ReactElement;

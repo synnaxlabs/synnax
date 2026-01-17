@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	DimensionsError             = errors.New("dimensions")
-	IncompatibleDimensionsError = errors.Wrap(DimensionsError, "incompatible")
+	ErrDimensions             = errors.New("dimensions")
+	ErrIncompatibleDimensions = errors.Wrap(ErrDimensions, "incompatible")
 )
 
 // ValidateBinaryOp validates dimensional compatibility for a binary operation.
@@ -48,7 +48,7 @@ func ValidateBinaryOp[AST antlr.ParserRuleContext](
 	}
 	if !left.Unit.Dimensions.Equal(right.Unit.Dimensions) {
 		ctx.Diagnostics.AddError(
-			errors.Wrapf(IncompatibleDimensionsError, "%s vs %s", left.Unit.Dimensions, right.Unit.Dimensions),
+			errors.Wrapf(ErrIncompatibleDimensions, "%s vs %s", left.Unit.Dimensions, right.Unit.Dimensions),
 			ctx.AST,
 		)
 		return false
@@ -66,7 +66,7 @@ func ValidateBinaryOp[AST antlr.ParserRuleContext](
 func ValidatePowerOp(base, exp types.Type, isLiteral bool) error {
 	if exp.Unit != nil && !exp.Unit.Dimensions.IsZero() {
 		return errors.Wrapf(
-			DimensionsError,
+			ErrDimensions,
 			"exponent in power operation must be dimensionless, got %s",
 			exp.Unit.Dimensions.String(),
 		)
@@ -76,7 +76,7 @@ func ValidatePowerOp(base, exp types.Type, isLiteral bool) error {
 	}
 	if !isLiteral {
 		return errors.Wrap(
-			DimensionsError,
+			ErrDimensions,
 			"power operation with dimensioned base requires a literal integer exponent",
 		)
 	}
@@ -92,13 +92,13 @@ func ScaleFactor(from, to *types.Unit) (float64, error) {
 	}
 	if from == nil || to == nil {
 		return 0, errors.Wrap(
-			DimensionsError,
+			ErrDimensions,
 			"cannot convert between dimensioned and dimensionless values",
 		)
 	}
 	if !from.Dimensions.Equal(to.Dimensions) {
 		return 0, errors.Wrapf(
-			IncompatibleDimensionsError,
+			ErrIncompatibleDimensions,
 			"cannot convert %s to %s",
 			from.Dimensions.String(), to.Dimensions.String(),
 		)

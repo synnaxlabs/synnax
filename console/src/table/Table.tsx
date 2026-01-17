@@ -16,7 +16,7 @@ import {
   Button,
   Icon,
   Menu as PMenu,
-  Table as Core,
+  Table as Base,
   TableCells,
   Triggers,
   usePrevious,
@@ -230,7 +230,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
       <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-        <Core.Table
+        <Base.Table
           visible={visible}
           style={{ width: totalColSizes, height: totalRowSizes }}
           onContextMenu={menuProps.open}
@@ -256,7 +256,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               />
             );
           })}
-        </Core.Table>
+        </Base.Table>
         {canEdit && (
           <>
             <Button.Button
@@ -336,7 +336,7 @@ const Row = ({ cells, size, columns, position, index, tableKey }: RowProps) => {
   }, []);
   let currPos = 3.5 * 6;
   return (
-    <Core.Row
+    <Base.Row
       index={index}
       position={position}
       size={size}
@@ -358,7 +358,7 @@ const Row = ({ cells, size, columns, position, index, tableKey }: RowProps) => {
           />
         );
       })}
-    </Core.Row>
+    </Base.Row>
   );
 };
 
@@ -409,7 +409,7 @@ const ColResizer = ({ tableKey, columns, onResize }: ColResizerProps) => {
   }, []);
 
   return (
-    <Core.ColumnIndicators
+    <Base.ColumnIndicators
       onSelect={handleSelect}
       selected={selectedCols}
       onResize={onResize}
@@ -447,7 +447,7 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
 Cell.displayName = "Cell";
 
 const useLoadRemote = createLoadRemote<table.Table>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),

@@ -39,14 +39,14 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	kv.DB
-	// CheckInterval is the interval at which verification will be performed.
-	//
-	// [OPTIONAL] - Defaults to 24 hours
-	CheckInterval time.Duration
 	// Verifier is the verifier used for verifying things that need to be verified.
 	//
 	// [OPTIONAL] - Defaults to ""
 	Verifier string
+	// CheckInterval is the interval at which verification will be performed.
+	//
+	// [OPTIONAL] - Defaults to 24 hours
+	CheckInterval time.Duration
 	// WarningTime is the period given to start warning before verification will fail.
 	//
 	// [OPTIONAL] - Defaults to 1 week
@@ -78,8 +78,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// DefaultConfig is the default configuration for the verification service.
-var DefaultConfig = ServiceConfig{
+// DefaultServiceConfig is the default configuration for the verification service.
+var DefaultServiceConfig = ServiceConfig{
 	CheckInterval: 24 * time.Hour,
 	WarningTime:   7 * 24 * time.Hour,
 }
@@ -87,8 +87,8 @@ var DefaultConfig = ServiceConfig{
 // Service provides a service for verifying channels.
 type Service struct {
 	info
-	cfg      ServiceConfig
 	shutdown io.Closer
+	cfg      ServiceConfig
 }
 
 var _ io.Closer = &Service{}
@@ -107,7 +107,7 @@ var (
 
 // OpenService opens a new verification service.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 
 	if cfg.Verifier == "" {
 		if err = service.loadCache(ctx); err != nil {
-			if !errors.Is(err, kv.NotFound) {
+			if !errors.Is(err, kv.ErrNotFound) {
 				return nil, err
 			}
 			cfg.L.Info(useFreeLog)
@@ -165,7 +165,7 @@ func (s *Service) IsOverflowed(inUse types.Uint20) error {
 		return nil
 	}
 	if inUse > s.numCh {
-		return newErrTooMany(s.numCh)
+		return newTooManyError(s.numCh)
 	}
 	return nil
 }

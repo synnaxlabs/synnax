@@ -79,7 +79,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if err = w.status.Set(ctx, stat); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
 }
 
 // Delete deletes the rack with the provided key and its associated status. Delete is

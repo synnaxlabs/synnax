@@ -124,10 +124,10 @@ var _ = Describe("Analysis", func() {
 			},
 			Entry("dimensioned exponent",
 				"m", "s", false,
-				units.DimensionsError, "dimensionless"),
+				units.ErrDimensions, "dimensionless"),
 			Entry("non-literal exponent with dimensioned base",
 				"m", "", false,
-				units.DimensionsError, "literal integer exponent"),
+				units.ErrDimensions, "literal integer exponent"),
 		)
 	})
 
@@ -162,13 +162,13 @@ var _ = Describe("Analysis", func() {
 			},
 			Entry("incompatible dimensions",
 				MustBeOk(units.Resolve("psi")), MustBeOk(units.Resolve("s")),
-				units.IncompatibleDimensionsError, "cannot convert"),
+				units.ErrIncompatibleDimensions, "cannot convert"),
 			Entry("nil to dimensioned",
 				nil, MustBeOk(units.Resolve("psi")),
-				units.DimensionsError, "cannot convert between dimensioned and dimensionless"),
+				units.ErrDimensions, "cannot convert between dimensioned and dimensionless"),
 			Entry("dimensioned to nil",
 				MustBeOk(units.Resolve("psi")), nil,
-				units.DimensionsError, "cannot convert between dimensioned and dimensionless"),
+				units.ErrDimensions, "cannot convert between dimensioned and dimensionless"),
 		)
 	})
 })

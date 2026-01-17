@@ -49,10 +49,10 @@ type ID struct {
 // Validate ensures that the given ID has both a Key and Type.
 func (id ID) Validate() error {
 	if id.Key == "" {
-		return errors.Wrapf(validate.Error, "[ontology.resource] - key is required")
+		return errors.Wrapf(validate.ErrValidation, "[ontology.resource] - key is required")
 	}
 	if id.Type == "" {
-		return errors.Wrapf(validate.Error, "[ontology.resource] - type is required")
+		return errors.Wrapf(validate.ErrValidation, "[ontology.resource] - type is required")
 	}
 	return nil
 }
@@ -74,14 +74,14 @@ func ParseID(key string) (ID, error) {
 	split := strings.SplitN(key, ":", 2)
 	if len(split) != 2 {
 		return ID{}, errors.Wrapf(
-			validate.Error,
+			validate.ErrValidation,
 			"[ontology.resource] - failed to parse id: %s",
 			key,
 		)
 	}
 	if split[0] == "" {
 		return ID{}, errors.Wrapf(
-			validate.Error,
+			validate.ErrValidation,
 			"[ontology.resource] - failed to parse id: %s (empty type)",
 			key,
 		)
@@ -108,15 +108,15 @@ func IDsToKeys(ids []ID) []string {
 
 // Resource represents an instance matching of a resource in the ontology.
 type Resource struct {
-	// ID is the unique identifier for the Resource.
-	ID ID `json:"id" msgpack:"id"`
-	// Name is a human-readable name for the Resource.
-	Name string `json:"name" msgpack:"name"`
 	// Data is the data for the Resource. Data must be parseable by the Resource's
 	// schema.
 	Data any `json:"data" msgpack:"data"`
 	// schema is the schema that this Resource matches.
 	schema zyn.Schema
+	// ID is the unique identifier for the Resource.
+	ID ID `json:"id" msgpack:"id"`
+	// Name is a human-readable name for the Resource.
+	Name string `json:"name" msgpack:"name"`
 }
 
 // New creates a new Resource with the given schema, name, and data. New panics if the

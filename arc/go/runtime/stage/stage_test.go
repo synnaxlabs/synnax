@@ -85,7 +85,7 @@ var _ = Describe("Stage", func() {
 				State: s.Node("stage_entry_1"),
 			}
 			_, err := factory.Create(ctx, cfg)
-			Expect(err).To(Equal(query.NotFound))
+			Expect(err).To(Equal(query.ErrNotFound))
 		})
 	})
 

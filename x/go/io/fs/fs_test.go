@@ -376,13 +376,13 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeFalse())
 
-					sub_FS := MustSucceed(fs.Sub("sub2"))
+					subFS := MustSucceed(fs.Sub("sub2"))
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeTrue())
 
-					f := MustSucceed(sub_FS.Open("yum.txt", os.O_CREATE))
+					f := MustSucceed(subFS.Open("yum.txt", os.O_CREATE))
 					Expect(f.Close()).To(Succeed())
-					Expect(sub_FS.Exists("yum.txt")).To(BeTrue())
+					Expect(subFS.Exists("yum.txt")).To(BeTrue())
 				})
 				It("Should correctly interpret relative paths", func() {
 					Expect(fs.Sub("./sub1")).To(Not(BeNil()))

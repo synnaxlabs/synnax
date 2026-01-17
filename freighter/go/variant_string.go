@@ -17,13 +17,13 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[Unary-1]
-	_ = x[Stream-2]
+	_ = x[VariantUnary-1]
+	_ = x[VariantStream-2]
 }
 
-const _Variant_name = "UnaryStream"
+const _Variant_name = "VariantUnaryVariantStream"
 
-var _Variant_index = [...]uint8{0, 5, 11}
+var _Variant_index = [...]uint8{0, 12, 25}
 
 func (i Variant) String() string {
 	i -= 1

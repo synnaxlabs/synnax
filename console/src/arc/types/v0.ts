@@ -42,6 +42,8 @@ const graphStateZ = z.object({
 
 export interface GraphState extends z.infer<typeof graphStateZ> {}
 
+export type Mode = arc.Mode | undefined;
+
 export const stateZ = z.object({
   key: z.string(),
   type: z.literal(TYPE),
@@ -49,9 +51,8 @@ export const stateZ = z.object({
   remoteCreated: z.boolean(),
   graph: graphStateZ,
   text: arc.textZ,
+  mode: arc.modeZ.optional(),
 });
-
-export interface GraphState extends z.infer<typeof graphStateZ> {}
 
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -70,8 +71,6 @@ export interface CopyBuffer {
 }
 
 const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props: {} };
-
-// ||||| TOOLBAR |||||
 
 const TOOLBAR_TABS = ["stages", "properties"] as const;
 export const toolbarTabZ = z.enum(TOOLBAR_TABS);
@@ -111,6 +110,7 @@ export const ZERO_STATE: State = {
   graph: ZERO_GRAPH_STATE,
   remoteCreated: false,
   text: { raw: "" },
+  mode: undefined,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {

@@ -15,23 +15,23 @@ import (
 )
 
 var (
-	Invalid     = errors.Wrap(base.AuthError, "invalid credentials")
-	InvalidHash = errors.Wrap(base.AuthError, "invalid hash")
+	ErrInvalid     = errors.Wrap(base.ErrAuth, "invalid credentials")
+	ErrInvalidHash = errors.Wrap(base.ErrAuth, "invalid hash")
 )
 
 // Raw represents a raw password. It is not safe to store the raw password on disk.
 // The password should be hashed by calling Hash before saving it.
 type Raw string
 
-// Hash hashes the raw password using the first working Hasher in Hashers.
+// Hash hashes the raw password using the first working Hasher in hashers.
 func (r Raw) Hash() (h Hashed, err error) {
-	for _, hasher := range Hashers {
+	for _, hasher := range hashers {
 		h, err = hasher.Hash(r)
 		if err == nil {
 			return h, nil
 		}
 	}
-	return h, errors.Combine(InvalidHash, err)
+	return h, errors.Combine(ErrInvalidHash, err)
 }
 
 // Hashed represents an encrypted hash of a password. It is safe to store the hash on disk.
@@ -40,11 +40,11 @@ type Hashed []byte
 
 // Validate validates the hashed password against the raw password.
 func (h Hashed) Validate(r Raw) (err error) {
-	for _, hasher := range Hashers {
+	for _, hasher := range hashers {
 		err = hasher.Compare(r, h)
 		if err == nil {
 			return nil
 		}
 	}
-	return errors.Combine(Invalid, err)
+	return errors.Combine(ErrInvalid, err)
 }

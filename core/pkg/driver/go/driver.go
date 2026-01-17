@@ -33,15 +33,15 @@ import (
 // Driver is the Go task executor that handles task lifecycle and command processing.
 type Driver struct {
 	Config
-	rack rack.Rack
-	ctx  Context
-	mu   struct {
-		sync.RWMutex
-		tasks map[task.Key]Task
-	}
 	shutdown           io.Closer
 	disconnectObserver observe.Disconnect
 	streamerRequests   confluence.Inlet[framer.StreamerRequest]
+	rack               rack.Rack
+	ctx                Context
+	mu                 struct {
+		tasks map[task.Key]Task
+		sync.RWMutex
+	}
 }
 
 // commandSink is a confluence sink that processes incoming command frames.
@@ -142,7 +142,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task.Key, task.Task]) {
 	for ch := range reader {
 		if ch.Key.Rack() == d.rack.Key {
-			if ch.Variant == change.Set {
+			if ch.Variant == change.VariantSet {
 				d.configure(ctx, ch.Value)
 			} else {
 				d.delete(ctx, ch.Key)

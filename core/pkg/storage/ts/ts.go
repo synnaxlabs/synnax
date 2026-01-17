@@ -46,23 +46,23 @@ type (
 
 const AutoSpan = cesium.AutoSpan
 const (
-	WriterPersistStream = cesium.WriterPersistStream
-	WriterPersistOnly   = cesium.WriterPersistOnly
-	WriterStreamOnly    = cesium.WriterStreamOnly
+	WriterModePersistStream = cesium.WriterModePersistStream
+	WriterModePersistOnly   = cesium.WriterModePersistOnly
+	WriterModeStreamOnly    = cesium.WriterModeStreamOnly
 )
 
 type Config struct {
 	alamos.Instrumentation
+	// FS is the file system interface that the DB will use to read and write data.
+	//
+	// [REQUIRED]
+	FS xfs.FS
 	// Dirname is the directory in which the DB will store its files. DB should have
 	// exclusive access to this directory, and sharing with another process/component
 	// may result in data corruption.
 	//
 	// [OPTIONAL] - Defaults to an empty string.
 	Dirname string
-	// FS is the file system interface that the DB will use to read and write data.
-	//
-	// [REQUIRED]
-	FS xfs.FS
 }
 
 var (
@@ -71,7 +71,7 @@ var (
 	DefaultConfig = Config{
 		FS: xfs.Default,
 	}
-	ErrChannelNotfound = cesium.ErrChannelNotFound
+	ErrChannelNotFound = cesium.ErrChannelNotFound
 )
 
 // Validate implements config.Config.

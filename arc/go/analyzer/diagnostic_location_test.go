@@ -59,7 +59,7 @@ func test() {
 				expectedMsg:    "undefined symbol: undefined_var",
 				expectedLine:   3,
 				expectedColumn: 6,
-				expectedSev:    diagnostics.Error,
+				expectedSev:    diagnostics.SeverityError,
 			}),
 		Entry("undefined variable on left side of assignment",
 			diagnosticCase{
@@ -97,7 +97,7 @@ func test() {
 				expectedMsg:    "type mismatch",
 				expectedLine:   3,
 				expectedColumn: -1,
-				expectedSev:    diagnostics.Error,
+				expectedSev:    diagnostics.SeverityError,
 			}),
 		Entry("type mismatch in assignment",
 			diagnosticCase{

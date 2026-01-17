@@ -21,10 +21,6 @@ import (
 
 // Config is the configuration for the aspen DB service. For default values, see DefaultConfig().
 type Config struct {
-	alamos.Instrumentation
-	// Cluster is the cluster that the DB will use to communicate with other databases.
-	// [Required]
-	Cluster *cluster.Cluster
 	// BatchTransportClient is used to send key-value NewStreamer to nodes.
 	// [Required]
 	BatchTransportClient TxTransportClient
@@ -52,6 +48,10 @@ type Config struct {
 	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
 	Engine xkv.DB
+	// Cluster is the cluster that the DB will use to communicate with other databases.
+	// [Required]
+	Cluster *cluster.Cluster
+	alamos.Instrumentation
 	// GossipInterval is how often a node initiates gossip with a peer.
 	// [Not Required]
 	GossipInterval time.Duration

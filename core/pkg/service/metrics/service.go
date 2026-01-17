@@ -32,35 +32,35 @@ import (
 )
 
 type ServiceConfig struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	alamos.Instrumentation
+	// HostProvider is for identify the current host for channel naming.
+	//
+	// [REQUIRED]
+	HostProvider cluster.HostProvider
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// Framer is used to write metrics to the metric channels.
 	//
-	// [REQUIRED}
+	// [REQUIRED]
 	Framer *framer.Service
-	// HostProvider is for identify the current host for channel naming.
+	// Storage is the storage layer used for disk usage metrics.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	Storage *storage.Layer
+	// Instrumentation is used for logging, tracing, and metrics.
+	alamos.Instrumentation
 	// CollectionInterval sets the interval at which metrics will be collected
 	// from the host machine.
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
-	// Storage is the storage layer used for disk usage metrics.
-	//
-	// [REQUIRED]
-	Storage *storage.Layer
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for a metrics service.
-	DefaultConfig = ServiceConfig{
+	// DefaultServiceConfig is the default configuration for a metrics service.
+	DefaultServiceConfig = ServiceConfig{
 		CollectionInterval: 2 * time.Second,
 	}
 )
@@ -90,9 +90,9 @@ func (c ServiceConfig) Validate() error {
 // Service is used to collect metrics from the host machine (cpu, memory, disk) and
 // write them to channels.
 type Service struct {
-	cfg           ServiceConfig
-	stopCollector chan struct{}
 	shutdown      io.Closer
+	stopCollector chan struct{}
+	cfg           ServiceConfig
 }
 
 const (
@@ -107,7 +107,7 @@ const (
 // returns an error, the service is not safe to use. If OpenService succeeds, it must be
 // shut down by calling Close after use.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

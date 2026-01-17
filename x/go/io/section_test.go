@@ -21,9 +21,9 @@ import (
 
 // mockReaderAtCloser is a test helper for SectionReaderAtCloser tests
 type mockReaderAtCloser struct {
+	err    error
 	data   []byte
 	closed bool
-	err    error
 }
 
 func (m *mockReaderAtCloser) ReadAt(p []byte, off int64) (n int, err error) {

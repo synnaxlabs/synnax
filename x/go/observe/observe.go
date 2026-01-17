@@ -40,8 +40,8 @@ type Observer[T any] interface {
 }
 
 type base[T any] struct {
-	mu       sync.RWMutex
 	handlers map[*func(context.Context, T)]struct{}
+	mu       sync.RWMutex
 }
 
 // New creates a new observer with the given options.

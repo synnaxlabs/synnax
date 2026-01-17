@@ -91,16 +91,16 @@ const Content = () => {
 
   const handleEdit = useCallback(
     (key: arc.Key) => {
-      const arc = getItem(key);
-
-      if (arc == null)
+      const retrieved = getItem(key);
+      if (retrieved == null)
         return addStatus({
           variant: "error",
           message: "Failed to open Arc editor",
           description: `Arc with key ${key} not found`,
         });
-      const graph = translateGraphToConsole(arc.graph);
-      placeLayout(Editor.create({ key, name: arc.name, graph }));
+      const { name, text, mode } = retrieved;
+      const graph = translateGraphToConsole(retrieved.graph);
+      placeLayout(Editor.create({ key, name, graph, text, mode }));
     },
     [getItem, addStatus, placeLayout],
   );
@@ -122,15 +122,6 @@ const Content = () => {
         const arc = getItem(key);
         if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
         const oldName = arc.name;
-        if (arc.status?.details.running === true) {
-          const confirmed = await confirm({
-            message: `Are you sure you want to rename ${arc.name} to ${name}?`,
-            description: `This will cause ${arc.name} to stop and be reconfigured.`,
-            cancel: { label: "Cancel" },
-            confirm: { label: "Rename", variant: "error" },
-          });
-          if (!confirmed) return false;
-        }
         dispatch(Layout.rename({ key, name }));
         rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
         return data;
@@ -148,7 +139,7 @@ const Content = () => {
         onEdit={handleEdit}
       />
     ),
-    [handleDelete, handleEdit, handleRename, getItem],
+    [handleDelete, handleEdit, getItem],
   );
 
   return (
@@ -215,18 +206,10 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
-
-  const variant = arcItem?.status?.variant;
-  const isRunning = arcItem?.status?.details?.running === true;
-
   return (
     <Select.ListItem {...rest} justify="between" align="center">
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
         <Flex.Box x align="center" gap="small">
-          <Status.Indicator
-            variant={variant}
-            style={{ fontSize: "2rem", minWidth: "2rem" }}
-          />
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}
@@ -236,20 +219,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
             weight={500}
           />
         </Flex.Box>
-        {/* <Text.Text level="small" color={10}>
-          {arcItem?.status?.message ?? (hasTask ? (isRunning ? "Running" : "Stopped") : "Not deployed")}
-        </Text.Text> */}
       </Flex.Box>
-      {/* {hasEditPermission && (
-        <Button.Button
-          variant="outlined"
-          onClick={onEdit}
-          onDoubleClick={stopPropagation}
-          tooltip={hasTask ? (isRunning ? "Stop" : "Start") : "Deploy"}
-        >
-          {isRunning ? <Icon.Pause /> : <Icon.Play />}
-        </Button.Button>
-      )} */}
     </Select.ListItem>
   );
 };

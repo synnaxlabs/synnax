@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action as CoreAction, UnknownAction } from "@reduxjs/toolkit";
+import type { Action as BaseAction, UnknownAction } from "@reduxjs/toolkit";
 
 import { type Action } from "@/state";
 
@@ -30,7 +30,7 @@ const desugarType = (type: string): [string, string] => {
  * @param emitter - The window key to embed.
  * @returns - The sugared action.
  */
-export const sugar = <A extends CoreAction = UnknownAction>(
+export const sugar = <A extends BaseAction = UnknownAction>(
   action: A,
   emitter: string,
 ): A => ({
@@ -47,7 +47,7 @@ export const sugar = <A extends CoreAction = UnknownAction>(
  *    action: The desugared action.
  * }
  */
-export const desugar = <A extends CoreAction = UnknownAction>(
+export const desugar = <A extends BaseAction = UnknownAction>(
   action: A | Action,
 ): {
   emitted: boolean;

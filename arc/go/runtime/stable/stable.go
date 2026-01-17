@@ -44,11 +44,11 @@ var (
 
 type stableFor struct {
 	*state.Node
-	duration    telem.TimeSpan
 	value       *uint8
 	lastSent    *uint8
-	lastChanged telem.TimeStamp
 	now         func() telem.TimeStamp
+	duration    telem.TimeSpan
+	lastChanged telem.TimeStamp
 }
 
 // Reset resets the stableFor timer state when its stage is activated.
@@ -113,7 +113,7 @@ var configSchema = zyn.Object(map[string]zyn.Schema{
 
 func (f *stableFactory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var configVals config
 	if err := configSchema.Parse(cfg.Node.Config.ValueMap(), &configVals); err != nil {

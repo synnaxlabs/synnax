@@ -380,7 +380,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], channelSym *symbol.Symbol) {
 	// Validate we're in a function context (channel writes only allowed in imperative context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-	if errors.Skip(fnErr, query.NotFound) != nil {
+	if errors.Skip(fnErr, query.ErrNotFound) != nil {
 		ctx.Diagnostics.AddError(fnErr, ctx.AST)
 		return
 	}

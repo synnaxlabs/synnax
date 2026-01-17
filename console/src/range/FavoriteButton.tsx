@@ -11,15 +11,15 @@ import { type ranger } from "@synnaxlabs/client";
 import { useDispatch } from "react-redux";
 
 import {
-  FavoriteButton as Core,
-  type FavoriteButtonProps as CoreProps,
+  FavoriteButton as Base,
+  type FavoriteButtonProps as BaseProps,
 } from "@/components";
 import { useSelect } from "@/range/selectors";
 import { add, remove } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 
 export interface FavoriteButtonProps extends Omit<
-  CoreProps,
+  BaseProps,
   "isFavorite" | "onFavorite"
 > {
   range: ranger.Range;
@@ -33,5 +33,5 @@ export const FavoriteButton = ({ range, ...rest }: FavoriteButtonProps) => {
     if (!isFavorite) dispatch(add({ ranges: fromClientRange(range) }));
     else dispatch(remove({ keys: [range.key] }));
   };
-  return <Core {...rest} isFavorite={isFavorite} onFavorite={handleFavorite} />;
+  return <Base {...rest} isFavorite={isFavorite} onFavorite={handleFavorite} />;
 };

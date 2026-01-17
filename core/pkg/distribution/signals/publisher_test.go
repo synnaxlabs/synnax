@@ -80,7 +80,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 	It("Should correctly propagate a change", func() {
 		uid := uuid.New()
 		obs.Notify(ctx, []change.Change[[]byte, struct{}]{{
-			Variant: change.Set,
+			Variant: change.VariantSet,
 			Key:     uid[:],
 		}})
 		var streamRes framer.StreamerResponse

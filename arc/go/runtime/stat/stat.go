@@ -66,9 +66,9 @@ var (
 
 type stat struct {
 	*state.Node
+	reductionFn func(telem.Series, int64, *telem.Series) int64
 	cfg         ConfigValues
 	resetIdx    int
-	reductionFn func(telem.Series, int64, *telem.Series) int64
 	sampleCount int64
 	startTime   telem.TimeStamp
 	// lastResetTime tracks last processed reset timestamp to avoid re-processing.
@@ -185,7 +185,7 @@ var Factory node.Factory = &statFactory{}
 func (f *statFactory) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	reductionMap, ok := ops[nodeCfg.Node.Type]
 	if !ok {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var (
 		inputData   = nodeCfg.State.Input(0)

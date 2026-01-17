@@ -30,9 +30,9 @@ import (
 // Config is all required configuration parameters and services necessary to instantiate
 // the API.
 type Config struct {
-	alamos.Instrumentation
 	Service      *service.Layer
 	Distribution *distribution.Layer
+	alamos.Instrumentation
 }
 
 var (
@@ -184,8 +184,8 @@ type Transport struct {
 // implementations should use this struct during instantiation.
 type Layer struct {
 	provider     Provider
-	config       Config
-	Auth         *AuthService
+	Workspace    *WorkspaceService
+	LinePlot     *LinePlotService
 	User         *UserService
 	Framer       *FrameService
 	Channel      *ChannelService
@@ -193,10 +193,10 @@ type Layer struct {
 	Ontology     *OntologyService
 	Range        *RangeService
 	Group        *GroupService
-	Workspace    *WorkspaceService
-	Schematic    *SchematicService
-	LinePlot     *LinePlotService
 	Log          *LogService
+	Auth         *AuthService
+	Schematic    *SchematicService
+	View         *ViewService
 	Table        *TableService
 	Label        *LabelService
 	Rack         *RackService
@@ -205,7 +205,7 @@ type Layer struct {
 	Access       *AccessService
 	Arc          *ArcService
 	Status       *StatusService
-	View         *ViewService
+	config       Config
 }
 
 // BindTo binds the API layer to the provided Transport implementation.

@@ -16,7 +16,7 @@ import {
   Schematic as PSchematic,
   Synnax,
   Table as PTable,
-  Workspace as Core,
+  Workspace as Base,
 } from "@synnaxlabs/pluto";
 import { array, deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
@@ -46,7 +46,7 @@ import { maybeRename, setActive } from "@/workspace/slice";
 
 const useDelete = createUseDelete({
   type: "Workspace",
-  query: Core.useDelete,
+  query: Base.useDelete,
   convertKey: String,
   afterSuccess: ({ data, store }) => {
     const s = store.getState();
@@ -172,7 +172,7 @@ const useCreateTable = ({
 };
 
 const useRename = createUseRename({
-  query: Core.useRename,
+  query: Base.useRename,
   ontologyID: workspace.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {

@@ -78,7 +78,7 @@ func (r *recoveryServer) recoverPeer(
 		op.Variant = dig.Variant
 
 		var closer io.Closer
-		if op.Variant == change.Set {
+		if op.Variant == change.VariantSet {
 			if op.Value, closer, err = r.Engine.Get(ctx, dig.Key); err != nil {
 				return err
 			}

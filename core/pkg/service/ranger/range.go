@@ -33,16 +33,16 @@ type Range struct {
 	tx    gorp.Tx
 	otg   *ontology.Ontology
 	label *label.Service
-	// Key is a unique identifier for the Range. If not provided on creation, a new one
-	// will be generated.
-	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the range. This name does not need to be
 	// unique.
 	Name string `json:"name" msgpack:"name"`
-	// TimeRange is the range of time occupied by the range.
-	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is the color used to represent the range in the UI.
 	Color string `json:"color" msgpack:"color"`
+	// TimeRange is the range of time occupied by the range.
+	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
+	// Key is a unique identifier for the Range. If not provided on creation, a new one
+	// will be generated.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Range{}
@@ -69,7 +69,7 @@ func (r Range) Get(ctx context.Context, key string) (string, error) {
 			Entry(&res).
 			Exec(ctx, r.tx)
 	)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		return "", errors.Wrapf(err, "key %s not found on range", key)
 	}
 	return res.Value, err
@@ -128,7 +128,7 @@ func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 		return err
 	}
 	if !exists {
-		return errors.Wrapf(query.NotFound, "[range] - cannot Alias non-existent channel %s", ch)
+		return errors.Wrapf(query.ErrNotFound, "[range] - cannot Alias non-existent channel %s", ch)
 	}
 	if err := gorp.NewCreate[string, Alias]().
 		Entry(&Alias{Range: r.Key, Channel: ch, Alias: al}).
@@ -145,9 +145,9 @@ func (r Range) RetrieveAlias(ctx context.Context, ch channel.Key) (string, error
 		WhereKeys(Alias{Range: r.Key, Channel: ch}.GorpKey()).
 		Entry(&res).
 		Exec(ctx, r.tx)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		p, pErr := r.RetrieveParent(ctx)
-		if errors.Is(pErr, query.NotFound) {
+		if errors.Is(pErr, query.ErrNotFound) {
 			return res.Alias, err
 		}
 		return p.RetrieveAlias(ctx, ch)
@@ -172,9 +172,9 @@ func (r Range) ResolveAlias(ctx context.Context, alias string) (channel.Key, err
 		Where(matcher).
 		Entry(&res).
 		Exec(ctx, r.tx)
-	if errors.Is(err, query.NotFound) {
+	if errors.Is(err, query.ErrNotFound) {
 		p, pErr := r.RetrieveParent(ctx)
-		if errors.Is(pErr, query.NotFound) {
+		if errors.Is(pErr, query.ErrNotFound) {
 			return 0, err
 		}
 		return p.ResolveAlias(ctx, alias)
@@ -190,7 +190,7 @@ func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 	var resources []ontology.Resource
 	if err := r.otg.NewRetrieve().
 		WhereIDs(r.OntologyID()).
-		TraverseTo(ontology.Parents).
+		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(OntologyType).
 		ExcludeFieldData(true).
 		Entries(&resources).
@@ -198,7 +198,7 @@ func (r Range) RetrieveParent(ctx context.Context) (Range, error) {
 		return Range{}, err
 	}
 	if len(resources) == 0 {
-		return Range{}, errors.Wrapf(query.NotFound, "range %s has no parent", r.Key)
+		return Range{}, errors.Wrapf(query.ErrNotFound, "range %s has no parent", r.Key)
 	}
 	key, err := KeyFromOntologyID(resources[0].ID)
 	if err != nil {
@@ -273,7 +273,7 @@ func (r Range) listAliases(
 		accumulated[a.Channel] = a.Alias
 	}
 	p, pErr := r.RetrieveParent(ctx)
-	if errors.Is(pErr, query.NotFound) {
+	if errors.Is(pErr, query.ErrNotFound) {
 		return nil
 	} else if pErr != nil {
 		return pErr

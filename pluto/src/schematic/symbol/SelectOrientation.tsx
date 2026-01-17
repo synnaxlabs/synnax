@@ -12,7 +12,7 @@ import "@/schematic/symbol/SelectOrientation.css";
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Button as CoreButton } from "@/button";
+import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Input } from "@/input";
@@ -143,17 +143,17 @@ const InternalOrientation = ({
   );
 };
 
-export interface ButtonProps extends Omit<CoreButton.ButtonProps, "children"> {
+export interface ButtonProps extends Omit<BaseButton.ButtonProps, "children"> {
   selected: boolean;
 }
 
 export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
-  <CoreButton.Button
+  <BaseButton.Button
     variant="text"
     className={CSS(className, CSS.selected(selected))}
     size="tiny"
     {...rest}
   >
     <div className="symbol" />
-  </CoreButton.Button>
+  </BaseButton.Button>
 );

@@ -24,7 +24,10 @@ import (
 )
 
 type Config struct {
-	alamos.Instrumentation
+	// Factory is the factory for creating tasks.
+	Factory Factory
+	// Host is the node key of the current host.
+	Host cluster.HostProvider
 	// DB is the gorp database for observing task changes.
 	DB *gorp.DB
 	// Rack is the rack service for creating/managing racks.
@@ -37,10 +40,7 @@ type Config struct {
 	Channel *channel.Service
 	// Status is the status service for task status updates.
 	Status *status.Service
-	// Factory is the factory for creating tasks.
-	Factory Factory
-	// Host is the node key of the current host.
-	Host cluster.HostProvider
+	alamos.Instrumentation
 }
 
 var (

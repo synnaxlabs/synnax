@@ -55,27 +55,27 @@ import (
 )
 
 type CoreConfig struct {
-	alamos.Instrumentation
 	insecure             *bool
 	debug                *bool
 	autoCert             *bool
-	verifier             string
+	validateChannelNames *bool
 	memBacked            *bool
+	noDriver             *bool
+	alamos.Instrumentation
+	rootUsername         string
+	dataPath             string
+	verifier             string
+	rootPassword         string
 	listenAddress        address.Address
 	peers                []address.Address
-	dataPath             string
-	slowConsumerTimeout  time.Duration
-	rootUsername         string
-	rootPassword         string
-	noDriver             *bool
-	taskOpTimeout        time.Duration
-	taskPollInterval     time.Duration
-	taskShutdownTimeout  time.Duration
-	taskWorkerCount      uint8
-	certFactoryConfig    cert.FactoryConfig
-	enabledIntegrations  []string
 	disabledIntegrations []string
-	validateChannelNames *bool
+	enabledIntegrations  []string
+	certFactoryConfig    cert.FactoryConfig
+	taskShutdownTimeout  time.Duration
+	taskPollInterval     time.Duration
+	taskOpTimeout        time.Duration
+	slowConsumerTimeout  time.Duration
+	taskWorkerCount      uint8
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
@@ -300,7 +300,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return nil
 	}
 
-	driverIns := cfg.Instrumentation.Child("driver")
+	driverIns := cfg.Child("driver")
 	if embeddedDriver, err = driver.Open(
 		ctx,
 		driver.Config{

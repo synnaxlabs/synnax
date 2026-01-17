@@ -21,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -34,9 +36,23 @@ var _ = Describe("Metrics", Ordered, func() {
 		dist      mock.Node
 		ctx       = context.Background()
 		svcFramer *framer.Service
+		statusSvc *status.Service
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		}))
+		statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+			DB:       dist.DB,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
+			Label:    labelSvc,
+		}))
 		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
@@ -48,6 +64,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			Framer:  dist.Framer,
 			Channel: dist.Channel,
 			Arc:     arcSvc,
+			Status:  statusSvc,
 		}))
 	})
 	AfterAll(func() {
@@ -95,7 +112,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 		})
 		It("Should apply default collection interval", func() {
-			cfg := metrics.DefaultConfig.Override(metrics.ServiceConfig{
+			cfg := metrics.DefaultServiceConfig.Override(metrics.ServiceConfig{
 				Channel:      dist.Channel,
 				Framer:       svcFramer,
 				HostProvider: dist.Cluster,

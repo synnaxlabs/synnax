@@ -25,21 +25,17 @@ import (
 )
 
 type Config struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	alamos.Instrumentation
-	// Enabled is used to enable or disable the embedded driver.
-	Enabled *bool `json:"enabled"`
-	// Address is the reachable address of the cluster for the driver to connect to.
-	Address address.Address `json:"address"`
-	// RackKey is the key of the rack that the driver should assume the identity of.
-	RackKey rack.Key `json:"rack_key"`
-	// ClusterKey is the key of the current cluster.
-	ClusterKey uuid.UUID `json:"cluster_key"`
-	// Integrations define which device integrations are enabled.
-	Integrations []string `json:"integrations"`
 	// Insecure sets whether not to use TLS for communication. If insecure
 	// is set to true, CACertPath, ClientCertFile, and ClientKeyFile are ignored.
 	Insecure *bool `json:"insecure"`
+	// Enabled is used to enable or disable the embedded driver.
+	Enabled *bool `json:"enabled"`
+	// Debug sets whether to enable debug logging.
+	Debug *bool `json:"debug"`
+	// Instrumentation is used for logging, tracing, and metrics.
+	alamos.Instrumentation
+	// Username sets the username to authenticate to the cluster with.
+	Username string `json:"username"`
 	// CACertPath sets the path to the CA certificate to use for authenticated/encrypted
 	// communication. Not required if the CA is universally recognized or already
 	// installed on the users' system.
@@ -50,25 +46,29 @@ type Config struct {
 	// ClientKeyFile sets the secret key file used for authenticated/encrypted communication
 	// between the driver and cluster.
 	ClientKeyFile string `json:"client_key_file"`
-	// Username sets the username to authenticate to the cluster with.
-	Username string `json:"username"`
+	// Address is the reachable address of the cluster for the driver to connect to.
+	Address address.Address `json:"address"`
 	// Password sets the password to authenticate to the cluster with.
 	Password string `json:"password"`
-	// Debug sets whether to enable debug logging.
-	Debug *bool `json:"debug"`
-	// StartTimeout sets the maximum acceptable time to wait for the driver to bootup
-	// successfully before timing out and returning a failed startup error.
-	StartTimeout time.Duration `json:"start_timeout"`
 	// ParentDirname is the parent directory in which the driver will create a 'driver'
 	// directory to extract and execute the driver binary and extract configuration files
 	// into.
 	ParentDirname string `json:"parent_dirname"`
+	// Integrations define which device integrations are enabled.
+	Integrations []string `json:"integrations"`
+	// StartTimeout sets the maximum acceptable time to wait for the driver to bootup
+	// successfully before timing out and returning a failed startup error.
+	StartTimeout time.Duration `json:"start_timeout"`
 	// TaskOpTimeout sets the duration before reporting stuck task operations.
 	TaskOpTimeout time.Duration `json:"task_op_timeout"`
 	// TaskPollInterval sets the interval between task timeout checks.
 	TaskPollInterval time.Duration `json:"task_poll_interval"`
 	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
 	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
+	// RackKey is the key of the rack that the driver should assume the identity of.
+	RackKey rack.Key `json:"rack_key"`
+	// ClusterKey is the key of the current cluster.
+	ClusterKey uuid.UUID `json:"cluster_key"`
 	// TaskWorkerCount sets the number of worker threads for task operations.
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
@@ -169,10 +169,10 @@ func (c Config) Validate() error {
 }
 
 type Driver struct {
-	cfg       Config
-	mu        sync.Mutex
-	cmd       *exec.Cmd
 	shutdown  io.Closer
 	stdInPipe io.WriteCloser
+	cmd       *exec.Cmd
 	started   chan struct{}
+	cfg       Config
+	mu        sync.Mutex
 }

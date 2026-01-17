@@ -39,16 +39,15 @@ func (c Config) Override(other Config) Config {
 }
 
 type Driver struct {
-	go_ *godriver.Driver
-	cpp *cpp.Driver
+	goDriver *godriver.Driver
+	cpp      *cpp.Driver
 }
 
 func (d *Driver) Close() error {
 	e := errors.NewCatcher(errors.WithAggregation())
-	e.Exec(d.go_.Close)
+	e.Exec(d.goDriver.Close)
 	e.Exec(d.cpp.Close)
 	return e.Error()
-
 }
 
 func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
@@ -58,7 +57,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	}
 	d := &Driver{}
 
-	if d.go_, err = godriver.Open(ctx, cfg.Go); err != nil {
+	if d.goDriver, err = godriver.Open(ctx, cfg.Go); err != nil {
 		return nil, err
 	}
 	if d.cpp, err = cpp.Open(ctx, cfg.CPP); err != nil {

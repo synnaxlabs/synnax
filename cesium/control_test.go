@@ -204,7 +204,7 @@ var _ = Describe("Control", func() {
 
 						By("Writing to the first writer")
 						w1In.Inlet() <- cesium.WriterRequest{
-							Command: cesium.WriterWrite,
+							Command: cesium.WriterCommandWrite,
 							Frame: telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
@@ -234,7 +234,7 @@ var _ = Describe("Control", func() {
 
 						By("Writing to the second writer")
 						w2In.Inlet() <- cesium.WriterRequest{
-							Command: cesium.WriterWrite,
+							Command: cesium.WriterCommandWrite,
 							Frame: telem.MultiFrame(
 								[]cesium.ChannelKey{indexChKey, dataChKey},
 								[]telem.Series{
@@ -246,7 +246,7 @@ var _ = Describe("Control", func() {
 
 						By("Committing the second writer")
 						w2In.Inlet() <- cesium.WriterRequest{
-							Command: cesium.WriterCommit,
+							Command: cesium.WriterCommandCommit,
 						}
 						var r cesium.WriterResponse
 						Eventually(w2Out.Outlet()).Should(Receive(&r))

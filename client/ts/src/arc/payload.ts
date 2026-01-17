@@ -11,7 +11,6 @@ import { record, xy } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { ontology } from "@/ontology";
-import { statusZ as baseStatusZ } from "@/status/payload";
 import { parseWithoutKeyConversion } from "@/util/parseWithoutKeyConversion";
 
 export const irNodeZ = z.object({
@@ -48,13 +47,11 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export type Params = Key | Key[];
 
-export const statusDetailsZ = z.object({
-  running: z.boolean(),
-});
-
-export const statusZ = baseStatusZ(statusDetailsZ);
-
-export type Status = z.infer<typeof statusZ>;
+export const modeZ = z
+  .enum(["graph", "text"])
+  .or(z.literal(""))
+  .transform((v) => v || "graph");
+export type Mode = z.infer<typeof modeZ>;
 
 export const arcZ = z.object({
   key: keyZ,
@@ -62,12 +59,12 @@ export const arcZ = z.object({
   graph: graphZ,
   text: textZ,
   version: z.string(),
-  status: statusZ.optional().nullable(),
+  mode: modeZ,
 });
 
 export interface Arc extends z.infer<typeof arcZ> {}
 
-export const newZ = arcZ.partial({ key: true }).omit({ status: true });
+export const newZ = arcZ.partial({ key: true, mode: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "arc";

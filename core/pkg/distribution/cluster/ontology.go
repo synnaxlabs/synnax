@@ -57,9 +57,9 @@ var (
 // NodeOntologyService implements the ontology.Service interface to provide resource access
 // to a cluster's nodes.
 type NodeOntologyService struct {
-	alamos.Instrumentation
-	Ontology *ontology.Ontology
 	Cluster  Cluster
+	Ontology *ontology.Ontology
+	alamos.Instrumentation
 }
 
 var _ ontology.Service = (*NodeOntologyService)(nil)
@@ -69,7 +69,7 @@ func (s *NodeOntologyService) Type() ontology.Type { return OntologyTypeNode }
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontology accordingly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
-	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(Free)); err != nil {
+	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(NodeKeyFree)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
 	}
 }
@@ -84,11 +84,9 @@ func translateNodeChange(ch NodeChange, _ int) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	var (
-		onChange = func(ctx context.Context, ch Change) {
-			f(ctx, slices.Values(lo.Map(ch.Changes, translateNodeChange)))
-		}
-	)
+	onChange := func(ctx context.Context, ch Change) {
+		f(ctx, slices.Values(lo.Map(ch.Changes, translateNodeChange)))
+	}
 	return s.Cluster.OnChange(onChange)
 }
 
@@ -128,9 +126,9 @@ func newNodeResource(n Node) ontology.Resource {
 // OntologyService implements the ontology.Service to provide resource access
 // to metadata about a Cluster.
 type OntologyService struct {
-	Cluster Cluster
 	// Nothing will ever change about the cluster.
 	observe.Noop[iter.Seq[ontology.Change]]
+	Cluster Cluster
 }
 
 var _ ontology.Service = (*OntologyService)(nil)

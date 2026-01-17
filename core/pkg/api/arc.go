@@ -28,16 +28,16 @@ import (
 )
 
 type Arc struct {
-	arc.Arc
 	Status *status.Status[arc.StatusDetails] `json:"status" msgpack:"status"`
+	arc.Arc
 }
 
 type ArcService struct {
 	dbProvider
 	accessProvider
-	alamos.Instrumentation
 	internal *arc.Service
 	status   *status.Service
+	alamos.Instrumentation
 }
 
 func NewArcService(p Provider) *ArcService {
@@ -67,11 +67,11 @@ func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res ArcC
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		for i, arc_ := range req.Arcs {
-			if err = w.Create(ctx, &arc_.Arc); err != nil {
+		for i, a := range req.Arcs {
+			if err = w.Create(ctx, &a.Arc); err != nil {
 				return err
 			}
-			req.Arcs[i] = arc_
+			req.Arcs[i] = a
 		}
 		res.Arcs = req.Arcs
 		return nil
@@ -97,9 +97,9 @@ func (s *ArcService) Delete(ctx context.Context, req ArcDeleteRequest) (res type
 
 type (
 	ArcRetrieveRequest struct {
+		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
 		Keys          []uuid.UUID `json:"keys" msgpack:"keys"`
 		Names         []string    `json:"names" msgpack:"names"`
-		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
 		Limit         int         `json:"limit" msgpack:"limit"`
 		Offset        int         `json:"offset" msgpack:"offset"`
 		IncludeStatus bool        `json:"include_status" msgpack:"include_status"`
