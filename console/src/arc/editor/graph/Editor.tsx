@@ -8,38 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { arc, type rack, task } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
-  Arc,
   Arc as Core,
-  Button,
   Diagram,
-  Flex,
-  type Flux,
   Haul,
-  Icon,
   Menu as PMenu,
-  Ontology,
-  Rack,
-  Status,
-  Task,
   Theming,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, id, xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
+import { Controls } from "@/arc/editor/Controls";
 import {
   select,
   useSelect,
@@ -62,7 +47,6 @@ import {
   setViewportMode,
   type State,
 } from "@/arc/slice";
-import { translateGraphToServer } from "@/arc/types/translate";
 import { Controls as CoreControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -96,7 +80,7 @@ const StageRenderer = ({
         }),
       );
     },
-    [symbolKey, layoutKey, key, key, dispatch],
+    [symbolKey, layoutKey, key, dispatch],
   );
 
   if (props == null) return null;
@@ -127,119 +111,6 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
     <Layout.MenuItems layoutKey={layoutKey} />
   </PMenu.Menu>
 );
-
-interface ControlsProps {
-  state: State;
-}
-
-export const Controls = ({ state }: ControlsProps) => {
-  const name = Layout.useSelectRequiredName(state.key);
-  const children = Ontology.useRetrieveChildren({
-    id: arc.ontologyID(state.key),
-    types: ["task"],
-  });
-  const tsk = Task.useRetrieve(
-    { key: children.data?.[0]?.id.key ?? 0 },
-    { addStatusOnFailure: false },
-  );
-  const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
-  useEffect(() => {
-    if (tsk.data?.key == null) return;
-    setSelectedRack(task.rackKey(tsk.data.key));
-  }, [tsk.data?.key]);
-  const { update } = Arc.useCreate({
-    afterSuccess: useCallback(
-      async ({ client, data }: Flux.AfterSuccessParams<arc.Arc, false>) => {
-        const { key } = data;
-        if (selectedRack == null) return;
-        let taskKey = tsk.data?.key;
-        taskKey ??= task.newKey(selectedRack, 0);
-        const newTsk = await client.tasks.create({
-          key: taskKey,
-          name,
-          type: "arc",
-          config: {
-            arc_key: key,
-          },
-        });
-        if (tsk.data?.key == null)
-          await client.ontology.addChildren(
-            arc.ontologyID(key),
-            task.ontologyID(newTsk.key),
-          );
-
-        await client.tasks.executeCommand({ task: taskKey, type: "start" });
-      },
-      [name, selectedRack, tsk.data?.key],
-    ),
-  });
-  const cmd = Task.useCommand();
-  const handleStop = useCallback(() => {
-    if (tsk.data?.key == null) return;
-    cmd.update([{ task: tsk.data.key, type: "stop" }]);
-  }, [cmd, tsk.data?.key]);
-
-  const isRunning = tsk.data?.status?.details.running ?? false;
-  const handleDeploy = useCallback(() => {
-    if (isRunning) handleStop();
-    else
-      update({
-        name,
-        key: state.key,
-        text: state.text,
-        version: "0.0.0",
-        graph: translateGraphToServer(state.graph),
-      });
-  }, [state, update, handleStop, isRunning]);
-
-  return (
-    <Flex.Box
-      style={{
-        padding: "2rem",
-        position: "absolute",
-        bottom: 0,
-        right: 0,
-        width: 500,
-      }}
-      justify="end"
-      grow
-    >
-      <Flex.Box
-        x
-        background={1}
-        style={{ padding: "2rem" }}
-        bordered
-        borderColor={5}
-        grow
-        rounded={2}
-        justify="between"
-        gap="medium"
-      >
-        <Flex.Box x gap="small" align="center" grow>
-          <Rack.SelectSingle
-            value={selectedRack}
-            onChange={setSelectedRack}
-            allowNone
-            style={{ minWidth: 150 }}
-          />
-          <Status.Summary
-            variant="disabled"
-            message="Not deployed"
-            status={tsk.data?.status}
-          />
-        </Flex.Box>
-        <Button.Button
-          onClick={handleDeploy}
-          variant="filled"
-          disabled={selectedRack === undefined}
-        >
-          {isRunning ? <Icon.Pause /> : <Icon.Play />}
-          {isRunning ? "Stop" : "Start"}
-        </Button.Button>
-      </Flex.Box>
-    </Flex.Box>
-  );
-};
 
 export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
@@ -344,8 +215,11 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
     onDrop: handleDrop,
   });
 
-  const mode = useSelectViewportMode();
-  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+  const viewportMode = useSelectViewportMode();
+  const triggers = useMemo(
+    () => Viewport.DEFAULT_TRIGGERS[viewportMode],
+    [viewportMode],
+  );
 
   const handleDoubleClick = useCallback(() => {
     if (!state.graph.editable) return;
@@ -358,11 +232,9 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, state.graph.editable, dispatch]);
 
-  const viewportMode = useSelectViewportMode();
-
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
-    [layoutKey, dispatch],
+    [dispatch],
   );
 
   const handleCopySelection = useCallback(

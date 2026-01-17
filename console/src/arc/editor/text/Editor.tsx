@@ -11,7 +11,7 @@ import { Flex } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls } from "@/arc/editor/graph/Editor";
+import { Controls } from "@/arc/editor/Controls";
 import { useSelect } from "@/arc/selectors";
 import { setRawText } from "@/arc/slice";
 import { Editor as CoreEditor } from "@/code/Editor";

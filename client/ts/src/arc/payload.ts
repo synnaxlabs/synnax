@@ -56,6 +56,12 @@ export const statusZ = baseStatusZ(statusDetailsZ);
 
 export type Status = z.infer<typeof statusZ>;
 
+export const modeZ = z
+  .enum(["graph", "text"])
+  .or(z.literal(""))
+  .transform((v) => v || "graph");
+export type Mode = z.infer<typeof modeZ>;
+
 export const arcZ = z.object({
   key: keyZ,
   name: z.string(),
@@ -63,11 +69,12 @@ export const arcZ = z.object({
   text: textZ,
   version: z.string(),
   status: statusZ.optional().nullable(),
+  mode: modeZ,
 });
 
 export interface Arc extends z.infer<typeof arcZ> {}
 
-export const newZ = arcZ.partial({ key: true }).omit({ status: true });
+export const newZ = arcZ.partial({ key: true, mode: true }).omit({ status: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ONTOLOGY_TYPE = "arc";

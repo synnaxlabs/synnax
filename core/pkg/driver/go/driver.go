@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -142,7 +142,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task.Key, task.Task]) {
 	for ch := range reader {
 		if ch.Key.Rack() == d.rack.Key {
-			if ch.Variant == change.Set {
+			if ch.Variant == change.VariantSet {
 				d.configure(ctx, ch.Value)
 			} else {
 				d.delete(ctx, ch.Key)

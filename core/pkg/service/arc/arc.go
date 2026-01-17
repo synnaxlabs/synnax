@@ -37,6 +37,8 @@ type Arc struct {
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Key is a unique key for the automation.
 	Key uuid.UUID `json:"key" msgpack:"key"`
+	// Mode indicates whether this arc uses "graph" or "text" representation.
+	Mode string `json:"mode" msgpack:"mode"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Arc{}

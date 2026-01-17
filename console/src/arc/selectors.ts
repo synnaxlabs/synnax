@@ -219,3 +219,9 @@ export const selectMode = (state: StoreState, key: string): Mode =>
 
 export const useSelectMode = (key: string): Mode =>
   useMemoSelect((state: StoreState) => selectMode(state, key), [key]);
+
+export const selectOptionalMode = (state: StoreState, key: string): Mode =>
+  selectOptional(state, key)?.mode;
+
+export const useSelectOptionalMode = (key: string): Mode =>
+  useMemoSelect((state: StoreState) => selectOptionalMode(state, key), [key]);

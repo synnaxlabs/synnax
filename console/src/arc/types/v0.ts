@@ -42,9 +42,7 @@ const graphStateZ = z.object({
 
 export interface GraphState extends z.infer<typeof graphStateZ> {}
 
-export const modeZ = z.enum(["graph", "text"]);
-
-export type Mode = z.infer<typeof modeZ>;
+export type Mode = arc.Mode | undefined;
 
 export const stateZ = z.object({
   key: z.string(),
@@ -53,10 +51,8 @@ export const stateZ = z.object({
   remoteCreated: z.boolean(),
   graph: graphStateZ,
   text: arc.textZ,
-  mode: modeZ,
+  mode: arc.modeZ.optional(),
 });
-
-export interface GraphState extends z.infer<typeof graphStateZ> {}
 
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -114,7 +110,7 @@ export const ZERO_STATE: State = {
   graph: ZERO_GRAPH_STATE,
   remoteCreated: false,
   text: { raw: "" },
-  mode: "text",
+  mode: undefined,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {

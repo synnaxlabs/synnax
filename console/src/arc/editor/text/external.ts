@@ -7,19 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package godriver_test
-
-import (
-	"context"
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-var ctx = context.Background()
-
-func TestGoDriver(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Driver Suite")
-}
+export * from "@/arc/editor/text/Editor";
+export { Toolbar } from "@/arc/editor/text/Toolbar";
