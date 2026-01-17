@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,10 +10,10 @@
 package server
 
 import (
-	"github.com/synnaxlabs/alamos"
 	"net"
 
 	"github.com/cockroachdb/cmux"
+	"github.com/synnaxlabs/alamos"
 )
 
 // BranchContext is the context for operating a Branch.
@@ -21,10 +21,10 @@ type BranchContext struct {
 	alamos.Instrumentation
 	// List is the listener the branch should listen for incoming requests on.
 	Lis net.Listener
-	// ServerName is the name of the Server this branch is running on.
-	ServerName string
 	// Security contains the security configuration for the Server.
 	Security SecurityConfig
+	// ServerName is the name of the Server this branch is running on.
+	ServerName string
 	// Debug is a flag to enable debugging endpoints and utilities.
 	Debug bool
 }
@@ -34,31 +34,32 @@ type BranchContext struct {
 type RoutingPolicy int
 
 const (
-	// ServeOnlyIfInsecure serves the Branch only if the server is running in insecure
-	// mode.
-	ServeOnlyIfInsecure RoutingPolicy = iota + 1
-	// ServeOnlyIfSecure serves the Branch only if the server is running in secure mode.
-	ServeOnlyIfSecure
-	// ServeOnInsecureIfSecure serves the Branch without TLS if the server is running
-	// in secure mode.
-	ServeOnInsecureIfSecure
-	// ServeAlwaysPreferSecure serves the Branch with TLS if the server is running in
-	// secure mode and without TLS if the server is running in insecure mode.
-	ServeAlwaysPreferSecure
-	// ServeAlwaysPreferInsecure serves the Branch without TLS regardless of the server
-	// mode.
-	ServeAlwaysPreferInsecure
+	// RoutingPolicyServeOnlyIfInsecure serves the Branch only if the server is running
+	// in insecure mode.
+	RoutingPolicyServeOnlyIfInsecure RoutingPolicy = iota + 1
+	// RoutingPolicyServeOnlyIfSecure serves the Branch only if the server is running in
+	// secure mode.
+	RoutingPolicyServeOnlyIfSecure
+	// RoutingPolicyServeOnInsecureIfSecure serves the Branch without TLS if the server
+	// is running in secure mode.
+	RoutingPolicyServeOnInsecureIfSecure
+	// RoutingPolicyServeAlwaysPreferSecure serves the Branch with TLS if the server is
+	// running in secure mode and without TLS if the server is running in insecure mode.
+	RoutingPolicyServeAlwaysPreferSecure
+	// RoutingPolicyServeAlwaysPreferInsecure serves the Branch without TLS regardless
+	// of the server mode.
+	RoutingPolicyServeAlwaysPreferInsecure
 )
 
 // ShouldServe returns true if the Branch should be served under the given listening
 // conditions.
 func (r RoutingPolicy) ShouldServe(insecure, insecureMux bool) bool {
 	if !insecure && !insecureMux {
-		return r == ServeAlwaysPreferSecure || r == ServeOnlyIfSecure
+		return r == RoutingPolicyServeAlwaysPreferSecure || r == RoutingPolicyServeOnlyIfSecure
 	} else if !insecure && insecureMux {
-		return r == ServeOnInsecureIfSecure || r == ServeAlwaysPreferInsecure
+		return r == RoutingPolicyServeOnInsecureIfSecure || r == RoutingPolicyServeAlwaysPreferInsecure
 	} else if insecure && insecureMux {
-		return r == ServeAlwaysPreferInsecure || r == ServeOnlyIfInsecure || r == ServeAlwaysPreferSecure
+		return r == RoutingPolicyServeAlwaysPreferInsecure || r == RoutingPolicyServeOnlyIfInsecure || r == RoutingPolicyServeAlwaysPreferSecure
 	}
 	panic("[server]  - invalid routing policy")
 }

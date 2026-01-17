@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -48,9 +48,9 @@ var _ = Describe("Ranger", Ordered, func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		lab := MustSucceed(label.OpenService(ctx, label.Config{DB: db, Ontology: otg, Group: g}))
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		lab := MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g}))
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -133,7 +133,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -153,7 +153,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
@@ -178,16 +178,16 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent2.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res.ID.Key).To(Equal(r.Key.String()))
 				var res2 ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent1.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res2).
-					Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 			})
 			It("Should create multiple ranges with the same parent", func() {
 				parent := ranger.Range{
@@ -207,7 +207,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				var res []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
@@ -234,7 +234,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
 					_, err := p.RetrieveParent(ctx)
-					Expect(err).To(HaveOccurredAs(query.NotFound))
+					Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 				})
 			})
 		})
@@ -557,7 +557,7 @@ var _ = Describe("Ranger", Ordered, func() {
 				r = r.UseTx(tx)
 				Expect(r.SetAlias(ctx, ch.Key(), "Alias")).To(Succeed())
 				_, err := r.ResolveAlias(ctx, "not_an_alias")
-				Expect(err).To(HaveOccurredAs(query.NotFound))
+				Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			})
 
 			It("Should fallback to the parent range if the Alias is not found", func() {

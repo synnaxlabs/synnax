@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,11 @@
 
 package node
 
-import "context"
+import (
+	"context"
+
+	"github.com/synnaxlabs/x/telem"
+)
 
 // Context carries runtime execution state and callbacks for node execution.
 // It embeds context.Context for cancellation, deadlines, and values.
@@ -21,4 +25,11 @@ type Context struct {
 	// ReportError reports a runtime error without stopping execution.
 	// The node should continue where possible, using safe defaults.
 	ReportError func(err error)
+	// ActivateStage transitions to the stage associated with the currently
+	// executing node. Used by stage_entry nodes to trigger stage transitions.
+	// The scheduler uses the current node key to look up the target stage.
+	ActivateStage func()
+	// Elapsed is the time elapsed since the runtime started.
+	// Used by time-based nodes (interval, wait) to track timing.
+	Elapsed telem.TimeSpan
 }

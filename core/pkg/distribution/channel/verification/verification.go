@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,8 +21,8 @@ import (
 )
 
 type info struct {
-	numCh    types.Uint20
 	exprTime time.Time
+	numCh    types.Uint20
 }
 
 var formatRegex = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -144,10 +144,7 @@ func (e *Writer) WriteBrIf(labelIdx uint32) {
 	e.WriteLEB128Unsigned(uint64(labelIdx))
 }
 
-// === Arithmetic Instructions ===
-
 func (e *Writer) WriteBinaryOpInferred(op string, resultType types.Type) error {
-	// Resolve and emit opcode (analyzer already validated types match)
 	opcode, err := binaryOpcode(op, resultType)
 	if err != nil {
 		return err
@@ -166,6 +163,11 @@ func (e *Writer) WriteUnaryOp(op Opcode) {
 	e.WriteOpcode(op)
 }
 
+// WriteI32Eqz writes an i32.eqz instruction (returns 1 if value is 0, else 0)
+func (e *Writer) WriteI32Eqz() {
+	e.WriteOpcode(OpI32Eqz)
+}
+
 // WriteMemoryOp writes a memory operation with alignment and offset
 func (e *Writer) WriteMemoryOp(op Opcode, align, offset uint32) {
 	e.WriteOpcode(op)
@@ -173,62 +175,24 @@ func (e *Writer) WriteMemoryOp(op Opcode, align, offset uint32) {
 	e.WriteLEB128Unsigned(uint64(offset))
 }
 
-// === Helper Methods ===
-
 // writeBlockType writes a block type (for if/block/loop)
 func (e *Writer) writeBlockType(bt BlockType) {
-	switch bt := bt.(type) {
-	case EmptyBlockType:
-		e.buf.WriteByte(0x40) // empty type
-	case ValueBlockType:
-		e.buf.WriteByte(byte(bt.Type))
-	default:
-		// For more complex block types (multi-value), we'd need type indices
-		e.buf.WriteByte(0x40) // default to empty
+	if bt.empty {
+		e.buf.WriteByte(0x40)
+		return
 	}
+	e.buf.WriteByte(byte(bt.valueType))
 }
-
-// === LEB128 Encoding ===
 
 // WriteLEB128Unsigned writes an unsigned LEB128 encoded integer
 func (e *Writer) WriteLEB128Unsigned(val uint64) {
-	for {
-		b := byte(val & 0x7f)
-		val >>= 7
-		if val != 0 {
-			b |= 0x80
-		}
-		e.buf.WriteByte(b)
-		if val == 0 {
-			break
-		}
-	}
+	writeUnsignedLEB128(&e.buf, val)
 }
 
 // WriteLEB128Signed writes a signed LEB128 encoded integer
 func (e *Writer) WriteLEB128Signed(val int64) {
-	for {
-		b := byte(val & 0x7f)
-		// Sign bit of byte is second high bit (0x40)
-		signBit := b & 0x40
-
-		// Shift val by 7 to get next group
-		val >>= 7
-
-		// Check if we're done:
-		// - If val is 0 and sign bit is 0, we're done (positive number)
-		// - If val is -1 and sign bit is 1, we're done (negative number)
-		// - Otherwise we need more bytes
-		if (val == 0 && signBit == 0) || (val == -1 && signBit != 0) {
-			e.buf.WriteByte(b)
-			break
-		}
-
-		e.buf.WriteByte(b | 0x80)
-	}
+	writeSignedLEB128(&e.buf, val)
 }
-
-// === Output Methods ===
 
 // Bytes returns the accumulated bytecode
 func (e *Writer) Bytes() []byte {
@@ -245,30 +209,16 @@ func (e *Writer) Reset() {
 	e.buf.Reset()
 }
 
-// === Block Types ===
-
 // BlockType represents the type signature of a block
-type BlockType interface {
-	isBlockType()
+type BlockType struct {
+	empty     bool
+	valueType ValueType
 }
 
-// EmptyBlockType represents a block with no result
-type EmptyBlockType struct{}
-
-func (EmptyBlockType) isBlockType() {}
-
-// ValueBlockType represents a block with a single result type
-type ValueBlockType struct {
-	Type ValueType
-}
-
-func (ValueBlockType) isBlockType() {}
-
-// Helper constructors for block types
 var (
-	BlockTypeEmpty = EmptyBlockType{}
-	BlockTypeI32   = ValueBlockType{I32}
-	BlockTypeI64   = ValueBlockType{I64}
-	BlockTypeF32   = ValueBlockType{F32}
-	BlockTypeF64   = ValueBlockType{F64}
+	BlockTypeEmpty = BlockType{empty: true}
+	BlockTypeI32   = BlockType{valueType: I32}
+	BlockTypeI64   = BlockType{valueType: I64}
+	BlockTypeF32   = BlockType{valueType: F32}
+	BlockTypeF64   = BlockType{valueType: F64}
 )

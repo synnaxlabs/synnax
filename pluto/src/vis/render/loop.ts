@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -70,7 +70,7 @@ interface LoopArgs {
 }
 
 /**
- * Implements the core rendering loop for Synnax's aether components, accepting requests
+ * Implements the main rendering loop for Synnax's aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
  */
 export class Loop {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,15 +11,15 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Hardware } from "@/hardware";
-import { Notifications as Core } from "@/notifications";
+import { Notifications as Base } from "@/notifications";
 import { Version } from "@/version";
 
-const NOTIFICATION_ADAPTERS: Core.Adapter[] = [
+const NOTIFICATION_ADAPTERS: Base.Adapter[] = [
   ...Cluster.NOTIFICATION_ADAPTERS,
   ...Hardware.NOTIFICATION_ADAPTERS,
   ...Version.NOTIFICATION_ADAPTERS,
 ];
 
 export const Notifications = (): ReactElement => (
-  <Core.Notifications adapters={NOTIFICATION_ADAPTERS} />
+  <Base.Notifications adapters={NOTIFICATION_ADAPTERS} />
 );

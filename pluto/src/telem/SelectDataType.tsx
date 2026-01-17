@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,8 +37,10 @@ const DATA: Select.StaticEntry<string>[] = DataType.ALL.filter(
 
 const FIXED_DENSITY_DATA = DATA.filter((d) => !new DataType(d.key).isVariable);
 
-export interface SelectDataTypeProps
-  extends Omit<Select.StaticProps<string>, "data" | "resourceName"> {
+export interface SelectDataTypeProps extends Omit<
+  Select.StaticProps<string>,
+  "data" | "resourceName"
+> {
   hideVariableDensity?: boolean;
 }
 

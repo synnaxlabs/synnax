@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,7 +19,7 @@ import {
   Haul,
   Icon,
   Menu as PMenu,
-  Schematic as Core,
+  Schematic as Base,
   Theming,
   usePrevious,
   useSyncedRef,
@@ -66,7 +66,6 @@ import {
   setViewport,
   setViewportMode,
   type State,
-  toggleControl,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
@@ -75,6 +74,29 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
+
+interface ControlToggleButtonProps {
+  control: Control.Status;
+}
+
+const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElement => {
+  const { acquire, release } = Control.useContext();
+  const handleChange = useCallback(
+    (v: boolean) => (v ? acquire() : release()),
+    [acquire, release],
+  );
+  return (
+    <Button.Toggle
+      value={control === "acquired"}
+      onChange={handleChange}
+      tooltipLocation={location.BOTTOM_LEFT}
+      size="small"
+      tooltip={`${control === "acquired" ? "Release" : "Acquire"} control`}
+    >
+      <Icon.Circle />
+    </Button.Toggle>
+  );
+};
 
 const useSyncComponent = Workspace.createSyncComponent(
   "Schematic",
@@ -131,7 +153,7 @@ const SymbolRenderer = ({
 
   if (props == null) return null;
 
-  const C = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
+  const C = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
@@ -229,14 +251,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
-  const acquireControl = useCallback(
-    (v: boolean) =>
-      syncDispatch(
-        toggleControl({ key: layoutKey, status: v ? "acquired" : "released" }),
-      ),
-    [layoutKey, syncDispatch],
-  );
-
   const elRenderer = useCallback(
     (props: Diagram.SymbolProps) => (
       <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
@@ -263,7 +277,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (event == null) return valid;
       valid.forEach(({ key, data }) => {
-        const spec = Core.Symbol.REGISTRY[key as Core.Symbol.Variant];
+        const spec = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
         if (spec == null) return;
         const pos = xy.truncate(calculateCursorPosition(event), 0);
         handleAddElement(key.toString(), pos, data);
@@ -363,10 +377,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       <Control.Controller
         name={name}
         authority={state.authority}
-        acquireTrigger={state.controlAcquireTrigger}
         onStatusChange={handleControlStatusChange}
       >
-        <Core.Schematic
+        <Base.Schematic
           onViewportChange={handleViewportChange}
           viewportMode={mode}
           onViewportModeChange={handleViewportModeChange}
@@ -396,20 +409,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               {hasEditPermission && (
                 <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
               )}
-              {!state.snapshot && (
-                <Button.Toggle
-                  value={state.control === "acquired"}
-                  onChange={acquireControl}
-                  tooltipLocation={location.BOTTOM_LEFT}
-                  size="small"
-                  tooltip={`${state.control === "acquired" ? "Release" : "Acquire"} control`}
-                >
-                  <Icon.Circle />
-                </Button.Toggle>
-              )}
+              {!state.snapshot && <ControlToggleButton control={state.control} />}
             </Flex.Box>
           </Controls>
-        </Core.Schematic>
+        </Base.Schematic>
         {legendVisible && (
           <Control.Legend
             position={legendPosition}
@@ -423,7 +426,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 };
 
 const useLoadRemote = createLoadRemote<schematic.Schematic>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -51,12 +51,12 @@ func (mf MultiFactory) Create(ctx context.Context, cfg Config) (Node, error) {
 	for _, f := range mf {
 		n, err := f.Create(ctx, cfg)
 		if err != nil {
-			if errors.Is(err, query.NotFound) {
+			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
 			return nil, err
 		}
 		return n, nil
 	}
-	return nil, query.NotFound
+	return nil, query.ErrNotFound
 }

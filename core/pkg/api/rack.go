@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -87,11 +87,11 @@ func (svc *RackService) Create(
 
 type (
 	RackRetrieveRequest struct {
-		Keys          []rack.Key `json:"keys" msgpack:"keys"`
-		Names         []string   `json:"names" msgpack:"names"`
-		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
 		Embedded      *bool      `json:"embedded" msgpack:"embedded"`
 		HostIsNode    *bool      `json:"host_is_node" msgpack:"host_is_node"`
+		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
+		Keys          []rack.Key `json:"keys" msgpack:"keys"`
+		Names         []string   `json:"names" msgpack:"names"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
@@ -147,7 +147,7 @@ func (svc *RackService) Retrieve(
 		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](svc.status.status).
-			WhereKeys(ontology.IDsToString(rack.OntologyIDsFromRacks(resRacks))...).
+			WhereKeys(ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
@@ -176,7 +176,7 @@ func embeddedGuard(_ gorp.Context, r Rack) error {
 	if !r.Embedded {
 		return nil
 	}
-	return errors.Wrapf(validate.Error, "cannot delete embedded rack")
+	return errors.Wrapf(validate.ErrValidation, "cannot delete embedded rack")
 }
 
 func (svc *RackService) Delete(
@@ -197,14 +197,14 @@ func (svc *RackService) Delete(
 			return err
 		}
 		if exists {
-			return errors.Wrapf(validate.Error, "cannot delete rack when devices are still attached")
+			return errors.Wrapf(validate.ErrValidation, "cannot delete rack when devices are still attached")
 		}
 		exists, err = svc.task.NewRetrieve().WhereInternal(false, gorp.Required()).WhereRacks(req.Keys...).Exists(ctx, tx)
 		if err != nil {
 			return err
 		}
 		if exists {
-			return errors.Wrapf(validate.Error, "cannot delete rack when tasks are still attached")
+			return errors.Wrapf(validate.ErrValidation, "cannot delete rack when tasks are still attached")
 		}
 		w := svc.rack.NewWriter(tx)
 		for _, k := range req.Keys {

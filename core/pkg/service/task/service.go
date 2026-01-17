@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,9 +33,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for creating a Service.
-type Config struct {
-	alamos.Instrumentation
+// ServiceConfig is the configuration for creating a Service.
+type ServiceConfig struct {
 	// DB is the gorp database that tasks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -59,15 +58,16 @@ type Config struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
+	alamos.Instrumentation
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -80,7 +80,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -91,24 +91,22 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	cfg                           Config
+	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
-	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	group                         group.Group
 }
 
-const groupName = "Tasks"
-
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
-		return
+		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID)
 	if err != nil {
-		return
+		return nil, err
 	}
-	s = &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
 	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
@@ -126,18 +124,16 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals == nil {
-		return
+		return s, nil
 	}
-	cdcS, err := signals.PublishFromGorp(
+	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
-	)
-	if err != nil {
-		return
+	); err != nil {
+		return nil, err
 	}
-	s.shutdownSignals = cdcS
-	return
+	return s, nil
 }
 
 // cleanupInternalOntologyResources purges existing internal task resources from the ontology.
@@ -199,7 +195,7 @@ func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
 	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
 		WhereKeys(statusKeys...).
 		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	existingKeys := make(map[string]bool)
@@ -214,7 +210,7 @@ func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
 				Key:     key,
 				Name:    t.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.WarningVariant,
+				Variant: xstatus.VariantWarning,
 				Message: fmt.Sprintf("%s status unknown", t.Name),
 				Details: StatusDetails{Task: t.Key},
 			})

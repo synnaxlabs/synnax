@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
@@ -25,12 +25,12 @@ import (
 )
 
 type collector struct {
-	ins      alamos.Instrumentation
-	interval time.Duration
-	idx      channel.Channel
-	metrics  []metric
-	stop     chan struct{}
 	confluence.AbstractUnarySource[framer.WriterRequest]
+	stop     chan struct{}
+	ins      alamos.Instrumentation
+	metrics  []metric
+	idx      channel.Channel
+	interval time.Duration
 }
 
 var _ confluence.Source[framer.WriterRequest] = (*collector)(nil)
@@ -48,9 +48,9 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			case <-c.stop:
 				return nil
 			case currTime := <-t.C:
-				frame := core.UnaryFrame(
+				frame := frame.NewUnary(
 					c.idx.Key(),
-					telem.NewSeriesV[telem.TimeStamp](telem.NewTimeStamp(currTime)),
+					telem.NewSeriesV(telem.NewTimeStamp(currTime)),
 				)
 				for _, metric := range c.metrics {
 					value, err := metric.collect()
@@ -58,10 +58,10 @@ func (c *collector) Flow(sCtx signal.Context, opts ...confluence.Option) {
 						c.ins.L.Warn("failed to collect metric from host", zap.Error(err), zap.String("name", metric.ch.Name))
 						continue
 					}
-					frame = frame.Append(metric.ch.Key(), telem.NewSeriesV[float32](value))
+					frame = frame.Append(metric.ch.Key(), telem.NewSeriesFromAny(value, metric.ch.DataType))
 				}
 				if err := signal.SendUnderContext(ctx, c.Out.Inlet(), framer.WriterRequest{
-					Command: writer.Write,
+					Command: writer.CommandWrite,
 					Frame:   frame,
 				}); err != nil {
 					return err

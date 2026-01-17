@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,6 @@ import (
 // Config sets specific parameters for the gossip service. See DefaultConfig
 // for default values. It implements the config.ServiceConfig interface.
 type Config struct {
-	alamos.Instrumentation
 	// TransportClient is the transport used to exchange gossip between nodes.
 	// [Required]
 	TransportClient TransportClient
@@ -31,6 +30,7 @@ type Config struct {
 	// Store is where cluster state will be synchronized to and from.
 	// [Required]
 	Store store.Store
+	alamos.Instrumentation
 	// Interval is the interval at which a node will gossip its state.
 	Interval time.Duration
 }
@@ -48,10 +48,10 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements the config.ServiceConfig interface.
 func (cfg Config) Validate() error {
 	v := validate.New("gossip")
-	validate.NotNil(v, "TransportClient", cfg.TransportClient)
-	validate.NotNil(v, "TransportServer", cfg.TransportServer)
-	validate.NotNil(v, "Store", cfg.Store)
-	validate.Positive(v, "Interval", cfg.Interval)
+	validate.NotNil(v, "transport_client", cfg.TransportClient)
+	validate.NotNil(v, "transport_server", cfg.TransportServer)
+	validate.NotNil(v, "store", cfg.Store)
+	validate.Positive(v, "interval", cfg.Interval)
 	return v.Error()
 }
 

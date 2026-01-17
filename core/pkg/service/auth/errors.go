@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,14 +22,14 @@ import (
 var (
 	// InvalidCredentials is returned when the credentials for a particular entity
 	// are invalid.
-	InvalidCredentials = password.Invalid
+	InvalidCredentials = password.ErrInvalid
 
-	RepeatedUsername = errors.Wrap(base.AuthError, "username already exists")
+	RepeatedUsername = errors.Wrap(base.ErrAuth, "username already exists")
 
 	// Error is the base error for all authentication related errors.
-	Error        = base.AuthError
-	InvalidToken = errors.Wrap(base.AuthError, "invalid token")
-	ExpiredToken = errors.Wrap(base.AuthError, "expired token")
+	Error        = base.ErrAuth
+	InvalidToken = errors.Wrap(base.ErrAuth, "invalid token")
+	ExpiredToken = errors.Wrap(base.ErrAuth, "expired token")
 )
 
 const (
@@ -71,7 +71,7 @@ func decode(_ context.Context, p errors.Payload) (error, bool) {
 		return errors.Wrap(ExpiredToken, p.Data), true
 	}
 	if strings.HasPrefix(p.Type, errorType) {
-		return errors.Wrap(base.AuthError, p.Data), true
+		return errors.Wrap(base.ErrAuth, p.Data), true
 	}
 	return nil, false
 }

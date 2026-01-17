@@ -1,0 +1,392 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+//go:build windows
+
+package service
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/samber/lo"
+	"github.com/spf13/viper"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/cmd/cert"
+	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
+	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
+	signal "github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
+	"golang.org/x/sys/windows/svc"
+	"golang.org/x/sys/windows/svc/mgr"
+	"gopkg.in/yaml.v3"
+)
+
+const (
+	startupTimeout  = 60 * time.Second
+	shutdownTimeout = 30 * time.Second
+	name            = "SynnaxCore"
+)
+
+// ConfigDir returns the directory where the service config file is stored.
+func ConfigDir() string {
+	programData := os.Getenv("ProgramData")
+	if programData == "" {
+		programData = "C:\\ProgramData"
+	}
+	return filepath.Join(programData, "Synnax")
+}
+
+// ConfigPath returns the full path to the service config file.
+func ConfigPath() string { return filepath.Join(ConfigDir(), "config.yaml") }
+
+// configKeysToExclude contains keys that should not be written to the config file.
+// These are either service-specific (not needed at runtime) or internal.
+var configKeysToExclude = set.FromSlice([]string{"auto-start", "delayed-start"})
+
+// WriteConfig writes the current viper configuration to the config file.
+// This captures all the core configuration flags set during service installation,
+// excluding service-specific flags like auto-start and delayed-start.
+func WriteConfig() error {
+	dir := ConfigDir()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	// Build settings map by explicitly reading each key from viper.
+	// This is necessary because viper.AllSettings() doesn't properly evaluate
+	// bound flag values - it returns defaults instead of actual flag values.
+	settings := make(map[string]any)
+	for _, key := range viper.AllKeys() {
+		if !configKeysToExclude.Contains(key) {
+			settings[key] = viper.Get(key)
+		}
+	}
+	data, err := yaml.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(ConfigPath(), data, 0644)
+}
+
+// Is returns true if the current process is running as a Windows Service.
+func Is() (bool, error) { return svc.IsWindowsService() }
+
+func install() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return errors.Wrap(err, "failed to get executable path")
+	}
+	if exePath, err = filepath.Abs(exePath); err != nil {
+		return errors.Wrap(err, "failed to get absolute executable path")
+	}
+
+	// For services, always use absolute paths for directories. If the user specified a
+	// relative path or didn't specify one (using the default), find the absolute path
+	// by combining that path with the working directory.
+	workDir, err := os.Getwd()
+	if err != nil {
+		return errors.Wrap(err, "failed to get working directory")
+	}
+	dataPath := viper.GetString(cmdstart.FlagData)
+	if !filepath.IsAbs(dataPath) {
+		dataPath, err = filepath.Abs(filepath.Join(workDir, dataPath))
+		if err != nil {
+			return errors.Wrap(err, "failed to get absolute data path")
+		}
+		viper.Set(cmdstart.FlagData, dataPath)
+	}
+	logPath := viper.GetString(cmdinst.FlagLogFilePath)
+	if !filepath.IsAbs(logPath) {
+		logPath, err = filepath.Abs(filepath.Join(workDir, logPath))
+		if err != nil {
+			return errors.Wrap(err, "failed to get absolute log path")
+		}
+		viper.Set(cmdinst.FlagLogFilePath, logPath)
+	}
+	certsDir := viper.GetString(cert.FlagCertsDir)
+	if !filepath.IsAbs(certsDir) {
+		certsDir, err = filepath.Abs(filepath.Join(workDir, certsDir))
+		if err != nil {
+			return errors.Wrap(err, "failed to get absolute certs path")
+		}
+		viper.Set(cert.FlagCertsDir, certsDir)
+	}
+	if err = WriteConfig(); err != nil {
+		return errors.Wrap(err, "failed to write config")
+	}
+
+	m, err := mgr.Connect()
+	if err != nil {
+		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+	}()
+
+	autoStart := viper.GetBool(flagAutoStart)
+	delayedStart := viper.GetBool(flagDelayedStart)
+
+	startType := lo.Ternary(
+		autoStart || delayedStart,
+		uint32(mgr.StartAutomatic),
+		uint32(mgr.StartManual),
+	)
+
+	s, err := m.CreateService(name, exePath, mgr.Config{
+		StartType:        startType,
+		ErrorControl:     mgr.ErrorNormal,
+		DisplayName:      "Synnax Core",
+		Description:      "Synnax telemetry engine for hardware systems",
+		DelayedAutoStart: delayedStart,
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to create service")
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(s.Close(), "failed to close service handle"))
+	}()
+
+	return errors.Wrap(s.SetRecoveryActions([]mgr.RecoveryAction{
+		{Type: mgr.ServiceRestart, Delay: 5 * time.Second},
+		{Type: mgr.ServiceRestart, Delay: 30 * time.Second},
+		{Type: mgr.ServiceRestart, Delay: 60 * time.Second},
+	}, 86400), "failed to set recovery actions")
+}
+
+func uninstall() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+	}()
+
+	s, err := m.OpenService(name)
+	if err != nil {
+		return errors.Wrapf(err, "service %s is not installed", name)
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrapf(s.Close(), "failed to close %s handle", name))
+	}()
+	return errors.Wrapf(s.Delete(), "failed to delete %s", name)
+
+}
+
+func start() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+	}()
+
+	s, err := m.OpenService(name)
+	if err != nil {
+		return errors.Wrapf(err, "service %s is not installed", name)
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrapf(s.Close(), "failed to close %s handle", name))
+	}()
+	return errors.Wrapf(s.Start(), "failed to start %s", name)
+}
+
+func stop() error {
+	m, err := mgr.Connect()
+	if err != nil {
+		return errors.Wrap(err, "failed to connect to service manager (are you running as administrator?)")
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrap(m.Disconnect(), "failed to disconnect from service manager"))
+	}()
+
+	s, err := m.OpenService(name)
+	if err != nil {
+		return errors.Wrapf(err, "service %s is not installed", name)
+	}
+	defer func() {
+		err = errors.Combine(err, errors.Wrapf(s.Close(), "failed to close %s handle", name))
+	}()
+
+	if _, err = s.Control(svc.Stop); err != nil {
+		return errors.Wrap(err, "failed to stop service")
+	}
+	return nil
+}
+
+// StatusInfo contains information about the service status and configuration.
+type StatusInfo struct {
+	Installed               bool
+	State                   string
+	ProcessID               uint32
+	Win32ExitCode           uint32
+	ServiceSpecificExitCode uint32
+	ConfigPath              string
+	DataDir                 string
+	LogFile                 string
+	CertsDir                string
+	Listen                  string
+	Insecure                bool
+	ConfigError             error
+}
+
+func stateToString(state svc.State) string {
+	switch state {
+	case svc.Stopped:
+		return "Stopped"
+	case svc.StartPending:
+		return "Starting"
+	case svc.StopPending:
+		return "Stopping"
+	case svc.Running:
+		return "Running"
+	case svc.ContinuePending:
+		return "Continuing"
+	case svc.PausePending:
+		return "Pausing"
+	case svc.Paused:
+		return "Paused"
+	default:
+		return "Unknown"
+	}
+}
+
+func status() (StatusInfo, error) {
+	info := StatusInfo{
+		ConfigPath: ConfigPath(),
+	}
+
+	// Try to read config file for paths
+	if _, err := os.Stat(info.ConfigPath); err == nil {
+		v := viper.New()
+		v.SetConfigFile(info.ConfigPath)
+		if err := v.ReadInConfig(); err != nil {
+			info.ConfigError = err
+		} else {
+			info.DataDir = v.GetString(cmdstart.FlagData)
+			info.LogFile = v.GetString(cmdinst.FlagLogFilePath)
+			info.CertsDir = v.GetString(cert.FlagCertsDir)
+			info.Listen = v.GetString(cmdstart.FlagListen)
+			info.Insecure = v.GetBool(cmdstart.FlagInsecure)
+		}
+	}
+
+	m, err := mgr.Connect()
+	if err != nil {
+		return info, errors.Wrap(err, "failed to connect to service manager")
+	}
+	defer m.Disconnect()
+
+	s, err := m.OpenService(name)
+	if err != nil {
+		// Service not installed
+		return info, nil
+	}
+	defer s.Close()
+
+	info.Installed = true
+
+	st, err := s.Query()
+	if err != nil {
+		return info, errors.Wrap(err, "failed to query service status")
+	}
+
+	info.State = stateToString(st.State)
+	info.ProcessID = st.ProcessId
+	info.Win32ExitCode = st.Win32ExitCode
+	info.ServiceSpecificExitCode = st.ServiceSpecificExitCode
+
+	return info, nil
+}
+
+// synnaxService implements svc.Handler for running Synnax as a Windows Service.
+type synnaxService struct {
+	ins alamos.Instrumentation
+}
+
+// Execute is the main service control handler called by the Windows SCM.
+func (s *synnaxService) Execute(
+	_ []string,
+	r <-chan svc.ChangeRequest,
+	changes chan<- svc.Status,
+) (bool, uint32) {
+	const accepts = svc.AcceptStop | svc.AcceptShutdown
+	defer func() { changes <- svc.Status{State: svc.Stopped} }()
+	status := svc.Status{State: svc.StartPending}
+	changes <- status
+
+	sCtx, cancel := signal.WithCancel(
+		context.Background(),
+		signal.WithInstrumentation(s.ins),
+	)
+	defer cancel()
+
+	onServerStarted := make(chan struct{}, 1)
+	sCtx.Go(func(ctx context.Context) error {
+		cfg := cmdstart.GetCoreConfigFromViper(s.ins)
+		return cmdstart.BootupCore(ctx, onServerStarted, cfg)
+	}, signal.CancelOnFail())
+
+	startupTimer := time.After(startupTimeout)
+o:
+	for {
+		select {
+		case <-onServerStarted:
+			status = svc.Status{State: svc.Running, Accepts: accepts}
+			startupTimer = nil
+			changes <- status
+		case <-startupTimer:
+			s.ins.L.Error("service startup timed out")
+			cancel()
+			break o
+		case c := <-r:
+			switch c.Cmd {
+			case svc.Stop, svc.Shutdown:
+				changes <- svc.Status{State: svc.StopPending}
+				cancel()
+				break o
+			case svc.Interrogate:
+				changes <- status
+			default:
+				s.ins.L.Warn("unhandled service control command", zap.Uint32("cmd", uint32(c.Cmd)))
+			}
+		case <-sCtx.Stopped():
+			s.ins.L.Error("service shutdown unexpectedly")
+			break o
+		}
+	}
+	select {
+	case <-sCtx.Stopped():
+	case <-time.After(shutdownTimeout):
+		s.ins.L.Error("service shutdown timed out")
+		return false, 1
+	}
+	if err := sCtx.Wait(); errors.Skip(err, context.Canceled) != nil {
+		s.ins.L.Error("service failed", zap.Error(err))
+		return false, 1
+	}
+	return false, 0
+}
+
+// Run runs Synnax as a Windows Service.
+func Run() error {
+	viper.SetConfigFile(ConfigPath())
+	if err := viper.ReadInConfig(); err != nil {
+		return errors.Wrap(err, "failed to read service configuration")
+	}
+	ins := cmdinst.Configure()
+	defer cmdinst.Cleanup(context.Background(), ins)
+	return svc.Run(name, &synnaxService{ins: ins})
+}

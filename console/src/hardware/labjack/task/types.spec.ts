@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,9 @@ import {
   type OutputChannel,
   type ReadConfig,
   readConfigZ,
+  type WriteConfig,
   writeConfigZ,
+  ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
 
 describe("readConfigZ", () => {
@@ -34,7 +36,7 @@ describe("readConfigZ", () => {
           channel: 1,
           enabled: true,
           type: AI_CHANNEL_TYPE,
-          name: "Test AI Channel",
+          name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: NO_SCALE_TYPE },
           range: 10,
@@ -44,7 +46,7 @@ describe("readConfigZ", () => {
           channel: 2,
           enabled: true,
           type: DI_CHANNEL_TYPE,
-          name: "Test DI Channel",
+          name: "Test_DI_Channel",
           port: "DIO0",
           scale: { type: NO_SCALE_TYPE },
         },
@@ -67,7 +69,7 @@ describe("readConfigZ", () => {
           channel: 1,
           enabled: true,
           type: AI_CHANNEL_TYPE,
-          name: "Test AI Channel 1",
+          name: "Test_AI_Channel_1",
           port: "AIN0",
           scale: { type: NO_SCALE_TYPE },
           range: 10,
@@ -77,7 +79,7 @@ describe("readConfigZ", () => {
           channel: 2,
           enabled: true,
           type: AI_CHANNEL_TYPE,
-          name: "Test AI Channel 2",
+          name: "Test_AI_Channel_2",
           port: "AIN0", // Duplicate port
           scale: { type: NO_SCALE_TYPE },
           range: 10,
@@ -105,7 +107,7 @@ describe("readConfigZ", () => {
           channel: 1,
           enabled: true,
           type: AI_CHANNEL_TYPE,
-          name: "Test AI Channel",
+          name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: NO_SCALE_TYPE },
           range: 10,
@@ -133,7 +135,7 @@ describe("readConfigZ", () => {
           channel: 1,
           enabled: true,
           type: AI_CHANNEL_TYPE,
-          name: "Test AI Channel",
+          name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: NO_SCALE_TYPE },
           range: 10,
@@ -152,16 +154,17 @@ describe("readConfigZ", () => {
   });
 
   it("should reject a configuration with invalid stream rate refinement", () => {
-    const configWithInvalidStreamRateRefinement = {
+    const configWithInvalidStreamRateRefinement: ReadConfig = {
       ...Common.Task.ZERO_BASE_CONFIG,
       device: "labjack",
+      dataSaving: true,
       channels: [
         {
           key: "1",
           channel: 1,
           enabled: true,
           type: AI_CHANNEL_TYPE,
-          name: "Test AI Channel",
+          name: "Test_AI_Channel",
           port: "AIN0",
           scale: { type: NO_SCALE_TYPE },
           range: 10,
@@ -185,6 +188,7 @@ describe("readConfigZ", () => {
           channel: 1,
           enabled: true,
           type: AI_CHANNEL_TYPE,
+          name: "ai_with_scale",
           port: "AIN0",
           scale: {
             type: LINEAR_SCALE_TYPE,
@@ -206,29 +210,29 @@ describe("readConfigZ", () => {
 
 describe("writeConfigZ", () => {
   it("should validate a valid write configuration", () => {
-    const validConfig = {
-      ...Common.Task.ZERO_BASE_CONFIG,
+    const validConfig: WriteConfig = {
+      ...ZERO_WRITE_PAYLOAD.config,
       device: "labjack",
       channels: [
         {
           key: "1",
           enabled: true,
           type: AO_CHANNEL_TYPE,
-          name: "Test AO Channel",
+          cmdChannelName: "Test_AO_Channel",
+          stateChannelName: "",
           port: "DAC0",
-          cmdKey: 1,
-          stateKey: 2,
-          scale: { type: NO_SCALE_TYPE },
+          cmdChannel: 1,
+          stateChannel: 2,
         },
         {
           key: "2",
           enabled: true,
           type: DO_CHANNEL_TYPE,
-          name: "Test DO Channel",
+          cmdChannelName: "Test_DO_Channel",
+          stateChannelName: "",
           port: "DIO0",
-          cmdKey: 3,
-          stateKey: 4,
-          scale: { type: NO_SCALE_TYPE },
+          cmdChannel: 3,
+          stateChannel: 4,
         },
       ],
       stateRate: 1000,
@@ -247,7 +251,7 @@ describe("writeConfigZ", () => {
           key: "1",
           enabled: true,
           type: AO_CHANNEL_TYPE,
-          name: "Test AO Channel 1",
+          name: "Test_AO_Channel_1",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
@@ -257,7 +261,7 @@ describe("writeConfigZ", () => {
           key: "2",
           enabled: true,
           type: AO_CHANNEL_TYPE,
-          name: "Test AO Channel 2",
+          name: "Test_AO_Channel_2",
           port: "DAC0", // Duplicate port
           cmdKey: 3,
           stateKey: 4,
@@ -284,7 +288,8 @@ describe("writeConfigZ", () => {
           key: "1",
           enabled: true,
           type: AO_CHANNEL_TYPE,
-          name: "Test AO Channel 1",
+          cmdName: "Test_AO_Channel_1",
+          stateName: "",
           port: "DAC0",
           cmdKey: 1,
           stateKey: 2,
@@ -294,7 +299,8 @@ describe("writeConfigZ", () => {
           key: "2",
           enabled: true,
           type: DO_CHANNEL_TYPE,
-          name: "Test DO Channel",
+          cmdName: "Test_DO_Channel",
+          stateName: "",
           port: "DIO0",
           cmdKey: 1, // Duplicate cmdKey
           stateKey: 3,
@@ -411,6 +417,7 @@ describe("writeConfigZ", () => {
         enabled: true,
         type: "AO",
         port: "DAC0",
+        name: "dac0_no_scale",
         cmdKey: 1,
         stateKey: 2,
         scale: { type: "NO_SCALE" },
@@ -420,6 +427,7 @@ describe("writeConfigZ", () => {
         enabled: true,
         type: "DO",
         port: "DIO0",
+        name: "dio0_noscale",
         cmdKey: 3,
         stateKey: 4,
         scale: { type: "NO_SCALE" },

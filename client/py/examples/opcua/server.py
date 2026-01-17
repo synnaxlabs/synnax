@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -138,7 +138,7 @@ def inject_error(values):
         return values + [values[-1] for _ in range(extra)]
 
 
-async def update_arrays(arrays, values, start_ref, cycle_count):
+async def update_arrays(arrays, values):
     """Update array variables with generated values.
 
     Injects random errors into ERROR_ARRAY_INDEX at ERROR_INJECTION_RATE.
@@ -213,17 +213,13 @@ async def run_server() -> None:
     print("\nWaiting for commands...\n")
 
     # Start monitoring task
-    monitor_task = asyncio.create_task(
-        monitor_command_changes(commands, command_values)
-    )
+    asyncio.create_task(monitor_command_changes(commands, command_values))
 
     # Start server loop
     start_ref = datetime.datetime.now(datetime.timezone.utc)
-    cycle_count = 0
 
     async with server:
         while True:
-            cycle_count += 1
             start = datetime.datetime.now(datetime.timezone.utc)
             elapsed = (start - start_ref).total_seconds()
 
@@ -232,7 +228,7 @@ async def run_server() -> None:
             sinewave_values = generate_sinewave_values(timestamps, start_ref)
 
             # Update all variables
-            await update_arrays(arrays, sinewave_values, start_ref, cycle_count)
+            await update_arrays(arrays, sinewave_values)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             await update_floats(floats, elapsed)
             await update_bools(bools, elapsed)
@@ -245,4 +241,4 @@ async def run_server() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(run_server(), debug=True)
+    asyncio.run(run_server())

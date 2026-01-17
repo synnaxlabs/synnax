@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,14 +18,14 @@ import (
 // Factory creates a set of sequential addresses from a template. Factory is safe for
 // concurrent use.
 type Factory struct {
+	currPort *atomic.Int64Counter
 	// Host is the hostname of the address. ex. "localhost".
-	Host string
+	Host      string
+	generated []Address
 	// PortStart is the starting point for the sequential addresses generated.
 	// A PortStart of 9090 would mean the first address is 9090, the second is 9091,
 	// and so on.
 	PortStart int
-	currPort  *atomic.Int64Counter
-	generated []Address
 }
 
 func (f *Factory) initialize() {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/core"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -41,8 +40,6 @@ import (
 
 // ServiceConfig is the configuration for opening a Arc service.
 type ServiceConfig struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	alamos.Instrumentation
 	// DB is the database that the Arc service will store arcs in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -68,12 +65,14 @@ type ServiceConfig struct {
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
 	// is nil.
 	Signals *signals.Provider
+	// Instrumentation is used for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a Arc service.
-	DefaultConfig = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a Arc service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Override implements config.Config.
@@ -90,7 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("Arc")
+	v := validate.New("arc")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
@@ -107,9 +106,9 @@ type Service struct {
 	cfg            ServiceConfig
 	symbolResolver arc.SymbolResolver
 	mu             struct {
-		sync.Mutex
-		entries map[uuid.UUID]*entry
 		closer  io.Closer
+		entries map[uuid.UUID]*entry
+		sync.Mutex
 	}
 }
 
@@ -167,7 +166,7 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +200,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:     gorp.OverrideTx(s.cfg.DB, tx),
 		otg:    s.cfg.Ontology.NewWriter(tx),
-		status: status.NewWriter[core.StatusDetails](s.cfg.Status, tx),
+		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
 	}
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,12 +30,12 @@ import (
 
 // Config defines the configuration for opening an arc LSP Server.
 type Config struct {
-	// Instrumentation is used for logging, tracing, metrics, etc.
-	alamos.Instrumentation
 	// GlobalResolver allows the caller to define custom globals that will appear in
 	// LSP auto-complete and type checking. Typically used to provide standard library
 	// variables and functions as well as channels.
 	GlobalResolver symbol.Resolver
+	// Instrumentation is used for logging, tracing, metrics, etc.
+	alamos.Instrumentation
 }
 
 var (
@@ -55,25 +55,25 @@ func (c Config) Validate() error { return nil }
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
-	cfg          Config
-	client       protocol.Client
-	mu           sync.RWMutex
-	documents    map[protocol.DocumentURI]*Document
 	capabilities protocol.ServerCapabilities
+	client       protocol.Client
+	documents    map[protocol.DocumentURI]*Document
+	cfg          Config
+	mu           sync.RWMutex
 }
 
 var _ protocol.Server = (*Server)(nil)
 
 // Document represents an open document
 type Document struct {
-	URI     protocol.DocumentURI
-	Version int32
-	Content string
+	Metadata *DocumentMetadata // Metadata for calculated channels
+	Content  string
+	URI      protocol.DocumentURI
 	// IR with symbol table
 	IR ir.IR
 	// Diagnostics diagnostics
 	Diagnostics diagnostics.Diagnostics
-	Metadata    *DocumentMetadata // Metadata for calculated channels
+	Version     int32
 }
 
 // New creates a new LSP server
@@ -274,13 +274,13 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	var out protocol.DiagnosticSeverity
 	switch in {
-	case diagnostics.Warning:
+	case diagnostics.SeverityWarning:
 		out = protocol.DiagnosticSeverityWarning
-	case diagnostics.Info:
+	case diagnostics.SeverityInfo:
 		out = protocol.DiagnosticSeverityInformation
-	case diagnostics.Hint:
+	case diagnostics.SeverityHint:
 		out = protocol.DiagnosticSeverityHint
-	case diagnostics.Error:
+	case diagnostics.SeverityError:
 		out = protocol.DiagnosticSeverityError
 	}
 	return out

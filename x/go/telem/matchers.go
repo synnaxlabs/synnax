@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,8 +34,8 @@ func ExcludeSeriesFields(fields ...string) SeriesMatcherOption {
 }
 
 type seriesMatcher struct {
-	expected       Series
 	excludedFields map[string]bool
+	expected       Series
 }
 
 // MatchSeries returns a Gomega matcher that compares two Series for equality.
@@ -161,8 +161,8 @@ func formatDifferences(differences []string) string {
 }
 
 type frameMatcher[K xtypes.SizedNumeric] struct {
-	expected        Frame[K]
 	matchSeriesOpts []SeriesMatcherOption
+	expected        Frame[K]
 }
 
 // MatchFrame returns a Gomega matcher that compares two Frame objects for equality.

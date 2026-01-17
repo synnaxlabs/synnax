@@ -37,7 +37,7 @@ With Yarn:
 yarn add @synnaxlabs/drift
 ```
 
-With PNPM:
+With pnpm:
 
 ```bash
 pnpm add @synnaxlabs/drift

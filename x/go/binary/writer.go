@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,9 +16,9 @@ import (
 // Writer makes it easy to writer various primitive data types to binary using a given
 // byte order.
 type Writer struct {
-	offset    int
 	byteOrder binary.ByteOrder
 	buf       []byte
+	offset    int
 }
 
 // NewWriter creates a new writer with the given size, starting offset, and byte order.

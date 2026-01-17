@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,8 +17,8 @@ export const useDispatchEffect = <P>(
   debounce: number = 0,
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
-  const coreDispatch = useDispatch();
-  dispatch ??= coreDispatch;
+  const baseDispatch = useDispatch();
+  dispatch ??= baseDispatch;
   const update = useDebouncedCallback(f, debounce, [f]);
   return useCallback(
     (a) => {

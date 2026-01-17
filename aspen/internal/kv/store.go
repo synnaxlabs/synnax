@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,7 +28,7 @@ func (s storeState) Copy() storeState {
 func (s storeState) toBatchRequest(ctx context.Context) TxRequest {
 	b := TxRequest{Context: ctx, Operations: make([]Operation, 0, len(s))}
 	for _, op := range s {
-		if op.state != infected {
+		if op.state != gossipStateInfected {
 			continue
 		}
 		// Since we're not writing to any underlying storage, any error
@@ -45,8 +45,8 @@ func newStore() store {
 }
 
 type storeEmitter struct {
-	confluence.Emitter[TxRequest]
 	store store
+	confluence.Emitter[TxRequest]
 }
 
 func newStoreEmitter(s store, cfg Config) source {

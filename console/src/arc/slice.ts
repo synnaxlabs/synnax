@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -113,6 +113,11 @@ export interface SetRemoteCreatedPayload {
 
 export interface SelectAllPayload {
   key: string;
+}
+
+export interface SetRawTextPayload {
+  key: string;
+  raw: string;
 }
 
 export const calculatePos = (
@@ -330,6 +335,11 @@ export const { actions, reducer } = createSlice({
       arc.graph.nodes.forEach((node) => (node.selected = true));
       arc.graph.edges.forEach((edge) => (edge.selected = true));
     },
+    setRawText: (state, { payload }: PayloadAction<SetRawTextPayload>) => {
+      const { key: layoutKey, raw } = payload;
+      const arc = state.arcs[layoutKey];
+      arc.text.raw = raw;
+    },
   },
 });
 
@@ -364,6 +374,7 @@ export const {
   pasteSelection,
   setViewportMode,
   setRemoteCreated,
+  setRawText,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,9 +24,7 @@ import (
 )
 
 var _ = Describe("StateConfig", Ordered, func() {
-	var (
-		dist mock.Node
-	)
+	var dist mock.Node
 
 	BeforeAll(func() {
 		distB := mock.NewCluster()

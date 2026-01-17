@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,13 +45,13 @@ var _ = Describe("Migrate", func() {
 			DB:           db,
 			EnableSearch: config.True(),
 		}))
-		gSvc = MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		lab = MustSucceed(label.OpenService(ctx, label.Config{
+		gSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		lab = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    gSvc,
 		}))
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    gSvc,
@@ -96,7 +96,7 @@ var _ = Describe("Migrate", func() {
 		Expect(svc.Close()).To(Succeed())
 
 		// Reopen the service to run the migration
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.Config{
+		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:             db,
 			Ontology:       otg,
 			Group:          gSvc,
@@ -107,10 +107,10 @@ var _ = Describe("Migrate", func() {
 		// The "Ranges" group and "Subgroup" should be deleted
 		var g group.Group
 		Expect(gSvc.NewRetrieve().WhereNames("Ranges").Entry(&g).Exec(ctx, nil)).
-			To(MatchError(query.NotFound))
+			To(MatchError(query.ErrNotFound))
 
 		Expect(gSvc.NewRetrieve().WhereNames("Subgroup").Entry(&g).Exec(ctx, nil)).
-			To(MatchError(query.NotFound))
+			To(MatchError(query.ErrNotFound))
 
 		// There should be a new parent range named "Subgroup" whose time range is the
 		// union of r1 and r2
@@ -126,7 +126,7 @@ var _ = Describe("Migrate", func() {
 		var children []ontology.Resource
 		Expect(otg.NewRetrieve().
 			WhereIDs(parentRange.OntologyID()).
-			TraverseTo(ontology.Children).
+			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(ranger.OntologyType).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())

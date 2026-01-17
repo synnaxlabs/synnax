@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -40,8 +40,8 @@ import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Text } from "@/text";
-import { Button as CoreButton } from "@/vis/button";
-import { type Input as CoreInput } from "@/vis/input";
+import { Button as BaseButton } from "@/vis/button";
+import { type Input as BaseInput } from "@/vis/input";
 import { type Setpoint } from "@/vis/setpoint";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
@@ -781,7 +781,7 @@ export const LightForm = (): ReactElement => {
   return <Tabs.Tabs {...props} />;
 };
 
-type ButtonTelemFormT = Omit<CoreButton.UseProps, "aetherKey"> & {
+type ButtonTelemFormT = Omit<BaseButton.UseProps, "aetherKey"> & {
   control: ControlStateProps;
 };
 
@@ -842,9 +842,9 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
           padHelpText={false}
         />
       </Flex.Box>
-      <Form.Field<CoreButton.Mode> path="mode" label="Mode" optional>
+      <Form.Field<BaseButton.Mode> path="mode" label="Mode" optional>
         {({ value, onChange }) => (
-          <CoreButton.SelectMode value={value} onChange={onChange} />
+          <BaseButton.SelectMode value={value} onChange={onChange} />
         )}
       </Form.Field>
     </FormWrapper>
@@ -967,7 +967,7 @@ interface InputTelemFormProps {
 
 const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   const { value, onChange } = Form.useField<
-    Omit<CoreInput.UseProps, "aetherKey"> & {
+    Omit<BaseInput.UseProps, "aetherKey"> & {
       control: ControlStateProps;
       disabled?: boolean;
     }

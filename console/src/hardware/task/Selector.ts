@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,9 +16,9 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
-import { Selector as CoreSelector } from "@/selector";
+import { Selector as BaseSelector } from "@/selector";
 
-export const SELECTABLES: CoreSelector.Selectable[] = [
+export const SELECTABLES: BaseSelector.Selectable[] = [
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
@@ -38,4 +38,4 @@ export const SELECTOR_LAYOUT: Layout.BaseState = {
   name: "New Task",
 };
 
-export const Selector = CoreSelector.createSelector(SELECTABLES, "Select a Task Type");
+export const Selector = BaseSelector.createSelector(SELECTABLES, "Select a Task Type");

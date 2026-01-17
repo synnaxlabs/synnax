@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { type Platform, PLATFORMS } from "@/components/platform/platform";
-import { Tabs as Core, type TabsProps as CoreProps } from "@/components/Tabs";
+import { Tabs as Base, type TabsProps as BaseProps } from "@/components/Tabs";
 
 const TABS = PLATFORMS.filter(
   ({ key }) => key === "Linux" || key === "Windows" || key === "macOS",
@@ -24,11 +24,11 @@ TABS.unshift({
   icon: <Icon.Logo.NI />,
 });
 
-export interface TabsProps extends Omit<CoreProps, "tabs" | "queryParamKey"> {
+export interface TabsProps extends Omit<BaseProps, "tabs" | "queryParamKey"> {
   exclude?: Platform[];
   priority?: Platform[];
 }
 
 export const Tabs = (props: TabsProps) => (
-  <Core queryParamKey="platform" tabs={TABS} {...props} />
+  <Base queryParamKey="platform" tabs={TABS} {...props} />
 );

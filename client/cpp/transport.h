@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include "client/cpp/arc/arc.h"
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/channel/channel.h"
 #include "client/cpp/device/device.h"
@@ -51,5 +52,8 @@ struct Transport {
     std::shared_ptr<StatusRetrieveClient> status_retrieve;
     std::shared_ptr<StatusSetClient> status_set;
     std::shared_ptr<StatusDeleteClient> status_delete;
+    std::shared_ptr<ArcCreateClient> arc_create;
+    std::shared_ptr<ArcRetrieveClient> arc_retrieve;
+    std::shared_ptr<ArcDeleteClient> arc_delete;
 };
 }

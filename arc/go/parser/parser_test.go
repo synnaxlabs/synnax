@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,19 +49,41 @@ var _ = Describe("Parser", func() {
 			})
 		})
 
-		Context("Temporal Literals", func() {
+		Context("Unit Literals", func() {
 			It("Should parse millisecond literals", func() {
 				expr := mustParseExpression("100ms")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.TemporalLiteral()).NotTo(BeNil())
-				Expect(literal.TemporalLiteral().TEMPORAL_LITERAL().GetText()).To(Equal("100ms"))
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("100"))
+				Expect(numLit.IDENTIFIER().GetText()).To(Equal("ms"))
 			})
 
 			It("Should parse frequency literals", func() {
 				expr := mustParseExpression("10hz")
 				literal := getPrimaryLiteral(expr)
-				Expect(literal.TemporalLiteral()).NotTo(BeNil())
-				Expect(literal.TemporalLiteral().FREQUENCY_LITERAL().GetText()).To(Equal("10hz"))
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("10"))
+				Expect(numLit.IDENTIFIER().GetText()).To(Equal("hz"))
+			})
+
+			It("Should parse pressure literals", func() {
+				expr := mustParseExpression("100psi")
+				literal := getPrimaryLiteral(expr)
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("100"))
+				Expect(numLit.IDENTIFIER().GetText()).To(Equal("psi"))
+			})
+
+			It("Should NOT parse unit when separated by space", func() {
+				expr := mustParseExpression("100")
+				literal := getPrimaryLiteral(expr)
+				numLit := literal.NumericLiteral()
+				Expect(numLit).NotTo(BeNil())
+				Expect(numLit.INTEGER_LITERAL().GetText()).To(Equal("100"))
+				Expect(numLit.IDENTIFIER()).To(BeNil())
 			})
 		})
 
@@ -115,13 +137,6 @@ var _ = Describe("Parser", func() {
 				Expect(unary.NOT()).NotTo(BeNil())
 			})
 
-			It("Should parse blocking read", func() {
-				expr := mustParseExpression("<-input")
-				unary := getPowerExpression(expr).UnaryExpression()
-				Expect(unary.BlockingReadExpr()).NotTo(BeNil())
-				Expect(unary.BlockingReadExpr().RECV()).NotTo(BeNil())
-				Expect(unary.BlockingReadExpr().IDENTIFIER().GetText()).To(Equal("input"))
-			})
 		})
 
 		Context("Series", func() {
@@ -205,24 +220,24 @@ func add(x f64, y f64) f64 {
 
 		It("Should parse function with channel parameters", func() {
 			prog := mustParseProgram(`
-func process(input <-chan f64, output ->chan f64) {
-    value := <-input
-    value -> output
+func process(input chan f64, output chan f64) {
+    value := input
+    output = value
 }`)
 
 			funcDecl := prog.TopLevelItem(0).FunctionDeclaration()
 			params := funcDecl.InputList()
 
-			// First parameter: input <-chan f64
+			// First parameter: input chan f64
 			param1 := params.Input(0)
 			Expect(param1.IDENTIFIER().GetText()).To(Equal("input"))
-			Expect(param1.Type_().ChannelType().RECV_CHAN()).NotTo(BeNil())
+			Expect(param1.Type_().ChannelType().CHAN()).NotTo(BeNil())
 			Expect(param1.Type_().ChannelType().PrimitiveType().NumericType().FloatType().F64()).NotTo(BeNil())
 
-			// Second parameter: output ->chan f64
+			// Second parameter: output chan f64
 			param2 := params.Input(1)
 			Expect(param2.IDENTIFIER().GetText()).To(Equal("output"))
-			Expect(param2.Type_().ChannelType().SEND_CHAN()).NotTo(BeNil())
+			Expect(param2.Type_().ChannelType().CHAN()).NotTo(BeNil())
 		})
 	})
 
@@ -231,11 +246,11 @@ func process(input <-chan f64, output ->chan f64) {
 			prog := mustParseProgram(`
 func controller{
     setpoint f64
-    sensor <-chan f64
-    actuator ->chan f64
+    sensor chan f64
+    actuator chan f64
 } (enable u8) {
-    error := setpoint - (<-sensor)
-    error -> actuator
+    error := setpoint - sensor
+    actuator = error
 }`)
 
 			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
@@ -264,9 +279,9 @@ func controller{
 		It("Should parse function with return type", func() {
 			prog := mustParseProgram(`
 func doubler{
-    input <-chan f64
+    input chan f64
 } () f64 {
-    return (<-input) * 2
+    return (input) * 2
 }`)
 
 			taskDecl := prog.TopLevelItem(0).FunctionDeclaration()
@@ -286,8 +301,8 @@ func doubler{
 
 			// First node: sensor channel
 			node1 := flow.FlowNode(0)
-			Expect(node1.ChannelIdentifier()).NotTo(BeNil())
-			Expect(node1.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("sensor"))
+			Expect(node1.Identifier()).NotTo(BeNil())
+			Expect(node1.Identifier().IDENTIFIER().GetText()).To(Equal("sensor"))
 
 			// Second node: controller{}
 			node2 := flow.FlowNode(1)
@@ -296,8 +311,8 @@ func doubler{
 
 			// Third node: actuator
 			node3 := flow.FlowNode(2)
-			Expect(node3.ChannelIdentifier()).NotTo(BeNil())
-			Expect(node3.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
+			Expect(node3.Identifier()).NotTo(BeNil())
+			Expect(node3.Identifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 		})
 
 		It("Should parse func invocation with named config", func() {
@@ -305,8 +320,8 @@ func doubler{
 controller{
     setpoint=100,
     sensor=temp_sensor,
-    interval=100ms
-}(1) -> output`)
+    period=100ms
+} -> output`)
 
 			flow := prog.TopLevelItem(0).FlowStatement()
 			node := flow.FlowNode(0)
@@ -319,12 +334,6 @@ controller{
 			Expect(config).NotTo(BeNil())
 			Expect(config.NamedConfigValues()).NotTo(BeNil())
 			Expect(config.NamedConfigValues().AllNamedConfigValue()).To(HaveLen(3))
-
-			// Runtime arguments
-			args := invocation.Arguments()
-			Expect(args).NotTo(BeNil())
-			Expect(args.ArgumentList()).NotTo(BeNil())
-			Expect(args.ArgumentList().AllExpression()).To(HaveLen(1))
 		})
 
 		It("Should parse func invocation with anonymous config", func() {
@@ -348,7 +357,7 @@ controller{
 			Expect(node2.Function().IDENTIFIER().GetText()).To(Equal("average"))
 		})
 
-		It("Should parse func with anonymous arguments in complex flow", func() {
+		It("Should parse func invocation with anonymous config in flow", func() {
 			prog := mustParseProgram(`
 func average {} (first chan f64, second chan f64) chan f64 {
     return (first + second) / 2
@@ -429,14 +438,15 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			// Check final node (channel)
 			node3 := flow.FlowNode(2)
-			Expect(node3.ChannelIdentifier()).NotTo(BeNil())
-			Expect(node3.ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("ox_pt_avg"))
+			Expect(node3.Identifier()).NotTo(BeNil())
+			Expect(node3.Identifier().IDENTIFIER().GetText()).To(Equal("ox_pt_avg"))
 		})
 
 		It("Should fail parsing mixed named and anonymous config values", func() {
-			_, err := parser.Parse(`stage{ox_pt_1, second: ox_pt_2} -> output`)
+			// Note: 'stage' is now a reserved keyword, so we use a different function name
+			_, err := parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("1:21 error: mismatched input")))
+			Expect(err).To(MatchError(ContainSubstring("1:22 error: mismatched input")))
 		})
 	})
 
@@ -522,69 +532,6 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				assignStmt := mustParseStatement("count = count + 1")
 				Expect(assignStmt.Assignment()).NotTo(BeNil())
 				Expect(assignStmt.VariableDeclaration()).To(BeNil())
-			})
-		})
-
-		Context("Channel Operations", func() {
-			It("Should parse channel write with arrow", func() {
-				stmt := mustParseStatement("42 -> output")
-
-				channelOp := stmt.ChannelOperation()
-				Expect(channelOp).NotTo(BeNil())
-
-				write := channelOp.ChannelWrite()
-				Expect(write).NotTo(BeNil())
-				Expect(write.ARROW()).NotTo(BeNil())
-				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
-			})
-
-			It("Should parse channel write with receive operator", func() {
-				stmt := mustParseStatement("output <- 42")
-
-				write := stmt.ChannelOperation().ChannelWrite()
-				Expect(write.RECV()).NotTo(BeNil())
-				Expect(write.IDENTIFIER().GetText()).To(Equal("output"))
-			})
-
-			It("Should parse blocking channel read", func() {
-				stmt := mustParseStatement("value := <-input")
-
-				channelOp := stmt.ChannelOperation()
-				if channelOp == nil {
-					// Maybe it's a variable declaration with blocking read expression
-					varDecl := stmt.VariableDeclaration()
-					Expect(varDecl).NotTo(BeNil())
-					return
-				}
-
-				read := channelOp.ChannelRead()
-				Expect(read).NotTo(BeNil())
-
-				blocking := read.BlockingRead()
-				Expect(blocking).NotTo(BeNil())
-				Expect(blocking.IDENTIFIER(0).GetText()).To(Equal("value"))
-				Expect(blocking.RECV()).NotTo(BeNil())
-				Expect(blocking.IDENTIFIER(1).GetText()).To(Equal("input"))
-			})
-
-			It("Should parse non-blocking channel read", func() {
-				stmt := mustParseStatement("current := sensor")
-
-				// This is likely parsed as a variable declaration
-				varDecl := stmt.VariableDeclaration()
-				if varDecl != nil {
-					local := varDecl.LocalVariable()
-					Expect(local).NotTo(BeNil())
-					Expect(local.IDENTIFIER().GetText()).To(Equal("current"))
-					return
-				}
-
-				channelOp := stmt.ChannelOperation()
-				Expect(channelOp).NotTo(BeNil())
-				nonBlocking := channelOp.ChannelRead().NonBlockingRead()
-				Expect(nonBlocking).NotTo(BeNil())
-				Expect(nonBlocking.IDENTIFIER(0).GetText()).To(Equal("current"))
-				Expect(nonBlocking.IDENTIFIER(1).GetText()).To(Equal("sensor"))
 			})
 		})
 
@@ -834,7 +781,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 					x := := 5
 				}`)
 				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("2:10 error: no viable alternative")))
+				Expect(err).To(MatchError(ContainSubstring("error: extraneous input")))
 			})
 
 			It("Should report multiple errors with line information", func() {
@@ -928,7 +875,7 @@ func broken() {
 
 			It("Should return error for invalid block", func() {
 				block, err := parser.ParseBlock("{ x := := 5 }")
-				Expect(err).To(MatchError(ContainSubstring("1:7 error: no viable alternative at input")))
+				Expect(err).To(MatchError(ContainSubstring("1:7 error: extraneous input")))
 				Expect(block).To(BeNil())
 			})
 
@@ -1001,10 +948,7 @@ func test() {
 				prog := mustParseProgram(`
 func demux{
     threshold f64
-} (value f32) {
-    high f32
-    low f32
-} {
+} (value f32) (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value
     } else {
@@ -1022,8 +966,8 @@ func demux{
 
 				multiOutput := returnType.MultiOutputBlock()
 				Expect(multiOutput).NotTo(BeNil())
-				Expect(multiOutput.LBRACE()).NotTo(BeNil())
-				Expect(multiOutput.RBRACE()).NotTo(BeNil())
+				Expect(multiOutput.LPAREN()).NotTo(BeNil())
+				Expect(multiOutput.RPAREN()).NotTo(BeNil())
 
 				// Check named outputs
 				outputs := multiOutput.AllNamedOutput()
@@ -1043,11 +987,7 @@ func demux{
 func range_classifier{
     low f64
     high f64
-} (value f32) {
-    below_range f32
-    in_range f32
-    above_range f32
-} {
+} (value f32) (below_range f32, in_range f32, above_range f32) {
     // Logic
 }`)
 
@@ -1158,8 +1098,8 @@ processor -> splitter{} -> {
 				// Target can be channel identifier
 				targets := entries[0].AllFlowNode()
 				Expect(targets).To(HaveLen(1))
-				Expect(targets[0].ChannelIdentifier()).NotTo(BeNil())
-				Expect(targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("channel_a"))
+				Expect(targets[0].Identifier()).NotTo(BeNil())
+				Expect(targets[0].Identifier().IDENTIFIER().GetText()).To(Equal("channel_a"))
 			})
 
 			It("Should parse flow without routing table", func() {
@@ -1202,7 +1142,7 @@ sensor -> state_router{} -> {
 				Expect(entry1Nodes).To(HaveLen(2))
 				Expect(entries[1].AllARROW()).To(HaveLen(1))
 				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("controller"))
-				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("actuator"))
+				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("actuator"))
 			})
 
 			It("Should parse routing table with parameter mapping", func() {
@@ -1235,7 +1175,7 @@ first{} -> {
 				Expect(entry1.IDENTIFIER(0).GetText()).To(Equal("outputB"))
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(1))
-				Expect(entry1Nodes[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("paramD"))
+				Expect(entry1Nodes[0].Identifier().IDENTIFIER().GetText()).To(Equal("paramD"))
 				// No trailing parameter
 				Expect(entry1.AllIDENTIFIER()).To(HaveLen(1))
 			})
@@ -1275,10 +1215,7 @@ stage1{} -> {
 				prog := mustParseProgram(`
 func demux{
     threshold f64
-} (value f32) {
-    high f32
-    low f32
-} {
+} (value f32) (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value
     } else {
@@ -1331,15 +1268,15 @@ sensor -> demux{threshold=100.0} -> {
 				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("sensor1"))
 				entry0Targets := entries[0].AllFlowNode()
 				Expect(entry0Targets).To(HaveLen(1))
-				Expect(entry0Targets[0].ChannelIdentifier()).NotTo(BeNil())
-				Expect(entry0Targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("a"))
+				Expect(entry0Targets[0].Identifier()).NotTo(BeNil())
+				Expect(entry0Targets[0].Identifier().IDENTIFIER().GetText()).To(Equal("a"))
 
 				// Second entry: sensor2 -> b
 				Expect(entries[1].IDENTIFIER(0).GetText()).To(Equal("sensor2"))
 				entry1Targets := entries[1].AllFlowNode()
 				Expect(entry1Targets).To(HaveLen(1))
-				Expect(entry1Targets[0].ChannelIdentifier()).NotTo(BeNil())
-				Expect(entry1Targets[0].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
+				Expect(entry1Targets[0].Identifier()).NotTo(BeNil())
+				Expect(entry1Targets[0].Identifier().IDENTIFIER().GetText()).To(Equal("b"))
 			})
 
 			It("Should parse input routing with flow chains", func() {
@@ -1364,7 +1301,7 @@ sensor -> demux{threshold=100.0} -> {
 				entry0Nodes := entry0.AllFlowNode()
 				Expect(entry0Nodes).To(HaveLen(2)) // lowpass{}, a
 				Expect(entry0Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("lowpass"))
-				Expect(entry0Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("a"))
+				Expect(entry0Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("a"))
 
 				// Second entry: sensor2 -> scale{factor=2.0} -> b
 				entry1 := entries[1]
@@ -1373,7 +1310,122 @@ sensor -> demux{threshold=100.0} -> {
 				entry1Nodes := entry1.AllFlowNode()
 				Expect(entry1Nodes).To(HaveLen(2))
 				Expect(entry1Nodes[0].Function().IDENTIFIER().GetText()).To(Equal("scale"))
-				Expect(entry1Nodes[1].ChannelIdentifier().IDENTIFIER().GetText()).To(Equal("b"))
+				Expect(entry1Nodes[1].Identifier().IDENTIFIER().GetText()).To(Equal("b"))
+			})
+		})
+	})
+
+	Describe("Sequences and Stages", func() {
+		Context("Sequence Declarations", func() {
+			It("Should parse a simple sequence with stages", func() {
+				prog := mustParseProgram(`
+sequence main {
+    stage precheck { }
+    stage pressurization { }
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq).NotTo(BeNil())
+				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
+
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(2))
+
+				// First stage: precheck
+				Expect(stages[0].IDENTIFIER().GetText()).To(Equal("precheck"))
+
+				// Second stage: pressurization
+				Expect(stages[1].IDENTIFIER().GetText()).To(Equal("pressurization"))
+			})
+		})
+
+		Context("Stage Items", func() {
+			It("Should parse stage with multiple transitions", func() {
+				prog := mustParseProgram(`
+sequence seq {
+    stage hold {
+        condition1 => next,
+        condition2 => next
+    }
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(1))
+
+				stage := stages[0]
+				Expect(stage.IDENTIFIER().GetText()).To(Equal("hold"))
+				Expect(stage.StageBody().AllStageItem()).To(HaveLen(2))
+			})
+
+			It("Should parse stage with single transition", func() {
+				prog := mustParseProgram(`
+sequence seq {
+    stage test {
+        condition => next
+    }
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				stages := seq.AllStageDeclaration()
+				stage := stages[0]
+				body := stage.StageBody()
+				items := body.AllStageItem()
+				Expect(items).To(HaveLen(1))
+
+				// Check flow statement with transition operator
+				flow := items[0].FlowStatement()
+				Expect(flow).NotTo(BeNil())
+				// The transition operator (=>) is used in the flow
+				Expect(flow.AllFlowOperator()).To(HaveLen(1))
+			})
+		})
+
+		Context("Transitions", func() {
+			It("Should parse transitions in stage items", func() {
+				prog := mustParseProgram(`
+sequence seq {
+    stage test {
+        condition1 => next,
+        condition2 => target,
+        pressure > target => next
+    }
+}`)
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq).NotTo(BeNil())
+
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(1))
+
+				stage := stages[0]
+				Expect(stage.IDENTIFIER().GetText()).To(Equal("test"))
+
+				items := stage.StageBody().AllStageItem()
+				Expect(items).To(HaveLen(3))
+			})
+		})
+
+		Context("Complex Sequences", func() {
+			It("Should parse sequence with multiple stages", func() {
+				prog := mustParseProgram(`
+sequence main {
+    stage precheck {
+        sensor_ok => next,
+        abort_btn => abort
+    }
+    stage pressurize {
+        pressure > target => next,
+        timeout => abort
+    }
+    stage complete { }
+}`)
+				// Verify sequence
+				seq := prog.TopLevelItem(0).SequenceDeclaration()
+				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
+				stages := seq.AllStageDeclaration()
+				Expect(stages).To(HaveLen(3))
+
+				// Verify stage names
+				Expect(stages[0].IDENTIFIER().GetText()).To(Equal("precheck"))
+				Expect(stages[1].IDENTIFIER().GetText()).To(Equal("pressurize"))
+				Expect(stages[2].IDENTIFIER().GetText()).To(Equal("complete"))
 			})
 		})
 	})

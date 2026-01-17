@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Tabs as Core } from "@synnaxlabs/pluto/tabs";
+import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
 import { type ReactElement, useEffect, useState } from "react";
 
 export interface TabsProps extends Record<string, ReactElement | any> {
-  tabs: Core.Tab[];
+  tabs: Base.Tab[];
   queryParamKey?: string;
 }
 
@@ -46,13 +46,13 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
     return () => clearInterval(i);
   }, [queryParamKey]);
 
-  const staticProps = Core.useStatic({
+  const staticProps = Base.useStatic({
     selected,
     onSelect: handleSelect,
     tabs,
   });
 
   return (
-    <Core.Tabs {...staticProps}>{(tab) => <div>{rest[tab.tabKey]}</div>}</Core.Tabs>
+    <Base.Tabs {...staticProps}>{(tab) => <div>{rest[tab.tabKey]}</div>}</Base.Tabs>
   );
 };

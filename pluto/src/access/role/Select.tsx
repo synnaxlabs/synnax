@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import { type ListQuery, useList } from "@/access/role/queries";
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { List } from "@/list";
-import { Select as Core } from "@/select";
+import { Select as Base } from "@/select";
 import { Text } from "@/text";
 
 const listItemRenderProp = Component.renderProp(
@@ -26,7 +26,7 @@ const listItemRenderProp = Component.renderProp(
     if (item == null) return null;
     const { name, description } = item;
     return (
-      <Core.ListItem
+      <Base.ListItem
         itemKey={itemKey}
         y
         gap="small"
@@ -41,14 +41,15 @@ const listItemRenderProp = Component.renderProp(
             {description}
           </Text.Text>
         )}
-      </Core.ListItem>
+      </Base.ListItem>
     );
   },
 );
 
 export interface SelectProps
-  extends Omit<
-      Core.SingleProps<access.role.Key, access.role.Role | undefined>,
+  extends
+    Omit<
+      Base.SingleProps<access.role.Key, access.role.Role | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
     Flux.UseListParams<ListQuery, access.role.Key, access.role.Role> {}
@@ -64,7 +65,7 @@ export const Select = ({
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Core.Single<access.role.Key, access.role.Role | undefined>
+    <Base.Single<access.role.Key, access.role.Role | undefined>
       {...props}
       data={data}
       getItem={getItem}
@@ -76,6 +77,6 @@ export const Select = ({
       virtual={false}
     >
       {listItemRenderProp}
-    </Core.Single>
+    </Base.Single>
   );
 };

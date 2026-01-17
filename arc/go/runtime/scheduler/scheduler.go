@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,61 +7,80 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package scheduler orchestrates the execution of arc runtime nodes.
-//
-// The scheduler is responsible for executing nodes in topological order based on
-// their dependency graph. It implements a reactive execution model where nodes are
-// executed when they or their inputs change. The execution order is determined by
-// strata (layers), where each stratum contains nodes at the same topological level.
-//
-// Execution flow:
-//   - Init: Called once for stratum-0 (source) nodes during initialization
-//   - Next: Called each cycle for stratum-0 nodes and any nodes marked as changed
-//   - Change propagation: When a node's output changes, downstream nodes are marked
-//     for execution in the next cycle
-//
-// The scheduler uses a "changed set" to track which nodes need execution, ensuring
-// efficient incremental computation by only running nodes affected by changes.
 package scheduler
 
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/node"
+	rnode "github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 )
 
-// nodeState holds the runtime state for a single node in the scheduler.
-type nodeState struct {
-	key string
+// node holds the runtime state for a single node in the scheduler.
+type node struct {
 	// node is the executable node instance.
-	node node.Node
-	// outgoing contains all edges where this node is the source.
-	// Used for change propagation to downstream nodes.
-	outgoing []ir.Edge
+	rnode.Node
+	// outgoing contains edges where this node is the source, keyed by output param.
+	// Used for efficient change propagation to downstream nodes.
+	outgoing map[string][]ir.Edge
+	key      string
+}
+
+// stage holds the runtime state for a single stage within a sequence.
+type stage struct {
+	// firedOneShots tracks which one-shot edges have already fired in this stage
+	// activation. Cleared when the stage is entered.
+	firedOneShots set.Set[ir.Edge]
+	// strata defines the topological execution order for nodes in this stage.
+	strata ir.Strata
+}
+
+// sequenceState holds the runtime state for a sequence.
+type sequenceState struct {
+	// stages contains the ordered list of stages in this sequence.
+	stages []stage
+	// activeStageIdx is the index of the currently active stage, or -1 if none.
+	activeStageIdx int
+}
+
+type transitionTarget struct {
+	seqIdx, stageIdx int
 }
 
 // Scheduler orchestrates the execution of nodes in topological order.
 // It maintains the execution graph, tracks changed nodes, and propagates changes
-// through the dependency graph.
+// through the dependency graph. It supports stage-based filtering for sequences.
 type Scheduler struct {
-	// strata defines the topological execution order.
-	// Each stratum contains nodes at the same dependency level.
-	strata ir.Strata
-	// changed tracks which nodes need execution in the next cycle.
-	changed set.Set[string]
-	// nodes maps node keys to their runtime state.
-	nodes map[string]*nodeState
-	// currState points to the currently executing node.
-	// Used for routing MarkChanged callbacks to the correct outgoing edges.
-	currState *nodeState
+	// nodeCtx is a reusable context struct passed to nodes during execution.
+	nodeCtx rnode.Context
 	// errorHandler receives errors from node execution.
 	errorHandler ErrorHandler
-	// nodeCtx is a reusable context struct passed to nodes during execution.
-	// This eliminates allocations by reusing the same struct across all executions.
-	nodeCtx node.Context
+	// cycleCallback is called at the end of each Next() cycle for cleanup.
+	cycleCallback CycleCallback
+	// transitions maps entry node keys to their target (seqIdx, stageIdx).
+	transitions map[string]transitionTarget
+	// changed tracks which nodes need execution in the current strata pass.
+	changed set.Set[string]
+	// globalFiredOneShots tracks which one-shot edges in global strata have fired.
+	// Unlike per-stage one-shots, global one-shots fire once ever and never reset.
+	globalFiredOneShots set.Set[ir.Edge]
+	// nodes maps node keys to their runtime state.
+	nodes map[string]node
+	// Current execution context
+	// currNodeKey is the key of the currently executing node.
+	currNodeKey string
+	// globalStrata defines the topological execution order for global nodes.
+	globalStrata ir.Strata
+	// sequences holds the runtime state for each sequence.
+	sequences []sequenceState
+	// maxConvergenceIterations is the maximum iterations for stage convergence loop.
+	maxConvergenceIterations int
+	// currStageIdx is the index of the currently executing stage, or -1 if none.
+	currStageIdx int
+	// currSeqIdx is the index of the currently executing sequence, or -1 if global.
+	currSeqIdx int
 }
 
 // ErrorHandler receives errors from node execution.
@@ -71,40 +90,65 @@ type ErrorHandler interface {
 	HandleError(nodeKey string, err error)
 }
 
+// CycleCallback is called at the end of each scheduler cycle.
+// Used for cleanup operations like clearing temporary series handles.
+type CycleCallback interface {
+	// OnCycleEnd is called after all nodes have executed in a cycle.
+	OnCycleEnd()
+}
+
 // New creates a scheduler from an IR program and node instances.
 // The scheduler organizes nodes into strata for topological execution and
 // builds the change propagation graph from the IR edges.
-//
-// Parameters:
-//   - ctx: Context for initialization (currently unused but available for future use)
-//   - prog: IR program containing nodes, edges, and computed strata
-//   - nodes: Map of node keys to executable node instances
-//
-// Returns a new Scheduler ready for Init and Next execution.
-func New(
-	ctx context.Context,
-	prog ir.IR,
-	nodes map[string]node.Node,
-) *Scheduler {
+func New(prog ir.IR, nodes map[string]rnode.Node) *Scheduler {
 	s := &Scheduler{
-		nodes:   make(map[string]*nodeState, len(prog.Nodes)),
-		strata:  prog.Strata,
-		changed: make(set.Set[string], len(prog.Nodes)),
-	}
-	s.nodeCtx = node.Context{
-		MarkChanged: s.markChanged,
-		ReportError: s.reportError,
+		nodes:               make(map[string]node, len(prog.Nodes)),
+		globalStrata:        prog.Strata,
+		sequences:           make([]sequenceState, len(prog.Sequences)),
+		transitions:         make(map[string]transitionTarget),
+		changed:             make(set.Set[string], len(prog.Nodes)),
+		globalFiredOneShots: make(set.Set[ir.Edge]),
+		currSeqIdx:          -1,
+		currStageIdx:        -1,
 	}
 
 	for _, n := range prog.Nodes {
-		s.nodes[n.Key] = &nodeState{
-			key: n.Key,
-			outgoing: lo.Filter(prog.Edges, func(item ir.Edge, _ int) bool {
-				return item.Source.Node == n.Key
-			}),
-			node: nodes[n.Key],
+		outgoing := make(map[string][]ir.Edge)
+		for _, edge := range prog.Edges {
+			if edge.Source.Node == n.Key {
+				outgoing[edge.Source.Param] = append(outgoing[edge.Source.Param], edge)
+			}
 		}
+		s.nodes[n.Key] = node{key: n.Key, outgoing: outgoing, Node: nodes[n.Key]}
 	}
+
+	for seqIdx, seq := range prog.Sequences {
+		seqState := sequenceState{
+			stages:         make([]stage, len(seq.Stages)),
+			activeStageIdx: -1,
+		}
+		s.maxConvergenceIterations += len(seq.Stages)
+
+		for stageIdx, irStage := range seq.Stages {
+			seqState.stages[stageIdx] = stage{
+				strata:        irStage.Strata,
+				firedOneShots: make(set.Set[ir.Edge]),
+			}
+			entryKey := "entry_" + seq.Key + "_" + irStage.Key
+			s.transitions[entryKey] = transitionTarget{
+				seqIdx:   seqIdx,
+				stageIdx: stageIdx,
+			}
+		}
+		s.sequences[seqIdx] = seqState
+	}
+
+	s.nodeCtx = rnode.Context{
+		MarkChanged:   s.markChanged,
+		ReportError:   s.reportError,
+		ActivateStage: s.transitionStage,
+	}
+
 	return s
 }
 
@@ -114,61 +158,137 @@ func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 	s.errorHandler = handler
 }
 
-// MarkNodesChange marks a node as changed, scheduling it for execution in the next cycle.
+// SetCycleCallback sets a callback to be invoked at the end of each scheduler cycle.
+// Used for cleanup operations like clearing temporary series handles.
+func (s *Scheduler) SetCycleCallback(cb CycleCallback) {
+	s.cycleCallback = cb
+}
+
+// MarkNodeChanged marks a node as changed, scheduling it for execution in the next cycle.
 // This is used externally to trigger execution based on external events or inputs.
-func (s *Scheduler) MarkNodesChange(nodeKey string) {
+func (s *Scheduler) MarkNodeChanged(nodeKey string) {
 	s.changed.Add(nodeKey)
 }
 
+// markChanged propagates changes from the current node's output to downstream nodes.
+// For continuous edges (and unspecified kind), always propagates.
+// For one-shot edges, propagates only if:
+// - The output is truthy, AND
+// - First time firing (global one-shots fire once ever, stage one-shots fire once per activation)
 func (s *Scheduler) markChanged(param string) {
-	for _, edge := range s.currState.outgoing {
-		if edge.Source.Param == param {
-			s.changed.Add(edge.Target.Node)
+	n := s.nodes[s.currNodeKey]
+	for _, edge := range n.outgoing[param] {
+		if edge.Kind == ir.EdgeKindOneShot {
+			if !n.IsOutputTruthy(param) {
+				continue
+			}
+			if s.currStageIdx == -1 {
+				// Global one-shot: fire once ever (tracked in globalFiredOneShots)
+				if _, fired := s.globalFiredOneShots[edge]; !fired {
+					s.globalFiredOneShots.Add(edge)
+					s.changed.Add(edge.Target.Node)
+				}
+				continue
+			}
+			// Stage one-shot: fire once per activation (tracked in stage's firedOneShots)
+			currStage := s.sequences[s.currSeqIdx].stages[s.currStageIdx]
+			if _, fired := currStage.firedOneShots[edge]; !fired {
+				currStage.firedOneShots.Add(edge)
+				s.changed.Add(edge.Target.Node)
+			}
+			continue
 		}
+		s.changed.Add(edge.Target.Node)
 	}
 }
 
 // reportError reports an error from the currently executing node.
-// This method uses s.currNodeKey to identify the node without requiring closure allocation.
 func (s *Scheduler) reportError(err error) {
 	if s.errorHandler != nil {
-		s.errorHandler.HandleError(s.currState.key, err)
-	}
-}
-
-// Init performs one-time initialization for stratum-0 (source) nodes.
-// This is called once before any Next executions to allow source nodes to set up
-// their initial state, establish connections, or perform other startup tasks.
-//
-// Only nodes in stratum-0 have their Init method called. Downstream nodes are
-// initialized implicitly through their first Next execution when marked as changed.
-func (s *Scheduler) Init(ctx context.Context) {
-	s.nodeCtx.Context = ctx
-	for _, stratum := range s.strata {
-		for _, nodeKey := range stratum {
-			s.currState = s.nodes[nodeKey]
-			s.currState.node.Init(s.nodeCtx)
-		}
+		s.errorHandler.HandleError(s.currNodeKey, err)
 	}
 }
 
 // Next executes one cycle of the reactive computation.
-// Nodes are executed in topological order (stratum by stratum). Within each cycle:
-//   - Stratum-0 nodes always execute (they are source nodes)
-//   - Other nodes only execute if marked as changed
+// Execution proceeds in two phases:
+//  1. Global strata: Execute nodes not in any stage
+//  2. Stage strata: Execute active stages until convergence
 //
-// After execution, the changed set is cleared for the next cycle.
-// Nodes can mark their outputs as changed during execution via MarkChanged callbacks,
-// which will schedule downstream nodes for the next cycle.
-func (s *Scheduler) Next(ctx context.Context) {
+// The changed set is cleared at the start of each stage strata execution to ensure
+// independent change propagation between stages.
+func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan) {
 	s.nodeCtx.Context = ctx
-	for i, stratum := range s.strata {
-		for _, nodeKey := range stratum {
-			if i == 0 || s.changed.Contains(nodeKey) {
-				s.currState = s.nodes[nodeKey]
-				s.currState.node.Next(s.nodeCtx)
+	s.nodeCtx.Elapsed = elapsed
+	s.currSeqIdx = -1
+	s.currStageIdx = -1
+	s.execStrata(s.globalStrata)
+	s.execStages()
+	clear(s.changed)
+	// Call cleanup callback if set (e.g., to clear temporary series handles)
+	if s.cycleCallback != nil {
+		s.cycleCallback.OnCycleEnd()
+	}
+}
+
+// execStrata executes nodes in a stage strata, propagating changes between layers.
+// The changed set is cleared at the start to ensure independent propagation from
+// other stages.
+func (s *Scheduler) execStrata(strata ir.Strata) {
+	clear(s.changed)
+	for i, stratum := range strata {
+		for _, key := range stratum {
+			if i == 0 || s.changed.Contains(key) {
+				s.currNodeKey = key
+				s.nodes[key].Next(s.nodeCtx)
 			}
 		}
 	}
-	clear(s.changed)
+}
+
+// execStages executes active stages across all sequences until convergence.
+// A stage transition during execution triggers re-evaluation until stable.
+func (s *Scheduler) execStages() {
+	for iter := 0; iter < s.maxConvergenceIterations; iter++ {
+		stable := true
+		for s.currSeqIdx = 0; s.currSeqIdx < len(s.sequences); s.currSeqIdx++ {
+			seq := &s.sequences[s.currSeqIdx]
+			if seq.activeStageIdx == -1 {
+				continue
+			}
+			s.currStageIdx = seq.activeStageIdx
+			s.execStrata(seq.stages[s.currStageIdx].strata)
+			if seq.activeStageIdx != s.currStageIdx {
+				stable = false
+			}
+		}
+		if stable {
+			return
+		}
+	}
+}
+
+// transitionStage transitions to the stage associated with the currently executing node.
+// This deactivates the current sequence's stage first, then activates the target stage.
+func (s *Scheduler) transitionStage() {
+	if s.currSeqIdx != -1 {
+		s.sequences[s.currSeqIdx].activeStageIdx = -1
+	}
+	target, ok := s.transitions[s.currNodeKey]
+	if !ok {
+		return
+	}
+	targetStage := &s.sequences[target.seqIdx].stages[target.stageIdx]
+	clear(targetStage.firedOneShots)
+	s.resetStrata(targetStage.strata)
+	s.sequences[target.seqIdx].activeStageIdx = target.stageIdx
+}
+
+// resetStrata resets all nodes in a strata to their initial state.
+// Called when a stage is activated to reset timers and other stateful nodes.
+func (s *Scheduler) resetStrata(strata ir.Strata) {
+	for _, stratum := range strata {
+		for _, key := range stratum {
+			s.nodes[key].Reset()
+		}
+	}
 }

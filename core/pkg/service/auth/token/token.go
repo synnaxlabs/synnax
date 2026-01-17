@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,6 +44,10 @@ type ServiceConfig struct {
 	// KeyProvider is the service used to generate and validate keys.
 	// [REQUIRED]
 	KeyProvider security.KeyProvider
+	// Now is a function that returns the current time. This can be used to override the
+	// current time.
+	// [OPTIONAL] [DEFAULT: time.Now]
+	Now func() time.Time
 	// Expiration is the duration that the token will be valid for.
 	// [OPTIONAL] [DEFAULT: 1 hour]
 	Expiration time.Duration
@@ -51,10 +55,6 @@ type ServiceConfig struct {
 	// issued.
 	// [OPTIONAL] [DEFAULT: 5 minutes]
 	RefreshThreshold time.Duration
-	// Now is a function that returns the current time. This can be used to override the
-	// current time.
-	// [OPTIONAL] [DEFAULT: time.Now]
-	Now func() time.Time
 }
 
 // Override implements config.Config.
@@ -77,8 +77,8 @@ func (c ServiceConfig) Validate() error {
 }
 
 var (
-	_             config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultConfig                              = ServiceConfig{
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{
 		Expiration:       time.Hour,
 		RefreshThreshold: time.Minute * 5,
 		Now:              time.Now,
@@ -92,7 +92,7 @@ type Service struct{ cfg ServiceConfig }
 // validate.Error if the configuration is invalid. See token.ServiceConfig for
 // configuration details.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

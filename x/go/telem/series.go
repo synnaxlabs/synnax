@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,18 +29,18 @@ const newLineChar = '\n'
 // Series is a strongly typed array of telemetry samples backed by an underlying binary
 // buffer.
 type Series struct {
-	// TimeRange represents the time range occupied by the series' data.
-	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
+	// cachedLength tracks the length of a series with a variable data type.
+	cachedLength *int64
 	// DataType is the data type of the series.
 	DataType DataType `json:"data_type" msgpack:"data_type"`
 	// Data is the underlying binary buffer.
 	Data []byte `json:"data" msgpack:"data"`
+	// TimeRange represents the time range occupied by the series' data.
+	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
 	// Alignment defines the location of the series relative to other series in a
 	// logical group. This is typically used for defining the position of the series
 	// within a channel's data, but can be used for arbitrary purposes.
 	Alignment Alignment `json:"alignment" msgpack:"alignment"`
-	// cachedLength tracks the length of a series with a variable data type.
-	cachedLength *int64
 }
 
 // Len returns the number of samples currently in the Series.

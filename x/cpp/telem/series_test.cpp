@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include "x/go/telem/telem.pb.h"
 
 template<typename T>
 class NumericSeriesTest : public ::testing::Test {
@@ -496,6 +496,7 @@ TEST(TestSeries, testDeepCopy) {
     s1.write(1);
     s1.write(2);
     s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
 
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -505,11 +506,13 @@ TEST(TestSeries, testDeepCopy) {
     ASSERT_EQ(s2.data_type(), telem::UINT32_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
 }
 
 /// @brief it should deep copy a variable data type series.
 TEST(TestSeries, testDeepCopyVariableDataType) {
-    const telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    telem::Series s1{std::vector<std::string>{"hello", "world", "test"}};
+    s1.alignment = telem::Alignment(7, 42);
     ASSERT_EQ(s1.size(), 3);
     const telem::Series s2 = s1.deep_copy();
     ASSERT_EQ(s2.size(), 3);
@@ -519,6 +522,24 @@ TEST(TestSeries, testDeepCopyVariableDataType) {
     ASSERT_EQ(s2.data_type(), telem::STRING_T);
     ASSERT_EQ(s2.byte_size(), s1.byte_size());
     ASSERT_EQ(s2.cap(), s1.cap());
+    ASSERT_EQ(s2.alignment.uint64(), s1.alignment.uint64());
+}
+
+/// @brief it should preserve alignment when moving a series.
+TEST(TestSeries, testMovePreservesAlignment) {
+    telem::Series s1{telem::UINT32_T, 3};
+    s1.write(1);
+    s1.write(2);
+    s1.write(3);
+    s1.alignment = telem::Alignment(5, 10);
+
+    telem::Series s2 = std::move(s1);
+    ASSERT_EQ(s2.size(), 3);
+    ASSERT_EQ(s2.at<std::uint32_t>(0), 1);
+    ASSERT_EQ(s2.at<std::uint32_t>(1), 2);
+    ASSERT_EQ(s2.at<std::uint32_t>(2), 3);
+    ASSERT_EQ(s2.data_type(), telem::UINT32_T);
+    ASSERT_EQ(s2.alignment.uint64(), telem::Alignment(5, 10).uint64());
 }
 
 /// @brief it should generate evenly spaced timestamps.
@@ -1046,4 +1067,706 @@ TEST(TestSeries, testFillFromMultipleReads) {
     expected.insert(expected.end(), source_data1.begin(), source_data1.end());
     expected.insert(expected.end(), source_data2.begin(), source_data2.end());
     ASSERT_EQ(values, expected);
+}
+
+TEST(TestSeries, testResizeGrow) {
+    telem::Series s(telem::FLOAT32_T, 10);
+    s.write(1.0f);
+    s.write(2.0f);
+    ASSERT_EQ(s.size(), 2);
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<float>(0), 1.0f);
+    ASSERT_EQ(s.at<float>(1), 2.0f);
+}
+
+TEST(TestSeries, testResizeShrink) {
+    telem::Series s(telem::INT32_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(i);
+    }
+    ASSERT_EQ(s.size(), 5);
+
+    s.resize(2);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<int32_t>(0), 0);
+    ASSERT_EQ(s.at<int32_t>(1), 1);
+}
+
+TEST(TestSeries, testResizeNoOp) {
+    telem::Series s(telem::UINT64_T, 10);
+    for (int i = 0; i < 5; i++) {
+        s.write(static_cast<uint64_t>(i));
+    }
+
+    s.resize(5);
+    ASSERT_EQ(s.size(), 5);
+    ASSERT_EQ(s.cap(), 10);
+}
+
+TEST(TestSeries, testResizeExceedsCapacity) {
+    telem::Series s(telem::FLOAT64_T, 5);
+    s.write(1.0);
+    s.write(2.0);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.cap(), 5);
+
+    s.resize(10);
+    ASSERT_EQ(s.size(), 10);
+    ASSERT_EQ(s.cap(), 10);
+    ASSERT_EQ(s.at<double>(0), 1.0);
+    ASSERT_EQ(s.at<double>(1), 2.0);
+}
+
+TEST(TestSeries, testResizeVariableType) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    ASSERT_THROW(s.resize(1), std::runtime_error);
+}
+
+TEST(TestSeries, testResizeToZero) {
+    telem::Series s(telem::INT16_T, 10);
+    s.write(static_cast<int16_t>(1));
+    s.write(static_cast<int16_t>(2));
+
+    s.resize(0);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+}
+
+/// @brief it should correctly set a SampleValue at an index for numeric types
+TEST(TestSeries, testSetSampleValueF32) {
+    telem::Series s(telem::FLOAT32_T, 5);
+    s.write(1.0f);
+    s.write(2.0f);
+    s.write(3.0f);
+    s.write(4.0f);
+    s.write(5.0f);
+
+    // Test setting with different numeric types in SampleValue
+    telem::SampleValue val_double = 42.5f;
+    s.set(0, val_double);
+    ASSERT_EQ(s.at<float>(0), 42.5f);
+}
+
+/// @brief it should correctly set a SampleValue at a negative index
+TEST(TestSeries, testSetSampleValueNegativeIndex) {
+    telem::Series s(telem::INT32_T, 5);
+    for (int i = 1; i <= 5; i++)
+        s.write(i);
+
+    telem::SampleValue val = 999;
+    s.set(-1, val);
+    ASSERT_EQ(s.at<int32_t>(4), 999);
+
+    s.set(-3, val);
+    ASSERT_EQ(s.at<int32_t>(2), 999);
+}
+
+/// @brief it should correctly set a TimeStamp SampleValue
+TEST(TestSeries, testSetSampleValueTimestamp) {
+    telem::Series s(telem::TIMESTAMP_T, 3);
+    s.write(telem::TimeStamp(100));
+    s.write(telem::TimeStamp(200));
+    s.write(telem::TimeStamp(300));
+
+    telem::SampleValue val = telem::TimeStamp(9999);
+    s.set(1, val);
+    ASSERT_EQ(s.at<telem::TimeStamp>(1).nanoseconds(), 9999);
+}
+
+/// @brief it should throw an error when setting SampleValue on variable-size series
+TEST(TestSeries, testSetSampleValueVariableError) {
+    telem::Series s(std::vector<std::string>{"hello", "world"});
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when setting string SampleValue on non-string series
+TEST(TestSeries, testSetSampleValueStringError) {
+    telem::Series s(telem::INT32_T, 3);
+    s.write(1);
+    s.write(2);
+    s.write(3);
+
+    telem::SampleValue val = std::string("test");
+    ASSERT_THROW(s.set(0, val), std::runtime_error);
+}
+
+/// @brief it should throw an error when index is out of bounds
+TEST(TestSeries, testSetSampleValueOutOfBounds) {
+    telem::Series s(telem::UINT32_T, 3);
+    s.write(1u);
+    s.write(2u);
+    s.write(3u);
+
+    telem::SampleValue val = 999u;
+    ASSERT_THROW(s.set(5, val), std::runtime_error);
+    ASSERT_THROW(s.set(-10, val), std::runtime_error);
+}
+
+/// @brief it should work with all numeric data types
+TEST(TestSeries, testSetSampleValueAllNumericTypes) {
+    // Test uint8_t
+    telem::Series s_uint8(telem::UINT8_T, 3);
+    for (uint8_t i = 1; i <= 3; i++)
+        s_uint8.write(i);
+    telem::SampleValue val_uint8 = static_cast<uint8_t>(99);
+    s_uint8.set(1, val_uint8);
+    ASSERT_EQ(s_uint8.at<uint8_t>(1), 99);
+
+    // Test int64_t
+    telem::Series s_int64(telem::INT64_T, 3);
+    for (int64_t i = 1; i <= 3; i++)
+        s_int64.write(i);
+    telem::SampleValue val_int64 = static_cast<int64_t>(123456789);
+    s_int64.set(2, val_int64);
+    ASSERT_EQ(s_int64.at<int64_t>(2), 123456789);
+
+    // Test float64
+    telem::Series s_float64(telem::FLOAT64_T, 3);
+    for (int i = 1; i <= 3; i++)
+        s_float64.write(static_cast<double>(i));
+    telem::SampleValue val_float64 = 3.14159;
+    s_float64.set(0, val_float64);
+    ASSERT_DOUBLE_EQ(s_float64.at<double>(0), 3.14159);
+}
+
+/// @brief Tests Series + Series addition operator.
+TEST(SeriesOperators, AdditionSameLength) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0, 6.0});
+    auto result = a + b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_EQ(result.data_type(), telem::FLOAT64_T);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 7.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 9.0);
+}
+
+/// @brief Tests Series - Series subtraction operator.
+TEST(SeriesOperators, SubtractionSameLength) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto b = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = a - b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 9.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 18.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 27.0);
+}
+
+/// @brief Tests Series * Series multiplication operator.
+TEST(SeriesOperators, MultiplicationSameLength) {
+    auto a = telem::Series(std::vector<double>{2.0, 3.0, 4.0});
+    auto b = telem::Series(std::vector<double>{5.0, 6.0, 7.0});
+    auto result = a * b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 10.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 18.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 28.0);
+}
+
+/// @brief Tests Series / Series division operator.
+TEST(SeriesOperators, DivisionSameLength) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto b = telem::Series(std::vector<double>{2.0, 4.0, 5.0});
+    auto result = a / b;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 6.0);
+}
+
+/// @brief Tests that length mismatch throws for binary operations.
+TEST(SeriesOperators, LengthMismatchThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0});
+    ASSERT_THROW(a + b, std::runtime_error);
+    ASSERT_THROW(a - b, std::runtime_error);
+    ASSERT_THROW(a * b, std::runtime_error);
+    ASSERT_THROW(a / b, std::runtime_error);
+}
+
+/// @brief Tests that type mismatch throws for binary operations.
+TEST(SeriesOperators, TypeMismatchThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<int32_t>{4, 5, 6});
+    ASSERT_THROW(a + b, std::runtime_error);
+    ASSERT_THROW(a - b, std::runtime_error);
+    ASSERT_THROW(a * b, std::runtime_error);
+    ASSERT_THROW(a / b, std::runtime_error);
+}
+
+/// @brief Tests Series + scalar operator.
+TEST(SeriesOperators, ScalarAddition) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = a + 10.0;
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 11.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 12.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 13.0);
+    // Original should be unchanged
+    ASSERT_DOUBLE_EQ(a.at<double>(0), 1.0);
+}
+
+/// @brief Tests scalar + Series operator (commutative).
+TEST(SeriesOperators, ScalarOnLeftAddition) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = 10.0 + a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 11.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 12.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 13.0);
+}
+
+/// @brief Tests Series - scalar operator.
+TEST(SeriesOperators, ScalarSubtraction) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto result = a - 5.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 15.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 25.0);
+}
+
+/// @brief Tests scalar - Series operator (non-commutative).
+TEST(SeriesOperators, ScalarOnLeftSubtraction) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = 10.0 - a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 9.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 8.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 7.0);
+}
+
+/// @brief Tests Series * scalar operator.
+TEST(SeriesOperators, ScalarMultiplication) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = a * 3.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 6.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 9.0);
+}
+
+/// @brief Tests scalar * Series operator (commutative).
+TEST(SeriesOperators, ScalarOnLeftMultiplication) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto result = 3.0 * a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 6.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 9.0);
+}
+
+/// @brief Tests Series / scalar operator.
+TEST(SeriesOperators, ScalarDivision) {
+    auto a = telem::Series(std::vector<double>{10.0, 20.0, 30.0});
+    auto result = a / 2.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 10.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 15.0);
+}
+
+/// @brief Tests scalar / Series operator (non-commutative).
+TEST(SeriesOperators, ScalarOnLeftDivision) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 4.0});
+    auto result = 8.0 / a;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 8.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 4.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 2.0);
+}
+
+/// @brief Tests division by zero throws.
+TEST(SeriesOperators, DivisionByZeroThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    ASSERT_THROW(a / 0.0, std::runtime_error);
+}
+
+/// @brief Tests > comparison operator.
+TEST(SeriesOperators, GreaterThanReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a > b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.size(), 3);
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 > 2.0 = false
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 > 3.0 = true
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 > 3.0 = false
+}
+
+/// @brief Tests < comparison operator.
+TEST(SeriesOperators, LessThanReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a < b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 < 2.0 = true
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 < 3.0 = false
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 < 3.0 = false
+}
+
+/// @brief Tests >= comparison operator.
+TEST(SeriesOperators, GreaterThanOrEqualReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a >= b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 >= 2.0 = false
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 5.0 >= 3.0 = true
+    ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 >= 3.0 = true
+}
+
+/// @brief Tests <= comparison operator.
+TEST(SeriesOperators, LessThanOrEqualReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 5.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 3.0});
+    auto result = a <= b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 <= 2.0 = true
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 5.0 <= 3.0 = false
+    ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 <= 3.0 = true
+}
+
+/// @brief Tests == comparison operator.
+TEST(SeriesOperators, EqualityReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 3.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 4.0});
+    auto result = a == b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 1.0 == 2.0 = false
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 3.0 == 3.0 = true
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 3.0 == 4.0 = false
+}
+
+/// @brief Tests != comparison operator.
+TEST(SeriesOperators, InequalityReturnsUint8) {
+    auto a = telem::Series(std::vector<double>{1.0, 3.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 3.0, 4.0});
+    auto result = a != b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 1.0 != 2.0 = true
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 3.0 != 3.0 = false
+    ASSERT_EQ(result.at<uint8_t>(2), 1); // 3.0 != 4.0 = true
+}
+
+/// @brief Tests comparison operators throw on length mismatch.
+TEST(SeriesOperators, ComparisonLengthMismatchThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0});
+    ASSERT_THROW((void) (a > b), std::runtime_error);
+    ASSERT_THROW((void) (a < b), std::runtime_error);
+    ASSERT_THROW((void) (a >= b), std::runtime_error);
+    ASSERT_THROW((void) (a <= b), std::runtime_error);
+    ASSERT_THROW((void) (a == b), std::runtime_error);
+    ASSERT_THROW((void) (a != b), std::runtime_error);
+}
+
+/// @brief Tests operations with empty series.
+TEST(SeriesOperators, EmptySeriesOperations) {
+    auto a = telem::Series(telem::FLOAT64_T, 0);
+    auto b = telem::Series(telem::FLOAT64_T, 0);
+    auto result = a + b;
+    ASSERT_EQ(result.size(), 0);
+}
+
+/// @brief Tests operations with single element series.
+TEST(SeriesOperators, SingleElementOperations) {
+    auto a = telem::Series(std::vector<double>{5.0});
+    auto b = telem::Series(std::vector<double>{3.0});
+    auto result = a + b;
+    ASSERT_EQ(result.size(), 1);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 8.0);
+}
+
+/// @brief Tests operations with int32_t type.
+TEST(SeriesOperators, Int32Operations) {
+    auto a = telem::Series(std::vector<int32_t>{1, 2, 3});
+    auto b = telem::Series(std::vector<int32_t>{4, 5, 6});
+    auto result = a + b;
+    ASSERT_EQ(result.data_type(), telem::INT32_T);
+    ASSERT_EQ(result.at<int32_t>(0), 5);
+    ASSERT_EQ(result.at<int32_t>(1), 7);
+    ASSERT_EQ(result.at<int32_t>(2), 9);
+}
+
+/// @brief Tests operations with float32 type.
+TEST(SeriesOperators, Float32Operations) {
+    auto a = telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    auto b = telem::Series(std::vector<float>{4.0f, 5.0f, 6.0f});
+    auto result = a + b;
+    ASSERT_EQ(result.data_type(), telem::FLOAT32_T);
+    ASSERT_FLOAT_EQ(result.at<float>(0), 5.0f);
+    ASSERT_FLOAT_EQ(result.at<float>(1), 7.0f);
+    ASSERT_FLOAT_EQ(result.at<float>(2), 9.0f);
+}
+
+/// @brief Tests operations with uint8_t type.
+TEST(SeriesOperators, Uint8Operations) {
+    auto a = telem::Series(std::vector<uint8_t>{10, 20, 30});
+    auto b = telem::Series(std::vector<uint8_t>{5, 10, 15});
+    auto result = a + b;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 15);
+    ASSERT_EQ(result.at<uint8_t>(1), 30);
+    ASSERT_EQ(result.at<uint8_t>(2), 45);
+}
+
+/// @brief Tests operations with int64_t type.
+TEST(SeriesOperators, Int64Operations) {
+    auto a = telem::Series(std::vector<int64_t>{100, 200, 300});
+    auto b = telem::Series(std::vector<int64_t>{10, 20, 30});
+    auto result = a - b;
+    ASSERT_EQ(result.data_type(), telem::INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), 90);
+    ASSERT_EQ(result.at<int64_t>(1), 180);
+    ASSERT_EQ(result.at<int64_t>(2), 270);
+}
+
+/// @brief Tests chained operations.
+TEST(SeriesOperators, ChainedOperations) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{2.0, 2.0, 2.0});
+    // (a + b) * 3 - 1
+    auto result = (a + b) * 3.0 - 1.0;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 8.0); // (1+2)*3-1 = 8
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 11.0); // (2+2)*3-1 = 11
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 14.0); // (3+2)*3-1 = 14
+}
+
+/// @brief Tests that original series is not modified by operators.
+TEST(SeriesOperators, OriginalUnmodified) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0, 6.0});
+    auto result = a + b;
+
+    // Original series should be unchanged
+    ASSERT_DOUBLE_EQ(a.at<double>(0), 1.0);
+    ASSERT_DOUBLE_EQ(a.at<double>(1), 2.0);
+    ASSERT_DOUBLE_EQ(a.at<double>(2), 3.0);
+    ASSERT_DOUBLE_EQ(b.at<double>(0), 4.0);
+    ASSERT_DOUBLE_EQ(b.at<double>(1), 5.0);
+    ASSERT_DOUBLE_EQ(b.at<double>(2), 6.0);
+}
+
+/// @brief Tests unary negation operator with double.
+TEST(SeriesOperators, UnaryNegateFloat64) {
+    auto a = telem::Series(std::vector<double>{1.0, -2.0, 3.0, 0.0});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::FLOAT64_T);
+    ASSERT_EQ(result.size(), 4);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), -1.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 2.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), -3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(3), 0.0);
+    // Original should be unchanged
+    ASSERT_DOUBLE_EQ(a.at<double>(0), 1.0);
+}
+
+/// @brief Tests unary negation operator with float.
+TEST(SeriesOperators, UnaryNegateFloat32) {
+    auto a = telem::Series(std::vector<float>{1.5f, -2.5f, 3.5f});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::FLOAT32_T);
+    ASSERT_FLOAT_EQ(result.at<float>(0), -1.5f);
+    ASSERT_FLOAT_EQ(result.at<float>(1), 2.5f);
+    ASSERT_FLOAT_EQ(result.at<float>(2), -3.5f);
+}
+
+/// @brief Tests unary negation operator with int32.
+TEST(SeriesOperators, UnaryNegateInt32) {
+    auto a = telem::Series(std::vector<int32_t>{1, -2, 3, 0, -100});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT32_T);
+    ASSERT_EQ(result.at<int32_t>(0), -1);
+    ASSERT_EQ(result.at<int32_t>(1), 2);
+    ASSERT_EQ(result.at<int32_t>(2), -3);
+    ASSERT_EQ(result.at<int32_t>(3), 0);
+    ASSERT_EQ(result.at<int32_t>(4), 100);
+}
+
+/// @brief Tests unary negation operator with int64.
+TEST(SeriesOperators, UnaryNegateInt64) {
+    auto a = telem::Series(std::vector<int64_t>{1000000000LL, -2000000000LL});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT64_T);
+    ASSERT_EQ(result.at<int64_t>(0), -1000000000LL);
+    ASSERT_EQ(result.at<int64_t>(1), 2000000000LL);
+}
+
+/// @brief Tests unary negation operator with int16.
+TEST(SeriesOperators, UnaryNegateInt16) {
+    auto a = telem::Series(std::vector<int16_t>{100, -200, 300});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT16_T);
+    ASSERT_EQ(result.at<int16_t>(0), -100);
+    ASSERT_EQ(result.at<int16_t>(1), 200);
+    ASSERT_EQ(result.at<int16_t>(2), -300);
+}
+
+/// @brief Tests unary negation operator with int8.
+TEST(SeriesOperators, UnaryNegateInt8) {
+    auto a = telem::Series(std::vector<int8_t>{10, -20, 30});
+    auto result = -a;
+    ASSERT_EQ(result.data_type(), telem::INT8_T);
+    ASSERT_EQ(result.at<int8_t>(0), -10);
+    ASSERT_EQ(result.at<int8_t>(1), 20);
+    ASSERT_EQ(result.at<int8_t>(2), -30);
+}
+
+/// @brief Tests unary negation with empty series.
+TEST(SeriesOperators, UnaryNegateEmpty) {
+    auto a = telem::Series(telem::FLOAT64_T, 0);
+    auto result = -a;
+    ASSERT_EQ(result.size(), 0);
+    ASSERT_EQ(result.data_type(), telem::FLOAT64_T);
+}
+
+/// @brief Tests unary negation with single element.
+TEST(SeriesOperators, UnaryNegateSingleElement) {
+    auto a = telem::Series(std::vector<double>{5.0});
+    auto result = -a;
+    ASSERT_EQ(result.size(), 1);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), -5.0);
+}
+
+/// @brief Tests bitwise NOT operator with uint8.
+TEST(SeriesOperators, BitwiseNotUint8) {
+    auto a = telem::Series(std::vector<uint8_t>{0x00, 0xFF, 0x0F, 0xF0, 0xAA});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.size(), 5);
+    ASSERT_EQ(result.at<uint8_t>(0), 0xFF);
+    ASSERT_EQ(result.at<uint8_t>(1), 0x00);
+    ASSERT_EQ(result.at<uint8_t>(2), 0xF0);
+    ASSERT_EQ(result.at<uint8_t>(3), 0x0F);
+    ASSERT_EQ(result.at<uint8_t>(4), 0x55);
+}
+
+/// @brief Tests bitwise NOT operator with uint16.
+TEST(SeriesOperators, BitwiseNotUint16) {
+    auto a = telem::Series(std::vector<uint16_t>{0x0000, 0xFFFF, 0x00FF});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT16_T);
+    ASSERT_EQ(result.at<uint16_t>(0), 0xFFFF);
+    ASSERT_EQ(result.at<uint16_t>(1), 0x0000);
+    ASSERT_EQ(result.at<uint16_t>(2), 0xFF00);
+}
+
+/// @brief Tests bitwise NOT operator with uint32.
+TEST(SeriesOperators, BitwiseNotUint32) {
+    auto a = telem::Series(std::vector<uint32_t>{0x00000000, 0xFFFFFFFF, 0x0000FFFF});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT32_T);
+    ASSERT_EQ(result.at<uint32_t>(0), 0xFFFFFFFF);
+    ASSERT_EQ(result.at<uint32_t>(1), 0x00000000);
+    ASSERT_EQ(result.at<uint32_t>(2), 0xFFFF0000);
+}
+
+/// @brief Tests bitwise NOT operator with uint64.
+TEST(SeriesOperators, BitwiseNotUint64) {
+    auto a = telem::Series(
+        std::vector<uint64_t>{0x0000000000000000ULL, 0xFFFFFFFFFFFFFFFFULL}
+    );
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::UINT64_T);
+    ASSERT_EQ(result.at<uint64_t>(0), 0xFFFFFFFFFFFFFFFFULL);
+    ASSERT_EQ(result.at<uint64_t>(1), 0x0000000000000000ULL);
+}
+
+/// @brief Tests bitwise NOT operator with int32 (two's complement).
+TEST(SeriesOperators, BitwiseNotInt32) {
+    auto a = telem::Series(std::vector<int32_t>{0, -1, 1});
+    auto result = ~a;
+    ASSERT_EQ(result.data_type(), telem::INT32_T);
+    ASSERT_EQ(result.at<int32_t>(0), -1); // ~0 = -1 in two's complement
+    ASSERT_EQ(result.at<int32_t>(1), 0); // ~(-1) = 0
+    ASSERT_EQ(result.at<int32_t>(2), -2); // ~1 = -2 in two's complement
+}
+
+/// @brief Tests bitwise NOT throws for floating-point types.
+TEST(SeriesOperators, BitwiseNotFloatThrows) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    ASSERT_THROW(~a, std::runtime_error);
+}
+
+/// @brief Tests bitwise NOT throws for float32 types.
+TEST(SeriesOperators, BitwiseNotFloat32Throws) {
+    auto a = telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    ASSERT_THROW(~a, std::runtime_error);
+}
+
+/// @brief Tests double negation returns original values.
+TEST(SeriesOperators, DoubleNegation) {
+    auto a = telem::Series(std::vector<double>{1.0, -2.0, 3.0});
+    auto result = -(-a);
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 1.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), -2.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 3.0);
+}
+
+/// @brief Tests double bitwise NOT returns original values.
+TEST(SeriesOperators, DoubleBitwiseNot) {
+    auto a = telem::Series(std::vector<uint8_t>{0x00, 0xFF, 0xAA});
+    auto result = ~~a;
+    ASSERT_EQ(result.at<uint8_t>(0), 0x00);
+    ASSERT_EQ(result.at<uint8_t>(1), 0xFF);
+    ASSERT_EQ(result.at<uint8_t>(2), 0xAA);
+}
+
+/// @brief Tests logical NOT with uint8 (0 -> 1, non-zero -> 0).
+TEST(SeriesOperators, LogicalNotUint8) {
+    auto a = telem::Series(std::vector<uint8_t>{0, 1, 255, 0, 42});
+    auto result = a.logical_not();
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 255 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 1); // 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(4), 0); // 42 -> 0
+}
+
+/// @brief Tests logical NOT with int32.
+TEST(SeriesOperators, LogicalNotInt32) {
+    auto a = telem::Series(std::vector<int32_t>{0, 1, -1, 100, 0});
+    auto result = a.logical_not();
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // -1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 0); // 100 -> 0
+    ASSERT_EQ(result.at<uint8_t>(4), 1); // 0 -> 1
+}
+
+/// @brief Tests logical NOT with float64.
+TEST(SeriesOperators, LogicalNotFloat64) {
+    auto a = telem::Series(std::vector<double>{0.0, 1.0, -1.0, 0.5, 0.0});
+    auto result = a.logical_not();
+    ASSERT_EQ(result.data_type(), telem::UINT8_T);
+    ASSERT_EQ(result.at<uint8_t>(0), 1); // 0.0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(1), 0); // 1.0 -> 0
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // -1.0 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 0); // 0.5 -> 0
+    ASSERT_EQ(result.at<uint8_t>(4), 1); // 0.0 -> 1
+}
+
+/// @brief Tests double logical NOT preserves truthiness.
+TEST(SeriesOperators, DoubleLogicalNot) {
+    auto a = telem::Series(std::vector<uint8_t>{0, 1, 0, 255});
+    auto result = a.logical_not().logical_not();
+    // Double NOT should give 0 for false, 1 for true (normalized)
+    ASSERT_EQ(result.at<uint8_t>(0), 0); // 0 -> 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(1), 1); // 1 -> 0 -> 1
+    ASSERT_EQ(result.at<uint8_t>(2), 0); // 0 -> 1 -> 0
+    ASSERT_EQ(result.at<uint8_t>(3), 1); // 255 -> 0 -> 1
+}
+
+/// @brief Tests negation can be chained with other operations.
+TEST(SeriesOperators, NegationChainedWithOperations) {
+    auto a = telem::Series(std::vector<double>{1.0, 2.0, 3.0});
+    auto b = telem::Series(std::vector<double>{4.0, 5.0, 6.0});
+    // -a + b should give {3.0, 3.0, 3.0}
+    auto result = (-a) + b;
+    ASSERT_DOUBLE_EQ(result.at<double>(0), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(1), 3.0);
+    ASSERT_DOUBLE_EQ(result.at<double>(2), 3.0);
 }

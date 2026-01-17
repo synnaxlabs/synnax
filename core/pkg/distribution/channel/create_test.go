@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,9 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -72,7 +74,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(cesiumCh.IsIndex).To(BeTrue())
 			})
 			It("Should not create the channel on another nodes time-series DB", func() {
-				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).Error().To(MatchError(query.NotFound))
+				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).Error().To(MatchError(query.ErrNotFound))
 			})
 			It("Should assign a sequential key to the channels on each node",
 				func() {
@@ -121,14 +123,14 @@ var _ = Describe("Create", Ordered, func() {
 		})
 		Context("Free", func() {
 			BeforeEach(func() {
-				ch.Leaseholder = cluster.Free
+				ch.Leaseholder = cluster.NodeKeyFree
 				ch.Virtual = true
 			})
 			It("Should create the channel without error", func() {
-				Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
-					Error().To(MatchError(query.NotFound))
+					Error().To(MatchError(query.ErrNotFound))
 			})
 		})
 		Context("error cases", func() {
@@ -243,7 +245,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
 
 				err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
-				Expect(err).To(MatchError(query.NotFound))
+				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 			It("Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one", func() {
 				ch := channel.Channel{
@@ -276,15 +278,15 @@ var _ = Describe("Create", Ordered, func() {
 		It("Should not create a free channel if it already exists by name", func() {
 			ch.Name = "SG0002"
 			ch.Virtual = true
-			ch.Leaseholder = cluster.Free
+			ch.Leaseholder = cluster.NodeKeyFree
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
-			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 			k := ch.Key()
 			ch.LocalKey = 0
 			ch.Leaseholder = 0
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 			Expect(ch.Key()).To(Equal(k))
-			Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
+			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
 		})
 	})
 	Context("Calculated Channel with Auto-Created Index", func() {
@@ -298,7 +300,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &calcCh)).To(Succeed())
 
 			// Verify calculated channel properties
-			Expect(calcCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(calcCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(calcCh.Virtual).To(BeTrue())
 			Expect(calcCh.LocalIndex).ToNot(BeZero())
 
@@ -316,7 +318,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(indexCh.IsIndex).To(BeTrue())
 			Expect(indexCh.DataType).To(Equal(telem.TimeStampT))
 			Expect(indexCh.Virtual).To(BeTrue())
-			Expect(indexCh.Leaseholder).To(Equal(cluster.Free))
+			Expect(indexCh.Leaseholder).To(Equal(cluster.NodeKeyFree))
 			Expect(indexCh.LocalKey).To(Equal(calcCh.LocalIndex))
 		})
 
@@ -467,7 +469,7 @@ var _ = Describe("Create", Ordered, func() {
 			ch.DataType = telem.Float64T
 			ch.Virtual = true
 			ch.Internal = false
-			ch.Leaseholder = cluster.Free
+			ch.Leaseholder = cluster.NodeKeyFree
 
 			ch2.IsIndex = true
 			ch2.Name = channel.NewRandomName()
@@ -528,4 +530,92 @@ var _ = Describe("Create", Ordered, func() {
 			})
 	})
 
+})
+
+var _ = Context("Name Validation Disabled", func() {
+	Describe("Channel Creation", Ordered, func() {
+		var mockCluster *mock.Cluster
+		BeforeAll(func() {
+			mockCluster = mock.ProvisionCluster(ctx, 1, distribution.Config{
+				ValidateChannelNames: config.False(),
+			})
+		})
+		AfterAll(func() {
+			Expect(mockCluster.Close()).To(Succeed())
+		})
+		It("Should create a channel with spaces in the name", func() {
+			ch := channel.Channel{
+				Name:        "my channel with spaces",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("my channel with spaces"))
+		})
+		It("Should create a channel with special characters in the name", func() {
+			ch := channel.Channel{
+				Name:        "sensor!@#$%",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: cluster.NodeKeyFree,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("sensor!@#$%"))
+		})
+		It("Should create a channel with a name starting with a digit", func() {
+			ch := channel.Channel{
+				Name:        "1sensor",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(ch.Key()).ToNot(BeZero())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("1sensor"))
+		})
+		It("Should still reject empty names", func() {
+			ch := channel.Channel{
+				Name:        "",
+				DataType:    telem.Float64T,
+				Virtual:     true,
+				Leaseholder: cluster.NodeKeyFree,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+		It("Should allow renaming to a name with special characters", func() {
+			ch := channel.Channel{
+				Name:        "original_name",
+				DataType:    telem.TimeStampT,
+				IsIndex:     true,
+				Leaseholder: 1,
+			}
+			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
+			var retrieved channel.Channel
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
+				WhereKeys(ch.Key()).
+				Entry(&retrieved).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(retrieved.Name).To(Equal("new name with spaces!"))
+		})
+	})
 })

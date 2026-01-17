@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -54,6 +54,8 @@ namespace xtest {
 /// @param condition A function that returns true when the assertion should pass
 /// @param failure_message A function that returns the error message to display on
 /// timeout
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param timeout Maximum time to wait for the condition to become true (default: 1
 /// second)
 /// @param interval Time to wait between checks (default: 1 millisecond)
@@ -62,6 +64,8 @@ namespace xtest {
 inline void eventually(
     const std::function<bool()> &condition,
     const std::function<std::string()> &failure_message,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
@@ -70,7 +74,10 @@ inline void eventually(
         if (condition()) return;
 
         auto now = std::chrono::steady_clock::now();
-        if (now - start >= timeout) { FAIL() << failure_message(); }
+        if (now - start >= timeout) {
+            ADD_FAILURE_AT(file, line) << failure_message();
+            return;
+        }
         std::this_thread::sleep_for(interval);
     }
 }
@@ -83,6 +90,8 @@ inline void eventually(
 /// @param op_name The name of the operation for error messages (e.g., "EQ", "LE",
 /// "GE")
 /// @param op_sep The operator symbol for error messages (e.g., "==", "<=", ">=")
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param timeout Maximum time to wait for the condition to become true (default: 1
 /// second)
 /// @param interval Time to wait between checks (default: 1 millisecond)
@@ -95,6 +104,8 @@ void eventually_compare(
     const std::function<bool(const T &, const T &)> &comparator,
     const std::string &op_name,
     const std::string &op_sep,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
@@ -114,6 +125,8 @@ void eventually_compare(
                << last_actual_value;
             return ss.str();
         },
+        file,
+        line,
         timeout,
         interval
     );
@@ -123,12 +136,16 @@ void eventually_compare(
 /// @tparam T The type of values being compared
 /// @param actual A function that returns the actual value to be compared
 /// @param expected The expected value to compare against
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param interval Time to wait between checks (default: 1 millisecond)
 /// @param timeout Maximum time to wait for equality (default: 1 second)
 template<typename T>
 void eventually_eq(
     const std::function<T()> &actual,
     const T &expected,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1),
     const std::chrono::milliseconds timeout = std::chrono::seconds(1)
 ) {
@@ -138,6 +155,8 @@ void eventually_eq(
         [](const T &a, const T &b) { return a == b; },
         "EQ",
         "==",
+        file,
+        line,
         timeout,
         interval
     );
@@ -148,12 +167,16 @@ void eventually_eq(
 /// @tparam T The type of values being compared
 /// @param actual A function that returns the actual value to be compared
 /// @param expected The expected value to compare against
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param interval Time to wait between checks (default: 1 millisecond)
 /// @param timeout Maximum time to wait for the condition (default: 1 second)
 template<typename T>
 void eventually_le(
     const std::function<T()> &actual,
     const T &expected,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1),
     const std::chrono::milliseconds timeout = std::chrono::seconds(1)
 ) {
@@ -163,6 +186,8 @@ void eventually_le(
         [](const T &a, const T &b) { return a <= b; },
         "LE",
         "<=",
+        file,
+        line,
         timeout,
         interval
     );
@@ -173,12 +198,16 @@ void eventually_le(
 /// @tparam T The type of values being compared
 /// @param actual A function that returns the actual value to be compared
 /// @param expected The expected value to compare against
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param interval Time to wait between checks (default: 1 millisecond)
 /// @param timeout Maximum time to wait for the condition (default: 1 second)
 template<typename T>
 void eventually_ge(
     const std::function<T()> &actual,
     const T &expected,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1),
     const std::chrono::milliseconds timeout = std::chrono::seconds(1)
 ) {
@@ -188,6 +217,8 @@ void eventually_ge(
         [](const T &a, const T &b) { return a >= b; },
         "GE",
         ">=",
+        file,
+        line,
         timeout,
         interval
     );
@@ -195,6 +226,8 @@ void eventually_ge(
 
 inline void eventually_nil(
     const std::function<xerrors::Error()> &actual,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
@@ -211,6 +244,8 @@ inline void eventually_nil(
                << "ms. Expected NIL, but got " << last_error;
             return ss.str();
         },
+        file,
+        line,
         timeout,
         interval
     );
@@ -220,7 +255,12 @@ inline void eventually_nil(
 /// @param actual The actual value or expression to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_EQ(actual, expected)                                         \
-    xtest::eventually_eq<decltype(actual)>([&]() { return (actual); }, (expected))
+    xtest::eventually_eq<decltype(actual)>(                                            \
+        [&]() { return (actual); },                                                    \
+        (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__                                                                       \
+    )
 
 /// @brief macro for asserting eventual equality with custom timeout and interval
 /// @param actual The actual value or expression to evaluate
@@ -231,6 +271,8 @@ inline void eventually_nil(
     xtest::eventually_eq<decltype(actual)>(                                            \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
         (interval),                                                                    \
         (timeout)                                                                      \
     )
@@ -240,7 +282,12 @@ inline void eventually_nil(
 /// @param actual The actual value or expression to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_LE(actual, expected)                                         \
-    xtest::eventually_le<decltype(actual)>([&]() { return (actual); }, (expected))
+    xtest::eventually_le<decltype(actual)>(                                            \
+        [&]() { return (actual); },                                                    \
+        (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__                                                                       \
+    )
 
 /// @brief macro for asserting eventual less than or equal with custom timeout and
 /// interval
@@ -252,6 +299,8 @@ inline void eventually_nil(
     xtest::eventually_le<decltype(actual)>(                                            \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
         (interval),                                                                    \
         (timeout)                                                                      \
     )
@@ -261,7 +310,12 @@ inline void eventually_nil(
 /// @param actual The actual value or expression to evaluate
 /// @param expected The expected value to compare against
 #define ASSERT_EVENTUALLY_GE(actual, expected)                                         \
-    xtest::eventually_ge<decltype(actual)>([&]() { return (actual); }, (expected))
+    xtest::eventually_ge<decltype(actual)>(                                            \
+        [&]() { return (actual); },                                                    \
+        (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__                                                                       \
+    )
 
 /// @brief macro for asserting eventual greater than or equal with custom timeout and
 /// interval
@@ -273,6 +327,8 @@ inline void eventually_nil(
     xtest::eventually_ge<decltype(actual)>(                                            \
         [&]() { return (actual); },                                                    \
         (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
         (interval),                                                                    \
         (timeout)                                                                      \
     )
@@ -284,7 +340,9 @@ inline void eventually_nil(
 #define ASSERT_EVENTUALLY_EQ_F(fn, expected)                                           \
     xtest::eventually_eq<decltype((fn) ())>(                                           \
         std::function<decltype((fn) ())()>(fn),                                        \
-        (expected)                                                                     \
+        (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__                                                                       \
     )
 
 /// @brief macro for asserting eventual equality with custom timeout and interval using
@@ -297,6 +355,8 @@ inline void eventually_nil(
     xtest::eventually_eq<decltype((fn) ())>(                                           \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
         (interval),                                                                    \
         (timeout)                                                                      \
     )
@@ -308,7 +368,9 @@ inline void eventually_nil(
 #define ASSERT_EVENTUALLY_LE_F(fn, expected)                                           \
     xtest::eventually_le<decltype((fn) ())>(                                           \
         std::function<decltype((fn) ())()>(fn),                                        \
-        (expected)                                                                     \
+        (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__                                                                       \
     )
 
 /// @brief macro for asserting eventual less than or equal with custom timeout and
@@ -321,6 +383,8 @@ inline void eventually_nil(
     xtest::eventually_le<decltype((fn) ())>(                                           \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
         (interval),                                                                    \
         (timeout)                                                                      \
     )
@@ -332,7 +396,9 @@ inline void eventually_nil(
 #define ASSERT_EVENTUALLY_GE_F(fn, expected)                                           \
     xtest::eventually_ge<decltype((fn) ())>(                                           \
         std::function<decltype((fn) ())()>(fn),                                        \
-        (expected)                                                                     \
+        (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__                                                                       \
     )
 
 /// @brief macro for asserting eventual greater than or equal with custom timeout and
@@ -345,6 +411,8 @@ inline void eventually_nil(
     xtest::eventually_ge<decltype((fn) ())>(                                           \
         std::function<decltype((fn) ())()>(fn),                                        \
         (expected),                                                                    \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
         (interval),                                                                    \
         (timeout)                                                                      \
     )
@@ -371,6 +439,30 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
 /// @return The first element of the pair (the result value) if successful
 #define ASSERT_NIL_P(pair_expr) xtest::assert_nil_p((pair_expr), __FILE__, __LINE__)
 
+/// @brief Helper function for ASSERT_OCCURRED_AS_P macro
+/// @tparam Pair The pair type (automatically deduced)
+/// @param pair_result The pair to check
+/// @param expected The expected error
+/// @param file The source file name
+/// @param line The source line number
+/// @return The first element of the pair (the result value) if error matches
+template<typename Pair>
+auto assert_occurred_as_p(
+    Pair &&pair_result,
+    const xerrors::Error &expected,
+    const char *file,
+    const int line
+) -> typename std::remove_reference<decltype(pair_result.first)>::type {
+    if (!pair_result.second) {
+        ADD_FAILURE_AT(file, line) << "Expected operation to fail with error "
+                                   << expected << ", but it succeeded";
+    } else if (!pair_result.second.matches(expected)) {
+        ADD_FAILURE_AT(file, line) << "Expected error to match " << expected
+                                   << ", but got " << pair_result.second;
+    }
+    return std::move(pair_result.first);
+}
+
 /// @brief macro asserting that the provided xerrors::Error is NIL.
 #define ASSERT_NIL(expr) ASSERT_FALSE(expr) << expr;
 
@@ -381,10 +473,12 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
     ASSERT_MATCHES(expr, err);
 
 /// @brief macro asserting that the error return as the second item in the pair is the
-/// same as the provided error.
-#define ASSERT_OCCURRED_AS_P(expr, err)                                                \
-    ASSERT_TRUE(expr.second) << expr.second;                                           \
-    ASSERT_MATCHES(expr.second, err);
+/// same as the provided error and returning the result value
+/// @param pair_expr The expression returning the pair to evaluate
+/// @param err The expected error
+/// @return The first element of the pair (the result value) if error matches
+#define ASSERT_OCCURRED_AS_P(pair_expr, err)                                           \
+    xtest::assert_occurred_as_p((pair_expr), (err), __FILE__, __LINE__)
 
 /// @brief macro asserting that the provided error matches the expeced err via a call
 /// to err.matches(expect).
@@ -394,7 +488,8 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
 
 /// @brief macro asserting that the provided error will eventually be NIL.
 /// @param expr The expression to evaluate
-#define ASSERT_EVENTUALLY_NIL(expr) xtest::eventually_nil([&]() { return (expr); });
+#define ASSERT_EVENTUALLY_NIL(expr)                                                    \
+    xtest::eventually_nil([&]() { return (expr); }, __FILE__, __LINE__)
 
 /// @brief Asserts that a pair's error component will eventually become nil and
 /// returns the value component
@@ -402,6 +497,8 @@ auto assert_nil_p(Pair &&pair_result, const char *file, const int line) ->
 /// @tparam DurationTimeout Type of the timeout duration
 /// @tparam DurationInterval Type of the interval duration
 /// @param actual A function that returns the pair to be checked
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param timeout Maximum time to wait for the error to become nil (default: 1
 /// second)
 /// @param interval Time to wait between checks (default: 1 millisecond)
@@ -414,6 +511,8 @@ template<
     typename DurationInterval = std::chrono::milliseconds>
 T eventually_nil_p(
     const std::function<std::pair<T, xerrors::Error>()> &actual,
+    const char *file,
+    const int line,
     const DurationTimeout &timeout = std::chrono::seconds(1),
     const DurationInterval &interval = std::chrono::milliseconds(1)
 ) {
@@ -441,6 +540,8 @@ T eventually_nil_p(
                    << "ms. Expected NIL, but got " << result.second;
                 return ss.str();
             },
+            file,
+            line,
             timeout_ms,
             interval_ms
         );
@@ -459,9 +560,11 @@ T eventually_nil_p(
 /// @return The value component of the pair once the error becomes nil
 #define ASSERT_EVENTUALLY_NIL_P(expr)                                                  \
     xtest::eventually_nil_p<                                                           \
-        typename std::remove_reference<decltype((expr).first)>::type>([&]() {          \
-        return (expr);                                                                 \
-    })
+        typename std::remove_reference<decltype((expr).first)>::type>(                 \
+        [&]() { return (expr); },                                                      \
+        __FILE__,                                                                      \
+        __LINE__                                                                       \
+    )
 
 /// @brief macro for asserting that a pair's error component will eventually become nil
 /// with custom timeout and interval
@@ -473,16 +576,22 @@ T eventually_nil_p(
     xtest::eventually_nil_p<                                                           \
         typename std::remove_reference<decltype((expr).first)>::type>(                 \
         [&]() { return (expr); },                                                      \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
         (timeout),                                                                     \
         (interval)                                                                     \
     )
 
 /// @brief Asserts that a boolean condition will eventually become false
 /// @param condition A function that returns the boolean condition to check
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param timeout Maximum time to wait for the condition (default: 1 second)
 /// @param interval Time to wait between checks (default: 1 millisecond)
 inline void eventually_false(
     const std::function<bool()> &condition,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
@@ -499,6 +608,8 @@ inline void eventually_false(
                << "ms. Expected FALSE, but got TRUE";
             return ss.str();
         },
+        file,
+        line,
         timeout,
         interval
     );
@@ -506,10 +617,14 @@ inline void eventually_false(
 
 /// @brief Asserts that a boolean condition will eventually become true
 /// @param condition A function that returns the boolean condition to check
+/// @param file The source file name (for proper stack traces)
+/// @param line The source line number (for proper stack traces)
 /// @param timeout Maximum time to wait for the condition (default: 1 second)
 /// @param interval Time to wait between checks (default: 1 millisecond)
 inline void eventually_true(
     const std::function<bool()> &condition,
+    const char *file,
+    const int line,
     const std::chrono::milliseconds timeout = std::chrono::seconds(1),
     const std::chrono::milliseconds interval = std::chrono::milliseconds(1)
 ) {
@@ -526,6 +641,8 @@ inline void eventually_true(
                << "ms. Expected TRUE, but got FALSE";
             return ss.str();
         },
+        file,
+        line,
         timeout,
         interval
     );
@@ -533,7 +650,8 @@ inline void eventually_true(
 
 /// @brief macro for asserting that a condition will eventually become false
 /// @param expr The expression to evaluate
-#define ASSERT_EVENTUALLY_FALSE(expr) xtest::eventually_false([&]() { return (expr); })
+#define ASSERT_EVENTUALLY_FALSE(expr)                                                  \
+    xtest::eventually_false([&]() { return (expr); }, __FILE__, __LINE__)
 
 /// @brief macro for asserting that a condition will eventually become false with custom
 /// timeout and interval
@@ -541,11 +659,18 @@ inline void eventually_true(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_FALSE_WITH_TIMEOUT(expr, timeout, interval)                  \
-    xtest::eventually_false([&]() { return (expr); }, (timeout), (interval))
+    xtest::eventually_false(                                                           \
+        [&]() { return (expr); },                                                      \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
+        (timeout),                                                                     \
+        (interval)                                                                     \
+    )
 
 /// @brief macro for asserting that a condition will eventually become true
 /// @param expr The expression to evaluate
-#define ASSERT_EVENTUALLY_TRUE(expr) xtest::eventually_true([&]() { return (expr); })
+#define ASSERT_EVENTUALLY_TRUE(expr)                                                   \
+    xtest::eventually_true([&]() { return (expr); }, __FILE__, __LINE__)
 
 /// @brief macro for asserting that a condition will eventually become true with custom
 /// timeout and interval
@@ -553,5 +678,11 @@ inline void eventually_true(
 /// @param timeout Maximum time to wait for the condition
 /// @param interval Time to wait between checks
 #define ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(expr, timeout, interval)                   \
-    xtest::eventually_true([&]() { return (expr); }, (timeout), (interval))
+    xtest::eventually_true(                                                            \
+        [&]() { return (expr); },                                                      \
+        __FILE__,                                                                      \
+        __LINE__,                                                                      \
+        (timeout),                                                                     \
+        (interval)                                                                     \
+    )
 }

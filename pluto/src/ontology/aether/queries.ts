@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,8 +12,10 @@ import { deep } from "@synnaxlabs/x";
 
 import { type flux } from "@/flux/aether";
 
-export interface RelationshipFluxStore
-  extends flux.UnaryStore<string, ontology.Relationship> {}
+export interface RelationshipFluxStore extends flux.UnaryStore<
+  string,
+  ontology.Relationship
+> {}
 
 export interface ResourceFluxStore extends flux.UnaryStore<string, ontology.Resource> {}
 

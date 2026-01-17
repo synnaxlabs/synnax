@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,10 +19,10 @@ import (
 
 // Int32Counter is an atomic, file backed counter.
 type Int32Counter struct {
-	wrapped int32
 	f       ReaderAtWriterAtCloser
-	mu      sync.RWMutex
 	buf     []byte
+	mu      sync.RWMutex
+	wrapped int32
 }
 
 // NewInt32Counter opens a new, atomic counter backed by the given file. The counter

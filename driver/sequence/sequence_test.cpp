@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,8 +24,8 @@ TEST(Sequence, nominal) {
     read_channel.key = 2;
     read_channel.name = "read_channel";
     read_channel.data_type = telem::FLOAT64_T;
-    auto fr_1 = synnax::Frame(read_channel.key, telem::Series(1.0));
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto fr_1 = telem::Frame(read_channel.key, telem::Series(1.0));
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
     reads->push_back(std::move(fr_1));
     auto streamer_factory = pipeline::mock::simple_streamer_factory(
         {read_channel.key},
@@ -144,9 +144,9 @@ TEST(Sequence, restart) {
     read_channel.name = "read_channel";
     read_channel.data_type = telem::FLOAT64_T;
 
-    auto fr_1 = synnax::Frame(read_channel.key, telem::Series(1.0));
-    auto fr_2 = synnax::Frame(read_channel.key, telem::Series(2.0));
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto fr_1 = telem::Frame(read_channel.key, telem::Series(1.0));
+    auto fr_2 = telem::Frame(read_channel.key, telem::Series(2.0));
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
     reads->push_back(std::move(fr_1));
     reads->push_back(std::move(fr_2));
 

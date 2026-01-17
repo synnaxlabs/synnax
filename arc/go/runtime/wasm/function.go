@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,9 +26,9 @@ type Function struct {
 	fn           api.Function
 	mem          api.Memory
 	outputs      types.Params
-	base         uint32
 	offsets      []uint32
 	outputValues []result
+	base         uint32
 }
 
 func (f *Function) Call(ctx context.Context, params ...uint64) ([]result, error) {

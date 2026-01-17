@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -43,8 +43,8 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -55,7 +55,7 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Label:    labelSvc,
 		}))
-		rackService = MustSucceed(rack.OpenService(ctx, rack.Config{
+		rackService = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
@@ -63,7 +63,7 @@ var _ = Describe("Task", Ordered, func() {
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 		}))
-		svc = MustSucceed(task.OpenService(ctx, task.Config{
+		svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -112,9 +112,9 @@ var _ = Describe("Task", Ordered, func() {
 		)
 		It("Should decode StatusDetails with task key as string", func() {
 			type statusDetailsWithString struct {
+				Data    map[string]any `msgpack:"data"`
 				Task    string         `msgpack:"task"`
 				Running bool           `msgpack:"running"`
-				Data    map[string]any `msgpack:"data"`
 			}
 			original := statusDetailsWithString{
 				Task:    "281543696187399",
@@ -129,9 +129,9 @@ var _ = Describe("Task", Ordered, func() {
 		})
 		It("Should decode StatusDetails with task key as float64", func() {
 			type statusDetailsWithFloat struct {
+				Data    map[string]any `msgpack:"data"`
 				Task    float64        `msgpack:"task"`
 				Running bool           `msgpack:"running"`
-				Data    map[string]any `msgpack:"data"`
 			}
 			original := statusDetailsWithFloat{
 				Task:    float64(65536),
@@ -316,12 +316,12 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.NotFound))
+			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(m.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -338,14 +338,14 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(m.Key).String()).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
 
 		It("Should use the provided status when creating a task", func() {
 			providedStatus := &task.Status{
-				Variant:     xstatus.SuccessVariant,
+				Variant:     xstatus.VariantSuccess,
 				Message:     "Custom task status",
 				Description: "Task is running",
 				Time:        telem.Now(),
@@ -365,7 +365,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(m.Key).String()).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.SuccessVariant))
+			Expect(taskStatus.Variant).To(Equal(xstatus.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Custom task status"))
 			Expect(taskStatus.Description).To(Equal("Task is running"))
 			// Key should be auto-assigned
@@ -405,7 +405,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(copied.Key).String()).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(copiedStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
@@ -428,7 +428,7 @@ var _ = Describe("Task", Ordered, func() {
 					WhereKeys(task.OntologyID(t.Key).String()).
 					Entry(&taskStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(taskStatus.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
 				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 			}).Should(Succeed())
@@ -438,8 +438,8 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create unknown statuses for tasks missing them", func() {
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -450,14 +450,14 @@ var _ = Describe("Task", Ordered, func() {
 				Group:    g,
 				Label:    labelSvc,
 			}))
-			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
 				HostProvider: mock.StaticHostKeyProvider(1),
 				Status:       stat,
 			}))
-			svc := MustSucceed(task.OpenService(ctx, task.Config{
+			svc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -476,9 +476,9 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
 				WhereKeys(task.OntologyID(t.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, nil)).To(MatchError(query.NotFound))
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			Expect(svc.Close()).To(Succeed())
-			svc = MustSucceed(task.OpenService(ctx, task.Config{
+			svc = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -490,7 +490,7 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(t.Key).String()).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 			Expect(restoredStatus.Details.Task).To(Equal(t.Key))
 			Expect(svc.Close()).To(Succeed())

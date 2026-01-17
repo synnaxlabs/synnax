@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,9 +25,9 @@ TEST(ChannelReceive, Basic) {
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = telem::FLOAT64_T;
-    auto fr_1 = synnax::Frame(1);
+    auto fr_1 = telem::Frame(1);
     fr_1.emplace(1, telem::Series(1.0, telem::FLOAT64_T));
-    const auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    const auto reads = std::make_shared<std::vector<telem::Frame>>();
     reads->push_back(std::move(fr_1));
     const auto factory = pipeline::mock::simple_streamer_factory({ch.key}, reads);
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
@@ -52,7 +52,7 @@ TEST(ChannelReceive, StopBeforeStart) {
     ch.data_type = telem::FLOAT64_T;
     const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<synnax::Frame>>()
+        std::make_shared<std::vector<telem::Frame>>()
     );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
@@ -70,7 +70,7 @@ TEST(ChannelReceive, DoubleStart) {
     ch.data_type = telem::FLOAT64_T;
     const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<synnax::Frame>>()
+        std::make_shared<std::vector<telem::Frame>>()
     );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
@@ -90,7 +90,7 @@ TEST(ChannelReceive, DoubleStop) {
     ch.data_type = telem::FLOAT64_T;
     const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
-        std::make_shared<std::vector<synnax::Frame>>()
+        std::make_shared<std::vector<telem::Frame>>()
     );
     auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();

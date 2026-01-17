@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,12 +17,12 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[CesiumTS-1]
+	_ = x[TSEngineCesium-1]
 }
 
-const _TSEngine_name = "CesiumTS"
+const _TSEngine_name = "TSEngineCesium"
 
-var _TSEngine_index = [...]uint8{0, 8}
+var _TSEngine_index = [...]uint8{0, 14}
 
 func (i TSEngine) String() string {
 	i -= 1

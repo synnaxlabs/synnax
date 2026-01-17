@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ package cesium
 import (
 	"io"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
@@ -20,16 +20,14 @@ import (
 )
 
 type Writer struct {
-	cfg       WriterConfig
 	requests  confluence.Inlet[WriterRequest]
 	responses confluence.Outlet[WriterResponse]
 	shutdown  io.Closer
 	closeErr  error
+	cfg       WriterConfig
 }
 
-const unexpectedSteamClosure = "unexpected early closure of response stream"
-
-var errWriterClosed = core.NewErrResourceClosed("cesium.writer")
+var errWriterClosed = resource.NewClosedError("cesium.writer")
 
 func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 	sCtx, cancel := signal.Isolated()
@@ -51,7 +49,7 @@ func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 }
 
 func (w *Writer) Write(frame Frame) (authorized bool, err error) {
-	res, err := w.exec(WriterRequest{Frame: frame, Command: WriterWrite}, *w.cfg.Sync)
+	res, err := w.exec(WriterRequest{Frame: frame, Command: WriterCommandWrite}, *w.cfg.Sync)
 	if err != nil {
 		return false, err
 	}
@@ -60,13 +58,13 @@ func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
-	res, err := w.exec(WriterRequest{Command: WriterCommit}, true)
+	res, err := w.exec(WriterRequest{Command: WriterCommandCommit}, true)
 	return res.End, err
 }
 
 // SetAuthority is synchronous
 func (w *Writer) SetAuthority(cfg WriterConfig) error {
-	_, err := w.exec(WriterRequest{Config: cfg, Command: WriterSetAuthority}, true)
+	_, err := w.exec(WriterRequest{Config: cfg, Command: WriterCommandSetAuthority}, true)
 	return err
 }
 

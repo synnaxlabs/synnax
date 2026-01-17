@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,11 +18,12 @@ import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs } from "@/hooks";
 import { type InputProps, type Variant } from "@/input/types";
-import { Text as CoreText } from "@/text";
+import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
 export interface TextProps
-  extends InputProps<string>,
+  extends
+    InputProps<string>,
     Omit<Button.ExtensionProps, "variant">,
     Tooltip.WrapProps {
   selectOnFocus?: boolean;
@@ -203,24 +204,24 @@ export const Text = ({
       {...restButtonProps}
     >
       {showPlaceholder && (
-        <CoreText.Text
+        <BaseText.Text
           className={CSS(
             CSS.visible(false),
             CSS.BE("input", "placeholder"),
             centerPlaceholder && CSS.M("centered"),
           )}
-          level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
+          level={level ?? BaseText.COMPONENT_SIZE_LEVELS[size]}
         >
           {placeholder}
-        </CoreText.Text>
+        </BaseText.Text>
       )}
       {startContent != null && (
-        <CoreText.Text
+        <BaseText.Text
           className={CSS.BE("input", "start-content")}
-          level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
+          level={level ?? BaseText.COMPONENT_SIZE_LEVELS[size]}
         >
           {startContent}
-        </CoreText.Text>
+        </BaseText.Text>
       )}
       <Generic.Element<"textarea" | "input">
         el={area ? "textarea" : "input"}
@@ -242,12 +243,12 @@ export const Text = ({
         {...rest}
       />
       {endContent != null && (
-        <CoreText.Text
+        <BaseText.Text
           className={CSS.BE("input", "end-content")}
-          level={level ?? CoreText.COMPONENT_SIZE_LEVELS[size]}
+          level={level ?? BaseText.COMPONENT_SIZE_LEVELS[size]}
         >
           {endContent}
-        </CoreText.Text>
+        </BaseText.Text>
       )}
     </Button.Button>
   );

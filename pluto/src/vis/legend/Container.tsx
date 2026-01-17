@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,8 +21,7 @@ import { state } from "@/state";
 import { preventDefault } from "@/util/event";
 
 export interface ContainerProps
-  extends Omit<Flex.BoxProps, "onChange">,
-    Partial<OptionalControl<sticky.XY>> {
+  extends Omit<Flex.BoxProps, "onChange">, Partial<OptionalControl<sticky.XY>> {
   dragEnabled?: boolean;
   initial?: sticky.XY;
 }

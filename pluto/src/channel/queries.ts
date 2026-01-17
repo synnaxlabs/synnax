@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,8 +19,8 @@ import { state } from "@/state";
 import { type Status } from "@/status";
 
 export const FLUX_STORE_KEY = "channels";
-const RESOURCE_NAME = "Channel";
-const PLURAL_RESOURCE_NAME = "Channels";
+const RESOURCE_NAME = "channel";
+const PLURAL_RESOURCE_NAME = "channels";
 
 export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
 
@@ -345,7 +345,7 @@ export const useCalculatedForm = Flux.createForm<
   typeof calculatedFormSchema,
   FluxSubStore
 >({
-  name: "Calculated Channel",
+  name: "calculated channel",
   schema: calculatedFormSchema,
   initialValues: ZERO_FORM_VALUES,
   retrieve: retrieveInitialFormValues,
@@ -441,8 +441,10 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 const ALIAS_RESOURCE_NAME = "channel alias";
 
-export interface UpdateAliasParams
-  extends optional.Optional<ranger.Alias, "range" | "channel"> {
+export interface UpdateAliasParams extends optional.Optional<
+  ranger.Alias,
+  "range" | "channel"
+> {
   alias: string;
 }
 
@@ -513,7 +515,7 @@ export const { useRetrieve: useRetrieveGroup } = Flux.createRetrieve<
   group.Group,
   FluxSubStore
 >({
-  name: RESOURCE_NAME,
+  name: "Channel Group",
   retrieve: async ({ client, store }) => {
     const g = await client.channels.retrieveGroup();
     store.groups.set(g.key, g);

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -120,50 +120,50 @@ func compileReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	return nil
 }
 
-func compileChannelOperation(ctx context.Context[parser.IChannelOperationContext]) error {
-	if chanWrite := ctx.AST.ChannelWrite(); chanWrite != nil {
-		return compileChannelWrite(context.Child(ctx, chanWrite))
-	}
-	if chanRead := ctx.AST.ChannelRead(); chanRead != nil {
-		return compileChannelRead(context.Child(ctx, chanRead))
-	}
-	return errors.New("unknown channel operation")
-}
-
-func compileChannelWrite(ctx context.Context[parser.IChannelWriteContext]) error {
-	var (
-		channelName string
-		valueExpr   parser.IExpressionContext
-	)
-	if ctx.AST.Expression() != nil && ctx.AST.IDENTIFIER() != nil {
-		valueExpr = ctx.AST.Expression()
-		channelName = ctx.AST.IDENTIFIER().GetText()
-	}
-	valueType, err := expression.Compile(context.Child(ctx, valueExpr))
+func compileFunctionCall(ctx context.Context[parser.IFunctionCallContext]) (types.Type, error) {
+	funcName := ctx.AST.IDENTIFIER().GetText()
+	scope, err := ctx.Scope.Resolve(ctx, funcName)
 	if err != nil {
-		return errors.Wrap(err, "failed to compile channel write value")
+		return types.Type{}, errors.Wrapf(err, "undefined function: %s", funcName)
 	}
-	sym, err := ctx.Scope.Resolve(ctx, channelName)
-	if err != nil {
-		return err
+	if scope.Kind != symbol.KindFunction {
+		return types.Type{}, errors.Newf("%s is not a function", funcName)
 	}
-	ctx.Writer.WriteLocalGet(sym.ID)
-	importIdx, err := ctx.Imports.GetChannelWrite(valueType)
-	if err != nil {
-		return errors.Wrap(err, "failed to compile channel write import")
-	}
-	ctx.Writer.WriteCall(importIdx)
-	return nil
-}
 
-func compileChannelRead(_ context.Context[parser.IChannelReadContext]) error {
-	// TODO: Implement this
-	// See https://linear.app/synnax/issue/SY-3178/handle-channel-reads-in-arc
-	return errors.New("standalone channel reads not implemented")
-}
+	funcType := scope.Type
 
-func compileFunctionCall(_ context.Context[parser.IFunctionCallContext]) (types.Type, error) {
-	// TODO: Implement function calls
-	// See https://linear.app/synnax/issue/SY-3177/handle-function-calls-in-arc
-	return types.Type{}, errors.New("function calls not yet implemented")
+	funcIdx, ok := ctx.FunctionIndices[funcName]
+	if !ok {
+		return types.Type{}, errors.Newf("function %s not found in index map", funcName)
+	}
+
+	if argList := ctx.AST.ArgumentList(); argList != nil {
+		args := argList.AllExpression()
+		if len(args) != len(funcType.Inputs) {
+			return types.Type{}, errors.Newf(
+				"function %s expects %d arguments, got %d",
+				funcName, len(funcType.Inputs), len(args),
+			)
+		}
+		for i, arg := range args {
+			paramType := funcType.Inputs[i].Type
+			argType, err := expression.Compile(context.Child(ctx, arg).WithHint(paramType))
+			if err != nil {
+				return types.Type{}, errors.Wrapf(err, "argument %d", i)
+			}
+			if !types.Equal(argType, paramType) {
+				if err := expression.EmitCast(ctx, argType, paramType); err != nil {
+					return types.Type{}, err
+				}
+			}
+		}
+	}
+
+	ctx.Writer.WriteCall(funcIdx)
+	// Drop return value for statement-level calls
+	defaultOutput, hasDefault := funcType.Outputs.Get(ir.DefaultOutputParam)
+	if hasDefault && defaultOutput.Type.IsValid() {
+		ctx.Writer.WriteOpcode(wasm.OpDrop)
+	}
+	return types.Type{}, nil
 }

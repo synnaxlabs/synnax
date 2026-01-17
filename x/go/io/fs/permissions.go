@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,33 +12,37 @@ package fs
 import "os"
 
 const (
-	read    = 0o4
-	write   = 0o2
-	execute = 0o1
+	rBit = 0o4
+	wBit = 0o2
+	xBit = 0o1
 
-	ownerShift  = 6
-	groupShift  = 3
-	othersShift = 0
+	userShift  = 6
+	groupShift = 3
+	otherShift = 0
 
-	OwnerRead             os.FileMode = read << ownerShift
-	OwnerWrite            os.FileMode = write << ownerShift
-	OwnerExecute          os.FileMode = execute << ownerShift
-	OwnerReadWrite        os.FileMode = OwnerRead | OwnerWrite
-	OwnerReadWriteExecute os.FileMode = OwnerReadWrite | OwnerExecute
+	UserR   os.FileMode = rBit << userShift
+	UserW   os.FileMode = wBit << userShift
+	UserX   os.FileMode = xBit << userShift
+	UserRW  os.FileMode = UserR | UserW
+	UserRX  os.FileMode = UserR | UserX
+	UserWX  os.FileMode = UserW | UserX
+	UserRWX os.FileMode = UserRW | UserX
 
-	GroupRead             os.FileMode = read << groupShift
-	GroupWrite            os.FileMode = write << groupShift
-	GroupExecute          os.FileMode = execute << groupShift
-	GroupReadWrite        os.FileMode = GroupRead | GroupWrite
-	GroupReadExecute      os.FileMode = GroupRead | GroupExecute
-	GroupReadWriteExecute os.FileMode = GroupReadWrite | GroupExecute
+	GroupR   os.FileMode = rBit << groupShift
+	GroupW   os.FileMode = wBit << groupShift
+	GroupX   os.FileMode = xBit << groupShift
+	GroupRW  os.FileMode = GroupR | GroupW
+	GroupRX  os.FileMode = GroupR | GroupX
+	GroupWX  os.FileMode = GroupW | GroupX
+	GroupRWX os.FileMode = GroupRW | GroupX
 
-	OthersRead             os.FileMode = read << othersShift
-	OthersWrite            os.FileMode = write << othersShift
-	OthersExecute          os.FileMode = execute << othersShift
-	OthersReadWrite        os.FileMode = OthersRead | OthersWrite
-	OthersReadExecute      os.FileMode = OthersRead | OthersExecute
-	OthersReadWriteExecute os.FileMode = OthersReadWrite | OthersExecute
+	OtherR   os.FileMode = rBit << otherShift
+	OtherW   os.FileMode = wBit << otherShift
+	OtherX   os.FileMode = xBit << otherShift
+	OtherRW  os.FileMode = OtherR | OtherW
+	OtherRX  os.FileMode = OtherR | OtherX
+	OtherWX  os.FileMode = OtherW | OtherX
+	OtherRWX os.FileMode = OtherRW | OtherX
 )
 
 // HasSufficientPermissions checks if the given actual file mode grants at least the

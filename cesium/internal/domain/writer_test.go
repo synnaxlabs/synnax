@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,16 +18,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-func extractPointer(f xfs.File) (p struct {
+func extractPointer(f fs.File) (p struct {
 	telem.TimeRange
 	fileKey uint16
 	offset  uint32
@@ -60,7 +60,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 		Context("FS: "+fsName, func() {
 			var (
 				db      *domain.DB
-				fs      xfs.FS
+				fs      fs.FS
 				cleanUp func() error
 			)
 			BeforeEach(func() {
@@ -93,7 +93,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow opening a writer on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
 				})
 			})
 			Describe("Start Validation", func() {
@@ -336,7 +336,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(HaveOccurredAs(validate.ErrValidation))
 						Expect(w.Close()).To(Succeed())
 					})
 					It("Should not fail to commit if no data was written", func() {
@@ -353,7 +353,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(HaveOccurredAs(validate.ErrValidation))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
@@ -391,7 +391,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 							Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
-							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
+							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(HaveOccurredAs(validate.ErrValidation))
 							Expect(w.Close()).To(Succeed())
 						})
 					})
@@ -572,7 +572,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow operations on a closed writer", func() {
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-						e = core.NewErrResourceClosed("domain.writer")
+						e = resource.NewClosedError("domain.writer")
 					)
 					Expect(w.Close()).To(Succeed())
 					err := w.Commit(ctx, telem.TimeStampMax)
@@ -585,12 +585,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not open a writer on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
+					Expect(err).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
 				})
 
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.NewErrResourceClosed("domain.db")))
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
 				})
 			})
 		})

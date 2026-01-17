@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -336,3 +336,92 @@ class TestIterator:
         # Call without specifying n (should default to 1)
         result = client.read_latest(data_ch.key)
         assert np.array_equal(result, np.array([10]))
+
+    def test_downsample_factor_2(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        """Test downsampling with factor of 2."""
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 8)
+        data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], dtype=np.float32)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+
+        with client.open_iterator(
+            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=2
+        ) as i:
+            assert i.seek_first()
+            assert i.next(sy.framer.AUTO_SPAN)
+            # [1, 2, 3, 4, 5, 6, 7, 8] downsampled by 2 = [1, 3, 5, 7]
+            result = i.value.get(data_ch.key).to_numpy()
+            assert np.array_equal(result, np.array([1.0, 3.0, 5.0, 7.0]))
+
+    def test_downsample_factor_3(self, indexed_pair: sy.Channel, client: sy.Synnax):
+        """Test downsampling with factor of 3."""
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 9)
+        data = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], dtype=np.float32)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+
+        with client.open_iterator(
+            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=3
+        ) as i:
+            assert i.seek_first()
+            assert i.next(sy.framer.AUTO_SPAN)
+            # [1, 2, 3, 4, 5, 6, 7, 8, 9] downsampled by 3 = [1, 4, 7]
+            result = i.value.get(data_ch.key).to_numpy()
+            assert np.array_equal(result, np.array([1.0, 4.0, 7.0]))
+
+    @pytest.mark.parametrize("factor", [0, 1, -1])
+    def test_no_downsample_when_factor_lte_1(
+        self, factor: int, indexed_pair: sy.Channel, client: sy.Synnax
+    ):
+        """Test that downsampling does not occur when factor is 0, 1, or negative."""
+        idx_ch, data_ch = indexed_pair
+        time_data = seconds_linspace(1, 4)
+        data = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float32)
+        idx_ch.write(sy.TimeSpan.SECOND * 1, time_data)
+        data_ch.write(sy.TimeSpan.SECOND * 1, data)
+
+        with client.open_iterator(
+            sy.TimeRange.MAX, data_ch.key, downsample_factor=factor
+        ) as i:
+            assert i.seek_first()
+            assert i.next(sy.framer.AUTO_SPAN)
+            result = i.value.get(data_ch.key).to_numpy()
+            assert np.array_equal(result, np.array([1.0, 2.0, 3.0, 4.0]))
+
+    def test_downsample_multiple_domains(self, client: sy.Synnax):
+        """Test downsampling across multiple domains."""
+        idx_ch = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        data_ch = client.channels.create(
+            name=random_name(),
+            data_type=sy.DataType.FLOAT32,
+            index=idx_ch.key,
+        )
+
+        # First domain
+        idx_ch.write(sy.TimeSpan.SECOND * 1, seconds_linspace(1, 3))
+        data_ch.write(
+            sy.TimeSpan.SECOND * 1, np.array([1.0, 2.0, 3.0], dtype=np.float32)
+        )
+
+        # Second domain (gap)
+        idx_ch.write(sy.TimeSpan.SECOND * 10, seconds_linspace(10, 4))
+        data_ch.write(
+            sy.TimeSpan.SECOND * 10,
+            np.array([10.0, 11.0, 12.0, 13.0], dtype=np.float32),
+        )
+
+        with client.open_iterator(
+            sy.TimeRange.MAX, [idx_ch.key, data_ch.key], downsample_factor=2
+        ) as i:
+            assert i.seek_first()
+            assert i.next(sy.framer.AUTO_SPAN)
+            # Domain 0: [1, 2, 3] downsampled by 2 = [1, 3]
+            # Domain 1: [10, 11, 12, 13] downsampled by 2 = [10, 12]
+            result = i.value.get(data_ch.key).to_numpy()
+            assert np.array_equal(result, np.array([1.0, 3.0, 10.0, 12.0]))

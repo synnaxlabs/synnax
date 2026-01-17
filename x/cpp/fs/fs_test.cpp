@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,6 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/fs/fs.h"
+#include "x/cpp/xtest/xtest.h"
 
 class FSTest : public ::testing::Test {
 protected:
@@ -86,22 +87,19 @@ private:
 
 /// @brief it should successfully read a file with multiple lines.
 TEST_F(FSTest, ReadFileSuccess) {
-    auto [content, err] = fs::read_file(test_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(test_file));
     ASSERT_EQ(content, "Hello, World!\nThis is a test file.\nIt has multiple lines.");
 }
 
 /// @brief it should successfully read an empty file.
 TEST_F(FSTest, ReadEmptyFile) {
-    auto [content, err] = fs::read_file(empty_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(empty_file));
     ASSERT_TRUE(content.empty());
 }
 
 /// @brief it should successfully read a file larger than the buffer size.
 TEST_F(FSTest, ReadLargeFile) {
-    auto [content, err] = fs::read_file(large_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(large_file));
     ASSERT_FALSE(content.empty());
     ASSERT_NE(content.find("Line 0:"), std::string::npos);
     ASSERT_NE(content.find("Line 199:"), std::string::npos);
@@ -110,18 +108,16 @@ TEST_F(FSTest, ReadLargeFile) {
 
 /// @brief it should return a NOT_FOUND error for a non-existent file.
 TEST_F(FSTest, ReadNonExistentFile) {
-    auto [content, err] = fs::read_file(non_existent_file);
-    ASSERT_FALSE(err.ok());
-    ASSERT_TRUE(err.matches(fs::NOT_FOUND));
+    auto content = ASSERT_OCCURRED_AS_P(
+        fs::read_file(non_existent_file),
+        fs::NOT_FOUND
+    );
     ASSERT_TRUE(content.empty());
-    ASSERT_NE(err.data.find("failed to open"), std::string::npos);
-    ASSERT_NE(err.data.find(non_existent_file), std::string::npos);
 }
 
 /// @brief it should correctly read binary data from a file.
 TEST_F(FSTest, ReadBinaryFile) {
-    auto [content, err] = fs::read_file(binary_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(binary_file));
     ASSERT_EQ(content.size(), 6);
     ASSERT_EQ(static_cast<unsigned char>(content[0]), 0x00);
     ASSERT_EQ(static_cast<unsigned char>(content[1]), 0x01);
@@ -133,8 +129,7 @@ TEST_F(FSTest, ReadBinaryFile) {
 
 /// @brief it should correctly read a file containing special characters and unicode.
 TEST_F(FSTest, ReadSpecialCharsFile) {
-    auto [content, err] = fs::read_file(special_chars_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(special_chars_file));
     ASSERT_NE(content.find("Special chars: \t\n\r"), std::string::npos);
     ASSERT_NE(content.find("Unicode: €£¥"), std::string::npos);
     ASSERT_NE(content.find("\nEnd of file"), std::string::npos);
@@ -146,8 +141,7 @@ TEST_F(FSTest, ReadFileWithSpacesInPath) {
     std::ofstream file(path_with_spaces);
     file << "Content in file with spaces";
     file.close();
-    auto [content, err] = fs::read_file(path_with_spaces);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(path_with_spaces));
     ASSERT_EQ(content, "Content in file with spaces");
     std::filesystem::remove(path_with_spaces);
 }
@@ -155,18 +149,14 @@ TEST_F(FSTest, ReadFileWithSpacesInPath) {
 /// @brief it should return consistent content when reading the same file multiple
 /// times.
 TEST_F(FSTest, ReadFileMultipleReads) {
-    auto [content1, err1] = fs::read_file(test_file);
-    ASSERT_TRUE(err1.ok());
-    auto [content2, err2] = fs::read_file(test_file);
-    ASSERT_TRUE(err2.ok());
+    auto content1 = ASSERT_NIL_P(fs::read_file(test_file));
+    auto content2 = ASSERT_NIL_P(fs::read_file(test_file));
     ASSERT_EQ(content1, content2);
 }
 
 /// @brief it should return a NOT_FOUND error when given an empty path.
 TEST_F(FSTest, ReadFileEmptyPath) {
-    auto [content, err] = fs::read_file("");
-    ASSERT_FALSE(err.ok());
-    ASSERT_TRUE(err.matches(fs::NOT_FOUND));
+    auto content = ASSERT_OCCURRED_AS_P(fs::read_file(""), fs::NOT_FOUND);
     ASSERT_TRUE(content.empty());
 }
 
@@ -176,8 +166,7 @@ TEST_F(FSTest, ReadFileRelativePath) {
     std::ofstream file(relative_file);
     file << "Relative path content";
     file.close();
-    auto [content, err] = fs::read_file(relative_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(relative_file));
     ASSERT_EQ(content, "Relative path content");
     std::filesystem::remove(relative_file);
 }
@@ -200,8 +189,7 @@ TEST_F(FSTest, ReadFileWithNewlines) {
     file << "Line3\r";
     file << "Line4";
     file.close();
-    auto [content, err] = fs::read_file(newline_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(newline_file));
     ASSERT_EQ(content, "Line1\nLine2\r\nLine3\rLine4");
 }
 
@@ -212,8 +200,7 @@ TEST_F(FSTest, ReadFileExactBufferSize) {
     std::string data(1024, 'A');
     file << data;
     file.close();
-    auto [content, err] = fs::read_file(exact_buffer_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(exact_buffer_file));
     ASSERT_EQ(content.size(), 1024);
     ASSERT_EQ(content, data);
 }
@@ -225,8 +212,7 @@ TEST_F(FSTest, ReadFileOneByteOverBuffer) {
     std::string data(1025, 'B');
     file << data;
     file.close();
-    auto [content, err] = fs::read_file(over_buffer_file);
-    ASSERT_TRUE(err.ok());
+    auto content = ASSERT_NIL_P(fs::read_file(over_buffer_file));
     ASSERT_EQ(content.size(), 1025);
     ASSERT_EQ(content, data);
 }

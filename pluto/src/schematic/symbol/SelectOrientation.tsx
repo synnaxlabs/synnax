@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import "@/schematic/symbol/SelectOrientation.css";
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Button as CoreButton } from "@/button";
+import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Input } from "@/input";
@@ -23,8 +23,7 @@ export interface OrientationValue {
 }
 
 export interface SelectOrientationProps
-  extends Input.Control<OrientationValue>,
-    Omit<Flex.BoxProps, "value" | "onChange"> {
+  extends Input.Control<OrientationValue>, Omit<Flex.BoxProps, "value" | "onChange"> {
   hideOuter?: boolean;
   showOuterCenter?: boolean;
   hideInner?: boolean;
@@ -144,17 +143,17 @@ const InternalOrientation = ({
   );
 };
 
-export interface ButtonProps extends Omit<CoreButton.ButtonProps, "children"> {
+export interface ButtonProps extends Omit<BaseButton.ButtonProps, "children"> {
   selected: boolean;
 }
 
 export const Button = ({ selected, className, ...rest }: ButtonProps): ReactElement => (
-  <CoreButton.Button
+  <BaseButton.Button
     variant="text"
     className={CSS(className, CSS.selected(selected))}
     size="tiny"
     {...rest}
   >
     <div className="symbol" />
-  </CoreButton.Button>
+  </BaseButton.Button>
 );

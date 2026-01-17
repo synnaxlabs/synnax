@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ import {
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Generic } from "@/generic";
-import { type text } from "@/text/core";
+import { type text } from "@/text/base";
 import { isValidElement } from "@/util/children";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
@@ -29,8 +29,7 @@ export type Variant = "prose" | "code" | "keyboard" | "link";
 export type Overflow = "ellipsis" | "clip" | "nowrap" | "wrap";
 
 export interface ExtensionProps
-  extends Flex.BoxExtensionProps,
-    Pick<AnchorProps, "href" | "target" | "rel"> {
+  extends Flex.BoxExtensionProps, Pick<AnchorProps, "href" | "target" | "rel"> {
   /* The level of text to display i.e. p, h1, h2 */
   level?: text.Level;
   /* The text to display */

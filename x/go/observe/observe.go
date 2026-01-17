@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -40,8 +40,8 @@ type Observer[T any] interface {
 }
 
 type base[T any] struct {
-	mu       sync.RWMutex
 	handlers map[*func(context.Context, T)]struct{}
+	mu       sync.RWMutex
 }
 
 // New creates a new observer with the given options.

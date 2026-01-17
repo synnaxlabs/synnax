@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,10 +10,10 @@
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Select as Core } from "@/select";
-import { Indicator } from "@/status/core/Indicator";
+import { Select as Base } from "@/select";
+import { Indicator } from "@/status/base/Indicator";
 
-const DATA: Core.StaticEntry<status.Variant>[] = [
+const DATA: Base.StaticEntry<status.Variant>[] = [
   {
     key: "success",
     name: "Success",
@@ -36,9 +36,11 @@ const DATA: Core.StaticEntry<status.Variant>[] = [
   },
 ];
 
-export interface SelectVariantProps
-  extends Omit<Core.StaticProps<status.Variant>, "data" | "resourceName"> {}
+export interface SelectVariantProps extends Omit<
+  Base.StaticProps<status.Variant>,
+  "data" | "resourceName"
+> {}
 
 export const SelectVariant = (props: SelectVariantProps): ReactElement => (
-  <Core.Static {...props} data={DATA} resourceName="variant" />
+  <Base.Static {...props} data={DATA} resourceName="status variant" />
 );

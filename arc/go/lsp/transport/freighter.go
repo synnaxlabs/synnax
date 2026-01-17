@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,9 +28,9 @@ type JSONRPCMessage struct {
 
 type streamAdapter struct {
 	stream      freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
-	mu          sync.Mutex
 	buffer      []byte
 	writeBuffer []byte
+	mu          sync.Mutex
 	closed      bool
 }
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,8 +45,8 @@ var _ = Describe("Rack", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		label := MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -57,7 +57,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Group:    g,
 			Label:    label,
 		}))
-		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
@@ -176,12 +176,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
 			var res rack.Rack
-			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.NotFound))
+			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&res).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
 				WhereKeys(rack.OntologyID(r.Key).String()).
 				Entry(&deletedStatus).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -238,7 +238,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Status unknown"))
-			Expect(s.Variant).To(Equal(xstatus.WarningVariant))
+			Expect(s.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			Expect(s.Key).To(ContainSubstring(string(rack.OntologyType)))
 			Expect(s.Details.Rack).To(Equal(r.Key))
@@ -246,7 +246,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should use the provided status when creating a rack", func() {
 			providedStatus := &rack.Status{
-				Variant:     xstatus.SuccessVariant,
+				Variant:     xstatus.VariantSuccess,
 				Time:        telem.Now(),
 				Message:     "Custom status message",
 				Description: "Custom description",
@@ -256,7 +256,7 @@ var _ = Describe("Rack", Ordered, func() {
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Custom status message"))
 			Expect(s.Description).To(Equal("Custom description"))
-			Expect(s.Variant).To(Equal(xstatus.SuccessVariant))
+			Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
 			// Key should be auto-assigned to match ontology ID
 			Expect(s.Key).To(Equal(rack.OntologyID(r.Key).String()))
 			// Time should be auto-filled
@@ -283,7 +283,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Eventually(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 				g.Expect(s.Message).To(Equal("Synnax Driver on dead test rack not running"))
-				g.Expect(s.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(s.Variant).To(Equal(xstatus.VariantWarning))
 				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 				g.Expect(s.Key).To(ContainSubstring(string(rack.OntologyType)))
 				g.Expect(s.Details.Rack).To(Equal(r.Key))
@@ -306,7 +306,7 @@ var _ = Describe("Rack", Ordered, func() {
 					Key:     rack.OntologyID(r.Key).String(),
 					Name:    r.Name,
 					Time:    telem.Now(),
-					Variant: xstatus.SuccessVariant,
+					Variant: xstatus.VariantSuccess,
 					Message: "Running",
 					Details: rack.StatusDetails{Rack: r.Key},
 				}
@@ -314,7 +314,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 				g.Expect(s.Message).To(Equal("Running"))
-				g.Expect(s.Variant).To(Equal(xstatus.SuccessVariant))
+				g.Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
 				g.Expect(s.Description).ToNot(ContainSubstring("Driver was last alive"))
 			}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
 		})
@@ -376,7 +376,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Key:     rack.OntologyID(r.Key).String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.SuccessVariant,
+				Variant: xstatus.VariantSuccess,
 				Message: "Running",
 				Details: rack.StatusDetails{Rack: r.Key},
 			})).To(Succeed())
@@ -391,8 +391,8 @@ var _ = Describe("Migration", func() {
 	It("Should create unknown statuses for racks missing them", func() {
 		db := gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -403,7 +403,7 @@ var _ = Describe("Migration", func() {
 			Group:    g,
 			Label:    labelSvc,
 		}))
-		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -417,9 +417,9 @@ var _ = Describe("Migration", func() {
 		Expect(status.NewRetrieve[rack.StatusDetails](stat).
 			WhereKeys(rack.OntologyID(r.Key).String()).
 			Entry(&deletedStatus).
-			Exec(ctx, nil)).To(MatchError(query.NotFound))
+			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		Expect(svc.Close()).To(Succeed())
-		svc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -431,7 +431,7 @@ var _ = Describe("Migration", func() {
 			WhereKeys(rack.OntologyID(r.Key).String()).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Variant).To(Equal(xstatus.WarningVariant))
+		Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Status unknown"))
 		Expect(restoredStatus.Details.Rack).To(Equal(r.Key))
 		Expect(svc.Close()).To(Succeed())
@@ -444,8 +444,8 @@ var _ = Describe("Migration", func() {
 	It("Should correctly migrate a v1 rack to a v2 rack", func() {
 		db := gorp.Wrap(memkv.New())
 		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		label := MustSucceed(label.OpenService(ctx, label.Config{
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -465,7 +465,7 @@ var _ = Describe("Migration", func() {
 			Entry(&v1EmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		svc := MustSucceed(rack.OpenService(ctx, rack.Config{
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,8 +10,10 @@
 import { type Cluster } from "@/cluster/slice";
 import { Runtime } from "@/runtime";
 
-export interface ConnectionParams
-  extends Pick<Cluster, "name" | "host" | "port" | "secure"> {}
+export interface ConnectionParams extends Pick<
+  Cluster,
+  "name" | "host" | "port" | "secure"
+> {}
 
 const DEV_CONNECTION: ConnectionParams = {
   name: "Core",

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
@@ -78,7 +78,7 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	if vOk {
 		return vCh.Channel(), nil
 	}
-	return Channel{}, core.NewErrChannelNotFound(key)
+	return Channel{}, channel.NewNotFoundError(key)
 }
 
 // RenameChannels finds the specified keys in the database and renames them to the new
@@ -90,7 +90,7 @@ func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []str
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	if len(keys) != len(names) {
-		return errors.Wrapf(validate.Error, "keys and names must have the same length")
+		return errors.Wrapf(validate.ErrValidation, "keys and names must have the same length")
 	}
 	for i := range keys {
 		if err := db.renameChannel(ctx, keys[i], names[i]); err != nil {
@@ -132,7 +132,7 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 		return nil
 	}
 
-	return core.NewErrChannelNotFound(key)
+	return channel.NewNotFoundError(key)
 }
 
 func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
@@ -153,13 +153,13 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	ch.Version = version.Current
+	ch.Version = version.VersionCurrent
 	err = db.openVirtualOrUnary(ctx, ch)
 	return err
 }
 
 func indexChannelNotFoundError(key ChannelKey) error {
-	return errors.Wrapf(query.NotFound, "index channel with key %d does not exist", key)
+	return errors.Wrapf(query.ErrNotFound, "index channel with key %d does not exist", key)
 }
 
 func (db *DB) validateNewChannel(ch Channel) error {
@@ -169,7 +169,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	_, unaryExists := db.mu.unaryDBs[ch.Key]
 	_, virtualExists := db.mu.virtualDBs[ch.Key]
 	if unaryExists || virtualExists {
-		return errors.Wrapf(validate.Error, "cannot create channel %v because it already exists", ch)
+		return errors.Wrapf(validate.ErrValidation, "cannot create channel %v because it already exists", ch)
 	}
 	if ch.Virtual {
 		return nil
@@ -181,7 +181,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		}
 		if !indexDB.Channel().IsIndex {
 			return validate.PathedError(
-				errors.Wrapf(validate.Error, "channel %v is not an index", indexDB.Channel()),
+				errors.Wrapf(validate.ErrValidation, "channel %v is not an index", indexDB.Channel()),
 				"index",
 			)
 		}
@@ -192,7 +192,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 // RekeyChannel changes the key of channel oldKey into newKey. This operation is
 // idempotent and does not return an error if the channel does not exist. RekeyChannel
 // returns an error if there are open iterators/writers on the given channel.
-func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey core.ChannelKey) error {
+func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channel.Key) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 

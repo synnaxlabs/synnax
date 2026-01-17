@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,8 +29,10 @@ export interface ContextMenuItemProps<C extends Channel> {
   channels: C[];
 }
 
-interface ContextMenuProps<C extends Channel>
-  extends Pick<Form.UseFieldListReturn<C["key"], C>, "data" | "remove"> {
+interface ContextMenuProps<C extends Channel> extends Pick<
+  Form.UseFieldListReturn<C["key"], C>,
+  "data" | "remove"
+> {
   keys: string[];
   allowTare?: (keys: string[], channels: C[]) => boolean;
   onDuplicate?: (channels: C[], keys: string[]) => void;
@@ -52,11 +54,14 @@ const ContextMenu = <C extends Channel>({
 }: ContextMenuProps<C>) => {
   const isSnapshot = useIsSnapshot();
   const handleRemove = () => onSelect(array.toArray(remove(keys)[0]));
-  const { set } = Form.useContext();
+  const { get, set } = Form.useContext();
   const channels = Form.useFieldValue<C[]>(path).filter(({ key }) =>
     keys.includes(key),
   );
-  const handleDuplicate = () => onDuplicate?.(channels, keys);
+  const handleDuplicate = () => {
+    const allChannels = get<C[]>(path).value;
+    onDuplicate?.(allChannels, keys);
+  };
   const handleDisable = () =>
     keys.forEach((key) => set(`${path}.${key}.enabled`, false));
   const handleEnable = () => keys.forEach((key) => set(`${path}.${key}.enabled`, true));
@@ -126,7 +131,8 @@ const ContextMenu = <C extends Channel>({
 export interface ChannelListItemProps extends List.ItemProps<string> {}
 
 export interface ChannelListProps<C extends Channel>
-  extends Omit<ContextMenuProps<C>, "keys">,
+  extends
+    Omit<ContextMenuProps<C>, "keys">,
     Pick<Flex.BoxProps, "onDragOver" | "onDrop" | "grow"> {
   emptyContent: ReactElement;
   header: ReactNode;

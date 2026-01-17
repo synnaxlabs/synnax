@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,8 +45,11 @@ type Status = status.Status[StatusDetails]
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	alamos.Instrumentation
-	DB *gorp.DB
+	// ChannelObservable is used to listen to real-time changes in calculated channels
+	// so the calculation routines can be updated accordingly.
+	// [REQUIRED]
+	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
+	DB                *gorp.DB
 	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
 	// [REQUIRED]
@@ -55,22 +58,20 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// ChannelObservable is used to listen to real-time changes in calculated channels
-	// so the calculation routines can be updated accordingly.
-	// [REQUIRED]
-	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
 	// Arc is used for compiling arc programs used for executing calculations.
 	// [REQUIRED]
 	Arc *arc.Service
 	// Status is used for persisting calculation status updates.
 	// [REQUIRED]
 	Status *status.Service
+	alamos.Instrumentation
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening the calculation service.
-	DefaultConfig = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening the calculation
+	// service.
+	DefaultServiceConfig = ServiceConfig{}
 )
 
 // Validate implements config.Config.
@@ -98,21 +99,22 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 }
 
 type Service struct {
-	cfg ServiceConfig
-	mu  struct {
-		sync.Mutex
+	cfg                          ServiceConfig
+	disconnectFromChannelChanges observe.Disconnect
+	statusWriter                 status.Writer[StatusDetails]
+	mu                           struct {
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
 		groups      map[int]*group
+		sync.Mutex
 	}
-	disconnectFromChannelChanges observe.Disconnect
-	statusWriter                 status.Writer[StatusDetails]
 }
+
 
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +174,7 @@ func (s *Service) handleChange(
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Variant != change.Set || !ch.IsCalculated() {
+		if cg.Variant != change.VariantSet || !ch.IsCalculated() {
 			continue
 		}
 		s.mu.Lock()
@@ -183,7 +185,7 @@ func (s *Service) handleChange(
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
 				Key:         ch.Key().String(),
-				Variant:     xstatus.ErrorVariant,
+				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
 				Description: err.Error(),
 			})
@@ -349,7 +351,7 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
 			statuses = append(statuses, calculator.Status{
 				Key:         ch.Key().String(),
-				Variant:     xstatus.ErrorVariant,
+				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})

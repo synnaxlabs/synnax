@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Access, Icon, Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Base, telem, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
@@ -79,7 +79,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [winKey, dispatch]);
 
   return (
-    <Core.Log
+    <Base.Log
       telem={t}
       onDoubleClick={handleDoubleClick}
       emptyContent={
@@ -99,7 +99,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 };
 
 const useLoadRemote = createLoadRemote<log.Log>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),

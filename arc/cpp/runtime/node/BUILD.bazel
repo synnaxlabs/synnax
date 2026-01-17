@@ -1,0 +1,14 @@
+cc_library(
+    name = "node",
+    hdrs = [
+        "node.h",
+        "factory.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/ir",
+        "//x/cpp/queue:SPSC",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+    ],
+)

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -107,19 +107,19 @@ func (s *StatusService) Set(
 }
 
 type StatusRetrieveRequest struct {
-	// Keys are the keys of the statuses to retrieve.
-	Keys []string `json:"keys" msgpack:"keys"`
 	// SearchTerm is used for fuzzy searching statuses.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Keys are the keys of the statuses to retrieve.
+	Keys []string `json:"keys" msgpack:"keys"`
+	// HasLabels retrieves statuses that are labeled by one or more labels with the
+	// given keys.
+	HasLabels []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
 	// Limit is the maximum number of statuses to retrieve.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
 	Offset int `json:"offset" msgpack:"offset"`
 	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
 	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
-	// HasLabels retrieves statuses that are labeled by one or more labels with the
-	// given keys.
-	HasLabels []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
 }
 
 type StatusRetrieveResponse struct {

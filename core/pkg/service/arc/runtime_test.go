@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -47,7 +47,7 @@ var _ = Describe("Runtime", func() {
 					return ""
 				}
 				return s.Variant
-			}).Should(Equal(xstatus.LoadingVariant))
+			}).Should(Equal(xstatus.VariantLoading))
 
 			deleteTx := db.OpenTx()
 			Expect(svc.NewWriter(deleteTx).Delete(ctx, a.Key)).To(Succeed())
@@ -57,7 +57,7 @@ var _ = Describe("Runtime", func() {
 				return status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(a.Key.String()).
 					Exec(ctx, db)
-			}).Should(HaveOccurredAs(query.NotFound))
+			}).Should(HaveOccurredAs(query.ErrNotFound))
 		})
 
 		It("Should properly clean up status when deployed arc is deleted", func() {
@@ -81,9 +81,9 @@ var _ = Describe("Runtime", func() {
 					Exec(ctx, db); err != nil {
 					return false
 				}
-				return s.Variant == xstatus.LoadingVariant ||
-					s.Variant == xstatus.ErrorVariant ||
-					s.Variant == xstatus.SuccessVariant
+				return s.Variant == xstatus.VariantLoading ||
+					s.Variant == xstatus.VariantError ||
+					s.Variant == xstatus.VariantSuccess
 			}).Should(BeTrue())
 
 			deleteTx := db.OpenTx()
@@ -94,7 +94,7 @@ var _ = Describe("Runtime", func() {
 				return status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(a.Key.String()).
 					Exec(ctx, db)
-			}).Should(HaveOccurredAs(query.NotFound))
+			}).Should(HaveOccurredAs(query.ErrNotFound))
 		})
 
 		It("Should write Stopped status when arc is updated not deleted", func() {

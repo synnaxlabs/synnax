@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,13 +17,13 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[Set-1]
-	_ = x[Delete-2]
+	_ = x[VariantSet-1]
+	_ = x[VariantDelete-2]
 }
 
-const _Variant_name = "SetDelete"
+const _Variant_name = "VariantSetVariantDelete"
 
-var _Variant_index = [...]uint8{0, 3, 9}
+var _Variant_index = [...]uint8{0, 10, 23}
 
 func (i Variant) String() string {
 	i -= 1

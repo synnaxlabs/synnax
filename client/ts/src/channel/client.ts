@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -222,9 +222,9 @@ const retrieveGroupReqZ = z.object({});
 const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 /**
- * The core client class for executing channel operations against a Synnax
- * cluster. This class should not be instantiated directly, and instead should be used
- * through the `channels` property of an {@link Synnax} client.
+ * The main client class for executing channel operations against a Synnax Core. This
+ * class should not be instantiated directly, and instead should be used through the
+ * `channels` property of an {@link Synnax} client.
  */
 export class Client {
   private readonly frameClient: framer.Client;

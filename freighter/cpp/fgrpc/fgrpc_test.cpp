@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -222,8 +222,7 @@ void client_send(
 ) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
-    auto [res, err] = client->send("", mes);
-    ASSERT_TRUE(err.ok());
+    auto res = ASSERT_NIL_P(client->send("", mes));
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 

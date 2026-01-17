@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Arc,
-  Arc as Core,
+  Arc as Base,
   Button,
   Diagram,
   Flex,
@@ -56,7 +56,7 @@ import {
 } from "@/arc/slice";
 import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { TYPE } from "@/arc/types/v0";
-import { Controls as CoreControls } from "@/components";
+import { Controls as BaseControls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
@@ -96,7 +96,7 @@ const StageRenderer = ({
 
   if (props == null) return null;
 
-  const C = Core.Stage.REGISTRY[key];
+  const C = Base.Stage.REGISTRY[key];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
 
@@ -133,7 +133,7 @@ const statusDetailsSchema = z.object({
 
 const { useRetrieve } = Status.createRetrieve(statusDetailsSchema);
 
-const Controls = ({ arc }: StatusChipProps) => {
+export const Controls = ({ arc }: StatusChipProps) => {
   const name = Layout.useSelectRequiredName(arc.key);
   const status = useRetrieve({ key: arc.key }, { addStatusOnFailure: false });
   const { update: create } = Arc.useCreate();
@@ -143,7 +143,7 @@ const Controls = ({ arc }: StatusChipProps) => {
       key: arc.key,
       name,
       graph: translateGraphToServer(arc.graph),
-      text: { raw: "" },
+      text: arc.text,
       deploy: !isRunning,
       version: arc.version,
     });
@@ -264,7 +264,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null || event == null) return valid;
       valid.forEach(({ key, data }) => {
-        const spec = Core.Stage.REGISTRY[key];
+        const spec = Base.Stage.REGISTRY[key];
         if (spec == null) return;
         const pos = xy.truncate(calculateCursorPosition(event), 0);
         undoableDispatch(
@@ -352,7 +352,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       onDoubleClick={handleDoubleClick}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Core.Arc
+      <Base.Arc
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
@@ -375,11 +375,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       >
         <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
-        <CoreControls x>
+        <BaseControls x>
           <Diagram.FitViewControl />
           {hasEditPermission && <Diagram.ToggleEditControl />}
-        </CoreControls>
-      </Core.Arc>
+        </BaseControls>
+      </Base.Arc>
       <Controls arc={state} />
     </div>
   );
@@ -419,8 +419,8 @@ export const create =
     };
   };
 
-const useLoadRemote = createLoadRemote<arc.Arc>({
-  useRetrieve: Core.useRetrieveObservable,
+export const useLoadRemote = createLoadRemote<arc.Arc>({
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) =>
@@ -430,6 +430,7 @@ const useLoadRemote = createLoadRemote<arc.Arc>({
       type: TYPE,
       remoteCreated: false,
       graph: translateGraphToConsole(v.graph),
+      text: { raw: "" },
     }),
 });
 

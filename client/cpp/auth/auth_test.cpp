@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@
 #include "freighter/cpp/mock/mock.h"
 #include "x/cpp/xtest/xtest.h"
 
-#include "core/pkg/api/grpc/v1/core/pkg/api/grpc/v1/auth.pb.h"
+#include "core/pkg/api/grpc/v1/auth.pb.h"
 
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {

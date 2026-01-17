@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,7 +37,7 @@ func resolveStatus(t *Task, provided *Status) *Status {
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: fmt.Sprintf("%s status unknown", t.Name),
-			Variant: xstatus.WarningVariant,
+			Variant: xstatus.VariantWarning,
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
@@ -86,7 +86,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
 }
 
 // Delete deletes the task with the given key and its associated status.

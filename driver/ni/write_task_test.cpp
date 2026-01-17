@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -136,7 +136,7 @@ protected:
 /// @brief it should write analog values and update state channels correctly.
 TEST_F(SingleChannelAnalogWriteTest, testBasicAnalogWrite) {
     parse_config();
-    auto reads = std::make_shared<std::vector<synnax::Frame>>();
+    auto reads = std::make_shared<std::vector<telem::Frame>>();
     constexpr double v = 1;
     reads->emplace_back(cmd_ch_2.key, telem::Series(v, telem::FLOAT64_T));
     mock_streamer_factory = pipeline::mock::simple_streamer_factory(

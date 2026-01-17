@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,17 +15,17 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
-import { Cell as Core } from "@/table/Table";
+import { Cell as Base } from "@/table/Table";
 import { telem } from "@/telem/aether";
-import { Text as CoreText } from "@/text";
-import { Value as CoreValue } from "@/vis/value";
+import { Text as BaseText } from "@/text";
+import { Value as BaseValue } from "@/vis/value";
 
 export const TEXT_TYPE = "text";
 export type TextType = typeof TEXT_TYPE;
 export const textPropsZ = z.object({
   value: z.string(),
-  level: CoreText.levelZ,
-  weight: CoreText.weightZ,
+  level: BaseText.levelZ,
+  weight: BaseText.weightZ,
   align: location.x.or(location.center),
   backgroundColor: color.crudeZ,
 });
@@ -54,7 +54,7 @@ export const Text = ({
   const handleValueChange = (value: string) =>
     onChange({ level, value, weight, align, backgroundColor });
   return (
-    <Core
+    <Base
       id={cellKey}
       className={CSS(
         Menu.CONTEXT_TARGET,
@@ -66,7 +66,7 @@ export const Text = ({
       onContextMenu={handleSelect}
       style={{ backgroundColor: color.cssString(backgroundColor) }}
     >
-      <CoreText.Editable
+      <BaseText.Editable
         level={level}
         value={value}
         weight={weight}
@@ -75,7 +75,7 @@ export const Text = ({
         allowEmpty
         outline={false}
       />
-    </Core>
+    </Base>
   );
 };
 
@@ -83,8 +83,8 @@ export const VALUE_TYPE = "value";
 export type ValueType = typeof VALUE_TYPE;
 export const valuePropsZ = z.object({
   telem: telem.stringSourceSpecZ,
-  redline: CoreValue.redlineZ,
-  level: CoreText.levelZ,
+  redline: BaseValue.redlineZ,
+  level: BaseText.levelZ,
   color: z.string(),
   units: z.string(),
   stalenessTimeout: z.number().default(5),
@@ -104,7 +104,7 @@ export const Value = ({
   stalenessTimeout,
   stalenessColor,
 }: CellProps<ValueProps>) => {
-  const { width } = CoreValue.use({
+  const { width } = BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
@@ -131,7 +131,7 @@ export const Value = ({
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
 
   return (
-    <Core
+    <Base
       id={cellKey}
       selected={selected}
       onClick={handleSelect}

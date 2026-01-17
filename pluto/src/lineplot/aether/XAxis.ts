@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,20 +9,20 @@
 
 import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
 
-import { type AxisRenderProps, CoreAxis, coreAxisStateZ } from "@/lineplot/aether/axis";
+import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { type FindResult } from "@/vis/line/aether/line";
 
-export const xAxisStateZ = coreAxisStateZ;
+export const xAxisStateZ = baseAxisStateZ;
 
 export interface XAxisRenderProps extends AxisRenderProps {
   exposure: number;
 }
 
-export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provider> {
+export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
-  schema = coreAxisStateZ;
+  schema = baseAxisStateZ;
 
   render(props: XAxisRenderProps): void {
     if (this.deleted) return;

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -1313,7 +1313,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.status.message).toEqual("Failed to retrieve Task");
+        expect(result.current.status.message).toEqual("Failed to retrieve task");
       });
     });
 
