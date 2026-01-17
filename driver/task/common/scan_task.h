@@ -416,7 +416,7 @@ public:
             // transitions NI may briefly report the same device at multiple locations.
             {
                 std::unordered_set<std::string> seen;
-                std::vector<synnax::Device> deduped;
+                std::vector<synnax::device::Device> deduped;
                 for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
                     if (seen.count(it->key)) continue;
                     seen.insert(it->key);
