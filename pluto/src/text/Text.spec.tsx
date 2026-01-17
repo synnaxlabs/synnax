@@ -12,7 +12,7 @@ import { describe, expect, it, vitest } from "vitest";
 
 import { Icon } from "@/icon";
 import { Text } from "@/text";
-import { text } from "@/text/core";
+import { text } from "@/text/base";
 
 describe("Text", () => {
   describe("levels", () => {

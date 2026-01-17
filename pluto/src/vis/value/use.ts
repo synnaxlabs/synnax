@@ -12,14 +12,14 @@ import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { useMemoDeepEqual } from "@/memo";
-import { text } from "@/text/core";
+import { text } from "@/text/base";
 import { Value } from "@/vis/value/aether/value";
 
-export const corePropsZ = Value.z
+export const basePropsZ = Value.z
   .partial({ color: true })
   .extend({ level: text.levelZ.optional() });
 
-export interface UseProps extends z.input<typeof corePropsZ> {
+export interface UseProps extends z.input<typeof basePropsZ> {
   aetherKey: string;
 }
 

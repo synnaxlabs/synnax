@@ -14,9 +14,9 @@ import { type ReactElement, useEffect } from "react";
 import { Aether } from "@/aether";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
-import { Legend as Core } from "@/vis/legend";
+import { Legend as Base } from "@/vis/legend";
 
-export interface LegendProps extends Core.SimpleProps {}
+export interface LegendProps extends Base.SimpleProps {}
 
 export const Legend = (props: LegendProps): ReactElement => {
   const { needsControlOf } = useContext();
@@ -38,5 +38,5 @@ export const Legend = (props: LegendProps): ReactElement => {
     return { key: d.subject.key, label: d.subject.name, color: d.subjectColor };
   });
 
-  return <Core.Simple data={data} {...props} />;
+  return <Base.Simple data={data} {...props} />;
 };

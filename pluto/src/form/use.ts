@@ -20,7 +20,7 @@ import {
 } from "@/form/Context";
 import { type FieldState, type GetOptions, State } from "@/form/state";
 import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 
 export interface OnChangeArgs<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */

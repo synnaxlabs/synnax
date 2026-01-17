@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Video as Core } from "@synnaxlabs/pluto/video";
+import { Video as Base } from "@synnaxlabs/pluto/video";
 import {
   type DetailedHTMLProps,
   type ImgHTMLAttributes,
@@ -80,7 +80,7 @@ export const Video = ({ id, themed = true, ...rest }: VideoProps): ReactElement 
     };
   }, []);
 
-  return <Core.Video ref={ref} href={url} loop muted {...rest} />;
+  return <Base.Video ref={ref} href={url} loop muted {...rest} />;
 };
 
 export interface ImageProps

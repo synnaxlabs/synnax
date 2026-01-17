@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, task } from "@synnaxlabs/client";
-import { Access, Icon, Menu as PMenu, Mosaic, Task as Core } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu as PMenu, Mosaic, Task as Base } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";
@@ -43,7 +43,7 @@ const handleSelect: Ontology.HandleSelect = ({
 
 const useDelete = createUseDelete({
   type: "Task",
-  query: Core.useDelete,
+  query: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout }) => {
     removeLayout(...data);
@@ -52,7 +52,7 @@ const useDelete = createUseDelete({
 });
 
 export const useRename = createUseRename({
-  query: Core.useRename,
+  query: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {

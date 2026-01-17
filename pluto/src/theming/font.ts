@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Text } from "@/text";
-import { fontString } from "@/theming/core/fontString";
+import { fontString } from "@/theming/base/fontString";
 import { useContext } from "@/theming/Provider";
 
 export interface UseTypographyReturn extends Text.Spec {

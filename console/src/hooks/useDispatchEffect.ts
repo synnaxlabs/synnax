@@ -17,8 +17,8 @@ export const useDispatchEffect = <P>(
   debounce: number = 0,
   dispatch?: Dispatch<PayloadAction<P>>,
 ): Dispatch<PayloadAction<P>> => {
-  const coreDispatch = useDispatch();
-  dispatch ??= coreDispatch;
+  const baseDispatch = useDispatch();
+  dispatch ??= baseDispatch;
   const update = useDebouncedCallback(f, debounce, [f]);
   return useCallback(
     (a) => {

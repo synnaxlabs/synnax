@@ -54,10 +54,10 @@ const ZERO_CLUSTERS: Record<string, Cluster> = {
   [DEMO_KEY]: DEMO_CLUSTER,
 };
 
-export type CoreCluster = Pick<Cluster, "host" | "port">;
+export type BaseCluster = Pick<Cluster, "host" | "port">;
 
 export const getPredefinedClusterKey = (
-  cluster: CoreCluster,
+  cluster: BaseCluster,
 ): PredefinedClusterKey | null => {
   for (const [key, c] of Object.entries(ZERO_CLUSTERS) as [
     PredefinedClusterKey,

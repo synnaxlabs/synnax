@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/tree/core";
+export * from "@/tree/base";
 export * from "@/tree/Item";
 export * from "@/tree/Tree";

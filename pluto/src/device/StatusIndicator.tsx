@@ -12,7 +12,7 @@ import "@/device/StatusIndicator.css";
 import { type device } from "@synnaxlabs/client";
 
 import { CSS } from "@/css";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { Tooltip } from "@/tooltip";
 
 export interface StatusIndicatorProps {

@@ -70,7 +70,7 @@ interface LoopArgs {
 }
 
 /**
- * Implements the core rendering loop for Synnax's aether components, accepting requests
+ * Implements the main rendering loop for Synnax's aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
  */
 export class Loop {
