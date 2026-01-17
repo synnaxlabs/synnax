@@ -87,7 +87,7 @@ var _ = Describe("Ontology", func() {
 
 		It("Should return error for non-existent role", func() {
 			Expect(svc.RetrieveResource(ctx, uuid.New().String(), tx)).Error().
-				To(MatchError(query.NotFound))
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -108,7 +108,7 @@ var _ = Describe("Ontology", func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			cg := <-changeChan
-			Expect(cg.Variant).To(Equal(change.Set))
+			Expect(cg.Variant).To(Equal(change.VariantSet))
 			Expect(cg.Key).To(Equal(r.OntologyID()))
 			Expect(cg.Value.Name).To(Equal(r.Name))
 			tx := db.OpenTx()
@@ -116,7 +116,7 @@ var _ = Describe("Ontology", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 			cg = <-changeChan
-			Expect(cg.Variant).To(Equal(change.Delete))
+			Expect(cg.Variant).To(Equal(change.VariantDelete))
 			Expect(cg.Key).To(Equal(r.OntologyID()))
 		})
 	})

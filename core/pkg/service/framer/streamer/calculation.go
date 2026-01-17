@@ -22,10 +22,10 @@ import (
 )
 
 type calculationUpdaterTransform struct {
-	alamos.Instrumentation
+	confluence.LinearTransform[Request, framer.StreamerRequest]
 	channelSvc  *channel.Service
 	calcManager *calculation.RequestManager
-	confluence.LinearTransform[Request, framer.StreamerRequest]
+	alamos.Instrumentation
 }
 
 var _ confluence.Segment[Request, framer.StreamerRequest] = &calculationUpdaterTransform{}

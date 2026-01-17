@@ -20,10 +20,10 @@ var (
 	ErrClosed = errors.New("resource closed")
 )
 
-// NewErrClosed returns a new error that wraps ErrClosed and includes the name of the
+// NewClosedError returns a new error that wraps ErrClosed and includes the name of the
 // resource that is closed. This is used to indicate that an operation cannot be
 // completed because the resource is closed.
-func NewErrClosed(resourceName string) error {
+func NewClosedError(resourceName string) error {
 	return errors.Wrapf(
 		ErrClosed,
 		"cannot complete operation on closed %s",

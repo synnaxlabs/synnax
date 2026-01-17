@@ -28,9 +28,9 @@ type Retrieve struct {
 	tx                        gorp.Tx
 	gorp                      gorp.Retrieve[Key, Channel]
 	otg                       *ontology.Ontology
-	keys                      Keys
-	searchTerm                string
 	validateRetrievedChannels func([]Channel) ([]Channel, error)
+	searchTerm                string
+	keys                      Keys
 }
 
 // Search sets the search term for the query. Note that the fuzzy search will be executed

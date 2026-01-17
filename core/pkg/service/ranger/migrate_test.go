@@ -107,10 +107,10 @@ var _ = Describe("Migrate", func() {
 		// The "Ranges" group and "Subgroup" should be deleted
 		var g group.Group
 		Expect(gSvc.NewRetrieve().WhereNames("Ranges").Entry(&g).Exec(ctx, nil)).
-			To(MatchError(query.NotFound))
+			To(MatchError(query.ErrNotFound))
 
 		Expect(gSvc.NewRetrieve().WhereNames("Subgroup").Entry(&g).Exec(ctx, nil)).
-			To(MatchError(query.NotFound))
+			To(MatchError(query.ErrNotFound))
 
 		// There should be a new parent range named "Subgroup" whose time range is the
 		// union of r1 and r2
@@ -126,7 +126,7 @@ var _ = Describe("Migrate", func() {
 		var children []ontology.Resource
 		Expect(otg.NewRetrieve().
 			WhereIDs(parentRange.OntologyID()).
-			TraverseTo(ontology.Children).
+			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(ranger.OntologyType).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())

@@ -74,12 +74,12 @@ type Constraint struct {
 
 // EnforceParams provides the context needed for constraint evaluation.
 type EnforceParams struct {
-	// Request is the access request being evaluated.
-	Request access.Request
-	// Ontology provides access to the ontology graph for relationship lookups.
-	Ontology *ontology.Ontology
 	// Tx is the database transaction for queries.
 	Tx gorp.Tx
+	// Ontology provides access to the ontology graph for relationship lookups.
+	Ontology *ontology.Ontology
+	// Request is the access request being evaluated.
+	Request access.Request
 }
 
 // Enforce checks which objects from the request are covered by this constraint.

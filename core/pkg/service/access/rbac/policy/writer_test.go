@@ -107,14 +107,14 @@ var _ = Describe("Writer", func() {
 				WhereKeys(policies[0].Key).
 				Entry(&policy.Policy{}).
 				Exec(ctx, tx),
-			).To(MatchError(query.NotFound))
+			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete multiple policies", func() {
 			Expect(w.Delete(ctx, policies[0].Key, policies[1].Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
 				WhereKeys(policies[0].Key, policies[1].Key).
 				Entries(&[]policy.Policy{}).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("SetOnRole", func() {
@@ -158,7 +158,7 @@ var _ = Describe("Writer", func() {
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(policy.OntologyType).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())
@@ -170,7 +170,7 @@ var _ = Describe("Writer", func() {
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(role.OntologyID(r.Key)).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(policy.OntologyType).
 				Entries(&children).
 				Exec(ctx, tx)).To(Succeed())

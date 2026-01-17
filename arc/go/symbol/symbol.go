@@ -93,20 +93,20 @@ const (
 // reporting. Symbols that receive unique IDs (variables, inputs, outputs, config, and
 // stateful variables) are assigned sequential IDs within their containing function scope.
 type Symbol struct {
-	// Type is the symbol's type from Arc's type system.
-	Type types.Type
-	// Name is the symbol's identifier.
-	Name string
-	// Kind categorizes the symbol (variable, function, channel, etc.).
-	Kind Kind
 	// AST is the parser node for source location information. Global symbols from
 	// resolvers have AST == nil, while locally-defined symbols have non-nil AST.
 	AST antlr.ParserRuleContext
+	// DefaultValue stores the default value literal for optional parameters.
+	// Only used for KindInput and KindConfig symbols. Nil means no default (required parameter).
+	DefaultValue any
+	// Name is the symbol's identifier.
+	Name string
+	// Type is the symbol's type from Arc's type system.
+	Type types.Type
+	// Kind categorizes the symbol (variable, function, channel, etc.).
+	Kind Kind
 	// ID is a unique identifier within the containing function scope. Only assigned
 	// to KindVariable, KindStatefulVariable, KindInput, KindOutput, KindChannel, and
 	// KindConfig.
 	ID int
-	// DefaultValue stores the default value literal for optional parameters.
-	// Only used for KindInput and KindConfig symbols. Nil means no default (required parameter).
-	DefaultValue any
 }

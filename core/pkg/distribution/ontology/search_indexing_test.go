@@ -27,8 +27,8 @@ import (
 // mockIndexingService implements the Service interface for testing startup indexing
 type mockIndexingService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
-	resources []ontology.Resource
 	schema    zyn.Schema
+	resources []ontology.Resource
 }
 
 var _ ontology.Service = (*mockIndexingService)(nil)
@@ -67,9 +67,7 @@ func (s *mockIndexingService) RetrieveResource(
 }
 
 var _ = Describe("SearchTerm Indexing", func() {
-	var (
-		mockSvc *mockIndexingService
-	)
+	var mockSvc *mockIndexingService
 
 	BeforeEach(func() {
 		z := zyn.Object(nil)

@@ -393,7 +393,7 @@ const StaticFrame = <
   );
 };
 
-export const CoreFrame = <
+export const BaseFrame = <
   K extends record.Key = record.Key,
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 >({
@@ -402,4 +402,4 @@ export const CoreFrame = <
 }: FrameProps<K, E>): ReactElement =>
   virtual ? <VirtualFrame {...rest} /> : <StaticFrame {...rest} />;
 
-export const Frame = memo(CoreFrame) as typeof CoreFrame;
+export const Frame = memo(BaseFrame) as typeof BaseFrame;

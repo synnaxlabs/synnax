@@ -85,7 +85,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().
 				WhereKeys(uuid.New()).
 				Entry(&p).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -112,7 +112,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().
 				WhereNames("nonexistent-policy").
 				Entry(&p).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should return empty when multiple names not found", func() {
 			var ps []policy.Policy

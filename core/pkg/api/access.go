@@ -70,11 +70,11 @@ func (s *AccessService) CreatePolicy(
 }
 
 type AccessRetrievePolicyRequest struct {
+	Internal *bool       `json:"internal" msgpack:"internal"`
 	Subject  ontology.ID `json:"subject" msgpack:"subject"`
 	Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
 	Limit    int         `json:"limit" msgpack:"limit"`
 	Offset   int         `json:"offset" msgpack:"offset"`
-	Internal *bool       `json:"internal" msgpack:"internal"`
 }
 
 type AccessRetrievePolicyResponse struct {
@@ -174,10 +174,10 @@ func (s *AccessService) CreateRole(
 
 type (
 	AccessRetrieveRoleRequest struct {
+		Internal *bool       `json:"internal" msgpack:"internal"`
 		Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
 		Limit    int         `json:"limit" msgpack:"limit"`
 		Offset   int         `json:"offset" msgpack:"offset"`
-		Internal *bool       `json:"internal" msgpack:"internal"`
 	}
 	AccessRetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles" msgpack:"roles"`

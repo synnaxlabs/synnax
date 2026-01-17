@@ -81,7 +81,7 @@ var _ = Describe("Writer", func() {
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(r.OntologyID()).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes("group").
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
@@ -105,7 +105,7 @@ var _ = Describe("Writer", func() {
 		It("Should delete a role", func() {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 			Expect(svc.NewRetrieve().WhereKeys(roles[0].Key).
-				Entry(&role.Role{}).Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Entry(&role.Role{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -130,7 +130,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				ExcludeFieldData(true).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
 				WhereTypes(role.OntologyType).
 				Entry(&parent).
@@ -146,7 +146,7 @@ var _ = Describe("Writer", func() {
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
 				ExcludeFieldData(true).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				ExcludeFieldData(true).
 				WhereTypes(role.OntologyType).
 				Entry(&parent).
@@ -177,7 +177,7 @@ var _ = Describe("Writer", func() {
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes(role.OntologyType).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())
@@ -191,7 +191,7 @@ var _ = Describe("Writer", func() {
 			var parents []ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(subject).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				WhereTypes(role.OntologyType).
 				Entries(&parents).
 				Exec(ctx, tx)).To(Succeed())

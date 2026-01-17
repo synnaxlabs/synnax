@@ -30,8 +30,8 @@ import (
 )
 
 type state struct {
-	keys                 channel.Keys
 	keyDataTypes         map[channel.Key]telem.DataType
+	keys                 channel.Keys
 	hasVariableDataTypes bool
 }
 
@@ -91,6 +91,19 @@ func (s *sorter) Swap(i, j int) {
 // encoding and decoding sides must agree on the set of channels and their order
 // before any encoding or decoding can occur.
 type Codec struct {
+	// buf is reused for each encode operation.
+	buf *binary.Writer
+	// reader is reused for each decode operation. Unlike the standard library
+	// binary.Read, this avoids reflection overhead.
+	reader *binary.Reader
+	// channels used in dynamic codecs to retrieve information about channels
+	// when Update is called.
+	channels *channel.Service
+	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
+	// allocations on each encode operation
+	mergedSeriesResult []mergedSeriesInfo
+	// opts holds configuration options for the codec.
+	opts *options
 	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
 		// states is the current backlog of encoding states. We keep multiple states
@@ -101,6 +114,9 @@ type Codec struct {
 		// to the previous state. seqNum and the states backlog are used to keep the
 		// two in sync.
 		states map[uint32]state
+		// updates is a channel that the routine in Update pushes a new state down
+		// for processing within Encode/Decode.
+		updates chan state
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
 		seqNum uint32
@@ -109,26 +125,10 @@ type Codec struct {
 		// boolean is more performant than using a non-blocking select on every
 		// encode/decode operation.
 		updateAvailable atomic.Bool
-		// updates is a channel that the routine in Update pushes a new state down
-		// for processing within Encode/Decode.
-		updates chan state
 	}
-	// buf is reused for each encode operation.
-	buf *binary.Writer
-	// reader is reused for each decode operation. Unlike the standard library
-	// binary.Read, this avoids reflection overhead.
-	reader *binary.Reader
-	// channels used in dynamic codecs to retrieve information about channels
-	// when Update is called.
-	channels *channel.Service
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
 	// of sorting the frame directly in order to avoid excess heap allocations
 	encodeSorter sorter
-	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
-	// allocations on each encode operation
-	mergedSeriesResult []mergedSeriesInfo
-	// opts holds configuration options for the codec.
-	opts *options
 }
 
 type options struct {
@@ -501,14 +501,14 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		dt, ok := currState.keyDataTypes[key]
 		if !ok {
 			return errors.Wrapf(
-				validate.Error,
+				validate.ErrValidation,
 				"encoder was provided a key %s not present in current state",
 				channel.TryToRetrieveStringer(ctx, c.channels, key),
 			)
 		}
 		if dt != s.DataType {
 			return errors.Wrapf(
-				validate.Error, "data type %s for channel %s does not match series data type %s",
+				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
 				dt, channel.TryToRetrieveStringer(ctx, c.channels, key), s.DataType,
 			)
 		}
@@ -546,11 +546,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 
 	// Calculate flags and byte size based on merged series
 	var (
-		curDataSize                   = -1
-		refTr                         = telem.TimeRangeZero
-		refAlignment  telem.Alignment = 0
-		byteArraySize                 = flagsSize + seqNumSize
-		fgs                           = newFlags()
+		curDataSize   = -1
+		refTr         = telem.TimeRangeZero
+		refAlignment  telem.Alignment
+		byteArraySize = flagsSize + seqNumSize
+		fgs           = newFlags()
 	)
 
 	if currState.hasVariableDataTypes {
@@ -680,7 +680,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 	cState, ok := c.mu.states[seqNum]
 	if !ok {
 		states := lo.Keys(c.mu.states)
-		err = errors.Wrapf(validate.Error, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
+		err = errors.Wrapf(validate.ErrValidation, "[framer.codec] - remote sent invalid sequence number %d. Valid rawIndices are %v", seqNum, states)
 		return framer.Frame{}, err
 	}
 	fgs := decodeFlags(flagB)

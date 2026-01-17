@@ -38,8 +38,8 @@ func NewSchematicService(p Provider) *SchematicService {
 
 type (
 	SchematicCreateRequest struct {
-		Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
+		Workspace  uuid.UUID             `json:"workspace" msgpack:"workspace"`
 	}
 	SchematicCreateResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -55,11 +55,11 @@ func (s *SchematicService) Create(ctx context.Context, req SchematicCreateReques
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, schematic_ := range req.Schematics {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schematic_); err != nil {
+		for i, schematic := range req.Schematics {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &schematic); err != nil {
 				return err
 			}
-			req.Schematics[i] = schematic_
+			req.Schematics[i] = schematic
 		}
 		res.Schematics = req.Schematics
 		return nil
@@ -67,8 +67,8 @@ func (s *SchematicService) Create(ctx context.Context, req SchematicCreateReques
 }
 
 type SchematicRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameRequest) (res types.Nil, err error) {
@@ -85,8 +85,8 @@ func (s *SchematicService) Rename(ctx context.Context, req SchematicRenameReques
 }
 
 type SchematicSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *SchematicService) SetData(ctx context.Context, req SchematicSetDataRequest) (res types.Nil, err error) {
@@ -146,8 +146,8 @@ func (s *SchematicService) Delete(ctx context.Context, req SchematicDeleteReques
 
 type (
 	SchematicCopyRequest struct {
-		Key      uuid.UUID `json:"key" msgpack:"key"`
 		Name     string    `json:"name" msgpack:"name"`
+		Key      uuid.UUID `json:"key" msgpack:"key"`
 		Snapshot bool      `json:"snapshot" msgpack:"snapshot"`
 	}
 	SchematicCopyResponse struct {
@@ -180,8 +180,8 @@ func (s *SchematicService) Copy(ctx context.Context, req SchematicCopyRequest) (
 
 type (
 	SchematicCreateSymbolRequest struct {
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 		Parent  ontology.ID     `json:"parent" msgpack:"parent"`
+		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
 	}
 	SchematicCreateSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -211,8 +211,8 @@ func (s *SchematicService) CreateSymbol(ctx context.Context, req SchematicCreate
 
 type (
 	SchematicRetrieveSymbolRequest struct {
-		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		SearchTerm string      `json:"search_term" msgpack:"search_term"`
+		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 	}
 	SchematicRetrieveSymbolResponse struct {
 		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
@@ -242,8 +242,8 @@ func (s *SchematicService) RetrieveSymbol(ctx context.Context, req SchematicRetr
 }
 
 type SchematicRenameSymbolRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *SchematicService) RenameSymbol(ctx context.Context, req SchematicRenameSymbolRequest) (res types.Nil, err error) {

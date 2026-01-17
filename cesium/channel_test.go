@@ -90,7 +90,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
-						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -107,9 +107,9 @@ var _ = Describe("Channel", Ordered, func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewErrClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -205,9 +205,7 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(unaryKeyNew)+"/meta.json", os.O_RDWR))
 						s := MustSucceed(f.Stat()).Size()
-						var (
-							buf = make([]byte, s)
-						)
+						buf := make([]byte, s)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
 						err = jsonDecoder.Decode(ctx, buf, &ch)
@@ -235,9 +233,7 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(virtualKeyNew)+"/meta.json", os.O_RDWR))
 						s := MustSucceed(f.Stat()).Size()
-						var (
-							buf = make([]byte, s)
-						)
+						buf := make([]byte, s)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
 						err = jsonDecoder.Decode(ctx, buf, &ch)
@@ -294,9 +290,7 @@ var _ = Describe("Channel", Ordered, func() {
 					By("Asserting that the meta file got changed too", func() {
 						f := MustSucceed(fs.Open(channelKeyToPath(indexKeyNew)+"/meta.json", os.O_RDWR))
 						s := MustSucceed(f.Stat()).Size()
-						var (
-							buf = make([]byte, s)
-						)
+						buf := make([]byte, s)
 						_, err := f.Read(buf)
 						Expect(err).ToNot(HaveOccurred())
 						err = jsonDecoder.Decode(ctx, buf, &ch)
@@ -346,9 +340,7 @@ var _ = Describe("Channel", Ordered, func() {
 						By("Asserting that the meta file got changed too", func() {
 							f := MustSucceed(fs.Open(channelKeyToPath(errorKey1New)+"/meta.json", os.O_RDWR))
 							s := MustSucceed(f.Stat()).Size()
-							var (
-								buf = make([]byte, s)
-							)
+							buf := make([]byte, s)
 							_, err := f.Read(buf)
 							Expect(err).ToNot(HaveOccurred())
 							err = jsonDecoder.Decode(ctx, buf, &ch)
@@ -384,9 +376,7 @@ var _ = Describe("Channel", Ordered, func() {
 						By("Asserting that the meta file got changed too", func() {
 							f := MustSucceed(fs.Open(channelKeyToPath(errorKey2New)+"/meta.json", os.O_RDWR))
 							s := MustSucceed(f.Stat()).Size()
-							var (
-								buf = make([]byte, s)
-							)
+							buf := make([]byte, s)
 							_, err := f.Read(buf)
 							Expect(err).ToNot(HaveOccurred())
 							err = jsonDecoder.Decode(ctx, buf, &ch)

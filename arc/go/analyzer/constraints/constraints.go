@@ -29,26 +29,26 @@ const (
 
 // Constraint represents a type relationship that must hold for successful type checking.
 type Constraint struct {
-	// Kind classifies the constraint as equality or compatibility.
-	Kind Kind
-	// Left is the first type in the relationship.
-	Left types.Type
-	// Right is the second type in the relationship.
-	Right types.Type
 	// Source is the AST node that generated this constraint for error reporting.
 	Source antlr.ParserRuleContext
 	// Reason describes why this constraint exists for debugging.
 	Reason string
+	// Left is the first type in the relationship.
+	Left types.Type
+	// Right is the second type in the relationship.
+	Right types.Type
+	// Kind classifies the constraint as equality or compatibility.
+	Kind Kind
 }
 
 // System accumulates type constraints and computes substitutions via unification.
 type System struct {
-	// Constraints holds all type relationships to be solved.
-	Constraints []Constraint
 	// Substitutions maps type variable names to their resolved types.
 	Substitutions map[string]types.Type
 	// TypeVars tracks all type variables encountered during constraint collection.
 	TypeVars map[string]types.Type
+	// Constraints holds all type relationships to be solved.
+	Constraints []Constraint
 }
 
 // New creates an empty constraint system.

@@ -56,7 +56,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().
 				WhereKeys(uuid.New()).
 				Entry(&r).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -75,7 +75,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewRetrieve().
 				WhereName("nonexistent").
 				Entry(&r).
-				Exec(ctx, tx)).To(MatchError(query.NotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})
 

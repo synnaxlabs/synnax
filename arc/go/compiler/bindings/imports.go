@@ -21,84 +21,60 @@ import (
 // ImportIndex tracks the indices of all host functions that the runtime must provide.
 // This defines the contract between compiled arc WASM modules and the host runtime.
 type ImportIndex struct {
-	// Channel operations - per-type functions for type safety
-	ChannelRead  map[string]uint32 // type suffix -> function index
-	ChannelWrite map[string]uint32
-
-	// Series operations - handle-based for memory isolation
-	SeriesCreateEmpty map[string]uint32
-	SeriesSetElement  map[string]uint32
-	SeriesIndex       map[string]uint32
-	SeriesLen         uint32
-	SeriesSlice       uint32
-
-	// Series arithmetic - per-type for performance
-	SeriesElementAdd  map[string]uint32
-	SeriesElementMul  map[string]uint32
-	SeriesElementSub  map[string]uint32
-	SeriesElementDiv  map[string]uint32
-	SeriesElementMod  map[string]uint32
-	SeriesElementRSub map[string]uint32 // reverse subtract: scalar - series
-	SeriesElementRDiv map[string]uint32 // reverse divide: scalar / series
-	SeriesSeriesAdd   map[string]uint32
-	SeriesSeriesMul   map[string]uint32
-	SeriesSeriesSub   map[string]uint32
-	SeriesSeriesDiv   map[string]uint32
-	SeriesSeriesMod   map[string]uint32
-
-	// Series comparison - returns series u8
-	SeriesCompareGT map[string]uint32
-	SeriesCompareLT map[string]uint32
-	SeriesCompareGE map[string]uint32
-	SeriesCompareLE map[string]uint32
-	SeriesCompareEQ map[string]uint32
-	SeriesCompareNE map[string]uint32
-
-	// Series scalar comparison - returns series u8
+	SeriesCompareLEScalar map[string]uint32
+	SeriesElementMod      map[string]uint32
+	SeriesCreateEmpty     map[string]uint32
+	SeriesSetElement      map[string]uint32
+	SeriesIndex           map[string]uint32
+	SeriesElementAdd      map[string]uint32
+	SeriesElementMul      map[string]uint32
+	SeriesElementSub      map[string]uint32
+	SeriesElementDiv      map[string]uint32
+	SeriesCompareNEScalar map[string]uint32
+	SeriesElementRSub     map[string]uint32
+	SeriesElementRDiv     map[string]uint32
+	SeriesSeriesAdd       map[string]uint32
+	SeriesSeriesMul       map[string]uint32
+	SeriesSeriesSub       map[string]uint32
+	SeriesSeriesDiv       map[string]uint32
+	SeriesSeriesMod       map[string]uint32
+	SeriesCompareGT       map[string]uint32
+	SeriesCompareLT       map[string]uint32
+	SeriesCompareGE       map[string]uint32
+	SeriesCompareLE       map[string]uint32
+	SeriesCompareEQ       map[string]uint32
+	SeriesCompareNE       map[string]uint32
 	SeriesCompareGTScalar map[string]uint32
 	SeriesCompareLTScalar map[string]uint32
 	SeriesCompareGEScalar map[string]uint32
-	SeriesCompareLEScalar map[string]uint32
+	ChannelWrite          map[string]uint32
 	SeriesCompareEQScalar map[string]uint32
-	SeriesCompareNEScalar map[string]uint32
-
-	// Series unary operations
-	SeriesNegate map[string]uint32 // For signed types (f64, f32, i64, i32, i16, i8)
-	SeriesNotU8  uint32            // Logical NOT for boolean series
-
-	// State persistence - for stateful variables
-	StateLoad  map[string]uint32
-	StateStore map[string]uint32
-
-	// State persistence for series - uses handles (i32) instead of actual values
-	StateLoadSeries  map[string]uint32
-	StateStoreSeries map[string]uint32
-
-	// String operations
-	StringFromLiteral uint32
-	StringConcat      uint32
-	StringEqual       uint32
-	StringLen         uint32
-
-	// Built-in functions
-	Now uint32
-	Len uint32 // For series length
-
-	// Math operations (for exponentiation)
-	MathPowF32 uint32
-	MathPowF64 uint32
-	// Integer power operations
-	MathIntPowU8  uint32
-	MathIntPowU16 uint32
-	MathIntPowU32 uint32
-	MathIntPowU64 uint32
-	MathIntPowI8  uint32
-	MathIntPowI16 uint32
-	MathIntPowI32 uint32
-	MathIntPowI64 uint32
-
-	// Error handling
-	Panic uint32
+	ChannelRead           map[string]uint32
+	SeriesNegate          map[string]uint32
+	StateLoad             map[string]uint32
+	StateStore            map[string]uint32
+	StateLoadSeries       map[string]uint32
+	StateStoreSeries      map[string]uint32
+	MathPowF64            uint32
+	SeriesSlice           uint32
+	SeriesNotU8           uint32
+	StringFromLiteral     uint32
+	StringConcat          uint32
+	StringEqual           uint32
+	StringLen             uint32
+	Now                   uint32
+	SeriesLen             uint32
+	Len                   uint32
+	MathIntPowU16         uint32
+	MathPowF32            uint32
+	MathIntPowU8          uint32
+	MathIntPowU32         uint32
+	MathIntPowU64         uint32
+	MathIntPowI8          uint32
+	MathIntPowI16         uint32
+	MathIntPowI32         uint32
+	MathIntPowI64         uint32
+	Panic                 uint32
 }
 
 // NewImportIndex creates a new import index with initialized maps
@@ -217,14 +193,14 @@ func setupSeriesOps(m *wasm.Module, idx *ImportIndex, t types.Type) {
 func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, wasmType wasm.ValueType) {
 	// Scalar operations: series op scalar -> (handle, scalar)
 	ops := []struct {
-		name string
 		idx  *map[string]uint32
+		name string
 	}{
-		{"add", &idx.SeriesElementAdd},
-		{"mul", &idx.SeriesElementMul},
-		{"sub", &idx.SeriesElementSub},
-		{"div", &idx.SeriesElementDiv},
-		{"mod", &idx.SeriesElementMod},
+		{name: "add", idx: &idx.SeriesElementAdd},
+		{name: "mul", idx: &idx.SeriesElementMul},
+		{name: "sub", idx: &idx.SeriesElementSub},
+		{name: "div", idx: &idx.SeriesElementDiv},
+		{name: "mod", idx: &idx.SeriesElementMod},
 	}
 
 	for _, op := range ops {
@@ -238,11 +214,11 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 	// Reverse operations: scalar op series -> (scalar, handle)
 	// For `scalar - series`, stack is [scalar, handle], so signature is (scalar, handle)
 	reverseOps := []struct {
-		name string
 		idx  *map[string]uint32
+		name string
 	}{
-		{"rsub", &idx.SeriesElementRSub},
-		{"rdiv", &idx.SeriesElementRDiv},
+		{name: "rsub", idx: &idx.SeriesElementRSub},
+		{name: "rdiv", idx: &idx.SeriesElementRDiv},
 	}
 
 	for _, op := range reverseOps {
@@ -255,14 +231,14 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 
 	// Series-to-series operations
 	seriesOps := []struct {
-		name string
 		idx  *map[string]uint32
+		name string
 	}{
-		{"add", &idx.SeriesSeriesAdd},
-		{"mul", &idx.SeriesSeriesMul},
-		{"sub", &idx.SeriesSeriesSub},
-		{"div", &idx.SeriesSeriesDiv},
-		{"mod", &idx.SeriesSeriesMod},
+		{name: "add", idx: &idx.SeriesSeriesAdd},
+		{name: "mul", idx: &idx.SeriesSeriesMul},
+		{name: "sub", idx: &idx.SeriesSeriesSub},
+		{name: "div", idx: &idx.SeriesSeriesDiv},
+		{name: "mod", idx: &idx.SeriesSeriesMod},
 	}
 
 	for _, op := range seriesOps {
@@ -280,15 +256,15 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 
 	// Series-to-series comparison operations
 	ops := []struct {
-		name string
 		idx  *map[string]uint32
+		name string
 	}{
-		{"gt", &idx.SeriesCompareGT},
-		{"lt", &idx.SeriesCompareLT},
-		{"ge", &idx.SeriesCompareGE},
-		{"le", &idx.SeriesCompareLE},
-		{"eq", &idx.SeriesCompareEQ},
-		{"ne", &idx.SeriesCompareNE},
+		{name: "gt", idx: &idx.SeriesCompareGT},
+		{name: "lt", idx: &idx.SeriesCompareLT},
+		{name: "ge", idx: &idx.SeriesCompareGE},
+		{name: "le", idx: &idx.SeriesCompareLE},
+		{name: "eq", idx: &idx.SeriesCompareEQ},
+		{name: "ne", idx: &idx.SeriesCompareNE},
 	}
 
 	for _, op := range ops {
@@ -301,15 +277,15 @@ func setupSeriesComparison(m *wasm.Module, idx *ImportIndex, typ types.Type) {
 
 	// Series-to-scalar comparison operations
 	scalarOps := []struct {
-		name string
 		idx  *map[string]uint32
+		name string
 	}{
-		{"gt_scalar", &idx.SeriesCompareGTScalar},
-		{"lt_scalar", &idx.SeriesCompareLTScalar},
-		{"ge_scalar", &idx.SeriesCompareGEScalar},
-		{"le_scalar", &idx.SeriesCompareLEScalar},
-		{"eq_scalar", &idx.SeriesCompareEQScalar},
-		{"ne_scalar", &idx.SeriesCompareNEScalar},
+		{name: "gt_scalar", idx: &idx.SeriesCompareGTScalar},
+		{name: "lt_scalar", idx: &idx.SeriesCompareLTScalar},
+		{name: "ge_scalar", idx: &idx.SeriesCompareGEScalar},
+		{name: "le_scalar", idx: &idx.SeriesCompareLEScalar},
+		{name: "eq_scalar", idx: &idx.SeriesCompareEQScalar},
+		{name: "ne_scalar", idx: &idx.SeriesCompareNEScalar},
 	}
 
 	for _, op := range scalarOps {

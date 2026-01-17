@@ -21,7 +21,6 @@ import (
 // Config sets specific parameters for the gossip service. See DefaultConfig
 // for default values. It implements the config.ServiceConfig interface.
 type Config struct {
-	alamos.Instrumentation
 	// TransportClient is the transport used to exchange gossip between nodes.
 	// [Required]
 	TransportClient TransportClient
@@ -31,6 +30,7 @@ type Config struct {
 	// Store is where cluster state will be synchronized to and from.
 	// [Required]
 	Store store.Store
+	alamos.Instrumentation
 	// Interval is the interval at which a node will gossip its state.
 	Interval time.Duration
 }

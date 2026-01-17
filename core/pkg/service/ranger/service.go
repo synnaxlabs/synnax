@@ -28,8 +28,6 @@ import (
 
 // ServiceConfig is the configuration for opening the ranger.Service.
 type ServiceConfig struct {
-	// Instrumentation for logging, tracing, and metrics.
-	alamos.Instrumentation
 	// DB is the underlying database that the service will use to store Ranges.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between ranges (parent-child) and
@@ -47,12 +45,14 @@ type ServiceConfig struct {
 	// ForceMigration will force all migrations to run, regardless of whether they have
 	// already been run.
 	ForceMigration *bool
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultConfig is the default configuration for opening a range service.
-	DefaultConfig = ServiceConfig{ForceMigration: config.False()}
+	// DefaultServiceConfig is the default configuration for opening a range service.
+	DefaultServiceConfig = ServiceConfig{ForceMigration: config.False()}
 )
 
 // Validate implements config.Config.
@@ -83,15 +83,15 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // provides mechanisms for setting channel aliases for a specific range, and for setting
 // metadata on a range.
 type Service struct {
-	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	cfg             ServiceConfig
 }
 
 // OpenService opens a new ranger.Service with the provided configuration. If error is
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

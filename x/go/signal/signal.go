@@ -76,9 +76,9 @@ type core struct {
 	cancel   context.CancelFunc
 	internal errgroup.Group
 	mu       struct {
-		sync.RWMutex
-		routines []*routine
 		stopped  chan struct{}
+		routines []*routine
+		sync.RWMutex
 	}
 }
 
@@ -99,7 +99,7 @@ func (c *core) maybeStop() {
 		return
 	default:
 		for _, r := range c.mu.routines {
-			if r.state.state == Starting || r.state.state == Running {
+			if r.state.state == RoutineStateStarting || r.state.state == RoutineStateRunning {
 				return
 			}
 		}
@@ -123,7 +123,7 @@ func (c *core) routineDiagnostics() string {
 func (c *core) unsafeRunningKeys() []string {
 	running := make([]string, 0, len(c.mu.routines))
 	for _, r := range c.mu.routines {
-		if r.state.state == Running {
+		if r.state.state == RoutineStateRunning {
 			running = append(running, r.key)
 		}
 	}

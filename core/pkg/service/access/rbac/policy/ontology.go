@@ -97,7 +97,7 @@ func (s *Service) RetrieveResource(
 }
 
 func translateChange(c change.Change[uuid.UUID, Policy]) ontology.Change {
-	if c.Variant == change.Delete {
+	if c.Variant == change.VariantDelete {
 		return ontology.Change{Variant: c.Variant, Key: OntologyID(c.Key)}
 	}
 	return ontology.Change{

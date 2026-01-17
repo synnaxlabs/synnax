@@ -48,7 +48,7 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 	return w.otg.DefineRelationship(
 		ctx,
 		w.group.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		r.OntologyID(),
 	)
 }
@@ -69,7 +69,7 @@ func (w Writer) AssignRole(
 	return w.otg.DefineRelationship(
 		ctx,
 		OntologyID(roleKey),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		subject,
 	)
 }
@@ -84,7 +84,7 @@ func (w Writer) UnassignRole(
 	return w.otg.DeleteRelationship(
 		ctx,
 		OntologyID(roleKey),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		subject,
 	)
 }

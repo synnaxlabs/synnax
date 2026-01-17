@@ -50,9 +50,12 @@ type Config struct {
 // ServiceConfig is the configuration for opening the iterator Service, the main
 // entrypoint for using iterators.
 type ServiceConfig struct {
-	// Instrumentation is used for Logging, Tracing, and Metrics.
-	// [OPTIONAL]
-	alamos.Instrumentation
+	// HostResolver is used to resolve reachable addresses for nodes in a Synnax cluster.
+	// [REQUIRED]
+	HostResolver aspen.HostResolver
+	// Transport is the network transport for moving telemetry frames across nodes.
+	// [REQUIRED]
+	Transport Transport
 	// TS is the underlying storage layer time-series database for reading frames.
 	// [REQUIRED]
 	TS *ts.DB
@@ -60,12 +63,9 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED}
 	Channel *channel.Service
-	// HostResolver is used to resolve reachable addresses for nodes in a Synnax cluster.
-	// [REQUIRED]
-	HostResolver aspen.HostResolver
-	// Transport is the network transport for moving telemetry frames across nodes.
-	// [REQUIRED]
-	Transport Transport
+	// Instrumentation is used for Logging, Tracing, and Metrics.
+	// [OPTIONAL]
+	alamos.Instrumentation
 }
 
 var (
@@ -100,8 +100,8 @@ func (cfg ServiceConfig) Validate() error {
 // Iterators allow for reading chunks of historical data from channels distributed
 // across a multi-node cluster.
 type Service struct {
-	cfg    ServiceConfig
 	server *server
+	cfg    ServiceConfig
 }
 
 // NewService opens a new iterator service using the provided configuration. If the
@@ -230,7 +230,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 	}
 	for _, k := range keys {
 		if k.Free() {
-			return errors.Wrapf(validate.Error, "cannot read from free channel %v", k)
+			return errors.Wrapf(validate.ErrValidation, "cannot read from free channel %v", k)
 		}
 	}
 	q := s.cfg.Channel.NewRetrieve().WhereKeys(keys...)
@@ -239,7 +239,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		return err
 	}
 	if !exists {
-		return errors.Wrapf(query.NotFound, "some channel keys %v not found", keys)
+		return errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", keys)
 	}
 	return nil
 }

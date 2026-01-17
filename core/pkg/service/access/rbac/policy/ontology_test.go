@@ -128,7 +128,7 @@ var _ = Describe("Ontology Integration", func() {
 			Expect(w.Create(ctx, p)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			ch := <-changesChan
-			Expect(ch.Variant).To(Equal(change.Set))
+			Expect(ch.Variant).To(Equal(change.VariantSet))
 			Expect(ch.Key).To(Equal(p.OntologyID()))
 			Expect(ch.Value.Name).To(Equal(p.Name))
 			tx := db.OpenTx()

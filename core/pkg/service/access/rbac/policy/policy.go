@@ -35,8 +35,6 @@ const (
 type Policy struct {
 	// Name is a human-readable name for the policy.
 	Name string `json:"name" msgpack:"name"`
-	// Key is a unique uuid to identify the policy.
-	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Effect determines whether this policy allows or denies access.
 	Effect Effect `json:"effect" msgpack:"effect"`
 	// Constraint specifies the condition that must be met for this policy to apply. The
@@ -44,6 +42,8 @@ type Policy struct {
 	// as any additional conditions (field checks, relationship checks, etc.). Use
 	// logical constraint kinds (And, Or, Not) to combine multiple conditions.
 	Constraint constraint.Constraint `json:"constraint" msgpack:"constraint"`
+	// Key is a unique uuid to identify the policy.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 var _ gorp.Entry[uuid.UUID] = Policy{}

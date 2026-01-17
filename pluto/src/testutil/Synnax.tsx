@@ -15,7 +15,7 @@ import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { Pluto } from "@/pluto";
 import { status } from "@/status/aether";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 

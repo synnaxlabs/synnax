@@ -229,7 +229,7 @@ func (c Constraint) traverseBackward(
 		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
 			return rel.Type == c.RelationshipType && rel.To == res.ID
 		},
-		Direction: ontology.Backward,
+		Direction: ontology.DirectionBackward,
 	}
 	if err := params.Ontology.NewRetrieve().WhereIDs(fromIDs...).
 		ExcludeFieldData(true).
@@ -253,7 +253,7 @@ func (c Constraint) getRelatedTypes(
 		Filter: func(res *ontology.Resource, rel *ontology.Relationship) bool {
 			return rel.Type == c.RelationshipType && rel.From == res.ID
 		},
-		Direction: ontology.Forward,
+		Direction: ontology.DirectionForward,
 	}
 	if err := params.Ontology.NewRetrieve().WhereIDs(obj).
 		ExcludeFieldData(true).

@@ -29,8 +29,8 @@ type (
 )
 
 type operationClient struct {
-	Config
 	confluence.LinearTransform[TxRequest, TxRequest]
+	Config
 }
 
 func newOperationClient(cfg Config) segment {
@@ -60,10 +60,10 @@ func (g *operationClient) send(_ context.Context, sync TxRequest) (TxRequest, bo
 }
 
 type operationServer struct {
-	Config
+	confluence.NopFlow
 	store store
 	confluence.AbstractUnarySource[TxRequest]
-	confluence.NopFlow
+	Config
 }
 
 func newOperationServer(cfg Config, s store) source {
@@ -89,8 +89,8 @@ func (g *operationServer) handle(ctx context.Context, req TxRequest) (TxRequest,
 }
 
 type FeedbackMessage struct {
-	Sender  node.Key
 	Digests Digests
+	Sender  node.Key
 }
 
 type (
@@ -99,8 +99,8 @@ type (
 )
 
 type feedbackSender struct {
-	Config
 	confluence.UnarySink[TxRequest]
+	Config
 }
 
 func newFeedbackSender(cfg Config) sink {
@@ -119,9 +119,9 @@ func (f *feedbackSender) send(ctx context.Context, bd TxRequest) error {
 }
 
 type feedbackReceiver struct {
-	Config
-	confluence.AbstractUnarySource[TxRequest]
 	confluence.NopFlow
+	confluence.AbstractUnarySource[TxRequest]
+	Config
 }
 
 func newFeedbackReceiver(cfg Config) source {
@@ -137,9 +137,9 @@ func (f *feedbackReceiver) handle(ctx context.Context, msg FeedbackMessage) (typ
 }
 
 type gossipRecoveryTransform struct {
-	Config
 	confluence.LinearTransform[TxRequest, TxRequest]
 	repetitions map[string]int
+	Config
 }
 
 func newGossipRecoveryTransform(cfg Config) segment {
@@ -156,7 +156,7 @@ func (r *gossipRecoveryTransform) transform(
 	for _, op := range in.Operations {
 		key := string(lo.Must(xkv.CompositeKey(op.Key, op.Version)))
 		if r.repetitions[key] > r.RecoveryThreshold {
-			op.state = recovered
+			op.state = gossipStateRecovered
 			out.Operations = append(out.Operations, op)
 			delete(r.repetitions, key)
 		}

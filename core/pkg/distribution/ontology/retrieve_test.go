@@ -60,11 +60,11 @@ var _ = Describe("retrieveResource", func() {
 				b := newSampleType("B")
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
 				var r ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&r).
 					Exec(ctx, nil),
 				).To(Succeed())
@@ -80,12 +80,12 @@ var _ = Describe("retrieveResource", func() {
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineResource(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -103,13 +103,13 @@ var _ = Describe("retrieveResource", func() {
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineResource(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -125,15 +125,15 @@ var _ = Describe("retrieveResource", func() {
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineResource(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var intermediate []ontology.Resource
 				var final []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&intermediate).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&final).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -153,14 +153,14 @@ var _ = Describe("retrieveResource", func() {
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineResource(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
-					WhereTypes(sampleType).
+					TraverseTo(ontology.ChildrenTraverser).
+					WhereTypes(sampleOntologyType).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())

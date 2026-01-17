@@ -38,16 +38,16 @@ var AllActions = []Action{ActionCreate, ActionRetrieve, ActionUpdate, ActionDele
 // only be required for data read/write operations, while Properties will only be
 // required for update operations.
 type Request struct {
-	// Subject is the entity (typically a user) making the request.
-	Subject ontology.ID
-	// Objects are the resources being accessed.
-	Objects []ontology.ID
-	// Action is the type of action being performed (retrieve, create, etc.).
-	Action Action
-	// TimeRange is the time range being accessed (for data read/write operations).
-	TimeRange telem.TimeRange
 	// Properties is the list of properties being modified (for update operations).
 	Properties set.Set[string]
+	// Subject is the entity (typically a user) making the request.
+	Subject ontology.ID
+	// Action is the type of action being performed (retrieve, create, etc.).
+	Action Action
+	// Objects are the resources being accessed.
+	Objects []ontology.ID
+	// TimeRange is the time range being accessed (for data read/write operations).
+	TimeRange telem.TimeRange
 }
 
 // Enforcer evaluates access control requests.

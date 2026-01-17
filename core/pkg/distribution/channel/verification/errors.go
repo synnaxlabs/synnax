@@ -37,6 +37,6 @@ var (
 
 var errTooManyWrapString = base64.MustDecode("bGltaXQgaXMgJWQgY2hhbm5lbHM=")
 
-func newErrTooMany(count types.Uint20) error {
+func newTooManyError(count types.Uint20) error {
 	return errors.Wrapf(ErrTooMany, errTooManyWrapString, count)
 }

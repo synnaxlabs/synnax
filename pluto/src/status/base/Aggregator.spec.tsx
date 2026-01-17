@@ -12,7 +12,7 @@ import { act, render, renderHook } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 
 const wrapper = ({ children }: PropsWithChildren) => (
   <Status.Aggregator>{children}</Status.Aggregator>

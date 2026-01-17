@@ -48,7 +48,7 @@ func (b *builtinService) RetrieveResource(_ context.Context, key string, _ gorp.
 	case "root":
 		return rootResource, nil
 	default:
-		return Resource{}, errors.Wrapf(query.NotFound, "builtin resource %q not found", key)
+		return Resource{}, errors.Wrapf(query.ErrNotFound, "builtin resource %q not found", key)
 	}
 }
 

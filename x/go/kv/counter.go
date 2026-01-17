@@ -12,6 +12,7 @@ package kv
 import (
 	"context"
 	"encoding/binary"
+
 	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -20,11 +21,11 @@ import (
 // key-value store. AtomicInt64Counter is safe for concurrent use. To create a new
 // AtomicInt64Counter, call OpenCounter.
 type AtomicInt64Counter struct {
-	ctx context.Context
-	db  Writer
-	atomicx.Int64Counter
+	ctx    context.Context
+	db     Writer
 	key    []byte
 	buffer []byte
+	atomicx.Int64Counter
 }
 
 // OpenCounter opens or creates a persisted counter at the given key. If
@@ -36,7 +37,7 @@ func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Co
 	if err == nil {
 		c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
 		err = closer.Close()
-	} else if errors.Is(err, NotFound) {
+	} else if errors.Is(err, ErrNotFound) {
 		err = nil
 	}
 	return c, err

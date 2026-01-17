@@ -25,7 +25,7 @@ import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { lineplot } from "@/lineplot/aether";
 import {
-  coreAxisStateZ,
+  baseAxisStateZ,
   parseAutoBounds,
   withinSizeThreshold,
 } from "@/lineplot/aether/axis";
@@ -92,7 +92,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     const [{ path }, { size, labelSize, ...state }, setState] = Aether.use({
       aetherKey: cKey,
       type: aetherType,
-      schema: coreAxisStateZ,
+      schema: baseAxisStateZ,
       initialState: aetherProps,
     });
 

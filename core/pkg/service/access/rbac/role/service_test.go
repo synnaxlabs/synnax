@@ -60,7 +60,7 @@ var _ = Describe("Service", func() {
 			Expect(g.Name).To(Equal("Users"))
 			var parent ontology.Resource
 			Expect(otg.NewRetrieve().WhereIDs(g.OntologyID()).
-				TraverseTo(ontology.Parents).
+				TraverseTo(ontology.ParentsTraverser).
 				Entry(&parent).
 				Exec(ctx, db)).To(Succeed())
 			Expect(parent.ID).To(Equal(ontology.RootID))

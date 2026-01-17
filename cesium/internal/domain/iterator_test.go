@@ -324,7 +324,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				It("Should not allow operations on a closed iterator", func() {
 					var (
 						i = db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
-						e = resource.NewErrClosed("domain.iterator")
+						e = resource.NewClosedError("domain.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())

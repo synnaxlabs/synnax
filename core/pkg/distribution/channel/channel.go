@@ -50,7 +50,7 @@ func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) (key Key) {
 func ParseKey(s string) (Key, error) {
 	k, err := strconv.Atoi(s)
 	if err != nil {
-		return Key(0), errors.Wrapf(validate.Error, "%s is not a valid channel key", s)
+		return Key(0), errors.Wrapf(validate.ErrValidation, "%s is not a valid channel key", s)
 	}
 	return Key(k), nil
 }
@@ -61,7 +61,7 @@ func (c Key) Leaseholder() cluster.NodeKey { return cluster.NodeKey(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
-func (c Key) Free() bool { return c.Leaseholder() == cluster.Free }
+func (c Key) Free() bool { return c.Leaseholder() == cluster.NodeKeyFree }
 
 // StorageKey returns the storage layer representation of the channel key.
 func (c Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(c) }
@@ -171,14 +171,12 @@ type Channel struct {
 	// Name is a human-readable name for the channel. This name does not have to be
 	// unique.
 	Name string `json:"name" msgpack:"name"`
-	// Leaseholder is the leaseholder node for the channel.
-	Leaseholder cluster.NodeKey `json:"node_id" msgpack:"node_id"`
 	// DataType is the data type for the channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
-	// be int64 values written in ascending order. LocalIndex channels are most commonly
-	// unix nanosecond timestamps.
-	IsIndex bool `json:"is_index" msgpack:"is_index"`
+	// Expression is only used for calculated channels, and specifies the Arc expression
+	// to evaluate the calculated value.
+	Expression string      `json:"expression" msgpack:"expression"`
+	Operations []Operation `json:"operations" msgpack:"operations"`
 	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
 	// When creating a channel, a unique key will be generated.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
@@ -186,19 +184,21 @@ type Channel struct {
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
-	// Virtual is set to true if the channel is a virtual channel. The data from virtual
-	// channels is not persisted into the DB.
-	Virtual bool `json:"virtual" msgpack:"virtual"`
+	// Leaseholder is the leaseholder node for the channel.
+	Leaseholder cluster.NodeKey `json:"node_id" msgpack:"node_id"`
 	// Concurrency sets the policy for concurrent writes to the same region of the
 	// channel's data. Only virtual channels can have a policy of control.Shared.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	// IsIndex is set to true if the channel is an index channel. LocalIndex channels must
+	// be int64 values written in ascending order. LocalIndex channels are most commonly
+	// unix nanosecond timestamps.
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
+	// Virtual is set to true if the channel is a virtual channel. The data from virtual
+	// channels is not persisted into the DB.
+	Virtual bool `json:"virtual" msgpack:"virtual"`
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
-	Internal   bool        `json:"internal" msgpack:"internal"`
-	Operations []Operation `json:"operations" msgpack:"operations"`
-	// Expression is only used for calculated channels, and specifies the Arc expression
-	// to evaluate the calculated value.
-	Expression string `json:"expression" msgpack:"expression"`
+	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 func (c Channel) IsCalculated() bool {
@@ -268,7 +268,7 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // from.
 func (c Channel) SetOptions() []any {
 	if c.Free() {
-		return []any{cluster.Bootstrapper}
+		return []any{cluster.NodeKeyBootstrapper}
 	}
 	return []any{c.Lease()}
 }
@@ -278,7 +278,7 @@ func (c Channel) Lease() cluster.NodeKey { return c.Leaseholder }
 
 // Free returns true if the channel is leased to a particular node i.e. it is not
 // a non-leased virtual channel.
-func (c Channel) Free() bool { return c.Leaseholder == cluster.Free }
+func (c Channel) Free() bool { return c.Leaseholder == cluster.NodeKeyFree }
 
 // Storage returns the storage layer representation of the channel for creation
 // in the storage ts.DB.

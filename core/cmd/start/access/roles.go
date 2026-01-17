@@ -10,57 +10,9 @@
 package access
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
-	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/view"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace/table"
 )
-
-// allObjects is the complete list of ontology types used for permission definitions.
-var allObjects = []ontology.ID{
-	{Type: label.OntologyType},
-	{Type: log.OntologyType},
-	{Type: cluster.OntologyType},
-	{Type: cluster.OntologyTypeNode},
-	{Type: channel.OntologyType},
-	{Type: group.OntologyType},
-	{Type: ranger.OntologyType},
-	{Type: framer.OntologyType},
-	{Type: ranger.OntologyTypeAlias},
-	{Type: user.OntologyType},
-	{Type: workspace.OntologyType},
-	{Type: schematic.OntologyType},
-	{Type: lineplot.OntologyType},
-	{Type: rack.OntologyType},
-	{Type: device.OntologyType},
-	{Type: task.OntologyType},
-	{Type: table.OntologyType},
-	{Type: arc.OntologyType},
-	{Type: symbol.OntologyType},
-	{Type: status.OntologyType},
-	{Type: role.OntologyType},
-	{Type: policy.OntologyType},
-	{Type: ontology.TypeBuiltIn},
-	{Type: view.OntologyType},
-}
 
 // Owner role - Full control of deployment, including user registration and security.
 var (

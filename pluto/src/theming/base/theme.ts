@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { text } from "@/text/core";
+import { text } from "@/text/base";
 
 const grayScaleZ = z.object({
   // Main background surface

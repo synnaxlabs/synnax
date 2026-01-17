@@ -21,8 +21,8 @@ import (
 )
 
 type info struct {
-	numCh    types.Uint20
 	exprTime time.Time
+	numCh    types.Uint20
 }
 
 var formatRegex = regexp.MustCompile(`^\d{6}-\d{8}-\d{10}$`)

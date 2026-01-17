@@ -13,14 +13,14 @@ import { type ReactElement } from "react";
 import { Component } from "@/component";
 import { type Flux } from "@/flux";
 import { List } from "@/list";
-import { Select as Core } from "@/select";
+import { Select as Base } from "@/select";
 import { type ListParams, useList } from "@/status/queries";
 import { Text } from "@/text";
 
 export interface SelectProps
   extends
     Omit<
-      Core.SingleProps<status.Key, status.Status>,
+      Base.SingleProps<status.Key, status.Status>,
       | "data"
       | "getItem"
       | "subscribe"
@@ -43,7 +43,7 @@ export const Select = ({
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Core.Single<status.Key, status.Status>
+    <Base.Single<status.Key, status.Status>
       {...props}
       resourceName="status"
       data={data}
@@ -54,7 +54,7 @@ export const Select = ({
       status={status}
     >
       {listItemRenderProp}
-    </Core.Single>
+    </Base.Single>
   );
 };
 
@@ -64,9 +64,9 @@ const ListItem = (props: List.ItemProps<status.Key>): ReactElement | null => {
   if (item == null) return null;
   const { name } = item;
   return (
-    <Core.ListItem {...props}>
+    <Base.ListItem {...props}>
       <Text.Text level="p">{name}</Text.Text>
-    </Core.ListItem>
+    </Base.ListItem>
   );
 };
 

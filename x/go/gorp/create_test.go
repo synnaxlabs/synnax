@@ -22,8 +22,8 @@ import (
 )
 
 type entry struct {
-	ID   int
 	Data string
+	ID   int
 }
 
 func (m entry) GorpKey() int { return m.ID }
@@ -31,8 +31,8 @@ func (m entry) GorpKey() int { return m.ID }
 func (m entry) SetOptions() []any { return nil }
 
 type prefixEntry struct {
-	ID   int
 	Data string
+	ID   int
 }
 
 func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(m.ID)) }
@@ -40,8 +40,8 @@ func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(m
 func (m prefixEntry) SetOptions() []any { return nil }
 
 type entryTwo struct {
-	ID   int
 	Data string
+	ID   int
 }
 
 func (m entryTwo) GorpKey() int { return m.ID }
@@ -99,8 +99,8 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(gorp.NewCreate[int, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(_ gorp.Context, _, e entry) (entry, error) {
 				Expect(e.GorpKey()).To(Equal(42))
-				return entry{}, validate.Error
-			}).Exec(ctx, tx)).To(HaveOccurredAs(validate.Error))
+				return entry{}, validate.ErrValidation
+			}).Exec(ctx, tx)).To(HaveOccurredAs(validate.ErrValidation))
 		})
 		It("Should not call the filter if no entry with a matching GorpKey is found", func() {
 			e := &entry{
@@ -110,7 +110,7 @@ var _ = Describe("Create", Ordered, func() {
 			c := 0
 			Expect(gorp.NewCreate[int, entry]().Entry(e).MergeExisting(func(_ gorp.Context, creating, _ entry) (entry, error) {
 				c++
-				return creating, validate.Error
+				return creating, validate.ErrValidation
 			}).Exec(ctx, tx)).To(Succeed())
 			Expect(c).To(Equal(0))
 		})

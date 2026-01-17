@@ -66,13 +66,13 @@ var _ = Describe("storage", func() {
 					var p string
 					BeforeEach(func() {
 						p = filepath.Join(tempDir, "x-storage")
-						Expect(os.Mkdir(p, xfs.OwnerRead)).To(Succeed())
+						Expect(os.Mkdir(p, xfs.UserR)).To(Succeed())
 						cfg.Dirname = p
 					})
 					AfterEach(func() { Expect(os.RemoveAll(p)).To(Succeed()) })
 					It("Should return an error if the directory exists but has insufficient permissions", func() {
 						// use os.Stat to check the dir permissions
-						cfg.Perm = xfs.OwnerReadWriteExecute
+						cfg.Perm = xfs.UserRWX
 						_, err := storage.Open(ctx, cfg)
 						Expect(err).To(HaveOccurred())
 					})

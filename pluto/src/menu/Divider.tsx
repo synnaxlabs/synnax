@@ -12,8 +12,8 @@ import "@/menu/Divider.css";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Divider as Core } from "@/divider";
+import { Divider as Base } from "@/divider";
 
 export const Divider = (): ReactElement => (
-  <Core.Divider className={CSS.BE("menu", "divider")} x padded />
+  <Base.Divider className={CSS.BE("menu", "divider")} x padded />
 );

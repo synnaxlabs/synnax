@@ -25,9 +25,9 @@ type BatchFactory[E Entry] struct {
 }
 
 type Batch[E Entry] struct {
+	Peers   map[cluster.NodeKey][]E
 	Gateway []E
 	Free    []E
-	Peers   map[cluster.NodeKey][]E
 }
 
 func (f BatchFactory[E]) Batch(entries []E) Batch[E] {

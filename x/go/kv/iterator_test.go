@@ -18,9 +18,7 @@ import (
 )
 
 var _ = Describe("Iterator", func() {
-	var (
-		kv xkv.DB
-	)
+	var kv xkv.DB
 	BeforeEach(func() {
 		kv = memkv.New()
 	})

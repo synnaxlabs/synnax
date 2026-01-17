@@ -162,7 +162,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 				var out []change.Change[[]byte, struct{}]
 				for c := range r {
 					oc := change.Change[[]byte, struct{}]{Variant: c.Variant}
-					if c.Variant == change.Set {
+					if c.Variant == change.VariantSet {
 						v, err := cfg.MarshalSet(c.Value)
 						if err != nil {
 							svc.L.Error("failed to marshal set", zap.Error(err), zap.String("channel", cfg.SetName))

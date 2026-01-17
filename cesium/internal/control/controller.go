@@ -49,7 +49,7 @@ type Config struct {
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening a Controller.
-	DefaultConfig = Config{Concurrency: control.Exclusive}
+	DefaultConfig = Config{Concurrency: control.ConcurrencyExclusive}
 )
 
 // Validate implements config.Config.
@@ -71,8 +71,8 @@ func (c Config) Override(other Config) Config {
 // (control.Authority).
 type Controller[R Resource] struct {
 	Config
-	mu      sync.RWMutex
 	regions []*region[R]
+	mu      sync.RWMutex
 }
 
 // New creates a new Controller that controls access to the specified resource type.
@@ -86,18 +86,6 @@ func New[R Resource](cfg Config) (*Controller[R], error) {
 
 // GateConfig is the configuration for opening a gate.
 type GateConfig[R Resource] struct {
-	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate
-	// with overlapping time ranges will bind themselves to the same control region.
-	// [REQUIRED]
-	TimeRange telem.TimeRange
-	// Authority sets the authority of the gate over the resource. For a complete
-	// discussion of authority, see the package level documentation.
-	// [REQUIRED]
-	Authority control.Authority
-	// Subject sets the identity of the gate, and is used to track changes in control
-	// within the db.
-	// [REQUIRED]
-	Subject control.Subject
 	// CreateResource is a callback that is called when the gate is opened. It should return
 	// the resource that is being controlled. This is used to create the resource in the
 	// database.
@@ -111,6 +99,18 @@ type GateConfig[R Resource] struct {
 	// if the gate does not immediately take control when it is opened.
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
+	// Subject sets the identity of the gate, and is used to track changes in control
+	// within the db.
+	// [REQUIRED]
+	Subject control.Subject
+	// TimeRange sets the time range for the gate. Any subsequent calls to OpenGate
+	// with overlapping time ranges will bind themselves to the same control region.
+	// [REQUIRED]
+	TimeRange telem.TimeRange
+	// Authority sets the authority of the gate over the resource. For a complete
+	// discussion of authority, see the package level documentation.
+	// [REQUIRED]
+	Authority control.Authority
 }
 
 var _ config.Config[GateConfig[Resource]] = GateConfig[Resource]{}

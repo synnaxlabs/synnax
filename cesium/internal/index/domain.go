@@ -78,7 +78,7 @@ func (i *Domain) Distance(
 		// If the domain with the given time range doesn't exist in the database, then
 		// no data exists for that time range, so it's impossible to approximate a
 		// distance.
-		err = NewErrDiscontinuousTR(tr)
+		err = NewDiscontinuousTRError(tr)
 		return
 	}
 
@@ -95,7 +95,7 @@ func (i *Domain) Distance(
 	// discontinuous, and we return early if the user doesn't want discontinuous
 	// results.
 	if !effectiveDomainTR.ContainsRange(tr) && continuous {
-		err = NewErrDiscontinuousTR(tr)
+		err = NewDiscontinuousTRError(tr)
 		return
 	}
 
@@ -137,7 +137,7 @@ func (i *Domain) Distance(
 		effectiveDomainTR.End != tr.End {
 		// Otherwise, unless the effective domain contains the end of the time range
 		// the distance is discontinuous
-		err = NewErrDiscontinuousTR(tr)
+		err = NewDiscontinuousTRError(tr)
 		return
 	}
 
@@ -145,7 +145,7 @@ func (i *Domain) Distance(
 		// Length of the current domain
 		domainLen = sampleCount(r.Size())
 		// the total number of samples traversed as we move through domains
-		totalTraversed int64 = 0
+		totalTraversed int64
 		// Distance from the end of the domain to the start approximation.
 		startToFirstEnd = Between(domainLen-startApprox.Upper, domainLen-startApprox.Lower)
 	)
@@ -153,7 +153,7 @@ func (i *Domain) Distance(
 	for {
 		if !iter.Next() || (continuous && !effectiveDomainTR.ContainsRange(iter.TimeRange())) {
 			if continuous {
-				err = NewErrDiscontinuousTR(tr)
+				err = NewDiscontinuousTRError(tr)
 				return
 			}
 			approx.Approximation = Between(
@@ -246,7 +246,7 @@ func (i *Domain) forwardStamp(
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) {
-		err = NewErrDiscontinuousStamp(ref)
+		err = NewDiscontinuousStampError(ref)
 		return
 	}
 
@@ -254,7 +254,7 @@ func (i *Domain) forwardStamp(
 
 	if !effectiveDomainBounds.ContainsStamp(ref) ||
 		(continuous && offset >= effectiveDomainLen) {
-		err = NewErrDiscontinuousOffset(offset, effectiveDomainLen)
+		err = NewDiscontinuousOffsetError(offset, effectiveDomainLen)
 		return
 	}
 
@@ -286,7 +286,7 @@ func (i *Domain) forwardStamp(
 	if continuous {
 		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen) ||
 			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen-1) {
-			err = NewErrDiscontinuousOffset(startApprox.Upper+offset, effectiveDomainLen)
+			err = NewDiscontinuousOffsetError(startApprox.Upper+offset, effectiveDomainLen)
 			return
 		}
 	}
@@ -296,7 +296,7 @@ func (i *Domain) forwardStamp(
 		for {
 			if !iter.Next() {
 				if continuous {
-					err = NewErrDiscontinuousOffset(endOffset, effectiveDomainLen)
+					err = NewDiscontinuousOffsetError(endOffset, effectiveDomainLen)
 					return
 				}
 				approx = Between(iter.TimeRange().End, telem.TimeStampMax)
@@ -354,7 +354,7 @@ func (i *Domain) approximateStamp(
 	// back to read the lower bound.
 	if !iter.Prev() {
 		i.L.DPanic("iterator prev failed in stamp")
-		return TimeStampApproximation{}, NewErrDiscontinuousOffset(endOffset, effectiveDomainLen)
+		return TimeStampApproximation{}, NewDiscontinuousOffsetError(endOffset, effectiveDomainLen)
 	}
 	if err = r.Close(); err != nil {
 		return TimeStampApproximation{}, err
@@ -383,7 +383,7 @@ func (i *Domain) backwardStamp(
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 
 	if !iter.SeekLast(ctx) {
-		err = NewErrDiscontinuousStamp(ref)
+		err = NewDiscontinuousStampError(ref)
 		return
 	}
 
@@ -395,7 +395,7 @@ func (i *Domain) backwardStamp(
 
 	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
 		(continuous && absOffset >= effectiveDomainLen) {
-		err = NewErrDiscontinuousOffset(offset, effectiveDomainLen)
+		err = NewDiscontinuousOffsetError(offset, effectiveDomainLen)
 		return
 	}
 
@@ -425,7 +425,7 @@ func (i *Domain) backwardStamp(
 	// If they are not exact, and the lower bound is the first sample, then the upper
 	// bound must be discontinuous as well.
 	if continuous && endOffset+startApprox.Span() > effectiveDomainLen {
-		err = NewErrDiscontinuousOffset(endOffset, 0)
+		err = NewDiscontinuousOffsetError(endOffset, 0)
 		return
 	}
 
@@ -434,7 +434,7 @@ func (i *Domain) backwardStamp(
 		for {
 			if !iter.Prev() {
 				if continuous {
-					err = NewErrDiscontinuousOffset(endOffset, domainLen)
+					err = NewDiscontinuousOffsetError(endOffset, domainLen)
 					return
 				}
 				approx = Between(telem.TimeStampMin, iter.TimeRange().Start)
@@ -516,9 +516,9 @@ func resolveBackwardEffectiveDomainTR(i *domain.Iterator) (effectiveDomainBounds
 // timestamp exists in the underlying index, the approximation will be exact.
 func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (Approximation[int64], error) {
 	var (
-		start int64 = 0
-		end         = sampleCount(r.Size()) - 1
-		read        = newStampReader()
+		start int64
+		end   = sampleCount(r.Size()) - 1
+		read  = newStampReader()
 		midTs telem.TimeStamp
 		err   error
 	)

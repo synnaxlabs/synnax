@@ -60,7 +60,7 @@ func (w Writer) SetOnRole(
 		if err := w.otg.DefineRelationship(
 			ctx,
 			svcrole.OntologyID(role),
-			ontology.ParentOf,
+			ontology.RelationshipTypeParentOf,
 			policy,
 		); err != nil {
 			return err
