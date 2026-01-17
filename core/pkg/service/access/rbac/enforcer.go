@@ -42,12 +42,39 @@ func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 // and policies from all roles assigned to the user. Returns ErrDenied if ANY object in
 // the request is explicitly denied OR if any object is not covered by an allow policy.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
-	allowed, err := e.Filter(ctx, req)
+	policies, err := e.retrievePolicies(ctx, req.Subject)
 	if err != nil {
 		return err
 	}
-	// All requested objects must be allowed
-	if len(allowed) != len(req.Objects) {
+	params := constraint.EnforceParams{
+		Request:  req,
+		Ontology: e.cfg.Ontology,
+		Tx:       e.tx,
+	}
+	for _, p := range policies {
+		if p.Effect != policy.EffectDeny {
+			continue
+		}
+		deniedObjects, err := p.Constraint.Enforce(ctx, params)
+		if err != nil {
+			return err
+		}
+		if len(deniedObjects) > 0 {
+			return access.ErrDenied
+		}
+	}
+	coveredSet := make(set.Set[ontology.ID])
+	for _, p := range policies {
+		if p.Effect != policy.EffectAllow {
+			continue
+		}
+		coveredIDs, err := p.Constraint.Enforce(ctx, params)
+		if err != nil {
+			return err
+		}
+		coveredSet.Add(coveredIDs...)
+	}
+	if len(coveredSet) != len(req.Objects) {
 		return access.ErrDenied
 	}
 	return nil
@@ -72,7 +99,6 @@ func (e *Enforcer) Filter(ctx context.Context, req access.Request) (set.Set[onto
 		Tx:       e.tx,
 	}
 
-	// Start with all requested objects as candidates
 	candidateSet := set.FromSlice(req.Objects)
 
 	// First, check deny policies. Remove any denied objects from candidates.
@@ -89,7 +115,6 @@ func (e *Enforcer) Filter(ctx context.Context, req access.Request) (set.Set[onto
 		}
 	}
 
-	// If all objects were denied, return early
 	if len(candidateSet) == 0 {
 		return nil, nil
 	}
@@ -100,11 +125,11 @@ func (e *Enforcer) Filter(ctx context.Context, req access.Request) (set.Set[onto
 		if p.Effect != policy.EffectAllow {
 			continue
 		}
-		allowedObjects, err := p.Constraint.Enforce(ctx, params)
+		coveredIDs, err := p.Constraint.Enforce(ctx, params)
 		if err != nil {
 			return nil, err
 		}
-		for _, obj := range allowedObjects {
+		for _, obj := range coveredIDs {
 			// Only add if it wasn't denied
 			if candidateSet.Contains(obj) {
 				coveredSet.Add(obj)

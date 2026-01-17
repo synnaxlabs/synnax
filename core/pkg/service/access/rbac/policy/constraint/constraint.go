@@ -82,11 +82,14 @@ type EnforceParams struct {
 	Request access.Request
 }
 
-// Enforce checks which objects from the request are covered by this constraint.
-// It returns the subset of params.Request.Objects that satisfy the constraint.
-// An empty slice means no objects are covered. An error is only returned for
-// invalid configurations, not for access denials.
-func (c Constraint) Enforce(ctx context.Context, params EnforceParams) ([]ontology.ID, error) {
+// Enforce checks which objects from the request are covered by this constraint. It
+// returns the subset of params.Request.Objects that satisfy the constraint. An empty
+// slice means no objects are covered. An error is only returned for invalid
+// configurations, not for access denials.
+func (c Constraint) Enforce(
+	ctx context.Context,
+	params EnforceParams,
+) ([]ontology.ID, error) {
 	switch c.Kind {
 	case KindProperties:
 		return c.enforceProperties(params)

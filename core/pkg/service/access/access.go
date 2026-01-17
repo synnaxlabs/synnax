@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
 )
 
 var ErrDenied = errors.New("access denied")
@@ -46,8 +45,6 @@ type Request struct {
 	Action Action
 	// Objects are the resources being accessed.
 	Objects []ontology.ID
-	// TimeRange is the time range being accessed (for data read/write operations).
-	TimeRange telem.TimeRange
 }
 
 // Enforcer evaluates access control requests.
