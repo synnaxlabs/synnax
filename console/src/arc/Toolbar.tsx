@@ -122,15 +122,6 @@ const Content = () => {
         const arc = getItem(key);
         if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
         const oldName = arc.name;
-        if (arc.status?.details.running === true) {
-          const confirmed = await confirm({
-            message: `Are you sure you want to rename ${arc.name} to ${name}?`,
-            description: `This will cause ${arc.name} to stop and be reconfigured.`,
-            cancel: { label: "Cancel" },
-            confirm: { label: "Rename", variant: "error" },
-          });
-          if (!confirmed) return false;
-        }
         dispatch(Layout.rename({ key, name }));
         rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
         return data;
@@ -215,15 +206,10 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
-  const variant = arcItem?.status?.variant;
   return (
     <Select.ListItem {...rest} justify="between" align="center">
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
         <Flex.Box x align="center" gap="small">
-          <Status.Indicator
-            variant={variant}
-            style={{ fontSize: "2rem", minWidth: "2rem" }}
-          />
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}

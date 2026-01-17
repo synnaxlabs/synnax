@@ -14,7 +14,7 @@ import z from "zod";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { state } from "@/state";
-import { Status } from "@/status";
+import { type Status } from "@/status";
 
 export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
 
@@ -57,19 +57,6 @@ const retrieveSingle = async ({
   query,
   store,
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  if ("key" in query) {
-    const cached = store.arcs.get(query.key);
-    if (cached != null) {
-      const status = await Status.retrieveSingle<typeof arc.statusDetailsZ>({
-        store,
-        client,
-        query: { key: cached.key },
-        detailsSchema: arc.statusDetailsZ,
-      });
-      if (status != null) cached.status = status;
-      return cached;
-    }
-  }
   const a = await client.arcs.retrieve({
     ...query,
     includeStatus: query.includeStatus ?? true,
@@ -84,17 +71,11 @@ export interface ListQuery extends List.PagerParams {
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) => {
-    const res = store.arcs.get((a) => {
+  retrieveCached: ({ store, query }) =>
+    store.arcs.get((a) => {
       if (primitive.isNonZero(query.keys)) return query.keys.includes(a.key);
       return true;
-    });
-    res.forEach((r) => {
-      const status = store.statuses.get(r.key);
-      if (status != null) r.status = arc.statusZ.parse(status);
-    });
-    return res;
-  },
+    }),
   retrieve: async ({ client, query }) =>
     await client.arcs.retrieve({
       ...query,
@@ -108,19 +89,8 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore
     return arc;
   },
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.arcs.onSet((arc) =>
-      onChange(arc.key, (p) => {
-        if (p == null) return arc;
-        return { ...arc, status: arc.status ?? p.status };
-      }),
-    ),
+    store.arcs.onSet((arc) => onChange(arc.key, arc)),
     store.arcs.onDelete(onDelete),
-    store.statuses.onSet((status) =>
-      onChange(status.key, (p) => {
-        if (p == null) return p;
-        return { ...p, status: arc.statusZ.parse(status) };
-      }),
-    ),
   ],
 });
 
