@@ -191,10 +191,9 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 		ctx.AST.Type_(),
 	)
 	if !varType.IsValid() {
-		// Add poisoned symbol to prevent cascade "undefined" errors
-		ctx.Scope.Add(ctx, symbol.Symbol{
+		_, _ = ctx.Scope.Add(ctx, symbol.Symbol{
 			Name: name,
-			Type: types.Type{}, // Invalid type
+			Type: types.Type{},
 			AST:  ctx.AST,
 		})
 		return
@@ -242,11 +241,10 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 		ctx.AST.Type_(),
 	)
 	if !varType.IsValid() {
-		// Add poisoned symbol to prevent cascade "undefined" errors
-		ctx.Scope.Add(ctx, symbol.Symbol{
+		_, _ = ctx.Scope.Add(ctx, symbol.Symbol{
 			Name: name,
 			Kind: symbol.KindStatefulVariable,
-			Type: types.Type{}, // Invalid type
+			Type: types.Type{},
 			AST:  ctx.AST,
 		})
 		return
