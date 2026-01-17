@@ -65,4 +65,9 @@ export default defineConfig({
     "/reference/typescript-client/troubleshooting": "/reference/client/troubleshooting",
   },
   site: "https://docs.synnaxlabs.com",
+  vite: {
+    worker: {
+      format: "es",
+    },
+  },
 });
