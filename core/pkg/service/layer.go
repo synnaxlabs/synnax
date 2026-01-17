@@ -320,6 +320,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.ServiceConfig{
+			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,

@@ -39,6 +39,7 @@ var _ = Describe("Metrics", func() {
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
+				DB:                 dist.DB,
 				HostProvider:       dist.Cluster,
 				Storage:            dist.Storage,
 				CollectionInterval: 5 * time.Second,
@@ -95,6 +96,7 @@ var _ = Describe("Metrics", func() {
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
 				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
@@ -194,6 +196,7 @@ var _ = Describe("Metrics", func() {
 				Ontology:           dist.Ontology,
 				Framer:             framerSvc,
 				HostProvider:       dist.Cluster,
+				DB:                 dist.DB,
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
@@ -244,6 +247,7 @@ var _ = Describe("Metrics", func() {
 				Channel:            dist.Channel,
 				Group:              dist.Group,
 				Ontology:           dist.Ontology,
+				DB:                 dist.DB,
 				Framer:             framerSvc,
 				HostProvider:       dist.Cluster,
 				Storage:            dist.Storage,

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -34,6 +35,10 @@ import (
 )
 
 type ServiceConfig struct {
+	// DB is the database used to open a transaction for the service.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// HostProvider is for identify the current host for channel naming.
 	//
 	// [REQUIRED]
@@ -80,6 +85,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.DB = override.Nil(c.DB, other.DB)
 	c.CollectionInterval = override.Numeric(
 		c.CollectionInterval,
 		other.CollectionInterval,
@@ -100,6 +106,7 @@ func (c ServiceConfig) Validate() error {
 	validate.Positive(v, "collection_interval", c.CollectionInterval)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "db", c.DB)
 	return v.Error()
 }
 
@@ -127,12 +134,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	metricsGroup, err := cfg.Group.CreateOrRetrieve(ctx, "Metrics", cfg.Channel.Group().OntologyID())
+	metricsGroup, err := cfg.Group.CreateOrRetrieve(
+		ctx, "Metrics", cfg.Channel.Group().OntologyID(),
+	)
 	if err != nil {
 		return nil, err
 	}
 	hostKey := cfg.HostProvider.HostKey().String()
-	nodeGroup, err := cfg.Group.CreateOrRetrieve(ctx, "Node "+hostKey, metricsGroup.OntologyID())
+	nodeGroup, err := cfg.Group.CreateOrRetrieve(
+		ctx, "Node "+hostKey, metricsGroup.OntologyID(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -150,45 +161,62 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := cfg.Channel.Create(
-		ctx,
-		&c.idx,
-		channel.RetrieveIfNameExists(),
-		channel.CreateWithoutGroupRelationship(),
-	); err != nil {
-		return nil, err
-	}
-	if err := cfg.Ontology.NewWriter(nil).DefineRelationship(ctx, nodeGroup.OntologyID(), ontology.RelationshipTypeParentOf, c.idx.OntologyID()); err != nil {
-		return nil, err
-	}
 	metricChannels := make([]channel.Channel, len(allMetrics))
-	for i, metric := range allMetrics {
-		metric.ch.Name = nameBase + metric.ch.Name
-		metric.ch.LocalIndex = c.idx.LocalKey
-		metricChannels[i] = metric.ch
-	}
-	if err := cfg.Channel.CreateMany(
-		ctx,
-		&metricChannels,
-		channel.RetrieveIfNameExists(),
-		channel.CreateWithoutGroupRelationship(),
-	); err != nil {
-		return nil, err
-	}
-	if err := cfg.Ontology.NewWriter(nil).DefineFromOneToManyRelationships(
-		ctx,
-		nodeGroup.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-		channel.OntologyIDsFromChannels(metricChannels),
-	); err != nil {
-		return nil, err
-	}
-	// delete any existing relationships between the parent Channels group and the
-	// metrics channels
-	for _, ch := range metricChannels {
-		if err := cfg.Ontology.NewWriter(nil).DeleteRelationship(ctx, cfg.Channel.Group().OntologyID(), ontology.RelationshipTypeParentOf, ch.OntologyID()); err != nil {
-			return nil, err
+	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		chWriter := cfg.Channel.NewWriter(tx)
+		otgWriter := cfg.Ontology.NewWriter(tx)
+		if err := chWriter.Create(
+			ctx,
+			&c.idx,
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
+		); err != nil {
+			return err
 		}
+		for i, metric := range allMetrics {
+			metric.ch.Name = nameBase + metric.ch.Name
+			metric.ch.LocalIndex = c.idx.LocalKey
+			metricChannels[i] = metric.ch
+		}
+		if err := otgWriter.DefineRelationship(
+			ctx,
+			nodeGroup.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			c.idx.OntologyID(),
+		); err != nil {
+			return err
+		}
+		if err := chWriter.CreateMany(
+			ctx,
+			&metricChannels,
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
+		); err != nil {
+			return err
+		}
+		if err := otgWriter.DefineFromOneToManyRelationships(
+			ctx,
+			nodeGroup.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			channel.OntologyIDsFromChannels(metricChannels),
+		); err != nil {
+			return err
+		}
+		// delete any existing relationships between the parent Channels group and the
+		// metrics channels
+		for _, ch := range metricChannels {
+			if err := otgWriter.DeleteRelationship(
+				ctx,
+				cfg.Channel.Group().OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				ch.OntologyID(),
+			); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	for i, ch := range metricChannels {
 		c.metrics[i] = metric{ch: ch, collect: allMetrics[i].collect}
