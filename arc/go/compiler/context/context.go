@@ -21,18 +21,16 @@ import (
 
 // Context maintains compilation state across all code generation
 type Context[ASTNode antlr.ParserRuleContext] struct {
+	Hint types.Type
 	context.Context
-	// Outputs and OutputMemoryBase are set for multi-output functions
-	Outputs types.Params
-	Hint    types.Type
-	AST     ASTNode
-	TypeMap map[antlr.ParserRuleContext]types.Type
-	// FunctionIndices maps function names to their WASM function indices for call resolution
+	AST              ASTNode
+	TypeMap          map[antlr.ParserRuleContext]types.Type
 	FunctionIndices  map[string]uint32
 	Imports          *bindings.ImportIndex
 	Scope            *symbol.Scope
 	Writer           *wasm.Writer
 	Module           *wasm.Module
+	Outputs          types.Params
 	OutputMemoryBase uint32
 }
 

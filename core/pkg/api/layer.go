@@ -178,30 +178,30 @@ type Transport struct {
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
 // implementations should use this struct during instantiation.
 type Layer struct {
-	config       config.Config
-	Auth         *auth.Service
+	Schematic    *schematic.Service
+	Ontology     *ontology.Service
 	User         *user.Service
 	Framer       *framer.Service
 	Channel      *channel.Service
 	Connectivity *connectivity.Service
-	Ontology     *ontology.Service
+	Workspace    *workspace.Service
 	Range        *ranger.Service
 	KV           *kv.Service
 	Alias        *alias.Service
+	Auth         *auth.Service
 	Group        *group.Service
-	Workspace    *workspace.Service
-	Schematic    *schematic.Service
+	Label        *label.Service
 	LinePlot     *lineplot.Service
 	Log          *log.Service
 	Table        *table.Service
-	Label        *label.Service
+	View         *view.Service
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
 	Access       *access.Service
 	Arc          *arc.Service
 	Status       *status.Service
-	View         *view.Service
+	config       config.Config
 }
 
 // BindTo binds the API layer to the provided Transport implementation.

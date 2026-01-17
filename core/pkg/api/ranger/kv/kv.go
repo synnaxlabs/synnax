@@ -40,8 +40,8 @@ func NewService(cfg config.Config) *Service {
 
 type (
 	GetRequest struct {
-		Range uuid.UUID `json:"range" msgpack:"range"`
 		Keys  []string  `json:"keys" msgpack:"keys"`
+		Range uuid.UUID `json:"range" msgpack:"range"`
 	}
 	GetResponse struct {
 		Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
@@ -80,8 +80,8 @@ func (s *Service) Get(
 }
 
 type SetRequest struct {
-	Range uuid.UUID `json:"range" msgpack:"range"`
 	Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
+	Range uuid.UUID `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Set(
@@ -102,8 +102,8 @@ func (s *Service) Set(
 }
 
 type DeleteRequest struct {
-	Range uuid.UUID `json:"range" msgpack:"range"`
 	Keys  []string  `json:"keys" msgpack:"keys"`
+	Range uuid.UUID `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Delete(

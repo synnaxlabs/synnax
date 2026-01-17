@@ -1557,22 +1557,22 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 }
 
 type templateData struct {
-	Translators           []translatorData
-	GenericTranslators    []genericTranslatorData
-	EnumTranslators       []enumTranslatorData
-	AnyHelpers            []anyHelperData
-	DelegationTranslators []delegationTranslatorData
-	DistinctPrimitives    []distinctPrimitiveData
 	usedEnums             map[string]*resolution.Type
-	generatedAnyHelpers   map[string]bool
-	imports               *gointernal.ImportManager
 	table                 *resolution.Table
+	imports               *gointernal.ImportManager
+	generatedAnyHelpers   map[string]bool
+	ParentGoPath          string
 	Package               string
 	OutputPath            string
-	ParentGoPath          string
 	Namespace             string
 	repoRoot              string
 	parentAlias           string
+	DistinctPrimitives    []distinctPrimitiveData
+	DelegationTranslators []delegationTranslatorData
+	AnyHelpers            []anyHelperData
+	EnumTranslators       []enumTranslatorData
+	GenericTranslators    []genericTranslatorData
+	Translators           []translatorData
 	needsAnyConverter     bool
 }
 
@@ -1619,12 +1619,12 @@ type fieldTranslatorData struct {
 
 // enumTranslatorData holds data for enum translator functions.
 type enumTranslatorData struct {
-	Values    []enumValueTranslatorData
 	Name      string
 	GoType    string
 	PBType    string
 	PBDefault string
 	GoDefault string
+	Values    []enumValueTranslatorData
 }
 
 // enumValueTranslatorData holds data for a single enum value translation.
@@ -1680,20 +1680,13 @@ type anyHelperData struct {
 // Used for DistinctForm types that wrap struct types - instead of generating independent
 // translators, we generate thin wrappers that cast and delegate.
 type delegationTranslatorData struct {
-	// TypeParams holds the type parameters from the typedef.
-	TypeParams []typeParamData
-	// Name is the typedef name (e.g., "Status").
-	Name string
-	// GoType is the local typedef with type parameters (e.g., "status.Status[Details]").
-	GoType string
-	// UnderlyingName is the underlying struct name (e.g., "Status").
-	UnderlyingName string
-	// UnderlyingGoType is the underlying Go type for casting (e.g., "gostatus.Status[Details]").
-	UnderlyingGoType string
-	// UnderlyingPBType is the protobuf type (e.g., "gostatus_pb.Status").
-	UnderlyingPBType string
-	// UnderlyingTranslatorPrefix is the import prefix for the translator (e.g., "gostatus_pb.").
+	Name                       string
+	GoType                     string
+	UnderlyingName             string
+	UnderlyingGoType           string
+	UnderlyingPBType           string
 	UnderlyingTranslatorPrefix string
+	TypeParams                 []typeParamData
 }
 
 // distinctPrimitiveData holds data for distinct types that wrap primitives.

@@ -58,10 +58,10 @@ func (c Config) Validate() error { return nil }
 type Server struct {
 	xlsp.NoopServer
 	capabilities protocol.ServerCapabilities
-	cfg          Config
-	mu           sync.RWMutex
 	client       protocol.Client
 	documents    map[protocol.DocumentURI]*Document
+	cfg          Config
+	mu           sync.RWMutex
 }
 
 var _ protocol.Server = (*Server)(nil)

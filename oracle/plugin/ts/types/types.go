@@ -1746,15 +1746,15 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 
 type templateData struct {
 	Request          *plugin.Request
-	Structs          []structData
-	Enums            []enumData
-	TypeDefs         []typeDefData
-	SortedDecls      []sortedDeclData
 	Imports          map[string]*importSpec
 	Ontology         *ontologyData
 	DeclOrder        map[string]int
 	Namespace        string
 	OutputPath       string
+	Structs          []structData
+	Enums            []enumData
+	TypeDefs         []typeDefData
+	SortedDecls      []sortedDeclData
 	CurrentDeclIndex int
 	GenerateTypes    bool
 }
@@ -1837,31 +1837,39 @@ type namedImportData struct {
 }
 
 type structData struct {
-	Name, TSName, AliasOf, AliasTypeRef            string
-	Doc                                            string
-	Fields                                         []fieldData
-	TypeParams                                     []typeParamData
-	UseInput, Handwritten, ConcreteTypes           bool
-	IsGeneric, IsSingleParam, IsAlias, IsRecursive bool
-	AllParamsOptional                              bool
-	HasExtends                                     bool
-	ExtendsParents                                 []extendsParentInfo
-	ExtendsName                                    string
-	ExtendsTypeName                                string
-	ExtendsParentIsGeneric                         bool
-	ExtendsParentSchemaArgs                        []string
-	OmittedFields                                  []string
-	PartialFields                                  []fieldData
-	ExtendFields                                   []fieldData
-	ConditionalFields                              []conditionalFieldData
-	BaseFields                                     []fieldData
+	ExtendsName             string
+	TSName                  string
+	AliasOf                 string
+	AliasTypeRef            string
+	Doc                     string
+	ExtendsTypeName         string
+	Name                    string
+	TypeParams              []typeParamData
+	ExtendsParentSchemaArgs []string
+	BaseFields              []fieldData
+	ConditionalFields       []conditionalFieldData
+	ExtendFields            []fieldData
+	PartialFields           []fieldData
+	OmittedFields           []string
+	Fields                  []fieldData
+	ExtendsParents          []extendsParentInfo
+	HasExtends              bool
+	UseInput                bool
+	AllParamsOptional       bool
+	ExtendsParentIsGeneric  bool
+	Handwritten             bool
+	IsRecursive             bool
+	IsAlias                 bool
+	IsSingleParam           bool
+	IsGeneric               bool
+	ConcreteTypes           bool
 }
 
 type extendsParentInfo struct {
 	Name       string
 	TypeName   string
-	IsGeneric  bool
 	SchemaArgs []string
+	IsGeneric  bool
 }
 
 type typeParamData struct {
@@ -1876,9 +1884,9 @@ type fieldData struct {
 }
 
 type conditionalFieldData struct {
-	Field         fieldData
 	TypeParamName string
 	NeverType     string
+	Field         fieldData
 }
 
 type enumData struct {

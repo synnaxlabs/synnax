@@ -40,11 +40,11 @@ var translateCfg = xlsp.TranslateConfig{Source: "oracle-analyzer"}
 
 // Document represents an open document in the LSP server.
 type Document struct {
-	URI         protocol.DocumentURI
-	Content     string
 	Schema      parser.ISchemaContext
 	Table       *resolution.Table
 	Diagnostics *diagnostics.Diagnostics
+	URI         protocol.DocumentURI
+	Content     string
 	Version     int32
 }
 

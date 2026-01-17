@@ -445,9 +445,6 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 }
 
 type templateData struct {
-	Structs    []structData
-	Enums      []enumData
-	TypeDefs   []typeDefData
 	imports    *gointernal.ImportManager
 	table      *resolution.Table
 	resolver   *resolver.Resolver
@@ -456,6 +453,9 @@ type templateData struct {
 	OutputPath string
 	Namespace  string
 	repoRoot   string
+	Structs    []structData
+	Enums      []enumData
+	TypeDefs   []typeDefData
 }
 
 // HasImports returns true if any imports are needed.
@@ -470,19 +470,16 @@ func (d *templateData) InternalImports() []gointernal.InternalImportData {
 }
 
 type structData struct {
-	Fields     []fieldData
-	TypeParams []typeParamData
-	// ExtendsTypes holds parent types, which may be qualified (e.g., "parent.Parent").
+	Name         string
+	Doc          string
+	AliasOf      string
+	Fields       []fieldData
+	TypeParams   []typeParamData
 	ExtendsTypes []string
-	// ExtraFields holds extra fields from @go field directives (raw Go field declarations).
-	ExtraFields []string
-	Name        string
-	Doc         string
-	AliasOf     string
-	IsGeneric   bool
-	IsAlias     bool
-	// HasExtends indicates whether the struct uses extension (multiple inheritance via embedding).
-	HasExtends bool
+	ExtraFields  []string
+	IsGeneric    bool
+	IsAlias      bool
+	HasExtends   bool
 }
 
 type typeParamData struct {
@@ -521,12 +518,11 @@ type enumValueData struct {
 }
 
 type typeDefData struct {
-	TypeParams []typeParamData
 	Name       string
 	BaseType   string
-	// IsAlias indicates whether to use "type X = Y" (true) or "type X Y" (false).
-	IsAlias   bool
-	IsGeneric bool
+	TypeParams []typeParamData
+	IsAlias    bool
+	IsGeneric  bool
 }
 
 var templateFuncs = template.FuncMap{

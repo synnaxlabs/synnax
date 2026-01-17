@@ -28,10 +28,10 @@ type PathEntry struct {
 }
 
 type Collector struct {
-	entries       []PathEntry
 	request       *plugin.Request
 	pathFunc      OutputPathFunc
 	skipFunc      SkipFunc
+	entries       []PathEntry
 	validatePaths bool
 }
 

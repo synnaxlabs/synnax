@@ -1046,15 +1046,15 @@ func (m *importManager) AddImport(category, path, name string) {
 }
 
 type templateData struct {
+	imports     *importManager
+	Ontology    *ontologyData
+	Namespace   string
+	OutputPath  string
 	Structs     []structData
 	Enums       []enumData
 	TypeDefs    []typeDefData
-	SortedDecls []sortedDeclData // Topologically sorted aliases and structs
-	TypeVars    []typeVarData    // Module-level TypeVar declarations with constraints
-	imports     *importManager
-	Ontology    *ontologyData // Ontology data if domain ontology is present
-	Namespace   string
-	OutputPath  string
+	SortedDecls []sortedDeclData
+	TypeVars    []typeVarData
 }
 
 type sortedDeclData struct {
@@ -1110,29 +1110,18 @@ type typeVarData struct {
 }
 
 type structData struct {
-	Fields []fieldData
-	// TypeParams holds type parameters for Generic[...] inheritance.
-	TypeParams []typeParamData
-	// ExtendsNames holds parent class names for multiple inheritance.
+	Name         string
+	Doc          string
+	PyName       string
+	AliasOf      string
+	KeyField     string
+	Fields       []fieldData
+	TypeParams   []typeParamData
 	ExtendsNames []string
-	// Name is the original struct name from schema.
-	Name string
-	// Doc is the documentation from @doc domain.
-	Doc string
-	// PyName is the Python name (can be overridden via py domain { name "..." }).
-	PyName string
-	// AliasOf is the Python expression for the aliased type (e.g., "status.Status[StatusDetails]").
-	AliasOf string
-	// KeyField is the name of the key field (if any) for generating __hash__.
-	KeyField string
-	// Skip indicates whether to skip generating this struct (omit).
-	Skip bool
-	// IsAlias indicates whether this struct is a type alias.
-	IsAlias bool
-	// IsGeneric is true if struct has type parameters.
-	IsGeneric bool
-	// HasExtends indicates extension support (single and multiple inheritance).
-	HasExtends bool
+	Skip         bool
+	IsAlias      bool
+	IsGeneric    bool
+	HasExtends   bool
 }
 
 type fieldData struct {
@@ -1146,9 +1135,9 @@ type fieldData struct {
 }
 
 type enumData struct {
-	Values        []enumValueData
 	Name          string
 	LiteralValues string
+	Values        []enumValueData
 	IsIntEnum     bool
 }
 

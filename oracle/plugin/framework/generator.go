@@ -20,13 +20,13 @@ import (
 )
 
 type GenerateContext struct {
-	Structs    []resolution.Type
-	Enums      []resolution.Type
-	TypeDefs   []resolution.Type
 	Table      *resolution.Table
 	Namespace  string
 	OutputPath string
 	RepoRoot   string
+	Structs    []resolution.Type
+	Enums      []resolution.Type
+	TypeDefs   []resolution.Type
 }
 
 type FileGenerator interface {

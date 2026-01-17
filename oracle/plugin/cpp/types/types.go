@@ -1082,18 +1082,18 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	ForwardDecls []string
-	Structs      []structData
-	Enums        []enumData
-	TypeDefs     []typeDefData
-	Aliases      []aliasData
-	SortedDecls  []sortedDeclData
 	Ontology     *ontologyData
 	includes     *includeManager
 	table        *resolution.Table
 	OutputPath   string
 	Namespace    string
 	rawNs        string
+	ForwardDecls []string
+	Structs      []structData
+	Enums        []enumData
+	TypeDefs     []typeDefData
+	Aliases      []aliasData
+	SortedDecls  []sortedDeclData
 }
 
 // ontologyData contains information for generating ontology ID support.
@@ -1116,30 +1116,24 @@ type sortedDeclData struct {
 }
 
 type typeDefData struct {
-	// Methods holds custom methods from @cpp methods.
-	Methods []string
-	Name    string
-	CppType string
-	// ElementType is the element type for array wrappers.
-	ElementType    string
-	ProtoType      string
-	ProtoNamespace string
-	ProtoClass     string
-	// ArraySize is the size of a fixed-size array.
-	ArraySize int64
-	// IsArrayWrapper is true if this is an array distinct type that should be a wrapper struct.
-	IsArrayWrapper bool
-	// IsFixedSizeArray is true if this is a fixed-size array (uses std::array instead of std::vector).
-	IsFixedSizeArray bool
-	// ElementIsPrimitive is true if element type is primitive (allows initializer_list constructor).
+	Name               string
+	CppType            string
+	ElementType        string
+	ProtoType          string
+	ProtoNamespace     string
+	ProtoClass         string
+	Methods            []string
+	ArraySize          int64
+	IsArrayWrapper     bool
+	IsFixedSizeArray   bool
 	ElementIsPrimitive bool
 	HasProto           bool
 }
 
 type aliasData struct {
-	TypeParams []string
 	Name       string
 	Target     string
+	TypeParams []string
 	IsGeneric  bool
 }
 
@@ -1152,22 +1146,20 @@ func (d *templateData) SystemIncludes() []string { return d.includes.system }
 func (d *templateData) InternalIncludes() []string { return d.includes.internal }
 
 type structData struct {
-	Fields     []fieldData
-	TypeParams []typeParamData
-	Methods    []string
-	// ExtendsTypes holds parent types (e.g., ["arc::ir::IR", "arc::compiler::Output"]).
-	ExtendsTypes   []string
+	ProtoClass     string
+	ProtoType      string
 	Name           string
 	Doc            string
-	AliasOf        string
-	ProtoType      string
 	ProtoNamespace string
-	ProtoClass     string
-	IsGeneric      bool
-	IsAlias        bool
+	AliasOf        string
+	Methods        []string
+	ExtendsTypes   []string
+	TypeParams     []typeParamData
+	Fields         []fieldData
 	HasProto       bool
-	// HasExtends indicates whether the struct uses C++ inheritance.
-	HasExtends bool
+	IsAlias        bool
+	IsGeneric      bool
+	HasExtends     bool
 }
 
 type typeParamData struct {

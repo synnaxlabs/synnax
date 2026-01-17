@@ -91,10 +91,10 @@ type BuiltinGenericForm struct {
 func (BuiltinGenericForm) typeForm() {}
 
 type Field struct {
-	Domains        map[string]Domain
-	Type           TypeRef
 	AST            any
+	Domains        map[string]Domain
 	Name           string
+	Type           TypeRef
 	IsOptional     bool
 	IsHardOptional bool
 	OmitIfUnset    bool
@@ -122,9 +122,9 @@ func (v EnumValue) IntValue() int64 {
 
 type TypeRef struct {
 	TypeParam *TypeParam
-	TypeArgs  []TypeRef
-	ArraySize *int64 // nil for dynamic arrays, set for fixed-size arrays like [4]byte
+	ArraySize *int64
 	Name      string
+	TypeArgs  []TypeRef
 }
 
 func (r TypeRef) IsTypeParam() bool {

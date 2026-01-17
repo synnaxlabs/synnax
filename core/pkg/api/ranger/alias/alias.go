@@ -70,8 +70,8 @@ func (s *Service) Set(
 
 type (
 	ResolveRequest struct {
-		Range   uuid.UUID `json:"range" msgpack:"range"`
 		Aliases []string  `json:"aliases" msgpack:"aliases"`
+		Range   uuid.UUID `json:"range" msgpack:"range"`
 	}
 	ResolveResponse struct {
 		Aliases map[string]channel.Key `json:"aliases" msgpack:"aliases"`
@@ -109,8 +109,8 @@ func (s *Service) Resolve(
 }
 
 type DeleteRequest struct {
-	Range    uuid.UUID     `json:"range" msgpack:"range"`
 	Channels []channel.Key `json:"channels" msgpack:"channels"`
+	Range    uuid.UUID     `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Delete(
@@ -167,8 +167,8 @@ func (s *Service) List(
 
 type (
 	RetrieveRequest struct {
-		Range    uuid.UUID     `json:"range" msgpack:"range"`
 		Channels []channel.Key `json:"channels" msgpack:"channels"`
+		Range    uuid.UUID     `json:"range" msgpack:"range"`
 	}
 	RetrieveResponse struct {
 		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`

@@ -21,12 +21,9 @@ type Import struct {
 
 // Mapping defines how a primitive maps to a target language.
 type Mapping struct {
-	// Imports holds the required imports/includes.
-	Imports []Import
-	// TargetType is the type string in the target language.
 	TargetType string
-	// ZeroValue is the default/zero value expression (optional).
-	ZeroValue string
+	ZeroValue  string
+	Imports    []Import
 }
 
 // Mapper provides language-specific primitive type mappings.

@@ -1300,9 +1300,6 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	Translators      []translatorData
-	EnumTranslators  []enumTranslatorData
-	ArrayWrappers    []arrayWrapperTranslatorData
 	processedEnums   map[string]bool
 	processedStructs map[string]bool
 	includes         *includeManager
@@ -1310,6 +1307,9 @@ type templateData struct {
 	OutputPath       string
 	Namespace        string
 	rawNs            string
+	Translators      []translatorData
+	EnumTranslators  []enumTranslatorData
+	ArrayWrappers    []arrayWrapperTranslatorData
 }
 
 type arrayWrapperTranslatorData struct {
@@ -1329,14 +1329,14 @@ func (d *templateData) SystemIncludes() []string   { return d.includes.system }
 func (d *templateData) InternalIncludes() []string { return d.includes.internal }
 
 type translatorData struct {
-	Fields         []fieldTranslatorData
-	TypeParams     []typeParamData
-	ParentTypes    []parentTypeData
-	AllFields      []fieldTranslatorData
 	CppName        string
 	PBName         string
 	PBNamespace    string
 	TypeParamNames string
+	Fields         []fieldTranslatorData
+	TypeParams     []typeParamData
+	ParentTypes    []parentTypeData
+	AllFields      []fieldTranslatorData
 	IsGeneric      bool
 	HasExtends     bool
 }
@@ -1363,11 +1363,11 @@ type fieldTranslatorData struct {
 }
 
 type enumTranslatorData struct {
-	Values      []enumValueTranslatorData
 	Name        string
 	PBNamespace string
 	PBDefault   string
 	CppDefault  string
+	Values      []enumValueTranslatorData
 }
 
 type enumValueTranslatorData struct {

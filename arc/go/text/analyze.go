@@ -349,13 +349,13 @@ func Analyze(
 }
 
 type flowChainProcessor struct {
+	kg                 *keyGenerator
+	prevNode           *ir.Node
 	ctx                acontext.Context[parser.IFlowStatementContext]
 	prevOutput         ir.Handle
 	nodes              []ir.Node
 	edges              []ir.Edge
 	additionalTriggers []nodeResult
-	kg                 *keyGenerator
-	prevNode           *ir.Node
 	totalFlowNodes     int
 	currentIndex       int
 	lastOpIndex        int

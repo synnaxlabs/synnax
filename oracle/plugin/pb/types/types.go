@@ -617,8 +617,6 @@ func (m *importManager) add(path string) {
 }
 
 type templateData struct {
-	Messages        []messageData
-	Enums           []enumData
 	wrapperMessages map[string]bool
 	imports         *importManager
 	table           *resolution.Table
@@ -627,6 +625,8 @@ type templateData struct {
 	OutputPath      string
 	Namespace       string
 	repoRoot        string
+	Messages        []messageData
+	Enums           []enumData
 }
 
 func (d *templateData) Imports() []string {
