@@ -17,25 +17,35 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/status"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
+
+// legacyStatusChannels are channels used in previous versions to store calculation
+// status updates before the status service was introduced.
+var legacyStatusChannels = []string{"sy_calculation_status", "sy_calculation_state"}
+
+// StatusDetails contains calculation-specific status information.
+type StatusDetails struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Status is an alias for the calculation status type.
+type Status = status.Status[StatusDetails]
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
@@ -55,6 +65,9 @@ type ServiceConfig struct {
 	// Arc is used for compiling arc programs used for executing calculations.
 	// [REQUIRED]
 	Arc *arc.Service
+	// Status is used for persisting calculation status updates.
+	// [REQUIRED]
+	Status *status.Service
 	alamos.Instrumentation
 }
 
@@ -73,6 +86,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "channel_observable", c.ChannelObservable)
 	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
@@ -84,23 +98,21 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
 	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
 type Service struct {
-	cfg                          ServiceConfig
 	disconnectFromChannelChanges observe.Disconnect
-	writer                       *framer.Writer
+	cfg                          ServiceConfig
 	mu                           struct {
 		graph       *graph.Graph
 		calculators map[channel.Key]*calculator.Calculator
 		groups      map[int]*group
 		sync.Mutex
 	}
-	stateKey channel.Key
+	statusWriter status.Writer[StatusDetails]
 }
-
-const statusChannelName = "sy_calculation_status"
 
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
@@ -118,60 +130,46 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 
-	calculationStateCh := channel.Channel{
-		Name:        statusChannelName,
-		DataType:    telem.JSONT,
-		Virtual:     true,
-		Leaseholder: cluster.NodeKeyFree,
-		Internal:    true,
+	s := &Service{
+		cfg:          cfg,
+		statusWriter: status.NewWriter[StatusDetails](cfg.Status, nil),
 	}
-
-	if err = cfg.Channel.MapRename(ctx, map[string]string{
-		"sy_calculation_state": statusChannelName,
-	}, true); err != nil {
-		return nil, err
-	}
-
-	if err = cfg.Channel.Create(
-		ctx,
-		&calculationStateCh,
-		channel.RetrieveIfNameExists(),
-	); err != nil {
-		return nil, err
-	}
-
-	w, err := cfg.Framer.OpenWriter(ctx, framer.WriterConfig{
-		Keys:        []channel.Key{calculationStateCh.Key()},
-		Start:       telem.Now(),
-		Authorities: []control.Authority{255},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	s := &Service{cfg: cfg, writer: w, stateKey: calculationStateCh.Key()}
 	s.disconnectFromChannelChanges = cfg.ChannelObservable.OnChange(s.handleChange)
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	s.cfg.L.Info("calculation service initialized",
-		zap.String("status_channel", statusChannelName),
-		zap.Uint32("status_channel_key", uint32(calculationStateCh.Key())),
-	)
+	if err := cfg.Channel.DeleteManyByNames(ctx, legacyStatusChannels, true); err != nil {
+		cfg.L.Debug("failed to delete legacy status channels", zap.Error(err))
+	}
+
+	s.cfg.L.Info("calculation service initialized")
 
 	return s, nil
 }
 
 func (s *Service) setStatus(
-	_ context.Context,
+	ctx context.Context,
 	statuses ...calculator.Status,
 ) {
-	if _, err := s.writer.Write(frame.NewUnary(
-		s.stateKey,
-		telem.NewSeriesStaticJSONV(statuses...),
-	)); err != nil {
-		s.cfg.L.Error("failed to encode state", zap.Error(err))
+	for _, st := range statuses {
+		chKey, err := channel.ParseKey(st.Key)
+		if err != nil {
+			s.cfg.L.Error("failed to parse channel key from status", zap.Error(err), zap.String("key", st.Key))
+			continue
+		}
+		statusKey := channel.OntologyID(chKey).String()
+		if err := s.statusWriter.Set(ctx, &Status{
+			Key:         statusKey,
+			Name:        st.Name,
+			Variant:     st.Variant,
+			Message:     st.Message,
+			Description: st.Description,
+			Time:        telem.Now(),
+			Details:     StatusDetails{Channel: chKey},
+		}); err != nil {
+			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
+		}
 	}
 }
 
@@ -194,7 +192,8 @@ func (s *Service) handleChange(
 		if err := s.updateCalculation(ctx, ch); err != nil {
 			s.setStatus(ctx, calculator.Status{
 				Key:         ch.Key().String(),
-				Variant:     status.VariantError,
+				Name:        ch.Name,
+				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("failed to update calculation for %s", ch),
 				Description: err.Error(),
 			})
@@ -359,7 +358,9 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 		}
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
 			statuses = append(statuses, calculator.Status{
-				Key:         ch.String(),
+				Key:         ch.Key().String(),
+				Name:        ch.Name,
+				Variant:     xstatus.VariantError,
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})

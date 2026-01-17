@@ -48,6 +48,7 @@ var _ = Describe("Metrics", Ordered, func() {
 			Framer:  dist.Framer,
 			Channel: dist.Channel,
 			Arc:     arcSvc,
+			Status:  statusSvc,
 		}))
 	})
 	AfterAll(func() {
