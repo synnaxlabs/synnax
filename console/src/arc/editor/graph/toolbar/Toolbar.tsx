@@ -12,8 +12,8 @@ import { Access, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { PropertiesControls } from "@/arc/editor/toolbar/Properties";
-import { Stages } from "@/arc/editor/toolbar/Stages";
+import { PropertiesControls } from "@/arc/editor/graph/toolbar/Properties";
+import { Stages } from "@/arc/editor/graph/toolbar/Stages";
 import { useExport } from "@/arc/export";
 import {
   useSelectEditable,

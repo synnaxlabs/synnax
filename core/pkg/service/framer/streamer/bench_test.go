@@ -55,10 +55,10 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 
 	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
-		Label:    labelSvc,
-		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Ontology: dist.Ontology,
+		Label:    labelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -68,8 +68,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
-		Framer:   dist.Framer,
-		Status:   statusSvc,
 		Signals:  dist.Signals,
 	})
 	if err != nil {

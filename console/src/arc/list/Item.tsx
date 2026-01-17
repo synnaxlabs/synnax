@@ -40,7 +40,6 @@ export const Item = ({ showStatus: _, ...props }: ItemProps) => {
       name: arc.name,
       graph: arc.graph,
       text: arc.text,
-      deploy: arc.deploy,
       version: arc.version,
     };
   }, [arc]);

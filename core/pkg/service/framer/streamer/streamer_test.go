@@ -47,17 +47,15 @@ var _ = Describe("Streamer", Ordered, func() {
 		}))
 		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
-			Label:    labelSvc,
-			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
+			Label:    labelSvc,
 		}))
 		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
-			Framer:   dist.Framer,
-			Status:   statusSvc,
 			Signals:  dist.Signals,
 		}))
 		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{

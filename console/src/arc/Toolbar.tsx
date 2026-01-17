@@ -13,7 +13,6 @@ import { arc, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
   Arc,
-  Button,
   Flex,
   type Flux,
   Icon,
@@ -21,7 +20,6 @@ import {
   Menu as PMenu,
   Select,
   Status,
-  stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
@@ -93,21 +91,19 @@ const Content = () => {
 
   const handleEdit = useCallback(
     (key: arc.Key) => {
-      const arc = getItem(key);
-
-      if (arc == null)
+      const retrieved = getItem(key);
+      if (retrieved == null)
         return addStatus({
           variant: "error",
           message: "Failed to open Arc editor",
           description: `Arc with key ${key} not found`,
         });
-      const graph = translateGraphToConsole(arc.graph);
-      placeLayout(Editor.create({ key, name: arc.name, graph }));
+      const { name, text, mode } = retrieved;
+      const graph = translateGraphToConsole(retrieved.graph);
+      placeLayout(Editor.create({ key, name, graph, text, mode }));
     },
     [getItem, addStatus, placeLayout],
   );
-
-  const { update: handleToggleDeploy } = Arc.useToggleDeploy();
 
   const rename = Modals.useRename();
 
@@ -126,15 +122,6 @@ const Content = () => {
         const arc = getItem(key);
         if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
         const oldName = arc.name;
-        if (arc.status?.details.running === true) {
-          const confirmed = await confirm({
-            message: `Are you sure you want to rename ${arc.name} to ${name}?`,
-            description: `This will cause ${arc.name} to stop and be reconfigured.`,
-            cancel: { label: "Cancel" },
-            confirm: { label: "Rename", variant: "error" },
-          });
-          if (!confirmed) return false;
-        }
         dispatch(Layout.rename({ key, name }));
         rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
         return data;
@@ -150,10 +137,9 @@ const Content = () => {
         arcs={getItem(keys)}
         onDelete={handleDelete}
         onEdit={handleEdit}
-        onToggleDeploy={(key) => handleToggleDeploy(key)}
       />
     ),
-    [handleDelete, handleEdit, handleToggleDeploy, handleRename, getItem],
+    [handleDelete, handleEdit, getItem],
   );
 
   return (
@@ -188,9 +174,8 @@ const Content = () => {
               <ArcListItem
                 key={key}
                 {...p}
-                onToggleDeploy={() => handleToggleDeploy(key)}
                 onRename={(name) => handleRename({ key, name })}
-                onDoubleClick={() => handleEdit(key)}
+                onEdit={() => handleEdit(key)}
               />
             )}
           </List.Items>
@@ -213,28 +198,18 @@ export const TOOLBAR: Layout.NavDrawerItem = {
 };
 
 interface ArcListItemProps extends List.ItemProps<arc.Key> {
-  onToggleDeploy: () => void;
   onRename: (name: string) => void;
+  onEdit: () => void;
 }
 
-const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) => {
+const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
-
-  const variant = arcItem?.status?.variant;
-  const isLoading = variant === "loading";
-  const isRunning = arcItem?.status?.details.running === true;
-  const isDeployed = arcItem?.deploy === true;
-
   return (
     <Select.ListItem {...rest} justify="between" align="center">
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
         <Flex.Box x align="center" gap="small">
-          <Status.Indicator
-            variant={variant}
-            style={{ fontSize: "2rem", minWidth: "2rem" }}
-          />
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}
@@ -244,21 +219,7 @@ const ArcListItem = ({ onToggleDeploy, onRename, ...rest }: ArcListItemProps) =>
             weight={500}
           />
         </Flex.Box>
-        <Text.Text level="small" color={10}>
-          {arcItem?.status?.message ?? (isDeployed ? "Started" : "Stopped")}
-        </Text.Text>
       </Flex.Box>
-      {hasEditPermission && (
-        <Button.Button
-          variant="outlined"
-          status={isLoading ? "loading" : undefined}
-          onClick={onToggleDeploy}
-          onDoubleClick={stopPropagation}
-          tooltip={`${isDeployed ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
-        >
-          {isRunning ? <Icon.Pause /> : <Icon.Play />}
-        </Button.Button>
-      )}
     </Select.ListItem>
   );
 };
@@ -268,69 +229,35 @@ interface ContextMenuProps {
   arcs: arc.Arc[];
   onDelete: (keys: arc.Key | arc.Key[]) => void;
   onEdit: (key: arc.Key) => void;
-  onToggleDeploy: (key: arc.Key) => void;
 }
 
-const ContextMenu = ({
-  keys,
-  arcs,
-  onDelete,
-  onEdit,
-  onToggleDeploy,
-}: ContextMenuProps) => {
+const ContextMenu = ({ keys, arcs, onDelete, onEdit }: ContextMenuProps) => {
   const ids = arc.ontologyID(keys);
   const canDeleteAccess = Access.useDeleteGranted(ids);
   const canEditAccess = Access.useUpdateGranted(ids);
-  const canDeploy = arcs.some((arc) => arc.deploy === false);
-  const canStop = arcs.some((arc) => arc.deploy === true);
   const someSelected = arcs.length > 0;
   const isSingle = arcs.length === 1;
 
   const handleChange = useMemo<PMenu.MenuProps["onChange"]>(
     () => ({
-      start: () =>
-        arcs.forEach((arc) => {
-          if (!arc.deploy) onToggleDeploy(arc.key);
-        }),
-      stop: () =>
-        arcs.forEach((arc) => {
-          if (arc.deploy) onToggleDeploy(arc.key);
-        }),
       edit: () => isSingle && onEdit(arcs[0].key),
       rename: () => isSingle && Text.edit(`text-${arcs[0].key}`),
       delete: () => onDelete(keys),
     }),
-    [arcs, onToggleDeploy, onEdit, onDelete, isSingle, keys],
+    [arcs, onEdit, onDelete, isSingle, keys],
   );
 
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canEditAccess && (
+      {canEditAccess && isSingle && (
         <>
-          {canDeploy && (
-            <PMenu.Item itemKey="start">
-              <Icon.Play />
-              Start
-            </PMenu.Item>
-          )}
-          {canStop && (
-            <PMenu.Item itemKey="stop">
-              <Icon.Pause />
-              Stop
-            </PMenu.Item>
-          )}
-          {(canDeploy || canStop) && <PMenu.Divider />}
-          {isSingle && (
-            <>
-              <PMenu.Item itemKey="edit">
-                <Icon.Edit />
-                Edit Arc
-              </PMenu.Item>
-              <PMenu.Divider />
-              <Menu.RenameItem />
-              <PMenu.Divider />
-            </>
-          )}
+          <PMenu.Item itemKey="edit">
+            <Icon.Edit />
+            Edit Arc
+          </PMenu.Item>
+          <PMenu.Divider />
+          <Menu.RenameItem />
+          <PMenu.Divider />
         </>
       )}
       {canDeleteAccess && someSelected && (

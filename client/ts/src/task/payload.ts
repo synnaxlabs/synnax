@@ -146,3 +146,6 @@ export interface StateObservable<
 export interface CommandObservable extends observe.ObservableAsyncCloseable<Command> {}
 
 export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
+
+export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
+  ((BigInt(rackKey) << 32n) + BigInt(taskKey)).toString();

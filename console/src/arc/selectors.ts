@@ -18,6 +18,7 @@ import {
   type StoreState,
   type ToolbarState,
 } from "@/arc/slice";
+import { type Mode } from "@/arc/types";
 import { useMemoSelect } from "@/hooks";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
@@ -212,3 +213,15 @@ export const selectVersion = (state: StoreState, key: string): string | undefine
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
+
+export const selectMode = (state: StoreState, key: string): Mode =>
+  select(state, key).mode;
+
+export const useSelectMode = (key: string): Mode =>
+  useMemoSelect((state: StoreState) => selectMode(state, key), [key]);
+
+export const selectOptionalMode = (state: StoreState, key: string): Mode =>
+  selectOptional(state, key)?.mode;
+
+export const useSelectOptionalMode = (key: string): Mode =>
+  useMemoSelect((state: StoreState) => selectOptionalMode(state, key), [key]);

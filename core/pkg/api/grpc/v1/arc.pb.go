@@ -44,6 +44,7 @@ type Arc struct {
 	Module        *module.PBModule       `protobuf:"bytes,5,opt,name=module,proto3" json:"module,omitempty"`
 	Deploy        bool                   `protobuf:"varint,6,opt,name=deploy,proto3" json:"deploy,omitempty"`
 	Version       string                 `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`
+	Mode          string                 `protobuf:"bytes,8,opt,name=mode,proto3" json:"mode,omitempty"` // "graph" or "text"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -123,6 +124,13 @@ func (x *Arc) GetDeploy() bool {
 func (x *Arc) GetVersion() string {
 	if x != nil {
 		return x.Version
+	}
+	return ""
+}
+
+func (x *Arc) GetMode() string {
+	if x != nil {
+		return x.Mode
 	}
 	return ""
 }
@@ -399,7 +407,7 @@ var File_core_pkg_api_grpc_v1_arc_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_v1_arc_proto_rawDesc = "" +
 	"\n" +
-	"\x1ecore/pkg/api/grpc/v1/arc.proto\x12\x06api.v1\x1a\x18arc/go/graph/graph.proto\x1a\x1aarc/go/module/module.proto\x1a\x16arc/go/text/text.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xe4\x01\n" +
+	"\x1ecore/pkg/api/grpc/v1/arc.proto\x12\x06api.v1\x1a\x18arc/go/graph/graph.proto\x1a\x1aarc/go/module/module.proto\x1a\x16arc/go/text/text.proto\x1a\x1bgoogle/protobuf/empty.proto\"\xf8\x01\n" +
 	"\x03Arc\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
@@ -407,7 +415,8 @@ const file_core_pkg_api_grpc_v1_arc_proto_rawDesc = "" +
 	"\x04text\x18\x04 \x01(\v2\x13.arc.v1.text.PBTextR\x04text\x12/\n" +
 	"\x06module\x18\x05 \x01(\v2\x17.arc.v1.module.PBModuleR\x06module\x12\x16\n" +
 	"\x06deploy\x18\x06 \x01(\bR\x06deploy\x12\x18\n" +
-	"\aversion\x18\a \x01(\tR\aversion\"3\n" +
+	"\aversion\x18\a \x01(\tR\aversion\x12\x12\n" +
+	"\x04mode\x18\b \x01(\tR\x04mode\"3\n" +
 	"\x10ArcCreateRequest\x12\x1f\n" +
 	"\x04arcs\x18\x01 \x03(\v2\v.api.v1.ArcR\x04arcs\"4\n" +
 	"\x11ArcCreateResponse\x12\x1f\n" +

@@ -25,9 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	"github.com/synnaxlabs/x/config"
 )
 
 type channelResolver struct{ *channel.Service }
@@ -71,11 +69,7 @@ func (r *channelResolver) ResolvePrefix(ctx context.Context, name string) ([]arc
 	}), nil
 }
 
-func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
-	cfg, err := config.New(runtime.DefaultConfig, cfgs...)
-	if err != nil {
-		return nil, err
-	}
+func CreateResolver(channelSvc *channel.Service) arc.SymbolResolver {
 	return symbol.CompoundResolver{
 		constant.SymbolResolver,
 		op.SymbolResolver,
@@ -85,6 +79,6 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 		telem.SymbolResolver,
 		stat.SymbolResolver,
 		time.SymbolResolver,
-		&channelResolver{Service: cfg.Channel},
-	}, nil
+		&channelResolver{Service: channelSvc},
+	}
 }

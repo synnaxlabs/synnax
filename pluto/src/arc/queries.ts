@@ -14,7 +14,7 @@ import z from "zod";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { state } from "@/state";
-import { Status } from "@/status";
+import { type Status } from "@/status";
 
 export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
 
@@ -57,19 +57,6 @@ const retrieveSingle = async ({
   query,
   store,
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  if ("key" in query) {
-    const cached = store.arcs.get(query.key);
-    if (cached != null) {
-      const status = await Status.retrieveSingle<typeof arc.statusDetailsZ>({
-        store,
-        client,
-        query: { key: cached.key },
-        detailsSchema: arc.statusDetailsZ,
-      });
-      if (status != null) cached.status = status;
-      return cached;
-    }
-  }
   const a = await client.arcs.retrieve({
     ...query,
     includeStatus: query.includeStatus ?? true,
@@ -84,17 +71,11 @@ export interface ListQuery extends List.PagerParams {
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) => {
-    const res = store.arcs.get((a) => {
+  retrieveCached: ({ store, query }) =>
+    store.arcs.get((a) => {
       if (primitive.isNonZero(query.keys)) return query.keys.includes(a.key);
       return true;
-    });
-    res.forEach((r) => {
-      const status = store.statuses.get(r.key);
-      if (status != null) r.status = arc.statusZ.parse(status);
-    });
-    return res;
-  },
+    }),
   retrieve: async ({ client, query }) =>
     await client.arcs.retrieve({
       ...query,
@@ -108,19 +89,8 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore
     return arc;
   },
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.arcs.onSet((arc) =>
-      onChange(arc.key, (p) => {
-        if (p == null) return arc;
-        return { ...arc, status: arc.status ?? p.status };
-      }),
-    ),
+    store.arcs.onSet((arc) => onChange(arc.key, arc)),
     store.arcs.onDelete(onDelete),
-    store.statuses.onSet((status) =>
-      onChange(status.key, (p) => {
-        if (p == null) return p;
-        return { ...p, status: arc.statusZ.parse(status) };
-      }),
-    ),
   ],
 });
 
@@ -146,7 +116,6 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   version: "0.0.0",
   graph: { nodes: [], edges: [] },
   text: { raw: "" },
-  deploy: true,
 };
 
 export const useForm = Flux.createForm<
@@ -168,7 +137,11 @@ export const useForm = Flux.createForm<
   },
 });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, FluxSubStore>({
+export const { useUpdate: useCreate } = Flux.createUpdate<
+  arc.New,
+  FluxSubStore,
+  arc.Arc
+>({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
@@ -195,7 +168,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, FluxSubStore>
     }
 
     rollbacks.push(store.arcs.set(arc));
-    return data;
+    return arc;
   },
 });
 
@@ -209,17 +182,6 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   mountListeners: ({ store, query, onChange }) => {
     if (!("key" in query) || primitive.isZero(query.key)) return [];
     return [store.arcs.onSet(onChange, query.key)];
-  },
-});
-
-export const { useUpdate: useToggleDeploy } = Flux.createUpdate<arc.Key, FluxSubStore>({
-  name: RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ client, store, data: key, rollbacks }) => {
-    const arc = await retrieveSingle({ client, store, query: { key } });
-    const updated = await client.arcs.create({ ...arc, deploy: !arc.deploy });
-    rollbacks.push(store.arcs.set(updated));
-    return key;
   },
 });
 

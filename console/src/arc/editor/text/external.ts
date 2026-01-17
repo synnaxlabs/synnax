@@ -7,22 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build driver && windows
-
-package driver
-
-import (
-	"embed"
-	"os/exec"
-	"syscall"
-)
-
-//go:embed assets/driver.exe
-var executable embed.FS
-
-// driverPath is the path to the driver executable
-const driverName = "driver.exe"
-
-func configureSysProcAttr(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP}
-}
+export * from "@/arc/editor/text/Editor";
+export { Toolbar } from "@/arc/editor/text/Toolbar";

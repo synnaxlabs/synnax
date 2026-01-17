@@ -27,16 +27,20 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
+	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/synnax/pkg/driver"
+	cppdriver "github.com/synnaxlabs/synnax/pkg/driver/cpp"
+	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
@@ -263,7 +267,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []fhttp.BindableTransport{r, serviceLayer.Console},
+					Transports: []fhttp.BindableTransport{r, console.NewService()},
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					grpcAPITrans,
@@ -296,27 +300,46 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return nil
 	}
 
-	if embeddedDriver, err = driver.OpenDriver(
+	driverIns := cfg.Child("driver")
+	if embeddedDriver, err = driver.Open(
 		ctx,
 		driver.Config{
-			Enabled:             config.Bool(!*cfg.noDriver),
-			Insecure:            cfg.insecure,
-			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
-			Instrumentation:     cfg.Child("driver"),
-			Address:             cfg.listenAddress,
-			RackKey:             serviceLayer.Rack.EmbeddedKey,
-			ClusterKey:          distributionLayer.Cluster.Key(),
-			Username:            cfg.rootUsername,
-			Password:            cfg.rootPassword,
-			Debug:               cfg.debug,
-			CACertPath:          cfg.certFactoryConfig.AbsoluteCACertPath(),
-			ClientCertFile:      cfg.certFactoryConfig.AbsoluteNodeCertPath(),
-			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteNodeKeyPath(),
-			ParentDirname:       workDir,
-			TaskOpTimeout:       cfg.taskOpTimeout,
-			TaskPollInterval:    cfg.taskPollInterval,
-			TaskShutdownTimeout: cfg.taskShutdownTimeout,
-			TaskWorkerCount:     cfg.taskWorkerCount,
+			Go: godriver.Config{
+				Instrumentation: driverIns.Child("go"),
+				DB:              distributionLayer.DB,
+				Rack:            serviceLayer.Rack,
+				Task:            serviceLayer.Task,
+				Framer:          distributionLayer.Framer,
+				Channel:         distributionLayer.Channel,
+				Status:          serviceLayer.Status,
+				Factory: arcruntime.NewFactory(arcruntime.FactoryConfig{
+					Channel:   distributionLayer.Channel,
+					Framer:    distributionLayer.Framer,
+					Status:    serviceLayer.Status,
+					GetModule: serviceLayer.Arc.GetModule,
+				}),
+				Host: distributionLayer.Cluster,
+			},
+			CPP: cppdriver.Config{
+				Enabled:             config.Bool(!*cfg.noDriver),
+				Insecure:            cfg.insecure,
+				Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
+				Instrumentation:     driverIns.Child("cpp"),
+				Address:             cfg.listenAddress,
+				RackKey:             serviceLayer.Rack.EmbeddedKey,
+				ClusterKey:          distributionLayer.Cluster.Key(),
+				Username:            cfg.rootUsername,
+				Password:            cfg.rootPassword,
+				Debug:               cfg.debug,
+				CACertPath:          cfg.certFactoryConfig.AbsoluteCACertPath(),
+				ClientCertFile:      cfg.certFactoryConfig.AbsoluteNodeCertPath(),
+				ClientKeyFile:       cfg.certFactoryConfig.AbsoluteNodeKeyPath(),
+				ParentDirname:       workDir,
+				TaskWorkerCount:     cfg.taskWorkerCount,
+				TaskShutdownTimeout: cfg.taskShutdownTimeout,
+				TaskPollInterval:    cfg.taskPollInterval,
+				TaskOpTimeout:       cfg.taskOpTimeout,
+			},
 		},
 	); !ok(err, embeddedDriver) {
 		return err

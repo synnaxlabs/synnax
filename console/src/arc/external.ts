@@ -22,7 +22,7 @@ export * from "@/arc/Toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
-  [Editor.LAYOUT_TYPE]: Editor.Text,
+  [Editor.LAYOUT_TYPE]: Editor.Editor,
 };
 
 export const SELECTABLES: Selector.Selectable[] = [Editor.SELECTABLE];

@@ -21,8 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -41,32 +39,9 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-	})
-	if err != nil {
-		b.Fatalf("failed to open label service: %v", err)
-	}
-
-	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Label:    labelSvc,
-	})
-	if err != nil {
-		b.Fatalf("failed to open status service: %v", err)
-	}
-
 	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       dist.DB,
 		Channel:  dist.Channel,
-		Framer:   dist.Framer,
-		Status:   statusSvc,
 		Ontology: dist.Ontology,
 	})
 	if err != nil {
