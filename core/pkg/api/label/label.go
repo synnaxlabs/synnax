@@ -74,10 +74,10 @@ func (s *Service) Create(
 }
 
 type RetrieveRequest struct {
-	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
-	Names      []string    `json:"names" msgpack:"names"`
 	For        ontology.ID `json:"for" msgpack:"for"`
 	SearchTerm string      `json:"search_term" msgpack:"search_term"`
+	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
+	Names      []string    `json:"names" msgpack:"names"`
 	Limit      int         `json:"limit" msgpack:"limit"`
 	Offset     int         `json:"offset" msgpack:"offset"`
 }

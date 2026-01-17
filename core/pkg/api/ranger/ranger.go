@@ -112,8 +112,8 @@ type (
 		Keys          []uuid.UUID     `json:"keys" msgpack:"keys"`
 		Names         []string        `json:"names" msgpack:"names"`
 		SearchTerm    string          `json:"search_term" msgpack:"search_term"`
-		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		HasLabels     []uuid.UUID     `json:"has_labels" msgpack:"has_labels"`
+		OverlapsWith  telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 		Limit         int             `json:"limit" msgpack:"limit"`
 		Offset        int             `json:"offset" msgpack:"offset"`
 		IncludeLabels bool            `json:"include_labels" msgpack:"include_labels"`
@@ -199,8 +199,8 @@ func (s *Service) Retrieve(
 }
 
 type RenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(

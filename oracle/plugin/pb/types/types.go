@@ -617,16 +617,16 @@ func (m *importManager) add(path string) {
 }
 
 type templateData struct {
+	Messages        []messageData
+	Enums           []enumData
+	wrapperMessages map[string]bool
+	imports         *importManager
+	table           *resolution.Table
 	Package         string
 	GoPackage       string
 	OutputPath      string
 	Namespace       string
-	Messages        []messageData
-	Enums           []enumData
-	imports         *importManager
-	table           *resolution.Table
 	repoRoot        string
-	wrapperMessages map[string]bool
 }
 
 func (d *templateData) Imports() []string {

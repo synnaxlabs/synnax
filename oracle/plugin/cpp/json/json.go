@@ -841,12 +841,12 @@ func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
 }
 
 type templateData struct {
-	OutputPath    string
-	Namespace     string
 	Serializers   []serializerData
 	ArrayWrappers []arrayWrapperData
 	includes      *includeManager
 	table         *resolution.Table
+	OutputPath    string
+	Namespace     string
 	rawNs         string
 }
 
@@ -870,14 +870,14 @@ func (d *templateData) InternalIncludes() []string {
 }
 
 type serializerData struct {
-	Name           string
-	IsGeneric      bool
 	TypeParams     []typeParamData
-	TypeParamNames string
 	Fields         []fieldData
+	ParentTypes    []parentTypeData
+	Name           string
+	TypeParamNames string
 	// HasExtends indicates inheritance support.
-	HasExtends  bool
-	ParentTypes []parentTypeData
+	HasExtends bool
+	IsGeneric  bool
 }
 
 type parentTypeData struct {
@@ -895,9 +895,9 @@ type fieldData struct {
 	JSONName        string
 	ParseExpr       string
 	ToJSONExpr      string
-	IsGenericField  bool
 	TypeParamName   string
-	IsHardOptional  bool
 	JSONParseExpr   string
 	StructParseExpr string
+	IsGenericField  bool
+	IsHardOptional  bool
 }

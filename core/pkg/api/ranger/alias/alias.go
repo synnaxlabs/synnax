@@ -41,8 +41,8 @@ func NewService(cfg config.Config) *Service {
 }
 
 type SetRequest struct {
-	Range   uuid.UUID              `json:"range" msgpack:"range"`
 	Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
+	Range   uuid.UUID              `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Set(

@@ -18,9 +18,9 @@ import (
 
 // Data contains the extracted ontology information for a schema.
 type Data struct {
+	KeyField   *key.Field
 	TypeName   string
 	StructName string
-	KeyField   *key.Field
 }
 
 // SkipFunc is a predicate that determines whether to skip a type.

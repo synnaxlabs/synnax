@@ -445,17 +445,17 @@ func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, d
 }
 
 type templateData struct {
-	Package    string
-	OutputPath string
-	Namespace  string
 	Structs    []structData
 	Enums      []enumData
 	TypeDefs   []typeDefData
 	imports    *gointernal.ImportManager
 	table      *resolution.Table
-	repoRoot   string
 	resolver   *resolver.Resolver
 	ctx        *resolver.Context
+	Package    string
+	OutputPath string
+	Namespace  string
+	repoRoot   string
 }
 
 // HasImports returns true if any imports are needed.
@@ -470,19 +470,19 @@ func (d *templateData) InternalImports() []gointernal.InternalImportData {
 }
 
 type structData struct {
-	Name       string
-	Doc        string
 	Fields     []fieldData
 	TypeParams []typeParamData
-	IsGeneric  bool
-	IsAlias    bool
-	AliasOf    string
-	// HasExtends indicates whether the struct uses extension (multiple inheritance via embedding).
-	HasExtends bool
 	// ExtendsTypes holds parent types, which may be qualified (e.g., "parent.Parent").
 	ExtendsTypes []string
 	// ExtraFields holds extra fields from @go field directives (raw Go field declarations).
 	ExtraFields []string
+	Name        string
+	Doc         string
+	AliasOf     string
+	IsGeneric   bool
+	IsAlias     bool
+	// HasExtends indicates whether the struct uses extension (multiple inheritance via embedding).
+	HasExtends bool
 }
 
 type typeParamData struct {
@@ -494,9 +494,9 @@ type fieldData struct {
 	GoName         string
 	GoType         string
 	JSONName       string
+	Doc            string
 	IsOptional     bool
 	IsHardOptional bool
-	Doc            string
 }
 
 // TagSuffix returns the JSON/msgpack tag suffix for the field.
@@ -521,12 +521,12 @@ type enumValueData struct {
 }
 
 type typeDefData struct {
-	Name     string
-	BaseType string
-	// IsAlias indicates whether to use "type X = Y" (true) or "type X Y" (false).
-	IsAlias    bool
 	TypeParams []typeParamData
-	IsGeneric  bool
+	Name       string
+	BaseType   string
+	// IsAlias indicates whether to use "type X = Y" (true) or "type X Y" (false).
+	IsAlias   bool
+	IsGeneric bool
 }
 
 var templateFuncs = template.FuncMap{

@@ -57,11 +57,11 @@ func (c Config) Validate() error { return nil }
 // Server implements the Language Server Protocol for arc
 type Server struct {
 	xlsp.NoopServer
-	client       protocol.Client
-	documents    map[protocol.DocumentURI]*Document
+	capabilities protocol.ServerCapabilities
 	cfg          Config
 	mu           sync.RWMutex
-	capabilities protocol.ServerCapabilities
+	client       protocol.Client
+	documents    map[protocol.DocumentURI]*Document
 }
 
 var _ protocol.Server = (*Server)(nil)

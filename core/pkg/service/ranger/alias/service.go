@@ -39,7 +39,6 @@ type ParentRetriever interface {
 
 // ServiceConfig is the configuration for opening the alias.Service.
 type ServiceConfig struct {
-	alamos.Instrumentation
 	// DB is the underlying database.
 	DB *gorp.DB
 	// Ontology is used to register the alias ontology service.
@@ -48,6 +47,7 @@ type ServiceConfig struct {
 	Signals *signals.Provider
 	// ParentRetriever is used to look up parent ranges for inheritance.
 	ParentRetriever ParentRetriever
+	alamos.Instrumentation
 }
 
 var (
@@ -76,8 +76,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing channel aliases on ranges.
 type Service struct {
-	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	cfg             ServiceConfig
 }
 
 // OpenService opens a new alias.Service with the provided configuration.

@@ -15,9 +15,9 @@ import (
 )
 
 type Table struct {
-	Types      []Type
 	Imports    map[string]bool
 	Namespaces map[string]bool
+	Types      []Type
 }
 
 func NewTable() *Table {

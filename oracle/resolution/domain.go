@@ -64,10 +64,10 @@ func (e Expressions) Find(name string) (Expression, bool) {
 
 // ExpressionValue holds a parsed value from a domain expression.
 type ExpressionValue struct {
-	Kind        ValueKind
 	StringValue string
 	IdentValue  string
 	IntValue    int64
 	FloatValue  float64
+	Kind        ValueKind
 	BoolValue   bool
 }

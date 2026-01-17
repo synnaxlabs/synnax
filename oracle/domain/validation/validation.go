@@ -15,7 +15,6 @@ import "github.com/synnaxlabs/oracle/resolution"
 
 // Rules contains the parsed validation constraints from a @validate domain.
 type Rules struct {
-	Required       bool
 	MinLength      *int64
 	MaxLength      *int64
 	Min            *Number
@@ -23,6 +22,7 @@ type Rules struct {
 	Default        *resolution.ExpressionValue
 	Pattern        *string
 	PatternMessage *string
+	Required       bool
 }
 
 // Number represents a numeric constraint value that can be int or float.

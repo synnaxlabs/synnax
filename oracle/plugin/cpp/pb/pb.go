@@ -1300,16 +1300,16 @@ func (m *includeManager) addInternal(path string) {
 }
 
 type templateData struct {
-	OutputPath       string
-	Namespace        string
 	Translators      []translatorData
 	EnumTranslators  []enumTranslatorData
 	ArrayWrappers    []arrayWrapperTranslatorData
-	includes         *includeManager
-	table            *resolution.Table
-	rawNs            string
 	processedEnums   map[string]bool
 	processedStructs map[string]bool
+	includes         *includeManager
+	table            *resolution.Table
+	OutputPath       string
+	Namespace        string
+	rawNs            string
 }
 
 type arrayWrapperTranslatorData struct {
@@ -1317,9 +1317,9 @@ type arrayWrapperTranslatorData struct {
 	PBName              string
 	PBNamespace         string
 	ElementType         string
-	ElementNeedsConvert bool
 	ForwardConv         string
 	BackwardConv        string
+	ElementNeedsConvert bool
 }
 
 func (d *templateData) HasIncludes() bool {
@@ -1329,16 +1329,16 @@ func (d *templateData) SystemIncludes() []string   { return d.includes.system }
 func (d *templateData) InternalIncludes() []string { return d.includes.internal }
 
 type translatorData struct {
+	Fields         []fieldTranslatorData
+	TypeParams     []typeParamData
+	ParentTypes    []parentTypeData
+	AllFields      []fieldTranslatorData
 	CppName        string
 	PBName         string
 	PBNamespace    string
-	Fields         []fieldTranslatorData
-	IsGeneric      bool
-	TypeParams     []typeParamData
 	TypeParamNames string
+	IsGeneric      bool
 	HasExtends     bool
-	ParentTypes    []parentTypeData
-	AllFields      []fieldTranslatorData
 }
 
 type parentTypeData struct {
@@ -1356,16 +1356,16 @@ type fieldTranslatorData struct {
 	BackwardExpr     string
 	ForwardJSONExpr  string
 	BackwardJSONExpr string
+	TypeParamName    string
 	IsOptional       bool
 	IsArray          bool
 	IsGenericField   bool
-	TypeParamName    string
 }
 
 type enumTranslatorData struct {
+	Values      []enumValueTranslatorData
 	Name        string
 	PBNamespace string
-	Values      []enumValueTranslatorData
 	PBDefault   string
 	CppDefault  string
 }

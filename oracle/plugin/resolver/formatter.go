@@ -16,22 +16,22 @@ import (
 
 // FormatterConfig defines language-specific formatting rules for types.
 type FormatterConfig struct {
-	// QualifiedSep is the separator between qualifier and type name (e.g., "." or "::").
-	QualifiedSep string
-	// GenericOpen is the opening bracket for generics (e.g., "<" or "[").
-	GenericOpen string
-	// GenericClose is the closing bracket for generics (e.g., ">" or "]").
-	GenericClose string
-	// SkipGenerics if true, FormatGeneric ignores type arguments and returns base name.
-	SkipGenerics bool
 	// ArrayFormat formats an array type. If nil, uses default "[]elemType" style.
 	ArrayFormat func(elemType string) string
 	// FixedArrayFormat formats a fixed-size array. If nil, falls back to ArrayFormat.
 	FixedArrayFormat func(elemType string, size int64) string
 	// MapFormat formats a map type. If nil, uses default "map[K]V" style.
 	MapFormat func(keyType, valType string) string
+	// QualifiedSep is the separator between qualifier and type name (e.g., "." or "::").
+	QualifiedSep string
+	// GenericOpen is the opening bracket for generics (e.g., "<" or "[").
+	GenericOpen string
+	// GenericClose is the closing bracket for generics (e.g., ">" or "]").
+	GenericClose string
 	// FallbackTypeName is the type to use when resolution fails (e.g., "any", "void").
 	FallbackTypeName string
+	// SkipGenerics if true, FormatGeneric ignores type arguments and returns base name.
+	SkipGenerics bool
 }
 
 // ConfigurableFormatter implements TypeFormatter using a FormatterConfig.

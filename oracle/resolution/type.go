@@ -12,13 +12,13 @@ package resolution
 import "github.com/samber/lo"
 
 type Type struct {
+	Domains       map[string]Domain
+	Form          TypeForm
+	AST           any
 	Name          string
 	Namespace     string
 	QualifiedName string
 	FilePath      string
-	Form          TypeForm
-	Domains       map[string]Domain
-	AST           any
 }
 
 type TypeForm interface {
@@ -91,19 +91,19 @@ type BuiltinGenericForm struct {
 func (BuiltinGenericForm) typeForm() {}
 
 type Field struct {
-	Name           string
-	Type           TypeRef
 	Domains        map[string]Domain
+	Type           TypeRef
+	AST            any
+	Name           string
 	IsOptional     bool
 	IsHardOptional bool
 	OmitIfUnset    bool
-	AST            any
 }
 
 type EnumValue struct {
-	Name    string
-	Value   any
 	Domains map[string]Domain
+	Value   any
+	Name    string
 }
 
 func (v EnumValue) StringValue() string {
@@ -121,10 +121,10 @@ func (v EnumValue) IntValue() int64 {
 }
 
 type TypeRef struct {
-	Name      string
 	TypeParam *TypeParam
 	TypeArgs  []TypeRef
 	ArraySize *int64 // nil for dynamic arrays, set for fixed-size arrays like [4]byte
+	Name      string
 }
 
 func (r TypeRef) IsTypeParam() bool {
@@ -140,9 +140,9 @@ func (r TypeRef) MustResolve(table *Table) Type {
 }
 
 type TypeParam struct {
-	Name       string
 	Constraint *TypeRef
 	Default    *TypeRef
+	Name       string
 	Optional   bool
 }
 

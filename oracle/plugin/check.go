@@ -18,14 +18,14 @@ import (
 
 // StaleFile describes a generated file that is out of date relative to its source schema.
 type StaleFile struct {
-	// Generated is the path to the generated file
-	Generated string
-	// Schema is the path to the schema file that is newer
-	Schema string
 	// GenTime is the modification time of the generated file (zero if missing)
 	GenTime time.Time
 	// SchemaTime is the modification time of the schema file
 	SchemaTime time.Time
+	// Generated is the path to the generated file
+	Generated string
+	// Schema is the path to the schema file that is newer
+	Schema string
 }
 
 // StaleError is returned when generated files are out of date with their source schemas.
@@ -57,12 +57,12 @@ func (e *StaleError) Error() string {
 
 // DependencyStaleError is returned when a plugin's required dependency has stale output.
 type DependencyStaleError struct {
+	// Reason is the underlying error from the dependency's Check()
+	Reason error
 	// Plugin is the name of the plugin that was requested
 	Plugin string
 	// Dependency is the name of the required plugin that is stale
 	Dependency string
-	// Reason is the underlying error from the dependency's Check()
-	Reason error
 }
 
 func (e *DependencyStaleError) Error() string {

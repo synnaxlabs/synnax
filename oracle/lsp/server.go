@@ -30,10 +30,10 @@ import (
 // Server implements the Language Server Protocol for Oracle schema files.
 type Server struct {
 	xlsp.NoopServer
+	capabilities protocol.ServerCapabilities
+	documents    map[protocol.DocumentURI]*Document
 	client       protocol.Client
 	mu           sync.RWMutex
-	documents    map[protocol.DocumentURI]*Document
-	capabilities protocol.ServerCapabilities
 }
 
 var translateCfg = xlsp.TranslateConfig{Source: "oracle-analyzer"}
@@ -41,11 +41,11 @@ var translateCfg = xlsp.TranslateConfig{Source: "oracle-analyzer"}
 // Document represents an open document in the LSP server.
 type Document struct {
 	URI         protocol.DocumentURI
-	Version     int32
 	Content     string
 	Schema      parser.ISchemaContext
 	Table       *resolution.Table
 	Diagnostics *diagnostics.Diagnostics
+	Version     int32
 }
 
 var _ protocol.Server = (*Server)(nil)

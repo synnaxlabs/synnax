@@ -82,12 +82,12 @@ type GenerateResult struct {
 
 // SyncResult contains the results of a sync operation.
 type SyncResult struct {
+	// ByPlugin maps plugin names to their written files
+	ByPlugin map[string][]string
 	// Written contains files that were written (new or changed)
 	Written []string
 	// Unchanged contains files that already had the correct content
 	Unchanged []string
-	// ByPlugin maps plugin names to their written files
-	ByPlugin map[string][]string
 }
 
 // SyncFiles writes only files whose content has changed.

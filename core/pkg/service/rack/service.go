@@ -110,8 +110,8 @@ type Service struct {
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
 	monitor         *monitor
+	group           group.Group
 	ServiceConfig
-	group       group.Group
 	EmbeddedKey Key
 }
 

@@ -22,13 +22,13 @@ import (
 
 type analysisCtx struct {
 	context.Context
+	fileDomains map[string]resolution.Domain
 	diag        *diagnostics.Diagnostics
 	table       *resolution.Table
 	loader      FileLoader
 	ast         parser.ISchemaContext
 	filePath    string
 	namespace   string
-	fileDomains map[string]resolution.Domain
 }
 
 func Analyze(

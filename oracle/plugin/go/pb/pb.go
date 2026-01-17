@@ -1557,22 +1557,22 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 }
 
 type templateData struct {
-	Package               string
-	OutputPath            string
-	ParentGoPath          string
-	Namespace             string
 	Translators           []translatorData
 	GenericTranslators    []genericTranslatorData
 	EnumTranslators       []enumTranslatorData
 	AnyHelpers            []anyHelperData
 	DelegationTranslators []delegationTranslatorData
 	DistinctPrimitives    []distinctPrimitiveData
-	imports               *gointernal.ImportManager
-	repoRoot              string
-	table                 *resolution.Table
 	usedEnums             map[string]*resolution.Type
-	parentAlias           string
 	generatedAnyHelpers   map[string]bool
+	imports               *gointernal.ImportManager
+	table                 *resolution.Table
+	Package               string
+	OutputPath            string
+	ParentGoPath          string
+	Namespace             string
+	repoRoot              string
+	parentAlias           string
 	needsAnyConverter     bool
 }
 
@@ -1619,10 +1619,10 @@ type fieldTranslatorData struct {
 
 // enumTranslatorData holds data for enum translator functions.
 type enumTranslatorData struct {
+	Values    []enumValueTranslatorData
 	Name      string
 	GoType    string
 	PBType    string
-	Values    []enumValueTranslatorData
 	PBDefault string
 	GoDefault string
 }
@@ -1680,12 +1680,12 @@ type anyHelperData struct {
 // Used for DistinctForm types that wrap struct types - instead of generating independent
 // translators, we generate thin wrappers that cast and delegate.
 type delegationTranslatorData struct {
+	// TypeParams holds the type parameters from the typedef.
+	TypeParams []typeParamData
 	// Name is the typedef name (e.g., "Status").
 	Name string
 	// GoType is the local typedef with type parameters (e.g., "status.Status[Details]").
 	GoType string
-	// TypeParams holds the type parameters from the typedef.
-	TypeParams []typeParamData
 	// UnderlyingName is the underlying struct name (e.g., "Status").
 	UnderlyingName string
 	// UnderlyingGoType is the underlying Go type for casting (e.g., "gostatus.Status[Details]").

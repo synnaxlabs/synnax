@@ -21,9 +21,9 @@ import (
 // Config is all required configuration parameters and services necessary to instantiate
 // the API.
 type Config struct {
-	alamos.Instrumentation
 	Service      *service.Layer
 	Distribution *distribution.Layer
+	alamos.Instrumentation
 }
 
 var (

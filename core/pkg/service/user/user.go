@@ -42,8 +42,8 @@ func (u *User) DecodeMsgpack(dec *msgpack.Decoder) error {
 	usernameEmpty := len(u.Username) == 0
 	if keyIsNil || usernameEmpty {
 		var legacy struct {
-			Key      Key
 			Username string
+			Key      Key
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
 			return err

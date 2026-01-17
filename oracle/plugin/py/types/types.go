@@ -934,19 +934,19 @@ func primitiveToPython(primitive string, data *templateData) string {
 }
 
 type importManager struct {
-	uuid     []string
-	typing   []string
-	enum     []string
-	pydantic []string
-	synnax   []string
+	// fieldNames tracks all field names to detect conflicts with module imports.
+	fieldNames map[string]bool
+	uuid       []string
+	typing     []string
+	enum       []string
+	pydantic   []string
+	synnax     []string
 	// ontology holds imports from synnax.ontology.payload.
 	ontology []string
 	// namespaces maps alias to path.
 	namespaces []namespaceImportData
 	// modules holds module imports (for "from parent import module").
 	modules []moduleImportData
-	// fieldNames tracks all field names to detect conflicts with module imports.
-	fieldNames map[string]bool
 }
 
 func newImportManager() *importManager {
@@ -1046,8 +1046,6 @@ func (m *importManager) AddImport(category, path, name string) {
 }
 
 type templateData struct {
-	Namespace   string
-	OutputPath  string
 	Structs     []structData
 	Enums       []enumData
 	TypeDefs    []typeDefData
@@ -1055,13 +1053,15 @@ type templateData struct {
 	TypeVars    []typeVarData    // Module-level TypeVar declarations with constraints
 	imports     *importManager
 	Ontology    *ontologyData // Ontology data if domain ontology is present
+	Namespace   string
+	OutputPath  string
 }
 
 type sortedDeclData struct {
-	IsTypeDef bool
-	IsStruct  bool
 	TypeDef   typeDefData
 	Struct    structData
+	IsTypeDef bool
+	IsStruct  bool
 }
 
 type typeDefData struct {
@@ -1110,29 +1110,29 @@ type typeVarData struct {
 }
 
 type structData struct {
+	Fields []fieldData
+	// TypeParams holds type parameters for Generic[...] inheritance.
+	TypeParams []typeParamData
+	// ExtendsNames holds parent class names for multiple inheritance.
+	ExtendsNames []string
 	// Name is the original struct name from schema.
 	Name string
 	// Doc is the documentation from @doc domain.
 	Doc string
 	// PyName is the Python name (can be overridden via py domain { name "..." }).
 	PyName string
-	Fields []fieldData
+	// AliasOf is the Python expression for the aliased type (e.g., "status.Status[StatusDetails]").
+	AliasOf string
+	// KeyField is the name of the key field (if any) for generating __hash__.
+	KeyField string
 	// Skip indicates whether to skip generating this struct (omit).
 	Skip bool
 	// IsAlias indicates whether this struct is a type alias.
 	IsAlias bool
-	// AliasOf is the Python expression for the aliased type (e.g., "status.Status[StatusDetails]").
-	AliasOf string
 	// IsGeneric is true if struct has type parameters.
 	IsGeneric bool
-	// TypeParams holds type parameters for Generic[...] inheritance.
-	TypeParams []typeParamData
 	// HasExtends indicates extension support (single and multiple inheritance).
 	HasExtends bool
-	// ExtendsNames holds parent class names for multiple inheritance.
-	ExtendsNames []string
-	// KeyField is the name of the key field (if any) for generating __hash__.
-	KeyField string
 }
 
 type fieldData struct {
@@ -1146,10 +1146,10 @@ type fieldData struct {
 }
 
 type enumData struct {
-	Name          string
 	Values        []enumValueData
-	IsIntEnum     bool
+	Name          string
 	LiteralValues string
+	IsIntEnum     bool
 }
 
 type enumValueData struct {

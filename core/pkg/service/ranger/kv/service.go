@@ -23,11 +23,11 @@ import (
 
 // ServiceConfig is the configuration for opening the kv.Service.
 type ServiceConfig struct {
-	alamos.Instrumentation
 	// DB is the underlying database.
 	DB *gorp.DB
 	// Signals is used to publish signals when key-value pairs are created or deleted.
 	Signals *signals.Provider
+	alamos.Instrumentation
 }
 
 var (
@@ -53,8 +53,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Service is the main entry point for managing key-value pairs on ranges.
 type Service struct {
-	cfg             ServiceConfig
 	shutdownSignals io.Closer
+	cfg             ServiceConfig
 }
 
 // OpenService opens a new kv.Service with the provided configuration.

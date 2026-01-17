@@ -29,10 +29,10 @@ type PathEntry struct {
 
 type Collector struct {
 	entries       []PathEntry
+	request       *plugin.Request
 	pathFunc      OutputPathFunc
 	skipFunc      SkipFunc
 	validatePaths bool
-	request       *plugin.Request
 }
 
 func NewCollector(domain string, req *plugin.Request) *Collector {

@@ -1745,24 +1745,25 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 }
 
 type templateData struct {
-	Namespace, OutputPath string
-	Request               *plugin.Request
-	Structs               []structData
-	Enums                 []enumData
-	TypeDefs              []typeDefData
-	SortedDecls           []sortedDeclData
-	GenerateTypes         bool
-	Imports               map[string]*importSpec
-	Ontology              *ontologyData
-	DeclOrder             map[string]int
-	CurrentDeclIndex      int
+	Request          *plugin.Request
+	Structs          []structData
+	Enums            []enumData
+	TypeDefs         []typeDefData
+	SortedDecls      []sortedDeclData
+	Imports          map[string]*importSpec
+	Ontology         *ontologyData
+	DeclOrder        map[string]int
+	Namespace        string
+	OutputPath       string
+	CurrentDeclIndex int
+	GenerateTypes    bool
 }
 
 type sortedDeclData struct {
-	IsTypeDef bool
-	IsStruct  bool
 	TypeDef   typeDefData
 	Struct    structData
+	IsTypeDef bool
+	IsStruct  bool
 }
 
 type typeDefData struct {

@@ -20,12 +20,12 @@ import (
 )
 
 type GenerateContext struct {
-	Namespace  string
-	OutputPath string
 	Structs    []resolution.Type
 	Enums      []resolution.Type
 	TypeDefs   []resolution.Type
 	Table      *resolution.Table
+	Namespace  string
+	OutputPath string
 	RepoRoot   string
 }
 
@@ -38,13 +38,13 @@ type FileGenerator interface {
 type ExtraEnumsFunc func(structs []resolution.Type, table *resolution.Table, outputPath string) []resolution.Type
 
 type Generator struct {
+	FileGenerator   FileGenerator
+	ExtraEnumsFunc  ExtraEnumsFunc
 	Domain          string
 	FilePattern     string
-	FileGenerator   FileGenerator
 	MergeByName     bool
 	CollectTypeDefs bool
 	CollectEnums    bool
-	ExtraEnumsFunc  ExtraEnumsFunc
 }
 
 func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
