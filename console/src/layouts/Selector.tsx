@@ -15,12 +15,16 @@ import { type Layout } from "@/layout";
 import { Selector as BaseSelector } from "@/selector";
 import { Vis } from "@/vis";
 
-// It's OK to call this in a map as SELECTABLES is a global constant. All hooks are
-// always called and always in the same order.
-export const useSelectorVisible = () => {
-  const visible = SELECTABLES.map(({ useVisible }) => useVisible?.() ?? true);
-  return visible.some((v) => v);
-};
+const SELECTABLES: BaseSelector.Selectable[] = [
+  ...Vis.SELECTABLES,
+  ...Hardware.SELECTABLES,
+  ...Arc.SELECTABLES,
+];
+
+export const useSelectorVisible = (): boolean =>
+  // It's safe to call hooks in map since SELECTABLES is a module-level constant
+  // and never changes between renders, ensuring consistent hook order.
+  SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
 export const SELECTOR_LAYOUT_TYPE = "layoutSelector";
 
@@ -39,12 +43,6 @@ export const createSelectorLayout = (
   name: "New Component",
   key: uuid.create(),
 });
-
-const SELECTABLES: BaseSelector.Selectable[] = [
-  ...Vis.SELECTABLES,
-  ...Hardware.SELECTABLES,
-  ...Arc.SELECTABLES,
-];
 
 export const Selector: Layout.Renderer = (props) => (
   <BaseSelector.Selector

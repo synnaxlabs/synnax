@@ -29,7 +29,7 @@ import {
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -38,12 +38,11 @@ export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_WRITE_SELECTABLE: Selector.Selectable = {
-  key: ANALOG_WRITE_TYPE,
+export const AnalogWriteSelectable = Selector.createSimpleItem({
   title: "NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  create: async ({ layoutKey }) => ({ ...ANALOG_WRITE_LAYOUT, key: layoutKey }),
-};
+  layout: ANALOG_WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>
