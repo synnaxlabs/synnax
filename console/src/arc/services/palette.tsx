@@ -23,14 +23,15 @@ export const CreateCommand: Palette.Command = ({
   handleError,
   ...listProps
 }) => {
+  const createArcModal = Arc.Editor.useCreate();
   const handleSelect = useCallback(
     () =>
       handleError(async () => {
-        const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
-        if (name == null) return;
-        placeLayout(Arc.Editor.create({ name }));
-      }, "Failed to create arc"),
-    [placeLayout, rename, handleError],
+        const result = await createArcModal({});
+        if (result != null)
+          placeLayout(Arc.Editor.create({ name: result.name, mode: result.mode }));
+      }, "Failed to create Arc program"),
+    [placeLayout, handleError, createArcModal],
   );
   return (
     <Palette.CommandListItem
