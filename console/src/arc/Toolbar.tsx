@@ -105,15 +105,15 @@ const Content = () => {
     [getItem, addStatus, placeLayout],
   );
 
-  const rename = Modals.useRename();
+  const createArc = Editor.useCreate();
 
   const handleCreate = useCallback(() => {
     handleError(async () => {
-      const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
-      if (name == null) return;
-      placeLayout(Editor.create({ name }));
-    }, "Failed to create arc");
-  }, [rename, handleError, placeLayout]);
+      const result = await createArc({});
+      if (result == null) return;
+      placeLayout(Editor.create({ name: result.name, mode: result.mode }));
+    }, "Failed to create Arc program");
+  }, [createArc, handleError, placeLayout]);
 
   const { update: handleRename } = Arc.useRename({
     beforeUpdate: useCallback(
