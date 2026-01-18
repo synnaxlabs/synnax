@@ -29,7 +29,7 @@ import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 import {
   select,
   useSelectCell,
@@ -387,13 +387,25 @@ export const create =
     };
   };
 
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Table",
-  icon: <Icon.Table />,
-  useVisible: () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID),
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+export const TableSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const visible = Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
+  const handleClick = useCallback(() => {
+    onPlace(create({ key: layoutKey }));
+  }, [onPlace, layoutKey]);
+
+  if (!visible) return null;
+
+  return (
+    <Selector.Item
+      key={LAYOUT_TYPE}
+      title="Table"
+      icon={<Icon.Table />}
+      onClick={handleClick}
+    />
+  );
 };
+TableSelectable.type = LAYOUT_TYPE;
+TableSelectable.useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
 
 interface ColResizerProps {
   tableKey: string;

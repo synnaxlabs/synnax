@@ -10,7 +10,7 @@
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { extract } from "@/log/export";
-import { LAYOUT_TYPE, Log, SELECTABLE } from "@/log/Log";
+import { LAYOUT_TYPE, Log, LogSelectable } from "@/log/Log";
 import { type Selector } from "@/selector";
 
 export * from "@/log/export";
@@ -23,4 +23,4 @@ export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: Log };
 
-export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [LogSelectable];

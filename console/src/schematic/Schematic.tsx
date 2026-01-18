@@ -69,7 +69,7 @@ import {
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
@@ -441,13 +441,26 @@ export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Schematic",
-  icon: <Icon.Schematic />,
-  useVisible: () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID),
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+export const SchematicSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const visible = Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const handleClick = useCallback(() => {
+    onPlace(create({ key: layoutKey }));
+  }, [onPlace, layoutKey]);
+
+  if (!visible) return null;
+
+  return (
+    <Selector.Item
+      key={LAYOUT_TYPE}
+      title="Schematic"
+      icon={<Icon.Schematic />}
+      onClick={handleClick}
+    />
+  );
 };
+SchematicSelectable.type = LAYOUT_TYPE;
+SchematicSelectable.useVisible = () =>
+  Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 

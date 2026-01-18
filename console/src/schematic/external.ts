@@ -10,7 +10,12 @@
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { extract } from "@/schematic/export";
-import { ContextMenu, LAYOUT_TYPE, Schematic, SELECTABLE } from "@/schematic/Schematic";
+import {
+  ContextMenu,
+  LAYOUT_TYPE,
+  Schematic,
+  SchematicSelectable,
+} from "@/schematic/Schematic";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
 import { type Selector } from "@/selector";
 
@@ -32,4 +37,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [EDIT_LAYOUT_TYPE]: Edit,
 };
 
-export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [SchematicSelectable];
