@@ -11,7 +11,7 @@ import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
 import { extract } from "@/table/export";
-import { LAYOUT_TYPE, Table, Selectable } from "@/table/Table";
+import { LAYOUT_TYPE, Selectable,Table } from "@/table/Table";
 
 export * from "@/table/export";
 export * from "@/table/slice";

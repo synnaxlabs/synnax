@@ -10,7 +10,7 @@
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { ingest } from "@/hardware/task/sequence/import";
-import { LAYOUT, Sequence, Selectable } from "@/hardware/task/sequence/Sequence";
+import { LAYOUT, Selectable,Sequence } from "@/hardware/task/sequence/Sequence";
 import { TYPE } from "@/hardware/task/sequence/types";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
