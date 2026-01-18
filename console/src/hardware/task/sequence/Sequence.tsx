@@ -62,7 +62,7 @@ export const createLayout = async ({
   return name == null ? null : { ...LAYOUT, name, args: { rackKey } };
 };
 
-export const SequenceSelectable: Selector.Selectable = ({
+export const Selectable: Selector.Selectable = ({
   layoutKey,
   onPlace,
   rename,
@@ -84,7 +84,7 @@ export const SequenceSelectable: Selector.Selectable = ({
     />
   );
 };
-SequenceSelectable.type = TYPE;
+Selectable.type = TYPE;
 
 interface EditorProps extends Input.Control<string> {
   globals?: UsePhantomGlobalsReturn;

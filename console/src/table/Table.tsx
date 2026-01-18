@@ -387,7 +387,7 @@ export const create =
     };
   };
 
-export const TableSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const visible = Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
@@ -404,8 +404,8 @@ export const TableSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => 
     />
   );
 };
-TableSelectable.type = LAYOUT_TYPE;
-TableSelectable.useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
 
 interface ColResizerProps {
   tableKey: string;

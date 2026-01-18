@@ -111,7 +111,7 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const LogSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const visible = Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
@@ -128,8 +128,8 @@ export const LogSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
     />
   );
 };
-LogSelectable.type = LAYOUT_TYPE;
-LogSelectable.useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 
