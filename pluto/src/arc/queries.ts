@@ -23,7 +23,7 @@ export const FLUX_STORE_KEY = "arcs";
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
 
-export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore{
+export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
@@ -208,19 +208,28 @@ export interface RetrieveTaskParams {
   arcKey: arc.Key;
 }
 
-export const {useRetrieve: useRetrieveTask} = Flux.createRetrieve<RetrieveTaskParams, task.Task | undefined, FluxSubStore>({
+export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
+  RetrieveTaskParams,
+  task.Task | undefined,
+  FluxSubStore
+>({
   name: "Task",
-  retrieve: async ({client, query, store}) => {
-    const cachedChild = store.relationships.get((r) => ontology.matchRelationship(r, {
-      from: arc.ontologyID(query.arcKey),
-      type: "child",
-      to: { type: "task" },
-    }))[0];
+  retrieve: async ({ client, query, store }) => {
+    const cachedChild = store.relationships.get((r) =>
+      ontology.matchRelationship(r, {
+        from: arc.ontologyID(query.arcKey),
+        type: "child",
+        to: { type: "task" },
+      }),
+    )[0];
     let taskKey = cachedChild?.to.key;
     if (taskKey == null) {
-      const children = await client.ontology.retrieveChildren(arc.ontologyID(query.arcKey), {
-          types: ["task"]
-      });
+      const children = await client.ontology.retrieveChildren(
+        arc.ontologyID(query.arcKey),
+        {
+          types: ["task"],
+        },
+      );
       children.forEach((c) => {
         const rel = {
           from: arc.ontologyID(query.arcKey),
@@ -232,13 +241,13 @@ export const {useRetrieve: useRetrieveTask} = Flux.createRetrieve<RetrieveTaskPa
       if (children.length === 0) return undefined;
       taskKey = children[0].id.key;
     }
-   return await Task.retrieveSingle({
+    return await Task.retrieveSingle({
       store,
       client,
       query: { key: cachedChild.to.key },
     });
   },
-  mountListeners: ({store, query, onChange}) => {
+  mountListeners: ({ store, query, onChange }) => {
     if (!("arcKey" in query) || primitive.isZero(query.arcKey)) return [];
     return [store.tasks.onSet(onChange, query.arcKey)];
   },

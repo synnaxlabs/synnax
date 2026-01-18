@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/arc/editor/CreateModal.css";
+
 import { type arc } from "@synnaxlabs/client";
-import { Button, Input, Nav, Select } from "@synnaxlabs/pluto";
+import { Button, CSS as PCSS, Icon, Input, Nav, Select, Text } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
+import { CSS } from "@/css";
 import { type BaseArgs, createBase } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";
 import { Triggers } from "@/triggers";
@@ -25,12 +28,49 @@ export interface CreateArcArgs extends BaseArgs<CreateArcResult> {
   initialMode?: arc.Mode;
 }
 
-export const CREATE_ARC_LAYOUT_TYPE = "arc_create";
+export const CREATE_ARC_LAYOUT_TYPE = "arc_create_modal";
 
 const MODE_KEYS: arc.Mode[] = ["graph", "text"];
 
-export const [useCreate, Create] = createBase<CreateArcResult, CreateArcArgs>(
-  "Create Arc Program",
+export interface ArcModeSelectButtonProps extends Select.ButtonProps<arc.Mode> {
+  icon: Icon.ReactElement;
+  title: string;
+  description: string;
+}
+
+const ArcModeSelectButton = ({
+  itemKey,
+  icon,
+  title,
+  description,
+  ...rest
+}: ArcModeSelectButtonProps) => {
+  const { selected, onSelect } = Select.useItemState<arc.Mode>(itemKey);
+  return (
+    <Button.Button
+      y
+      className={CSS(
+        CSS.BE("arc-create-modal", "mode-select-button"),
+        PCSS.selected(selected),
+      )}
+      contrast={2}
+      onClick={onSelect}
+      grow
+      justify="start"
+      {...rest}
+    >
+      <Text.Text>
+        {icon} {title}
+      </Text.Text>
+      <Text.Text color={9} level="small" wrap overflow="wrap">
+        {description}
+      </Text.Text>
+    </Button.Button>
+  );
+};
+
+export const [useCreateModal, CreateModal] = createBase<CreateArcResult, CreateArcArgs>(
+  "Arc.Create Automation",
   CREATE_ARC_LAYOUT_TYPE,
   ({ value: { result, initialName, initialMode }, onFinish }) => {
     const [name, setName] = useState(result?.name ?? initialName ?? "");
@@ -60,7 +100,7 @@ export const [useCreate, Create] = createBase<CreateArcResult, CreateArcArgs>(
     );
 
     return (
-      <ModalContentLayout footer={footer}>
+      <ModalContentLayout footer={footer} className={CSS.B("arc-create-modal")}>
         <Input.Item
           label="Name"
           required
@@ -70,7 +110,7 @@ export const [useCreate, Create] = createBase<CreateArcResult, CreateArcArgs>(
         >
           <Input.Text
             autoFocus
-            placeholder="Arc Program Name"
+            placeholder="Automation Name"
             level="h2"
             variant="text"
             value={name}
@@ -78,14 +118,31 @@ export const [useCreate, Create] = createBase<CreateArcResult, CreateArcArgs>(
             selectOnFocus
           />
         </Input.Item>
-        <Input.Item label="Editor Mode" padHelpText>
-          <Select.Buttons value={mode} onChange={setMode} keys={MODE_KEYS}>
-            <Select.Button itemKey="graph">Graph</Select.Button>
-            <Select.Button itemKey="text">Text</Select.Button>
+        <Input.Item label="Editor Mode" padHelpText full="x">
+          <Select.Buttons
+            value={mode}
+            onChange={setMode}
+            keys={MODE_KEYS}
+            pack={false}
+            x
+            full="x"
+          >
+            <ArcModeSelectButton
+              itemKey="graph"
+              icon={<Icon.Schematic />}
+              title="Graph"
+              description="Visual, block-based editor that is best for simple automations such as alarms"
+            />
+            <ArcModeSelectButton
+              itemKey="text"
+              icon={<Icon.Text />}
+              title="Text"
+              description="Text-based editor that is best for complex automations such as control sequences"
+            />
           </Select.Buttons>
         </Input.Item>
       </ModalContentLayout>
     );
   },
-  { window: { size: { height: 300, width: 500 } } },
+  { window: { size: { height: 350, width: 650 }, navTop: true }, icon: "Arc" },
 );

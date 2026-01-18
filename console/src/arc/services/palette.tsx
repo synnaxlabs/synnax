@@ -23,7 +23,7 @@ export const CreateCommand: Palette.Command = ({
   handleError,
   ...listProps
 }) => {
-  const createArcModal = Arc.Editor.useCreate();
+  const createArcModal = Arc.Editor.useCreateModal();
   const handleSelect = useCallback(
     () =>
       handleError(async () => {

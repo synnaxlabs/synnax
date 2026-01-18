@@ -105,7 +105,7 @@ const Content = () => {
     [getItem, addStatus, placeLayout],
   );
 
-  const createArc = Editor.useCreate();
+  const createArc = Editor.useCreateModal();
 
   const handleCreate = useCallback(() => {
     handleError(async () => {

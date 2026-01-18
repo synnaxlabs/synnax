@@ -12,7 +12,7 @@ import { Access, Arc as Base, Icon } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { useCreate } from "@/arc/editor/CreateModal";
+import { useCreateModal } from "@/arc/editor/CreateModal";
 import { useSelectVersion } from "@/arc/selectors";
 import { internalCreate, type State } from "@/arc/slice";
 import { ZERO_STATE } from "@/arc/types";
@@ -31,7 +31,7 @@ export const Selectable: Selector.Selectable = ({
   handleError,
 }) => {
   const visible = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
-  const createArcModal = useCreate();
+  const createArcModal = useCreateModal();
 
   const handleClick = useCallback(() => {
     handleError(async () => {
