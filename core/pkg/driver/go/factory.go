@@ -23,22 +23,3 @@ type Factory interface {
 	// Name returns the factory name for logging.
 	Name() string
 }
-
-// MultiFactory chains multiple factories together, trying each one in order
-// until one handles the task.
-type MultiFactory []Factory
-
-// ConfigureTask tries each factory in order until one handles the task.
-func (m MultiFactory) ConfigureTask(ctx Context, t task.Task) (Task, bool, error) {
-	for _, f := range m {
-		if tsk, ok, err := f.ConfigureTask(ctx, t); ok {
-			return tsk, ok, err
-		} else if err != nil {
-			return nil, true, err
-		}
-	}
-	return nil, false, nil
-}
-
-// Name returns "multi" as this is a composite factory.
-func (m *MultiFactory) Name() string { return "multi" }

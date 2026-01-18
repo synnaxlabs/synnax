@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Arc as Core, Icon } from "@synnaxlabs/pluto";
+import { Access, Arc as Base, Icon } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 
 import { useSelectVersion } from "@/arc/selectors";
@@ -55,7 +55,7 @@ export const create =
   };
 
 export const useLoadRemote = createLoadRemote<arc.Arc>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) =>

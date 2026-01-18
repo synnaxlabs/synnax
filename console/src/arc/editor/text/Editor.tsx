@@ -14,7 +14,7 @@ import { useDispatch } from "react-redux";
 import { Controls } from "@/arc/editor/Controls";
 import { useSelect } from "@/arc/selectors";
 import { setRawText } from "@/arc/slice";
-import { Editor as CoreEditor } from "@/code/Editor";
+import { Editor as BaseEditor } from "@/code/Editor";
 import { type Layout } from "@/layout";
 
 export const Editor: Layout.Renderer = ({ layoutKey }) => {
@@ -28,7 +28,7 @@ export const Editor: Layout.Renderer = ({ layoutKey }) => {
   );
   return (
     <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <CoreEditor value={state.text.raw} onChange={onChange} language="arc" />;
+      <BaseEditor value={state.text.raw} onChange={onChange} language="arc" />;
       <Controls state={state} />
     </Flex.Box>
   );

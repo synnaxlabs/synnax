@@ -56,7 +56,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 		return nil, err
 	}
 	d := &Driver{}
-
 	if d.goDriver, err = godriver.Open(ctx, cfg.Go); err != nil {
 		return nil, err
 	}

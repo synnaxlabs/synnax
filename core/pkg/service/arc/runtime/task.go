@@ -59,7 +59,13 @@ type Task struct {
 	running    bool
 }
 
-func newTask(key task.Key, prog arc.Arc, cfg TaskConfig, ctx godriver.Context, factoryCfg FactoryConfig) *Task {
+func newTask(
+	key task.Key,
+	prog arc.Arc,
+	cfg TaskConfig,
+	ctx godriver.Context,
+	factoryCfg FactoryConfig,
+) *Task {
 	return &Task{
 		key:        key,
 		prog:       prog,
@@ -74,7 +80,7 @@ func (t *Task) Exec(ctx context.Context, cmd task.Command) error {
 	case "start":
 		return t.start(ctx)
 	case "stop":
-		return t.stop(ctx, false)
+		return t.stop()
 	default:
 		return nil
 	}
@@ -84,34 +90,21 @@ func (t *Task) start(ctx context.Context) error {
 	if t.running {
 		return nil
 	}
-
 	mod := t.prog.Module
-
-	// Build state config
 	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, mod)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
 	t.state = state.New(stateCfg.State)
-
-	// Create node factories
-	telemFactory := arctelem.NewTelemFactory()
-	selectFactory := selector.NewFactory()
-	constantFactory := constant.NewFactory()
-	opFactory := op.NewFactory()
-	stableFactory := stable.NewFactory(stable.FactoryConfig{})
-	statusFactory := arcstatus.NewFactory(t.factoryCfg.Status)
-
 	f := node.MultiFactory{
-		opFactory,
-		telemFactory,
-		selectFactory,
-		constantFactory,
-		stableFactory,
-		statusFactory,
+		arctelem.NewTelemFactory(),
+		selector.NewFactory(),
+		constant.NewFactory(),
+		op.NewFactory(),
+		stable.NewFactory(stable.FactoryConfig{}),
+		arcstatus.NewFactory(t.factoryCfg.Status),
 	}
-
 	var closers xio.MultiCloser
 	if len(mod.WASM) > 0 {
 		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
@@ -131,7 +124,6 @@ func (t *Task) start(ctx context.Context) error {
 		f = append(f, wasmFactory)
 	}
 
-	// Create nodes
 	nodes := make(map[string]node.Node)
 	for _, irNode := range mod.Nodes {
 		n, err := f.Create(ctx, node.Config{
@@ -146,25 +138,22 @@ func (t *Task) start(ctx context.Context) error {
 		nodes[irNode.Key] = n
 	}
 
-	// Create scheduler
 	t.scheduler = scheduler.New(mod.IR, nodes)
-
-	// Initialize segments
 	t.streamer = &streamerSeg{}
 	t.writer = &writerSeg{}
 	t.startTime = telem.Now()
 
-	// Create stream pipeline
-	streamPipeline, requests, err := createStreamPipeline(
-		ctx, t, t.factoryCfg.Framer, stateCfg.Reads.Keys(),
-	)
-	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
-		return err
+	var streamPipeline confluence.Flow
+	if len(stateCfg.Reads) > 0 {
+		streamPipeline, t.streamer.requests, err = createStreamPipeline(
+			ctx, t, t.factoryCfg.Framer, stateCfg.Reads.Keys(),
+		)
+		if err != nil {
+			t.setStatus(status.VariantError, false, err.Error())
+			return err
+		}
 	}
-	t.streamer.requests = requests
 
-	// Create write pipeline if needed
 	var writePipeline confluence.Flow
 	if len(stateCfg.Writes) > 0 {
 		writePipeline, err = createWritePipeline(
@@ -176,22 +165,24 @@ func (t *Task) start(ctx context.Context) error {
 		}
 	}
 
-	// Start pipelines
-	sCtx, cancel := signal.Isolated()
-	streamPipeline.Flow(
-		sCtx,
-		confluence.CloseOutputInletsOnExit(),
-		confluence.RecoverWithErrOnPanic(),
-	)
-	if writePipeline != nil {
-		writePipeline.Flow(
-			sCtx,
-			confluence.CloseOutputInletsOnExit(),
-			confluence.RecoverWithErrOnPanic(),
-		)
+	if writePipeline != nil || streamPipeline != nil {
+		sCtx, cancel := signal.Isolated()
+		if streamPipeline != nil {
+			streamPipeline.Flow(
+				sCtx,
+				confluence.CloseOutputInletsOnExit(),
+				confluence.RecoverWithErrOnPanic(),
+			)
+		}
+		if writePipeline != nil {
+			writePipeline.Flow(
+				sCtx,
+				confluence.CloseOutputInletsOnExit(),
+				confluence.RecoverWithErrOnPanic(),
+			)
+		}
+		t.closer = append(closers, signal.NewGracefulShutdown(sCtx, cancel))
 	}
-	t.closer = append(closers, signal.NewGracefulShutdown(sCtx, cancel))
-
 	t.running = true
 	t.setStatus(status.VariantSuccess, true, "Arc started")
 	return nil
@@ -208,11 +199,10 @@ func (t *Task) processFrame(ctx context.Context, res framer.StreamerResponse) er
 	return t.writer.Write(ctx, frame.NewFromStorage(fr))
 }
 
-func (t *Task) stop(context.Context, bool) error {
+func (t *Task) stop() error {
 	if !t.running {
 		return nil
 	}
-
 	c := errors.NewCatcher(errors.WithAggregation())
 	if t.streamer != nil {
 		c.Exec(t.streamer.Close)
@@ -223,15 +213,12 @@ func (t *Task) stop(context.Context, bool) error {
 	if t.closer != nil {
 		c.Exec(t.closer.Close)
 	}
-
-	// Reset runtime state
 	t.scheduler = nil
 	t.streamer = nil
 	t.writer = nil
 	t.state = nil
 	t.closer = nil
 	t.running = false
-
 	if err := c.Error(); err != nil {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
@@ -240,8 +227,8 @@ func (t *Task) stop(context.Context, bool) error {
 	return nil
 }
 
-func (t *Task) Stop(ctx context.Context, willReconfigure bool) error {
-	return t.stop(ctx, willReconfigure)
+func (t *Task) Stop(context.Context, bool) error {
+	return t.stop()
 }
 
 func (t *Task) Key() task.Key { return t.key }
@@ -258,8 +245,6 @@ func (t *Task) setStatus(variant status.Variant, running bool, message string) {
 	}
 	_ = t.ctx.SetStatus(stat)
 }
-
-// Pipeline helper types and functions
 
 type streamerSeg struct {
 	confluence.UnarySink[framer.StreamerResponse]

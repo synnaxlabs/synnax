@@ -20,6 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // TaskType is the type identifier for Arc tasks.
@@ -52,18 +55,47 @@ type FactoryConfig struct {
 	GetModule GetModuleFunc
 }
 
+var (
+	_             config.Config[FactoryConfig] = FactoryConfig{}
+	DefaultConfig                              = FactoryConfig{}
+)
+
+func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
+	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.GetModule = override.Nil(c.GetModule, other.GetModule)
+	return c
+}
+
+func (c FactoryConfig) Validate() error {
+	v := validate.New("arc.runtime.factory")
+	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "get_module", c.GetModule)
+	return v.Error()
+}
+
 // Factory creates Arc tasks from task definitions.
 type Factory struct {
 	cfg FactoryConfig
 }
 
 // NewFactory creates a new Arc factory.
-func NewFactory(cfg FactoryConfig) *Factory {
-	return &Factory{cfg: cfg}
+func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	return &Factory{cfg: cfg}, nil
 }
 
 // ConfigureTask creates an Arc task if this factory handles the task type.
-func (f *Factory) ConfigureTask(ctx godriver.Context, t task.Task) (godriver.Task, bool, error) {
+func (f *Factory) ConfigureTask(
+	ctx godriver.Context,
+	t task.Task,
+) (godriver.Task, bool, error) {
 	if t.Type != TaskType {
 		return nil, false, nil
 	}
@@ -71,7 +103,6 @@ func (f *Factory) ConfigureTask(ctx godriver.Context, t task.Task) (godriver.Tas
 	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
 		return nil, true, err
 	}
-	// Use injected function to get Arc with compiled Module
 	prog, err := f.cfg.GetModule(ctx, cfg.ArcKey)
 	if err != nil {
 		return nil, true, err
@@ -81,4 +112,4 @@ func (f *Factory) ConfigureTask(ctx godriver.Context, t task.Task) (godriver.Tas
 }
 
 // Name returns the factory name.
-func (f *Factory) Name() string { return "arc" }
+func (f *Factory) Name() string { return "Arc" }

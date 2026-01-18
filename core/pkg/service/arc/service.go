@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -139,20 +138,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	var (
-		closer xio.MultiCloser
-		s      = &Service{cfg: cfg}
-	)
+	var s = &Service{cfg: cfg}
 	s.symbolResolver = symbol.CreateResolver(cfg.Channel)
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		stopSignals, err := signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
+		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
 		if err != nil {
 			return nil, err
 		}
-		closer = append(closer, stopSignals)
 	}
-	s.closer = closer
 	return s, nil
 }
 

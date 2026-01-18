@@ -10,6 +10,7 @@
 package godriver_test
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 
@@ -30,6 +31,42 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type mockFactory struct {
+	configureFunc func(t task.Task) (godriver.Task, bool, error)
+	name          string
+}
+
+func (f *mockFactory) ConfigureTask(_ godriver.Context, t task.Task) (godriver.Task, bool, error) {
+	if f.configureFunc != nil {
+		return f.configureFunc(t)
+	}
+	return nil, false, nil
+}
+
+func (f *mockFactory) Name() string { return f.name }
+
+type mockTask struct {
+	execFunc func(cmd task.Command) error
+	stopFunc func() error
+	key      task.Key
+}
+
+func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
+	if t.execFunc != nil {
+		return t.execFunc(cmd)
+	}
+	return nil
+}
+
+func (t *mockTask) Stop(_ context.Context, _ bool) error {
+	if t.stopFunc != nil {
+		return t.stopFunc()
+	}
+	return nil
+}
+
+func (t *mockTask) Key() task.Key { return t.key }
 
 var _ = Describe("Config", Ordered, func() {
 	var (

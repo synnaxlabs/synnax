@@ -12,7 +12,7 @@ import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
-  Arc as Core,
+  Arc as Base,
   Diagram,
   Haul,
   Menu as PMenu,
@@ -47,7 +47,7 @@ import {
   setViewportMode,
   type State,
 } from "@/arc/slice";
-import { Controls as CoreControls } from "@/components";
+import { Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -85,13 +85,10 @@ const StageRenderer = ({
 
   if (props == null) return null;
 
-  const C = Core.Stage.REGISTRY[key];
+  const C = Base.Stage.REGISTRY[key];
 
   if (C == null) throw new Error(`Symbol ${key} not found`);
-
-  // Just here to make sure we don't spread the key into the symbol.
   const { key: _, ...rest } = props;
-
   return (
     <C.Symbol
       key={key}
@@ -191,7 +188,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null || event == null) return valid;
       valid.forEach(({ key, data }) => {
-        const spec = Core.Stage.REGISTRY[key];
+        const spec = Base.Stage.REGISTRY[key];
         if (spec == null) return;
         const pos = xy.truncate(calculateCursorPosition(event), 0);
         undoableDispatch(
@@ -280,7 +277,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
       onDoubleClick={handleDoubleClick}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Core.Arc
+      <Base.Arc
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
@@ -303,11 +300,11 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
       >
         <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
-        <CoreControls x>
+        <BaseControls x>
           <Diagram.FitViewControl />
           {hasEditPermission && <Diagram.ToggleEditControl />}
-        </CoreControls>
-      </Core.Arc>
+        </BaseControls>
+      </Base.Arc>
       <Controls state={state} />
     </div>
   );

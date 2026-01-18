@@ -32,7 +32,7 @@ import (
 
 // Driver is the Go task executor that handles task lifecycle and command processing.
 type Driver struct {
-	Config
+	cfg                Config
 	shutdown           io.Closer
 	disconnectObserver observe.Disconnect
 	streamerRequests   confluence.Inlet[framer.StreamerRequest]
@@ -58,7 +58,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Driver{Config: cfg}
+	d := &Driver{cfg: cfg}
 	d.ctx = NewContext(ctx, cfg.Status)
 	d.mu.tasks = make(map[task.Key]Task)
 
@@ -75,23 +75,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
-	d.setupCommandStreaming(ctx, sCtx)
+	if err = d.setupCommandStreaming(ctx, sCtx); err != nil {
+		return d, nil
+	}
 	return d, nil
 }
 
 // setupCommandStreaming initializes the command channel streamer. This is optional
 // and will log warnings if the command channel doesn't exist or streaming fails.
-func (d *Driver) setupCommandStreaming(ctx context.Context, sCtx signal.Context) {
-	var cmdCh channel.Channel
-	if err := d.Channel.NewRetrieve().WhereNames("sy_task_cmd").Entry(&cmdCh).Exec(ctx, nil); err != nil {
-		d.L.Warn("failed to retrieve task command channel", zap.Error(err))
-	}
-	streamer, err := d.Framer.NewStreamer(ctx, framer.StreamerConfig{
-		Keys: channel.Keys{cmdCh.Key()},
+func (d *Driver) setupCommandStreaming(ctx context.Context, sCtx signal.Context) error {
+	streamer, err := d.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Keys: channel.Keys{d.cfg.Task.CommandChannelKey()},
 	})
 	if err != nil {
-		d.L.Warn("failed to create command streamer", zap.Error(err))
-		return
+		return err
 	}
 	p := plumber.New()
 	plumber.SetSegment[framer.StreamerRequest, framer.StreamerResponse](p, "streamer", streamer)
@@ -103,6 +100,7 @@ func (d *Driver) setupCommandStreaming(ctx context.Context, sCtx signal.Context)
 	streamer.InFrom(streamerRequests)
 	d.streamerRequests = streamerRequests
 	sink.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	return nil
 }
 
 func (s *commandSink) process(ctx context.Context, res framer.StreamerResponse) error {
@@ -115,7 +113,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 	for series := range frame.Series() {
 		for s := range series.Samples() {
 			if err := json.Unmarshal(s, &cmd); err != nil {
-				d.L.Error("failed to unmarshal command", zap.Error(err))
+				d.cfg.L.Error("failed to unmarshal command", zap.Error(err))
 				continue
 			}
 			if cmd.Task.Rack() != d.rack.Key {
@@ -125,11 +123,11 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			t, ok := d.mu.tasks[cmd.Task]
 			d.mu.RUnlock()
 			if ok {
-				d.L.Warn("received command for unknown task", zap.Stringer("task", cmd.Task))
+				d.cfg.L.Warn("received command for unknown task", zap.Stringer("task", cmd.Task))
 				continue
 			}
 			if err := t.Exec(ctx, cmd); err != nil {
-				d.L.Error("failed to execute command",
+				d.cfg.L.Error("failed to execute command",
 					zap.Stringer("task", cmd.Task),
 					zap.String("type", cmd.Type),
 					zap.Error(err),
@@ -156,17 +154,17 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	defer d.mu.Unlock()
 	if existing, ok := d.mu.tasks[t.Key]; ok {
 		if err := existing.Stop(ctx, true); err != nil {
-			d.L.Error("failed to stop existing task for reconfiguration",
+			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t.Key),
 				zap.Error(err),
 			)
 		}
 		delete(d.mu.tasks, t.Key)
 	}
-	taskCtx := NewContext(ctx, d.Status)
-	newTask, ok, err := d.Factory.ConfigureTask(taskCtx, t)
+	taskCtx := NewContext(ctx, d.cfg.Status)
+	newTask, ok, err := d.cfg.Factory.ConfigureTask(taskCtx, t)
 	if err != nil {
-		d.L.Error("factory failed to configure task",
+		d.cfg.L.Error("factory failed to configure task",
 			zap.Stringer("task", t.Key),
 			zap.String("type", t.Type),
 			zap.Error(err),
@@ -174,14 +172,14 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 		return
 	}
 	if !ok {
-		d.L.Warn("no factory handled task type",
+		d.cfg.L.Warn("no factory handled task type",
 			zap.Stringer("task", t.Key),
 			zap.String("type", t.Type),
 		)
 		return
 	}
 	d.mu.tasks[t.Key] = newTask
-	d.L.Info("configured task",
+	d.cfg.L.Info("configured task",
 		zap.Stringer("task", t.Key),
 		zap.String("type", t.Type),
 		zap.String("name", t.Name),
@@ -196,13 +194,13 @@ func (d *Driver) delete(ctx context.Context, key task.Key) {
 		return
 	}
 	if err := t.Stop(ctx, false); err != nil {
-		d.L.Error("failed to stop task during deletion",
+		d.cfg.L.Error("failed to stop task during deletion",
 			zap.Stringer("task", key),
 			zap.Error(err),
 		)
 	}
 	delete(d.mu.tasks, key)
-	d.L.Info("deleted task", zap.Stringer("task", key))
+	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
 func (d *Driver) RackKey() rack.Key {
@@ -213,13 +211,13 @@ func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {
 		if err := t.Stop(context.TODO(), false); err != nil {
-			d.L.Error("failed to stop task during shutdown",
+			d.cfg.L.Error("failed to stop task during shutdown",
 				zap.Stringer("task", key),
 				zap.Error(err),
 			)
 		}
 	}
-	d.mu.tasks = make(map[task.Key]Task)
+	d.mu.tasks = nil
 	d.mu.Unlock()
 	d.disconnectObserver()
 	if d.streamerRequests != nil {

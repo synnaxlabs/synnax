@@ -16,47 +16,29 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/query"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create an Arc with generated key", func() {
-			a := arc.Arc{
-				Name:  "test-arc",
-				Graph: graph.Graph{},
-				Text:  text.Text{},
-			}
+			a := arc.Arc{Name: "test-arc"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Key).ToNot(Equal(uuid.Nil))
 		})
 
 		It("Should create an Arc with explicit key", func() {
 			key := uuid.New()
-			a := arc.Arc{
-				Key:   key,
-				Name:  "test-arc-with-key",
-				Graph: graph.Graph{},
-				Text:  text.Text{},
-			}
+			a := arc.Arc{Key: key, Name: "test-arc-with-key"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Key).To(Equal(key))
 		})
 
 		It("Should handle multiple arc creations", func() {
-			a1 := arc.Arc{
-				Name:  "arc-1",
-				Graph: graph.Graph{},
-				Text:  text.Text{},
-			}
-			a2 := arc.Arc{
-				Name:  "arc-2",
-				Graph: graph.Graph{},
-				Text:  text.Text{},
-			}
-
+			a1 := arc.Arc{Name: "arc-1"}
+			a2 := arc.Arc{Name: "arc-2"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &a2)).To(Succeed())
-
 			Expect(a1.Key).ToNot(Equal(uuid.Nil))
 			Expect(a2.Key).ToNot(Equal(uuid.Nil))
 			Expect(a1.Key).ToNot(Equal(a2.Key))
@@ -72,15 +54,9 @@ var _ = Describe("Writer", func() {
 				Graph: graph.Graph{},
 				Text:  text.Text{},
 			}
-
-			// Create the arc initially
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-
-			// Update with same key
 			a.Name = "updated-arc"
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-
-			// Verify the update
 			var retrieved arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(key).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("updated-arc"))
@@ -95,36 +71,22 @@ var _ = Describe("Writer", func() {
 				Text:  text.Text{},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
-
-			var retrieved arc.Arc
-			err := svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrieved).Exec(ctx, tx)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.NewRetrieve().WhereKeys(a.Key).Exec(ctx, tx)).
+				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple Arcs", func() {
-			a1 := arc.Arc{
-				Name:  "arc-to-delete-1",
-				Graph: graph.Graph{},
-				Text:  text.Text{},
-			}
-			a2 := arc.Arc{
-				Name:  "arc-to-delete-2",
-				Graph: graph.Graph{},
-				Text:  text.Text{},
-			}
+			a1 := arc.Arc{Name: "arc-to-delete-1"}
+			a2 := arc.Arc{Name: "arc-to-delete-2"}
 			w := svc.NewWriter(tx)
 			Expect(w.Create(ctx, &a1)).To(Succeed())
 			Expect(w.Create(ctx, &a2)).To(Succeed())
-
 			Expect(svc.NewWriter(tx).Delete(ctx, a1.Key, a2.Key)).To(Succeed())
-
-			var retrieved arc.Arc
-			err := svc.NewRetrieve().WhereKeys(a1.Key).Entry(&retrieved).Exec(ctx, tx)
-			Expect(err).To(HaveOccurred())
-			err = svc.NewRetrieve().WhereKeys(a2.Key).Entry(&retrieved).Exec(ctx, tx)
-			Expect(err).To(HaveOccurred())
+			Expect(svc.NewRetrieve().
+				WhereKeys(a1.Key, a2.Key).
+				Exec(ctx, tx),
+			).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should handle delete of non-existent arc gracefully", func() {
