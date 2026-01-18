@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot, log, schematic, table } from "@synnaxlabs/client";
+import { Access } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
@@ -26,10 +28,11 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
 export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
 
 export const useSelectorVisible = (): boolean => {
-  // Call ALL hooks first to maintain consistent hook order across renders.
-  // Using .some() directly would short-circuit and skip hooks, violating Rules of Hooks.
-  const results = SELECTABLES.map(({ useVisible }) => useVisible?.() ?? true);
-  return results.some(Boolean);
+  const linePlotVisible = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const schematicVisible = Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+  const logVisible = Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+  const tableVisible = Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
+  return linePlotVisible || schematicVisible || logVisible || tableVisible;
 };
 
 export const createSelectorLayout = (): Layout.BaseState => ({

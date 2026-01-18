@@ -33,7 +33,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -42,12 +42,20 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const READ_SELECTABLE: Selector.Selectable = {
-  key: READ_TYPE,
-  title: "LabJack Read Task",
-  icon: <Icon.Logo.LabJack />,
-  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
+export const ReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...READ_LAYOUT, key: layoutKey });
+  }, [onPlace]);
+  return (
+    <Selector.Item
+      key={READ_TYPE}
+      title="LabJack Read Task"
+      icon={<Icon.Logo.LabJack />}
+      onClick={handleClick}
+    />
+  );
 };
+ReadSelectable.type = READ_TYPE;
 
 const Properties = () => (
   <>

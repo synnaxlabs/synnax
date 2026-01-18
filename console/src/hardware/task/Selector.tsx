@@ -18,16 +18,25 @@ import { Sequence } from "@/hardware/task/sequence";
 import { type Layout } from "@/layout";
 import { Selector as BaseSelector } from "@/selector";
 
+const withTaskVisibility = (
+  Selectable: BaseSelector.Selectable,
+): BaseSelector.Selectable => {
+  const WrappedSelectable: BaseSelector.Selectable = (props) => {
+    const visible = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
+    if (!visible) return null;
+    return <Selectable {...props} />;
+  };
+  WrappedSelectable.type = Selectable.type;
+  return WrappedSelectable;
+};
+
 export const SELECTABLES: BaseSelector.Selectable[] = [
   ...LabJack.Task.SELECTABLES,
   ...Modbus.Task.SELECTABLES,
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...Sequence.SELECTABLES,
-].map((selectable) => ({
-  ...selectable,
-  useVisible: () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID),
-}));
+].map(withTaskVisibility);
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
 

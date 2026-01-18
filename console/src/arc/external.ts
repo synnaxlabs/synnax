@@ -25,4 +25,4 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   [Editor.LAYOUT_TYPE]: Editor.Text,
 };
 
-export const SELECTABLES: Selector.Selectable[] = [Editor.SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [Editor.ArcSelectable];

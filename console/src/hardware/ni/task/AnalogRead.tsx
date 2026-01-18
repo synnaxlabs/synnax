@@ -30,7 +30,7 @@ import {
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,12 +39,20 @@ export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
-  key: ANALOG_READ_TYPE,
-  title: "NI Analog Read Task",
-  icon: <Icon.Logo.NI />,
-  create: async ({ layoutKey }) => ({ ...ANALOG_READ_LAYOUT, key: layoutKey }),
+export const AnalogReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...ANALOG_READ_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={ANALOG_READ_TYPE}
+      title="NI Analog Read Task"
+      icon={<Icon.Logo.NI />}
+      onClick={handleClick}
+    />
+  );
 };
+AnalogReadSelectable.type = ANALOG_READ_TYPE;
 
 const Properties = () => (
   <>

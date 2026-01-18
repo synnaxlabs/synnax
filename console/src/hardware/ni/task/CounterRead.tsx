@@ -30,7 +30,7 @@ import {
   ZERO_CI_CHANNEL,
   ZERO_COUNTER_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const COUNTER_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,12 +39,20 @@ export const COUNTER_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const COUNTER_READ_SELECTABLE: Selector.Selectable = {
-  key: COUNTER_READ_TYPE,
-  title: "NI Counter Read Task",
-  icon: <Icon.Logo.NI />,
-  create: async ({ layoutKey }) => ({ ...COUNTER_READ_LAYOUT, key: layoutKey }),
+export const CounterReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...COUNTER_READ_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={COUNTER_READ_TYPE}
+      title="NI Counter Read Task"
+      icon={<Icon.Logo.NI />}
+      onClick={handleClick}
+    />
+  );
 };
+CounterReadSelectable.type = COUNTER_READ_TYPE;
 
 const Properties = () => (
   <>

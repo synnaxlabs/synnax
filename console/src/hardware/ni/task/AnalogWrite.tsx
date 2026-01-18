@@ -10,7 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -29,7 +29,7 @@ import {
   type AOChannelType,
   ZERO_ANALOG_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -38,12 +38,20 @@ export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_WRITE_SELECTABLE: Selector.Selectable = {
-  key: ANALOG_WRITE_TYPE,
-  title: "NI Analog Write Task",
-  icon: <Icon.Logo.NI />,
-  create: async ({ layoutKey }) => ({ ...ANALOG_WRITE_LAYOUT, key: layoutKey }),
+export const AnalogWriteSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...ANALOG_WRITE_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={ANALOG_WRITE_TYPE}
+      title="NI Analog Write Task"
+      icon={<Icon.Logo.NI />}
+      onClick={handleClick}
+    />
+  );
 };
+AnalogWriteSelectable.type = ANALOG_WRITE_TYPE;
 
 const Properties = () => (
   <>

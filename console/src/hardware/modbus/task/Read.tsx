@@ -12,7 +12,7 @@ import "@/hardware/modbus/task/Task.css";
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, Select, Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -35,7 +35,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/modbus/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const READ_LAYOUT = {
   ...Common.Task.LAYOUT,
@@ -44,12 +44,20 @@ export const READ_LAYOUT = {
   icon: "Logo.Modbus",
 } as const satisfies Common.Task.Layout;
 
-export const READ_SELECTABLE = {
-  key: READ_TYPE,
-  title: "Modbus Read Task",
-  icon: <Icon.Logo.Modbus />,
-  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
-} as const satisfies Selector.Selectable;
+export const ReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...READ_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={READ_TYPE}
+      title="Modbus Read Task"
+      icon={<Icon.Logo.Modbus />}
+      onClick={handleClick}
+    />
+  );
+};
+ReadSelectable.type = READ_TYPE;
 
 const Properties = () => (
   <>

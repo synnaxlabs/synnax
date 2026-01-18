@@ -10,7 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -24,7 +24,7 @@ import {
   type writeTypeZ,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -33,12 +33,20 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const WRITE_SELECTABLE: Selector.Selectable = {
-  key: WRITE_TYPE,
-  title: "OPC UA Write Task",
-  icon: <Icon.Logo.OPC />,
-  create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
+export const WriteSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...WRITE_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={WRITE_TYPE}
+      title="OPC UA Write Task"
+      icon={<Icon.Logo.OPC />}
+      onClick={handleClick}
+    />
+  );
 };
+WriteSelectable.type = WRITE_TYPE;
 
 const Properties = () => (
   <>

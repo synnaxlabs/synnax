@@ -7,4 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Selector from "@/selector/external";
+import { Button, type Icon } from "@synnaxlabs/pluto";
+
+export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
+  title: string;
+  icon: Icon.ReactElement;
+}
+
+export const Item = ({ title, icon, ...rest }: ItemProps) => (
+  <Button.Button variant="outlined" {...rest}>
+    {icon}
+    {title}
+  </Button.Button>
+);

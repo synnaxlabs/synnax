@@ -21,7 +21,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { caseconv, deep, id, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
@@ -40,7 +40,7 @@ import {
   ZERO_OUTPUT_CHANNELS,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/modbus/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const WRITE_LAYOUT = {
   ...Common.Task.LAYOUT,
@@ -49,12 +49,20 @@ export const WRITE_LAYOUT = {
   icon: "Logo.Modbus",
 } as const satisfies Common.Task.Layout;
 
-export const WRITE_SELECTABLE = {
-  key: WRITE_TYPE,
-  title: "Modbus Write Task",
-  icon: <Icon.Logo.Modbus />,
-  create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
-} as const satisfies Selector.Selectable;
+export const WriteSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...WRITE_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={WRITE_TYPE}
+      title="Modbus Write Task"
+      icon={<Icon.Logo.Modbus />}
+      onClick={handleClick}
+    />
+  );
+};
+WriteSelectable.type = WRITE_TYPE;
 
 const Properties = () => (
   <>

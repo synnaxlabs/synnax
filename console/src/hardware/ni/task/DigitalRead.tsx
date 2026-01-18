@@ -10,7 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -29,7 +29,7 @@ import {
   type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -38,12 +38,20 @@ export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_READ_TYPE,
 };
 
-export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
-  create: async ({ layoutKey }) => ({ ...DIGITAL_READ_LAYOUT, key: layoutKey }),
-  icon: <Icon.Logo.NI />,
-  key: DIGITAL_READ_TYPE,
-  title: "NI Digital Read Task",
+export const DigitalReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...DIGITAL_READ_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={DIGITAL_READ_TYPE}
+      title="NI Digital Read Task"
+      icon={<Icon.Logo.NI />}
+      onClick={handleClick}
+    />
+  );
 };
+DigitalReadSelectable.type = DIGITAL_READ_TYPE;
 
 const Properties = () => (
   <>

@@ -10,7 +10,7 @@
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC, type ReactElement, useCallback } from "react";
 import { type z } from "zod";
 
 import { Common } from "@/hardware/common";
@@ -25,7 +25,7 @@ import {
   type readTypeZ,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -34,12 +34,20 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const READ_SELECTABLE: Selector.Selectable = {
-  key: READ_TYPE,
-  title: "OPC UA Read Task",
-  icon: <Icon.Logo.OPC />,
-  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
+export const ReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const handleClick = useCallback(() => {
+    onPlace({ ...READ_LAYOUT, key: layoutKey });
+  }, [onPlace, layoutKey]);
+  return (
+    <Selector.Item
+      key={READ_TYPE}
+      title="OPC UA Read Task"
+      icon={<Icon.Logo.OPC />}
+      onClick={handleClick}
+    />
+  );
 };
+ReadSelectable.type = READ_TYPE;
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
   props.read.channels[nodeId] ??
