@@ -178,12 +178,12 @@ export const Console = (): ReactElement => (
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
               <Palette.CommandProvider
-                  commands={COMMANDS}
-                  fileIngestors={FILE_INGESTORS}
-                  extractors={EXTRACTORS}
-                >
-                  <MainUnderContext />
-                </Palette.CommandProvider>
+                commands={COMMANDS}
+                fileIngestors={FILE_INGESTORS}
+                extractors={EXTRACTORS}
+              >
+                <MainUnderContext />
+              </Palette.CommandProvider>
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
