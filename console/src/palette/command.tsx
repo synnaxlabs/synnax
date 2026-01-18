@@ -91,7 +91,6 @@ const BaseCommandListItem = ({
 );
 
 export const CommandListItem = Component.removeProps(BaseCommandListItem, [
-  "itemKey",
   "placeLayout",
   "confirm",
   "rename",
