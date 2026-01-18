@@ -308,6 +308,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		GetModule: serviceLayer.Arc.GetModule,
 	})
 	if !ok(err, nil) {
+		return err
 	}
 
 	driverIns := cfg.Child("driver")
