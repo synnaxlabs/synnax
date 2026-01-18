@@ -37,7 +37,6 @@ type Driver struct {
 	disconnectObserver observe.Disconnect
 	streamerRequests   confluence.Inlet[framer.StreamerRequest]
 	rack               rack.Rack
-	ctx                Context
 	mu                 struct {
 		tasks map[task.Key]Task
 		sync.RWMutex
@@ -59,7 +58,6 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 		return nil, err
 	}
 	d := &Driver{cfg: cfg}
-	d.ctx = NewContext(ctx, cfg.Status)
 	d.mu.tasks = make(map[task.Key]Task)
 
 	d.rack = rack.Rack{
