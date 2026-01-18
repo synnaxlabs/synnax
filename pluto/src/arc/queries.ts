@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError } from "@synnaxlabs/client";
+import { arc, NotFoundError, ontology, type task } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -15,6 +15,7 @@ import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { state } from "@/state";
 import { type Status } from "@/status";
+import { Task } from "@/task";
 
 export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
 
@@ -22,7 +23,7 @@ export const FLUX_STORE_KEY = "arcs";
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
 
-export interface FluxSubStore extends Status.FluxSubStore {
+export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore{
   [FLUX_STORE_KEY]: FluxStore;
 }
 
@@ -200,5 +201,45 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     );
     await client.arcs.create({ ...arc, name });
     return { key, name };
+  },
+});
+
+export interface RetrieveTaskParams {
+  arcKey: arc.Key;
+}
+
+export const {useRetrieve: useRetrieveTask} = Flux.createRetrieve<RetrieveTaskParams, task.Task | undefined, FluxSubStore>({
+  name: "Task",
+  retrieve: async ({client, query, store}) => {
+    const cachedChild = store.relationships.get((r) => ontology.matchRelationship(r, {
+      from: arc.ontologyID(query.arcKey),
+      type: "child",
+      to: { type: "task" },
+    }))[0];
+    let taskKey = cachedChild?.to.key;
+    if (taskKey == null) {
+      const children = await client.ontology.retrieveChildren(arc.ontologyID(query.arcKey), {
+          types: ["task"]
+      });
+      children.forEach((c) => {
+        const rel = {
+          from: arc.ontologyID(query.arcKey),
+          type: "child",
+          to: c.id,
+        };
+        store.relationships.set(ontology.relationshipToString(rel), rel);
+      });
+      if (children.length === 0) return undefined;
+      taskKey = children[0].id.key;
+    }
+   return await Task.retrieveSingle({
+      store,
+      client,
+      query: { key: cachedChild.to.key },
+    });
+  },
+  mountListeners: ({store, query, onChange}) => {
+    if (!("arcKey" in query) || primitive.isZero(query.arcKey)) return [];
+    return [store.tasks.onSet(onChange, query.arcKey)];
   },
 });

@@ -14,7 +14,6 @@ import {
   Flex,
   type Flux,
   Icon,
-  Ontology,
   Rack,
   Status,
   Task,
@@ -31,14 +30,7 @@ interface ControlsProps {
 
 export const Controls = ({ state }: ControlsProps) => {
   const name = Layout.useSelectRequiredName(state.key);
-  const children = Ontology.useRetrieveChildren({
-    id: arc.ontologyID(state.key),
-    types: ["task"],
-  });
-  const tsk = Task.useRetrieve(
-    { key: children.data?.[0]?.id.key ?? 0 },
-    { addStatusOnFailure: false },
-  );
+  const tsk = Arc.useRetrieveTask({ arcKey: state.key });
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   useEffect(() => {
     if (tsk.data?.key == null) return;
@@ -55,17 +47,13 @@ export const Controls = ({ state }: ControlsProps) => {
           key: taskKey,
           name,
           type: "arc",
-          config: {
-            arc_key: key,
-          },
+          config: { arcKey: key },
         });
         if (tsk.data?.key == null)
           await client.ontology.addChildren(
             arc.ontologyID(key),
             task.ontologyID(newTsk.key),
           );
-
-        await client.tasks.executeCommand({ task: taskKey, type: "start" });
       },
       [name, selectedRack, tsk.data?.key],
     ),
@@ -75,7 +63,6 @@ export const Controls = ({ state }: ControlsProps) => {
     if (tsk.data?.key == null) return;
     cmd.update([{ task: tsk.data.key, type: "stop" }]);
   }, [cmd, tsk.data?.key]);
-
   const isRunning = tsk.data?.status?.details.running ?? false;
   const handleDeploy = useCallback(() => {
     if (isRunning) handleStop();
@@ -89,7 +76,6 @@ export const Controls = ({ state }: ControlsProps) => {
         mode: state.mode,
       });
   }, [state, update, handleStop, isRunning, name]);
-
   return (
     <Flex.Box
       style={{

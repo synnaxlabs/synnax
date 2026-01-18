@@ -13,7 +13,6 @@ import { useDispatch } from "react-redux";
 
 import { Graph } from "@/arc/editor/graph";
 import { useLoadRemote } from "@/arc/editor/hooks";
-import { ModeSelector } from "@/arc/editor/ModeSelector";
 import { Text } from "@/arc/editor/text";
 import { useSelectMode } from "@/arc/selectors";
 import { setMode } from "@/arc/slice";
@@ -23,15 +22,12 @@ const Loaded: Layout.Renderer = (props) => {
   const { layoutKey } = props;
   const mode = useSelectMode(layoutKey);
   const dispatch = useDispatch();
-
   const handleModeSelect = useCallback(
     (selectedMode: arc.Mode) =>
       dispatch(setMode({ key: layoutKey, mode: selectedMode })),
     [dispatch, layoutKey],
   );
-
   if (mode == null) return <ModeSelector onSelect={handleModeSelect} />;
-
   if (mode === "graph") return <Graph.Editor {...props} />;
   return <Text.Editor {...props} />;
 };
