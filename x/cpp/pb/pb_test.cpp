@@ -24,57 +24,55 @@ struct MockProto {
 struct MockElement {
     int value;
 
-    static std::pair<MockElement, errors::Error>
-    from_proto(const MockProto &pb) {
+    static std::pair<MockElement, errors::Error> from_proto(const MockProto &pb) {
         if (pb.should_fail)
             return {{}, errors::Error("test.error", "mock conversion failed")};
         return {MockElement{pb.value}, errors::NIL};
     }
 };
 
-TEST(testpb, testFromProtoRepeatedEmptyContainer) {
+TEST(TestPB, testFromProtoRepeatedEmptyContainer) {
     std::vector<MockProto> src;
     std::vector<MockElement> dst;
-    auto err = from_proto_repeated<MockElement>(dst, src);
-    ASSERT_NIL(err);
+    ASSERT_NIL(from_proto_repeated<MockElement>(dst, src));
     ASSERT_EQ(dst.size(), 0);
 }
 
-TEST(testpb, testFromProtoRepeatedSingleItem) {
+TEST(TestPB, testFromProtoRepeatedSingleItem) {
     std::vector<MockProto> src = {{42, false}};
     std::vector<MockElement> dst;
-    auto err = from_proto_repeated<MockElement>(dst, src);
-    ASSERT_NIL(err);
+    ASSERT_NIL(from_proto_repeated<MockElement>(dst, src));
     ASSERT_EQ(dst.size(), 1);
     ASSERT_EQ(dst[0].value, 42);
 }
 
-TEST(testpb, testFromProtoRepeatedMultipleItems) {
+TEST(TestPB, testFromProtoRepeatedMultipleItems) {
     std::vector<MockProto> src = {{1, false}, {2, false}, {3, false}};
     std::vector<MockElement> dst;
-    auto err = from_proto_repeated<MockElement>(dst, src);
-    ASSERT_NIL(err);
+    ASSERT_NIL(from_proto_repeated<MockElement>(dst, src));
     ASSERT_EQ(dst.size(), 3);
     ASSERT_EQ(dst[0].value, 1);
     ASSERT_EQ(dst[1].value, 2);
     ASSERT_EQ(dst[2].value, 3);
 }
 
-TEST(testpb, testFromProtoRepeatedErrorOnFirstItem) {
+TEST(TestPB, testFromProtoRepeatedErrorOnFirstItem) {
     std::vector<MockProto> src = {{1, true}, {2, false}, {3, false}};
     std::vector<MockElement> dst;
-    auto err = from_proto_repeated<MockElement>(dst, src);
-    ASSERT_TRUE(err);
-    ASSERT_MATCHES(err, errors::Error("test.error", ""));
+    ASSERT_OCCURRED_AS(
+        from_proto_repeated<MockElement>(dst, src),
+        errors::Error("test.error", "")
+    );
     ASSERT_EQ(dst.size(), 0);
 }
 
-TEST(testpb, testFromProtoRepeatedErrorOnMiddleItem) {
+TEST(TestPB, testFromProtoRepeatedErrorOnMiddleItem) {
     std::vector<MockProto> src = {{1, false}, {2, true}, {3, false}};
     std::vector<MockElement> dst;
-    auto err = from_proto_repeated<MockElement>(dst, src);
-    ASSERT_TRUE(err);
-    ASSERT_MATCHES(err, errors::Error("test.error", ""));
+    ASSERT_OCCURRED_AS(
+        from_proto_repeated<MockElement>(dst, src),
+        errors::Error("test.error", "")
+    );
     ASSERT_EQ(dst.size(), 1);
     ASSERT_EQ(dst[0].value, 1);
 }

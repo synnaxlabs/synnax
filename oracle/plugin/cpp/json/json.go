@@ -586,33 +586,6 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
-func (p *Plugin) parseExprForTypeRef(typeRef resolution.TypeRef, cppType, jsonName string, hasDefault bool, data *templateData) string {
-	if typeRef.TypeParam != nil {
-		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
-	}
-
-	resolved, resolvedOk := typeRef.Resolve(data.table)
-	if resolvedOk {
-		if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-			structType := domain.GetName(resolved, "cpp")
-			if resolved.Namespace != data.rawNs {
-				targetOutputPath := output.GetPath(resolved, "cpp")
-				if targetOutputPath != "" {
-					ns := deriveNamespace(targetOutputPath)
-					structType = fmt.Sprintf("::%s::%s", ns, structType)
-				}
-			}
-			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
-		}
-	}
-
-	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" && mapping.TargetType != "void" {
-		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-	}
-
-	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
-}
-
 func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templateData) (jsonParseExpr, structParseExpr string) {
 	jsonName := toSnakeCase(field.Name)
 	typeParamName := field.Type.TypeParam.Name

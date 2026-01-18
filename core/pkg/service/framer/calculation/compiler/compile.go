@@ -70,9 +70,9 @@ func preProcess(ctx context.Context, cfg Config) (arc.Module, error) {
 }
 
 type Module struct {
+	arc.Module
 	Channel     channel.Channel
 	StateConfig runtime.ExtendedStateConfig
-	arc.Module
 }
 
 func Compile(ctx context.Context, cfgs ...Config) (Module, error) {

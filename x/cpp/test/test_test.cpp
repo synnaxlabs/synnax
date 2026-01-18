@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -168,5 +169,57 @@ TEST_F(XTestTest, TestEventuallyFalseWithCustomTimeout) {
         std::chrono::milliseconds(10)
     );
     t.join();
+}
+
+/// @brief ASSERT_NIL should only evaluate its expression once.
+/// Regression test for double-evaluation bug.
+TEST_F(XTestTest, TestAssertNilSingleEvaluation) {
+    int eval_count = 0;
+    auto returns_nil = [&eval_count]() -> errors::Error {
+        ++eval_count;
+        return errors::NIL;
+    };
+    ASSERT_NIL(returns_nil());
+    EXPECT_EQ(eval_count, 1) << "ASSERT_NIL evaluated expression " << eval_count
+                             << " times instead of 1";
+}
+
+/// @brief ASSERT_OCCURRED_AS should only evaluate its expression once.
+/// Regression test for double-evaluation bug.
+TEST_F(XTestTest, TestAssertOccurredAsSingleEvaluation) {
+    int eval_count = 0;
+    auto returns_error = [&eval_count]() -> errors::Error {
+        ++eval_count;
+        return errors::Error("test.error", "test error");
+    };
+    ASSERT_OCCURRED_AS(returns_error(), errors::Error("test.error", ""));
+    EXPECT_EQ(eval_count, 1) << "ASSERT_OCCURRED_AS evaluated expression " << eval_count
+                             << " times instead of 1";
+}
+
+/// @brief ASSERT_NIL should only evaluate once with side effects.
+/// Verifies that side effects only happen once.
+TEST_F(XTestTest, TestAssertNilSideEffects) {
+    std::vector<int> items;
+    auto append_and_return_nil = [&items]() -> errors::Error {
+        items.push_back(42);
+        return errors::NIL;
+    };
+    ASSERT_NIL(append_and_return_nil());
+    EXPECT_EQ(items.size(), 1)
+        << "ASSERT_NIL caused " << items.size() << " side effects instead of 1";
+}
+
+/// @brief ASSERT_OCCURRED_AS should only evaluate once with side effects.
+/// Verifies that side effects only happen once.
+TEST_F(XTestTest, TestAssertOccurredAsSideEffects) {
+    std::vector<int> items;
+    auto append_and_return_error = [&items]() -> errors::Error {
+        items.push_back(42);
+        return errors::Error("test.error", "test error");
+    };
+    ASSERT_OCCURRED_AS(append_and_return_error(), errors::Error("test.error", ""));
+    EXPECT_EQ(items.size(), 1)
+        << "ASSERT_OCCURRED_AS caused " << items.size() << " side effects instead of 1";
 }
 }

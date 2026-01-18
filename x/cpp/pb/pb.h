@@ -20,12 +20,9 @@ namespace x::pb {
 /// @param dst The destination container to populate.
 /// @param src The source protobuf repeated field.
 /// @return x::errors::NIL on success, or the first error encountered.
-template <typename CppElem, typename Container, typename PbContainer>
-x::errors::Error from_proto_repeated(
-    Container& dst,
-    const PbContainer& src
-) {
-    for (const auto& item : src) {
+template<typename CppElem, typename Container, typename PbContainer>
+x::errors::Error from_proto_repeated(Container &dst, const PbContainer &src) {
+    for (const auto &item: src) {
         auto [v, err] = CppElem::from_proto(item);
         if (err) return err;
         dst.push_back(v);
