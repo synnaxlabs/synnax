@@ -129,6 +129,7 @@ export const LogSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   );
 };
 LogSelectable.type = LAYOUT_TYPE;
+LogSelectable.useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 

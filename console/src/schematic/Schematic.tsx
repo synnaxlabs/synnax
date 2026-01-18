@@ -459,6 +459,8 @@ export const SchematicSelectable: Selector.Selectable = ({ layoutKey, onPlace })
   );
 };
 SchematicSelectable.type = LAYOUT_TYPE;
+SchematicSelectable.useVisible = () =>
+  Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 

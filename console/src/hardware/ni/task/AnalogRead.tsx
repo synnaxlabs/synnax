@@ -39,20 +39,11 @@ export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const AnalogReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...ANALOG_READ_LAYOUT, key: layoutKey });
-  }, [onPlace, layoutKey]);
-  return (
-    <Selector.Item
-      key={ANALOG_READ_TYPE}
-      title="NI Analog Read Task"
-      icon={<Icon.Logo.NI />}
-      onClick={handleClick}
-    />
-  );
-};
-AnalogReadSelectable.type = ANALOG_READ_TYPE;
+export const AnalogReadSelectable = Selector.createSimpleItem({
+  title: "NI Analog Read Task",
+  icon: <Icon.Logo.NI />,
+  layout: ANALOG_READ_LAYOUT,
+});
 
 const Properties = () => (
   <>

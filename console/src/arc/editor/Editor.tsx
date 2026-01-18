@@ -388,7 +388,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 export const LAYOUT_TYPE = "arc_editor";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export const ArcSelectable: Selector.Selectable = ({
+export const Selectable: Selector.Selectable = ({
   layoutKey,
   onPlace,
   rename,
@@ -414,7 +414,8 @@ export const ArcSelectable: Selector.Selectable = ({
     />
   );
 };
-ArcSelectable.type = LAYOUT_TYPE;
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 

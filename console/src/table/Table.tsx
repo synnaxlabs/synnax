@@ -405,6 +405,7 @@ export const TableSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => 
   );
 };
 TableSelectable.type = LAYOUT_TYPE;
+TableSelectable.useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
 
 interface ColResizerProps {
   tableKey: string;

@@ -36,20 +36,11 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const WriteSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...WRITE_LAYOUT, key: layoutKey });
-  }, [onPlace, layoutKey]);
-  return (
-    <Selector.Item
-      key={WRITE_TYPE}
-      title="LabJack Write Task"
-      icon={<Icon.Logo.LabJack />}
-      onClick={handleClick}
-    />
-  );
-};
-WriteSelectable.type = WRITE_TYPE;
+export const WriteSelectable = Selector.createSimpleItem({
+  title: "LabJack Write Task",
+  icon: <Icon.Logo.LabJack />,
+  layout: WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>

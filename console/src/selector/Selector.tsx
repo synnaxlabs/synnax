@@ -25,6 +25,7 @@ export interface SelectableProps {
 
 export interface Selectable extends FC<SelectableProps> {
   type: string;
+  useVisible?: () => boolean;
 }
 
 export interface SelectorProps extends Layout.RendererProps {

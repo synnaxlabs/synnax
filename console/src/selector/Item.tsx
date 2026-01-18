@@ -8,6 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Button, type Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
+
+import { type Layout } from "@/layout";
+import { type Selectable } from "@/selector/Selector";
 
 export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   title: string;
@@ -20,3 +24,30 @@ export const Item = ({ title, icon, ...rest }: ItemProps) => (
     {title}
   </Button.Button>
 );
+
+export interface SimpleItemProps {
+  title: string;
+  icon: Icon.ReactElement;
+  layout: Layout.BaseState;
+  useVisible?: () => boolean;
+}
+
+export const createSimpleItem = ({
+  title,
+  icon,
+  layout,
+  useVisible,
+}: SimpleItemProps): Selectable => {
+  const C: Selectable = ({ layoutKey, onPlace }) => {
+    const visible = useVisible?.() ?? true;
+    if (!visible) return null;
+    const handleClick = useCallback(
+      () => onPlace({ ...layout, key: layoutKey }),
+      [onPlace, layoutKey],
+    );
+    return <Item title={title} icon={icon} onClick={handleClick} />;
+  };
+  C.type = layout.type;
+  C.useVisible = useVisible;
+  return C;
+};

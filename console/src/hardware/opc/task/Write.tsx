@@ -10,7 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/opc/device";
@@ -33,20 +33,11 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const WriteSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...WRITE_LAYOUT, key: layoutKey });
-  }, [onPlace, layoutKey]);
-  return (
-    <Selector.Item
-      key={WRITE_TYPE}
-      title="OPC UA Write Task"
-      icon={<Icon.Logo.OPC />}
-      onClick={handleClick}
-    />
-  );
-};
-WriteSelectable.type = WRITE_TYPE;
+export const WriteSelectable = Selector.createSimpleItem({
+  title: "OPC UA Write Task",
+  icon: <Icon.Logo.OPC />,
+  layout: WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>

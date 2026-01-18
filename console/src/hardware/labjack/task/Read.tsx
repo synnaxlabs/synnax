@@ -42,20 +42,11 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const ReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...READ_LAYOUT, key: layoutKey });
-  }, [onPlace]);
-  return (
-    <Selector.Item
-      key={READ_TYPE}
-      title="LabJack Read Task"
-      icon={<Icon.Logo.LabJack />}
-      onClick={handleClick}
-    />
-  );
-};
-ReadSelectable.type = READ_TYPE;
+export const ReadSelectable = Selector.createSimpleItem({
+  title: "LabJack Read Task",
+  icon: <Icon.Logo.LabJack />,
+  layout: READ_LAYOUT,
+});
 
 const Properties = () => (
   <>

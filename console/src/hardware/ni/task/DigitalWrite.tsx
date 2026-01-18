@@ -10,7 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { type optional, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -38,20 +38,11 @@ export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_WRITE_TYPE,
 };
 
-export const DigitalWriteSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...DIGITAL_WRITE_LAYOUT, key: layoutKey });
-  }, [onPlace, layoutKey]);
-  return (
-    <Selector.Item
-      key={DIGITAL_WRITE_TYPE}
-      title="NI Digital Write Task"
-      icon={<Icon.Logo.NI />}
-      onClick={handleClick}
-    />
-  );
-};
-DigitalWriteSelectable.type = DIGITAL_WRITE_TYPE;
+export const DigitalWriteSelectable = Selector.createSimpleItem({
+  title: "NI Digital Write Task",
+  icon: <Icon.Logo.NI />,
+  layout: DIGITAL_WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>

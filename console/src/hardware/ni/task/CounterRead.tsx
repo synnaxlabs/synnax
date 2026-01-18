@@ -39,20 +39,11 @@ export const COUNTER_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const CounterReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...COUNTER_READ_LAYOUT, key: layoutKey });
-  }, [onPlace, layoutKey]);
-  return (
-    <Selector.Item
-      key={COUNTER_READ_TYPE}
-      title="NI Counter Read Task"
-      icon={<Icon.Logo.NI />}
-      onClick={handleClick}
-    />
-  );
-};
-CounterReadSelectable.type = COUNTER_READ_TYPE;
+export const CounterReadSelectable = Selector.createSimpleItem({
+  title: "NI Counter Read Task",
+  icon: <Icon.Logo.NI />,
+  layout: COUNTER_READ_LAYOUT,
+});
 
 const Properties = () => (
   <>

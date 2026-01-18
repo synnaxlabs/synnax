@@ -10,7 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -38,20 +38,11 @@ export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_READ_TYPE,
 };
 
-export const DigitalReadSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...DIGITAL_READ_LAYOUT, key: layoutKey });
-  }, [onPlace, layoutKey]);
-  return (
-    <Selector.Item
-      key={DIGITAL_READ_TYPE}
-      title="NI Digital Read Task"
-      icon={<Icon.Logo.NI />}
-      onClick={handleClick}
-    />
-  );
-};
-DigitalReadSelectable.type = DIGITAL_READ_TYPE;
+export const DigitalReadSelectable = Selector.createSimpleItem({
+  title: "NI Digital Read Task",
+  icon: <Icon.Logo.NI />,
+  layout: DIGITAL_READ_LAYOUT,
+});
 
 const Properties = () => (
   <>

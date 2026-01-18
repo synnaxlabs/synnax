@@ -10,7 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ni/device";
@@ -38,20 +38,11 @@ export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const AnalogWriteSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const handleClick = useCallback(() => {
-    onPlace({ ...ANALOG_WRITE_LAYOUT, key: layoutKey });
-  }, [onPlace, layoutKey]);
-  return (
-    <Selector.Item
-      key={ANALOG_WRITE_TYPE}
-      title="NI Analog Write Task"
-      icon={<Icon.Logo.NI />}
-      onClick={handleClick}
-    />
-  );
-};
-AnalogWriteSelectable.type = ANALOG_WRITE_TYPE;
+export const AnalogWriteSelectable = Selector.createSimpleItem({
+  title: "NI Analog Write Task",
+  icon: <Icon.Logo.NI />,
+  layout: ANALOG_WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>

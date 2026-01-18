@@ -32,3 +32,5 @@ export const LineplotSelectable: Selector.Selectable = ({ layoutKey, onPlace }) 
   );
 };
 LineplotSelectable.type = LAYOUT_TYPE;
+LineplotSelectable.useVisible = () =>
+  Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
