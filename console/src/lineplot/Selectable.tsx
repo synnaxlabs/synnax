@@ -14,7 +14,7 @@ import { useCallback } from "react";
 import { create, LAYOUT_TYPE } from "@/lineplot/layout";
 import { Selector } from "@/selector";
 
-export const LineplotSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const visible = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
@@ -31,6 +31,5 @@ export const LineplotSelectable: Selector.Selectable = ({ layoutKey, onPlace }) 
     />
   );
 };
-LineplotSelectable.type = LAYOUT_TYPE;
-LineplotSelectable.useVisible = () =>
-  Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);

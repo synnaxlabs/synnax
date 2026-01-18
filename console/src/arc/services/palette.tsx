@@ -9,32 +9,48 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { Arc } from "@/arc";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const CREATE_COMMAND: Palette.Command = {
-  key: "create_arc",
-  name: "Create an Arc Automation",
-  icon: <Icon.Arc />,
-  onSelect: ({ placeLayout, rename, handleError }) => {
-    handleError(async () => {
-      const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
-      if (name == null) return;
-      placeLayout(Arc.Editor.create({ name }));
-    }, "Failed to create arc");
-  },
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
+const useUpdateVisible = () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
+const useViewVisible = () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand: Palette.Command = ({
+  placeLayout,
+  rename,
+  handleError,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () =>
+      handleError(async () => {
+        const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
+        if (name == null) return;
+        placeLayout(Arc.Editor.create({ name }));
+      }, "Failed to create arc"),
+    [placeLayout, rename, handleError],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create an Arc Automation"
+      icon={<Icon.Arc />}
+      onSelect={handleSelect}
+    />
+  );
 };
+CreateCommand.key = "create_arc";
+CreateCommand.commandName = "Create an Arc Automation";
+CreateCommand.useVisible = useUpdateVisible;
 
-const OPEN_EXPLORER_COMMAND: Palette.Command = {
+export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_arc_explorer",
   name: "Open Arc Explorer",
   icon: <Icon.Explore />,
-  onSelect: ({ placeLayout }) => placeLayout(Arc.EXPLORER_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.viewGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: Arc.EXPLORER_LAYOUT,
+  useVisible: useViewVisible,
+});
 
-export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];
+export const COMMANDS = [CreateCommand, OpenExplorerCommand];

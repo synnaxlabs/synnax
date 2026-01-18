@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-layout-selector {
+.console-layout-selector__frame {
     container-type: size;
     & .pluto-btn {
         width: 100px;

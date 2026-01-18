@@ -441,7 +441,7 @@ export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export const SchematicSelectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const visible = Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
   const handleClick = useCallback(() => {
     onPlace(create({ key: layoutKey }));
@@ -458,9 +458,8 @@ export const SchematicSelectable: Selector.Selectable = ({ layoutKey, onPlace })
     />
   );
 };
-SchematicSelectable.type = LAYOUT_TYPE;
-SchematicSelectable.useVisible = () =>
-  Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
