@@ -35,7 +35,9 @@ import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
 import { Error } from "@/error";
+import { EXTRACTORS } from "@/extractors";
 import { Hardware } from "@/hardware";
+import { FILE_INGESTORS } from "@/ingestors";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
@@ -175,9 +177,13 @@ export const Console = (): ReactElement => (
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
-              <Palette.CommandProvider commands={COMMANDS}>
-                <MainUnderContext />
-              </Palette.CommandProvider>
+              <Palette.CommandProvider
+                  commands={COMMANDS}
+                  fileIngestors={FILE_INGESTORS}
+                  extractors={EXTRACTORS}
+                >
+                  <MainUnderContext />
+                </Palette.CommandProvider>
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>

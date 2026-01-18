@@ -9,39 +9,85 @@
 
 import { workspace } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { Workspace } from "@/workspace";
 import { ImportIcon } from "@/workspace/services/Icon";
 import { import_ } from "@/workspace/services/import";
 
-const CREATE_COMMAND: Palette.Command = {
+const useUpdateVisible = () => Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID);
+const useViewVisible = () => Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand = Palette.createSimpleCommand({
   key: "workspace-create",
   name: "Create a Workspace",
   icon: <Icon.Workspace />,
-  onSelect: ({ placeLayout }) => placeLayout(Workspace.CREATE_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: Workspace.CREATE_LAYOUT,
+  useVisible: useUpdateVisible,
+});
 
-const IMPORT_COMMAND: Palette.Command = {
-  key: "workspace-import",
-  name: "Import a Workspace",
-  sortOrder: -1,
-  icon: <ImportIcon />,
-  onSelect: import_,
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store, client }),
+export const ImportWorkspaceCommand: Palette.Command = ({
+  placeLayout,
+  handleError,
+  store,
+  client,
+  fluxStore,
+  fileIngestors,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () =>
+      import_({ placeLayout, handleError, store, client, fluxStore, fileIngestors }),
+    [placeLayout, handleError, store, client, fluxStore, fileIngestors],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import a Workspace"
+      icon={<ImportIcon />}
+      onSelect={handleSelect}
+    />
+  );
 };
+ImportWorkspaceCommand.key = "workspace-import";
+ImportWorkspaceCommand.commandName = "Import a Workspace";
+ImportWorkspaceCommand.sortOrder = -1;
+ImportWorkspaceCommand.useVisible = useUpdateVisible;
 
-const EXPORT_COMMAND: Palette.Command = {
-  key: "workspace-export",
-  name: "Export Current Workspace",
-  sortOrder: -1,
-  icon: <Icon.Workspace />,
-  onSelect: (ctx) => Workspace.export_(null, ctx),
-  visible: ({ store, client }) =>
-    Access.viewGranted({ id: workspace.TYPE_ONTOLOGY_ID, store, client }),
+export const ExportWorkspaceCommand: Palette.Command = ({
+  handleError,
+  client,
+  store,
+  confirm,
+  addStatus,
+  extractors,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () =>
+      Workspace.export_(null, {
+        handleError,
+        client,
+        store,
+        confirm,
+        addStatus,
+        extractors,
+      }),
+    [handleError, client, store, confirm, addStatus, extractors],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Export Current Workspace"
+      icon={<Icon.Workspace />}
+      onSelect={handleSelect}
+    />
+  );
 };
+ExportWorkspaceCommand.key = "workspace-export";
+ExportWorkspaceCommand.commandName = "Export Current Workspace";
+ExportWorkspaceCommand.sortOrder = -1;
+ExportWorkspaceCommand.useVisible = useViewVisible;
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND, EXPORT_COMMAND];
+export const COMMANDS = [CreateCommand, ImportWorkspaceCommand, ExportWorkspaceCommand];

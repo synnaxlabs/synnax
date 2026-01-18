@@ -11,15 +11,16 @@ import { device } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { CONNECT_LAYOUT } from "@/hardware/modbus/device/Connect";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const CONNECT_SERVER_COMMAND: Palette.Command = {
+const useVisible = () => Access.useUpdateGranted(device.TYPE_ONTOLOGY_ID);
+
+export const ConnectModbusServerCommand = Palette.createSimpleCommand({
   key: "modbus-connect-server",
   name: "Connect a Modbus Server",
   icon: <Icon.Logo.Modbus />,
-  onSelect: ({ placeLayout }) => placeLayout(CONNECT_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: device.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: CONNECT_LAYOUT,
+  useVisible,
+});
 
-export const COMMANDS: Palette.Command[] = [CONNECT_SERVER_COMMAND];
+export const COMMANDS = [ConnectModbusServerCommand];
