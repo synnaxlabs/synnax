@@ -305,7 +305,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Channel:   distributionLayer.Channel,
 		Framer:    distributionLayer.Framer,
 		Status:    serviceLayer.Status,
-		GetModule: serviceLayer.Arc.GetModule,
+		GetModule: serviceLayer.Arc.CompileModule,
 	})
 	if !ok(err, nil) {
 		return err

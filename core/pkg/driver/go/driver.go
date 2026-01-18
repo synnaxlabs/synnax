@@ -63,7 +63,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d.mu.tasks = make(map[task.Key]Task)
 
 	d.rack = rack.Rack{
-		Name:     fmt.Sprintf("Node %d Core", cfg.Host.HostKey()),
+		Name:     fmt.Sprintf("Node %d", cfg.Host.HostKey()),
 		Embedded: true,
 	}
 	if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {

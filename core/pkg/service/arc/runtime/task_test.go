@@ -146,7 +146,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(task).To(BeNil())
 		})
 
-		It("Should return error when GetModule fails", func() {
+		It("Should return error when CompileModule fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel: dist.Channel,
 				Framer:  dist.Framer,

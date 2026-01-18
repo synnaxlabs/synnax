@@ -115,9 +115,9 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 	return types.ToTelem(dataType), nil
 }
 
-// GetModule retrieves an Arc program by key and compiles its Module.
+// CompileModule retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
-func (s *Service) GetModule(ctx context.Context, key uuid.UUID) (Arc, error) {
+func (s *Service) CompileModule(ctx context.Context, key uuid.UUID) (Arc, error) {
 	var prog Arc
 	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
 		return Arc{}, err
