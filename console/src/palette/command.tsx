@@ -65,23 +65,12 @@ export interface CommandListItemProps extends List.ItemProps<string> {
   endContent?: ReactElement;
 }
 
-export const CommandListItem = ({
+const BaseCommandListItem = ({
   name,
   icon,
   onSelect,
   endContent,
   itemKey,
-  // Filter out command-specific props that shouldn't go to DOM
-  placeLayout: _1,
-  confirm: _2,
-  rename: _3,
-  handleError: _4,
-  addStatus: _5,
-  fileIngestors: _6,
-  extractors: _7,
-  store: _8,
-  fluxStore: _9,
-  client: _10,
   ...props
 }: CommandListItemProps & Record<string, unknown>): ReactElement => (
   <Select.ListItem
@@ -100,6 +89,20 @@ export const CommandListItem = ({
     {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
   </Select.ListItem>
 );
+
+export const CommandListItem = Component.removeProps(BaseCommandListItem, [
+  "itemKey",
+  "placeLayout",
+  "confirm",
+  "rename",
+  "handleError",
+  "addStatus",
+  "fileIngestors",
+  "extractors",
+  "store",
+  "fluxStore",
+  "client",
+]);
 
 export interface SimpleCommandConfig {
   key: string;
