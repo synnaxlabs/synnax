@@ -113,11 +113,9 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				testutil.ExpectContent(resp, "proto.gen.h").
 					ToContain(
-						// Should iterate over pb array and push_back to cpp vector
-						"for (const auto& item : pb.inputs())",
-						"for (const auto& item : pb.outputs())",
-						"cpp.inputs.push_back",
-						"cpp.outputs.push_back",
+						// Should use from_proto_repeated helper for struct arrays with explicit element type
+						"x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs())",
+						"x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs())",
 					)
 			})
 
@@ -143,8 +141,8 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToContain(
 						// Forward: call to_proto() on each struct element
 						"item.to_proto()",
-						// Backward: call from_proto() on each pb message
-						"::from_proto(item)",
+						// Backward: use from_proto_repeated helper
+						"from_proto_repeated",
 					)
 			})
 		})
@@ -218,8 +216,10 @@ var _ = Describe("C++ PB Plugin", func() {
 						"if (this->unit.has_value())",
 						"*pb.mutable_unit()",
 						"this->unit->to_proto()",
-						// Backward: check has_* and call from_proto
+						// Backward: check has_* and use inline error handling
 						"if (pb.has_unit())",
+						"Unit::from_proto(pb.unit())",
+						"if (err) return {{}, err}",
 					)
 			})
 		})
@@ -315,6 +315,9 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToContain(
 						"VariantToPB",
 						"VariantFromPB",
+						// Should use static unordered_map for O(1) lookup
+						"static const std::unordered_map",
+						"kMap.find(cpp)",
 					)
 			})
 
@@ -358,8 +361,9 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToContain(
 						// Forward: use mutable_* and to_value
 						"*pb.mutable_value() = x::json::to_value(this->value).first",
-						// Backward: use from_value
+						// Backward: use inline error handling with from_value
 						"x::json::from_value(pb.value())",
+						"if (err) return {{}, err}",
 					).
 					ToNotContain(
 						// Should NOT use set_value for any type
@@ -384,8 +388,9 @@ var _ = Describe("C++ PB Plugin", func() {
 						// Forward: check has_value() for hard optional
 						"if (this->value.has_value())",
 						"*pb.mutable_value() = x::json::to_value(*this->value).first",
-						// Backward: check has_* for hard optional
+						// Backward: check has_* and use inline error handling
 						"if (pb.has_value())",
+						"x::json::from_value(pb.value())",
 					)
 			})
 		})
@@ -407,8 +412,9 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToContain(
 						// Forward: use mutable_* and to_struct
 						"*pb.mutable_metadata() = x::json::to_struct(this->metadata).first",
-						// Backward: use from_struct
+						// Backward: use inline error handling with from_struct
 						"x::json::from_struct(pb.metadata())",
+						"if (err) return {{}, err}",
 					).
 					ToNotContain(
 						// Should NOT use set_metadata for json type
@@ -604,6 +610,66 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToNotContain(
 						// Params wrapper should NOT have proto methods
 						"Params::to_proto()",
+					)
+			})
+		})
+
+		Context("includes", func() {
+			It("Should include x/cpp/pb/pb.h for helpers", func() {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Item struct {
+						name string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						`#include "x/cpp/pb/pb.h"`,
+					)
+			})
+
+			It("Should include unordered_map and string for string enums", func() {
+				source := `
+					@cpp output "client/cpp/status"
+					@pb output "core/pkg/service/status/pb"
+
+					Variant enum {
+						success = "success"
+						error = "error"
+					}
+
+					Status struct {
+						variant Variant
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"#include <unordered_map>",
+						"#include <string>",
+					)
+			})
+
+			It("Should only include type_traits for generic types", func() {
+				// Non-generic type should not include type_traits
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Item struct {
+						name string
+					}
+				`
+				resp := testutil.MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				testutil.ExpectContent(resp, "proto.gen.h").
+					ToNotContain(
+						"#include <type_traits>",
 					)
 			})
 		})

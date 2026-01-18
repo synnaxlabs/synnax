@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "client/cpp/ranger/json.gen.h"
@@ -21,6 +20,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/proto.gen.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/telem/json.gen.h"
 #include "x/cpp/telem/proto.gen.h"
 
@@ -42,20 +42,20 @@ inline std::pair<Base, x::errors::Error>
 Base::from_proto(const ::service::ranger::pb::Range &pb) {
     Base cpp;
     {
-        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
-        cpp.key = parsed;
+        cpp.key = v;
     }
     cpp.name = pb.name();
     {
-        auto [val, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
+        auto [v, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
         if (err) return {{}, err};
-        cpp.time_range = val;
+        cpp.time_range = v;
     }
     {
-        auto [val, err] = ::x::color::Color::from_proto(pb.color());
+        auto [v, err] = ::x::color::Color::from_proto(pb.color());
         if (err) return {{}, err};
-        cpp.color = val;
+        cpp.color = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -76,30 +76,30 @@ inline std::pair<Range, x::errors::Error>
 Range::from_proto(const ::api::ranger::pb::Range &pb) {
     Range cpp;
     {
-        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
-        cpp.key = parsed;
+        cpp.key = v;
     }
     cpp.name = pb.name();
     {
-        auto [val, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
+        auto [v, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
         if (err) return {{}, err};
-        cpp.time_range = val;
+        cpp.time_range = v;
     }
     {
-        auto [val, err] = ::x::color::Color::from_proto(pb.color());
+        auto [v, err] = ::x::color::Color::from_proto(pb.color());
         if (err) return {{}, err};
-        cpp.color = val;
+        cpp.color = v;
     }
-    for (const auto &item: pb.labels()) {
-        auto [v, err] = ::x::label::Label::from_proto(item);
-        if (err) return {{}, err};
-        cpp.labels.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(
+            cpp.labels,
+            pb.labels()
+        ))
+        return {{}, err};
     if (pb.has_parent()) {
-        auto [val, err] = Range::from_proto(pb.parent());
+        auto [v, err] = Range::from_proto(pb.parent());
         if (err) return {{}, err};
-        cpp.parent = val;
+        cpp.parent = v;
     }
     return {cpp, x::errors::NIL};
 }

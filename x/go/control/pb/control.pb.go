@@ -33,7 +33,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Concurrency defines whether a resource can have multiple subjects acting on it at once.
+// Concurrency defines whether a resource can have multiple subjects acting on it at
+// once.
 type Concurrency int32
 
 const (
@@ -80,7 +81,8 @@ func (Concurrency) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_control_pb_control_proto_rawDescGZIP(), []int{0}
 }
 
-// Subject is an entity that can hold control authority over a resource. Typically represents a user, process, or service.
+// Subject is an entity that can hold control authority over a resource. Typically
+// represents a user, process, or service.
 type Subject struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is a unique identifier for the subject.
@@ -135,8 +137,8 @@ func (x *Subject) GetName() string {
 	return ""
 }
 
-// State represents the state of control over a resource at a point in time,
-// capturing who controls what and with how much authority.
+// State represents the state of control over a resource at a point in time, capturing
+// who controls what and with how much authority.
 type State struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// subject is the entity controlling the resource.

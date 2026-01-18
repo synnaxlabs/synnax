@@ -32,7 +32,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Group is a named collection container for organizing related resources. Groups provide hierarchical organization through the ontology system.
+// Group is a named collection container for organizing related resources. Groups
+// provide hierarchical organization through the ontology system.
 type Group struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this group.

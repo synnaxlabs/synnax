@@ -43,7 +43,9 @@ StatusDetails struct<Data extends json = json> {
 }
 
 Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
-    @doc value "is task-specific status information including execution state and task-specific data."
+    @doc value """
+        is task-specific status information including execution state and task-specific data.
+    """
 }
 
 NewStatusDetails struct<Data extends json = json> {
@@ -130,7 +132,10 @@ New struct<
     -internal
     -snapshot
     key    Key?                   {
-        @doc value "is an optional key for the task. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the task. If not provided, one will be
+            automatically assigned.
+        """
     }
     status NewStatus<StatusData>? {
         @doc value "is an optional initial status for the task."

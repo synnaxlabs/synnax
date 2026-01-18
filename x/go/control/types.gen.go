@@ -20,7 +20,8 @@ const (
 	ConcurrencyShared
 )
 
-// Subject is an entity that can hold control authority over a resource. Typically represents a user, process, or service.
+// Subject is an entity that can hold control authority over a resource. Typically
+// represents a user, process, or service.
 type Subject struct {
 	// Key is a unique identifier for the subject.
 	Key string `json:"key" msgpack:"key"`
@@ -28,8 +29,8 @@ type Subject struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// State represents the state of control over a resource at a point in time,
-// capturing who controls what and with how much authority.
+// State represents the state of control over a resource at a point in time, capturing
+// who controls what and with how much authority.
 type State[R any] struct {
 	// Subject is the entity controlling the resource.
 	Subject Subject `json:"subject" msgpack:"subject"`

@@ -10,6 +10,8 @@
 package doc_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/domain/doc"
@@ -61,9 +63,34 @@ var _ = Describe("FormatGo", func() {
 	It("should format single-line doc", func() {
 		Expect(doc.FormatGo("Name", "doc text")).To(Equal("// Name doc text"))
 	})
-	It("should format multi-line doc", func() {
+	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatGo("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal("// Name line1\n// line2\n// line3"))
+		Expect(result).To(Equal("// Name line1 line2 line3"))
+	})
+	It("should wrap long text to 88 characters", func() {
+		longDoc := "contains memory base addresses for multi-output functions, mapping function keys to their base addresses."
+		result := doc.FormatGo("output_memory_bases", longDoc)
+		lines := strings.Split(result, "\n")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
+		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
+	})
+	It("should normalize awkward line breaks in source text", func() {
+		// This simulates the problematic input from .oracle files
+		awkwardDoc := "contains memory base addresses for multi-output\nfunctions, mapping\nfunction keys to their base addresses."
+		result := doc.FormatGo("output_memory_bases", awkwardDoc)
+		lines := strings.Split(result, "\n")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
+		// Verify that "functions, mapping" is not on its own short line
+		Expect(result).NotTo(ContainSubstring("// functions, mapping\n"))
+	})
+	It("should preserve paragraph breaks (double newline)", func() {
+		docWithParagraphs := "First paragraph text.\n\nSecond paragraph text."
+		result := doc.FormatGo("Name", docWithParagraphs)
+		Expect(result).To(ContainSubstring("//\n"))
 	})
 })
 
@@ -117,9 +144,33 @@ var _ = Describe("FormatCpp", func() {
 	It("should format single-line doc", func() {
 		Expect(doc.FormatCpp("Name", "doc text")).To(Equal("/// @brief Name doc text"))
 	})
-	It("should format multi-line doc", func() {
+	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatCpp("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal("/// @brief Name line1\n/// line2\n/// line3"))
+		Expect(result).To(Equal("/// @brief Name line1 line2 line3"))
+	})
+	It("should wrap long text to 88 characters", func() {
+		longDoc := "contains memory base addresses for multi-output functions, mapping function keys to their base addresses."
+		result := doc.FormatCpp("output_memory_bases", longDoc)
+		lines := strings.Split(result, "\n")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
+		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
+	})
+	It("should normalize awkward line breaks in source text", func() {
+		awkwardDoc := "contains memory base addresses for multi-output\nfunctions, mapping\nfunction keys to their base addresses."
+		result := doc.FormatCpp("output_memory_bases", awkwardDoc)
+		lines := strings.Split(result, "\n")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
+		// Verify that "functions, mapping" is not on its own short line
+		Expect(result).NotTo(ContainSubstring("/// functions, mapping\n"))
+	})
+	It("should preserve paragraph breaks (double newline)", func() {
+		docWithParagraphs := "First paragraph text.\n\nSecond paragraph text."
+		result := doc.FormatCpp("Name", docWithParagraphs)
+		Expect(result).To(ContainSubstring("///\n"))
 	})
 })
 
@@ -130,9 +181,17 @@ var _ = Describe("FormatProto", func() {
 	It("should format single-line doc", func() {
 		Expect(doc.FormatProto("Name", "doc text")).To(Equal("// Name doc text"))
 	})
-	It("should format multi-line doc", func() {
+	It("should format multi-line doc by normalizing newlines (delegates to FormatGo)", func() {
 		result := doc.FormatProto("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal("// Name line1\n// line2\n// line3"))
+		Expect(result).To(Equal("// Name line1 line2 line3"))
+	})
+	It("should wrap long text to 88 characters", func() {
+		longDoc := "contains memory base addresses for multi-output functions, mapping function keys to their base addresses."
+		result := doc.FormatProto("output_memory_bases", longDoc)
+		lines := strings.Split(result, "\n")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
 	})
 })
 

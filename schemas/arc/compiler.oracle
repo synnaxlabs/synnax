@@ -13,12 +13,18 @@
 @pb
 
 Output struct {
-    @doc value "is compiled output from the Arc compiler including WebAssembly bytecode and memory layout."
-
-    WASM              bytes {
+    WASM              bytes               {
         @doc value "is compiled WebAssembly bytecode for sandboxed execution."
     }
     OutputMemoryBases map<string, uint32> {
-        @doc value "contains memory base addresses for multi-output functions, mapping function keys to their base addresses."
+        @doc value """
+            contains memory base addresses for multi-output functions, mapping
+            function keys to their base addresses.
+        """
     }
+
+    @doc value """
+        is compiled output from the Arc compiler including WebAssembly bytecode
+        and memory layout.
+    """
 }

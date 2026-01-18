@@ -52,9 +52,7 @@ inline Channel Channel::parse(x::json::Parser parser) {
         .expression = parser.field<std::string>("expression"),
         .operations = parser.field<std::vector<Operation>>("operations"),
         .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
-        .status = parser.has("status")
-                    ? std::make_optional(parser.field<Status>("status"))
-                    : std::nullopt,
+        .status = parser.field<std::optional<Status>>("status"),
     };
 }
 
@@ -70,12 +68,7 @@ inline x::json::json Channel::to_json() const {
     j["virtual"] = this->is_virtual;
     j["internal"] = this->internal;
     j["expression"] = this->expression;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->operations)
-            arr.push_back(item.to_json());
-        j["operations"] = arr;
-    }
+    j["operations"] = x::json::to_array(this->operations);
     j["concurrency"] = this->concurrency;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;

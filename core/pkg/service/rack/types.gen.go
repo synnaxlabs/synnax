@@ -25,9 +25,9 @@ type StatusDetails struct {
 	Rack Key `json:"rack" msgpack:"rack"`
 }
 
-// Rack is a collection container for hardware devices and tasks running on a
-// specific cluster node. Racks serve as the integration point between the
-// Synnax server and physical hardware via the Driver system.
+// Rack is a collection container for hardware devices and tasks running on a specific
+// cluster node. Racks serve as the integration point between the Synnax server and
+// physical hardware via the Driver system.
 type Rack struct {
 	// Key is the composite identifier for this rack.
 	Key Key `json:"key" msgpack:"key"`

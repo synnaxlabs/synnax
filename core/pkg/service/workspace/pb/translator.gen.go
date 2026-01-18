@@ -25,8 +25,8 @@ func WorkspaceToPB(_ context.Context, r workspace.Workspace) (*Workspace, error)
 		return nil, err
 	}
 	pb := &Workspace{
-		Key:    r.Key.String(),
 		Name:   r.Name,
+		Key:    r.Key.String(),
 		Author: r.Author.String(),
 		Layout: layoutVal,
 	}
@@ -39,10 +39,18 @@ func WorkspaceFromPB(_ context.Context, pb *Workspace) (workspace.Workspace, err
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = workspace.Key(parsedKey)
+	r.Author, err = uuid.Parse(pb.Author)
+	if err != nil {
+		return r, err
+	}
 	r.Layout = pb.Layout.AsMap()
-	r.Key = workspace.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
-	r.Author = uuid.MustParse(pb.Author)
 	return r, nil
 }
 

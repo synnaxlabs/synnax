@@ -32,12 +32,19 @@ Label struct {
         @doc value "is the display color for visual identification of the label."
     }
 
-    @doc value "is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering."
+    @doc value """
+        is a tagging and categorization entity with a name and associated color.
+        Labels can be attached to resources like ranges for organization and
+        filtering.
+    """
 }
 
 New struct extends Label {
     key Key? {
-        @doc value "is an optional key for the label. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the label. If not provided, one will be
+            automatically assigned.
+        """
     }
 
     @doc value    "contains parameters for creating a new label."
@@ -52,4 +59,5 @@ GoSVCLabel = Label {
     @go output "core/pkg/service/label"
     @go name   "Label"
     @ts omit
+    @py omit
 }

@@ -49,7 +49,8 @@ type FunctionProperties struct {
 	Config Params `json:"config" msgpack:"config"`
 }
 
-// Type is a type in Arc's type system with optional element type for compounds, physical units, and constraints.
+// Type is a type in Arc's type system with optional element type for compounds,
+// physical units, and constraints.
 type Type struct {
 	FunctionProperties
 	// Kind is the type category (primitive, compound, or meta-type).
@@ -74,7 +75,8 @@ type Param struct {
 	Value any `json:"value" msgpack:"value"`
 }
 
-// Channels contains channel declarations for reading from and writing to Synnax channels.
+// Channels contains channel declarations for reading from and writing to Synnax
+// channels.
 type Channels struct {
 	// Read contains readable channel indices mapped to parameter names.
 	Read map[uint32]string `json:"read" msgpack:"read"`
@@ -82,7 +84,8 @@ type Channels struct {
 	Write map[uint32]string `json:"write" msgpack:"write"`
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base quantities).
+// Dimensions contains physical dimension exponents for dimensional analysis (SI base
+// quantities).
 type Dimensions struct {
 	// Length is the length dimension exponent (meters).
 	Length int8 `json:"length" msgpack:"length"`

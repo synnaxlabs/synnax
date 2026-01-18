@@ -22,7 +22,9 @@ Key: TypeAlias = UUID
 
 
 class Label(BaseModel):
-    """Is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering.
+    """Is a tagging and categorization entity with a name and associated color.
+    Labels can be attached to resources like ranges for organization and
+    filtering.
 
     Attributes:
         key: Is the unique identifier for this label.
@@ -36,6 +38,3 @@ class Label(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-GoSVCLabel: TypeAlias = Label

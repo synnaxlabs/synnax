@@ -33,17 +33,17 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Table is a tabular data display component for viewing structured telemetry
-// data. Tables support multiple columns, channel data sources, and
-// customizable formatting options.
+// Table is a tabular data display component for viewing structured telemetry data.
+// Tables support multiple columns, channel data sources, and customizable formatting
+// options.
 type Table struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this table.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the table.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// data is the table configuration including column definitions, channel
-	// references, and formatting options.
+	// data is the table configuration including column definitions, channel references, and
+	// formatting options.
 	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

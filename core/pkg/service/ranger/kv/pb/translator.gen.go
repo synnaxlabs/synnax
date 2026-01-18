@@ -21,9 +21,9 @@ import (
 // PairToPB converts Pair to Pair.
 func PairToPB(_ context.Context, r kv.Pair) (*Pair, error) {
 	pb := &Pair{
-		Range: r.Range.String(),
 		Key:   r.Key,
 		Value: r.Value,
+		Range: r.Range.String(),
 	}
 	return pb, nil
 }
@@ -34,7 +34,12 @@ func PairFromPB(_ context.Context, pb *Pair) (kv.Pair, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Range = ranger.Key(uuid.MustParse(pb.Range))
+	var err error
+	parsedRange, err := uuid.Parse(pb.Range)
+	if err != nil {
+		return r, err
+	}
+	r.Range = ranger.Key(parsedRange)
 	r.Key = pb.Key
 	r.Value = pb.Value
 	return r, nil

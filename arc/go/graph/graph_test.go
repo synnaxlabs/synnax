@@ -156,7 +156,7 @@ var _ = Describe("Graph", func() {
 			Expect(firstNode.Key).To(Equal("first"))
 			Expect(firstNode.Type).To(Equal("on"))
 			Expect(firstNode.Config).To(HaveLen(1))
-			//Expect(firstNode.Channels.Read).To(HaveLen(1))
+			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
 
 		Describe("Polymorphic Stages", func() {

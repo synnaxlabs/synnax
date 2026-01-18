@@ -11,14 +11,15 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/test/test.h"
+
 #include "arc/cpp/ir/ir.h"
 
 /// @brief it should correctly round-trip Handle through protobuf
 TEST(IRTest, testHandleProtobufRoundTrip) {
     arc::ir::Handle original{.node = "node1", .param = "param1"};
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::ir::Handle::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Handle::from_proto(pb));
     ASSERT_EQ(reconstructed.node, "node1");
     ASSERT_EQ(reconstructed.param, "param1");
 }
@@ -33,8 +34,7 @@ TEST(IRTest, testEdgeProtobufRoundTrip) {
         .kind = arc::ir::EdgeKind::Continuous
     };
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::ir::Edge::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Edge::from_proto(pb));
     ASSERT_EQ(reconstructed.source.node, "src_node");
     ASSERT_EQ(reconstructed.source.param, "output");
     ASSERT_EQ(reconstructed.target.node, "tgt_node");
@@ -48,8 +48,7 @@ TEST(IRTest, testChannelsProtobufRoundTrip) {
     original.read[2] = "channel_b";
     original.write[3] = "channel_c";
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::types::Channels::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::types::Channels::from_proto(pb));
     ASSERT_EQ(reconstructed.read.size(), 2);
     ASSERT_EQ(reconstructed.read[1], "channel_a");
     ASSERT_EQ(reconstructed.read[2], "channel_b");
@@ -63,8 +62,7 @@ TEST(IRTest, testParamProtobufRoundTrip) {
     original.name = "test_param";
     original.type = arc::types::Type{.kind = arc::types::Kind::F64};
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::types::Param::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::types::Param::from_proto(pb));
     ASSERT_EQ(reconstructed.name, "test_param");
     ASSERT_EQ(reconstructed.type.kind, arc::types::Kind::F64);
 }
@@ -75,8 +73,7 @@ TEST(IRTest, testNodeProtobufRoundTrip) {
     original.key = "test_node";
     original.type = "add";
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::ir::Node::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Node::from_proto(pb));
     ASSERT_EQ(reconstructed.key, "test_node");
     ASSERT_EQ(reconstructed.type, "add");
 }
@@ -87,8 +84,7 @@ TEST(IRTest, testFunctionProtobufRoundTrip) {
     original.key = "test_func";
     original.channels.read[1] = "chan1";
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::ir::Function::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Function::from_proto(pb));
     ASSERT_EQ(reconstructed.key, "test_func");
     ASSERT_EQ(reconstructed.channels.read.size(), 1);
     ASSERT_EQ(reconstructed.channels.read[1], "chan1");
@@ -101,8 +97,7 @@ TEST(IRTest, testStageProtobufRoundTrip) {
     original.nodes = {"node1", "node2"};
     original.strata = {{"a", "b"}, {"c"}};
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::ir::Stage::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Stage::from_proto(pb));
     ASSERT_EQ(reconstructed.key, "test_stage");
     ASSERT_EQ(reconstructed.nodes.size(), 2);
     ASSERT_EQ(reconstructed.nodes[0], "node1");
@@ -129,8 +124,7 @@ TEST(IRTest, testSequenceProtobufRoundTrip) {
     original.stages = {s1, s2};
 
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::ir::Sequence::from_proto(pb);
-    ASSERT_FALSE(err);
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Sequence::from_proto(pb));
     ASSERT_EQ(reconstructed.key, "test_seq");
     ASSERT_EQ(reconstructed.stages.size(), 2);
     ASSERT_EQ(reconstructed.stages[0].key, "stage1");
@@ -161,9 +155,7 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     original.strata = {{"a"}, {"b", "c"}};
 
     auto pb = original.to_proto();
-    auto [reconstructed, err] = arc::ir::IR::from_proto(pb);
-    ASSERT_FALSE(err);
-
+    auto reconstructed = ASSERT_NIL_P(arc::ir::IR::from_proto(pb));
     ASSERT_EQ(reconstructed.functions.size(), 1);
     ASSERT_EQ(reconstructed.functions[0].key, "test_func");
     ASSERT_EQ(reconstructed.nodes.size(), 1);

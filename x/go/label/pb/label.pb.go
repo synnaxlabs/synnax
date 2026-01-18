@@ -33,7 +33,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Label is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering.
+// Label is a tagging and categorization entity with a name and associated color. Labels
+// can be attached to resources like ranges for organization and filtering.
 type Label struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this label.

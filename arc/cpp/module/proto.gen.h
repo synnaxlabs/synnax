@@ -11,10 +11,10 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
 
 #include "arc/cpp/compiler/proto.gen.h"
 #include "arc/cpp/ir/json.gen.h"
@@ -37,7 +37,7 @@ inline ::arc::module::pb::Module Module::to_proto() const {
         auto *wrapper = pb.add_strata();
         for (const auto &v: item)
             wrapper->add_values(v);
-    };
+    }
     for (const auto &item: this->sequences)
         *pb.add_sequences() = item.to_proto();
     pb.set_wasm(this->wasm.data(), this->wasm.size());
@@ -49,28 +49,22 @@ inline ::arc::module::pb::Module Module::to_proto() const {
 inline std::pair<Module, x::errors::Error>
 Module::from_proto(const ::arc::module::pb::Module &pb) {
     Module cpp;
-    for (const auto &item: pb.functions()) {
-        auto [v, err] = ::arc::ir::Function::from_proto(item);
-        if (err) return {{}, err};
-        cpp.functions.push_back(v);
-    }
-    for (const auto &item: pb.nodes()) {
-        auto [v, err] = ::arc::ir::Node::from_proto(item);
-        if (err) return {{}, err};
-        cpp.nodes.push_back(v);
-    }
-    for (const auto &item: pb.edges()) {
-        auto [v, err] = ::arc::ir::Edge::from_proto(item);
-        if (err) return {{}, err};
-        cpp.edges.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Function>(
+            cpp.functions,
+            pb.functions()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Node>(cpp.nodes, pb.nodes()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Edge>(cpp.edges, pb.edges()))
+        return {{}, err};
     for (const auto &wrapper: pb.strata())
         cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
-    for (const auto &item: pb.sequences()) {
-        auto [v, err] = ::arc::ir::Sequence::from_proto(item);
-        if (err) return {{}, err};
-        cpp.sequences.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Sequence>(
+            cpp.sequences,
+            pb.sequences()
+        ))
+        return {{}, err};
     cpp.wasm.assign(pb.wasm().begin(), pb.wasm().end());
     for (const auto &[k, v]: pb.output_memory_bases())
         cpp.output_memory_bases[k] = v;

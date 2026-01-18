@@ -11,6 +11,7 @@
 
 /// local.
 #include "x/cpp/json/json.h"
+#include "x/cpp/test/test.h"
 
 namespace x::json {
 /// @brief it should parse valid JSON fields successfully.
@@ -322,7 +323,7 @@ TEST(testConfig, testNoError) {
     const json j = {};
     const Parser parser(j);
     const auto err = parser.error();
-    ASSERT_FALSE(err);
+    ASSERT_NIL(err);
 }
 
 /// @brief it should parse config from a valid JSON file.

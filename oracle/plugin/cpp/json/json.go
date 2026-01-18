@@ -458,10 +458,8 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 	hasDefault := field.IsOptional
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
-		innerType := typeRef.TypeParam.Name
 		if field.IsHardOptional {
-			innerExpr := p.parseExprForTypeRef(typeRef, innerType, jsonName, false, data)
-			return fmt.Sprintf(`parser.has("%s") ? std::make_optional(%s) : std::nullopt`, jsonName, innerExpr)
+			return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, typeRef.TypeParam.Name, jsonName)
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, typeRef.TypeParam.Name, jsonName)
 	}
@@ -511,7 +509,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		if enumForm, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
 			if !enumForm.IsIntEnum {
 				if field.IsHardOptional {
-					return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<std::string>("%s")) : std::nullopt`, jsonName, jsonName)
+					return fmt.Sprintf(`parser.field<std::optional<std::string>>("%s")`, jsonName)
 				}
 				if hasDefault {
 					return fmt.Sprintf(`parser.field<std::string>("%s", "")`, jsonName)
@@ -527,7 +525,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				}
 			}
 			if field.IsHardOptional {
-				return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, enumType, jsonName)
+				return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, enumType, jsonName)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, enumType, jsonName)
 		}
@@ -542,9 +540,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 			}
 			if field.IsHardOptional {
 				if isSelfRef {
-					return fmt.Sprintf(`parser.has("%s") ? x::mem::indirect<%s>(parser.field<%s>("%s")) : nullptr`, jsonName, structType, structType, jsonName)
+					return fmt.Sprintf(`parser.field<x::mem::indirect<%s>>("%s")`, structType, jsonName)
 				}
-				return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, structType, jsonName)
+				return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, structType, jsonName)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
 		}
@@ -560,7 +558,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 						}
 					}
 					if field.IsHardOptional {
-						return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, aliasType, jsonName)
+						return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, aliasType, jsonName)
 					}
 					return fmt.Sprintf(`parser.field<%s>("%s")`, aliasType, jsonName)
 				}
@@ -570,7 +568,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 
 	if mapping := primitiveMapper.Map(typeRef.Name); mapping.TargetType != "" && mapping.TargetType != "void" {
 		if field.IsHardOptional {
-			return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, cppType, jsonName)
+			return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
 		}
 		if hasDefault {
 			defaultVal := defaultValueForPrimitive(typeRef.Name)
@@ -581,9 +579,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 
 	if field.IsHardOptional {
 		if isSelfRef {
-			return fmt.Sprintf(`parser.has("%s") ? x::mem::indirect<%s>(parser.field<%s>("%s")) : nullptr`, jsonName, cppType, cppType, jsonName)
+			return fmt.Sprintf(`parser.field<x::mem::indirect<%s>>("%s")`, cppType, jsonName)
 		}
-		return fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, cppType, jsonName)
+		return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
 	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
@@ -620,8 +618,8 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 	typeParamName := field.Type.TypeParam.Name
 
 	if field.IsHardOptional {
-		jsonParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<x::json::json>("%s")) : std::nullopt`, jsonName, jsonName)
-		structParseExpr = fmt.Sprintf(`parser.has("%s") ? std::make_optional(parser.field<%s>("%s")) : std::nullopt`, jsonName, typeParamName, jsonName)
+		jsonParseExpr = fmt.Sprintf(`parser.field<std::optional<x::json::json>>("%s")`, jsonName)
+		structParseExpr = fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, typeParamName, jsonName)
 	} else {
 		jsonParseExpr = fmt.Sprintf(`parser.field<x::json::json>("%s")`, jsonName)
 		structParseExpr = fmt.Sprintf(`parser.field<%s>("%s")`, typeParamName, jsonName)
@@ -675,11 +673,7 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 
 		if elemResolved, ok := elemType.Resolve(data.table); ok {
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
-				return fmt.Sprintf(`{
-        auto arr = x::json::json::array();
-        for (const auto& item : this->%s) arr.push_back(item.to_json());
-        j["%s"] = arr;
-    }`, fieldName, jsonName)
+				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
 			}
 		}
 

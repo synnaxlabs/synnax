@@ -14,7 +14,10 @@ import { z } from "zod";
 
 import { ir } from "@/arc/ir";
 
-/** Node is a visual node in the Arc graph editor representing a function instantiation with position data. */
+/**
+ * Node is a visual node in the Arc graph editor representing a function
+ * instantiation with position data.
+ */
 export const nodeZ = z.object({
   /** key is the unique identifier for this node instance. */
   key: z.string(),
@@ -39,7 +42,10 @@ export interface Viewport extends z.infer<typeof viewportZ> {}
 export const nodesZ = array.nullishToEmpty(nodeZ);
 export type Nodes = z.infer<typeof nodesZ>;
 
-/** Graph is a visual dataflow graph representation combining IR elements with canvas layout for the Arc graph editor. */
+/**
+ * Graph is a visual dataflow graph representation combining IR elements with
+ * canvas layout for the Arc graph editor.
+ */
 export const graphZ = z.object({
   /** viewport is the current camera state for the graph view. */
   viewport: viewportZ,

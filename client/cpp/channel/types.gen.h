@@ -51,8 +51,8 @@ struct Operation {
     /// @brief type is the aggregation operation type: min, max, avg, or none.
     std::string type;
     /// @brief reset_channel is the channel key that triggers reset of the aggregation.
-    /// If 0,
-    /// duration-based reset is used.
+    /// If
+    /// 0, duration-based reset is used.
     Key reset_channel = 0;
     /// @brief duration is the time window for aggregation when reset_channel is 0.
     ::x::telem::TimeSpan duration = x::telem::TimeSpan(0);
@@ -67,11 +67,11 @@ struct Operation {
 };
 
 /// @brief Channel is a logical collection of samples emitted by or representing values
-/// from a single source. Channels are the fundamental unit of telemetry
-/// storage and streaming in Synnax.
+/// from a single source. Channels are the fundamental unit of telemetry storage and
+/// streaming in Synnax.
 struct Channel {
-    /// @brief key is the unique identifier for this channel, automatically assigned
-    /// by Synnax.
+    /// @brief key is the unique identifier for this channel, automatically assigned by
+    /// Synnax.
     Key key = 0;
     /// @brief name is the human-readable channel name.
     Name name;
@@ -85,19 +85,20 @@ struct Channel {
     ::x::telem::DataType data_type;
     /// @brief is_index is true if this is an index channel. Index channels must have
     /// int64
-    /// values (TIMESTAMP data type) written in ascending order, and are
-    /// most commonly unix nanosecond timestamps.
+    /// values (TIMESTAMP data type) written in ascending order, and are most commonly
+    /// unix nanosecond timestamps.
     bool is_index = false;
     /// @brief index is the channel used to index this channel's values, associating
-    /// each value with a timestamp. If zero, the channel's data will be
-    /// indexed using its rate.
+    /// each
+    /// value with a timestamp. If zero, the channel's data will be indexed using its
+    /// rate.
     Key index = 0;
     /// @brief alias is an optional alternate name for the channel within a specific
     /// context.
     std::string alias;
     /// @brief is_virtual is true if this channel does not store data in the database
-    /// but can
-    /// still be used for streaming purposes.
+    /// but
+    /// can still be used for streaming purposes.
     bool is_virtual = false;
     /// @brief internal is true if this is a system channel hidden from normal user
     /// queries.
@@ -107,8 +108,8 @@ struct Channel {
     /// is automatically configured as virtual.
     std::string expression;
     /// @brief operations contains optional aggregation operations (min, max, avg)
-    /// applied to
-    /// channel data over time or triggered by a reset channel.
+    /// applied
+    /// to channel data over time or triggered by a reset channel.
     std::vector<Operation> operations;
     /// @brief concurrency sets the policy for concurrent writes to the channel's data.
     /// Only

@@ -25,6 +25,9 @@ Group struct {
         @doc value "is a human-readable name for the group."
     }
 
-    @doc value     "is a named collection container for organizing related resources. Groups provide hierarchical organization through the ontology system."
+    @doc value     """
+        is a named collection container for organizing related resources. Groups
+        provide hierarchical organization through the ontology system.
+    """
     @ontology type "group"
 }

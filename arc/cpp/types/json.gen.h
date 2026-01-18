@@ -42,14 +42,9 @@ inline Type Type::parse(x::json::Parser parser) {
     static_cast<FunctionProperties &>(result) = FunctionProperties::parse(parser);
     result.kind = parser.field<Kind>("kind");
     result.name = parser.field<std::string>("name");
-    result.elem = parser.has("elem")
-                    ? x::mem::indirect<Type>(parser.field<Type>("elem"))
-                    : nullptr;
-    result.unit = parser.has("unit") ? std::make_optional(parser.field<Unit>("unit"))
-                                     : std::nullopt;
-    result.constraint = parser.has("constraint")
-                          ? x::mem::indirect<Type>(parser.field<Type>("constraint"))
-                          : nullptr;
+    result.elem = parser.field<x::mem::indirect<Type>>("elem");
+    result.unit = parser.field<std::optional<Unit>>("unit");
+    result.constraint = parser.field<x::mem::indirect<Type>>("constraint");
     return result;
 }
 

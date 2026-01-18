@@ -32,7 +32,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Alias associates a human-readable string alias with a channel within the context of a specific range. Enables semantic naming of channels that varies by range context.
+// Alias associates a human-readable string alias with a channel within the context of a
+// specific range. Enables semantic naming of channels that varies by range context.
 type Alias struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// range is the unique identifier of the range containing this alias.

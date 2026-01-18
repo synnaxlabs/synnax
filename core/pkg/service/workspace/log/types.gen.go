@@ -18,15 +18,15 @@ import (
 
 type Key = uuid.UUID
 
-// Log is a timestamped event and message logging component. Logs display
-// chronological records of events, system messages, and audit trails with
-// filtering and formatting capabilities.
+// Log is a timestamped event and message logging component. Logs display chronological
+// records of events, system messages, and audit trails with filtering and formatting
+// capabilities.
 type Log struct {
 	// Key is the unique identifier for this log.
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the log.
 	Name string `json:"name" msgpack:"name"`
-	// Data is the log configuration including message formatting, filtering
-	// rules, and display options.
+	// Data is the log configuration including message formatting, filtering rules, and
+	// display options.
 	Data binary.MsgpackEncodedJSON `json:"data" msgpack:"data"`
 }

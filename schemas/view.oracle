@@ -43,7 +43,10 @@ View struct {
 
 New struct extends View {
     key   Key? {
-        @doc value "is an optional key for the view. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the view. If not provided, one will be
+            automatically assigned.
+        """
     }
     query json {
         @doc value "contains view-specific configuration and query parameters."

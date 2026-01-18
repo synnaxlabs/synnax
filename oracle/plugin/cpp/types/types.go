@@ -1431,7 +1431,6 @@ struct {{$td.Name}} : private std::vector<{{$td.ElementType}}> {
 {{- end}}
 {{- if $td.Methods}}
 
-    // Custom methods
 {{- range $td.Methods}}
     {{.}};
 {{- end}}
@@ -1476,7 +1475,6 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- end}}
 {{- if $s.Methods}}
 
-    // Custom methods
 {{- range $s.Methods}}
     {{.}};
 {{- end}}

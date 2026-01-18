@@ -6,7 +6,8 @@ package service.alias.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/pb";
 
-// Alias associates a human-readable string alias with a channel within the context of a specific range. Enables semantic naming of channels that varies by range context.
+// Alias associates a human-readable string alias with a channel within the context of a
+// specific range. Enables semantic naming of channels that varies by range context.
 message Alias {
   // range is the unique identifier of the range containing this alias.
   string range = 1;

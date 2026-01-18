@@ -41,7 +41,10 @@ Table struct {
 
 New struct extends Table {
     key Key? {
-        @doc value "is an optional key for the table. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the table. If not provided, one will be
+            automatically assigned.
+        """
     }
 
     @doc value    "contains parameters for creating a new table."

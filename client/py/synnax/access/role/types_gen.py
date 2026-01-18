@@ -48,7 +48,8 @@ class Role(Base):
     """Contains parameters for creating a new role.
 
     Attributes:
-        key: Is an optional key for the role. If not provided, one will be automatically assigned.
+        key: Is an optional key for the role. If not provided, one will be
+            automatically assigned.
     """
 
     key: Key | None = None

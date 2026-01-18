@@ -16,5 +16,8 @@ import "schemas/arc/compiler"
 @pb
 
 Module struct extends ir.IR, compiler.Output {
-    @doc value "is a compiled Arc module combining the intermediate representation with WebAssembly bytecode, ready for execution."
+    @doc value """
+        is a compiled Arc module combining the intermediate representation with
+        WebAssembly bytecode, ready for execution.
+    """
 }

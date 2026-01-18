@@ -73,17 +73,23 @@ func convertAnyForPB(v any) any {
 // {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}}.
 func {{.Name}}ToPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, r {{.GoType}}) (*{{.PBType}}, error) {
 {{- range .ErrorFields}}
+{{- if .HasError}}
 	{{lcFirst .GoName}}Val, err := {{.ForwardExpr}}
 	if err != nil {
 		return nil, err
 	}
+{{- end}}
 {{- end}}
 	pb := &{{.PBType}}{
 {{- range .Fields}}
 		{{.PBName}}: {{.ForwardExpr}},
 {{- end}}
 {{- range .ErrorFields}}
+{{- if .HasError}}
 		{{.PBName}}: {{lcFirst .GoName}}Val,
+{{- else}}
+		{{.PBName}}: {{.ForwardExpr}},
+{{- end}}
 {{- end}}
 	}
 {{- range .OptionalFields}}
@@ -115,10 +121,18 @@ func {{.Name}}FromPB({{if .UsesContext}}ctx{{else}}_{{end}} context.Context, pb 
 {{- end}}
 {{- range .ErrorFields}}
 {{- if .HasBackwardError}}
+{{- if .BackwardCast}}
+	parsed{{.GoName}}, err := {{.BackwardExpr}}
+	if err != nil {
+		return r, err
+	}
+	r.{{.GoName}} = {{.BackwardCast}}(parsed{{.GoName}})
+{{- else}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
 		return r, err
 	}
+{{- end}}
 {{- else}}
 	r.{{.GoName}} = {{.BackwardExpr}}
 {{- end}}
@@ -215,10 +229,12 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 	}
 {{- end}}
 {{- range .ErrorFields}}
+{{- if .HasError}}
 	{{lcFirst .GoName}}Val, err := {{.ForwardExpr}}
 	if err != nil {
 		return nil, err
 	}
+{{- end}}
 {{- end}}
 	pb := &{{.PBType}}{
 {{- range .Fields}}
@@ -228,7 +244,11 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 		{{.PBName}}: {{lcFirst .GoName}}Any,
 {{- end}}
 {{- range .ErrorFields}}
+{{- if .HasError}}
 		{{.PBName}}: {{lcFirst .GoName}}Val,
+{{- else}}
+		{{.PBName}}: {{.ForwardExpr}},
+{{- end}}
 {{- end}}
 	}
 {{- range .OptionalFields}}
@@ -273,10 +293,18 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- end}}
 {{- range .ErrorFields}}
 {{- if .HasBackwardError}}
+{{- if .BackwardCast}}
+	parsed{{.GoName}}, err := {{.BackwardExpr}}
+	if err != nil {
+		return r, err
+	}
+	r.{{.GoName}} = {{.BackwardCast}}(parsed{{.GoName}})
+{{- else}}
 	r.{{.GoName}}, err = {{.BackwardExpr}}
 	if err != nil {
 		return r, err
 	}
+{{- end}}
 {{- else}}
 	r.{{.GoName}} = {{.BackwardExpr}}
 {{- end}}

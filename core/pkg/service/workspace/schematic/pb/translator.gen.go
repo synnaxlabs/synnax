@@ -25,9 +25,9 @@ func SchematicToPB(_ context.Context, r schematic.Schematic) (*Schematic, error)
 		return nil, err
 	}
 	pb := &Schematic{
-		Key:      r.Key.String(),
 		Name:     r.Name,
 		Snapshot: r.Snapshot,
+		Key:      r.Key.String(),
 		Data:     dataVal,
 	}
 	return pb, nil
@@ -39,8 +39,13 @@ func SchematicFromPB(_ context.Context, pb *Schematic) (schematic.Schematic, err
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = schematic.Key(parsedKey)
 	r.Data = pb.Data.AsMap()
-	r.Key = schematic.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
 	return r, nil

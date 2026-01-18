@@ -14,7 +14,11 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { ranger } from "@/range";
 
-/** Alias associates a human-readable string alias with a channel within the context of a specific range. Enables semantic naming of channels that varies by range context. */
+/**
+ * Alias associates a human-readable string alias with a channel within the
+ * context of a specific range. Enables semantic naming of channels that varies by
+ * range context.
+ */
 export const aliasZ = z.object({
   /** range is the unique identifier of the range containing this alias. */
   range: ranger.keyZ,

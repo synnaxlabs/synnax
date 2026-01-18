@@ -6,7 +6,8 @@ package service.kv.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/pb";
 
-// Pair is a key-value metadata pair associated with a specific range, enabling arbitrary metadata storage on time ranges.
+// Pair is a key-value metadata pair associated with a specific range, enabling
+// arbitrary metadata storage on time ranges.
 message Pair {
   // range is the unique identifier of the range owning this key-value pair.
   string range = 1;

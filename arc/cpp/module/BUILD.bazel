@@ -8,6 +8,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//arc/cpp/compiler",
         "//arc/cpp/ir",
         "//arc/go/module:module_grpc",
@@ -18,6 +19,7 @@ cc_test(
     name = "module_test",
     srcs = ["module_test.cpp"],
     deps = [
+        "//x/cpp/pb",
         ":module",
         "//arc/go/module:module_grpc",
         "@googletest//:gtest_main",

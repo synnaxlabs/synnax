@@ -77,12 +77,7 @@ inline Sequence Sequence::parse(x::json::Parser parser) {
 inline x::json::json Sequence::to_json() const {
     x::json::json j;
     j["key"] = this->key;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->stages)
-            arr.push_back(item.to_json());
-        j["stages"] = arr;
-    }
+    j["stages"] = x::json::to_array(this->stages);
     return j;
 }
 

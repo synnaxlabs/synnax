@@ -32,7 +32,10 @@ export type Status = z.infer<typeof statusZ>;
 
 /** New contains parameters for creating a new Arc module. */
 export const newZ = z.object({
-  /** key is an optional key for the module. If not provided, one will be automatically assigned. */
+  /**
+   * key is an optional key for the module. If not provided, one will be
+   * automatically assigned.
+   */
   key: keyZ.optional(),
   /** name is a human-readable name for the module. */
   name: z.string(),

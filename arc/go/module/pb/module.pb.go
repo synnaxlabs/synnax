@@ -77,7 +77,8 @@ func (x *StratumWrapper) GetValues() []string {
 	return nil
 }
 
-// Module is a compiled Arc module combining the intermediate representation with WebAssembly bytecode, ready for execution.
+// Module is a compiled Arc module combining the intermediate representation with
+// WebAssembly bytecode, ready for execution.
 type Module struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// functions contains function template definitions.
@@ -92,7 +93,8 @@ type Module struct {
 	Sequences []*pb.Sequence `protobuf:"bytes,5,rep,name=sequences,proto3" json:"sequences,omitempty"`
 	// wasm is compiled WebAssembly bytecode for sandboxed execution.
 	Wasm []byte `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`
-	// output_memory_bases contains memory base addresses for multi-output functions, mapping function keys to their base addresses.
+	// output_memory_bases contains memory base addresses for multi-output functions,
+	// mapping function keys to their base addresses.
 	OutputMemoryBases map[string]uint32 `protobuf:"bytes,7,rep,name=output_memory_bases,json=outputMemoryBases,proto3" json:"output_memory_bases,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache

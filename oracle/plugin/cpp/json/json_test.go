@@ -152,9 +152,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Self-referential fields should check parser.has() first to avoid infinite recursion
-						`parser.has("left") ? x::mem::indirect<Node>(parser.field<Node>("left")) : nullptr`,
-						`parser.has("right") ? x::mem::indirect<Node>(parser.field<Node>("right")) : nullptr`,
+						// Self-referential fields use x::mem::indirect<T> with implicit nullptr default
+						`parser.field<x::mem::indirect<Node>>("left")`,
+						`parser.field<x::mem::indirect<Node>>("right")`,
 					)
 			})
 
@@ -193,8 +193,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						`parser.has("elem") ? x::mem::indirect<Type>(parser.field<Type>("elem")) : nullptr`,
-						`parser.has("constraint") ? x::mem::indirect<Type>(parser.field<Type>("constraint")) : nullptr`,
+						`parser.field<x::mem::indirect<Type>>("elem")`,
+						`parser.field<x::mem::indirect<Type>>("constraint")`,
 					)
 			})
 		})
@@ -241,8 +241,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Hard optional struct fields use has() check with std::make_optional
-						`parser.has("unit") ? std::make_optional(parser.field<Unit>("unit")) : std::nullopt`,
+						// Hard optional struct fields use std::optional<T> with implicit nullopt default
+						`parser.field<std::optional<Unit>>("unit")`,
 					)
 			})
 		})
@@ -300,9 +300,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 						`parser.field<Params>("inputs")`,
 						`parser.field<Params>("outputs")`,
 						`parser.field<Params>("config")`,
-						// Type fields should use indirect with has() guard
-						`parser.has("elem") ? x::mem::indirect<Type>(parser.field<Type>("elem")) : nullptr`,
-						`parser.has("constraint") ? x::mem::indirect<Type>(parser.field<Type>("constraint")) : nullptr`,
+						// Type fields should use indirect<T> with implicit nullptr default
+						`parser.field<x::mem::indirect<Type>>("elem")`,
+						`parser.field<x::mem::indirect<Type>>("constraint")`,
 					)
 			})
 		})
@@ -331,7 +331,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("struct arrays without alias", func() {
-			It("Should iterate and call to_json for struct array elements", func() {
+			It("Should use to_array helper for struct array elements", func() {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -349,7 +349,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				testutil.ExpectContent(resp, "json.gen.h").
 					ToContain(
 						`parser.field<std::vector<Item>>("items")`,
-						"for (const auto& item : this->items) arr.push_back(item.to_json())",
+						`j["items"] = x::json::to_array(this->items)`,
 					)
 			})
 		})

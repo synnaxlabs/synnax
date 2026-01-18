@@ -11,7 +11,8 @@ message StratumWrapper {
   repeated string values = 1;
 }
 
-// Module is a compiled Arc module combining the intermediate representation with WebAssembly bytecode, ready for execution.
+// Module is a compiled Arc module combining the intermediate representation with
+// WebAssembly bytecode, ready for execution.
 message Module {
   // functions contains function template definitions.
   repeated .arc.ir.pb.Function functions = 1;
@@ -25,6 +26,7 @@ message Module {
   repeated .arc.ir.pb.Sequence sequences = 5;
   // wasm is compiled WebAssembly bytecode for sandboxed execution.
   bytes wasm = 6;
-  // output_memory_bases contains memory base addresses for multi-output functions, mapping function keys to their base addresses.
+  // output_memory_bases contains memory base addresses for multi-output functions,
+  // mapping function keys to their base addresses.
   map<string, uint32> output_memory_bases = 7;
 }

@@ -25,8 +25,8 @@ func LinePlotToPB(_ context.Context, r lineplot.LinePlot) (*LinePlot, error) {
 		return nil, err
 	}
 	pb := &LinePlot{
-		Key:  r.Key.String(),
 		Name: r.Name,
+		Key:  r.Key.String(),
 		Data: dataVal,
 	}
 	return pb, nil
@@ -38,8 +38,13 @@ func LinePlotFromPB(_ context.Context, pb *LinePlot) (lineplot.LinePlot, error) 
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = lineplot.Key(parsedKey)
 	r.Data = pb.Data.AsMap()
-	r.Key = lineplot.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	return r, nil
 }

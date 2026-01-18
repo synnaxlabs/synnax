@@ -17,8 +17,8 @@ import (
 
 type Key = uuid.UUID
 
-// User is an account entity representing a person accessing the Synnax system.
-// Users can have roles assigned for permission management.
+// User is an account entity representing a person accessing the Synnax system. Users
+// can have roles assigned for permission management.
 type User struct {
 	// Key is the unique identifier for this user.
 	Key Key `json:"key" msgpack:"key"`
@@ -28,7 +28,7 @@ type User struct {
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	// LastName is the user's last name.
 	LastName string `json:"last_name" msgpack:"last_name"`
-	// RootUser is true if this is a root/admin user with full system access. Root
-	// users cannot be deleted.
+	// RootUser is true if this is a root/admin user with full system access. Root users
+	// cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
 }

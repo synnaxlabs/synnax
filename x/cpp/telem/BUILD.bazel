@@ -14,6 +14,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//x/cpp/binary",
         "//x/cpp/json",
         "//x/go/telem:telem_grpc",
@@ -31,6 +32,7 @@ cc_test(
         "telem_test.cpp",
     ],
     deps = [
+        "//x/cpp/pb",
         "//x/cpp/loop",
         "//x/cpp/telem",
         "@googletest//:gtest_main",

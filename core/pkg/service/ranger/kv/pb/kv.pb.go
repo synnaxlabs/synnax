@@ -32,7 +32,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Pair is a key-value metadata pair associated with a specific range, enabling arbitrary metadata storage on time ranges.
+// Pair is a key-value metadata pair associated with a specific range, enabling
+// arbitrary metadata storage on time ranges.
 type Pair struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// range is the unique identifier of the range owning this key-value pair.

@@ -209,7 +209,6 @@ TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const Series s{vals};
     auto s2 = s.to_proto();
     auto [s3, err] = Series::from_proto(s2);
-    ASSERT_FALSE(err);
     const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);

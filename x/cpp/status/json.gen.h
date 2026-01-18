@@ -51,12 +51,7 @@ x::json::json Status<Details>::to_json() const {
         j["details"] = nullptr;
     else
         j["details"] = this->details.to_json();
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->labels)
-            arr.push_back(item.to_json());
-        j["labels"] = arr;
-    }
+    j["labels"] = x::json::to_array(this->labels);
     return j;
 }
 

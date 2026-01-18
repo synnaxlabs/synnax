@@ -15,7 +15,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
 
-// Pair is a key-value metadata pair associated with a specific range, enabling arbitrary metadata storage on time ranges.
+// Pair is a key-value metadata pair associated with a specific range, enabling
+// arbitrary metadata storage on time ranges.
 type Pair struct {
 	// Range is the unique identifier of the range owning this key-value pair.
 	Range ranger.Key `json:"range" msgpack:"range"`

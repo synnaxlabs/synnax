@@ -49,7 +49,10 @@ User struct {
 New struct extends User {
     -root_user
     key        Key?    {
-        @doc value "is an optional key for the user. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the user. If not provided, one will be
+            automatically assigned.
+        """
     }
     password   string  {
         @doc value           "is the password for the new user account."

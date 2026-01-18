@@ -38,9 +38,7 @@ inline Rack Rack::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .task_counter = parser.field<std::uint32_t>("task_counter", 0),
         .embedded = parser.field<bool>("embedded", false),
-        .status = parser.has("status")
-                    ? std::make_optional(parser.field<Status>("status"))
-                    : std::nullopt,
+        .status = parser.field<std::optional<Status>>("status"),
     };
 }
 

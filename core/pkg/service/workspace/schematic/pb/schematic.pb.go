@@ -33,9 +33,9 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Schematic is a visual diagram editor component for drawing system schematics,
-// control flows, and process diagrams. Schematics support interactive
-// symbols, connection handles, and dynamic state visualization.
+// Schematic is a visual diagram editor component for drawing system schematics, control
+// flows, and process diagrams. Schematics support interactive symbols, connection
+// handles, and dynamic state visualization.
 type Schematic struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this schematic.

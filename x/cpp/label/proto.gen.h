@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "x/cpp/color/json.gen.h"
@@ -19,6 +18,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/types.gen.h"
+#include "x/cpp/pb/pb.h"
 
 #include "x/go/label/pb/label.pb.h"
 
@@ -36,15 +36,15 @@ inline std::pair<Label, x::errors::Error>
 Label::from_proto(const ::x::label::pb::Label &pb) {
     Label cpp;
     {
-        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
-        cpp.key = parsed;
+        cpp.key = v;
     }
     cpp.name = pb.name();
     {
-        auto [val, err] = ::x::color::Color::from_proto(pb.color());
+        auto [v, err] = ::x::color::Color::from_proto(pb.color());
         if (err) return {{}, err};
-        cpp.color = val;
+        cpp.color = v;
     }
     return {cpp, x::errors::NIL};
 }

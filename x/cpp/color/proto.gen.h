@@ -11,12 +11,12 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "x/cpp/color/json.gen.h"
 #include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
 
 #include "x/go/color/pb/color.pb.h"
 

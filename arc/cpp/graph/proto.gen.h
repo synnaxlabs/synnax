@@ -11,11 +11,11 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/proto.gen.h"
 
@@ -42,14 +42,14 @@ Node::from_proto(const ::arc::graph::pb::Node &pb) {
     cpp.key = pb.key();
     cpp.type = pb.type();
     {
-        auto [val, err] = x::json::from_struct(pb.config());
+        auto [v, err] = x::json::from_struct(pb.config());
         if (err) return {{}, err};
-        cpp.config = val;
+        cpp.config = v;
     }
     {
-        auto [val, err] = ::x::spatial::XY::from_proto(pb.position());
+        auto [v, err] = ::x::spatial::XY::from_proto(pb.position());
         if (err) return {{}, err};
-        cpp.position = val;
+        cpp.position = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -65,9 +65,9 @@ inline std::pair<Viewport, x::errors::Error>
 Viewport::from_proto(const ::arc::graph::pb::Viewport &pb) {
     Viewport cpp;
     {
-        auto [val, err] = ::x::spatial::XY::from_proto(pb.position());
+        auto [v, err] = ::x::spatial::XY::from_proto(pb.position());
         if (err) return {{}, err};
-        cpp.position = val;
+        cpp.position = v;
     }
     cpp.zoom = pb.zoom();
     return {cpp, x::errors::NIL};
@@ -89,25 +89,19 @@ inline std::pair<Graph, x::errors::Error>
 Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
     Graph cpp;
     {
-        auto [val, err] = Viewport::from_proto(pb.viewport());
+        auto [v, err] = Viewport::from_proto(pb.viewport());
         if (err) return {{}, err};
-        cpp.viewport = val;
+        cpp.viewport = v;
     }
-    for (const auto &item: pb.functions()) {
-        auto [v, err] = ::arc::ir::Function::from_proto(item);
-        if (err) return {{}, err};
-        cpp.functions.push_back(v);
-    }
-    for (const auto &item: pb.edges()) {
-        auto [v, err] = ::arc::ir::Edge::from_proto(item);
-        if (err) return {{}, err};
-        cpp.edges.push_back(v);
-    }
-    for (const auto &item: pb.nodes()) {
-        auto [v, err] = Node::from_proto(item);
-        if (err) return {{}, err};
-        cpp.nodes.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Function>(
+            cpp.functions,
+            pb.functions()
+        ))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<::arc::ir::Edge>(cpp.edges, pb.edges()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

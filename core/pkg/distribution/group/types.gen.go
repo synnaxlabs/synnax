@@ -17,7 +17,8 @@ import (
 
 type Key = uuid.UUID
 
-// Group is a named collection container for organizing related resources. Groups provide hierarchical organization through the ontology system.
+// Group is a named collection container for organizing related resources. Groups
+// provide hierarchical organization through the ontology system.
 type Group struct {
 	// Key is the unique identifier for this group.
 	Key Key `json:"key" msgpack:"key"`

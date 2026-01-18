@@ -256,7 +256,9 @@ NewChannel struct extends APIChannel {
         """
     }
     leaseholder uint12?              {
-        @doc value "is an optional leaseholder node. If not provided, Synnax will assign one."
+        @doc value """
+            is an optional leaseholder node. If not provided, Synnax will assign one.
+        """
     }
     index       Key?                 {
         @doc value """

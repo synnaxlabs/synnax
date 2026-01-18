@@ -331,7 +331,7 @@ func (p *Plugin) processStructForTranslation(
 		fieldData := p.processFieldForTranslation(field, data, s)
 		if fieldData.IsOptional {
 			translator.OptionalFields = append(translator.OptionalFields, fieldData)
-		} else if fieldData.HasError {
+		} else if fieldData.HasError || fieldData.HasBackwardError {
 			translator.ErrorFields = append(translator.ErrorFields, fieldData)
 		} else {
 			translator.Fields = append(translator.Fields, fieldData)
@@ -429,7 +429,7 @@ func (p *Plugin) processGenericStructForTranslation(
 			translator.TypeParamFields = append(translator.TypeParamFields, fieldData)
 		} else if fieldData.IsOptional {
 			translator.OptionalFields = append(translator.OptionalFields, fieldData)
-		} else if fieldData.HasError {
+		} else if fieldData.HasError || fieldData.HasBackwardError {
 			translator.ErrorFields = append(translator.ErrorFields, fieldData)
 		} else {
 			translator.Fields = append(translator.Fields, fieldData)
@@ -778,8 +778,8 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if p.isArrayType(typeRef, data.table) {
-		f, b, e := p.generateArrayConversion(field, data, goFieldName, pbFieldName)
-		return f, b, "", e, e
+		f, b, e, be := p.generateArrayConversion(field, data, goFieldName, pbFieldName)
+		return f, b, "", e, be
 	}
 
 	if hasKeyDomain(field) && resolution.IsPrimitive(typeRef.Name) && isNumericPrimitive(typeRef.Name) {
@@ -843,14 +843,14 @@ func (p *Plugin) generateFieldConversion(
 				}
 			}
 		}
-		f, b := p.generateTypeDefConversion(typeRef, resolved, form, data, goFieldName, pbFieldName)
-		return f, b, "", false, false
+		f, b, c, be := p.generateTypeDefConversion(typeRef, resolved, form, data, goFieldName, pbFieldName)
+		return f, b, c, false, be
 	}
 
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if resolution.IsPrimitive(aliasForm.Target.Name) {
-			f, b := p.generateAliasConversion(typeRef, resolved, aliasForm, data, goFieldName, pbFieldName)
-			return f, b, "", false, false
+			f, b, c, be := p.generateAliasConversion(typeRef, resolved, aliasForm, data, goFieldName, pbFieldName)
+			return f, b, c, false, be
 		}
 	}
 
@@ -865,7 +865,7 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "uuid":
 		data.imports.AddExternal("github.com/google/uuid")
 		return fmt.Sprintf("%s.String()", goField),
-			fmt.Sprintf("uuid.MustParse(%s)", pbField), false, false
+			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
 	case "timestamp":
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
 		return fmt.Sprintf("int64(%s)", goField),
@@ -1146,10 +1146,10 @@ func (p *Plugin) generateTypeDefConversion(
 	form resolution.DistinctForm,
 	data *templateData,
 	goField, pbField string,
-) (forward, backward string) {
+) (forward, backward, backwardCast string, hasBackwardError bool) {
 	baseType := form.Base
 	if !resolution.IsPrimitive(baseType.Name) {
-		return goField, pbField
+		return goField, pbField, "", false
 	}
 
 	typedefPrefix := ""
@@ -1170,8 +1170,9 @@ func (p *Plugin) generateTypeDefConversion(
 	if baseType.Name == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
-		backward = fmt.Sprintf("%s%s(uuid.MustParse(%s))", typedefPrefix, resolved.Name, pbField)
-		return forward, backward
+		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
+		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolved.Name)
+		return forward, backward, backwardCast, true
 	}
 
 	protoType := primitiveToProtoType(baseType.Name)
@@ -1179,7 +1180,7 @@ func (p *Plugin) generateTypeDefConversion(
 	forward = fmt.Sprintf("%s(%s)", protoType, goField)
 	backward = fmt.Sprintf("%s%s(%s)", typedefPrefix, resolved.Name, pbField)
 
-	return forward, backward
+	return forward, backward, "", false
 }
 
 func (p *Plugin) generateAliasConversion(
@@ -1188,7 +1189,7 @@ func (p *Plugin) generateAliasConversion(
 	form resolution.AliasForm,
 	data *templateData,
 	goField, pbField string,
-) (forward, backward string) {
+) (forward, backward, backwardCast string, hasBackwardError bool) {
 	primitiveName := form.Target.Name
 
 	aliasPrefix := ""
@@ -1210,30 +1211,32 @@ func (p *Plugin) generateAliasConversion(
 	if primitiveName == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
-		backward = fmt.Sprintf("%s%s(uuid.MustParse(%s))", aliasPrefix, resolved.Name, pbField)
-		return forward, backward
+		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
+		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolved.Name)
+		return forward, backward, backwardCast, true
 	}
 
 	protoType := primitiveToProtoType(primitiveName)
 	forward = fmt.Sprintf("%s(%s)", protoType, goField)
 	backward = fmt.Sprintf("%s%s(%s)", aliasPrefix, resolved.Name, pbField)
-	return forward, backward
+	return forward, backward, "", false
 }
 
 func (p *Plugin) generateArrayConversion(
 	field resolution.Field,
 	data *templateData,
 	goField, pbField string,
-) (forward, backward string, hasError bool) {
+) (forward, backward string, hasError, hasBackwardError bool) {
 	typeRef := field.Type
 
 	if p.isNestedArrayType(typeRef, data.table) {
-		return p.generateNestedArrayConversion(typeRef, data, goField, pbField)
+		f, b, e := p.generateNestedArrayConversion(typeRef, data, goField, pbField)
+		return f, b, e, e
 	}
 
 	elemType, ok := p.getArrayElementType(typeRef, data.table)
 	if !ok {
-		return goField, pbField, false
+		return goField, pbField, false, false
 	}
 
 	elemResolved, ok := elemType.Resolve(data.table)
@@ -1243,7 +1246,7 @@ func (p *Plugin) generateArrayConversion(
 
 			return fmt.Sprintf("%s%ssToPB(ctx, %s)", translatorPrefix, translatorStructName, goField),
 				fmt.Sprintf("%s%ssFromPB(ctx, %s)", translatorPrefix, translatorStructName, pbField),
-				true
+				true, true
 		}
 	}
 
@@ -1252,13 +1255,25 @@ func (p *Plugin) generateArrayConversion(
 		case "uuid":
 			data.imports.AddExternal("github.com/google/uuid")
 			data.imports.AddExternal("github.com/samber/lo")
+			// Forward conversion uses lo.Map (no error possible)
+			// Backward conversion uses IIFE with proper error handling
+			backward = fmt.Sprintf(`func() ([]uuid.UUID, error) {
+		result := make([]uuid.UUID, len(%s))
+		for i, s := range %s {
+			parsed, err := uuid.Parse(s)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = parsed
+		}
+		return result, nil
+	}()`, pbField, pbField)
 			return fmt.Sprintf("lo.Map(%s, func(u uuid.UUID, _ int) string { return u.String() })", goField),
-				fmt.Sprintf("lo.Map(%s, func(s string, _ int) uuid.UUID { return uuid.MustParse(s) })", pbField),
-				false
+				backward, false, true
 		}
 	}
 
-	return goField, pbField, false
+	return goField, pbField, false, false
 }
 
 func (p *Plugin) generateNestedArrayConversion(

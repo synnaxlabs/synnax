@@ -18,7 +18,10 @@ OuterLocation enum {
     bottom = "bottom"
     left   = "left"
 
-    @doc value "is a position indicator for elements anchored to the outer edge of a container. Used for orientation and positioning of UI elements."
+    @doc value """
+        is a position indicator for elements anchored to the outer edge of a
+        container. Used for orientation and positioning of UI elements.
+    """
 }
 
 XY struct {
@@ -29,5 +32,8 @@ XY struct {
         @doc value "is the vertical coordinate."
     }
 
-    @doc value "is a 2D coordinate point with x and y values. Used for positioning elements in two-dimensional space."
+    @doc value """
+        is a 2D coordinate point with x and y values. Used for positioning
+        elements in two-dimensional space.
+    """
 }

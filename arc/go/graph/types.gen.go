@@ -19,7 +19,8 @@ import (
 
 type Nodes []Node
 
-// Node is a visual node in the Arc graph editor representing a function instantiation with position data.
+// Node is a visual node in the Arc graph editor representing a function instantiation
+// with position data.
 type Node struct {
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key" msgpack:"key"`
@@ -39,7 +40,8 @@ type Viewport struct {
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
 }
 
-// Graph is a visual dataflow graph representation combining IR elements with canvas layout for the Arc graph editor.
+// Graph is a visual dataflow graph representation combining IR elements with canvas
+// layout for the Arc graph editor.
 type Graph struct {
 	// Viewport is the current camera state for the graph view.
 	Viewport Viewport `json:"viewport" msgpack:"viewport"`

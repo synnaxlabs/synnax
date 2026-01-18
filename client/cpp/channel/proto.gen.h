@@ -11,12 +11,14 @@
 
 #pragma once
 
-#include <type_traits>
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/channel/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/proto.gen.h"
 
@@ -27,15 +29,17 @@ namespace synnax::channel {
 
 inline ::distribution::channel::pb::OperationType
 OperationTypeToPB(const std::string &cpp) {
-    if (cpp == OPERATION_TYPE_MIN)
-        return ::distribution::channel::pb::OPERATION_TYPE_MIN;
-    if (cpp == OPERATION_TYPE_MAX)
-        return ::distribution::channel::pb::OPERATION_TYPE_MAX;
-    if (cpp == OPERATION_TYPE_AVG)
-        return ::distribution::channel::pb::OPERATION_TYPE_AVG;
-    if (cpp == OPERATION_TYPE_NONE)
-        return ::distribution::channel::pb::OPERATION_TYPE_NONE;
-    return ::distribution::channel::pb::OPERATION_TYPE_MIN;
+    static const std::
+        unordered_map<std::string, ::distribution::channel::pb::OperationType>
+            kMap = {
+                {OPERATION_TYPE_MIN, ::distribution::channel::pb::OPERATION_TYPE_MIN},
+                {OPERATION_TYPE_MAX, ::distribution::channel::pb::OPERATION_TYPE_MAX},
+                {OPERATION_TYPE_AVG, ::distribution::channel::pb::OPERATION_TYPE_AVG},
+                {OPERATION_TYPE_NONE, ::distribution::channel::pb::OPERATION_TYPE_NONE},
+            };
+    auto it = kMap.find(cpp);
+    return it != kMap.end() ? it->second
+                            : ::distribution::channel::pb::OPERATION_TYPE_MIN;
 }
 
 inline std::string OperationTypeFromPB(::distribution::channel::pb::OperationType pb) {
@@ -102,16 +106,16 @@ Channel::from_proto(const ::api::channel::pb::Channel &pb) {
     cpp.is_virtual = pb.virtual_();
     cpp.internal = pb.internal();
     cpp.expression = pb.expression();
-    for (const auto &item: pb.operations()) {
-        auto [v, err] = Operation::from_proto(item);
-        if (err) return {{}, err};
-        cpp.operations.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<Operation>(
+            cpp.operations,
+            pb.operations()
+        ))
+        return {{}, err};
     cpp.concurrency = static_cast<::x::control::Concurrency>(pb.concurrency());
     if (pb.has_status()) {
-        auto [val, err] = Status::from_proto(pb.status());
+        auto [v, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
-        cpp.status = val;
+        cpp.status = v;
     }
     return {cpp, x::errors::NIL};
 }

@@ -8,7 +8,8 @@ import "x/go/color/pb/color.proto";
 
 option go_package = "github.com/synnaxlabs/x/label/pb";
 
-// Label is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering.
+// Label is a tagging and categorization entity with a name and associated color. Labels
+// can be attached to resources like ranges for organization and filtering.
 message Label {
   // key is the unique identifier for this label.
   string key = 1;

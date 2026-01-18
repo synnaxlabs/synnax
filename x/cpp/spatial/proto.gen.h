@@ -11,10 +11,10 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/types.gen.h"
 

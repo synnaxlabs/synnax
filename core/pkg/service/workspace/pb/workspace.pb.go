@@ -34,8 +34,8 @@ const (
 )
 
 // Workspace is a named, persistable container that stores the layout and organization
-// of the Console application. Workspaces allow users to save and restore
-// custom arrangements of visualizations, tabs, and window configurations.
+// of the Console application. Workspaces allow users to save and restore custom
+// arrangements of visualizations, tabs, and window configurations.
 type Workspace struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this workspace.
@@ -44,9 +44,8 @@ type Workspace struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// author is the UUID of the user who created this workspace.
 	Author string `protobuf:"bytes,3,opt,name=author,proto3" json:"author,omitempty"`
-	// layout is the mosaic tree structure that defines how visualizations are
-	// arranged. Contains tab layout, split configurations, and window
-	// positions.
+	// layout is the mosaic tree structure that defines how visualizations are arranged.
+	// Contains tab layout, split configurations, and window positions.
 	Layout        *structpb.Struct `protobuf:"bytes,4,opt,name=layout,proto3" json:"layout,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

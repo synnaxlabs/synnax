@@ -11,7 +11,9 @@
 
 #pragma once
 
+#include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -19,6 +21,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/label/json.gen.h"
 #include "x/cpp/label/proto.gen.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/types.gen.h"
 
@@ -27,13 +30,16 @@
 namespace x::status {
 
 inline ::x::status::pb::Variant VariantToPB(const std::string &cpp) {
-    if (cpp == VARIANT_SUCCESS) return ::x::status::pb::VARIANT_SUCCESS;
-    if (cpp == VARIANT_INFO) return ::x::status::pb::VARIANT_INFO;
-    if (cpp == VARIANT_WARNING) return ::x::status::pb::VARIANT_WARNING;
-    if (cpp == VARIANT_ERROR) return ::x::status::pb::VARIANT_ERROR;
-    if (cpp == VARIANT_LOADING) return ::x::status::pb::VARIANT_LOADING;
-    if (cpp == VARIANT_DISABLED) return ::x::status::pb::VARIANT_DISABLED;
-    return ::x::status::pb::VARIANT_SUCCESS;
+    static const std::unordered_map<std::string, ::x::status::pb::Variant> kMap = {
+        {VARIANT_SUCCESS, ::x::status::pb::VARIANT_SUCCESS},
+        {VARIANT_INFO, ::x::status::pb::VARIANT_INFO},
+        {VARIANT_WARNING, ::x::status::pb::VARIANT_WARNING},
+        {VARIANT_ERROR, ::x::status::pb::VARIANT_ERROR},
+        {VARIANT_LOADING, ::x::status::pb::VARIANT_LOADING},
+        {VARIANT_DISABLED, ::x::status::pb::VARIANT_DISABLED},
+    };
+    auto it = kMap.find(cpp);
+    return it != kMap.end() ? it->second : ::x::status::pb::VARIANT_SUCCESS;
 }
 
 inline std::string VariantFromPB(::x::status::pb::Variant pb) {
@@ -91,9 +97,9 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     cpp.time = ::x::telem::TimeStamp::from_proto(pb.time());
     if constexpr (std::is_same_v<Details, x::json::json>) {
         {
-            auto [val, err] = x::json::from_any(pb.details());
+            auto [v, err] = x::json::from_any(pb.details());
             if (err) return {{}, err};
-            cpp.details = val;
+            cpp.details = v;
         }
     } else {
         {
@@ -107,11 +113,11 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
                 cpp.details = Details::parse(x::json::Parser(val));
         }
     }
-    for (const auto &item: pb.labels()) {
-        auto [v, err] = ::x::label::Label::from_proto(item);
-        if (err) return {{}, err};
-        cpp.labels.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(
+            cpp.labels,
+            pb.labels()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

@@ -11,13 +11,13 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/proto.gen.h"
 
@@ -65,14 +65,14 @@ Device::from_proto(const ::service::device::pb::Device &pb) {
     cpp.name = pb.name();
     cpp.configured = pb.configured();
     {
-        auto [val, err] = x::json::from_struct(pb.properties());
+        auto [v, err] = x::json::from_struct(pb.properties());
         if (err) return {{}, err};
-        cpp.properties = val;
+        cpp.properties = v;
     }
     if (pb.has_status()) {
-        auto [val, err] = Status::from_proto(pb.status());
+        auto [v, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
-        cpp.status = val;
+        cpp.status = v;
     }
     return {cpp, x::errors::NIL};
 }

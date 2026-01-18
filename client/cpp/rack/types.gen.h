@@ -48,8 +48,8 @@ struct StatusDetails {
 using Status = ::x::status::Status<StatusDetails>;
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
-/// specific cluster node. Racks serve as the integration point between the
-/// Synnax server and physical hardware via the Driver system.
+/// specific cluster node. Racks serve as the integration point between the Synnax
+/// server and physical hardware via the Driver system.
 struct Rack {
     /// @brief key is the composite identifier for this rack.
     Key key = 0;
@@ -71,8 +71,6 @@ struct Rack {
     [[nodiscard]] ::service::rack::pb::Rack to_proto() const;
     static std::pair<Rack, x::errors::Error>
     from_proto(const ::service::rack::pb::Rack &pb);
-
-    // Custom methods
     task::Client tasks;
 };
 

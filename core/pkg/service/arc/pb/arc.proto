@@ -17,9 +17,8 @@ message StatusDetails {
   bool running = 1;
 }
 
-// Arc is an Arc module combining visual graph representation and text-based
-// source code for reactive control systems. Compiles to WebAssembly for
-// sandboxed execution.
+// Arc is an Arc module combining visual graph representation and text-based source code
+// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 message Arc {
   // key is the unique identifier for this module.
   string key = 1;

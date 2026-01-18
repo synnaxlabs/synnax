@@ -33,8 +33,8 @@ const (
 )
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is
-// start-inclusive and end-exclusive, following standard interval conventions
-// for predictable boundary handling.
+// start-inclusive and end-exclusive, following standard interval conventions for
+// predictable boundary handling.
 type TimeRange struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// start is the inclusive start of the time range.

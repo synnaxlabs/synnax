@@ -36,7 +36,10 @@ export const bodyZ = z.object({
 });
 export interface Body extends z.infer<typeof bodyZ> {}
 
-/** Node is a concrete instantiation of a function with typed parameters and configuration values. */
+/**
+ * Node is a concrete instantiation of a function with typed parameters and
+ * configuration values.
+ */
 export const nodeZ = z.object({
   /** key is the unique identifier for this node instance. */
   key: z.string(),
@@ -67,7 +70,10 @@ export const edgeZ = z.object({
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
 
-/** Function is a function template definition with typed parameters, serving as a blueprint for node instantiation. */
+/**
+ * Function is a function template definition with typed parameters, serving as a
+ * blueprint for node instantiation.
+ */
 export const functionZ = z.object({
   /** key is the function identifier (template name). */
   key: z.string(),
@@ -96,7 +102,10 @@ export type Edges = z.infer<typeof edgesZ>;
 export const functionsZ = array.nullishToEmpty(functionZ);
 export type Functions = z.infer<typeof functionsZ>;
 
-/** Stage is a stage in a sequence state machine, containing active nodes and their execution stratification. */
+/**
+ * Stage is a stage in a sequence state machine, containing active nodes and their
+ * execution stratification.
+ */
 export const stageZ = z.object({
   /** key is the stage identifier. */
   key: z.string(),
@@ -107,7 +116,10 @@ export const stageZ = z.object({
 });
 export interface Stage extends z.infer<typeof stageZ> {}
 
-/** Sequence is a state machine defining ordered stages of execution, where entry point is always the first stage. */
+/**
+ * Sequence is a state machine defining ordered stages of execution, where entry point
+ * is always the first stage.
+ */
 export const sequenceZ = z.object({
   /** key is the sequence identifier. */
   key: z.string(),
@@ -122,7 +134,11 @@ export type Stages = z.infer<typeof stagesZ>;
 export const sequencesZ = array.nullishToEmpty(sequenceZ);
 export type Sequences = z.infer<typeof sequencesZ>;
 
-/** IR is the intermediate representation of an Arc program as a dataflow graph with stratified execution, bridging semantic analysis and WebAssembly compilation. */
+/**
+ * IR is the intermediate representation of an Arc program as a dataflow graph
+ * with stratified execution, bridging semantic analysis and WebAssembly
+ * compilation.
+ */
 export const irZ = z.object({
   /** functions contains function template definitions. */
   functions: functionsZ.optional(),

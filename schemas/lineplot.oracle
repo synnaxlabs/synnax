@@ -41,7 +41,10 @@ LinePlot struct {
 
 New struct extends LinePlot {
     key Key? {
-        @doc value "is an optional key for the line plot. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the line plot. If not provided, one will be
+            automatically assigned.
+        """
     }
 
     @doc value    "contains parameters for creating a new line plot."

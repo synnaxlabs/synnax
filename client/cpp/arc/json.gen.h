@@ -41,14 +41,10 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
-        .module = parser.has("module")
-                    ? std::make_optional(parser.field<::arc::module::Module>("module"))
-                    : std::nullopt,
+        .module = parser.field<std::optional<::arc::module::Module>>("module"),
         .deploy = parser.field<bool>("deploy"),
         .version = parser.field<std::string>("version"),
-        .status = parser.has("status")
-                    ? std::make_optional(parser.field<Status>("status"))
-                    : std::nullopt,
+        .status = parser.field<std::optional<Status>>("status"),
     };
 }
 

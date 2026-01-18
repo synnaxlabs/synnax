@@ -13,7 +13,10 @@ import { z } from "zod";
 
 import { ranger } from "@/range";
 
-/** Pair is a key-value metadata pair associated with a specific range, enabling arbitrary metadata storage on time ranges. */
+/**
+ * Pair is a key-value metadata pair associated with a specific range, enabling
+ * arbitrary metadata storage on time ranges.
+ */
 export const pairZ = z.object({
   /** range is the unique identifier of the range owning this key-value pair. */
   range: ranger.keyZ,

@@ -20,8 +20,8 @@ import (
 // GroupToPB converts Group to Group.
 func GroupToPB(_ context.Context, r group.Group) (*Group, error) {
 	pb := &Group{
-		Key:  r.Key.String(),
 		Name: r.Name,
+		Key:  r.Key.String(),
 	}
 	return pb, nil
 }
@@ -32,7 +32,12 @@ func GroupFromPB(_ context.Context, pb *Group) (group.Group, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = group.Key(uuid.MustParse(pb.Key))
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = group.Key(parsedKey)
 	r.Name = pb.Name
 	return r, nil
 }

@@ -35,7 +35,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Node is a visual node in the Arc graph editor representing a function instantiation with position data.
+// Node is a visual node in the Arc graph editor representing a function instantiation
+// with position data.
 type Node struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this node instance.
@@ -163,7 +164,8 @@ func (x *Viewport) GetZoom() float64 {
 	return 0
 }
 
-// Graph is a visual dataflow graph representation combining IR elements with canvas layout for the Arc graph editor.
+// Graph is a visual dataflow graph representation combining IR elements with canvas
+// layout for the Arc graph editor.
 type Graph struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// viewport is the current camera state for the graph view.

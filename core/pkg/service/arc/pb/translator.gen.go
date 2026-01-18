@@ -81,10 +81,10 @@ func ArcToPB(ctx context.Context, r arc.Arc) (*Arc, error) {
 		return nil, err
 	}
 	pb := &Arc{
-		Key:     r.Key.String(),
 		Name:    r.Name,
 		Deploy:  r.Deploy,
 		Version: r.Version,
+		Key:     r.Key.String(),
 		Graph:   graphVal,
 		Text:    textVal,
 	}
@@ -112,6 +112,11 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 		return r, nil
 	}
 	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = arc.Key(parsedKey)
 	r.Graph, err = graphpb.GraphFromPB(ctx, pb.Graph)
 	if err != nil {
 		return r, err
@@ -120,7 +125,6 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 	if err != nil {
 		return r, err
 	}
-	r.Key = arc.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	r.Deploy = pb.Deploy
 	r.Version = pb.Version

@@ -33,7 +33,8 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Kind is the type category for Arc's type system, including primitives, compound types, and meta-types.
+// Kind is the type category for Arc's type system, including primitives, compound
+// types, and meta-types.
 type Kind int32
 
 const (
@@ -201,7 +202,8 @@ func (x *FunctionProperties) GetConfig() []*Param {
 	return nil
 }
 
-// Type is a type in Arc's type system with optional element type for compounds, physical units, and constraints.
+// Type is a type in Arc's type system with optional element type for compounds,
+// physical units, and constraints.
 type Type struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// inputs contains input parameter definitions.
@@ -374,7 +376,8 @@ func (x *Param) GetValue() *structpb.Value {
 	return nil
 }
 
-// Channels contains channel declarations for reading from and writing to Synnax channels.
+// Channels contains channel declarations for reading from and writing to Synnax
+// channels.
 type Channels struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// read contains readable channel indices mapped to parameter names.
@@ -429,7 +432,8 @@ func (x *Channels) GetWrite() map[uint32]string {
 	return nil
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base quantities).
+// Dimensions contains physical dimension exponents for dimensional analysis (SI base
+// quantities).
 type Dimensions struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// length is the length dimension exponent (meters).

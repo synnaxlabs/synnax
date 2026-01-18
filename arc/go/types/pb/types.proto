@@ -8,7 +8,8 @@ import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/arc/types/pb";
 
-// Kind is the type category for Arc's type system, including primitives, compound types, and meta-types.
+// Kind is the type category for Arc's type system, including primitives, compound
+// types, and meta-types.
 enum Kind {
   KIND_INVALID = 0;
   KIND_U_8 = 1;
@@ -43,7 +44,8 @@ message FunctionProperties {
   repeated Param config = 3;
 }
 
-// Type is a type in Arc's type system with optional element type for compounds, physical units, and constraints.
+// Type is a type in Arc's type system with optional element type for compounds,
+// physical units, and constraints.
 message Type {
   // inputs contains input parameter definitions.
   repeated Param inputs = 1;
@@ -73,7 +75,8 @@ message Param {
   google.protobuf.Value value = 3;
 }
 
-// Channels contains channel declarations for reading from and writing to Synnax channels.
+// Channels contains channel declarations for reading from and writing to Synnax
+// channels.
 message Channels {
   // read contains readable channel indices mapped to parameter names.
   map<uint32, string> read = 1;
@@ -81,7 +84,8 @@ message Channels {
   map<uint32, string> write = 2;
 }
 
-// Dimensions contains physical dimension exponents for dimensional analysis (SI base quantities).
+// Dimensions contains physical dimension exponents for dimensional analysis (SI base
+// quantities).
 message Dimensions {
   // length is the length dimension exponent (meters).
   int32 length = 1;

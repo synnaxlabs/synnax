@@ -24,5 +24,8 @@ Pair struct {
         @doc value "is the metadata value stored as a string for flexibility."
     }
 
-    @doc value "is a key-value metadata pair associated with a specific range, enabling arbitrary metadata storage on time ranges."
+    @doc value """
+        is a key-value metadata pair associated with a specific range, enabling
+        arbitrary metadata storage on time ranges.
+    """
 }

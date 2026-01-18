@@ -19,6 +19,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/any.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/pb/pb.h"
 
 #include "x/go/control/pb/control.pb.h"
 
@@ -62,15 +63,15 @@ inline std::pair<State<R>, x::errors::Error>
 State<R>::from_proto(const ::x::control::pb::State &pb) {
     State<R> cpp;
     {
-        auto [val, err] = Subject::from_proto(pb.subject());
+        auto [v, err] = Subject::from_proto(pb.subject());
         if (err) return {{}, err};
-        cpp.subject = val;
+        cpp.subject = v;
     }
     if constexpr (std::is_same_v<R, x::json::json>) {
         {
-            auto [val, err] = x::json::from_any(pb.resource());
+            auto [v, err] = x::json::from_any(pb.resource());
             if (err) return {{}, err};
-            cpp.resource = val;
+            cpp.resource = v;
         }
     } else {
         {

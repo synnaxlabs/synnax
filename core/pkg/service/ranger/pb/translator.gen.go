@@ -30,8 +30,8 @@ func RangeToPB(ctx context.Context, r ranger.Range) (*Range, error) {
 		return nil, err
 	}
 	pb := &Range{
-		Key:       r.Key.String(),
 		Name:      r.Name,
+		Key:       r.Key.String(),
 		TimeRange: timeRangeVal,
 		Color:     colorVal,
 	}
@@ -45,6 +45,11 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 		return r, nil
 	}
 	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = ranger.Key(parsedKey)
 	r.TimeRange, err = telempb.TimeRangeFromPB(ctx, pb.TimeRange)
 	if err != nil {
 		return r, err
@@ -53,7 +58,6 @@ func RangeFromPB(ctx context.Context, pb *Range) (ranger.Range, error) {
 	if err != nil {
 		return r, err
 	}
-	r.Key = ranger.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	return r, nil
 }

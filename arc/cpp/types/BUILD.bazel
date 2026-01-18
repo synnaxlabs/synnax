@@ -9,6 +9,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//arc/go/types:types_grpc",
         "//x/cpp/mem",
         "//x/cpp/telem",
@@ -19,6 +20,7 @@ cc_test(
     name = "types_test",
     srcs = ["types_test.cpp"],
     deps = [
+        "//x/cpp/pb",
         ":types",
         "//arc/go/types:types_grpc",
         "@googletest//:gtest_main",

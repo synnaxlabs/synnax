@@ -119,7 +119,7 @@ var _ = Describe("Go PB Plugin", func() {
 				Entry("uuid to string",
 					"key uuid",
 					"Key: r.Key.String()",
-					"r.Key = uuid.MustParse(pb.Key)",
+					"r.Key, err = uuid.Parse(pb.Key)",
 				),
 				Entry("string passthrough",
 					"name string",
@@ -183,7 +183,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 				testutil.ExpectContent(resp, "translator.gen.go").
 					ToContain("Keys: lo.Map(r.Keys").
-					ToContain("r.Keys = lo.Map(pb.Keys")
+					ToContain("r.Keys, err = func() ([]uuid.UUID, error)")
 			})
 
 			It("Should handle string array passthrough", func() {
@@ -607,7 +607,8 @@ var _ = Describe("Go PB Plugin", func() {
 
 				testutil.ExpectContent(resp, "translator.gen.go").
 					ToContain("r.ResourceKey.String()").
-					ToContain("uuid.MustParse(pb.ResourceKey)")
+					ToContain("uuid.Parse(pb.ResourceKey)").
+					ToContain("r.ResourceKey = test.ResourceKey(parsedResourceKey)")
 			})
 		})
 

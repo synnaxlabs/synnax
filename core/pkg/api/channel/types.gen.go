@@ -22,44 +22,42 @@ import (
 
 type Status = status.Status[gotypes.Nil]
 
-// Channel is a logical collection of samples emitted by or representing values
-// from a single source. Channels are the fundamental unit of telemetry
-// storage and streaming in Synnax.
+// Channel is a logical collection of samples emitted by or representing values from a
+// single source. Channels are the fundamental unit of telemetry storage and streaming
+// in Synnax.
 type Channel struct {
-	// Key is the unique identifier for this channel, automatically assigned
-	// by Synnax.
+	// Key is the unique identifier for this channel, automatically assigned by Synnax.
 	Key distributionchannel.Key `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
 	Name distributionchannel.Name `json:"name" msgpack:"name"`
-	// Leaseholder is the cluster node that holds the lease for this channel. Mostly
-	// for internal use.
+	// Leaseholder is the cluster node that holds the lease for this channel. Mostly for
+	// internal use.
 	Leaseholder cluster.NodeKey `json:"leaseholder" msgpack:"leaseholder"`
-	// DataType is the data type of samples stored in this channel (e.g., Float64,
-	// Int32, TimeStamp).
+	// DataType is the data type of samples stored in this channel (e.g., Float64, Int32,
+	// TimeStamp).
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is true if this is an index channel. Index channels must have int64
-	// values (TIMESTAMP data type) written in ascending order, and are
-	// most commonly unix nanosecond timestamps.
+	// IsIndex is true if this is an index channel. Index channels must have int64 values
+	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
+	// nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// Index is the channel used to index this channel's values, associating
-	// each value with a timestamp. If zero, the channel's data will be
-	// indexed using its rate.
+	// Index is the channel used to index this channel's values, associating each value with
+	// a timestamp. If zero, the channel's data will be indexed using its rate.
 	Index distributionchannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias string `json:"alias" msgpack:"alias"`
-	// Virtual is true if this channel does not store data in the database but can
-	// still be used for streaming purposes.
+	// Virtual is true if this channel does not store data in the database but can still be
+	// used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
 	// Internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `json:"internal" msgpack:"internal"`
-	// Expression is an Arc expression for calculated channels. If set, the channel
-	// is automatically configured as virtual.
+	// Expression is an Arc expression for calculated channels. If set, the channel is
+	// automatically configured as virtual.
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
 	Operations []distributionchannel.Operation `json:"operations" msgpack:"operations"`
-	// Concurrency sets the policy for concurrent writes to the channel's data. Only
-	// virtual channels can have a policy of shared concurrency.
+	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
+	// channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`

@@ -25,8 +25,8 @@ func TableToPB(_ context.Context, r table.Table) (*Table, error) {
 		return nil, err
 	}
 	pb := &Table{
-		Key:  r.Key.String(),
 		Name: r.Name,
+		Key:  r.Key.String(),
 		Data: dataVal,
 	}
 	return pb, nil
@@ -38,8 +38,13 @@ func TableFromPB(_ context.Context, pb *Table) (table.Table, error) {
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = table.Key(parsedKey)
 	r.Data = pb.Data.AsMap()
-	r.Key = table.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	return r, nil
 }

@@ -24,9 +24,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
         .task = parser.field<Key>("task"),
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
-        .data = parser.has("data")
-                  ? std::make_optional(parser.field<x::json::json>("data"))
-                  : std::nullopt,
+        .data = parser.field<std::optional<x::json::json>>("data"),
     };
 }
 
@@ -47,9 +45,7 @@ inline Task Task::parse(x::json::Parser parser) {
         .config = parser.field<x::json::json>("config"),
         .internal = parser.field<bool>("internal", false),
         .snapshot = parser.field<bool>("snapshot", false),
-        .status = parser.has("status")
-                    ? std::make_optional(parser.field<Status>("status"))
-                    : std::nullopt,
+        .status = parser.field<std::optional<Status>>("status"),
     };
 }
 

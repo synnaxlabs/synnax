@@ -18,7 +18,8 @@ import (
 
 type Key = uuid.UUID
 
-// Label is a tagging and categorization entity with a name and associated color. Labels can be attached to resources like ranges for organization and filtering.
+// Label is a tagging and categorization entity with a name and associated color. Labels
+// can be attached to resources like ranges for organization and filtering.
 type Label struct {
 	// Key is the unique identifier for this label.
 	Key Key `json:"key" msgpack:"key"`

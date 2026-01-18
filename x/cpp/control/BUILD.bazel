@@ -8,6 +8,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//x/go/control:control_grpc",
     ],
 )

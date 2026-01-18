@@ -36,7 +36,7 @@ protected:
 TEST_F(XLuaTest, SetGlobalTelemFloat64) {
     const auto
         err = x::lua::set_global_sample_value(L, "val", telem::FLOAT64_T, 3.14159);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isnumber(L, -1));
     EXPECT_DOUBLE_EQ(lua_tonumber(L, -1), 3.14159);
@@ -46,7 +46,7 @@ TEST_F(XLuaTest, SetGlobalTelemFloat64) {
 /// @brief it should set a global float32 telemetry value in Lua.
 TEST_F(XLuaTest, SetGlobalTelemFloat32) {
     const auto err = x::lua::set_global_sample_value(L, "val", telem::FLOAT32_T, 3.14f);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_FLOAT_EQ(lua_tonumber(L, -1), 3.14f);
     lua_pop(L, 1);
@@ -56,7 +56,7 @@ TEST_F(XLuaTest, SetGlobalTelemFloat32) {
 TEST_F(XLuaTest, SetGlobalTelemInt64) {
     const auto
         err = x::lua::set_global_sample_value(L, "val", telem::INT64_T, int64_t{42});
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
 
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isinteger(L, -1));
@@ -72,7 +72,7 @@ TEST_F(XLuaTest, SetGlobalTelemInt32) {
         telem::INT32_T,
         int32_t{2147483647}
     );
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 2147483647);
     lua_pop(L, 1);
@@ -82,7 +82,7 @@ TEST_F(XLuaTest, SetGlobalTelemInt32) {
 TEST_F(XLuaTest, SetGlobalTelemInt16) {
     const auto
         err = x::lua::set_global_sample_value(L, "val", telem::INT16_T, int16_t{32767});
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 32767);
     lua_pop(L, 1);
@@ -92,7 +92,7 @@ TEST_F(XLuaTest, SetGlobalTelemInt16) {
 TEST_F(XLuaTest, SetGlobalTelemInt8) {
     const auto
         err = x::lua::set_global_sample_value(L, "val", telem::INT8_T, int8_t{127});
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 127);
     lua_pop(L, 1);
@@ -106,7 +106,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt32) {
         telem::UINT32_T,
         uint32_t{4294967295}
     );
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 4294967295);
     lua_pop(L, 1);
@@ -120,7 +120,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt16) {
         telem::UINT16_T,
         uint16_t{65535}
     );
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 65535);
     lua_pop(L, 1);
@@ -130,7 +130,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt16) {
 TEST_F(XLuaTest, SetGlobalTelemUInt8) {
     const auto
         err = x::lua::set_global_sample_value(L, "val", telem::UINT8_T, uint8_t{255});
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_EQ(lua_tointeger(L, -1), 255);
     lua_pop(L, 1);
@@ -144,7 +144,7 @@ TEST_F(XLuaTest, SetGlobalTelemString) {
         telem::STRING_T,
         std::string("hello")
     );
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isstring(L, -1));
     EXPECT_STREQ(lua_tostring(L, -1), "hello");
@@ -155,7 +155,7 @@ TEST_F(XLuaTest, SetGlobalTelemString) {
 TEST_F(XLuaTest, SetGlobalTelemUInt64Normal) {
     uint64_t val = 1000;
     const auto err = x::lua::set_global_sample_value(L, "val", telem::UINT64_T, val);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isinteger(L, -1));
     EXPECT_EQ(lua_tointeger(L, -1), val);
@@ -167,7 +167,7 @@ TEST_F(XLuaTest, SetGlobalTelemUInt64Overflow) {
     // Value that exceeds lua_Integer's max value
     uint64_t val = std::numeric_limits<uint64_t>::max();
     const auto err = x::lua::set_global_sample_value(L, "val", telem::UINT64_T, val);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isnumber(L, -1)); // Should be a number (double) not an integer
     EXPECT_DOUBLE_EQ(lua_tonumber(L, -1), static_cast<double>(val));
@@ -203,7 +203,7 @@ TEST_F(XLuaTest, SetGlobalTelemTypeMismatchInt64) {
 TEST_F(XLuaTest, SetGlobalJsonNull) {
     const json::json j_null;
     const auto err = x::lua::set_global_json_value(L, "val", j_null);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isnil(L, -1));
     lua_pop(L, 1);
@@ -213,7 +213,7 @@ TEST_F(XLuaTest, SetGlobalJsonNull) {
 TEST_F(XLuaTest, SetGlobalJsonBoolean) {
     const json::json j_bool = true;
     const auto err = x::lua::set_global_json_value(L, "val", j_bool);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isboolean(L, -1));
     EXPECT_TRUE(lua_toboolean(L, -1));
@@ -224,7 +224,7 @@ TEST_F(XLuaTest, SetGlobalJsonBoolean) {
 TEST_F(XLuaTest, SetGlobalJsonInteger) {
     const json::json j_int = 42;
     const auto err = x::lua::set_global_json_value(L, "val", j_int);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isinteger(L, -1));
     EXPECT_EQ(lua_tointeger(L, -1), 42);
@@ -245,7 +245,7 @@ TEST_F(XLuaTest, SetGlobalJsonFloat) {
 TEST_F(XLuaTest, SetGlobalJsonString) {
     const json::json j_string = "test string";
     const auto err = x::lua::set_global_json_value(L, "val", j_string);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_isstring(L, -1));
     EXPECT_STREQ(lua_tostring(L, -1), "test string");
@@ -256,7 +256,7 @@ TEST_F(XLuaTest, SetGlobalJsonString) {
 TEST_F(XLuaTest, SetGlobalJsonArray) {
     const json::json j_array = {1, "two", 3.0};
     const auto err = x::lua::set_global_json_value(L, "val", j_array);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_istable(L, -1));
     EXPECT_EQ(luaL_len(L, -1), 3);
@@ -282,7 +282,7 @@ TEST_F(XLuaTest, SetGlobalJsonObject) {
         {"boolean", true}
     };
     const auto err = x::lua::set_global_json_value(L, "val", j_object);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_istable(L, -1));
 
@@ -306,7 +306,7 @@ TEST_F(XLuaTest, SetGlobalJsonNestedStructure) {
         {"object", {{"key", "value"}, {"nested_array", {4, 5, 6}}}}
     };
     const auto err = x::lua::set_global_json_value(L, "val", j_nested);
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_istable(L, -1));
 
@@ -422,7 +422,7 @@ TEST_F(XLuaTest, SetGlobalTelemJsonSimple) {
         telem::JSON_T,
         nlohmann::to_string(j)
     );
-    ASSERT_FALSE(err) << err;
+    ASSERT_NIL(err);
     lua_getglobal(L, "val");
     EXPECT_TRUE(lua_istable(L, -1));
     lua_getfield(L, -1, "key");

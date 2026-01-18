@@ -11,13 +11,13 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "client/cpp/task/json.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/struct.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/proto.gen.h"
 
@@ -42,9 +42,9 @@ StatusDetails::from_proto(const ::service::task::pb::StatusDetails &pb) {
     cpp.running = pb.running();
     cpp.cmd = pb.cmd();
     if (pb.has_data()) {
-        auto [val, err] = x::json::from_struct(pb.data());
+        auto [v, err] = x::json::from_struct(pb.data());
         if (err) return {{}, err};
-        cpp.data = val;
+        cpp.data = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -68,16 +68,16 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
     cpp.name = pb.name();
     cpp.type = pb.type();
     {
-        auto [val, err] = x::json::from_struct(pb.config());
+        auto [v, err] = x::json::from_struct(pb.config());
         if (err) return {{}, err};
-        cpp.config = val;
+        cpp.config = v;
     }
     cpp.internal = pb.internal();
     cpp.snapshot = pb.snapshot();
     if (pb.has_status()) {
-        auto [val, err] = Status::from_proto(pb.status());
+        auto [v, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
-        cpp.status = val;
+        cpp.status = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -98,9 +98,9 @@ Command::from_proto(const ::service::task::pb::Command &pb) {
     cpp.type = pb.type();
     cpp.key = pb.key();
     {
-        auto [val, err] = x::json::from_struct(pb.args());
+        auto [v, err] = x::json::from_struct(pb.args());
         if (err) return {{}, err};
-        cpp.args = val;
+        cpp.args = v;
     }
     return {cpp, x::errors::NIL};
 }

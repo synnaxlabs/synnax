@@ -22,7 +22,8 @@ Key: TypeAlias = UUID
 
 
 class Group(BaseModel):
-    """Is a named collection container for organizing related resources. Groups provide hierarchical organization through the ontology system.
+    """Is a named collection container for organizing related resources. Groups
+    provide hierarchical organization through the ontology system.
 
     Attributes:
         key: Is the unique identifier for this group.

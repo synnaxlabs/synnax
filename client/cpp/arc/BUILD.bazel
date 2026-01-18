@@ -11,6 +11,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/pb",
         "//arc/cpp/graph",
         "//arc/cpp/module",
         "//arc/cpp/text",
@@ -28,6 +29,7 @@ cc_test(
     name = "arc_test",
     srcs = ["arc_test.cpp"],
     deps = [
+        "//x/cpp/pb",
         ":arc",
         "//client/cpp:synnax",
         "//client/cpp/testutil",

@@ -8,13 +8,15 @@ import "google/protobuf/any.proto";
 
 option go_package = "github.com/synnaxlabs/x/control/pb";
 
-// Concurrency defines whether a resource can have multiple subjects acting on it at once.
+// Concurrency defines whether a resource can have multiple subjects acting on it at
+// once.
 enum Concurrency {
   CONCURRENCY_EXCLUSIVE = 0;
   CONCURRENCY_SHARED = 1;
 }
 
-// Subject is an entity that can hold control authority over a resource. Typically represents a user, process, or service.
+// Subject is an entity that can hold control authority over a resource. Typically
+// represents a user, process, or service.
 message Subject {
   // key is a unique identifier for the subject.
   string key = 1;
@@ -22,8 +24,8 @@ message Subject {
   string name = 2;
 }
 
-// State represents the state of control over a resource at a point in time,
-// capturing who controls what and with how much authority.
+// State represents the state of control over a resource at a point in time, capturing
+// who controls what and with how much authority.
 message State {
   // subject is the entity controlling the resource.
   Subject subject = 1;

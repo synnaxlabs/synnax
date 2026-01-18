@@ -11,11 +11,11 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/value.h"
+#include "x/cpp/pb/pb.h"
 
 #include "arc/cpp/types/json.gen.h"
 #include "arc/cpp/types/types.gen.h"
@@ -37,21 +37,12 @@ inline ::arc::types::pb::FunctionProperties FunctionProperties::to_proto() const
 inline std::pair<FunctionProperties, x::errors::Error>
 FunctionProperties::from_proto(const ::arc::types::pb::FunctionProperties &pb) {
     FunctionProperties cpp;
-    for (const auto &item: pb.inputs()) {
-        auto [v, err] = Param::from_proto(item);
-        if (err) return {{}, err};
-        cpp.inputs.push_back(v);
-    }
-    for (const auto &item: pb.outputs()) {
-        auto [v, err] = Param::from_proto(item);
-        if (err) return {{}, err};
-        cpp.outputs.push_back(v);
-    }
-    for (const auto &item: pb.config()) {
-        auto [v, err] = Param::from_proto(item);
-        if (err) return {{}, err};
-        cpp.config.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
@@ -75,37 +66,28 @@ inline ::arc::types::pb::Type Type::to_proto() const {
 inline std::pair<Type, x::errors::Error>
 Type::from_proto(const ::arc::types::pb::Type &pb) {
     Type cpp;
-    for (const auto &item: pb.inputs()) {
-        auto [v, err] = Param::from_proto(item);
-        if (err) return {{}, err};
-        cpp.inputs.push_back(v);
-    }
-    for (const auto &item: pb.outputs()) {
-        auto [v, err] = Param::from_proto(item);
-        if (err) return {{}, err};
-        cpp.outputs.push_back(v);
-    }
-    for (const auto &item: pb.config()) {
-        auto [v, err] = Param::from_proto(item);
-        if (err) return {{}, err};
-        cpp.config.push_back(v);
-    }
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.inputs, pb.inputs()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.outputs, pb.outputs()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Param>(cpp.config, pb.config()))
+        return {{}, err};
     cpp.kind = static_cast<Kind>(pb.kind());
     cpp.name = pb.name();
     if (pb.has_elem()) {
-        auto [val, err] = Type::from_proto(pb.elem());
+        auto [v, err] = Type::from_proto(pb.elem());
         if (err) return {{}, err};
-        cpp.elem = val;
+        cpp.elem = v;
     }
     if (pb.has_unit()) {
-        auto [val, err] = Unit::from_proto(pb.unit());
+        auto [v, err] = Unit::from_proto(pb.unit());
         if (err) return {{}, err};
-        cpp.unit = val;
+        cpp.unit = v;
     }
     if (pb.has_constraint()) {
-        auto [val, err] = Type::from_proto(pb.constraint());
+        auto [v, err] = Type::from_proto(pb.constraint());
         if (err) return {{}, err};
-        cpp.constraint = val;
+        cpp.constraint = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -123,14 +105,14 @@ Param::from_proto(const ::arc::types::pb::Param &pb) {
     Param cpp;
     cpp.name = pb.name();
     {
-        auto [val, err] = Type::from_proto(pb.type());
+        auto [v, err] = Type::from_proto(pb.type());
         if (err) return {{}, err};
-        cpp.type = val;
+        cpp.type = v;
     }
     {
-        auto [val, err] = x::json::from_value(pb.value());
+        auto [v, err] = x::json::from_value(pb.value());
         if (err) return {{}, err};
-        cpp.value = val;
+        cpp.value = v;
     }
     return {cpp, x::errors::NIL};
 }
@@ -193,9 +175,9 @@ inline std::pair<Unit, x::errors::Error>
 Unit::from_proto(const ::arc::types::pb::Unit &pb) {
     Unit cpp;
     {
-        auto [val, err] = Dimensions::from_proto(pb.dimensions());
+        auto [v, err] = Dimensions::from_proto(pb.dimensions());
         if (err) return {{}, err};
-        cpp.dimensions = val;
+        cpp.dimensions = v;
     }
     cpp.scale = pb.scale();
     cpp.name = pb.name();

@@ -32,7 +32,10 @@ Region struct {
         @doc value "is an optional fill color in hex format (#RRGGBB)."
     }
 
-    @doc value "is a visual styling area within a symbol state, targeting specific SVG elements for dynamic coloring."
+    @doc value """
+        is a visual styling area within a symbol state, targeting specific SVG
+        elements for dynamic coloring.
+    """
 }
 
 State struct {
@@ -46,7 +49,9 @@ State struct {
         @doc value "contains style regions defining visual appearance for this state."
     }
 
-    @doc value "is a named visual state of a symbol with regional styling configurations."
+    @doc value """
+        is a named visual state of a symbol with regional styling configurations.
+    """
 }
 
 Handle struct {
@@ -60,7 +65,9 @@ Handle struct {
         @doc value "is the direction the handle faces (top, right, bottom, left)."
     }
 
-    @doc value "is a connection point on a symbol for linking to other diagram elements."
+    @doc value """
+        is a connection point on a symbol for linking to other diagram elements.
+    """
 }
 
 Viewport struct {
@@ -102,7 +109,10 @@ Spec struct {
         @doc value "is an optional viewport configuration for symbol preview rendering."
     }
 
-    @doc value "is the complete symbol definition including geometry, states, handles, and rendering properties."
+    @doc value """
+        is the complete symbol definition including geometry, states, handles, and
+        rendering properties.
+    """
 }
 
 Symbol struct {
@@ -122,14 +132,20 @@ Symbol struct {
         @doc value "is the complete symbol specification."
     }
 
-    @doc value     "is a persisted schematic symbol with versioning, defining reusable visual components for diagrams."
+    @doc value     """
+        is a persisted schematic symbol with versioning, defining reusable visual
+        components for diagrams.
+    """
     @ontology type "schematic_symbol"
 }
 
 New struct {
     key     Key?   {
         @key
-        @doc value "is an optional key for the symbol. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the symbol. If not provided, one will be
+            automatically assigned.
+        """
     }
     version uint32 {
         @validate default 1

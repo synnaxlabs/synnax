@@ -218,11 +218,11 @@ func (p *Plugin) generateProto(
 		processedStructs: make(map[string]bool),
 	}
 
-	data.includes.addSystem("type_traits")
 	data.includes.addSystem("utility")
 	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
 	data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", outputPath))
 	data.includes.addInternal("x/cpp/errors/errors.h")
+	data.includes.addInternal("x/cpp/pb/pb.h")
 
 	pbOutputPaths := make(map[string]bool)
 	for _, s := range structs {
@@ -254,6 +254,14 @@ func (p *Plugin) generateProto(
 		}
 	}
 
+	// Add type_traits include only if there are generic translators
+	for _, t := range data.Translators {
+		if t.IsGeneric {
+			data.includes.addSystem("type_traits")
+			break
+		}
+	}
+
 	for _, e := range enums {
 		if omit.IsType(e, "cpp") || omit.IsType(e, "pb") {
 			continue
@@ -270,6 +278,12 @@ func (p *Plugin) generateProto(
 		if enumTranslator != nil {
 			data.EnumTranslators = append(data.EnumTranslators, *enumTranslator)
 		}
+	}
+
+	// Add includes for enum translators (string enums use unordered_map)
+	if len(data.EnumTranslators) > 0 {
+		data.includes.addSystem("string")
+		data.includes.addSystem("unordered_map")
 	}
 
 	for _, dt := range req.Resolutions.DistinctTypes() {
@@ -515,16 +529,16 @@ func (p *Plugin) generateJSONFieldConversion(
 	if field.IsHardOptional {
 		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", cppFieldName, pbAccessorName, cppFieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = x::json::from_any(pb.%s());
+        auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 	} else {
 		forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_any(this->%s)", pbAccessorName, cppFieldName)
 		backward = fmt.Sprintf(`{
-        auto [val, err] = x::json::from_any(pb.%s());
+        auto [v, err] = x::json::from_any(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, pbAccessorName, cppFieldName)
 	}
 	return forward, backward
@@ -540,16 +554,16 @@ func (p *Plugin) generatePrimitiveConversion(
 		if isOptional {
 			forward = fmt.Sprintf("if (this->%s.has_value()) %s(this->%s->to_string())", cppFieldName, pbSetter, cppFieldName)
 			backward = fmt.Sprintf(`if (!pb.%s().empty()) {
-        auto [parsed, err] = x::uuid::UUID::parse(pb.%s());
+        auto [v, err] = x::uuid::UUID::parse(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = parsed;
+        cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 		} else {
 			forward = fmt.Sprintf("%s(this->%s.to_string())", pbSetter, cppFieldName)
 			backward = fmt.Sprintf(`{
-        auto [parsed, err] = x::uuid::UUID::parse(pb.%s());
+        auto [v, err] = x::uuid::UUID::parse(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = parsed;
+        cpp.%s = v;
     }`, pbAccessorName, cppFieldName)
 		}
 		return forward, backward
@@ -567,16 +581,16 @@ func (p *Plugin) generatePrimitiveConversion(
 		if isOptional {
 			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_struct(*this->%s).first", cppFieldName, pbAccessorName, cppFieldName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = x::json::from_struct(pb.%s());
+        auto [v, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 		} else {
 			forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_struct(this->%s).first", pbAccessorName, cppFieldName)
 			backward = fmt.Sprintf(`{
-        auto [val, err] = x::json::from_struct(pb.%s());
+        auto [v, err] = x::json::from_struct(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, pbAccessorName, cppFieldName)
 		}
 		return forward, backward
@@ -585,16 +599,16 @@ func (p *Plugin) generatePrimitiveConversion(
 		if isOptional {
 			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_value(*this->%s).first", cppFieldName, pbAccessorName, cppFieldName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = x::json::from_value(pb.%s());
+        auto [v, err] = x::json::from_value(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, pbAccessorName, pbAccessorName, cppFieldName)
 		} else {
 			forward = fmt.Sprintf("*pb.mutable_%s() = x::json::to_value(this->%s).first", pbAccessorName, cppFieldName)
 			backward = fmt.Sprintf(`{
-        auto [val, err] = x::json::from_value(pb.%s());
+        auto [v, err] = x::json::from_value(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, pbAccessorName, cppFieldName)
 		}
 		return forward, backward
@@ -614,7 +628,6 @@ func (p *Plugin) generateStructConversion(
 	data *templateData,
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
-	nsPrefix := ""
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
@@ -623,23 +636,23 @@ func (p *Plugin) generateStructConversion(
 		}
 	}
 
+	cppType := p.typeRefToCppForTranslator(typeRef, data)
 	if isOptional {
 		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = this->%s->to_proto()", cppFieldName, pbAccessorName, cppFieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = %s::from_proto(pb.%s());
+        auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
-    }`, pbAccessorName, p.typeRefToCppForTranslator(typeRef, data), pbAccessorName, cppFieldName)
+        cpp.%s = v;
+    }`, pbAccessorName, cppType, pbAccessorName, cppFieldName)
 	} else {
 		forward = fmt.Sprintf("*pb.mutable_%s() = this->%s.to_proto()", pbAccessorName, cppFieldName)
 		backward = fmt.Sprintf(`{
-        auto [val, err] = %s::from_proto(pb.%s());
+        auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
-    }`, p.typeRefToCppForTranslator(typeRef, data), pbAccessorName, cppFieldName)
+        cpp.%s = v;
+    }`, cppType, pbAccessorName, cppFieldName)
 	}
 
-	_ = nsPrefix
 	return forward, backward
 }
 
@@ -860,16 +873,16 @@ func (p *Plugin) generateAliasConversion(
 		if isOptional {
 			forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = this->%s->to_proto()", cppFieldName, pbAccessorName, cppFieldName)
 			backward = fmt.Sprintf(`if (pb.has_%s()) {
-        auto [val, err] = %s::from_proto(pb.%s());
+        auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, pbAccessorName, cppType, pbAccessorName, cppFieldName)
 		} else {
 			forward = fmt.Sprintf("*pb.mutable_%s() = this->%s.to_proto()", pbAccessorName, cppFieldName)
 			backward = fmt.Sprintf(`{
-        auto [val, err] = %s::from_proto(pb.%s());
+        auto [v, err] = %s::from_proto(pb.%s());
         if (err) return {{}, err};
-        cpp.%s = val;
+        cpp.%s = v;
     }`, cppType, pbAccessorName, cppFieldName)
 		}
 		return forward, backward
@@ -927,12 +940,9 @@ func (p *Plugin) generateArrayElementConversion(
 						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
 					}
 				}
+				elemCppType := p.typeRefToCppForTranslator(elemType, data)
 				forward = fmt.Sprintf("for (const auto& item : this->%s) *pb.add_%s() = item.to_proto()", cppFieldName, pbAccessorName)
-				backward = fmt.Sprintf(`for (const auto& item : pb.%s()) {
-        auto [v, err] = %s::from_proto(item);
-        if (err) return {{}, err};
-        cpp.%s.push_back(v);
-    }`, pbAccessorName, p.typeRefToCppForTranslator(elemType, data), cppFieldName)
+				backward = fmt.Sprintf("if (auto err = x::pb::from_proto_repeated<%s>(cpp.%s, pb.%s())) return {{}, err};", elemCppType, cppFieldName, pbAccessorName)
 				return forward, backward
 			}
 		}

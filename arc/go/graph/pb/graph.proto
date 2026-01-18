@@ -10,7 +10,8 @@ import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/arc/graph/pb";
 
-// Node is a visual node in the Arc graph editor representing a function instantiation with position data.
+// Node is a visual node in the Arc graph editor representing a function instantiation
+// with position data.
 message Node {
   // key is the unique identifier for this node instance.
   string key = 1;
@@ -30,7 +31,8 @@ message Viewport {
   double zoom = 2;
 }
 
-// Graph is a visual dataflow graph representation combining IR elements with canvas layout for the Arc graph editor.
+// Graph is a visual dataflow graph representation combining IR elements with canvas
+// layout for the Arc graph editor.
 message Graph {
   // viewport is the current camera state for the graph view.
   Viewport viewport = 1;

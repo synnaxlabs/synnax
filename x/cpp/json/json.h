@@ -11,6 +11,7 @@
 
 #include <fstream>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -20,6 +21,7 @@
 #include "nlohmann/json.hpp"
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/mem/indirect.h"
 
 /// @brief general utilities for parsing configurations.
 namespace x::json {
@@ -69,6 +71,34 @@ struct is_map<std::unordered_map<K, V>>
 
 template<typename T>
 inline constexpr bool is_map_v = is_map<T>::value;
+
+/// @brief Type trait to detect std::optional types
+template<typename T>
+struct is_optional : std::false_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct is_optional<std::optional<T>> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+inline constexpr bool is_optional_v = is_optional<T>::value;
+
+/// @brief Type trait to detect x::mem::indirect types
+template<typename T>
+struct is_indirect : std::false_type {
+    using value_type = T;
+};
+
+template<typename T>
+struct is_indirect<x::mem::indirect<T>> : std::true_type {
+    using value_type = T;
+};
+
+template<typename T>
+inline constexpr bool is_indirect_v = is_indirect<T>::value;
 
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
@@ -183,6 +213,10 @@ public:
 
     /// @brief gets the field at the given path. Works for scalars, vectors, and maps.
     /// If the field is not found, accumulates an error in the builder.
+    /// Special case: if T is std::optional<U>, missing fields return std::nullopt
+    /// without error.
+    /// Special case: if T is x::mem::indirect<U>, missing fields return empty indirect
+    /// (nullptr) without error.
     /// Special case: if path is empty string "", parses the root value (same as
     /// field<T>()).
     /// @param path The JSON path to the field.
@@ -193,6 +227,8 @@ public:
         if (path.empty()) return field<T>();
         const auto iter = config.find(path);
         if (iter == config.end()) {
+            if constexpr (is_optional_v<T>) return std::nullopt;
+            if constexpr (is_indirect_v<T>) return nullptr;
             field_err(path, "This field is required");
             return T();
         }
@@ -444,6 +480,14 @@ T Parser::parse_value(const std::string &path, const json &j) {
     // Handle std::monostate - just return default constructed monostate
     if constexpr (std::is_same_v<T, std::monostate>) {
         return std::monostate{};
+    } else if constexpr (is_optional_v<T>) {
+        // Parse the inner type and wrap in optional
+        using U = typename is_optional<T>::value_type;
+        return std::make_optional(parse_value<U>(path, j));
+    } else if constexpr (is_indirect_v<T>) {
+        // Parse the inner type and wrap in indirect
+        using U = typename is_indirect<T>::value_type;
+        return x::mem::indirect<U>(parse_value<U>(path, j));
     } else if constexpr (is_map_v<T>) {
         typedef typename is_map<T>::key_type K;
         using V = typename is_map<T>::value_type;
@@ -505,6 +549,33 @@ T Parser::parse_value(const std::string &path, const json &j) {
             return T();
         }
     }
+}
+
+/// @brief Type trait to detect if a type has a to_json() method
+template<typename T, typename = void>
+struct has_to_json : std::false_type {};
+
+template<typename T>
+struct has_to_json<T, std::void_t<decltype(std::declval<T>().to_json())>>
+    : std::true_type {};
+
+template<typename T>
+inline constexpr bool has_to_json_v = has_to_json<T>::value;
+
+/// @brief Converts a container of items to a JSON array.
+/// Items with a to_json() method will have it called; others are assigned directly.
+/// @param items The container to convert.
+/// @returns A JSON array containing the serialized items.
+template<typename Container>
+json to_array(const Container &items) {
+    auto arr = json::array();
+    for (const auto &item: items) {
+        if constexpr (has_to_json_v<typename Container::value_type>)
+            arr.push_back(item.to_json());
+        else
+            arr.push_back(item);
+    }
+    return arr;
 }
 
 }

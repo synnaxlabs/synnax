@@ -26,8 +26,8 @@ type Alignment uint64
 type TimeRangeBounded = TimeRange
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is
-// start-inclusive and end-exclusive, following standard interval conventions
-// for predictable boundary handling.
+// start-inclusive and end-exclusive, following standard interval conventions for
+// predictable boundary handling.
 type TimeRange struct {
 	// Start is the inclusive start of the time range.
 	Start TimeStamp `json:"start" msgpack:"start"`
@@ -36,9 +36,9 @@ type TimeRange struct {
 }
 
 // Series is a strongly-typed array of telemetry samples backed by a binary buffer.
-// Supports both fixed-density primitive types and variable-density types
-// (strings, JSON). Designed for high-performance, memory-efficient storage
-// and streaming of time-series data.
+// Supports both fixed-density primitive types and variable-density types (strings,
+// JSON). Designed for high-performance, memory-efficient storage and streaming of
+// time-series data.
 type Series struct {
 	// TimeRange is the time range covered by the samples in this series.
 	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
@@ -46,9 +46,9 @@ type Series struct {
 	DataType DataType `json:"data_type" msgpack:"data_type"`
 	// Data is the raw binary buffer containing the sample data.
 	Data []byte `json:"data" msgpack:"data"`
-	// Alignment defines the location of the series relative to other series in a
-	// logical group. Typically used for defining the position of the series
-	// within a channel's data.
+	// Alignment defines the location of the series relative to other series in a logical
+	// group. Typically used for defining the position of the series within a channel's
+	// data.
 	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
 	cachedLength *int64
 }

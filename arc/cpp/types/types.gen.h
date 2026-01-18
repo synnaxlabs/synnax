@@ -103,8 +103,6 @@ struct Dimensions {
     [[nodiscard]] ::arc::types::pb::Dimensions to_proto() const;
     static std::pair<Dimensions, x::errors::Error>
     from_proto(const ::arc::types::pb::Dimensions &pb);
-
-    // Custom methods
     bool operator==(const Dimensions &other) const;
     [[nodiscard]] bool is_zero() const;
 };
@@ -126,8 +124,6 @@ struct Unit {
     [[nodiscard]] ::arc::types::pb::Unit to_proto() const;
     static std::pair<Unit, x::errors::Error>
     from_proto(const ::arc::types::pb::Unit &pb);
-
-    // Custom methods
     bool operator==(const Unit &other) const;
     [[nodiscard]] bool is_timestamp() const;
 };
@@ -223,8 +219,6 @@ struct Type : public FunctionProperties {
     [[nodiscard]] ::arc::types::pb::Type to_proto() const;
     static std::pair<Type, x::errors::Error>
     from_proto(const ::arc::types::pb::Type &pb);
-
-    // Custom methods
     [[nodiscard]] size_t density() const;
     [[nodiscard]] bool is_valid() const;
     [[nodiscard]] bool is_timestamp() const;

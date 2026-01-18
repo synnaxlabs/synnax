@@ -11,12 +11,12 @@
 
 #pragma once
 
-#include <type_traits>
 #include <utility>
 
 #include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/proto.gen.h"
 
@@ -60,32 +60,32 @@ inline std::pair<Arc, x::errors::Error>
 Arc::from_proto(const ::service::arc::pb::Arc &pb) {
     Arc cpp;
     {
-        auto [parsed, err] = x::uuid::UUID::parse(pb.key());
+        auto [v, err] = x::uuid::UUID::parse(pb.key());
         if (err) return {{}, err};
-        cpp.key = parsed;
+        cpp.key = v;
     }
     cpp.name = pb.name();
     {
-        auto [val, err] = ::arc::graph::Graph::from_proto(pb.graph());
+        auto [v, err] = ::arc::graph::Graph::from_proto(pb.graph());
         if (err) return {{}, err};
-        cpp.graph = val;
+        cpp.graph = v;
     }
     {
-        auto [val, err] = ::arc::text::Text::from_proto(pb.text());
+        auto [v, err] = ::arc::text::Text::from_proto(pb.text());
         if (err) return {{}, err};
-        cpp.text = val;
+        cpp.text = v;
     }
     if (pb.has_module()) {
-        auto [val, err] = ::arc::module::Module::from_proto(pb.module());
+        auto [v, err] = ::arc::module::Module::from_proto(pb.module());
         if (err) return {{}, err};
-        cpp.module = val;
+        cpp.module = v;
     }
     cpp.deploy = pb.deploy();
     cpp.version = pb.version();
     if (pb.has_status()) {
-        auto [val, err] = Status::from_proto(pb.status());
+        auto [v, err] = Status::from_proto(pb.status());
         if (err) return {{}, err};
-        cpp.status = val;
+        cpp.status = v;
     }
     return {cpp, x::errors::NIL};
 }

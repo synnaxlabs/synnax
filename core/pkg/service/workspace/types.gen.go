@@ -19,8 +19,8 @@ import (
 type Key = uuid.UUID
 
 // Workspace is a named, persistable container that stores the layout and organization
-// of the Console application. Workspaces allow users to save and restore
-// custom arrangements of visualizations, tabs, and window configurations.
+// of the Console application. Workspaces allow users to save and restore custom
+// arrangements of visualizations, tabs, and window configurations.
 type Workspace struct {
 	// Key is the unique identifier for this workspace.
 	Key Key `json:"key" msgpack:"key"`
@@ -28,8 +28,7 @@ type Workspace struct {
 	Name string `json:"name" msgpack:"name"`
 	// Author is the UUID of the user who created this workspace.
 	Author uuid.UUID `json:"author" msgpack:"author"`
-	// Layout is the mosaic tree structure that defines how visualizations are
-	// arranged. Contains tab layout, split configurations, and window
-	// positions.
+	// Layout is the mosaic tree structure that defines how visualizations are arranged.
+	// Contains tab layout, split configurations, and window positions.
 	Layout binary.MsgpackEncodedJSON `json:"layout" msgpack:"layout"`
 }

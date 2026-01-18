@@ -33,20 +33,94 @@ func Get(domains map[string]resolution.Domain) string {
 	return ""
 }
 
+const maxLineWidth = 88
+
+// wrapText takes documentation text and wraps it to fit within the given width.
+// It normalizes internal newlines (single \n) into spaces, but preserves paragraph
+// breaks (double \n\n). Returns a slice of wrapped lines.
+func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
+	if text == "" {
+		return nil
+	}
+
+	// Split by paragraph breaks (double newline)
+	paragraphs := strings.Split(text, "\n\n")
+	var allLines []string
+
+	for pIdx, para := range paragraphs {
+		// Normalize single newlines to spaces within the paragraph
+		para = strings.ReplaceAll(para, "\n", " ")
+		// Collapse multiple spaces
+		words := strings.Fields(para)
+		if len(words) == 0 {
+			if pIdx > 0 {
+				allLines = append(allLines, "")
+			}
+			continue
+		}
+
+		var lines []string
+		var currentLine strings.Builder
+
+		for _, word := range words {
+			width := firstLineWidth
+			if len(allLines)+len(lines) > 0 {
+				width = subsequentLineWidth
+			}
+
+			if currentLine.Len() == 0 {
+				currentLine.WriteString(word)
+			} else if currentLine.Len()+1+len(word) <= width {
+				currentLine.WriteString(" ")
+				currentLine.WriteString(word)
+			} else {
+				lines = append(lines, currentLine.String())
+				currentLine.Reset()
+				currentLine.WriteString(word)
+			}
+		}
+		if currentLine.Len() > 0 {
+			lines = append(lines, currentLine.String())
+		}
+
+		// Add paragraph separator if not the first paragraph
+		if pIdx > 0 && len(lines) > 0 {
+			allLines = append(allLines, "")
+		}
+		allLines = append(allLines, lines...)
+	}
+
+	return allLines
+}
+
 // FormatGo formats documentation for Go comments.
 // Single-line: "// Name doc text"
 // Multi-line: "// Name line1\n// line2\n// line3"
+// Text is wrapped to 88 characters including the comment prefix.
 func FormatGo(name, doc string) string {
 	if doc == "" {
 		return ""
 	}
-	lines := strings.Split(doc, "\n")
+
+	// Calculate available width: "// Name " for first line, "// " for subsequent
+	firstPrefix := "// " + name + " "
+	subsequentPrefix := "// "
+	firstLineWidth := maxLineWidth - len(firstPrefix)
+	subsequentLineWidth := maxLineWidth - len(subsequentPrefix)
+
+	lines := wrapText(doc, firstLineWidth, subsequentLineWidth)
+	if len(lines) == 0 {
+		return ""
+	}
+
 	var result []string
 	for i, line := range lines {
 		if i == 0 {
-			result = append(result, "// "+name+" "+line)
+			result = append(result, firstPrefix+line)
+		} else if line == "" {
+			result = append(result, "//")
 		} else {
-			result = append(result, "// "+line)
+			result = append(result, subsequentPrefix+line)
 		}
 	}
 	return strings.Join(result, "\n")
@@ -123,17 +197,31 @@ func FormatPyComment(name, doc string) string {
 // FormatCpp formats documentation for C++ Doxygen-style comments.
 // Single-line: "/// @brief Name doc text"
 // Multi-line: "/// @brief Name line1\n/// line2\n/// line3"
+// Text is wrapped to 88 characters including the comment prefix.
 func FormatCpp(name, doc string) string {
 	if doc == "" {
 		return ""
 	}
-	lines := strings.Split(doc, "\n")
+
+	// Calculate available width: "/// @brief Name " for first line, "/// " for subsequent
+	firstPrefix := "/// @brief " + name + " "
+	subsequentPrefix := "/// "
+	firstLineWidth := maxLineWidth - len(firstPrefix)
+	subsequentLineWidth := maxLineWidth - len(subsequentPrefix)
+
+	lines := wrapText(doc, firstLineWidth, subsequentLineWidth)
+	if len(lines) == 0 {
+		return ""
+	}
+
 	var result []string
 	for i, line := range lines {
 		if i == 0 {
-			result = append(result, "/// @brief "+name+" "+line)
+			result = append(result, firstPrefix+line)
+		} else if line == "" {
+			result = append(result, "///")
 		} else {
-			result = append(result, "/// "+line)
+			result = append(result, subsequentPrefix+line)
 		}
 	}
 	return strings.Join(result, "\n")

@@ -36,7 +36,10 @@ Subject struct {
         @doc value "is a human-readable name for the subject."
     }
 
-    @doc value "is an entity that can hold control authority over a resource. Typically represents a user, process, or service."
+    @doc value """
+        is an entity that can hold control authority over a resource. Typically
+        represents a user, process, or service.
+    """
 }
 
 State struct<R> {

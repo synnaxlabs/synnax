@@ -20,11 +20,11 @@ import (
 // UserToPB converts User to User.
 func UserToPB(_ context.Context, r user.User) (*User, error) {
 	pb := &User{
-		Key:       r.Key.String(),
 		Username:  r.Username,
 		FirstName: r.FirstName,
 		LastName:  r.LastName,
 		RootUser:  r.RootUser,
+		Key:       r.Key.String(),
 	}
 	return pb, nil
 }
@@ -35,7 +35,12 @@ func UserFromPB(_ context.Context, pb *User) (user.User, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = user.Key(uuid.MustParse(pb.Key))
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = user.Key(parsedKey)
 	r.Username = pb.Username
 	r.FirstName = pb.FirstName
 	r.LastName = pb.LastName

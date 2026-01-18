@@ -28,7 +28,8 @@ Authority: TypeAlias = int
 
 
 class Subject(BaseModel):
-    """Is an entity that can hold control authority over a resource. Typically represents a user, process, or service.
+    """Is an entity that can hold control authority over a resource. Typically
+    represents a user, process, or service.
 
     Attributes:
         key: Is a unique identifier for the subject.

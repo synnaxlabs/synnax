@@ -75,7 +75,10 @@ Arc struct {
 
 New struct {
     key     Key?        {
-        @doc value "is an optional key for the module. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the module. If not provided, one will be
+            automatically assigned.
+        """
     }
     name    string      {
         @doc value "is a human-readable name for the module."

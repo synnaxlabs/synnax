@@ -22,9 +22,9 @@ import (
 // AliasToPB converts Alias to Alias.
 func AliasToPB(_ context.Context, r alias.Alias) (*Alias, error) {
 	pb := &Alias{
-		Range:   r.Range.String(),
 		Channel: uint32(r.Channel),
 		Alias:   r.Alias,
+		Range:   r.Range.String(),
 	}
 	return pb, nil
 }
@@ -35,7 +35,12 @@ func AliasFromPB(_ context.Context, pb *Alias) (alias.Alias, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Range = ranger.Key(uuid.MustParse(pb.Range))
+	var err error
+	parsedRange, err := uuid.Parse(pb.Range)
+	if err != nil {
+		return r, err
+	}
+	r.Range = ranger.Key(parsedRange)
 	r.Channel = channel.Key(pb.Channel)
 	r.Alias = pb.Alias
 	return r, nil

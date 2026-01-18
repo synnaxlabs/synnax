@@ -25,8 +25,8 @@ func LabelToPB(ctx context.Context, r label.Label) (*Label, error) {
 		return nil, err
 	}
 	pb := &Label{
-		Key:   r.Key.String(),
 		Name:  r.Name,
+		Key:   r.Key.String(),
 		Color: colorVal,
 	}
 	return pb, nil
@@ -39,11 +39,15 @@ func LabelFromPB(ctx context.Context, pb *Label) (label.Label, error) {
 		return r, nil
 	}
 	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = label.Key(parsedKey)
 	r.Color, err = colorpb.ColorFromPB(ctx, pb.Color)
 	if err != nil {
 		return r, err
 	}
-	r.Key = label.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	return r, nil
 }

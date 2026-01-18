@@ -6,8 +6,8 @@ package service.user.pb;
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/user/pb";
 
-// User is an account entity representing a person accessing the Synnax system.
-// Users can have roles assigned for permission management.
+// User is an account entity representing a person accessing the Synnax system. Users
+// can have roles assigned for permission management.
 message User {
   // key is the unique identifier for this user.
   string key = 1;
@@ -17,7 +17,7 @@ message User {
   string first_name = 3;
   // last_name is the user's last name.
   string last_name = 4;
-  // root_user is true if this is a root/admin user with full system access. Root
-  // users cannot be deleted.
+  // root_user is true if this is a root/admin user with full system access. Root users
+  // cannot be deleted.
   bool root_user = 5;
 }

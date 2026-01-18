@@ -12,6 +12,7 @@ cc_library(
     deps = [
         "//arc/cpp/types",
         "//arc/go/ir:ir_grpc",
+        "//x/cpp/pb",
         "//x/cpp/telem",
     ],
 )

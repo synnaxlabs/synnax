@@ -16,14 +16,14 @@ import (
 	"github.com/synnaxlabs/x/label"
 )
 
-// Range is a range with additional relationships for hierarchical organization
-// and metadata. This is the primary type exposed through the API.
+// Range is a range with additional relationships for hierarchical organization and
+// metadata. This is the primary type exposed through the API.
 type Range struct {
 	serviceranger.Range
-	// Labels contains optional labels attached to this range for categorization
-	// and filtering.
+	// Labels contains optional labels attached to this range for categorization and
+	// filtering.
 	Labels []label.Label `json:"labels" msgpack:"labels"`
-	// Parent is an optional parent range for hierarchical organization. Ranges
-	// can be nested within other ranges.
+	// Parent is an optional parent range for hierarchical organization. Ranges can be
+	// nested within other ranges.
 	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }

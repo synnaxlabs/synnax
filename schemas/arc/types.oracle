@@ -13,76 +13,35 @@
 @pb
 
 Kind enum {
-    @doc value "is the type category for Arc's type system, including primitives, compound types, and meta-types."
+    invalid          = 0
+    u8               = 1
+    u16              = 2
+    u32              = 3
+    u64              = 4
+    i8               = 5
+    i16              = 6
+    i32              = 7
+    i64              = 8
+    f32              = 9
+    f64              = 10
+    string           = 11
+    chan             = 14
+    series           = 15
+    variable         = 16
+    numeric_constant = 17
+    integer_constant = 18
+    float_constant   = 19
+    function         = 20
+    sequence         = 21
+    stage            = 22
 
-    invalid          = 0 {
-        @doc value "is an uninitialized or error type."
-    }
-    u8               = 1 {
-        @doc value "is an 8-bit unsigned integer."
-    }
-    u16              = 2 {
-        @doc value "is a 16-bit unsigned integer."
-    }
-    u32              = 3 {
-        @doc value "is a 32-bit unsigned integer."
-    }
-    u64              = 4 {
-        @doc value "is a 64-bit unsigned integer."
-    }
-    i8               = 5 {
-        @doc value "is an 8-bit signed integer."
-    }
-    i16              = 6 {
-        @doc value "is a 16-bit signed integer."
-    }
-    i32              = 7 {
-        @doc value "is a 32-bit signed integer."
-    }
-    i64              = 8 {
-        @doc value "is a 64-bit signed integer."
-    }
-    f32              = 9 {
-        @doc value "is a 32-bit floating point."
-    }
-    f64              = 10 {
-        @doc value "is a 64-bit floating point."
-    }
-    string           = 11 {
-        @doc value "is a UTF-8 string type."
-    }
-    chan             = 14 {
-        @doc value "is a channel type for Synnax channel references."
-    }
-    series           = 15 {
-        @doc value "is a series type for arrays of samples."
-    }
-    variable         = 16 {
-        @doc value "is a stateful variable that persists across reactive executions."
-    }
-    numeric_constant = 17 {
-        @doc value "is a numeric constant type variable."
-    }
-    integer_constant = 18 {
-        @doc value "is an integer constant type variable."
-    }
-    float_constant   = 19 {
-        @doc value "is a float constant type variable."
-    }
-    function         = 20 {
-        @doc value "is a first-class function type."
-    }
-    sequence         = 21 {
-        @doc value "is a sequence (state machine) type."
-    }
-    stage            = 22 {
-        @doc value "is a stage within a sequence."
-    }
+    @doc value """
+        is the type category for Arc's type system, including primitives, compound
+        types, and meta-types.
+    """
 }
 
 FunctionProperties struct {
-    @doc value "contains common parameter definitions for function-like types."
-
     inputs  Params? {
         @doc value "contains input parameter definitions."
     }
@@ -92,12 +51,12 @@ FunctionProperties struct {
     config  Params? {
         @doc value "contains configuration parameter definitions."
     }
+
+    @doc value "contains common parameter definitions for function-like types."
 }
 
 Type struct extends FunctionProperties {
-    @doc value "is a type in Arc's type system with optional element type for compounds, physical units, and constraints."
-
-    kind       Kind {
+    kind       Kind   {
         @doc value "is the type category (primitive, compound, or meta-type)."
     }
     name       string {
@@ -113,43 +72,50 @@ Type struct extends FunctionProperties {
         @doc value "is the type constraint for type variables."
     }
 
+    @doc value           """
+        is a type in Arc's type system with optional element type for compounds,
+        physical units, and constraints.
+    """
     @cpp includes        "x/cpp/telem/telem.h"
     @cpp system_includes "ostream"
     @cpp methods         "[[nodiscard]] size_t density() const" "[[nodiscard]] bool is_valid() const" "[[nodiscard]] bool is_timestamp() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] x::telem::DataType telem() const" "friend std::ostream& operator<<(std::ostream& os, const Type& t)"
 }
 
 Param struct {
-    @doc value "is a named, typed parameter with optional default value."
-
     name  string {
         @doc value "is the parameter name."
     }
-    type  Type {
+    type  Type   {
         @doc value "is the parameter type."
     }
-    value any? {
+    value any?   {
         @doc value "is an optional default value."
     }
+
+    @doc value "is a named, typed parameter with optional default value."
 }
 
 Params Param[] {
-    @doc value "is a collection of named, typed parameters for function inputs, outputs, or configuration."
+    @doc value """
+        is a collection of named, typed parameters for function inputs, outputs,
+        or configuration.
+    """
 }
 
 Channels struct {
-    @doc value "contains channel declarations for reading from and writing to Synnax channels."
-
     read  map<uint32, string> {
         @doc value "contains readable channel indices mapped to parameter names."
     }
     write map<uint32, string> {
         @doc value "contains writable channel indices mapped to parameter names."
     }
+
+    @doc value """
+        contains channel declarations for reading from and writing to Synnax channels.
+    """
 }
 
 Dimensions struct {
-    @doc value "contains physical dimension exponents for dimensional analysis (SI base quantities)."
-
     length      int8 {
         @doc value "is the length dimension exponent (meters)."
     }
@@ -175,21 +141,25 @@ Dimensions struct {
         @doc value "is the data size dimension exponent (bytes)."
     }
 
+    @doc value   """
+        contains physical dimension exponents for dimensional analysis (SI base quantities).
+    """
     @cpp methods "bool operator==(const Dimensions& other) const" "[[nodiscard]] bool is_zero() const"
 }
 
 Unit struct {
-    @doc value "is a physical unit with dimensions and scale factor for unit-aware computation."
-
     dimensions Dimensions {
         @doc value "contains physical dimension exponents."
     }
-    scale      float64 {
+    scale      float64    {
         @doc value "is the scale factor relative to SI base units."
     }
-    name       string {
+    name       string     {
         @doc value "is the unit name (e.g., 'psi', 'ns', 'm/s')."
     }
 
+    @doc value   """
+        is a physical unit with dimensions and scale factor for unit-aware computation.
+    """
     @cpp methods "bool operator==(const Unit& other) const" "[[nodiscard]] bool is_timestamp() const"
 }

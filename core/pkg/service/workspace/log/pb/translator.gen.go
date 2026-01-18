@@ -25,8 +25,8 @@ func LogToPB(_ context.Context, r log.Log) (*Log, error) {
 		return nil, err
 	}
 	pb := &Log{
-		Key:  r.Key.String(),
 		Name: r.Name,
+		Key:  r.Key.String(),
 		Data: dataVal,
 	}
 	return pb, nil
@@ -38,8 +38,13 @@ func LogFromPB(_ context.Context, pb *Log) (log.Log, error) {
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return r, err
+	}
+	r.Key = log.Key(parsedKey)
 	r.Data = pb.Data.AsMap()
-	r.Key = log.Key(uuid.MustParse(pb.Key))
 	r.Name = pb.Name
 	return r, nil
 }

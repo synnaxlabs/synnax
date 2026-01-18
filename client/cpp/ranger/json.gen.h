@@ -44,9 +44,7 @@ inline Range Range::parse(x::json::Parser parser) {
     Range result;
     static_cast<Base &>(result) = Base::parse(parser);
     result.labels = parser.field<std::vector<::x::label::Label>>("labels");
-    result.parent = parser.has("parent")
-                      ? x::mem::indirect<Range>(parser.field<Range>("parent"))
-                      : nullptr;
+    result.parent = parser.field<x::mem::indirect<Range>>("parent");
     return result;
 }
 
@@ -54,12 +52,7 @@ inline x::json::json Range::to_json() const {
     x::json::json j;
     for (auto &[k, v]: Base::to_json().items())
         j[k] = v;
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->labels)
-            arr.push_back(item.to_json());
-        j["labels"] = arr;
-    }
+    j["labels"] = x::json::to_array(this->labels);
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
     return j;
 }

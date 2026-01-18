@@ -102,7 +102,10 @@ New struct<
     Model extends string = string
 > extends Device<Properties, Make, Model> {
     key        Key?  {
-        @doc value "is an optional key for the device. If not provided, one will be automatically assigned."
+        @doc value """
+            is an optional key for the device. If not provided, one will be
+            automatically assigned.
+        """
     }
     configured bool? {
         @doc value "is an optional configuration status."

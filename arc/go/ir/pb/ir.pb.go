@@ -83,7 +83,8 @@ func (EdgeKind) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{0}
 }
 
-// Handle is a reference to a specific parameter on a specific node in the dataflow graph.
+// Handle is a reference to a specific parameter on a specific node in the dataflow
+// graph.
 type Handle struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// node is the node identifier.
@@ -246,7 +247,8 @@ func (x *StratumWrapper) GetValues() []string {
 	return nil
 }
 
-// Stage is a stage in a sequence state machine, containing active nodes and their execution stratification.
+// Stage is a stage in a sequence state machine, containing active nodes and their
+// execution stratification.
 type Stage struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the stage identifier.
@@ -310,7 +312,8 @@ func (x *Stage) GetStrata() []*StratumWrapper {
 	return nil
 }
 
-// Sequence is a state machine defining ordered stages of execution, where entry point is always the first stage.
+// Sequence is a state machine defining ordered stages of execution, where entry point
+// is always the first stage.
 type Sequence struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the sequence identifier.
@@ -411,7 +414,8 @@ func (x *Body) GetRaw() string {
 	return ""
 }
 
-// Function is a function template definition with typed parameters, serving as a blueprint for node instantiation.
+// Function is a function template definition with typed parameters, serving as a
+// blueprint for node instantiation.
 type Function struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the function identifier (template name).
@@ -502,7 +506,8 @@ func (x *Function) GetChannels() *pb.Channels {
 	return nil
 }
 
-// Node is a concrete instantiation of a function with typed parameters and configuration values.
+// Node is a concrete instantiation of a function with typed parameters and
+// configuration values.
 type Node struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this node instance.
@@ -593,7 +598,8 @@ func (x *Node) GetChannels() *pb.Channels {
 	return nil
 }
 
-// IR is the intermediate representation of an Arc program as a dataflow graph with stratified execution, bridging semantic analysis and WebAssembly compilation.
+// IR is the intermediate representation of an Arc program as a dataflow graph with
+// stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// functions contains function template definitions.

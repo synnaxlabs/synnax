@@ -8,15 +8,15 @@ import "google/protobuf/struct.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/workspace/log/pb";
 
-// Log is a timestamped event and message logging component. Logs display
-// chronological records of events, system messages, and audit trails with
-// filtering and formatting capabilities.
+// Log is a timestamped event and message logging component. Logs display chronological
+// records of events, system messages, and audit trails with filtering and formatting
+// capabilities.
 message Log {
   // key is the unique identifier for this log.
   string key = 1;
   // name is a human-readable name for the log.
   string name = 2;
-  // data is the log configuration including message formatting, filtering
-  // rules, and display options.
+  // data is the log configuration including message formatting, filtering rules, and
+  // display options.
   google.protobuf.Struct data = 3;
 }

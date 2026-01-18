@@ -29,9 +29,8 @@ type StatusDetails struct {
 	Running bool `json:"running" msgpack:"running"`
 }
 
-// Arc is an Arc module combining visual graph representation and text-based
-// source code for reactive control systems. Compiles to WebAssembly for
-// sandboxed execution.
+// Arc is an Arc module combining visual graph representation and text-based source code
+// for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc struct {
 	// Key is the unique identifier for this module.
 	Key Key `json:"key" msgpack:"key"`

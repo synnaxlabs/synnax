@@ -17,7 +17,10 @@ export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
 
-/** Region is a visual styling area within a symbol state, targeting specific SVG elements for dynamic coloring. */
+/**
+ * Region is a visual styling area within a symbol state, targeting specific SVG
+ * elements for dynamic coloring.
+ */
 export const regionZ = z.object({
   /** key is the region identifier. */
   key: z.string(),
@@ -66,7 +69,10 @@ export const stateZ = z.object({
 });
 export interface State extends z.infer<typeof stateZ> {}
 
-/** Spec is the complete symbol definition including geometry, states, handles, and rendering properties. */
+/**
+ * Spec is the complete symbol definition including geometry, states, handles, and
+ * rendering properties.
+ */
 export const specZ = z.object({
   /** svg is the SVG markup defining the symbol's visual geometry. */
   svg: z.string().min(1),
@@ -85,7 +91,10 @@ export const specZ = z.object({
 });
 export interface Spec extends z.infer<typeof specZ> {}
 
-/** Symbol is a persisted schematic symbol with versioning, defining reusable visual components for diagrams. */
+/**
+ * Symbol is a persisted schematic symbol with versioning, defining reusable visual
+ * components for diagrams.
+ */
 export const symbolZ = z.object({
   /** key is the unique identifier for this symbol. */
   key: keyZ,
@@ -100,7 +109,10 @@ export interface Symbol extends z.infer<typeof symbolZ> {}
 
 /** New contains parameters for creating a new schematic symbol. */
 export const newZ = z.object({
-  /** key is an optional key for the symbol. If not provided, one will be automatically assigned. */
+  /**
+   * key is an optional key for the symbol. If not provided, one will be
+   * automatically assigned.
+   */
   key: keyZ.optional(),
   /** version is the symbol schema version. */
   version: z.uint32().default(1),

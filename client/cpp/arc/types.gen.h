@@ -50,8 +50,8 @@ struct StatusDetails {
 using Status = ::x::status::Status<StatusDetails>;
 
 /// @brief Arc is an Arc module combining visual graph representation and text-based
-/// source code for reactive control systems. Compiles to WebAssembly for
-/// sandboxed execution.
+/// source code for reactive control systems. Compiles to WebAssembly for sandboxed
+/// execution.
 struct Arc {
     /// @brief key is the unique identifier for this module.
     Key key;
