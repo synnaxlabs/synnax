@@ -205,7 +205,7 @@ class Console:
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.click(force=True)
 
-        self.page.locator(".console-layout-selector").wait_for(
+        self.page.locator(".console-layout-selector__frame").wait_for(
             state="visible", timeout=15000
         )
         self.page.get_by_role("button", name=page_type).first.click()
