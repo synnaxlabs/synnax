@@ -23,6 +23,7 @@ cc_test(
     deps = [
         ":ir",
         "//arc/go/ir:ir_grpc",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )
