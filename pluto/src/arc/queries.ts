@@ -170,8 +170,17 @@ export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, store, data: { key, name }, rollbacks }) => {
+  update: async (params) => {
+    const {
+      client,
+      store,
+      data: { key, name },
+      rollbacks,
+    } = params;
     const arc = await retrieveSingle({ client, store, query: { key } });
+    const task = await retrieveTask({ client, store, query: { arcKey: key } });
+    if (task != null) await Task.rename({ ...params, data: { key: task.key, name } });
+
     rollbacks.push(
       store.arcs.set(
         key,
@@ -187,46 +196,54 @@ export interface RetrieveTaskParams {
   arcKey: arc.Key;
 }
 
+export const retrieveTask = async ({
+  client,
+  query,
+  store,
+}: Flux.RetrieveParams<RetrieveTaskParams, FluxSubStore>): Promise<
+  task.Task | undefined
+> => {
+  const arcOntologyID = arc.ontologyID(query.arcKey);
+  const cachedChild = store.relationships.get((r) =>
+    ontology.matchRelationship(r, {
+      from: arcOntologyID,
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: { type: "task" },
+    }),
+  )[0];
+
+  let taskKey = cachedChild?.to.key;
+
+  if (taskKey == null) {
+    const children = await client.ontology.retrieveChildren(arcOntologyID, {
+      types: ["task"],
+    });
+    children.forEach((c) => {
+      const rel: ontology.Relationship = {
+        from: arcOntologyID,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: c.id,
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+    if (children.length === 0) return undefined;
+    taskKey = children[0].id.key;
+  }
+
+  return await Task.retrieveSingle({
+    store,
+    client,
+    query: { key: taskKey },
+  });
+};
+
 export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
   RetrieveTaskParams,
   task.Task | undefined,
   FluxSubStore
 >({
   name: "Task",
-  retrieve: async ({ client, query, store }) => {
-    const arcOntologyID = arc.ontologyID(query.arcKey);
-    const cachedChild = store.relationships.get((r) =>
-      ontology.matchRelationship(r, {
-        from: arcOntologyID,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: { type: "task" },
-      }),
-    )[0];
-
-    let taskKey = cachedChild?.to.key;
-
-    if (taskKey == null) {
-      const children = await client.ontology.retrieveChildren(arcOntologyID, {
-        types: ["task"],
-      });
-      children.forEach((c) => {
-        const rel: ontology.Relationship = {
-          from: arcOntologyID,
-          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-          to: c.id,
-        };
-        store.relationships.set(ontology.relationshipToString(rel), rel);
-      });
-      if (children.length === 0) return undefined;
-      taskKey = children[0].id.key;
-    }
-
-    return await Task.retrieveSingle({
-      store,
-      client,
-      query: { key: taskKey },
-    });
-  },
+  retrieve: retrieveTask,
   mountListeners: ({ store, query, onChange, client }) => {
     if (!("arcKey" in query) || primitive.isZero(query.arcKey)) return [];
     const arcOntologyID = arc.ontologyID(query.arcKey);
@@ -275,6 +292,7 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
       }),
 
       store.statuses.onSet(async (status) => {
+        if (!status.key.startsWith("task")) return;
         const cachedRel = store.relationships.get((r) =>
           ontology.matchRelationship(r, {
             from: arcOntologyID,

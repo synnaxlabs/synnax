@@ -30,20 +30,20 @@ export const CreateCommand: Palette.Command = ({
         const result = await createArcModal({});
         if (result != null)
           placeLayout(Arc.Editor.create({ name: result.name, mode: result.mode }));
-      }, "Failed to create Arc program"),
+      }, "Failed to create Arc"),
     [placeLayout, handleError, createArcModal],
   );
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create an Arc Automation"
+      name="Create an Arc automation"
       icon={<Icon.Arc />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create_arc";
-CreateCommand.commandName = "Create an Arc Automation";
+CreateCommand.commandName = "Create an Arc automation";
 CreateCommand.useVisible = useUpdateVisible;
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({

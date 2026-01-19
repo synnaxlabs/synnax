@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, createTestClient, task } from "@synnaxlabs/client";
-import { id, status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -535,7 +535,7 @@ describe("Arc queries", () => {
         details: {
           task: testTask.key,
           running: false,
-          data: { error: "test error" },
+          data: undefined,
         },
       });
 
@@ -590,6 +590,5 @@ describe("Arc queries", () => {
         expect(result.current.data?.name).toEqual("renamed-task-name");
       });
     });
-
   });
 });

@@ -11,12 +11,13 @@ import "@/arc/editor/Controls.css";
 
 import { arc, type rack, task } from "@synnaxlabs/client";
 import { Arc, Button, Flex, type Flux, Icon, Rack, Status } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { primitive, status, TimeStamp } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
 import { useTask } from "@/arc/hooks";
 import { type State } from "@/arc/slice";
 import { translateGraphToServer } from "@/arc/types/translate";
+import { taskConfigZ, taskStatusDataZ, taskTypeZ } from "@/arc/types/v0";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
@@ -24,9 +25,23 @@ interface ControlsProps {
   state: State;
 }
 
+const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
+  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
+    key: task.statusKey(taskKey),
+    name: "Configuring task",
+    time: TimeStamp.now(),
+    variant: "loading",
+    message: "Configuring task...",
+    details: {
+      task: taskKey,
+      running: false,
+      data: undefined,
+    },
+  });
+
 export const Controls = ({ state }: ControlsProps) => {
   const name = Layout.useSelectRequiredName(state.key);
-  const { running, onStartStop, taskStatus: status, taskKey } = useTask(state.key);
+  const { running, onStartStop, taskStatus, taskKey } = useTask(state.key);
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   useEffect(() => {
@@ -39,13 +54,21 @@ export const Controls = ({ state }: ControlsProps) => {
         if (selectedRack == null) return;
         let taskKeyToUse = taskKey;
         if (!taskKeyDefined) taskKeyToUse = task.newKey(selectedRack, 0);
-        const newTsk = await client.tasks.create({
-          key: taskKeyToUse,
-          name,
-          type: "arc",
-          config: { arcKey: key },
-        });
-        if (taskKeyDefined)
+        const newTsk = await client.tasks.create(
+          {
+            key: taskKeyToUse,
+            name,
+            type: "arc",
+            config: { arcKey: key },
+            status: configuringStatus(taskKeyToUse),
+          },
+          {
+            typeSchema: taskTypeZ,
+            configSchema: taskConfigZ,
+            statusDataSchema: taskStatusDataZ,
+          },
+        );
+        if (!taskKeyDefined)
           await client.ontology.addChildren(
             arc.ontologyID(key),
             task.ontologyID(newTsk.key),
@@ -68,7 +91,7 @@ export const Controls = ({ state }: ControlsProps) => {
   return (
     <Flex.Box
       className={CSS.BE("arc-editor", "controls")}
-      justify="end"
+      justify="between"
       grow
       x
       background={0}
@@ -76,7 +99,7 @@ export const Controls = ({ state }: ControlsProps) => {
       bordered
       rounded={1}
     >
-      <Status.Summary variant="disabled" message="Not deployed" status={status} grow />
+      <Status.Summary variant="disabled" message="Not deployed" status={taskStatus} />
       <Flex.Box x gap="small" align="center">
         <Rack.SelectSingle
           className={CSS.B("rack-select")}
@@ -87,14 +110,14 @@ export const Controls = ({ state }: ControlsProps) => {
         />
         <Button.Button
           onClick={handleConfigure}
-          variant="filled"
+          variant="outlined"
           disabled={selectedRack === undefined}
         >
           Configure
         </Button.Button>
         <Button.Button
           onClick={onStartStop}
-          variant="outlined"
+          variant="filled"
           disabled={selectedRack === undefined}
         >
           {running ? <Icon.Pause /> : <Icon.Play />}

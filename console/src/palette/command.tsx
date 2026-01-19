@@ -65,6 +65,8 @@ export interface CommandListItemProps extends List.ItemProps<string> {
   endContent?: ReactElement;
 }
 
+const SYNTHETIC_CLICK_DETAIL = 0;
+
 const BaseCommandListItem = ({
   name,
   icon,
@@ -72,23 +74,33 @@ const BaseCommandListItem = ({
   endContent,
   itemKey,
   ...props
-}: CommandListItemProps & Record<string, unknown>): ReactElement => (
-  <Select.ListItem
-    highlightHovered
-    justify="between"
-    align="center"
-    onClick={onSelect}
-    itemKey={itemKey}
-    data-command-key={itemKey}
-    {...props}
-  >
-    <Text.Text weight={400} gap="medium">
-      {icon}
-      {name}
-    </Text.Text>
-    {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
-  </Select.ListItem>
-);
+}: CommandListItemProps & Record<string, unknown>): ReactElement => {
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      // Only trigger on the synthetic click, which means we won't accidentally call
+      // `onSelect` twice.
+      if (e.detail === SYNTHETIC_CLICK_DETAIL) onSelect();
+    },
+    [onSelect],
+  );
+  return (
+    <Select.ListItem
+      highlightHovered
+      justify="between"
+      align="center"
+      onClick={handleClick}
+      itemKey={itemKey}
+      data-command-key={itemKey}
+      {...props}
+    >
+      <Text.Text weight={400} gap="medium">
+        {icon}
+        {name}
+      </Text.Text>
+      {endContent != null && <Flex.Box x>{endContent}</Flex.Box>}
+    </Select.ListItem>
+  );
+};
 
 export const CommandListItem = Component.removeProps(BaseCommandListItem, [
   "placeLayout",

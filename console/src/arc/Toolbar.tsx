@@ -91,6 +91,36 @@ const Content = () => {
     afterFailure: ({ status }) => addStatus(status),
   });
 
+  const { update: handleRename } = Arc.useRename({
+    beforeUpdate: useCallback(
+      async ({
+        data,
+        rollbacks,
+        store,
+        client,
+      }: Flux.BeforeUpdateParams<Arc.RenameParams, false, Arc.FluxSubStore>) => {
+        const { key, name } = data;
+        const tsk = await Arc.retrieveTask({ store, client, query: { arcKey: key } });
+        const arc = getItem(key);
+        if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
+        const oldName = arc.name;
+        if (tsk?.status?.details.running === true) {
+          const confirmed = await confirm({
+            message: `Are you sure you want to rename ${arc.name} to ${name}?`,
+            description: `This will cause ${arc.name} to stop and be reconfigured.`,
+            cancel: { label: "Cancel" },
+            confirm: { label: "Rename", variant: "error" },
+          });
+          if (!confirmed) return false;
+        }
+        dispatch(Layout.rename({ key, name }));
+        rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
+        return data;
+      },
+      [dispatch, getItem],
+    ),
+  });
+
   const handleEdit = useCallback(
     (key: arc.Key) => {
       const retrieved = getItem(key);
@@ -116,21 +146,6 @@ const Content = () => {
       placeLayout(Editor.create({ name: result.name, mode: result.mode }));
     }, "Failed to create Arc program");
   }, [createArc, handleError, placeLayout]);
-
-  const { update: handleRename } = Arc.useRename({
-    beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Arc.RenameParams>) => {
-        const { key, name } = data;
-        const arc = getItem(key);
-        if (arc == null) throw new UnexpectedError(`Arc with key ${key} not found`);
-        const oldName = arc.name;
-        dispatch(Layout.rename({ key, name }));
-        rollbacks.push(() => dispatch(Layout.rename({ key, name: oldName })));
-        return data;
-      },
-      [dispatch, getItem],
-    ),
-  });
 
   const contextMenu = useCallback<NonNullable<PMenu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
@@ -209,14 +224,17 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
   const { running, onStartStop, taskStatus: status } = useTask(itemKey);
+  let statusMessage = "Stopped";
+  if (status.variant === "success" && running) statusMessage = "Running";
+  else if (status.variant === "error") statusMessage = "Error";
   return (
     <Select.ListItem {...rest} justify="between" align="center">
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
-        <Status.Indicator
-          variant={status.variant}
-          style={{ fontSize: "2rem", minWidth: "2rem" }}
-        />
         <Flex.Box x align="center" gap="small">
+          <Status.Indicator
+            variant={status.variant}
+            style={{ fontSize: "2rem", minWidth: "2rem" }}
+          />
           <Text.MaybeEditable
             id={`text-${itemKey}`}
             value={arcItem?.name ?? ""}
@@ -226,14 +244,19 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
             weight={500}
           />
         </Flex.Box>
+        <Text.Text level="small" status={status?.variant}>
+          {statusMessage}
+        </Text.Text>
       </Flex.Box>
-      <Button.Button
-        variant="outlined"
-        onClick={onStartStop}
-        tooltip={`${running ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
-      >
-        {running ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Button>
+      {hasEditPermission && (
+        <Button.Button
+          variant="outlined"
+          onClick={onStartStop}
+          tooltip={`${running ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
+        >
+          {running ? <Icon.Pause /> : <Icon.Play />}
+        </Button.Button>
+      )}
     </Select.ListItem>
   );
 };

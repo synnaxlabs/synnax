@@ -14,7 +14,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Writer is used to create, update, and delete arcs within Synnax. The writer
@@ -22,8 +25,9 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx   gorp.Tx
+	otg  ontology.Writer
+	task task.Writer
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -56,11 +60,17 @@ func (w Writer) Create(
 	return nil
 }
 
-// Delete deletes the arcs with the given keys.
+// Delete deletes the arcs with the given keys. If the arc has child tasks, those
+// tasks will also be deleted.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) (err error) {
+	for _, key := range keys {
+		if err = w.deleteChildTasks(ctx, key); err != nil {
+			return
+		}
+	}
 	if err = gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return
 	}
@@ -70,4 +80,30 @@ func (w Writer) Delete(
 		}
 	}
 	return
+}
+
+func (w Writer) deleteChildTasks(ctx context.Context, key uuid.UUID) error {
+	var children []ontology.Resource
+	if err := w.otg.NewRetrieve().
+		WhereIDs(OntologyID(key)).
+		TraverseTo(ontology.ChildrenTraverser).
+		WhereTypes(task.OntologyType).
+		Entries(&children).
+		ExcludeFieldData(true).
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	if len(children) == 0 {
+		return nil
+	}
+	taskKeys, err := task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
+	if err != nil {
+		return err
+	}
+	for _, taskKey := range taskKeys {
+		if err = w.task.Delete(ctx, taskKey, false); err != nil {
+			return err
+		}
+	}
+	return nil
 }
