@@ -12,21 +12,20 @@ import "@/error/Overlay.css";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,
-  Component,
   CSS as PCSS,
+  Error as PError,
   Flex,
   Nav,
   OS,
-  Text,
   Theming,
 } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import {
-  ErrorBoundary,
-  type ErrorBoundaryProps,
-  type FallbackProps,
-} from "react-error-boundary";
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -36,21 +35,14 @@ import { Runtime } from "@/runtime";
 
 export interface OverlayProps extends PropsWithChildren {}
 
-const messageTranslation: Record<string, string> = {
-  "[persist] - windows open":
-    "It seems like you have Synnax open from multiple windows. Please close all other windows and reopen Synnax.",
-};
-
-const FallbackRenderWithStore: ErrorBoundaryProps["fallbackRender"] = ({ error }) => {
+const FallbackRenderWithStore = ({ error }: PError.FallbackProps): ReactElement => {
   const dispatch = useDispatch();
-  const handleTryAgain = (): void => {
+  const handleTryAgain = useCallback((): void => {
     dispatch(REVERT_STATE);
-  };
-
-  const handleClear = (): void => {
+  }, [dispatch]);
+  const handleClear = useCallback((): void => {
     dispatch(CLEAR_STATE);
-  };
-
+  }, [dispatch]);
   return (
     <FallBackRenderContent
       onClear={handleClear}
@@ -59,14 +51,16 @@ const FallbackRenderWithStore: ErrorBoundaryProps["fallbackRender"] = ({ error }
     />
   );
 };
-const FallbackRenderWithoutStore: ErrorBoundaryProps["fallbackRender"] = ({
-  error,
-}) => <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />;
 
-type FallbackRenderContentProps = Pick<FallbackProps, "error"> & {
+const FallbackRenderWithoutStore = ({ error }: PError.FallbackProps): ReactElement => (
+  <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />
+);
+
+interface FallbackRenderContentProps {
+  error: Error;
   onTryAgain?: () => void;
-  onClear?: () => void;
-};
+  onClear: () => void;
+}
 
 const FallBackRenderContent = ({
   onTryAgain,
@@ -75,7 +69,6 @@ const FallBackRenderContent = ({
 }: FallbackRenderContentProps): ReactElement => {
   const os = OS.use();
   useEffect(() => {
-    // grab the prefers-color-scheme media query
     try {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const theme = mediaQuery.matches ? Theming.SYNNAX_DARK : Theming.SYNNAX_LIGHT;
@@ -88,6 +81,10 @@ const FallBackRenderContent = ({
     }
     if (Runtime.ENGINE === "tauri") void getCurrentWindow().show();
   }, []);
+  const resetErrorBoundary = useCallback((): void => {
+    onTryAgain?.();
+  }, [onTryAgain]);
+
   return (
     <Flex.Box y className={CSS.B("error-overlay")}>
       <Nav.Bar
@@ -135,41 +132,31 @@ const FallBackRenderContent = ({
         </Nav.Bar.End>
       </Nav.Bar>
 
-      <Flex.Box role="alert" center>
-        <Flex.Box x className={CSS.B("dialog")} gap={20}>
-          <Logo variant="icon" />
-          <Flex.Box y align="start" className={CSS.B("details")}>
-            <Text.Text level="h1">Something went wrong</Text.Text>
-            <Text.Text status="error" level="h3">
-              {error.name} - {messageTranslation[error.message] ?? error.message}
-            </Text.Text>
-            <Text.Text className={CSS.B("stack")}>{error.stack}</Text.Text>
-            <Flex.Box x>
-              {onTryAgain && (
-                <Button.Button variant="filled" onClick={onTryAgain}>
-                  Try again
-                </Button.Button>
-              )}
-              {onClear && (
-                <Button.Button onClick={onClear} variant="outlined">
-                  Clear Storage and Hard Reset
-                </Button.Button>
-              )}
-            </Flex.Box>
-          </Flex.Box>
+      <PError.Fallback
+        error={error}
+        resetErrorBoundary={resetErrorBoundary}
+        variant="full"
+        showLogo
+      >
+        <Flex.Box x>
+          {onTryAgain != null && (
+            <Button.Button variant="filled" onClick={onTryAgain}>
+              Reload Console
+            </Button.Button>
+          )}
+          <Button.Button onClick={onClear}>
+            Clear storage and reload Console
+          </Button.Button>
         </Flex.Box>
-      </Flex.Box>
+      </PError.Fallback>
     </Flex.Box>
   );
 };
 
-const fallbackRenderWithStore = Component.renderProp(FallbackRenderWithStore);
-const fallbackRenderWithoutStore = Component.renderProp(FallbackRenderWithoutStore);
-
 export const OverlayWithStore = (props: OverlayProps): ReactElement => (
-  <ErrorBoundary {...props} fallbackRender={fallbackRenderWithStore} />
+  <PError.Boundary {...props} FallbackComponent={FallbackRenderWithStore} />
 );
 
 export const OverlayWithoutStore = (props: OverlayProps): ReactElement => (
-  <ErrorBoundary {...props} fallbackRender={fallbackRenderWithoutStore} />
+  <PError.Boundary {...props} FallbackComponent={FallbackRenderWithoutStore} />
 );
