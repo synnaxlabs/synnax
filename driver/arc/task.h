@@ -65,7 +65,10 @@ struct TaskConfig {
 
         cfg.module = module::Module(arc_data.module);
 
-        const auto mode_str = parser.field<std::string>("execution_mode", "EVENT_DRIVEN");
+        const auto mode_str = parser.field<std::string>(
+            "execution_mode",
+            "EVENT_DRIVEN"
+        );
         auto mode = runtime::loop::ExecutionMode::HIGH_RATE;
         if (mode_str == "BUSY_WAIT") {
             mode = runtime::loop::ExecutionMode::BUSY_WAIT;

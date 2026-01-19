@@ -42,9 +42,9 @@ type Config struct {
 	Channel *channel.Service
 	// Status is the status service for task status updates.
 	Status *status.Service
+	alamos.Instrumentation
 	// HeartbeatInterval is the interval at which the driver reports its health.
 	HeartbeatInterval time.Duration
-	alamos.Instrumentation
 }
 
 var (
