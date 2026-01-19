@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/arc/editor/Controls.css";
+
 import { arc, type rack, task } from "@synnaxlabs/client";
 import {
   Arc,
@@ -22,6 +24,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { type State } from "@/arc/slice";
 import { translateGraphToServer } from "@/arc/types/translate";
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
 interface ControlsProps {
@@ -59,66 +62,59 @@ export const Controls = ({ state }: ControlsProps) => {
     ),
   });
   const cmd = Task.useCommand();
-  const handleStop = useCallback(() => {
-    if (tsk.data?.key == null) return;
-    cmd.update([{ task: tsk.data.key, type: "stop" }]);
-  }, [cmd, tsk.data?.key]);
   const isRunning = tsk.data?.status?.details.running ?? false;
-  const handleDeploy = useCallback(() => {
-    if (isRunning) handleStop();
-    else
-      update({
-        name,
-        key: state.key,
-        text: state.text,
-        version: "0.0.0",
-        graph: translateGraphToServer(state.graph),
-        mode: state.mode,
-      });
-  }, [state, update, handleStop, isRunning, name]);
+  const handleStartStop = useCallback(() => {
+    if (tsk.data?.key == null) return;
+    cmd.update([{ task: tsk.data.key, type: isRunning ? "stop" : "start" }]);
+  }, [cmd, tsk.data?.key, isRunning]);
+
+  const handleConfigure = useCallback(() => {
+    update({
+      name,
+      key: state.key,
+      text: state.text,
+      version: "0.0.0",
+      graph: translateGraphToServer(state.graph),
+      mode: state.mode,
+    });
+  }, [state, update, name]);
   return (
     <Flex.Box
-      style={{
-        padding: "2rem",
-        position: "absolute",
-        bottom: 0,
-        right: 0,
-        width: 500,
-      }}
+      className={CSS.BE("arc-editor", "controls")}
       justify="end"
       grow
+      x
+      background={0}
+      borderColor={5}
+      bordered
+      rounded={1}
     >
-      <Flex.Box
-        x
-        background={1}
-        style={{ padding: "2rem" }}
-        bordered
-        borderColor={5}
+      <Status.Summary
+        variant="disabled"
+        message="Not deployed"
+        status={tsk.data?.status}
         grow
-        rounded={2}
-        justify="between"
-        gap="medium"
-      >
-        <Flex.Box x gap="small" align="center" grow>
-          <Rack.SelectSingle
-            value={selectedRack}
-            onChange={setSelectedRack}
-            allowNone
-            style={{ minWidth: 150 }}
-          />
-          <Status.Summary
-            variant="disabled"
-            message="Not deployed"
-            status={tsk.data?.status}
-          />
-        </Flex.Box>
+      />
+      <Flex.Box x gap="small" align="center">
+        <Rack.SelectSingle
+          className={CSS.B("rack-select")}
+          value={selectedRack}
+          onChange={setSelectedRack}
+          allowNone
+        />
         <Button.Button
-          onClick={handleDeploy}
+          onClick={handleConfigure}
           variant="filled"
           disabled={selectedRack === undefined}
         >
+          Configure
+        </Button.Button>
+        <Button.Button
+          onClick={handleStartStop}
+          variant="outlined"
+          disabled={selectedRack === undefined}
+        >
           {isRunning ? <Icon.Pause /> : <Icon.Play />}
-          {isRunning ? "Stop" : "Start"}
         </Button.Button>
       </Flex.Box>
     </Flex.Box>
