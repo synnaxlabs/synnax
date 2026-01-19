@@ -9,29 +9,57 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { Schematic } from "@/schematic";
 import { CreateIcon, ImportIcon } from "@/schematic/services/Icon";
 import { import_ } from "@/schematic/services/import";
 
-const CREATE_COMMAND: Palette.Command = {
-  key: "create-schematic",
-  name: "Create a Schematic",
-  icon: <CreateIcon />,
-  onSelect: ({ placeLayout }) => placeLayout(Schematic.create()),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }),
-};
+const useVisible = () => Access.useUpdateGranted(schematic.TYPE_ONTOLOGY_ID);
 
-const IMPORT_COMMAND: Palette.Command = {
-  key: "import-schematic",
-  name: "Import Schematic(s)",
-  sortOrder: -1,
-  icon: <ImportIcon />,
-  onSelect: import_,
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }),
+export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+  const handleSelect = useCallback(
+    () => placeLayout(Schematic.create()),
+    [placeLayout],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a Schematic"
+      icon={<CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
 };
+CreateCommand.key = "create-schematic";
+CreateCommand.commandName = "Create a Schematic";
+CreateCommand.useVisible = useVisible;
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+export const ImportCommand: Palette.Command = ({
+  placeLayout,
+  handleError,
+  store,
+  client,
+  fluxStore,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () => import_({ placeLayout, handleError, store, client, fluxStore }),
+    [placeLayout, handleError, store, client, fluxStore],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import Schematic(s)"
+      icon={<ImportIcon />}
+      onSelect={handleSelect}
+    />
+  );
+};
+ImportCommand.key = "import-schematic";
+ImportCommand.commandName = "Import Schematic(s)";
+ImportCommand.sortOrder = -1;
+ImportCommand.useVisible = useVisible;
+
+export const COMMANDS = [CreateCommand, ImportCommand];
