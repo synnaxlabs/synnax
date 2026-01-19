@@ -7,20 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package godriver
+//go:build !driver
+
+package driver
 
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/config"
 )
 
-// Task is the interface that all executable tasks must implement.
-type Task interface {
-	// Exec handles commands (start, stop, etc.)
-	Exec(ctx context.Context, cmd task.Command) error
-	// Stop gracefully shuts down the task.
-	Stop(ctx context.Context, willReconfigure bool) error
-	// Key returns the task key.
-	Key() task.Key
+func Open(_ context.Context, cfgs ...Config) (*Driver, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	cfg.L.Info("server built without embedded driver")
+	return &Driver{}, nil
 }
+
+func (d *Driver) Close() error { return nil }

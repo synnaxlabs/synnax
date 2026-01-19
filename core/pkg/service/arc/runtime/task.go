@@ -28,9 +28,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -43,10 +43,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Task implements the godriver.Task interface and manages Arc program execution.
+// Task implements the driver.Task interface and manages Arc program execution.
 type Task struct {
 	factoryCfg FactoryConfig
-	ctx        godriver.Context
+	ctx        driver.Context
 	closer     io.Closer
 	scheduler  *scheduler.Scheduler
 	streamer   *streamerSeg
@@ -63,7 +63,7 @@ func newTask(
 	key task.Key,
 	prog arc.Arc,
 	cfg TaskConfig,
-	ctx godriver.Context,
+	ctx driver.Context,
 	factoryCfg FactoryConfig,
 ) *Task {
 	return &Task{

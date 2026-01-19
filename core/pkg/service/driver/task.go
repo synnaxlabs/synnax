@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package godriver_test
+package driver
 
 import (
 	"context"
-	"testing"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
 
-var ctx = context.Background()
-
-func TestGoDriver(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Driver Suite")
+// Task is the interface that all executable tasks must implement.
+type Task interface {
+	// Exec handles commands (start, stop, etc.)
+	Exec(ctx context.Context, cmd task.Command) error
+	// Stop gracefully shuts down the task.
+	Stop(ctx context.Context, willReconfigure bool) error
+	// Key returns the task key.
+	Key() task.Key
 }

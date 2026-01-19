@@ -9,7 +9,7 @@
 
 //go:build driver && windows
 
-package cpp
+package driver
 
 import (
 	"embed"

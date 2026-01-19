@@ -9,7 +9,7 @@
 
 //go:build driver
 
-package cpp
+package driver
 
 import (
 	"bufio"

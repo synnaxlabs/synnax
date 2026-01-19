@@ -7,23 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build !driver
-
-package cpp
+package driver_test
 
 import (
 	"context"
+	"testing"
 
-	"github.com/synnaxlabs/x/config"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func Open(_ context.Context, cfgs ...Config) (*Driver, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
-	if err != nil {
-		return nil, err
-	}
-	cfg.L.Info("server built without embedded driver")
-	return &Driver{}, nil
-}
+var ctx = context.Background()
 
-func (d *Driver) Close() error { return nil }
+func TestGoDriver(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Go Driver Suite")
+}

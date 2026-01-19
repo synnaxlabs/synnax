@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package godriver_test
+package driver_test
 
 import (
 	"context"
@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -36,11 +36,11 @@ import (
 )
 
 type mockFactory struct {
-	configureFunc func(t task.Task) (godriver.Task, bool, error)
+	configureFunc func(t task.Task) (driver.Task, bool, error)
 	name          string
 }
 
-func (f *mockFactory) ConfigureTask(_ godriver.Context, t task.Task) (godriver.Task, bool, error) {
+func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task, bool, error) {
 	if f.configureFunc != nil {
 		return f.configureFunc(t)
 	}
@@ -78,7 +78,7 @@ var _ = Describe("Config", Ordered, func() {
 		taskService  *task.Service
 		framerSvc    *framer.Service
 		channelSvc   *channel.Service
-		factory      godriver.Factory
+		factory      driver.Factory
 		hostProvider = mock.StaticHostKeyProvider(1)
 	)
 
@@ -115,7 +115,7 @@ var _ = Describe("Config", Ordered, func() {
 
 	Describe("Validate", func() {
 		It("should fail when DB is nil", func() {
-			cfg := godriver.Config{
+			cfg := driver.Config{
 				Rack:    rackService,
 				Task:    taskService,
 				Framer:  framerSvc,
@@ -127,7 +127,7 @@ var _ = Describe("Config", Ordered, func() {
 		})
 
 		It("should fail when Rack is nil", func() {
-			cfg := godriver.Config{
+			cfg := driver.Config{
 				DB:      db,
 				Task:    taskService,
 				Framer:  framerSvc,
@@ -139,7 +139,7 @@ var _ = Describe("Config", Ordered, func() {
 		})
 
 		It("should fail when Task is nil", func() {
-			cfg := godriver.Config{
+			cfg := driver.Config{
 				DB:      db,
 				Rack:    rackService,
 				Framer:  framerSvc,
@@ -151,7 +151,7 @@ var _ = Describe("Config", Ordered, func() {
 		})
 
 		It("should fail when Factory is nil", func() {
-			cfg := godriver.Config{
+			cfg := driver.Config{
 				DB:      db,
 				Rack:    rackService,
 				Task:    taskService,
@@ -163,7 +163,7 @@ var _ = Describe("Config", Ordered, func() {
 		})
 
 		It("should fail when Host is zero", func() {
-			cfg := godriver.Config{
+			cfg := driver.Config{
 				DB:      db,
 				Rack:    rackService,
 				Task:    taskService,
@@ -188,8 +188,8 @@ var _ = Describe("Driver", Ordered, func() {
 	)
 
 	// openDriver creates a driver with the given factory and registers cleanup.
-	openDriver := func(factory godriver.Factory) *godriver.Driver {
-		driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+	openDriver := func(factory driver.Factory) *driver.Driver {
+		driver := MustSucceed(driver.Open(ctx, driver.Config{
 			DB:      dist.DB,
 			Rack:    rackService,
 			Task:    taskService,
@@ -274,7 +274,7 @@ var _ = Describe("Driver", Ordered, func() {
 		})
 
 		It("should fail with invalid config", func() {
-			_, err := godriver.Open(ctx, godriver.Config{})
+			_, err := driver.Open(ctx, driver.Config{})
 			Expect(err).To(HaveOccurred())
 		})
 	})
@@ -284,7 +284,7 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredTask atomic.Value
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					mt := &mockTask{key: t.Key}
 					configuredTask.Store(mt)
 					return mt, true, nil
@@ -307,7 +307,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					if configCount.Add(1) == 1 {
 						close(initialReady)
 					}
@@ -337,7 +337,7 @@ var _ = Describe("Driver", Ordered, func() {
 			var configuredCount atomic.Int32
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					configuredCount.Add(1)
 					return &mockTask{key: t.Key}, true, nil
 				},
@@ -361,7 +361,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					readyOnce.Do(func() { close(initialReady) })
 					return &mockTask{
 						key:      t.Key,
@@ -389,7 +389,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					configureCalled.Store(true)
 					return nil, false, nil
 				},
@@ -413,7 +413,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					configCalled.Store(true)
 					return nil, true, errors.New("factory configuration failed")
 				},
@@ -438,7 +438,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					if configCount.Add(1) == 1 {
 						close(initialReady)
 					}
@@ -475,7 +475,7 @@ var _ = Describe("Driver", Ordered, func() {
 
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					if configCount.Add(1) == expectedTasks {
 						close(allConfigured)
 					}
@@ -486,7 +486,7 @@ var _ = Describe("Driver", Ordered, func() {
 				},
 			}
 
-			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+			driver := MustSucceed(driver.Open(ctx, driver.Config{
 				DB:      dist.DB,
 				Rack:    rackService,
 				Task:    taskService,
@@ -517,7 +517,7 @@ var _ = Describe("Driver", Ordered, func() {
 			)
 			factory := &mockFactory{
 				name: "test",
-				configureFunc: func(t task.Task) (godriver.Task, bool, error) {
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
 					readyOnce.Do(func() { close(configReady) })
 					return &mockTask{
 						key:      t.Key,
@@ -526,7 +526,7 @@ var _ = Describe("Driver", Ordered, func() {
 				},
 			}
 
-			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+			driver := MustSucceed(driver.Open(ctx, driver.Config{
 				DB:      dist.DB,
 				Rack:    rackService,
 				Task:    taskService,
@@ -555,7 +555,7 @@ var _ = Describe("Driver", Ordered, func() {
 
 	Describe("Heartbeat", func() {
 		It("should send periodic status updates", func() {
-			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+			driver := MustSucceed(driver.Open(ctx, driver.Config{
 				DB:                dist.DB,
 				Rack:              rackService,
 				Task:              taskService,
@@ -581,7 +581,7 @@ var _ = Describe("Driver", Ordered, func() {
 		})
 
 		It("should use the configured heartbeat interval", func() {
-			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+			driver := MustSucceed(driver.Open(ctx, driver.Config{
 				DB:                dist.DB,
 				Rack:              rackService,
 				Task:              taskService,
@@ -618,7 +618,7 @@ var _ = Describe("Driver", Ordered, func() {
 		})
 
 		It("should stop heartbeat when driver is closed", func() {
-			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+			driver := MustSucceed(driver.Open(ctx, driver.Config{
 				DB:                dist.DB,
 				Rack:              rackService,
 				Task:              taskService,

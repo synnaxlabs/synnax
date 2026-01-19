@@ -24,10 +24,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -68,8 +68,8 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	newContext := func() godriver.Context {
-		return godriver.NewContext(ctx, statusSvc)
+	newContext := func() driver.Context {
+		return driver.NewContext(ctx, statusSvc)
 	}
 
 	newFactory := func(g graph.Graph) *runtime.Factory {
@@ -85,7 +85,7 @@ var _ = Describe("Task", Ordered, func() {
 		}))
 	}
 
-	newTask := func(factory *runtime.Factory) godriver.Task {
+	newTask := func(factory *runtime.Factory) driver.Task {
 		cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -169,7 +169,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Task Lifecycle", func() {
-		var arcTask godriver.Task
+		var arcTask driver.Task
 
 		BeforeEach(func() {
 			ch := &channel.Channel{
