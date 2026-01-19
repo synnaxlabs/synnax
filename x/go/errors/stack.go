@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,9 +11,11 @@ package errors
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 )
 
 // GetStackTrace attempts to pull the stack trace from the given error. If the
@@ -27,10 +29,19 @@ type StackTrace struct{ *errors.ReportableStackTrace }
 
 // String implements fmt.Stringer.
 func (s *StackTrace) String() string {
-	if s == nil || s.ReportableStackTrace == nil {
-		return ""
-	}
 	var b strings.Builder
+	s.StringBuilder(&b)
+	return b.String()
+}
+
+func mustPrintf(w io.Writer, format string, a ...any) int {
+	return lo.Must1(fmt.Fprintf(w, format, a...))
+}
+
+func (s *StackTrace) StringBuilder(b *strings.Builder) {
+	if s == nil || s.ReportableStackTrace == nil {
+		return
+	}
 	for _, f := range s.Frames {
 		funcName := f.Function
 		if funcName == "" {
@@ -39,31 +50,31 @@ func (s *StackTrace) String() string {
 		if funcName == "" {
 			funcName = "<unknown>"
 		}
-		_, _ = fmt.Fprintf(&b, "%s", funcName)
+		mustPrintf(b, "%s", funcName)
 
 		if f.Module != "" {
-			_, _ = fmt.Fprintf(&b, " [%s]", f.Module)
+			mustPrintf(b, " [%s]", f.Module)
 		}
-		_, _ = fmt.Fprint(&b, "\n\t")
+		mustPrintf(b, "\n\t")
 
 		if f.Filename != "" {
-			_, _ = fmt.Fprintf(&b, "%s", f.Filename)
+			mustPrintf(b, "%s", f.Filename)
 		} else if f.AbsPath != "" {
-			_, _ = fmt.Fprintf(&b, "%s", f.AbsPath)
+			mustPrintf(b, "%s", f.AbsPath)
 		} else {
-			_, _ = fmt.Fprintf(&b, "<unknown file>")
+			mustPrintf(b, "<unknown file>")
 		}
 
 		if f.Lineno > 0 {
-			_, _ = fmt.Fprintf(&b, ":%d", f.Lineno)
+			mustPrintf(b, ":%d", f.Lineno)
 			if f.Colno > 0 {
-				_, _ = fmt.Fprintf(&b, ":%d", f.Colno)
+				mustPrintf(b, ":%d", f.Colno)
 			}
 		}
-		_, _ = fmt.Fprintln(&b)
+		lo.Must(fmt.Fprintln(b))
 		if f.InstructionAddr != "" || f.SymbolAddr != "" {
-			_, _ = fmt.Fprintf(
-				&b,
+			mustPrintf(
+				b,
 				"\t@ %s (symbol: %s, image: %s)\n",
 				f.InstructionAddr,
 				f.SymbolAddr,
@@ -71,8 +82,6 @@ func (s *StackTrace) String() string {
 			)
 		}
 	}
-
-	return b.String()
 }
 
 // WithStack annotates err with a stack trace at the point WithStack was called.

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -47,16 +47,16 @@ var _ = BeforeSuite(func() {
 		EnableSearch: config.False(),
 		DB:           db,
 	}))
-	g := MustSucceed(group.OpenService(ctx, group.Config{
+	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
-	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.Config{
+	workspaceSvc := MustSucceed(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
 	}))
-	userSvc = MustSucceed(user.NewService(ctx, user.Config{
+	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
@@ -66,7 +66,7 @@ var _ = BeforeSuite(func() {
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(lineplot.NewService(lineplot.Config{
+	svc = MustSucceed(lineplot.NewService(lineplot.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))

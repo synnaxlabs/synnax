@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -49,10 +49,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 		return err
 	}
 	otgID := OntologyID(u.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
-		return err
-	}
-	return w.otg.DefineRelationship(ctx, w.svc.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineResource(ctx, otgID)
 }
 
 // ChangeUsername updates the username of the user with the given key. If a User with
@@ -99,24 +96,4 @@ func (w Writer) Delete(
 		return err
 	}
 	return w.otg.DeleteManyResources(ctx, OntologyIDsFromKeys(keys))
-}
-
-// MaybeSetRootUser will set the only user in the key-value store as the root user. This
-// function is implemented to provide backwards compatibility with older versions of the
-// key-value store from before v0.31.0.
-func (w Writer) MaybeSetRootUser(
-	ctx context.Context,
-	username string,
-) error {
-	var users []User
-	if err := w.svc.NewRetrieve().Entries(&users).Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	if len(users) != 1 {
-		return nil
-	}
-	return gorp.NewUpdate[uuid.UUID, User]().WhereKeys(users[0].Key).Change(func(_ gorp.Context, u User) User {
-		u.RootUser = true
-		return u
-	}).Exec(ctx, w.tx)
 }

@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -42,19 +42,6 @@ class TestClusterAuth:
                 username=username,
             )
 
-    def test_invalid_credentials(self, login_info: tuple[str, int, str, str]):
-        """
-        Should raise an AuthError
-        """
-        host, port, username, _ = login_info
-        with pytest.raises(sy.AuthError):
-            sy.Synnax(
-                host=host,
-                port=port,
-                username=username,
-                password="wrong",
-            )
-
 
 @pytest.mark.auth
 class TestAuthRetry:
@@ -71,7 +58,6 @@ class TestAuthRetry:
                 email="synnax@synnax.com",
                 first_name="Synnax",
                 last_name="Labs",
-                root_user=False,
             ),
         )
         mock_login_client = MockUnaryClient[

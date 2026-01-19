@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,10 +22,11 @@ import (
 // Device represents a unique piece of physical hardware that is connected to a rack.
 // Examples of devices include DAQ cards, PLCs, and other hardware.
 type Device struct {
+	// Status is the state of the device. This field is not stored directly with the
+	// device inside of gorp, and is not guaranteed to be valid.
+	Status *Status `json:"status" msgpack:"status"`
 	// The key of the device is its serial no.
 	Key string `json:"key" msgpack:"key"`
-	// Rack is the rack that the device is in.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Location is the location of the device in the rack.
 	Location string `json:"location" msgpack:"location"`
 	// Name is a human-readable name for the device.
@@ -34,13 +35,12 @@ type Device struct {
 	Make string `json:"make" msgpack:"make"`
 	// Model is the model of the device.
 	Model string `json:"model" msgpack:"model"`
-	// Configured sets whether the device has been configured yet.
-	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties are additional properties that are unique to the device.
 	Properties string `json:"properties" msgpack:"properties"`
-	// Status is the state of the device. This field is not stored directly with the
-	// device inside of gorp, and is not guaranteed to be valid.
-	Status *Status `json:"status" msgpack:"status"`
+	// Rack is the rack that the device is in.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Configured sets whether the device has been configured yet.
+	Configured bool `json:"configured" msgpack:"configured"`
 }
 
 var _ gorp.Entry[string] = Device{}
@@ -66,10 +66,10 @@ func (d Device) Validate() error {
 // StatusDetails represents unique information about the device's status that appears in
 // the status payload.
 type StatusDetails struct {
-	// Rack identifies the rack that the device is currently connected to.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Device identifies the key of the device that this status is for.
 	Device string `json:"device" msgpack:"device"`
+	// Rack identifies the rack that the device is currently connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 }
 
 // Status represents information about the state of the device at a given point in time.

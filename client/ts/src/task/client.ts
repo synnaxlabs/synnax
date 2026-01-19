@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -66,11 +66,15 @@ export interface TaskExecuteCommandSyncParams extends TaskExecuteCommandParams {
   timeout?: CrudeTimeSpan;
 }
 
-export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType>
-  extends Omit<ExecuteCommandsSyncInternalParams<StatusData>, "frameClient" | "name"> {}
+export interface ExecuteCommandsSyncParams<StatusData extends z.ZodType> extends Omit<
+  ExecuteCommandsSyncInternalParams<StatusData>,
+  "frameClient" | "name"
+> {}
 
-export interface ExecuteCommandSyncParams<StatusData extends z.ZodType>
-  extends Omit<ExecuteCommandSyncInternalParams<StatusData>, "frameClient" | "name"> {}
+export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends Omit<
+  ExecuteCommandSyncInternalParams<StatusData>,
+  "frameClient" | "name"
+> {}
 
 export class Task<
   Type extends z.ZodLiteral<string> = z.ZodLiteral<string>,
@@ -514,7 +518,8 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "task", key });
+export const ontologyID = ontology.createIDFactory<Key>("task");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 
@@ -557,7 +562,8 @@ const executeCommands = async ({
 };
 
 interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodType>
-  extends Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
+  extends
+    Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
     TaskExecuteCommandSyncParams {
   task: Key;
 }

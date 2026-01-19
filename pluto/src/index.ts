@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export { Access } from "@/access";
 export { Aether } from "@/aether";
 export { Arc } from "@/arc";
 export { Breadcrumb } from "@/breadcrumb";
@@ -41,7 +42,6 @@ export { Menu } from "@/menu";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
 export { Note } from "@/note";
-export { Observe } from "@/observe";
 export { Ontology } from "@/ontology";
 export { OS } from "@/os";
 export { Pluto } from "@/pluto";
@@ -73,6 +73,7 @@ export { Triggers } from "@/triggers";
 export { User } from "@/user";
 export * from "@/util/event";
 export { Video } from "@/video";
+export { View } from "@/view";
 export { Viewport } from "@/viewport";
 export { axis } from "@/vis/axis";
 export { Canvas } from "@/vis/canvas";

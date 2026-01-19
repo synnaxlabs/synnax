@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -80,18 +80,30 @@ const beforeSave = async ({
   client,
   get,
   store,
+  set,
 }: Flux.FormBeforeSaveParams<
   Device.RetrieveQuery,
   typeof Device.formSchema,
   Device.FluxSubStore
 >) => {
   const scanTask = await retrieveScanTask(client, store, get<rack.Key>("rack").value);
-  const state = await scanTask.executeCommandSync({
+  const scanStatus = await scanTask.executeCommandSync({
     type: TEST_CONNECTION_COMMAND_TYPE,
     timeout: TimeSpan.seconds(10),
     args: { connection: get("properties.connection").value },
   });
-  if (state.variant === "error") throw new Error(state.message);
+  if (scanStatus.variant === "error") throw new Error(scanStatus.message);
+  // Since we just scanned successfully, we create a default healthy status for the
+  // device that can then be overwritten by the scanner if we lose connection.
+  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+    message: "Server connected",
+    variant: "success",
+    details: {
+      rack: get<rack.Key>("rack").value,
+      device: get<device.Key>("key").value,
+    },
+  });
+  set("status", devStatus, { notifyOnChange: false, markTouched: false });
   return true;
 };
 

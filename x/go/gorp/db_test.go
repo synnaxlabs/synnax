@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,9 +39,9 @@ var _ = Describe("DB", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return gorp.NewCreate[int, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
 			})).To(Succeed())
-			Expect(db.WithTx(ctx, func(_ gorp.Tx) error { return query.NotFound })).
+			Expect(db.WithTx(ctx, func(_ gorp.Tx) error { return query.ErrNotFound })).
 				ToNot(Succeed())
-			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(2).Exec(ctx, db)).To(HaveOccurredAs(query.NotFound))
+			Expect(gorp.NewRetrieve[int, entry]().WhereKeys(2).Exec(ctx, db)).To(HaveOccurredAs(query.ErrNotFound))
 		})
 	})
 

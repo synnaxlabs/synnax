@@ -4,27 +4,22 @@
 BUILD_WINDOWS=$1
 BUILD_MACOS=$2
 BUILD_UBUNTU=$3
-BUILD_UBUNTU_22_04=$4
 
 OS_LIST=""
 
 if [ "$BUILD_WINDOWS" = "true" ]; then
-    OS_LIST="{\"os\":\"windows-build-bot\",\"artifact-name\":\"synnax-core-windows\",\"binary-suffix\":\"windows.exe\",\"executable\":\".exe\"}"
+    OS_LIST="{\"os\":\"windows-build-bot\",\"os-name\":\"windows\",\"executable\":\".exe\"}"
 fi
 
+# TODO: Revert to macos-build-bot when self-hosted runner is available
 if [ "$BUILD_MACOS" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"macos-build-bot\",\"artifact-name\":\"synnax-core-macos\",\"binary-suffix\":\"macos\",\"executable\":\"\"}"
+    OS_LIST="${OS_LIST}{\"os\":\"macos-latest\",\"os-name\":\"macos\",\"executable\":\"\"}"
 fi
 
 if [ "$BUILD_UBUNTU" = "true" ]; then
     [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"ubuntu-build-bot\",\"artifact-name\":\"synnax-core-linux\",\"binary-suffix\":\"linux\",\"executable\":\"\"}"
-fi
-
-if [ "$BUILD_UBUNTU_22_04" = "true" ]; then
-    [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
-    OS_LIST="${OS_LIST}{\"os\":\"ubuntu-2204-build-bot\",\"artifact-name\":\"synnax-core-nilinuxrt\",\"binary-suffix\":\"nilinuxrt\",\"executable\":\"\"}"
+    OS_LIST="${OS_LIST}{\"os\":\"ubuntu-build-bot\",\"os-name\":\"linux\",\"executable\":\"\"}"
 fi
 
 echo "[${OS_LIST}]"

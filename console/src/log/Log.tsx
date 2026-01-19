@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Log as Core, telem, usePrevious } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Base, telem, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
@@ -18,7 +18,7 @@ import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -26,8 +26,10 @@ export type LayoutType = typeof LAYOUT_TYPE;
 
 export const useSyncComponent = Workspace.createSyncComponent(
   "Log",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
+    if (!Access.updateGranted({ id: log.ontologyID(key), store: fluxStore, client }))
+      return;
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
@@ -77,7 +79,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [winKey, dispatch]);
 
   return (
-    <Core.Log
+    <Base.Log
       telem={t}
       onDoubleClick={handleDoubleClick}
       emptyContent={
@@ -97,7 +99,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 };
 
 const useLoadRemote = createLoadRemote<log.Log>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
@@ -109,12 +111,25 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Log",
-  icon: <Icon.Log />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const visible = Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+  const handleClick = useCallback(() => {
+    onPlace(create({ key: layoutKey }));
+  }, [onPlace, layoutKey]);
+
+  if (!visible) return null;
+
+  return (
+    <Selector.Item
+      key={LAYOUT_TYPE}
+      title="Log"
+      icon={<Icon.Log />}
+      onClick={handleClick}
+    />
+  );
 };
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -276,8 +276,11 @@ export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
 export type ReadType = typeof READ_TYPE;
 
-export interface ReadPayload
-  extends task.Payload<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
+export interface ReadPayload extends task.Payload<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> {}
 export const ZERO_READ_PAYLOAD: ReadPayload = {
   key: "",
   name: "LabJack Read Task",
@@ -285,8 +288,11 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
   type: READ_TYPE,
 };
 
-export interface ReadTask
-  extends task.Task<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
+export interface ReadTask extends task.Task<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> {}
 export interface NewReadTask extends task.New<typeof readTypeZ, typeof readConfigZ> {}
 
 export const READ_SCHEMAS: task.Schemas<
@@ -306,6 +312,8 @@ export const writeConfigZ = Common.Task.baseConfigZ.extend({
       channels.map<OutputChannel>(({ cmdKey, stateKey, ...rest }) => ({
         cmdChannel: cmdKey,
         stateChannel: stateKey,
+        cmdChannelName: "",
+        stateChannelName: "",
         ...rest,
       })),
     )
@@ -330,12 +338,11 @@ export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);
 export type WriteType = typeof WRITE_TYPE;
 
-export interface WritePayload
-  extends task.Payload<
-    typeof writeTypeZ,
-    typeof writeConfigZ,
-    typeof writeStatusDataZ
-  > {}
+export interface WritePayload extends task.Payload<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> {}
 export const ZERO_WRITE_PAYLOAD: WritePayload = {
   key: "",
   name: "LabJack Write Task",
@@ -343,10 +350,15 @@ export const ZERO_WRITE_PAYLOAD: WritePayload = {
   type: WRITE_TYPE,
 };
 
-export interface WriteTask
-  extends task.Task<typeof writeTypeZ, typeof writeConfigZ, typeof writeStatusDataZ> {}
-export interface NewWriteTask
-  extends task.New<typeof writeTypeZ, typeof writeConfigZ> {}
+export interface WriteTask extends task.Task<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> {}
+export interface NewWriteTask extends task.New<
+  typeof writeTypeZ,
+  typeof writeConfigZ
+> {}
 
 export const WRITE_SCHEMAS: task.Schemas<
   typeof writeTypeZ,

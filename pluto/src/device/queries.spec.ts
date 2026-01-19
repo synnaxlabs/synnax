@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,6 +14,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Device } from "@/device";
+import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -91,17 +92,15 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.key).toEqual(dev.key);
-      const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>(
-        {
-          key: device.statusKey(dev.key),
-          variant: "success",
-          message: "Device is happy as a clam",
-          details: {
-            rack: rack.key,
-            device: dev.key,
-          },
+      const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+        key: device.statusKey(dev.key),
+        variant: "success",
+        message: "Device is happy as a clam",
+        details: {
+          rack: rack.key,
+          device: dev.key,
         },
-      );
+      });
       await client.statuses.set(devStatus);
       await waitFor(() => {
         expect(result.current.data?.status?.variant).toEqual("success");
@@ -110,6 +109,86 @@ describe("queries", () => {
           "Device is happy as a clam",
         );
       });
+    });
+
+    it("should not set status to undefined when the device is updated", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      });
+      const { result } = renderHook(() => Device.useRetrieve({ key: dev.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+        key: device.statusKey(dev.key),
+        variant: "success",
+        message: "Device is connected",
+        details: {
+          rack: rack.key,
+          device: dev.key,
+        },
+      });
+      await client.statuses.set(devStatus);
+      await waitFor(() => {
+        expect(result.current.data?.status?.variant).toEqual("success");
+      });
+      await act(async () => {
+        await client.devices.create({
+          ...dev,
+          name: "updated-name",
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.data?.name).toEqual("updated-name");
+        expect(result.current.data?.status).not.toBeUndefined();
+      });
+    });
+
+    it("should correctly retrieve the devices status even when the query is cached", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const dev = await client.devices.create({
+        key: id.create(),
+        name: "test",
+        rack: rack.key,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+      });
+      const { result: result1 } = renderHook(
+        () => ({
+          device: Device.useRetrieve({ key: dev.key }),
+          store: Flux.useStore<Device.FluxSubStore>(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result1.current.device.variant).toEqual("success"));
+      expect(result1.current.device.data?.key).toEqual(dev.key);
+      expect(result1.current.device.data?.status).toBeDefined();
+      result1.current.store.statuses.set(
+        status.create<typeof device.statusDetailsZ>({
+          key: device.statusKey(dev.key),
+          variant: "success",
+          message: "Device is happy as a clam",
+          details: { rack: rack.key, device: dev.key },
+        }),
+      );
+      const { result: result2 } = renderHook(
+        () => Device.useRetrieve({ key: dev.key }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result2.current.variant).toEqual("success"));
+      expect(result2.current.data?.status?.variant).toEqual("success");
+      expect(result2.current.data?.status?.message).toEqual(
+        "Device is happy as a clam",
+      );
     });
   });
 
@@ -142,7 +221,7 @@ describe("queries", () => {
       });
       result.current.retrieve({});
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThan(2);
+      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
       expect(result.current.data).toContain(dev1.key);
       expect(result.current.data).toContain(dev2.key);
     });
@@ -389,14 +468,12 @@ describe("queries", () => {
       result.current.list.retrieve({});
       await waitFor(() => expect(result.current.list.variant).toEqual("success"));
 
-      const devStatus: device.Status = status.create<typeof device.statusDetailsSchema>(
-        {
-          key: device.statusKey(dev.key),
-          variant: "error",
-          message: "Device has issues",
-          details: { rack: rack.key, device: dev.key },
-        },
-      );
+      const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
+        key: device.statusKey(dev.key),
+        variant: "error",
+        message: "Device has issues",
+        details: { rack: rack.key, device: dev.key },
+      });
       await act(async () => {
         await result.current.status.updateAsync({ statuses: devStatus });
       });

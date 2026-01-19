@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -119,5 +119,5 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
 });
 
 export const anyStateZ = z
-  .union([v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ])
+  .union([v4.stateZ, v3.stateZ, v2.stateZ, v1.stateZ, v0.stateZ])
   .transform((state) => migrateState(state));

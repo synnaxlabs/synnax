@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,10 +24,8 @@ export interface GroupData {
 }
 
 export interface GroupedProps
-  extends Omit<
-      ContainerProps,
-      "value" | "onChange" | "background" | "draggable" | "gap"
-    >,
+  extends
+    Omit<ContainerProps, "value" | "onChange" | "background" | "draggable" | "gap">,
     Pick<EntriesProps, "background" | "allowVisibleChange" | "onEntryChange"> {
   data: GroupData[];
   position?: ContainerProps["value"];

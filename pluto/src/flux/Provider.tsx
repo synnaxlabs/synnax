@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,13 +13,13 @@ import { type PropsWithChildren, type ReactElement, useMemo, useRef } from "reac
 import { Aether } from "@/aether";
 import { context } from "@/context";
 import { flux } from "@/flux/aether";
-import { core } from "@/flux/core";
+import { base } from "@/flux/base";
 import { useInitializerRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
-const [Context, useContext] = context.create<core.Client>({
+const [Context, useContext] = context.create<base.Client>({
   displayName: "Flux.Context",
   providerName: "Flux.Provider",
 });
@@ -33,7 +33,7 @@ export const useStore = <ScopedStore extends flux.Store>(
 };
 
 export type ProviderProps<ScopedStore extends flux.Store> = (
-  | { client: core.Client<ScopedStore> }
+  | { client: base.Client<ScopedStore> }
   | { storeConfig: flux.StoreConfig<ScopedStore> }
 ) &
   PropsWithChildren;
@@ -52,7 +52,7 @@ export const Provider = <ScopedStore extends flux.Store>({
   });
   const initializeClient = () => {
     if ("client" in cfg) return cfg.client;
-    return new core.Client({
+    return new base.Client({
       client: synnaxClient,
       storeConfig: cfg.storeConfig,
       handleError,

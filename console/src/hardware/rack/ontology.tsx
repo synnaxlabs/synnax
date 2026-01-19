@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { rack } from "@synnaxlabs/client";
-import { Icon, Menu as PMenu, Rack, Status, Text, Tree } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Icon,
+  Menu as PMenu,
+  Rack,
+  Status,
+  Text,
+  Tree,
+} from "@synnaxlabs/pluto";
+import { useMemo } from "react";
 
 import { Menu } from "@/components";
 import { Group } from "@/group";
@@ -71,6 +80,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     state: { shape },
   } = props;
   const { ids, rootID } = selection;
+  const ontologyIDs = useMemo(
+    () => ids.map((id) => rack.ontologyID(Number(id.key))),
+    [ids],
+  );
+  const canEdit = Access.useUpdateGranted(ontologyIDs);
+  const canDelete = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
   const openRenameModal = Modals.useRename();
@@ -99,7 +114,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   return (
     <PMenu.Menu level="small" gap="small" onChange={onSelect}>
       <Group.MenuItem ids={ids} rootID={rootID} shape={shape} showBottomDivider />
-      {isSingle && (
+      {canEdit && isSingle && (
         <>
           <Menu.RenameItem />
           <PMenu.Item itemKey="createSequence">
@@ -109,7 +124,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <PMenu.Divider />
         </>
       )}
-      <Menu.DeleteItem />
+      {canDelete && <Menu.DeleteItem />}
       <PMenu.Divider />
       {isSingle && (
         <>

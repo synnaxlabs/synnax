@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -184,9 +184,7 @@ export class Rack {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "rack",
-  key: key.toString(),
-});
+export const ontologyID = ontology.createIDFactory<Key>("rack");
+export const TYPE_ONTOLOGY_ID = ontologyID(0);
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));

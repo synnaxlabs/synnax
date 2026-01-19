@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -78,7 +78,7 @@ std::pair<common::ConfigureResult, xerrors::Error> configure_scan(
         ctx,
         task,
         breaker::default_config(task.name),
-        cfg.rate
+        cfg.scan_rate
     );
     result.auto_start = cfg.enabled;
     return {std::move(result), xerrors::NIL};

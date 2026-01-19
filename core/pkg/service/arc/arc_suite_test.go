@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -53,7 +53,7 @@ var _ = BeforeSuite(func() {
 	distB := mock.NewCluster()
 	dist = distB.Provision(ctx)
 
-	labelSvc = MustSucceed(label.OpenService(ctx, label.Config{
+	labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -77,11 +77,11 @@ var _ = BeforeSuite(func() {
 
 var (
 	_ = AfterSuite(func() {
-		//Expect(svc.Close()).To(Succeed())
-		//Expect(labelSvc.Close()).To(Succeed())
-		//Expect(dist.Close()).To(Succeed())
-		//Expect(otg.Close()).To(Succeed())
-		//Expect(db.Close()).To(Succeed())
+		Expect(svc.Close()).To(Succeed())
+		Expect(labelSvc.Close()).To(Succeed())
+		Expect(dist.Close()).To(Succeed())
+		Expect(otg.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = db.OpenTx() })
 	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -432,7 +432,7 @@ var _ = Describe("Graph", func() {
 				_, diagnostics := graph.Analyze(ctx, g, nil)
 				// This should fail because string doesn't satisfy NumericConstraint
 				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("does not satisfy constraint"))
+				Expect(diagnostics.String()).To(ContainSubstring("constraint violation"))
 			})
 
 			It("Should handle missing edge connections", func() {

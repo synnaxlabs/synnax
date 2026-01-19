@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,8 @@ import { z } from "zod";
 export const keyZ = z.uint32();
 export type Key = z.infer<typeof keyZ>;
 
-export const statusDetailsSchema = z.object({ rack: keyZ });
-export const statusZ = status.statusZ(statusDetailsSchema);
+export const statusDetailsZ = z.object({ rack: keyZ });
+export const statusZ = status.statusZ(statusDetailsZ);
 
 export interface Status extends z.infer<typeof statusZ> {}
 

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,11 +13,11 @@ import (
 	"context"
 	"os"
 
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/migrate"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 )
 
 const metaFile = "meta.json"
@@ -33,58 +33,58 @@ var ErrIgnoreChannel = errors.New("channel should be ignored")
 // required by the DB correctly set.
 func Open(
 	ctx context.Context,
-	fs xfs.FS,
-	ch core.Channel,
+	fs fs.FS,
+	ch channel.Channel,
 	codec binary.Codec,
-) (core.Channel, error) {
+) (channel.Channel, error) {
 	exists, err := fs.Exists(metaFile)
 	if err != nil {
-		return core.Channel{}, err
+		return channel.Channel{}, err
 	}
 	if exists {
 		ch, err = Read(ctx, fs, codec)
 		if err != nil {
-			return core.Channel{}, err
+			return channel.Channel{}, err
 		}
 		state := migrate.Migrate(migrate.DBState{Channel: ch, FS: fs})
 		if state.ShouldIgnoreChannel {
-			return core.Channel{}, ErrIgnoreChannel
+			return channel.Channel{}, ErrIgnoreChannel
 		}
 		if state.Channel.Version != ch.Version {
 			if err := Create(ctx, fs, codec, state.Channel); err != nil {
-				return core.Channel{}, err
+				return channel.Channel{}, err
 			}
 		}
 		if err := state.Channel.Validate(); err != nil {
-			return core.Channel{}, err
+			return channel.Channel{}, err
 		}
 		return state.Channel, nil
 	}
 	if err := Create(ctx, fs, codec, ch); err != nil {
-		return core.Channel{}, err
+		return channel.Channel{}, err
 	}
 	return ch, nil
 }
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
-func Read(ctx context.Context, fs xfs.FS, codec binary.Decoder) (core.Channel, error) {
+func Read(ctx context.Context, fs fs.FS, codec binary.Decoder) (channel.Channel, error) {
 	s, err := fs.Stat("")
 	if err != nil {
-		return core.Channel{}, err
+		return channel.Channel{}, err
 	}
 	metaF, err := fs.Open(metaFile, os.O_RDONLY)
 	if err != nil {
-		return core.Channel{}, err
+		return channel.Channel{}, err
 	}
 	defer func() { err = errors.Combine(err, metaF.Close()) }()
 
-	var ch core.Channel
+	var ch channel.Channel
 	if err = codec.DecodeStream(ctx, metaF, &ch); err != nil {
 		err = errors.Wrapf(
 			err, "error decoding meta in folder for channel %s", s.Name(),
 		)
-		return core.Channel{}, err
+		return channel.Channel{}, err
 	}
 	return ch, nil
 }
@@ -92,7 +92,7 @@ func Read(ctx context.Context, fs xfs.FS, codec binary.Decoder) (core.Channel, e
 // Create creates the metadata file for a database whose data is kept in fs and is
 // encoded by the provided encoder. The provided channel should have all fields required
 // by the DB correctly set.
-func Create(ctx context.Context, fs xfs.FS, codec binary.Encoder, ch core.Channel) error {
+func Create(ctx context.Context, fs fs.FS, codec binary.Encoder, ch channel.Channel) error {
 	if err := ch.Validate(); err != nil {
 		return err
 	}

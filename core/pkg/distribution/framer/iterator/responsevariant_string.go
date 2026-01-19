@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,13 +17,13 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[AckResponse-1]
-	_ = x[DataResponse-2]
+	_ = x[ResponseVariantAck-1]
+	_ = x[ResponseVariantData-2]
 }
 
-const _ResponseVariant_name = "AckResponseDataResponse"
+const _ResponseVariant_name = "ResponseVariantAckResponseVariantData"
 
-var _ResponseVariant_index = [...]uint8{0, 11, 23}
+var _ResponseVariant_index = [...]uint8{0, 18, 37}
 
 func (i ResponseVariant) String() string {
 	i -= 1

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { keyZ as userKeyZ } from "@/user/payload";
 import { lineplot } from "@/workspace/lineplot";
 import { log } from "@/workspace/log";
@@ -134,4 +134,5 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "workspace", key });
+export const ontologyID = ontology.createIDFactory<Key>("workspace");
+export const TYPE_ONTOLOGY_ID = ontologyID("");

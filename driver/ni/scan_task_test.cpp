@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,6 +13,7 @@
 
 #include "driver/ni/scan_task.h"
 
+/// @brief it should parse scan task configuration with defaults and custom values.
 TEST(ScanTaskTest, testConfigParse) {
     // Test default configuration
     json j = {{"enabled", true}};
@@ -20,7 +21,7 @@ TEST(ScanTaskTest, testConfigParse) {
     ni::ScanTaskConfig cfg(p);
 
     EXPECT_TRUE(cfg.enabled);
-    EXPECT_EQ(cfg.rate.hz(), ni::DEFAULT_SCAN_RATE.hz());
+    EXPECT_EQ(cfg.scan_rate.hz(), common::DEFAULT_SCAN_RATE.hz());
     EXPECT_EQ(cfg.ignored_models.size(), ni::DEFAULT_IGNORED_MODELS.size());
 
     // Test custom configuration
@@ -33,10 +34,11 @@ TEST(ScanTaskTest, testConfigParse) {
     ni::ScanTaskConfig cfg2(p2);
 
     EXPECT_FALSE(cfg2.enabled);
-    EXPECT_EQ(cfg2.rate.hz(), 10.0);
+    EXPECT_EQ(cfg2.scan_rate.hz(), 10.0);
     EXPECT_EQ(cfg2.ignored_models.size(), 2);
 }
 
+/// @brief it should correctly identify models to ignore based on regex patterns.
 TEST(ScanTaskTest, testConfigShouldIgnore) {
     json j = {{"ignored_models", json::array({"^Test.*", "^Mock.*", "PXI-.*"})}};
     auto p = xjson::Parser(j);

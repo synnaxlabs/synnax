@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,8 +35,8 @@ func NewLinePlotService(p Provider) *LinePlotService {
 }
 
 type LinePlotCreateRequest struct {
-	Workspace uuid.UUID           `json:"workspace" msgpack:"workspace"`
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
+	Workspace uuid.UUID           `json:"workspace" msgpack:"workspace"`
 }
 
 type LinePlotCreateResponse struct {
@@ -46,7 +46,7 @@ type LinePlotCreateResponse struct {
 func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest) (res LinePlotCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: lineplot.OntologyIDsFromLinePlots(req.LinePlots),
 	}); err != nil {
 		return res, err
@@ -64,14 +64,14 @@ func (s *LinePlotService) Create(ctx context.Context, req LinePlotCreateRequest)
 }
 
 type LinePlotRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -82,14 +82,14 @@ func (s *LinePlotService) Rename(ctx context.Context, req LinePlotRenameRequest)
 }
 
 type LinePlotSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *LinePlotService) SetData(ctx context.Context, req LinePlotSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -111,7 +111,7 @@ type (
 func (s *LinePlotService) Retrieve(ctx context.Context, req LinePlotRetrieveRequest) (res LinePlotRetrieveResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -130,7 +130,7 @@ type LinePlotDeleteRequest struct {
 func (s *LinePlotService) Delete(ctx context.Context, req LinePlotDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

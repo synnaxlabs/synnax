@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -255,6 +255,7 @@ protected:
     }
 };
 
+/// @brief it should read multiple data types from OPC UA server.
 TEST_F(TestReadTask, testBasicReadTask) {
     auto start = telem::TimeStamp::now();
     const auto rt = create_task();
@@ -306,6 +307,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_GE(fr.at<telem::TimeStamp>(this->index_channel.key, 0), start);
 }
 
+/// @brief it should return error for non-existent OPC UA node.
 TEST_F(TestReadTask, testInvalidNodeId) {
     json bad_task_cfg{
         {"data_saving", true},
@@ -352,6 +354,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     EXPECT_TRUE(found_error);
 }
 
+/// @brief it should handle server disconnect during read operation.
 TEST_F(TestReadTask, testServerDisconnectDuringRead) {
     const auto rt = create_task();
     rt->start("start_cmd");
@@ -374,6 +377,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
     EXPECT_TRUE(found_error);
 }
 
+/// @brief it should return error for empty channel list.
 TEST_F(TestReadTask, testEmptyChannelList) {
     json empty_cfg{
         {"data_saving", true},
@@ -389,6 +393,7 @@ TEST_F(TestReadTask, testEmptyChannelList) {
     EXPECT_TRUE(p.error());
 }
 
+/// @brief it should return error when all channels are disabled.
 TEST_F(TestReadTask, testDisabledChannels) {
     json disabled_cfg{
         {"data_saving", true},
@@ -414,6 +419,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
     EXPECT_TRUE(p.error());
 }
 
+/// @brief it should handle rapid start and stop cycles.
 TEST_F(TestReadTask, testRapidStartStop) {
     const auto rt = create_task();
     rt->start("start_cmd");
@@ -425,6 +431,7 @@ TEST_F(TestReadTask, testRapidStartStop) {
     EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
+/// @brief it should reuse connections from pool across task starts.
 TEST_F(TestReadTask, testConnectionPoolReuse) {
     const std::string endpoint = "opc.tcp://localhost:4840";
     EXPECT_EQ(conn_pool->size(), 0);
@@ -455,6 +462,7 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     EXPECT_EQ(conn_pool->available_count(endpoint), 1);
 }
 
+/// @brief it should create separate connections for concurrent tasks.
 TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     const std::string endpoint = "opc.tcp://localhost:4840";
     EXPECT_EQ(conn_pool->size(), 0);
@@ -479,6 +487,7 @@ TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     rt2->stop("stop2", true);
 }
 
+/// @brief it should handle invalid data in array mode read.
 TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // Test that ArrayReadTaskSource properly handles invalid data from OPC UA server
     // by clearing the frame and returning a warning
@@ -521,6 +530,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     ASSERT_GE(ctx->statuses.size(), 1);
 }
 
+/// @brief it should skip frames with invalid data in unary mode.
 TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     // Test that UnaryReadTaskSource properly skips frames with invalid data
     // and returns a warning message
@@ -540,6 +550,7 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
     EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
+/// @brief it should not write empty frames in unary mode.
 TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
     // Test that empty frames (with size 0) are not written to Synnax
     const auto rt = create_task();
@@ -558,6 +569,7 @@ TEST_F(TestReadTask, testEmptyFramesNotWrittenInUnaryMode) {
     }
 }
 
+/// @brief it should handle multiple channels with different data types.
 TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
     // Test that the read task handles multiple channels with different data types
     // This exercises the loop in UnaryReadTaskSource::read that processes all channels
@@ -576,6 +588,7 @@ TEST_F(TestReadTask, testMultipleChannelsWithMixedData) {
     }
 }
 
+/// @brief it should read boolean channel data as UINT8.
 TEST_F(TestReadTask, testBooleanChannelDataHandling) {
     // Test that boolean channels are properly read and converted to UINT8
     const auto rt = create_task();
@@ -591,6 +604,7 @@ TEST_F(TestReadTask, testBooleanChannelDataHandling) {
     EXPECT_GT(fr.length(), 0);
 }
 
+/// @brief it should read float channel data correctly.
 TEST_F(TestReadTask, testFloatChannelDataHandling) {
     // Test that float channels are properly read and written
     const auto rt = create_task();
@@ -606,6 +620,7 @@ TEST_F(TestReadTask, testFloatChannelDataHandling) {
     EXPECT_GT(fr.length(), 0);
 }
 
+/// @brief it should read double channel data correctly.
 TEST_F(TestReadTask, testDoubleChannelDataHandling) {
     // Test that double channels are properly read and written
     const auto rt = create_task();
@@ -621,6 +636,7 @@ TEST_F(TestReadTask, testDoubleChannelDataHandling) {
     EXPECT_GT(fr.length(), 0);
 }
 
+/// @brief it should read integer channel data with correct values.
 TEST_F(TestReadTask, testIntegerChannelDataHandling) {
     // Test that integer channels (int8, int16, int32, int64) are properly read
     const auto rt = create_task();
@@ -644,6 +660,7 @@ TEST_F(TestReadTask, testIntegerChannelDataHandling) {
     EXPECT_EQ(fr.at<std::int64_t>(this->int64_channel.key, 0), 12345);
 }
 
+/// @brief it should read unsigned integer channel data correctly.
 TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
     // Test that unsigned integer channels (uint16, uint32, uint64) are properly read
     const auto rt = create_task();
@@ -660,6 +677,7 @@ TEST_F(TestReadTask, testUnsignedIntegerChannelDataHandling) {
     ASSERT_TRUE(fr.contains(this->uint64_channel.key));
 }
 
+/// @brief it should aggregate errors from multiple channels in array mode.
 TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
     json multi_channel_array_cfg{
@@ -709,6 +727,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     ASSERT_GE(ctx->statuses.size(), 1);
 }
 
+/// @brief it should include channel information in warning messages.
 TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // Test that warning messages contain channel information for debugging
     // This tests the error message formatting in read_task.h lines 258-262 and 326-328
@@ -726,6 +745,7 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     ASSERT_GE(ctx->statuses.size(), 2);
 }
 
+/// @brief it should skip samples when write error occurs in unary mode.
 TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
     // Test that UnaryReadTaskSource properly skips samples when write_to_series fails
     // This exercises the skip_sample logic in read_task.h lines 324-334
@@ -743,6 +763,7 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
     EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
+/// @brief it should clear frame when error occurs in array mode.
 TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     // Test that ArrayReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 268
@@ -785,6 +806,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
     ASSERT_GE(ctx->statuses.size(), 1);
 }
 
+/// @brief it should clear frame when error occurs in unary mode.
 TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
     // Test that UnaryReadTaskSource clears the frame when errors occur
     // This exercises the frame.clear() logic in read_task.h line 333
@@ -802,6 +824,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
     }
 }
 
+/// @brief it should skip samples with invalid boolean data.
 TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     // Test that UnaryReadTaskSource skips samples when boolean data is invalid
     // Uses a separate mock server on different port with invalid data
@@ -882,6 +905,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_server->stop();
 }
 
+/// @brief it should skip samples with invalid float data.
 TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     // Test that UnaryReadTaskSource skips samples when float data has null pointer
     auto invalid_server_cfg = mock::ServerConfig::create_with_invalid_data();
@@ -960,6 +984,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_server->stop();
 }
 
+/// @brief it should clear frame with invalid double array data.
 TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     // Test that ArrayReadTaskSource clears frames with zero-length arrays
     auto invalid_server_cfg = mock::ServerConfig::create_with_invalid_data();

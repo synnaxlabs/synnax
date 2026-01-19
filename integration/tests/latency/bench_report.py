@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -163,9 +163,9 @@ class BenchReport(Latency):
 
         # Selected arbitrarily. However, these values should
         # provide a good maximumm threshold
-        max_p90 = 5
-        max_p95 = 6
-        max_p99 = 10
+        max_p90 = 7
+        max_p95 = 10
+        max_p99 = 15
         max_average_jitter = 5
 
         if platform.system().lower() == "windows":

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,18 +19,19 @@ import (
 )
 
 var (
-	// Error is a base class for all validation errors. Validation errors should be returned
-	// when caller provided data (whether user or internal) fails to meet specific rules
-	// or criteria defined to ensure its correctness, completeness, or format.
-	Error            = errors.New("validation error")
-	InvalidTypeError = errors.Wrapf(Error, "invalid type")
-	ConversionError  = errors.Wrap(Error, "conversion error")
-	RequiredError    = errors.Wrap(Error, "required")
+	// ErrValidation is a base class for all validation errors. Validation errors should
+	// be returned when caller provided data (whether user or internal) fails to meet
+	// specific rules or criteria defined to ensure its correctness, completeness, or
+	// format.
+	ErrValidation  = errors.New("validation error")
+	ErrInvalidType = errors.Wrapf(ErrValidation, "invalid type")
+	ErrConversion  = errors.Wrap(ErrValidation, "conversion error")
+	ErrRequired    = errors.Wrap(ErrValidation, "required")
 )
 
 type PathError struct {
-	Path []string `json:"path"`
 	Err  error    `json:"error"`
+	Path []string `json:"path"`
 }
 
 func (p PathError) joinPath() string {
@@ -38,8 +39,8 @@ func (p PathError) joinPath() string {
 }
 
 type encodedPathError struct {
-	Path  []string       `json:"path"`
 	Error errors.Payload `json:"error"`
+	Path  []string       `json:"path"`
 }
 
 func pathToSegments(segments ...string) []string {
@@ -54,21 +55,21 @@ func pathToSegments(segments ...string) []string {
 }
 
 func PathedError(err error, path ...string) error {
-	var pathErr PathError
+	var errPath PathError
 	segments := pathToSegments(path...)
-	if errors.As(err, &pathErr) {
-		pathErr.Path = append(segments, pathErr.Path...)
+	if errors.As(err, &errPath) {
+		errPath.Path = append(segments, errPath.Path...)
 	} else {
-		pathErr.Path = segments
-		pathErr.Err = err
+		errPath.Path = segments
+		errPath.Err = err
 	}
-	return pathErr
+	return errPath
 }
 
 func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
 func NewInvalidTypeError(expected, received string) error {
-	return errors.Wrapf(InvalidTypeError, "expected %s but received %s", expected, received)
+	return errors.Wrapf(ErrInvalidType, "expected %s but received %s", expected, received)
 }
 
 const (
@@ -77,18 +78,18 @@ const (
 )
 
 func encode(ctx context.Context, err error) (errors.Payload, bool) {
-	var fe PathError
-	if errors.As(err, &fe) {
-		internal := errors.Encode(ctx, fe.Err, false)
+	var errPath PathError
+	if errors.As(err, &errPath) {
+		internal := errors.Encode(ctx, errPath.Err, false)
 		return errors.Payload{
 			Type: pathErrorType,
 			Data: string(lo.Must(json.Marshal(encodedPathError{
 				Error: internal,
-				Path:  fe.Path,
+				Path:  errPath.Path,
 			}))),
 		}, true
 	}
-	if errors.Is(err, Error) {
+	if errors.Is(err, ErrValidation) {
 		return errors.Payload{Type: "sy.validation", Data: err.Error()}, true
 	}
 	return errors.Payload{}, false
@@ -99,16 +100,16 @@ func decode(ctx context.Context, p errors.Payload) (error, bool) {
 		return nil, false
 	}
 	if p.Type == pathErrorType {
-		var decodedPathError encodedPathError
-		if err := json.Unmarshal([]byte(p.Data), &decodedPathError); err != nil {
+		var errDecodedPath encodedPathError
+		if err := json.Unmarshal([]byte(p.Data), &errDecodedPath); err != nil {
 			return err, true
 		}
 		return PathError{
-			Path: decodedPathError.Path,
-			Err:  errors.Decode(ctx, decodedPathError.Error),
+			Path: errDecodedPath.Path,
+			Err:  errors.Decode(ctx, errDecodedPath.Error),
 		}, true
 	}
-	return errors.Wrapf(Error, p.Data), true
+	return errors.Wrapf(ErrValidation, p.Data), true
 }
 
 func init() { errors.Register(encode, decode) }

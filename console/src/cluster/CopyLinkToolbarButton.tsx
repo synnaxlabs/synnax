@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,10 @@ import { type ReactElement, useCallback } from "react";
 
 import { useCopyLinkToClipboard } from "@/cluster/useCopyLinkToClipboard";
 
-export interface CopyLinkToolbarButtonProps
-  extends Omit<Button.ButtonProps, "children"> {
+export interface CopyLinkToolbarButtonProps extends Omit<
+  Button.ButtonProps,
+  "children"
+> {
   name: string;
   ontologyID: ontology.ID;
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,6 +27,7 @@ import { status } from "@/status";
 import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
+import { view } from "@/view";
 import { workspace } from "@/workspace";
 
 export const synnaxParamsZ = z.object({
@@ -58,7 +59,7 @@ export default class Synnax extends framer.Client {
   readonly params: ParsedSynnaxParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
-  readonly auth: auth.Client | undefined;
+  readonly auth: auth.Client;
   readonly users: user.Client;
   readonly access: access.Client;
   readonly connectivity: connection.Checker;
@@ -71,6 +72,7 @@ export default class Synnax extends framer.Client {
   readonly devices: device.Client;
   readonly control: control.Client;
   readonly arcs: arc.Client;
+  readonly views: view.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -111,19 +113,15 @@ export default class Synnax extends framer.Client {
       secure,
     );
     transport.use(errorsMiddleware);
-    let auth_: auth.Client | undefined;
-    if (username != null && password != null) {
-      auth_ = new auth.Client(transport.unary, { username, password });
-      transport.use(auth_.middleware());
-    }
     const chRetriever = new channel.CacheRetriever(
       new channel.ClusterRetriever(transport.unary),
     );
-    const chCreator = new channel.Writer(transport.unary, chRetriever);
     super(transport.stream, transport.unary, chRetriever);
+    this.auth = new auth.Client(transport.unary, { username, password });
+    transport.use(this.auth.middleware());
+    const chCreator = new channel.Writer(transport.unary, chRetriever);
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
-    this.auth = auth_;
     this.transport = transport;
     this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
     this.connectivity = new connection.Checker(
@@ -157,6 +155,7 @@ export default class Synnax extends framer.Client {
     this.racks = new rack.Client(this.transport.unary, this.tasks);
     this.devices = new device.Client(this.transport.unary);
     this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
+    this.views = new view.Client(this.transport.unary);
   }
 
   get key(): string {
@@ -168,8 +167,10 @@ export default class Synnax extends framer.Client {
   }
 }
 
-export interface CheckConnectionParams
-  extends Pick<SynnaxParams, "host" | "port" | "secure" | "retry" | "name"> {}
+export interface CheckConnectionParams extends Pick<
+  SynnaxParams,
+  "host" | "port" | "secure" | "retry" | "name"
+> {}
 
 export const checkConnection = async (params: CheckConnectionParams) =>
   await newConnectionChecker(params).check();

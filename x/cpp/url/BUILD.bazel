@@ -1,0 +1,16 @@
+cc_library(
+    name = "url",
+    srcs = ["url.cpp"],
+    hdrs = ["url.h"],
+    visibility = ["//visibility:public"],
+    deps = [],
+)
+
+cc_test(
+    name = "url_test",
+    srcs = ["url_test.cpp"],
+    deps = [
+        "//x/cpp/url",
+        "@googletest//:gtest_main",
+    ],
+)

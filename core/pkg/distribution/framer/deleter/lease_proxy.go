@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -71,7 +71,7 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 	resultNames := lo.Map(res, func(item channel.Channel, _ int) string { return item.Name })
 	if len(lo.Uniq(resultNames)) < len(names) {
 		_, diff := lo.Difference(names, resultNames)
-		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", diff)
+		return errors.Wrapf(ts.ErrChannelNotFound, "channel(s) %s not found", diff)
 	}
 
 	keys := channel.KeysFromChannels(res)
@@ -85,8 +85,8 @@ func (lp *leaseProxy) deleteTimeRangeRemote(
 	tr telem.TimeRange,
 ) error {
 	addr, err := lp.HostResolver.Resolve(target)
-	if errors.Is(err, aspen.NodeNotfound) {
-		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", keys)
+	if errors.Is(err, aspen.ErrNodeNotFound) {
+		return errors.Wrapf(ts.ErrChannelNotFound, "channel(s) %s not found", keys)
 	}
 	_, err = lp.Transport.Client().Send(ctx, addr, Request{Keys: keys, Bounds: tr})
 	return err

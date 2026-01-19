@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,8 +22,8 @@ import (
 )
 
 type Change struct {
-	State   State
 	Changes []node.Change
+	State   State
 }
 
 // Store is an interface representing a copy-on-read Store for managing cluster state.
@@ -90,9 +90,9 @@ func New(ctx context.Context) Store {
 
 // State is the current state of the cluster as viewed from the host.
 type State struct {
-	ClusterKey uuid.UUID
-	HostKey    node.Key
 	Nodes      node.Group
+	HostKey    node.Key
+	ClusterKey uuid.UUID
 }
 
 func (s *State) IsZero() bool {

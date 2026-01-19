@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -99,7 +99,7 @@ public:
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> get_channel(const freighter::URL &target) {
+    std::shared_ptr<grpc::Channel> get_channel(const url::URL &target) {
         std::lock_guard lock(this->mu);
         const auto host_addr = target.host_address();
         const auto it = this->channels.find(host_addr);
@@ -129,11 +129,11 @@ class UnaryClient final : public freighter::UnaryClient<RQ, RS>,
     /// GRPCPool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
-    const freighter::URL base_target;
+    const url::URL base_target;
 
 public:
     UnaryClient(const std::shared_ptr<Pool> &pool, const std::string &base_target):
-        pool(pool), base_target(freighter::URL(base_target)) {}
+        pool(pool), base_target(url::URL(base_target)) {}
 
     explicit UnaryClient(const std::shared_ptr<Pool> &pool): pool(pool) {}
 
@@ -238,7 +238,7 @@ public:
         if (this->stream->Read(&res)) return {res, xerrors::NIL};
         const auto ctx = freighter::Context(
             priv::PROTOCOL,
-            freighter::URL(),
+            url::URL(),
             freighter::STREAM
         );
         auto v = nullptr;
@@ -275,7 +275,7 @@ class StreamClient final
     /// GRPCPool to pool connections across clients.
     const std::shared_ptr<Pool> pool;
     /// Base target for all requests.
-    const freighter::URL base_target;
+    const url::URL base_target;
     /// Middleware collector.
     freighter::
         MiddlewareCollector<std::nullptr_t, std::unique_ptr<freighter::Stream<RQ, RS>>>
@@ -283,7 +283,7 @@ class StreamClient final
 
 public:
     StreamClient(const std::shared_ptr<Pool> &pool, const std::string &base_target):
-        pool(pool), base_target(freighter::URL(base_target)) {}
+        pool(pool), base_target(url::URL(base_target)) {}
 
     explicit StreamClient(const std::shared_ptr<Pool> &pool): pool(pool) {}
 

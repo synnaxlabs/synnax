@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,11 +24,11 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/address"
 	xbinary "github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
@@ -53,11 +53,11 @@ const (
 )
 
 type FrameService struct {
-	alamos.Instrumentation
 	dbProvider
 	accessProvider
 	Channel  *channel.Service
 	Internal *framer.Service
+	alamos.Instrumentation
 }
 
 func NewFrameService(p Provider) *FrameService {
@@ -72,8 +72,8 @@ func NewFrameService(p Provider) *FrameService {
 
 type FrameDeleteRequest struct {
 	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
 	Names  []string        `json:"names" msgpack:"names" validate:"names"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
 }
 
 func (s *FrameService) FrameDelete(
@@ -82,7 +82,7 @@ func (s *FrameService) FrameDelete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
@@ -127,10 +127,10 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	// which case resources have already been freed and cancel does nothing).
 	defer cancel()
 
-	receiver := &freightfluence.Receiver[iterator.Request]{Receiver: stream}
-	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{
-		Sender: freighter.SenderNopCloser[iterator.Response]{StreamSender: stream},
-		Transform: func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
+	receiver := &freightfluence.Receiver[framer.IteratorRequest]{Receiver: stream}
+	sender := &freightfluence.TransformSender[framer.IteratorResponse, framer.IteratorResponse]{
+		Sender: freighter.SenderNopCloser[framer.IteratorResponse]{StreamSender: stream},
+		Transform: func(ctx context.Context, res framer.IteratorResponse) (framer.IteratorResponse, bool, error) {
 			res.Error = errors.Encode(ctx, res.Error, false)
 			return res, true, nil
 		},
@@ -139,8 +139,8 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	plumber.SetSegment(pipe, frameIteratorAddr, iter)
 	plumber.SetSink(pipe, frameSenderAddr, sender)
 	plumber.SetSource(pipe, frameReceiverAddr, receiver)
-	plumber.MustConnect[iterator.Response](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
-	plumber.MustConnect[iterator.Request](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
+	plumber.MustConnect[framer.IteratorResponse](pipe, frameIteratorAddr, frameSenderAddr, iteratorResponseBufferSize)
+	plumber.MustConnect[framer.IteratorRequest](pipe, frameReceiverAddr, frameIteratorAddr, iteratorRequestBufferSize)
 
 	pipe.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return sCtx.Wait()
@@ -153,20 +153,21 @@ func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
 	}
 	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
-		Bounds:    req.Bounds,
-		Keys:      req.Keys,
-		ChunkSize: req.ChunkSize,
+		Bounds:           req.Bounds,
+		Keys:             req.Keys,
+		ChunkSize:        req.ChunkSize,
+		DownsampleFactor: req.DownsampleFactor,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.AckResponse, Ack: true})
+	return iter, srv.Send(framer.IteratorResponse{Variant: iterator.ResponseVariantAck, Ack: true})
 }
 
 type (
@@ -216,7 +217,7 @@ func (s *FrameService) openStreamer(
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: framer.OntologyIDs(req.Keys),
 	}); err != nil {
 		return nil, err
@@ -229,23 +230,28 @@ func (s *FrameService) openStreamer(
 }
 
 type FrameWriterConfig struct {
+	// ControlSubject is an identifier for the writer.
+	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Authorities is the authority to use when writing to the channels. We set this
 	// as an int and not control.Authorities because msgpack has a tough time decoding
 	// lists of uint8.
 	Authorities []uint32 `json:"authorities" msgpack:"authorities"`
-	// ControlSubject is an identifier for the writer.
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
-	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
-	// [REQUIRED]
-	Start telem.TimeStamp `json:"start" msgpack:"start"`
 	// Keys is keys to write to. At least one key must be provided. All keys must
 	// have the same data rate OR the same index. All Frames written to the Writer must
 	// have an array specified for each key, and all series must be the same length (i.e.
 	// calls to Frame.Even must return true).
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Start marks the starting timestamp of the first sample in the first frame. If
+	// telemetry occupying the given timestamp already exists for the provided keys,
+	// the writer will fail to open.
+	// [REQUIRED]
+	Start telem.TimeStamp `json:"start" msgpack:"start"`
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysAutoPersist.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL]
@@ -263,25 +269,20 @@ type FrameWriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
-	// [OPTIONAL] - Defaults to 1s.
-	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 }
 
 // FrameWriterRequest represents a request to write CreateNet data for a set of channels.
 type FrameWriterRequest struct {
 	Config  FrameWriterConfig `json:"config" msgpack:"config"`
-	Command WriterCommand     `json:"command" msgpack:"command"`
 	Frame   Frame             `json:"frame" msgpack:"frame"`
+	Command WriterCommand     `json:"command" msgpack:"command"`
 }
 
 type FrameWriterResponse struct {
-	Command    writer.Command  `json:"command" msgpack:"command"`
-	End        telem.TimeStamp `json:"end" msgpack:"end"`
-	Authorized bool            `json:"authorized" msgpack:"authorized"`
 	Err        errors.Payload  `json:"err" msgpack:"err"`
+	End        telem.TimeStamp `json:"end" msgpack:"end"`
+	Command    writer.Command  `json:"command" msgpack:"command"`
+	Authorized bool            `json:"authorized" msgpack:"authorized"`
 }
 
 type (
@@ -335,7 +336,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Receiver: stream,
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-			if r.Command == writer.SetAuthority {
+			if r.Command == writer.CommandSetAuthority {
 				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
 				for i, a := range req.Config.Authorities {
@@ -382,7 +383,7 @@ func (s *FrameService) openWriter(
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: subject,
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: framer.OntologyIDs(req.Config.Keys),
 	}); err != nil {
 		return nil, err
@@ -413,7 +414,7 @@ func (s *FrameService) openWriter(
 	}
 	// Let the client know the writer is ready to receive segments.
 	return w, srv.Send(FrameWriterResponse{
-		Command: writer.Open,
+		Command: writer.CommandOpen,
 		Err:     errors.Encode(ctx, nil, false),
 	})
 }
@@ -549,7 +550,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 		if v.Type != fhttp.WSMessageTypeData {
 			return nil
 		}
-		if v.Payload.Command == writer.Open {
+		if v.Payload.Command == writer.CommandOpen {
 			return c.Update(ctx, v.Payload.Config.Keys)
 		}
 		return nil
@@ -559,7 +560,7 @@ func (c *WSFramerCodec) decodeWriteRequest(
 	if err != nil {
 		return err
 	}
-	v.Payload.Command = writer.Write
+	v.Payload.Command = writer.CommandWrite
 	v.Payload.Frame = fr
 	return nil
 }
@@ -569,7 +570,7 @@ func (c *WSFramerCodec) encodeWriteRequest(
 	w io.Writer,
 	v fhttp.WSMessage[FrameWriterRequest],
 ) error {
-	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.Write {
+	if v.Type != fhttp.WSMessageTypeData || v.Payload.Command != writer.CommandWrite {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {

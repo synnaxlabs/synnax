@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,9 +12,10 @@ package access
 type Action string
 
 const (
-	All      Action = "all"
-	Create   Action = "create"
-	Delete   Action = "delete"
-	Retrieve Action = "retrieve"
-	Update   Action = "update"
+	ActionCreate   Action = "create"
+	ActionRetrieve Action = "retrieve"
+	ActionUpdate   Action = "update"
+	ActionDelete   Action = "delete"
 )
+
+var AllActions = []Action{ActionCreate, ActionRetrieve, ActionUpdate, ActionDelete}

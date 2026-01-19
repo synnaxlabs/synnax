@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,11 +9,11 @@
 
 import { TimeSpan } from "@synnaxlabs/x";
 
-import { Form as Core } from "@/form";
+import { Form as Base } from "@/form";
 import { Input } from "@/input";
 
 export const Form = () => (
-  <Core.Field<number> path="duration">
+  <Base.Field<number> path="duration">
     {({ value, onChange }) => (
       <Input.Numeric
         value={new TimeSpan(value).seconds}
@@ -21,5 +21,5 @@ export const Form = () => (
         endContent="s"
       />
     )}
-  </Core.Field>
+  </Base.Field>
 );

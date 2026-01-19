@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,8 +15,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a rack. Each rack is leased to a particular
@@ -55,6 +57,15 @@ func (k Key) IsZero() bool { return k == 0 }
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.Itoa(int(k)) }
 
+func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := binary.UnmarshalMsgpackUint32(dec)
+	if err != nil {
+		return err
+	}
+	*k = Key(n)
+	return nil
+}
+
 type StatusDetails struct {
 	Rack Key `json:"rack" msgpack:"rack"`
 }
@@ -63,18 +74,18 @@ type Status = status.Status[StatusDetails]
 
 // Rack represents a driver that can communicate with devices and execute tasks.
 type Rack struct {
-	// Key is a unique identifier for a rack. This key is tied to a specific node.
-	Key Key `json:"key" msgpack:"key"`
+	// Status is the current state of the rack.
+	Status *Status `json:"status" msgpack:"status"`
 	// Name is the name for the rack.
 	Name string `json:"name" msgpack:"name"`
+	// Key is a unique identifier for a rack. This key is tied to a specific node.
+	Key Key `json:"key" msgpack:"key"`
 	// TaskCounter is the total number of tasks that have been created on the rack,
 	// and is used to assign keys to tasks.
 	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
 	// Embedded sets whether the rack is built-in to the Synnax node, or it is an
 	// external rack.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
-	// Status is the current state of the rack.
-	Status *Status `json:"status" msgpack:"status"`
 }
 
 var _ gorp.Entry[Key] = Rack{}
@@ -88,7 +99,7 @@ func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
 // Validate implements config.Config.
 func (r Rack) Validate() error {
 	v := validate.New("rack")
-	validate.NonZero(v, "Key", r.Key)
-	validate.NotEmptyString(v, "Name", r.Name)
+	validate.NonZero(v, "key", r.Key)
+	validate.NotEmptyString(v, "name", r.Name)
 	return v.Error()
 }

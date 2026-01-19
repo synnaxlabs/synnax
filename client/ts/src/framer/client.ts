@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,19 +21,19 @@ import { channel } from "@/channel";
 import { Deleter } from "@/framer/deleter";
 import { Frame } from "@/framer/frame";
 import { AUTO_SPAN, Iterator, type IteratorConfig } from "@/framer/iterator";
+import { Reader, type ReadRequest } from "@/framer/reader";
 import { openStreamer, type Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig, WriterMode } from "@/framer/writer";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 
-export const ontologyID = (key: channel.Key): ontology.ID => ({
-  type: "framer",
-  key: key.toString(),
-});
+export const ontologyID = ontology.createIDFactory<string>("framer");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export class Client {
   private readonly streamClient: WebSocketClient;
   private readonly retriever: channel.Retriever;
   private readonly deleter: Deleter;
+  private readonly reader: Reader;
 
   constructor(
     stream: WebSocketClient,
@@ -43,6 +43,7 @@ export class Client {
     this.streamClient = stream;
     this.retriever = retriever;
     this.deleter = new Deleter(unary);
+    this.reader = new Reader(retriever, stream);
   }
 
   /**
@@ -142,15 +143,15 @@ export class Client {
   }
 
   async read(tr: CrudeTimeRange, channel: channel.KeyOrName): Promise<MultiSeries>;
-
   async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
-
+  async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>>;
   async read(
-    tr: CrudeTimeRange,
-    channels: channel.Params,
-  ): Promise<MultiSeries | Frame> {
-    const { single } = channel.analyzeParams(channels);
-    const fr = await this.readFrame(tr, channels);
+    tr: CrudeTimeRange | ReadRequest,
+    channels?: channel.Params,
+  ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
+    if (!("start" in tr)) return this.reader.read(tr);
+    const { single } = channel.analyzeParams(channels!);
+    const fr = await this.readFrame(tr, channels!);
     if (single) return fr.get(channels as channel.KeyOrName);
     return fr;
   }
@@ -201,13 +202,7 @@ export class Client {
     const { normalized, variant } = channel.analyzeParams(channels);
     const bounds = new TimeRange(timeRange);
     if (variant === "keys")
-      return await this.deleter.delete({
-        keys: normalized as channel.Key[],
-        bounds,
-      });
-    return await this.deleter.delete({
-      names: normalized as string[],
-      bounds,
-    });
+      return await this.deleter.delete({ keys: normalized as channel.Key[], bounds });
+    return await this.deleter.delete({ names: normalized as string[], bounds });
   }
 }

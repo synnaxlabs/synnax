@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,12 +10,12 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import { Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access, Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
@@ -50,6 +50,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const state = useSelectToolbar(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
   const handleExport = useExport();
   const content = useCallback(
     ({ tabKey }: Tabs.Tab) => {
@@ -86,10 +87,10 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   if (state == null) return null;
   return (
-    <Core.Content className={CSS.B("line-plot-toolbar")}>
+    <Base.Content className={CSS.B("line-plot-toolbar")}>
       <Tabs.Provider value={value}>
-        <Core.Header>
-          <Core.Title icon={<Icon.LinePlot />}>{name}</Core.Title>
+        <Base.Header>
+          <Base.Title icon={<Icon.LinePlot />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty style={{ height: "100%", width: 86 }}>
               <Button.Button
@@ -107,11 +108,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 ontologyID={lineplot.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            <Tabs.Selector style={{ borderBottom: "none" }} />
+            {hasEditPermission && <Tabs.Selector style={{ borderBottom: "none" }} />}
           </Flex.Box>
-        </Core.Header>
+        </Base.Header>
         <Tabs.Content />
       </Tabs.Provider>
-    </Core.Content>
+    </Base.Content>
   );
 };

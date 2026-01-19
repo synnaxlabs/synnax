@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,7 +33,7 @@ var _ = Describe("Name Validation", func() {
 		DescribeTable("invalid names", func(name string, errorMessage string) {
 			err := channel.ValidateName(name)
 			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(validate.Error))
+			Expect(err).To(MatchError(validate.ErrValidation))
 			Expect(err).To(MatchError(ContainSubstring(errorMessage)))
 		},
 			Entry("empty name", "", "name cannot be empty"),

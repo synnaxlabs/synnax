@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -54,7 +54,7 @@ type DeviceCreateResponse struct {
 func (svc *DeviceService) Create(ctx context.Context, req DeviceCreateRequest) (res DeviceCreateResponse, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: device.OntologyIDsFromDevices(req.Devices),
 	}); err != nil {
 		return res, err
@@ -72,13 +72,13 @@ func (svc *DeviceService) Create(ctx context.Context, req DeviceCreateRequest) (
 }
 
 type DeviceRetrieveRequest struct {
+	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
 	Keys           []string   `json:"keys" msgpack:"keys"`
 	Names          []string   `json:"names" msgpack:"names"`
 	Makes          []string   `json:"makes" msgpack:"makes"`
 	Models         []string   `json:"models" msgpack:"models"`
 	Locations      []string   `json:"locations" msgpack:"locations"`
 	Racks          []rack.Key `json:"racks" msgpack:"racks"`
-	SearchTerm     string     `json:"search_term" msgpack:"search_term"`
 	Limit          int        `json:"limit" msgpack:"limit"`
 	Offset         int        `json:"offset" msgpack:"offset"`
 	IgnoreNotFound bool       `json:"ignore_not_found" msgpack:"ignore_not_found"`
@@ -134,7 +134,7 @@ func (svc *DeviceService) Retrieve(ctx context.Context, req DeviceRetrieveReques
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](svc.status.status).
-			WhereKeys(ontology.IDsToString(device.OntologyIDsFromDevices(res.Devices))...).
+			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
@@ -146,13 +146,13 @@ func (svc *DeviceService) Retrieve(ctx context.Context, req DeviceRetrieveReques
 
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return DeviceRetrieveResponse{}, err
 	}
 	if retErr != nil && req.IgnoreNotFound {
-		retErr = errors.Skip(retErr, query.NotFound)
+		retErr = errors.Skip(retErr, query.ErrNotFound)
 	}
 	return res, retErr
 }
@@ -164,7 +164,7 @@ type DeviceDeleteRequest struct {
 func (svc *DeviceService) Delete(ctx context.Context, req DeviceDeleteRequest) (res types.Nil, _ error) {
 	if err := svc.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: device.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

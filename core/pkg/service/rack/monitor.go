@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,14 +39,14 @@ type rackState struct {
 
 type monitor struct {
 	observe.Observer[Status]
-	alamos.Instrumentation
-	svc *Service
-	mu  struct {
-		sync.Mutex
-		racks map[Key]rackState
-	}
-	disconnectStatusObserver observe.Disconnect
 	shutdownRoutines         io.Closer
+	svc                      *Service
+	disconnectStatusObserver observe.Disconnect
+	alamos.Instrumentation
+	mu struct {
+		racks map[Key]rackState
+		sync.Mutex
+	}
 }
 
 func (m *monitor) Close() error {
@@ -81,7 +81,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	if err := m.svc.NewRetrieve().
 		WhereKeys(toAlert...).
 		Entries(&racks).
-		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		stat := Status{
 			Key:         OntologyID(r.Key).String(),
 			Name:        r.Name,
-			Variant:     xstatus.WarningVariant,
+			Variant:     xstatus.VariantWarning,
 			Time:        state.lastUpdated,
 			Message:     fmt.Sprintf("Synnax Driver on %s not running", r.Name),
 			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
@@ -126,12 +126,12 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 			m.L.Error("failed to decode status key", zap.Error(err))
 			continue
 		}
-		if ch.Variant == xchange.Delete {
+		if ch.Variant == xchange.VariantDelete {
 			delete(m.mu.racks, key)
 			continue
 		}
-		isHealthy := ch.Value.Variant == xstatus.SuccessVariant ||
-			ch.Value.Variant == xstatus.InfoVariant
+		isHealthy := ch.Value.Variant == xstatus.VariantSuccess ||
+			ch.Value.Variant == xstatus.VariantInfo
 		if isHealthy || !lo.HasKey(m.mu.racks, key) {
 			m.mu.racks[key] = rackState{lastUpdated: telem.Now(), deadCheckCount: 0}
 		}

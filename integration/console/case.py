@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -87,6 +87,7 @@ class ConsoleCase(TestCase):
 
     def teardown(self) -> None:
         self.browser.close()
+        self.playwright.stop()
 
     def determine_browser(self) -> BrowserType:
         """

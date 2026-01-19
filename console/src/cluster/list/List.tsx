@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,8 +30,7 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 
 export interface ListProps
-  extends Input.Control<string | undefined>,
-    Omit<Flex.BoxProps, "onChange"> {}
+  extends Input.Control<string | undefined>, Omit<Flex.BoxProps, "onChange"> {}
 
 export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -55,6 +54,10 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   );
 
   const handleRemove = (key: string): void => {
+    if (key === value) {
+      const nextCluster = allClusters.find((c) => c.key !== key);
+      onChange(nextCluster?.key);
+    }
     dispatch(remove(key));
   };
 

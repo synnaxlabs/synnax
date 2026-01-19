@@ -1,0 +1,431 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Troubleshooting"
+description: "Solve common issues when working with the Synnax client."
+prev: "Examples"
+prevURL: "/reference/client/examples"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Platform } from "@/components/platform";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This page covers common issues users encounter when working with the Synnax client
+libraries.
+
+<Divider.Divider x />
+
+## Installing the Language
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+Synnax doesn't enforce a specific way to work with Python, although our development team
+recommends using the latest version of the official
+[Python installer](https://www.python.org/downloads/).
+
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+
+<Fragment slot="Windows">
+
+Make sure to check the box that says "Add Python to PATH" during the installation
+process. This will ensure that the `python` command is available in your terminal.
+
+Alternatively, if you plan to use Synnax inside
+[WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10), follow the
+instructions for Linux instead.
+
+<div style={{ margin: "14rem 0" }}>
+</div>
+</Fragment>
+
+<Fragment slot="macOS">
+
+On macOS, [homebrew](https://brew.sh/) is recommended for installing Python. Homebrew
+makes configuring newer Python versions much easier than using the installer.
+
+```bash
+brew install python
+```
+
+</Fragment>
+
+<Fragment slot="Linux">
+
+**Red Hat / Amazon Linux:**
+
+```bash
+sudo yum install python3.12.x86_64 python3.12-devel.x86_64 python3.12-pip.noarch
+```
+
+**Ubuntu** (24.04 has Python 3.12 pre-installed; for older versions use `deadsnakes`):
+
+```bash
+# Update package index and install dependencies
+sudo apt update
+sudo apt install build-essential software-properties-common -y
+
+# Add deadsnakes PPA and install Python 3.12
+sudo add-apt-repository ppa:deadsnakes/ppa
+sudo apt update
+sudo apt install python3.12 -y
+
+# Verify installation
+python3.12 --version
+```
+
+</Fragment>
+
+</Platform.Tabs>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+The latest version of Node.js from the [official Node.js website](https://nodejs.org/)
+is recommended.
+
+<Note.Note variant="info" className="compact">
+  After installing Node.js, you can install the Synnax client with `npm install
+  @synnaxlabs/client`.
+</Note.Note>
+
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+
+<Fragment slot="Windows">
+
+Download and run the Windows installer from [nodejs.org](https://nodejs.org/). The
+installer will automatically add Node.js to your PATH.
+
+Alternatively, if using
+[Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install-win10),
+follow the Linux instructions instead.
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+[Homebrew](https://brew.sh/) is recommended for installing Node.js:
+
+```bash
+brew install node
+```
+
+</Fragment>
+
+<Fragment slot="Linux">
+
+**Ubuntu / Debian:**
+
+```bash
+# Install Node.js 24.x
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify installation
+node --version
+npm --version
+```
+
+**Red Hat / Amazon Linux:**
+
+```bash
+curl -fsSL https://rpm.nodesource.com/setup_24.x | sudo bash -
+sudo yum install -y nodejs
+```
+
+</Fragment>
+
+</Platform.Tabs>
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Incorrect Version
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+Synnax requires Python 3.12+. Check your version:
+
+```bash
+python --version # or try: python3 --version, python3.12 --version
+```
+
+If the output shows `Python 3.12.x` or higher, the version is compatible. If older,
+update Python:
+
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+
+<Fragment slot="Windows">
+
+Reinstall from [python.org](https://www.python.org/downloads/) - make sure to check "Add
+Python to PATH".
+
+<div style={{ margin: "14rem 0" }}></div>
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+```bash
+brew upgrade python
+```
+
+</Fragment>
+
+<Fragment slot="Linux">
+
+See the [Installing the Language](#installing-the-language) section above for
+distribution-specific instructions.
+
+<div style={{ margin: "14rem 0" }}>
+</div>
+</Fragment>
+
+</Platform.Tabs>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Check your Node.js version:
+
+```bash
+node --version
+```
+
+If you need to update, see the [Installing the Language](#installing-the-language)
+section above.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Command Not Found
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+If `python --version` returns `command not found`, the executable isn't on your PATH.
+
+<Note.Note variant="info" className="compact">
+  If multiple Python versions are installed, an older version may shadow the newer one
+  in your PATH. Check your PATH order and remove or reorder conflicting entries.
+</Note.Note>
+
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+
+<Fragment slot="Windows">
+
+**Common install locations:**
+
+- Official installer: `C:\Users\{username}\AppData\Local\Programs\Python312`
+- Anaconda: `C:\Users\{username}\Anaconda3`
+
+**To fix:** Search "environment variables" in Start Menu → Edit system environment
+variables → Environment Variables → Edit `Path` → Add your Python directory → Log out
+and back in.
+
+<div style={{ margin: "14rem 0" }}></div>
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+**Common install location:** `/opt/homebrew/bin/python3`
+
+```bash
+# Add to PATH temporarily
+export PATH="/opt/homebrew/bin:$PATH"
+
+# Or permanently (add to ~/.zshrc)
+echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+</Fragment>
+
+<Fragment slot="Linux">
+
+**Common install location:** `/usr/bin/python3.12`
+
+```bash
+# Add to PATH temporarily
+export PATH="/usr/bin:$PATH"
+
+# Or permanently (add to ~/.bashrc)
+echo 'export PATH="/usr/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+</Fragment>
+
+</Platform.Tabs>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+If `node --version` returns `command not found`, Node.js isn't on your PATH.
+
+<Platform.Tabs client:only="react" exclude={["Docker"]}>
+
+<Fragment slot="Windows">
+<div style={{ margin: "4rem 0" }}>
+</div>
+Reinstall from [nodejs.org](https://nodejs.org/) - the installer automatically adds
+Node.js to PATH.
+
+<div style={{ margin: "28rem 0" }}></div>
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+```bash
+# If installed via homebrew
+export PATH="/opt/homebrew/bin:$PATH"
+
+# Make permanent
+echo 'export PATH="/opt/homebrew/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+</Fragment>
+
+<Fragment slot="Linux">
+
+```bash
+# Common location after nodesource install
+export PATH="/usr/bin:$PATH"
+
+# Make permanent
+echo 'export PATH="/usr/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+</Fragment>
+
+</Platform.Tabs>
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Synnax Command Not Found
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+If `synnax` returns `command not found` after installing via pip:
+
+**1. Check pip is using the correct Python version:**
+
+```bash
+pip --version # Should show (python 3.12) or higher
+```
+
+If it shows an older version, your PATH may point to the wrong pip. See
+[Command Not Found](#command-not-found) for PATH troubleshooting.
+
+**2. If using a virtual environment, run commands within it.** Use the command for your
+environment manager:
+
+| Tool   | Command                                                     |
+| ------ | ----------------------------------------------------------- |
+| uv     | `uv run sy --help`                                          |
+| poetry | `poetry run sy --help` (or `poetry shell` then `sy --help`) |
+| venv   | `source venv/bin/activate` then `sy --help`                 |
+| conda  | `conda activate myenv` then `sy --help`                     |
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+The TypeScript client is a library, not a CLI tool. Install it via npm and import it
+directly into your code:
+
+```bash
+npm install @synnaxlabs/client
+```
+
+```typescript
+import Synnax from "@synnaxlabs/client";
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Old Core Version
+
+```
+Synnax Core version is too old for client version x.x.x. This may cause compatibility
+issues. We recommend updating the Core.
+```
+
+Your client is newer than the Synnax Core you're connecting to. Either
+[upgrade Synnax Core](/reference/core/installation) or downgrade the client:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```bash
+pip install synnax==x.x.x
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```bash
+npm install @synnaxlabs/client@x.x.x
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Old Client Version
+
+```
+Synnax Core version is too new for client version x.x.x. This may cause
+compatibility issues. We recommend updating the client.
+```
+
+Your client is older than the Synnax Core you're connecting to. Update the client:
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```bash
+pip install --upgrade synnax
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```bash
+npm install @synnaxlabs/client@latest
+```
+
+  </Fragment>
+</Client.Tabs>

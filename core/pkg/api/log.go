@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,8 +36,8 @@ func NewLogService(p Provider) *LogService {
 
 type (
 	LogCreateRequest struct {
-		Workspace uuid.UUID `json:"workspace" msgpack:"workspace"`
 		Logs      []log.Log `json:"logs" msgpack:"logs"`
+		Workspace uuid.UUID `json:"workspace" msgpack:"workspace"`
 	}
 	LogCreateResponse struct {
 		Logs []log.Log `json:"logs" msgpack:"logs"`
@@ -47,17 +47,17 @@ type (
 func (s *LogService) Create(ctx context.Context, req LogCreateRequest) (res LogCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: log.OntologyIDsFromLogs(req.Logs),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, log_ := range req.Logs {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &log_); err != nil {
+		for i, l := range req.Logs {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &l); err != nil {
 				return err
 			}
-			req.Logs[i] = log_
+			req.Logs[i] = l
 		}
 		res.Logs = req.Logs
 		return nil
@@ -65,14 +65,14 @@ func (s *LogService) Create(ctx context.Context, req LogCreateRequest) (res LogC
 }
 
 type LogRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *LogService) Rename(ctx context.Context, req LogRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{log.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -83,14 +83,14 @@ func (s *LogService) Rename(ctx context.Context, req LogRenameRequest) (res type
 }
 
 type LogSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *LogService) SetData(ctx context.Context, req LogSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{log.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -117,7 +117,7 @@ func (s *LogService) Retrieve(ctx context.Context, req LogRetrieveRequest) (res 
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: log.OntologyIDs(req.Keys),
 	}); err != nil {
 		return LogRetrieveResponse{}, err
@@ -132,7 +132,7 @@ type LogDeleteRequest struct {
 func (s *LogService) Delete(ctx context.Context, req LogDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: log.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

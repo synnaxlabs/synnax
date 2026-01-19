@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,8 +19,7 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>
-  extends Input.Control<I, O>,
-    Pick<UseFieldReturn<I, O>, "variant"> {}
+  extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "variant"> {}
 
 export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &

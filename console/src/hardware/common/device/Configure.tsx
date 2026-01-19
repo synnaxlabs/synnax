@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import "@/hardware/common/device/Configure.css";
 import { type device } from "@synnaxlabs/client";
 import {
   Button,
-  Device as Core,
+  Device as Base,
   Device,
   Flex,
   Form,
@@ -78,7 +78,7 @@ const Internal = <
       identifier: methods.get<string>("identifier").value,
     },
   });
-  const { update, variant } = Core.useCreate({
+  const { update, variant } = Base.useCreate({
     beforeUpdate: useCallback(async () => {
       if (isNameStep) {
         if (methods.validate("name")) {
@@ -179,7 +179,9 @@ export interface ConfigureProps<
   Properties extends record.Unknown,
   Make extends string,
   Model extends string,
-> extends Layout.RendererProps,
+>
+  extends
+    Layout.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <

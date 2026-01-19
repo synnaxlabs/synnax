@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ import "@/hardware/task/Toolbar.css";
 
 import { task, UnexpectedError } from "@synnaxlabs/client";
 import {
+  Access,
   Button,
   Flex,
   type Flux,
@@ -45,10 +46,11 @@ import { Range } from "@/range";
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
   const handleClick = () => placeLayout(SELECTOR_LAYOUT);
+  const canCreateTask = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <EmptyAction
       message="No existing tasks."
-      action="Create a task"
+      action={canCreateTask ? "Create a task" : undefined}
       onClick={handleClick}
     />
   );
@@ -69,6 +71,7 @@ const Content = () => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
   const placeLayout = Layout.usePlacer();
+  const canCreateTask = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
     filter,
@@ -172,11 +175,13 @@ const Content = () => {
       <Toolbar.Content className={CSS(CSS.B("task-toolbar"), menuProps.className)}>
         <Toolbar.Header padded>
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
-          <Toolbar.Actions>
-            <Toolbar.Action onClick={() => placeLayout(SELECTOR_LAYOUT)}>
-              <Icon.Add />
-            </Toolbar.Action>
-          </Toolbar.Actions>
+          {canCreateTask && (
+            <Toolbar.Actions>
+              <Toolbar.Action onClick={() => placeLayout(SELECTOR_LAYOUT)}>
+                <Icon.Add />
+              </Toolbar.Action>
+            </Toolbar.Actions>
+          )}
         </Toolbar.Header>
         <Select.Frame
           multiple
@@ -218,6 +223,7 @@ export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 225,
   maxSize: 400,
+  useVisible: () => Access.useRetrieveGranted(task.TYPE_ONTOLOGY_ID),
 };
 
 interface TaskListItemProps extends List.ItemProps<task.Key> {
@@ -227,10 +233,11 @@ interface TaskListItemProps extends List.ItemProps<task.Key> {
 
 const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => {
   const { itemKey } = rest;
-  const task = List.useItem<task.Key, task.Task>(itemKey);
-  const details = task?.status?.details;
-  let variant = task?.status?.variant;
-  const icon = getIcon(task?.type ?? "");
+  const task_ = List.useItem<task.Key, task.Task>(itemKey);
+  const hasEditPermission = Access.useUpdateGranted(task.ontologyID(itemKey));
+  const details = task_?.status?.details;
+  let variant = task_?.status?.variant;
+  const icon = getIcon(task_?.type ?? "");
   const isLoading = variant === "loading";
   const isRunning = details?.running === true;
   if (!isRunning && variant === "success") variant = "info";
@@ -250,8 +257,8 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
             {icon}
             <Text.MaybeEditable
               id={`text-${itemKey}`}
-              value={task?.name ?? ""}
-              onChange={onRename}
+              value={task_?.name ?? ""}
+              onChange={hasEditPermission ? onRename : undefined}
               allowDoubleClick={false}
               overflow="ellipsis"
               weight={500}
@@ -259,18 +266,20 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
           </Flex.Box>
         </Flex.Box>
         <Text.Text level="small" color={10}>
-          {parseType(task?.type ?? "")}
+          {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>
-      <Button.Button
-        variant="outlined"
-        status={isLoading ? "loading" : undefined}
-        onClick={handleStartStopClick}
-        onDoubleClick={stopPropagation}
-        tooltip={`${isRunning ? "Stop" : "Start"} ${task?.name ?? ""}`}
-      >
-        {isRunning ? <Icon.Pause /> : <Icon.Play />}
-      </Button.Button>
+      {hasEditPermission && (
+        <Button.Button
+          variant="outlined"
+          status={isLoading ? "loading" : undefined}
+          onClick={handleStartStopClick}
+          onDoubleClick={stopPropagation}
+          tooltip={`${isRunning ? "Stop" : "Start"} ${task_?.name ?? ""}`}
+        >
+          {isRunning ? <Icon.Pause /> : <Icon.Play />}
+        </Button.Button>
+      )}
     </Select.ListItem>
   );
 };
@@ -294,6 +303,9 @@ const ContextMenu = ({
 }: ContextMenuProps) => {
   const activeRange = Range.useSelect();
   const snapshotToActiveRange = useRangeSnapshot();
+  const ontologyIDs = task.ontologyID(keys);
+  const canDeleteAccess = Access.useDeleteGranted(ontologyIDs);
+  const canEditAccess = Access.useUpdateGranted(ontologyIDs);
 
   const canStart = selectedTasks.some(
     ({ status }) => status?.details.running === false,
@@ -348,39 +360,48 @@ const ContextMenu = ({
     activeRange?.persisted === true && selectedTasks.length > 0;
   return (
     <PMenu.Menu level="small" gap="small" onChange={handleChange}>
-      {canStart && (
-        <PMenu.Item itemKey="start">
-          <Icon.Play />
-          Start
-        </PMenu.Item>
+      {canEditAccess && (
+        <>
+          {canStart && (
+            <PMenu.Item itemKey="start">
+              <Icon.Play />
+              Start
+            </PMenu.Item>
+          )}
+          {canStop && (
+            <PMenu.Item itemKey="stop">
+              <Icon.Pause />
+              Stop
+            </PMenu.Item>
+          )}
+          {(canStart || canStop) && <PMenu.Divider />}
+          {isSingle && (
+            <>
+              <PMenu.Item itemKey="edit">
+                <Icon.Edit />
+                Edit configuration
+              </PMenu.Item>
+              <PMenu.Divider />
+              <Menu.RenameItem />
+              <PMenu.Divider />
+            </>
+          )}
+          {showSnapshotToActiveRange && (
+            <>
+              <Range.SnapshotMenuItem range={activeRange} key="snapshot" />
+              <PMenu.Divider />
+            </>
+          )}
+        </>
       )}
-      {canStop && (
-        <PMenu.Item itemKey="stop">
-          <Icon.Pause />
-          Stop
-        </PMenu.Item>
-      )}
-      {(canStart || canStop) && <PMenu.Divider />}
       {isSingle && (
         <>
-          <PMenu.Item itemKey="edit">
-            <Icon.Edit />
-            Edit configuration
-          </PMenu.Item>
-          <PMenu.Divider />
-          <Menu.RenameItem />
           <Export.MenuItem />
           <Link.CopyMenuItem />
           <PMenu.Divider />
         </>
       )}
-      {showSnapshotToActiveRange && (
-        <>
-          <Range.SnapshotMenuItem range={activeRange} key="snapshot" />
-          <PMenu.Divider />
-        </>
-      )}
-      {someSelected && (
+      {canDeleteAccess && someSelected && (
         <>
           <PMenu.Item itemKey="delete">
             <Icon.Delete />

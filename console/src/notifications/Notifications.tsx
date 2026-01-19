@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,8 +33,10 @@ interface NotificationsProps {
 
 // Note: Hack to hide repeated device and rack success notifications.
 const hideRackAndDeviceSuccesses = (status: Status.NotificationSpec) =>
-  status.variant !== "success" ||
-  (!status.key.startsWith("rack") && !status.key.startsWith("device"));
+  (status.variant !== "success" && status.variant !== "loading") ||
+  (!status.key.startsWith("rack") &&
+    !status.key.startsWith("device") &&
+    !status.key.startsWith("task"));
 
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
   const { statuses, silence } = Status.useNotifications();

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var ErrInvalidName = errors.Wrap(validate.Error, "invalid channel name")
+var ErrInvalidName = errors.Wrap(validate.ErrValidation, "invalid channel name")
 
 // validNamePattern matches valid channel names: letters, digits, and underscores only
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)

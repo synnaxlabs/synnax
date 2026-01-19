@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -83,11 +83,6 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             form="create-workspace"
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
-            tooltip={
-              client == null
-                ? "No Core Connected"
-                : `Save to ${client.params.name ?? "Synnax"}`
-            }
             onClick={() => save()}
             trigger={Triggers.SAVE}
           >

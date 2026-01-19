@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type lineplot, type ranger } from "@synnaxlabs/client";
+import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   type axis,
   Channel,
   Icon,
-  LinePlot as Core,
+  LinePlot as Base,
   Menu as PMenu,
   Ranger,
   Status,
@@ -96,8 +97,12 @@ import { Workspace } from "@/workspace";
 
 const useSyncComponent = Workspace.createSyncComponent(
   "Line Plot",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const s = store.getState();
+    if (
+      !Access.updateGranted({ id: lineplot.ontologyID(key), store: fluxStore, client })
+    )
+      return;
     const data = select(s, key);
     if (data == null) return;
     const la = Layout.selectRequired(s, key);
@@ -161,6 +166,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const prevName = usePrevious(name);
+  const hasEditPermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
 
   useEffect(() => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
@@ -356,12 +362,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const props = PMenu.useContextMenu();
+  const linePlotRef = useRef<Base.LinePlotRef | null>(null);
 
   interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
     layoutKey: string;
   }
-
-  const boundsQuerierRef = useRef<Core.GetBoundsFn>(null);
 
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
@@ -369,7 +374,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const handleError = Status.useErrorHandler();
 
     const getTimeRange = useCallback(async () => {
-      const bounds = await boundsQuerierRef.current?.();
+      const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null) return null;
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
@@ -451,6 +456,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
         <Channel.LinePlot
+          ref={linePlotRef}
           aetherKey={layoutKey}
           hold={hold}
           onContextMenu={props.open}
@@ -459,32 +465,33 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           lines={propsLines}
           rules={vis.rules}
           clearOverScan={{ x: 5, y: 5 }}
-          onTitleChange={handleTitleChange}
+          onTitleChange={hasEditPermission ? handleTitleChange : undefined}
           visible={visible}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
           showLegend={vis.legend.visible}
-          onLineChange={handleLineChange}
-          onRuleChange={handleRuleChange}
-          onAxisChannelDrop={handleChannelAxisDrop}
-          onAxisChange={handleAxisChange}
+          onLineChange={hasEditPermission ? handleLineChange : undefined}
+          onRuleChange={hasEditPermission ? handleRuleChange : undefined}
+          onAxisChannelDrop={hasEditPermission ? handleChannelAxisDrop : undefined}
+          onAxisChange={hasEditPermission ? handleAxisChange : undefined}
           onViewportChange={handleViewportChange}
           initialViewport={initialViewport}
-          onLegendPositionChange={handleLegendPositionChange}
+          onLegendPositionChange={
+            hasEditPermission ? handleLegendPositionChange : undefined
+          }
           legendPosition={legendPosition}
           viewportTriggers={triggers}
           enableTooltip={enableTooltip}
           legendVariant={focused ? "fixed" : "floating"}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
-          onSelectRule={handleSelectRule}
+          onSelectRule={hasEditPermission ? handleSelectRule : undefined}
           onHold={handleHold}
           rangeProviderProps={rangeProviderProps}
           measureMode={vis.measure.mode}
-          onMeasureModeChange={handleMeasureModeChange}
+          onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
           {!focused && <Controls layoutKey={layoutKey} />}
-          <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
       {focused && <Controls layoutKey={layoutKey} />}
@@ -504,7 +511,7 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     );
 
 const useLoadRemote = createLoadRemote<lineplot.LinePlot>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),

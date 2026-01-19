@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,9 +28,9 @@ import (
 )
 
 type group struct {
-	Calculators      []*calculator.Calculator
 	shutdown         io.Closer
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
+	Calculators      []*calculator.Calculator
 }
 
 func (g *group) Close() error {

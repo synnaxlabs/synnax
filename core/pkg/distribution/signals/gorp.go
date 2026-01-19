@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -73,7 +73,7 @@ func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) Gor
 }
 
 func (g GorpPublisherConfig[K, E]) Validate() error {
-	v := validate.New("cdc.GorpPublisherConfig")
+	v := validate.New("cdc.gorp_publisher_config")
 	validate.NotEmptyString(v, "set_name", g.SetName)
 	validate.NotEmptyString(v, "delete_name", g.DeleteName)
 	validate.NotNil(v, "db", g.DB)
@@ -162,7 +162,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 				var out []change.Change[[]byte, struct{}]
 				for c := range r {
 					oc := change.Change[[]byte, struct{}]{Variant: c.Variant}
-					if c.Variant == change.Set {
+					if c.Variant == change.VariantSet {
 						v, err := cfg.MarshalSet(c.Value)
 						if err != nil {
 							svc.L.Error("failed to marshal set", zap.Error(err), zap.String("channel", cfg.SetName))

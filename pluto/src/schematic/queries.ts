@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "schematics";
-const RESOURCE_NAME = "Schematic";
+const RESOURCE_NAME = "schematic";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
@@ -22,8 +22,10 @@ export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   schematic.Schematic
 > = { listeners: [] };
 
-export interface FluxStore
-  extends Flux.UnaryStore<schematic.Key, schematic.Schematic> {}
+export interface FluxStore extends Flux.UnaryStore<
+  schematic.Key,
+  schematic.Schematic
+> {}
 
 interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
@@ -64,7 +66,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => schematic.ontologyID(k));
+    const ids = schematic.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.workspaces.schematics.delete(data);

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -47,8 +47,8 @@ var _ = Describe("Migration Test", func() {
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
-					if ch.Key == testdata.LegacyRate {
-						Expect(err).To(HaveOccurredAs(query.NotFound))
+					if ch.Key == testdata.LegacyRateKey {
+						Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 						continue
 					} else {
 						Expect(err).ToNot(HaveOccurred())

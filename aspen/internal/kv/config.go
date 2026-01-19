@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,10 +21,6 @@ import (
 
 // Config is the configuration for the aspen DB service. For default values, see DefaultConfig().
 type Config struct {
-	alamos.Instrumentation
-	// Cluster is the cluster that the DB will use to communicate with other databases.
-	// [Required]
-	Cluster *cluster.Cluster
 	// BatchTransportClient is used to send key-value NewStreamer to nodes.
 	// [Required]
 	BatchTransportClient TxTransportClient
@@ -52,6 +48,10 @@ type Config struct {
 	// Engine is the underlying key-value engine that DB writes its key-value pairs to.
 	// [Required]
 	Engine xkv.DB
+	// Cluster is the cluster that the DB will use to communicate with other databases.
+	// [Required]
+	Cluster *cluster.Cluster
+	alamos.Instrumentation
 	// GossipInterval is how often a node initiates gossip with a peer.
 	// [Not Required]
 	GossipInterval time.Duration
@@ -82,16 +82,16 @@ func (cfg Config) Override(other Config) Config {
 // Validate implements config.Config.
 func (cfg Config) Validate() error {
 	v := validate.New("cesium")
-	validate.NotNil(v, "Cluster", cfg.Cluster)
-	validate.NotNil(v, "TxTransportClient", cfg.BatchTransportClient)
-	validate.NotNil(v, "TxTransportServer", cfg.BatchTransportServer)
-	validate.NotNil(v, "FeedbackTransportClient", cfg.FeedbackTransportClient)
-	validate.NotNil(v, "FeedbackTransportServer", cfg.FeedbackTransportServer)
-	validate.NotNil(v, "LeaseTransportClient", cfg.LeaseTransportServer)
-	validate.NotNil(v, "LeaseTransportServer", cfg.LeaseTransportClient)
-	validate.NotNil(v, "RecoveryTransportClient", cfg.RecoveryTransportClient)
-	validate.NotNil(v, "RecoveryTransportServer", cfg.RecoveryTransportServer)
-	validate.NotNil(v, "Engine", cfg.Engine)
+	validate.NotNil(v, "cluster", cfg.Cluster)
+	validate.NotNil(v, "tx_transport_client", cfg.BatchTransportClient)
+	validate.NotNil(v, "tx_transport_server", cfg.BatchTransportServer)
+	validate.NotNil(v, "feedback_transport_client", cfg.FeedbackTransportClient)
+	validate.NotNil(v, "feedback_transport_server", cfg.FeedbackTransportServer)
+	validate.NotNil(v, "lease_transport_client", cfg.LeaseTransportServer)
+	validate.NotNil(v, "lease_transport_server", cfg.LeaseTransportClient)
+	validate.NotNil(v, "recovery_transport_client", cfg.RecoveryTransportClient)
+	validate.NotNil(v, "recovery_transport_server", cfg.RecoveryTransportServer)
+	validate.NotNil(v, "engine", cfg.Engine)
 	return v.Error()
 }
 

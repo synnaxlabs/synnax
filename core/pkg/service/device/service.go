@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ package device
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -20,19 +21,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for creating a device service.
-type Config struct {
-	// Instrumentation is used for logging, tracing, and metrics.
-	// [OPTIONAL] - Defaults to noop instrumentation.
-	alamos.Instrumentation
+// ServiceConfig is the configuration for creating a device service.
+type ServiceConfig struct {
 	// DB is the gorp database that devices will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -53,12 +54,15 @@ type Config struct {
 	// Rack is used to retrieve and manage racks.
 	// [REQUIRED]
 	Rack *rack.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	// [OPTIONAL] - Defaults to noop instrumentation.
+	alamos.Instrumentation
 }
 
-var _ config.Config[Config] = Config{}
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override overrides parts of c with the valid parts of other.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
@@ -70,7 +74,7 @@ func (c Config) Override(other Config) Config {
 
 // Validate determines whether the configuration can be used for creating a device
 // service.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("hardware.device")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -80,23 +84,23 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-var DefaultConfig = Config{}
+var DefaultServiceConfig = ServiceConfig{}
 
 // Service is the main entrypoint for managing devices within Synnax. It provides
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
 // provides mechanisms for listening to changes in devices.
 type Service struct {
-	cfg                           Config
+	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
-	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	group                         group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error
 // is nil, the service is ready for use and must be closed by calling Close to
 // prevent resource leaks.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +109,9 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, group: g}
+	if err := s.migrateStatusesForExistingDevices(ctx); err != nil {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals != nil {
@@ -153,6 +160,50 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[string, Device](),
 	}
+}
+
+func (s *Service) migrateStatusesForExistingDevices(ctx context.Context) error {
+	var devices []Device
+	if err := s.NewRetrieve().Entries(&devices).Exec(ctx, nil); err != nil {
+		return err
+	}
+	if len(devices) == 0 {
+		return nil
+	}
+	statusKeys := make([]string, len(devices))
+	for i, d := range devices {
+		statusKeys[i] = OntologyID(d.Key).String()
+	}
+	var existingStatuses []Status
+	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
+		WhereKeys(statusKeys...).
+		Entries(&existingStatuses).
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	existingKeys := make(map[string]bool)
+	for _, stat := range existingStatuses {
+		existingKeys[stat.Key] = true
+	}
+	var missingStatuses []Status
+	for _, d := range devices {
+		key := OntologyID(d.Key).String()
+		if !existingKeys[key] {
+			missingStatuses = append(missingStatuses, Status{
+				Key:     key,
+				Name:    d.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.VariantWarning,
+				Message: fmt.Sprintf("%s state unknown", d.Name),
+				Details: StatusDetails{Rack: d.Rack, Device: d.Key},
+			})
+		}
+	}
+	if len(missingStatuses) == 0 {
+		return nil
+	}
+	s.cfg.L.Info("creating unknown statuses for existing devices", zap.Int("count", len(missingStatuses)))
+	return status.NewWriter[StatusDetails](s.cfg.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,10 +26,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening the ranger.Service.
-type Config struct {
-	// Instrumentation for logging, tracing, and metrics.
-	alamos.Instrumentation
+// ServiceConfig is the configuration for opening the ranger.Service.
+type ServiceConfig struct {
 	// DB is the underlying database that the service will use to store Ranges.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between ranges (parent-child) and
@@ -47,16 +45,18 @@ type Config struct {
 	// ForceMigration will force all migrations to run, regardless of whether they have
 	// already been run.
 	ForceMigration *bool
+	// Instrumentation for logging, tracing, and metrics.
+	alamos.Instrumentation
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a range service.
-	DefaultConfig = Config{ForceMigration: config.False()}
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a range service.
+	DefaultServiceConfig = ServiceConfig{ForceMigration: config.False()}
 )
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("service.ranger")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -67,7 +67,7 @@ func (c Config) Validate() error {
 }
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -83,19 +83,19 @@ func (c Config) Override(other Config) Config {
 // provides mechanisms for setting channel aliases for a specific range, and for setting
 // metadata on a range.
 type Service struct {
-	Config
 	shutdownSignals io.Closer
+	cfg             ServiceConfig
 }
 
 // OpenService opens a new ranger.Service with the provided configuration. If error is
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
-func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Config: cfg}
+	s := &Service{cfg: cfg}
 	cfg.Ontology.RegisterService(s)
 	cfg.Ontology.RegisterService(&aliasOntologyService{db: cfg.DB})
 	if err := s.migrate(ctx); err != nil {
@@ -145,9 +145,9 @@ func (s *Service) Close() error {
 // execute all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:        gorp.OverrideTx(s.DB, tx),
-		otg:       s.Ontology,
-		otgWriter: s.Ontology.NewWriter(tx),
+		tx:        gorp.OverrideTx(s.cfg.DB, tx),
+		otg:       s.cfg.Ontology,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
 	}
 }
 
@@ -155,8 +155,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, Range](),
-		baseTX: s.DB,
-		otg:    s.Ontology,
-		label:  s.Label,
+		baseTX: s.cfg.DB,
+		otg:    s.cfg.Ontology,
+		label:  s.cfg.Label,
 	}
 }

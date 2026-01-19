@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,6 +18,7 @@ TEST(TimeStampTests, testConstructor) {
     ASSERT_EQ(ts.nanoseconds(), 5);
 }
 
+/// @brief it should add two timestamps together.
 TEST(TimeStampTests, testAddition) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -25,6 +26,7 @@ TEST(TimeStampTests, testAddition) {
     ASSERT_EQ(ts3.nanoseconds(), 10);
 }
 
+/// @brief it should subtract two timestamps.
 TEST(TimeStampTests, testSubtraction) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -32,6 +34,7 @@ TEST(TimeStampTests, testSubtraction) {
     ASSERT_EQ(ts3.nanoseconds(), 0);
 }
 
+/// @brief it should multiply two timestamps.
 TEST(TimeStampTests, testMultiplication) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -39,6 +42,7 @@ TEST(TimeStampTests, testMultiplication) {
     ASSERT_EQ(ts3.nanoseconds(), 25);
 }
 
+/// @brief it should divide two timestamps.
 TEST(TimeStampTests, testDivision) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -46,42 +50,49 @@ TEST(TimeStampTests, testDivision) {
     ASSERT_EQ(ts3.nanoseconds(), 1);
 }
 
+/// @brief it should compare two timestamps for equality.
 TEST(TimeStampTests, testEquality) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     ASSERT_TRUE(ts == ts2);
 }
 
+/// @brief it should compare two timestamps for inequality.
 TEST(TimeStampTests, testInequality) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(6);
     ASSERT_TRUE(ts != ts2);
 }
 
+/// @brief it should compare two timestamps with less than.
 TEST(TimeStampTests, testLessThan) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(6);
     ASSERT_TRUE(ts < ts2);
 }
 
+/// @brief it should compare two timestamps with less than or equal.
 TEST(TimeStampTests, testLessThanEqual) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     ASSERT_TRUE(ts <= ts2);
 }
 
+/// @brief it should compare two timestamps with greater than.
 TEST(TimeStampTests, testGreaterThan) {
     const auto ts = TimeStamp(6);
     const auto ts2 = TimeStamp(5);
     ASSERT_TRUE(ts > ts2);
 }
 
+/// @brief it should compare two timestamps with greater than or equal.
 TEST(TimeStampTests, testGreaterThanEqual) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
     ASSERT_TRUE(ts >= ts2);
 }
 
+/// @brief it should calculate modulo of two timestamps.
 TEST(TimeStampTests, testModulo) {
     const auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(2);
@@ -89,6 +100,7 @@ TEST(TimeStampTests, testModulo) {
     ASSERT_EQ(ts3.nanoseconds(), 1);
 }
 
+/// @brief it should add and assign timestamps.
 TEST(TimeStampTests, testAdditionAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -96,6 +108,7 @@ TEST(TimeStampTests, testAdditionAssignment) {
     ASSERT_EQ(ts.nanoseconds(), 10);
 }
 
+/// @brief it should subtract and assign timestamps.
 TEST(TimeStampTests, testSubtractionAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -103,6 +116,7 @@ TEST(TimeStampTests, testSubtractionAssignment) {
     ASSERT_EQ(ts.nanoseconds(), 0);
 }
 
+/// @brief it should multiply and assign timestamps.
 TEST(TimeStampTests, testMultiplicationAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -110,6 +124,7 @@ TEST(TimeStampTests, testMultiplicationAssignment) {
     ASSERT_EQ(ts.nanoseconds(), 25);
 }
 
+/// @brief it should divide and assign timestamps.
 TEST(TimeStampTests, testDivisionAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(5);
@@ -117,6 +132,7 @@ TEST(TimeStampTests, testDivisionAssignment) {
     ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
+/// @brief it should calculate modulo and assign timestamps.
 TEST(TimeStampTests, testModuloAssignment) {
     auto ts = TimeStamp(5);
     const auto ts2 = TimeStamp(2);
@@ -124,15 +140,13 @@ TEST(TimeStampTests, testModuloAssignment) {
     ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
-////////////////////////////////////////////////////////////
-// TimeSpan Tests
-////////////////////////////////////////////////////////////
-
+/// @brief it should initialize a timespan from a long.
 TEST(TimeSpanTests, testConstructor) {
     const auto ts = TimeSpan(5);
     ASSERT_EQ(ts.nanoseconds(), 5);
 }
 
+/// @brief it should add two timespans together.
 TEST(TimeSpanTests, testAddition) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
@@ -140,6 +154,7 @@ TEST(TimeSpanTests, testAddition) {
     ASSERT_EQ(ts3.nanoseconds(), 10);
 }
 
+/// @brief it should subtract two timespans.
 TEST(TimeSpanTests, testSubtraction) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
@@ -147,6 +162,7 @@ TEST(TimeSpanTests, testSubtraction) {
     ASSERT_EQ(ts3.nanoseconds(), 0);
 }
 
+/// @brief it should multiply two timespans.
 TEST(TimeSpanTests, testMultiplication) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
@@ -170,6 +186,7 @@ TEST(TimeSpanTests, testMultiplication) {
     ASSERT_EQ(ts11.nanoseconds(), 25);
 }
 
+/// @brief it should divide two timespans.
 TEST(TimeSpanTests, testDivision) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
@@ -185,42 +202,49 @@ TEST(TimeSpanTests, testDivision) {
     ASSERT_EQ(ts7.nanoseconds(), 1);
 }
 
+/// @brief it should compare two timespans for equality.
 TEST(TimeSpanTests, testEquality) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
     ASSERT_TRUE(ts == ts2);
 }
 
+/// @brief it should compare two timespans for inequality.
 TEST(TimeSpanTests, testInequality) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(6);
     ASSERT_TRUE(ts != ts2);
 }
 
+/// @brief it should compare two timespans with less than.
 TEST(TimeSpanTests, testLessThan) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(6);
     ASSERT_TRUE(ts < ts2);
 }
 
+/// @brief it should compare two timespans with less than or equal.
 TEST(TimeSpanTests, testLessThanEqual) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
     ASSERT_TRUE(ts <= ts2);
 }
 
+/// @brief it should compare two timespans with greater than.
 TEST(TimeSpanTests, testGreaterThan) {
     const auto ts = TimeSpan(6);
     const auto ts2 = TimeSpan(5);
     ASSERT_TRUE(ts > ts2);
 }
 
+/// @brief it should compare two timespans with greater than or equal.
 TEST(TimeSpanTests, testGreaterThanEqual) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(5);
     ASSERT_TRUE(ts >= ts2);
 }
 
+/// @brief it should calculate modulo of two timespans.
 TEST(TimeSpanTests, testModulo) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(2);
@@ -236,12 +260,14 @@ TEST(TimeSpanTests, testModulo) {
     ASSERT_EQ(ts7.nanoseconds(), 1);
 }
 
+/// @brief it should truncate a timespan to a given unit.
 TEST(TimeSpanTests, testTruncate) {
     const auto ts = telem::SECOND * 5 + telem::MICROSECOND * 10;
     const auto ts3 = ts.truncate(telem::SECOND);
     ASSERT_EQ(ts3, telem::SECOND * 5);
 }
 
+/// @brief it should return the original timespan when truncating to zero.
 TEST(TimeSpanTests, testTruncateZeroTarget) {
     const auto ts = telem::SECOND * 5;
     const auto target = TimeSpan(0);
@@ -249,6 +275,7 @@ TEST(TimeSpanTests, testTruncateZeroTarget) {
     ASSERT_EQ(ts3, ts);
 }
 
+/// @brief it should calculate the delta between two timespans.
 TEST(TimeSpanTests, testDelta) {
     const auto ts = TimeSpan(5);
     const auto ts2 = TimeSpan(2);
@@ -256,6 +283,7 @@ TEST(TimeSpanTests, testDelta) {
     ASSERT_EQ(ts3.nanoseconds(), 3);
 }
 
+/// @brief it should perform arithmetic operations with scalars.
 TEST(TimeSpanTests, testScalarOperations) {
     const auto ts = TimeSpan(10);
 
@@ -272,6 +300,7 @@ TEST(TimeSpanTests, testScalarOperations) {
     ASSERT_EQ(ts5.nanoseconds(), 5);
 }
 
+/// @brief it should perform compound assignment operations with scalars.
 TEST(TimeSpanTests, testScalarAssignments) {
     auto ts = TimeSpan(10);
 
@@ -291,6 +320,7 @@ TEST(TimeSpanTests, testScalarAssignments) {
     ASSERT_EQ(ts.nanoseconds(), 1);
 }
 
+/// @brief it should convert a timespan to a human-readable string.
 TEST(TimeSpanTests, testToString) {
     const auto ts = TimeSpan(
         _priv::DAY + _priv::HOUR + _priv::MINUTE + _priv::SECOND + _priv::MILLISECOND +
@@ -304,17 +334,20 @@ TEST(TimeSpanTests, testToString) {
     ASSERT_EQ(zero.to_string(), "0ns");
 }
 
+/// @brief it should convert a timespan to a std::chrono duration.
 TEST(TimeSpanTests, testChronoConversion) {
     const auto ts = TimeSpan(_priv::SECOND);
     const auto chrono_duration = ts.chrono();
     ASSERT_EQ(chrono_duration.count(), _priv::SECOND);
 }
 
+/// @brief it should return a zero timespan from the static method.
 TEST(TimeSpanTests, testZeroStatic) {
     const auto zero = TimeSpan::ZERO();
     ASSERT_EQ(zero.nanoseconds(), 0);
 }
 
+/// @brief it should return the absolute value of a timespan.
 TEST(TimeSpanTests, testAbs) {
     const auto positive = TimeSpan(5);
     ASSERT_EQ(positive.abs().nanoseconds(), 5);
@@ -326,50 +359,49 @@ TEST(TimeSpanTests, testAbs) {
     ASSERT_EQ(zero.abs().nanoseconds(), 0);
 }
 
-////////////////////////////////////////////////////////////
-// TimeRange Tests
-////////////////////////////////////////////////////////////
-
+/// @brief it should check if a timestamp is contained within a time range.
 TEST(TimeRangeTests, testContains) {
     const auto tr = TimeRange(5, 10);
     const auto ts = TimeStamp(7);
     ASSERT_TRUE(tr.contains(ts));
 }
 
+/// @brief it should check if a time range is contained within another time range.
 TEST(TimeRangeTests, testContainsRange) {
     const auto tr = TimeRange(5, 10);
     const auto tr2 = TimeRange(6, 9);
     ASSERT_TRUE(tr.contains(tr2));
 }
 
+/// @brief it should return true for equal time ranges.
 TEST(TimeRangeTests, testEqualOperatorEqual) {
     const auto tr = TimeRange(5, 10);
     const auto tr2 = TimeRange(5, 10);
     ASSERT_TRUE(tr == tr2);
 }
 
+/// @brief it should return false for unequal time ranges.
 TEST(TimeRangeTests, testEqualOperatorNotEqual) {
     const auto tr = TimeRange(5, 10);
     const auto tr2 = TimeRange(5, 11);
     ASSERT_FALSE(tr == tr2);
 }
 
+/// @brief it should return false for the not-equal operator on equal time ranges.
 TEST(TimeRangetests, testNotEqualOperatorEqual) {
     const auto tr = TimeRange(5, 10);
     const auto tr2 = TimeRange(5, 10);
     ASSERT_FALSE(tr != tr2);
 }
 
+/// @brief it should return true for the not-equal operator on unequal time ranges.
 TEST(TimeRangeTests, testNotEqualOperatorNotEqual) {
     const auto tr = TimeRange(5, 10);
     const auto tr2 = TimeRange(5, 11);
     ASSERT_TRUE(tr != tr2);
 }
 
-////////////////////////////////////////////////////////////
-// Rate Tests
-////////////////////////////////////////////////////////////
-
+/// @brief it should calculate the period from a rate.
 TEST(RateTests, testPeriod) {
     const auto r = Rate(1);
     ASSERT_EQ(r.period(), telem::SECOND);
@@ -377,11 +409,13 @@ TEST(RateTests, testPeriod) {
     ASSERT_EQ(r2.period(), telem::SECOND / 2);
 }
 
+/// @brief it should initialize a rate from a frequency.
 TEST(RateTests, testContructor) {
     const auto r = Rate(5);
     ASSERT_EQ(r.hz(), 5);
 }
 
+/// @brief it should add two rates together.
 TEST(RateTests, testAddition) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
@@ -389,6 +423,7 @@ TEST(RateTests, testAddition) {
     ASSERT_EQ(r3.hz(), 10);
 }
 
+/// @brief it should subtract two rates.
 TEST(RateTests, testSubtraction) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
@@ -396,6 +431,7 @@ TEST(RateTests, testSubtraction) {
     ASSERT_EQ(r3.hz(), 0);
 }
 
+/// @brief it should multiply two rates.
 TEST(RateTests, testMultiplication) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
@@ -423,6 +459,7 @@ TEST(RateTests, testMultiplication) {
     ASSERT_EQ(r13.hz(), 25);
 }
 
+/// @brief it should divide two rates.
 TEST(RateTests, testDivision) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
@@ -434,42 +471,49 @@ TEST(RateTests, testDivision) {
     ASSERT_EQ(r5.hz(), 1);
 }
 
+/// @brief it should compare two rates for equality.
 TEST(RateTests, testEquality) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
     ASSERT_TRUE(r == r2);
 }
 
+/// @brief it should compare two rates for inequality.
 TEST(RateTests, testInequality) {
     const auto r = Rate(5);
     const auto r2 = Rate(6);
     ASSERT_TRUE(r != r2);
 }
 
+/// @brief it should compare two rates with less than.
 TEST(RateTests, testLessThan) {
     const auto r = Rate(5);
     const auto r2 = Rate(6);
     ASSERT_TRUE(r < r2);
 }
 
+/// @brief it should compare two rates with less than or equal.
 TEST(RateTests, testLessThanEqual) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
     ASSERT_TRUE(r <= r2);
 }
 
+/// @brief it should compare two rates with greater than.
 TEST(RateTests, testGreaterThan) {
     const auto r = Rate(6);
     const auto r2 = Rate(5);
     ASSERT_TRUE(r > r2);
 }
 
+/// @brief it should compare two rates with greater than or equal.
 TEST(RateTests, testGreaterThanEqual) {
     const auto r = Rate(5);
     const auto r2 = Rate(5);
     ASSERT_TRUE(r >= r2);
 }
 
+/// @brief it should calculate periods for various frequencies.
 TEST(RateTests, testPeriodVariousFrequencies) {
     // Test common frequencies
     ASSERT_EQ(Rate(1).period(), SECOND); // 1 Hz = 1s
@@ -508,16 +552,12 @@ TEST(RateTests, testRateStreamOperator) {
 
 /// @brief Test that Rate operator<< works in error messages
 TEST(RateTests, testRateInErrorMessage) {
-    Rate configured_rate(25.0);
+    const Rate configured_rate(25.0);
     std::ostringstream msg;
     msg << "configured sample rate (" << configured_rate << ") is below device minimum";
     EXPECT_TRUE(msg.str().find("25 Hz") != std::string::npos);
     EXPECT_FALSE(msg.str().find(".hz()") != std::string::npos);
 }
-
-////////////////////////////////////////////////////////////
-// DataType Tests
-////////////////////////////////////////////////////////////
 
 class DataTypeTests : public ::testing::Test {};
 
@@ -528,6 +568,7 @@ struct TypeTestCase {
 
 class DataTypeInferTest : public testing::TestWithParam<TypeTestCase> {};
 
+/// @brief it should infer the correct data type for built-in types.
 TEST_P(DataTypeInferTest, testInferBuiltInTypes) {
     const auto &[expected, infer_fn] = GetParam();
     const auto dt = infer_fn();
@@ -553,16 +594,19 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
+/// @brief it should allow overriding the inferred data type.
 TEST(DataTypeTests, testInferOveride) {
     const auto dt = DataType::infer<int8_t>(INT16_T);
     ASSERT_EQ(dt, INT16_T);
 }
 
+/// @brief it should return the name of a data type.
 TEST(DataTypeTests, testName) {
     const auto dt = telem::FLOAT32_T;
     ASSERT_EQ(dt.name(), "float32");
 }
 
+/// @brief it should return the byte density for each data type.
 TEST(DataTypeTests, testDensity) {
     ASSERT_EQ(telem::FLOAT64_T.density(), 8);
     ASSERT_EQ(telem::FLOAT32_T.density(), 4);
@@ -580,6 +624,7 @@ TEST(DataTypeTests, testDensity) {
     ASSERT_EQ(telem::JSON_T.density(), 0);
 }
 
+/// @brief it should identify variable-length data types.
 TEST(DataTypeTests, testIsVariable) {
     ASSERT_TRUE(telem::STRING_T.is_variable());
     ASSERT_TRUE(telem::JSON_T.is_variable());
@@ -587,6 +632,7 @@ TEST(DataTypeTests, testIsVariable) {
     ASSERT_FALSE(telem::INT64_T.is_variable());
 }
 
+/// @brief it should check if a data type matches a set of types.
 TEST(DataTypeTests, testMatches) {
     const auto empty = telem::UNKNOWN_T;
     const auto dt = telem::FLOAT32_T;
@@ -598,6 +644,7 @@ TEST(DataTypeTests, testMatches) {
     ASSERT_FALSE(dt.matches(non_matching));
 }
 
+/// @brief it should compare two data types for equality.
 TEST(DataTypeTests, testEquality) {
     const auto dt1 = telem::FLOAT32_T;
     const auto dt2 = telem::FLOAT32_T;
@@ -607,6 +654,7 @@ TEST(DataTypeTests, testEquality) {
     ASSERT_FALSE(dt1 == dt3);
 }
 
+/// @brief it should compare two data types for inequality.
 TEST(DataTypeTests, testInequality) {
     const auto dt1 = telem::FLOAT32_T;
     const auto dt2 = telem::FLOAT32_T;
@@ -616,6 +664,7 @@ TEST(DataTypeTests, testInequality) {
     ASSERT_TRUE(dt1 != dt3);
 }
 
+/// @brief it should stream a data type to an output stream.
 TEST(DataTypeTests, testStreamOperator) {
     const auto dt = telem::FLOAT32_T;
     std::stringstream ss;
@@ -623,104 +672,118 @@ TEST(DataTypeTests, testStreamOperator) {
     ASSERT_EQ(ss.str(), "float32");
 }
 
+/// @brief it should return the domain index from an alignment.
 TEST(AlignmentTests, testDomainIndex) {
-    telem::Alignment a(1, 0);
+    const Alignment a(1, 0);
     ASSERT_EQ(a.domain_index(), 1);
 }
 
+/// @brief it should return the sample index from an alignment.
 TEST(AlignmentTests, testSampleIndex) {
-    telem::Alignment a(0, 1);
+    const Alignment a(0, 1);
     ASSERT_EQ(a.sample_index(), 1);
 }
 
+/// @brief it should construct an alignment from a uint64.
 TEST(AlignmentTests, testConstructionFromUint64) {
-    telem::Alignment a(20);
+    const Alignment a(20);
     ASSERT_EQ(a.domain_index(), 0);
     ASSERT_EQ(a.sample_index(), 20);
 }
 
+/// @brief it should compare two alignments for equality.
 TEST(AlignmentTests, testEquality) {
-    auto a = telem::Alignment(1, 2);
-    auto b = telem::Alignment(1, 2);
-    auto c = telem::Alignment(2, 1);
+    const auto a = Alignment(1, 2);
+    const auto b = Alignment(1, 2);
+    const auto c = Alignment(2, 1);
     ASSERT_TRUE(a == b);
     ASSERT_FALSE(a != b);
     ASSERT_FALSE(a == c);
     ASSERT_TRUE(a != c);
 }
 
+/// @brief it should compare an alignment with a uint64 value.
 TEST(AlignmentTests, testUint64Equality) {
-    auto a = telem::Alignment(1, 2);
+    const auto a = Alignment(1, 2);
     ASSERT_TRUE(a == 4294967298);
     ASSERT_FALSE(a != 4294967298);
     ASSERT_FALSE(a == 4294967292);
     ASSERT_TRUE(a != 4294967294);
 }
 
-////////////////////////////////////////////////////////////
-// to_string Tests
-////////////////////////////////////////////////////////////
-
+/// @brief it should convert a double to a string.
 TEST(ToStringTests, testDoubleConversion) {
     const SampleValue value = 123.456;
     ASSERT_EQ(to_string(value), "123.456000");
 }
 
+/// @brief it should convert a float to a string.
 TEST(ToStringTests, testFloatConversion) {
     const SampleValue value = 123.456f;
     ASSERT_EQ(to_string(value), "123.456001");
 }
 
+/// @brief it should convert an int64 to a string.
 TEST(ToStringTests, testInt64Conversion) {
     const SampleValue value = static_cast<int64_t>(123456789);
     ASSERT_EQ(to_string(value), "123456789");
 }
 
+/// @brief it should convert an int32 to a string.
 TEST(ToStringTests, testInt32Conversion) {
     const SampleValue value = static_cast<int32_t>(123456);
     ASSERT_EQ(to_string(value), "123456");
 }
 
+/// @brief it should convert an int16 to a string.
 TEST(ToStringTests, testInt16Conversion) {
     const SampleValue value = static_cast<int16_t>(12345);
     ASSERT_EQ(to_string(value), "12345");
 }
 
+/// @brief it should convert an int8 to a string.
 TEST(ToStringTests, testInt8Conversion) {
     const SampleValue value = static_cast<int8_t>(123);
     ASSERT_EQ(to_string(value), "123");
 }
 
+/// @brief it should convert a uint64 to a string.
 TEST(ToStringTests, testUint64Conversion) {
     const SampleValue value = static_cast<uint64_t>(123456789);
     ASSERT_EQ(to_string(value), "123456789");
 }
 
+/// @brief it should convert a uint32 to a string.
 TEST(ToStringTests, testUint32Conversion) {
     const SampleValue value = static_cast<uint32_t>(123456);
     ASSERT_EQ(to_string(value), "123456");
 }
 
+/// @brief it should convert a uint16 to a string.
 TEST(ToStringTests, testUint16Conversion) {
     const SampleValue value = static_cast<uint16_t>(12345);
     ASSERT_EQ(to_string(value), "12345");
 }
 
+/// @brief it should convert a uint8 to a string.
 TEST(ToStringTests, testUint8Conversion) {
     const SampleValue value = static_cast<uint8_t>(123);
     ASSERT_EQ(to_string(value), "123");
 }
 
+/// @brief it should convert a timestamp to a string.
 TEST(ToStringTests, testTimeStampConversion) {
     const SampleValue value = TimeStamp(1234567890123456789);
     ASSERT_EQ(to_string(value), "1234567890123456789");
 }
 
+/// @brief it should return a string unchanged.
 TEST(ToStringTests, testStringConversion) {
     const SampleValue value = std::string("hello world");
     ASSERT_EQ(to_string(value), "hello world");
 }
 
+/// @brief it should convert negative numbers to strings.
 TEST(ToStringTests, testNegativeNumbers) {
     const SampleValue neg_int64 = static_cast<int64_t>(-123456789);
     ASSERT_EQ(to_string(neg_int64), "-123456789");
@@ -741,6 +804,7 @@ TEST(ToStringTests, testNegativeNumbers) {
     ASSERT_EQ(to_string(neg_float), "-123.456001");
 }
 
+/// @brief it should convert zero values to strings.
 TEST(ToStringTests, testZeroValues) {
     const SampleValue zero_int64 = static_cast<int64_t>(0);
     ASSERT_EQ(to_string(zero_int64), "0");
@@ -755,8 +819,103 @@ TEST(ToStringTests, testZeroValues) {
     ASSERT_EQ(to_string(zero_timestamp), "0");
 }
 
+/// @brief it should handle empty strings.
 TEST(ToStringTests, testEmptyString) {
     const SampleValue value = std::string("");
     ASSERT_EQ(to_string(value), "");
+}
+
+/// @brief it should convert a protobuf number value to SampleValue.
+TEST(ProtoConversionTests, testFromProtoNumber) {
+    google::protobuf::Value pb;
+    pb.set_number_value(42.5);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 42.5);
+}
+
+/// @brief it should convert a protobuf string value to SampleValue.
+TEST(ProtoConversionTests, testFromProtoString) {
+    google::protobuf::Value pb;
+    pb.set_string_value("hello");
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<std::string>(sv), "hello");
+}
+
+/// @brief it should convert a protobuf bool true to uint8_t 1.
+TEST(ProtoConversionTests, testFromProtoBoolTrue) {
+    google::protobuf::Value pb;
+    pb.set_bool_value(true);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<uint8_t>(sv), 1);
+}
+
+/// @brief it should convert a protobuf bool false to uint8_t 0.
+TEST(ProtoConversionTests, testFromProtoBoolFalse) {
+    google::protobuf::Value pb;
+    pb.set_bool_value(false);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_EQ(std::get<uint8_t>(sv), 0);
+}
+
+/// @brief it should convert a protobuf null value to default double 0.
+TEST(ProtoConversionTests, testFromProtoNull) {
+    google::protobuf::Value pb;
+    pb.set_null_value(google::protobuf::NULL_VALUE);
+    const SampleValue sv = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(sv), 0.0);
+}
+
+/// @brief it should convert a double SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoDouble) {
+    const SampleValue sv = 123.456;
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 123.456);
+}
+
+/// @brief it should convert an int64 SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoInt64) {
+    const SampleValue sv = static_cast<int64_t>(9876543210);
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 9876543210.0);
+}
+
+/// @brief it should convert a string SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoString) {
+    const SampleValue sv = std::string("world");
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kStringValue);
+    ASSERT_EQ(pb.string_value(), "world");
+}
+
+/// @brief it should convert a TimeStamp SampleValue to protobuf.
+TEST(ProtoConversionTests, testToProtoTimeStamp) {
+    const SampleValue sv = TimeStamp(1234567890);
+    google::protobuf::Value pb;
+    to_proto(sv, &pb);
+    ASSERT_EQ(pb.kind_case(), google::protobuf::Value::kNumberValue);
+    ASSERT_DOUBLE_EQ(pb.number_value(), 1234567890.0);
+}
+
+/// @brief it should round-trip a double through protobuf.
+TEST(ProtoConversionTests, testRoundTripDouble) {
+    const SampleValue original = 99.99;
+    google::protobuf::Value pb;
+    to_proto(original, &pb);
+    const SampleValue result = from_proto(pb);
+    ASSERT_DOUBLE_EQ(std::get<double>(result), 99.99);
+}
+
+/// @brief it should round-trip a string through protobuf.
+TEST(ProtoConversionTests, testRoundTripString) {
+    const SampleValue original = std::string("test string");
+    google::protobuf::Value pb;
+    to_proto(original, &pb);
+    const SampleValue result = from_proto(pb);
+    ASSERT_EQ(std::get<std::string>(result), "test string");
 }
 }

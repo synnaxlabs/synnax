@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,17 +45,18 @@ type Provider interface {
 
 // ProviderConfig is the configuration for creating a new Provider.
 type ProviderConfig struct {
-	cert.LoaderConfig
 	// Insecure indicates whether the node should run in insecure mode.
 	Insecure *bool
+	cert.LoaderConfig
 	// KeySize is the size of private key to use in case key generation is required.
 	KeySize int
 }
 
 var (
 	_ config.Config[ProviderConfig] = ProviderConfig{}
-	// DefaultServiceConfig is the default configuration for the security secureProvider.
-	DefaultServiceConfig = ProviderConfig{
+	// DefaultProviderConfig is the default configuration for the security
+	// Provider.
+	DefaultProviderConfig = ProviderConfig{
 		LoaderConfig: cert.DefaultLoaderConfig,
 		Insecure:     config.True(),
 		KeySize:      cert.DefaultFactoryConfig.KeySize,
@@ -71,15 +72,15 @@ func (s ProviderConfig) Override(other ProviderConfig) ProviderConfig {
 
 // Validate implements Properties.
 func (s ProviderConfig) Validate() error {
-	v := validate.New("security.OtelProvider")
-	validate.NotNil(v, "Insecure", s.Insecure)
+	v := validate.New("security.provider")
+	validate.NotNil(v, "insecure", s.Insecure)
 	v.Exec(s.LoaderConfig.Validate)
 	return v.Error()
 }
 
 // NewProvider opens a new security Provider using the given configuration.
 func NewProvider(configs ...ProviderConfig) (Provider, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(DefaultProviderConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

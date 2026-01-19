@@ -9,24 +9,28 @@ on:
       - alamos/py/**
       - freighter/py/**
       - client/py/**
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
   workflow_dispatch:
 
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    env:
+      UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
-      - name: Set up Poetry
-        run: pipx install poetry
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: client/py/pyproject.toml
-          cache: poetry
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -36,6 +40,9 @@ jobs:
           filters: |
             shared: &shared
               - .github/workflows/deploy.py.yaml
+              - pyproject.toml
+              - uv.lock
+              - uv.toml
             alamos: &alamos
               - *shared
               - alamos/py/**
@@ -48,65 +55,30 @@ jobs:
               - *freighter
               - client/py/**
 
-      - name: Update Package Versions
-        run: |
-          cd client/py
-          CLIENT_VERSION=$(poetry version -s)
-          cd ../../freighter/py
-          FREIGHTER_VERSION=$(poetry version -s)
-          cd ../../alamos/py
-          ALAMOS_VERSION=$(poetry version -s)
-          cd ../../client/py
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = \"^$FREIGHTER_VERSION\"/" pyproject.toml
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
-          cd ../../freighter/py
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
-          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
-
       - name: Publish Alamos
         if: steps.filter.outputs.alamos == 'true'
         working-directory: alamos/py
         run: |
-          echo "Updating alamos version to $ALAMOS_VERSION"
-          echo "Locking alamos dependencies"
-          poetry lock -n
-          echo "Installing alamos dependencies"
-          poetry install -n
-          echo "Publishing alamos"
-          poetry publish --build --no-interaction
+          uv build && uv publish
 
       - name: Publish Freighter
         if: steps.filter.outputs.freighter == 'true'
         working-directory: freighter/py
         run: |
-          echo "Updating freighter version to $FREIGHTER_VERSION"
-          # poll until the new version of alamos is available
-          while true; do
-            echo "Locking freighter dependencies"
-            # wait until this command exits with 0
-            poetry lock -n && break
-            poetry cache clear --all -n .
-            echo "Failed to lock dependencies, retrying in 1 seconds"
-            sleep 1
+          for i in {1..10}; do
+            uv build --no-sources && break
+            echo "Waiting for dependencies on PyPI (attempt $i/10)..."
+            sleep 5
           done
-          poetry install -n
-          echo "Publishing freighter"
-          poetry publish --build --no-interaction
+          uv publish
 
       - name: Publish Client
         if: steps.filter.outputs.client == 'true'
         working-directory: client/py
         run: |
-          echo "Updating client version to $CLIENT_VERSION"
-          # poll until the new version of freighter is available
-          while true; do
-            echo "Locking client dependencies"
-            # wait until this command exits with 0
-            poetry lock -n && break
-            poetry cache clear --all -n .
-            echo "Failed to lock dependencies, retrying in 1 seconds"
-            sleep 1
+          for i in {1..10}; do
+            uv build --no-sources && break
+            echo "Waiting for dependencies on PyPI (attempt $i/10)..."
+            sleep 5
           done
-          poetry install -n
-          echo "Publishing client"
-          poetry publish --build --no-interaction
+          uv publish

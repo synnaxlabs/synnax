@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -87,7 +87,7 @@ var _ = Describe("Object", func() {
 			var dest TestStruct
 			Expect(schema.Parse("not a map", &dest)).
 				To(And(
-					HaveOccurredAs(zyn.InvalidDestinationTypeError),
+					HaveOccurredAs(zyn.ErrInvalidDestinationType),
 					MatchError(ContainSubstring("received string")),
 				))
 		})
@@ -96,14 +96,14 @@ var _ = Describe("Object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest *TestStruct
 			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("non-pointer destination", func() {
 			type TestStruct struct{ Name string }
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest TestStruct
 			Expect(schema.Parse(map[string]any{"Name": "John"}, dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("missing required field", func() {
 			type TestStruct struct {
@@ -122,44 +122,44 @@ var _ = Describe("Object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest string
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("numeric destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest int
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("bool destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest bool
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("slice destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest []string
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("map destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest map[string]string
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("channel destination", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			var dest chan struct{}
 			Expect(schema.Parse(map[string]any{"Name": "John"}, &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 	})
 	Describe("Optional Fields", func() {
 		Specify("optional field with nil value", func() {
 			type TestStruct struct {
-				Name  string
 				Email *string
+				Name  string
 			}
 			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
@@ -225,8 +225,8 @@ var _ = Describe("Object", func() {
 		})
 		Specify("optional fields", func() {
 			type TestStruct struct {
-				Name  string
 				Email *string
+				Name  string
 			}
 			schema := zyn.Object(map[string]zyn.Schema{
 				"Name":  zyn.String(),
@@ -644,6 +644,53 @@ var _ = Describe("Object", func() {
 				Expect(schema.Parse(data, &res)).To(Succeed())
 				Expect(res).To(Equal(MyStruct{Value: value}))
 			})
+		})
+	})
+	Describe("Field Method", func() {
+		Specify("building schema incrementally with Field()", func() {
+			type TestStruct struct {
+				FirstName string
+				LastName  string
+				Age       int
+			}
+			schema := zyn.Object(nil).
+				Field("FirstName", zyn.String()).
+				Field("LastName", zyn.String()).
+				Field("Age", zyn.Number())
+			data := TestStruct{FirstName: "John", LastName: "Doe", Age: 42}
+			result := MustSucceed(schema.Dump(data))
+			Expect(result).To(Equal(map[string]any{
+				"first_name": "John",
+				"last_name":  "Doe",
+				"age":        int64(42),
+			}))
+			var dest TestStruct
+			Expect(schema.Parse(result, &dest)).To(Succeed())
+			Expect(dest.FirstName).To(Equal("John"))
+			Expect(dest.LastName).To(Equal("Doe"))
+			Expect(dest.Age).To(Equal(42))
+		})
+		Specify("combining Object() with Field()", func() {
+			type TestStruct struct {
+				Name  string
+				Email string
+				Age   int
+			}
+			schema := zyn.Object(map[string]zyn.Schema{
+				"Name": zyn.String(),
+			}).Field("Email", zyn.String()).Field("Age", zyn.Number())
+			data := TestStruct{Name: "John", Email: "john@example.com", Age: 30}
+			result := MustSucceed(schema.Dump(data))
+			Expect(result).To(Equal(map[string]any{
+				"name":  "John",
+				"email": "john@example.com",
+				"age":   int64(30),
+			}))
+			var dest TestStruct
+			Expect(schema.Parse(result, &dest)).To(Succeed())
+			Expect(dest.Name).To(Equal("John"))
+			Expect(dest.Email).To(Equal("john@example.com"))
+			Expect(dest.Age).To(Equal(30))
 		})
 	})
 	Describe("Nested Object Field Errors", func() {

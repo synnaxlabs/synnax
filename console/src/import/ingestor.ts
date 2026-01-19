@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
+import { type Pluto } from "@synnaxlabs/pluto";
 
 import { type Layout } from "@/layout";
 
@@ -20,7 +21,8 @@ export interface File {
 interface FileIngestorContext {
   layout: Partial<Layout.State>;
   placeLayout: Layout.Placer;
-  store: Store;
+  store: Pluto.FluxStore;
+  client: Synnax | null;
 }
 
 export interface FileIngestor {
@@ -34,6 +36,7 @@ interface DirectoryIngestorContext {
   fileIngestors: FileIngestors;
   placeLayout: Layout.Placer;
   store: Store;
+  fluxStore: Pluto.FluxStore;
 }
 
 export interface DirectoryIngestor {

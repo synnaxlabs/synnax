@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,8 +21,7 @@ import { state } from "@/state";
 import { preventDefault } from "@/util/event";
 
 export interface ContainerProps
-  extends Omit<Flex.BoxProps, "onChange">,
-    Partial<OptionalControl<sticky.XY>> {
+  extends Omit<Flex.BoxProps, "onChange">, Partial<OptionalControl<sticky.XY>> {
   dragEnabled?: boolean;
   initial?: sticky.XY;
 }
@@ -79,11 +78,11 @@ export const Container = memo(
       const clamped = clampScale.pos(newDecimalPos);
       if (ref.current == null || ref.current.parentElement == null)
         return positionRef.current;
-      return sticky.calculate(
-        clamped,
-        box.construct(bounds),
-        box.construct(ref.current),
-      );
+      return sticky.calculate({
+        position: clamped,
+        element: box.construct(ref.current),
+        container: bounds,
+      });
     }, []);
 
     const handleCursorDragStart = useCursorDrag({
@@ -92,11 +91,11 @@ export const Container = memo(
         // element based on the new dimensions of the parent. This removes strange
         // 'jumping' behavior when starting to drag.
         if (ref.current == null || ref.current.parentElement == null) return;
-        positionRef.current = sticky.toDecimal(
-          positionRef.current,
-          box.construct(ref.current),
-          box.construct(ref.current.parentElement),
-        );
+        positionRef.current = sticky.toDecimal({
+          position: positionRef.current,
+          element: box.construct(ref.current),
+          container: box.construct(ref.current.parentElement),
+        });
       }, []),
       onMove: useCallback((box: box.Box) => {
         if (disabled.current) return;

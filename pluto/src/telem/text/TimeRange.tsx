@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,8 @@ import { Icon } from "@/icon";
 import { Text } from "@/text";
 
 export interface TimeRangeProps
-  extends Omit<Flex.BoxProps<"div">, "children">,
+  extends
+    Omit<Flex.BoxProps<"div">, "children">,
     Pick<Text.TextProps, "level" | "color" | "weight"> {
   children: CrudeTimeRange;
   displayTZ?: TZInfo;

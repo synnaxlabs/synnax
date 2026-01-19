@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Key uint64
@@ -39,12 +40,21 @@ func (k *Key) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+func (k *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
+	n, err := binary.UnmarshalMsgpackUint64(dec)
+	if err != nil {
+		return err
+	}
+	*k = Key(n)
+	return nil
+}
+
 type Task struct {
-	Key      Key     `json:"key" msgpack:"key"`
+	Status   *Status `json:"status" msgpack:"status"`
 	Name     string  `json:"name" msgpack:"name"`
 	Type     string  `json:"type" msgpack:"type"`
 	Config   string  `json:"config" msgpack:"config"`
-	Status   *Status `json:"status" msgpack:"status"`
+	Key      Key     `json:"key" msgpack:"key"`
 	Internal bool    `json:"internal" msgpack:"internal"`
 	Snapshot bool    `json:"snapshot" msgpack:"snapshot"`
 }
@@ -65,12 +75,10 @@ func (t Task) String() string {
 }
 
 type StatusDetails struct {
-	// Task is the key of the task that the state update is for.
-	Task Key `json:"task" msgpack:"task"`
-	// Cmd is a non-empty string if the status is an explicit response to a command.
-	Cmd     string         `json:"cmd" msgpack:"cmd"`
-	Running bool           `json:"running" msgpack:"running"`
 	Data    map[string]any `json:"data" msgpack:"data"`
+	Cmd     string         `json:"cmd" msgpack:"cmd"`
+	Task    Key            `json:"task" msgpack:"task"`
+	Running bool           `json:"running" msgpack:"running"`
 }
 
 // Status represents the state of a task.

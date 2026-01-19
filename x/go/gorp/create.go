@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -60,7 +60,7 @@ func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	toWrite := make([]E, 0, len(all))
 	for _, entry := range all {
 		e, err := r.Get(ctx, entry.GorpKey())
-		if errors.Is(err, query.NotFound) {
+		if errors.Is(err, query.ErrNotFound) {
 			toWrite = append(toWrite, entry)
 			continue
 		}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -47,21 +47,21 @@ var _ = Describe("Verification", func() {
 	Describe("ConfigValues", func() {
 		Describe("Validate", func() {
 			It("should return an error if the DB is nil", func() {
-				Expect(verification.DefaultConfig.Validate()).To(HaveOccurred())
+				Expect(verification.DefaultServiceConfig.Validate()).To(HaveOccurred())
 			})
 			It("should return an error if the WarningTime is zero", func() {
-				cfg := verification.DefaultConfig.
-					Override(verification.Config{WarningTime: 0})
+				cfg := verification.DefaultServiceConfig.
+					Override(verification.ServiceConfig{WarningTime: 0})
 				Expect(cfg.Validate()).To(HaveOccurred())
 			})
 			It("should return an error if the CheckInterval is zero", func() {
-				cfg := verification.DefaultConfig.
-					Override(verification.Config{CheckInterval: 0})
+				cfg := verification.DefaultServiceConfig.
+					Override(verification.ServiceConfig{CheckInterval: 0})
 				Expect(cfg.Validate()).To(HaveOccurred())
 			})
 			It("should not error if there is a valid DB", func() {
 				db := memkv.New()
-				cfg := verification.DefaultConfig.Override(verification.Config{DB: db})
+				cfg := verification.DefaultServiceConfig.Override(verification.ServiceConfig{DB: db})
 				Expect(cfg.Validate()).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 			})
@@ -69,35 +69,35 @@ var _ = Describe("Verification", func() {
 		Describe("Override", func() {
 			It("should override the DB", func() {
 				db := memkv.New()
-				cfg := verification.DefaultConfig.Override(verification.Config{DB: db})
+				cfg := verification.DefaultServiceConfig.Override(verification.ServiceConfig{DB: db})
 				Expect(cfg.DB).To(BeEquivalentTo(db))
 				Expect(db.Close()).To(Succeed())
 			})
 			It("should override the WarningTime if it is not zero", func() {
-				cfg := verification.DefaultConfig.
-					Override(verification.Config{WarningTime: 1 * time.Hour})
+				cfg := verification.DefaultServiceConfig.
+					Override(verification.ServiceConfig{WarningTime: 1 * time.Hour})
 				Expect(cfg.WarningTime).To(BeEquivalentTo(1 * time.Hour))
 			})
 			It("should not override the WarningTime if it is zero", func() {
-				cfg := verification.DefaultConfig.
-					Override(verification.Config{WarningTime: 0})
+				cfg := verification.DefaultServiceConfig.
+					Override(verification.ServiceConfig{WarningTime: 0})
 				Expect(cfg.WarningTime).
-					To(BeEquivalentTo(verification.DefaultConfig.WarningTime))
+					To(BeEquivalentTo(verification.DefaultServiceConfig.WarningTime))
 			})
 			It("should override the CheckInterval if it is not zero", func() {
-				cfg := verification.DefaultConfig.
-					Override(verification.Config{CheckInterval: 1 * time.Hour})
+				cfg := verification.DefaultServiceConfig.
+					Override(verification.ServiceConfig{CheckInterval: 1 * time.Hour})
 				Expect(cfg.CheckInterval).To(BeEquivalentTo(1 * time.Hour))
 			})
 			It("should not override the CheckInterval if it is zero", func() {
-				cfg := verification.DefaultConfig.
-					Override(verification.Config{CheckInterval: 0})
+				cfg := verification.DefaultServiceConfig.
+					Override(verification.ServiceConfig{CheckInterval: 0})
 				Expect(cfg.CheckInterval).
-					To(BeEquivalentTo(verification.DefaultConfig.CheckInterval))
+					To(BeEquivalentTo(verification.DefaultServiceConfig.CheckInterval))
 			})
 			It("should override the Verifier if it is not empty", func() {
-				cfg := verification.DefaultConfig.
-					Override(verification.Config{Verifier: "test"})
+				cfg := verification.DefaultServiceConfig.
+					Override(verification.ServiceConfig{Verifier: "test"})
 				Expect(cfg.Verifier).To(BeEquivalentTo("test"))
 			})
 		})
@@ -120,7 +120,7 @@ var _ = Describe("Verification", func() {
 			})
 			It("should open with no verifier", func() {
 				svc := MustSucceed(
-					verification.OpenService(ctx, verification.Config{DB: db}),
+					verification.OpenService(ctx, verification.ServiceConfig{DB: db}),
 				)
 				Expect(svc).ToNot(BeNil())
 				Expect(svc.IsOverflowed(0)).To(Succeed())
@@ -132,7 +132,7 @@ var _ = Describe("Verification", func() {
 			DescribeTable("Invalid verifier", func(v string) {
 				Expect(verification.OpenService(
 					ctx,
-					verification.Config{DB: db, Verifier: v},
+					verification.ServiceConfig{DB: db, Verifier: v},
 				)).
 					Error().To(MatchError(verification.ErrInvalid))
 			},
@@ -150,7 +150,7 @@ var _ = Describe("Verification", func() {
 				It("should open with a valid verifier", func() {
 					svc := MustSucceed(verification.OpenService(
 						ctx,
-						verification.Config{
+						verification.ServiceConfig{
 							DB: db,
 							Verifier: base64.MustDecode(
 								"ODg1NTA4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
@@ -166,7 +166,7 @@ var _ = Describe("Verification", func() {
 				It("should load a verifier from the DB", func() {
 					svc := MustSucceed(verification.OpenService(
 						ctx,
-						verification.Config{
+						verification.ServiceConfig{
 							DB: db,
 							Verifier: base64.MustDecode(
 								"ODg1NTA4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
@@ -176,7 +176,7 @@ var _ = Describe("Verification", func() {
 					Expect(svc.Close()).To(Succeed())
 					svc = MustSucceed(verification.OpenService(
 						ctx,
-						verification.Config{DB: db},
+						verification.ServiceConfig{DB: db},
 					))
 					Expect(svc.IsOverflowed(0)).To(Succeed())
 					Expect(svc.IsOverflowed(100)).To(Succeed())
@@ -189,7 +189,7 @@ var _ = Describe("Verification", func() {
 				It("should allow loading a stale verifier", func() {
 					svc := MustSucceed(verification.OpenService(
 						ctx,
-						verification.Config{
+						verification.ServiceConfig{
 							DB: db,
 							Verifier: base64.MustDecode(
 								"ODk0NDc4LTY0MzE3Mzg0LTA0MDA1MDAwMDU=",
@@ -209,12 +209,12 @@ var _ = Describe("Verification", func() {
 				db := newDB()
 				svc := MustSucceed(verification.OpenService(
 					ctx,
-					verification.Config{DB: db},
+					verification.ServiceConfig{DB: db},
 				))
 				Expect(svc.Close()).To(Succeed())
 				Expect(verification.OpenService(
 					ctx,
-					verification.Config{DB: db},
+					verification.ServiceConfig{DB: db},
 				)).Error().To(MatchError(errDBGetCalled))
 				Expect(db.Close()).To(Succeed())
 			})

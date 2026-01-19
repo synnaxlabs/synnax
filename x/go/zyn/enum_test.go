@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -61,22 +61,22 @@ var _ = Describe("Enum", func() {
 		Specify("incompatible channel destination", func() {
 			var dest chan string
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("incompatible slice destination", func() {
 			var dest []string
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("incompatible map destination", func() {
 			var dest map[string]any
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 		Specify("incompatible struct destination", func() {
 			var dest struct{ Value string }
 			Expect(zyn.Enum("a", "b", "c").Parse("a", &dest)).
-				To(HaveOccurredAs(zyn.InvalidDestinationTypeError))
+				To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
 		})
 	})
 	Describe("Optional Fields", func() {

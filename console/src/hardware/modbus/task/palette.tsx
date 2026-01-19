@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,18 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { task } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { importRead, importWrite } from "@/hardware/modbus/task/import";
 import { READ_LAYOUT } from "@/hardware/modbus/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/modbus/task/Write";
 import { type Palette } from "@/palette";
 
+const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
+  Access.updateGranted({ id: task.TYPE_ONTOLOGY_ID, store, client });
+
 const CREATE_READ_COMMAND: Palette.Command = {
   key: "modbus-create-read-task",
   name: "Create a Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
   onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
+  visible: visibleFilter,
 };
 
 const CREATE_WRITE_COMMAND: Palette.Command = {
@@ -26,6 +31,7 @@ const CREATE_WRITE_COMMAND: Palette.Command = {
   name: "Create a Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
   onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
+  visible: visibleFilter,
 };
 
 const IMPORT_READ_COMMAND: Palette.Command = {
@@ -34,6 +40,7 @@ const IMPORT_READ_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.Modbus />,
   onSelect: importRead,
+  visible: visibleFilter,
 };
 
 const IMPORT_WRITE_COMMAND: Palette.Command = {
@@ -42,6 +49,7 @@ const IMPORT_WRITE_COMMAND: Palette.Command = {
   sortOrder: -1,
   icon: <Icon.Logo.Modbus />,
   onSelect: importWrite,
+  visible: visibleFilter,
 };
 
 export const COMMANDS = [

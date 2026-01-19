@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,6 +26,7 @@ import {
   keyZ,
   type Name,
   type New,
+  ontologyID,
   type Operation,
   type Params,
   type Payload,
@@ -110,12 +111,11 @@ export class Channel {
    */
   readonly virtual: boolean;
   /**
-   * Only used for calculated channels. Specifies the Lua expression used to evaluate
+   * Only used for calculated channels. Specifies the Arc expression used to evaluate
    * the calculated value
    */
   readonly expression: string;
   readonly operations: Operation[];
-  readonly requires: Key[];
   /**
    * The status of the channel.
    */
@@ -135,14 +135,12 @@ export class Channel {
     status: argsStatus,
     expression = "",
     operations = [],
-    requires = [],
   }: New & {
     internal?: boolean;
     frameClient?: framer.Client;
     density?: CrudeDensity;
     status?: status.Crude;
     operations?: Operation[];
-    requires?: Key[];
   }) {
     this.key = keyZ.parse(key);
     this.name = name;
@@ -155,7 +153,6 @@ export class Channel {
     this.virtual = virtual;
     this.expression = expression;
     this.operations = operations;
-    this.requires = requires;
     if (argsStatus != null) this.status = status.create(argsStatus);
     this._frameClient = frameClient ?? null;
   }
@@ -181,7 +178,6 @@ export class Channel {
       isIndex: this.isIndex,
       internal: this.internal,
       virtual: this.virtual,
-      requires: this.requires,
       expression: this.expression,
       status: this.status,
       operations: this.operations,
@@ -221,16 +217,14 @@ export class Channel {
   }
 }
 
-export const CALCULATION_STATUS_CHANNEL_NAME = "sy_calculation_status";
-
 const retrieveGroupReqZ = z.object({});
 
 const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 /**
- * The core client class for executing channel operations against a Synnax
- * cluster. This class should not be instantiated directly, and instead should be used
- * through the `channels` property of an {@link Synnax} client.
+ * The main client class for executing channel operations against a Synnax Core. This
+ * class should not be instantiated directly, and instead should be used through the
+ * `channels` property of an {@link Synnax} client.
  */
 export class Client {
   private readonly frameClient: framer.Client;
@@ -436,32 +430,3 @@ export class Client {
 
 export const isCalculated = ({ virtual, expression }: Payload): boolean =>
   virtual && expression !== "";
-
-export const isLegacyCalculated = (pld: Payload): boolean =>
-  isCalculated(pld) && pld.requires.length > 0;
-
-export const ontologyID = (key: Key): ontology.ID => ({
-  type: "channel",
-  key: key.toString(),
-});
-
-export const resolveLegacyCalculatedIndex = async (
-  retrieve: (key: Key) => Promise<Payload | null>,
-  channel: Payload,
-): Promise<Key | null> => {
-  if (!isCalculated(channel)) return channel.index;
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (!requiredChannel.virtual) return requiredChannel.index;
-  }
-  for (const required of channel.requires) {
-    const requiredChannel = await retrieve(required);
-    if (requiredChannel == null) return null;
-    if (isCalculated(requiredChannel)) {
-      const index = await resolveLegacyCalculatedIndex(retrieve, requiredChannel);
-      if (index != null) return index;
-    }
-  }
-  return null;
-};

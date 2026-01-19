@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,12 +9,13 @@
 
 import "@/status/Toolbar.css";
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import {
+  Access,
   Component,
   Flex,
   Icon,
-  List as CoreList,
+  List as BaseList,
   Menu as PMenu,
   Select,
   Status,
@@ -57,18 +58,18 @@ const List = (): ReactElement => {
       onChange={setSelected}
     >
       <PMenu.ContextMenu menu={contextMenuRenderProp} {...menuProps} />
-      <CoreList.Items<status.Key>
+      <BaseList.Items<status.Key>
         full="y"
         emptyContent={<NoStatuses />}
         onContextMenu={menuProps.open}
       >
         {listItem}
-      </CoreList.Items>
+      </BaseList.Items>
     </Select.Frame>
   );
 };
 
-const ListItem = (props: CoreList.ItemProps<status.Key>) => {
+const ListItem = (props: BaseList.ItemProps<status.Key>) => {
   const { itemKey } = props;
   const q = Status.useRetrieve({ key: itemKey });
   const dispatch = useDispatch();
@@ -124,17 +125,20 @@ const listItem = Component.renderProp(ListItem);
 
 const Content = (): ReactElement => {
   const placeLayout = Layout.usePlacer();
+  const canEdit = Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Status />}>Statuses</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action
-            tooltip="Create status"
-            onClick={() => placeLayout(CREATE_LAYOUT)}
-          >
-            <Icon.Add />
-          </Toolbar.Action>
+          {canEdit && (
+            <Toolbar.Action
+              tooltip="Create status"
+              onClick={() => placeLayout(CREATE_LAYOUT)}
+            >
+              <Icon.Add />
+            </Toolbar.Action>
+          )}
           <Toolbar.Action
             tooltip="Open Status Explorer"
             onClick={() => placeLayout(EXPLORER_LAYOUT)}
@@ -158,4 +162,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   initialSize: 300,
   minSize: 175,
   maxSize: 400,
+  useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 };

@@ -1,17 +1,17 @@
 module(
     name = "synnax",
-    version = "0.48.0",
+    version = "0.49.0",
 )
 
-bazel_dep(name = "protobuf", version = "33.0")
+bazel_dep(name = "protobuf", version = "33.1")
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "gflags", version = "2.2.2.bcr.1")
 bazel_dep(name = "glog", version = "0.7.1")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
-bazel_dep(name = "nlohmann_json", version = "3.12.0")
-bazel_dep(name = "grpc", version = "1.76.0")
+bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.1")
+bazel_dep(name = "grpc", version = "1.76.0.bcr.1")
 bazel_dep(name = "lua", version = "5.4.6")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
@@ -24,6 +24,6 @@ git_override(
     remote = "https://github.com/mikael-s-persson/bazel-compile-commands-extractor",
 )
 
-bazel_dep(name = "apple_support", version = "1.24.3", dev_dependency = True)
+bazel_dep(name = "apple_support", version = "1.24.5", dev_dependency = True)
 
 bazel_dep(name = "rules_cc", version = "0.2.14")

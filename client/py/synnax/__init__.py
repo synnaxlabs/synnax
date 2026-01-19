@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -10,7 +10,8 @@
 __version__ = "0.3.0"
 
 from synnax import labjack, modbus, ni, opcua, sequence, status
-from synnax.access import Policy, PolicyClient
+from synnax.access.policy import Policy
+from synnax.access.role import Role
 from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
@@ -103,11 +104,11 @@ __all__ = [
     "MultipleFoundError",
     "NotFoundError",
     "Policy",
-    "PolicyClient",
     "QueryError",
     "Rack",
     "Range",
     "Rate",
+    "Role",
     "RouteError",
     "Series",
     "MultiSeries",

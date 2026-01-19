@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,15 +11,6 @@
 
 package cmd
 
-import (
-	"github.com/synnaxlabs/x/io/fs"
-	"golang.org/x/sys/unix"
-)
-
-func disablePermissionBits() {
-	// Mask the permission bits so all files are readable and writable by the user and
-	// readable by the group.
-	mask := unix.Umask(0)
-	mask |= int(fs.OthersReadWriteExecute)
-	unix.Umask(mask)
-}
+// RunMain is the entry point for the Synnax CLI on non-Windows platforms. It simply
+// delegates to Execute() since Windows Service mode is not applicable.
+func RunMain() { Execute() }

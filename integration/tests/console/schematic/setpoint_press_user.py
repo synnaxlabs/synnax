@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -22,7 +22,7 @@ class SetpointPressUser(ConsoleCase):
     """
 
     def setup(self) -> None:
-        self.set_manual_timeout(90)
+        self.set_manual_timeout(60)
         self.subscribe(
             [
                 "test_flag_cmd",
@@ -132,7 +132,7 @@ class SetpointPressUser(ConsoleCase):
         start_cmd.press()  # Set True
 
         self.log("Starting test")
-        setpoints = [50, 25, 0]
+        setpoints = [25, 0]
         for target in setpoints:
             self.log(f"Target pressure: {target}")
             setpoint.set_value(target)

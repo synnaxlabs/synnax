@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,6 +13,36 @@ import { z } from "zod";
 import { zod } from "@/zod";
 
 describe("zod", () => {
+  describe("functionOutput", () => {
+    it("should return ZodUnknown for z.function() with no output", () => {
+      expect(zod.functionOutput(z.function())).toBeInstanceOf(z.ZodUnknown);
+    });
+
+    it("should return ZodVoid for z.function({ output: z.void() })", () => {
+      expect(zod.functionOutput(z.function({ output: z.void() }))).toBeInstanceOf(
+        z.ZodVoid,
+      );
+    });
+
+    it("should return ZodNumber for z.function({ output: z.number() })", () => {
+      expect(zod.functionOutput(z.function({ output: z.number() }))).toBeInstanceOf(
+        z.ZodNumber,
+      );
+    });
+
+    it("should return ZodString for z.function({ output: z.string() })", () => {
+      expect(zod.functionOutput(z.function({ output: z.string() }))).toBeInstanceOf(
+        z.ZodString,
+      );
+    });
+
+    it("should return ZodPromise for z.function({ output: z.promise(z.number()) })", () => {
+      expect(
+        zod.functionOutput(z.function({ output: z.promise(z.number()) })),
+      ).toBeInstanceOf(z.ZodPromise);
+    });
+  });
+
   describe("getFieldSchemaPath", () => {
     interface Spec {
       path: string;

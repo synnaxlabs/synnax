@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,13 +28,17 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
-// Config is the configuration for creating a Service.
-type Config struct {
-	alamos.Instrumentation
+// ServiceConfig is the configuration for creating a Service.
+type ServiceConfig struct {
+	// HostProvider is used to assign keys to racks.
+	// [REQUIRED]
+	HostProvider cluster.HostProvider
 	// DB is the gorp database that racks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -45,9 +49,6 @@ type Config struct {
 	// Group is used to create rack related groups of ontology resources.
 	// [REQUIRED]
 	Group *group.Service
-	// HostProvider is used to assign keys to racks.
-	// [REQUIRED]
-	HostProvider cluster.HostProvider
 	// Status is used to define and process statuses for racks.
 	// [REQUIRED]
 	Status *status.Service
@@ -55,6 +56,7 @@ type Config struct {
 	// communication mechanism.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
 	// [OPTIONAL]
@@ -67,15 +69,18 @@ type Config struct {
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a rack service. Note
-	// that this configuration is not valid. See the Config documentation for more
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for opening a rack service.
+	// Note that this configuration is not valid. See the Config documentation for more
 	// details on which fields must be set.
-	DefaultConfig = Config{HealthCheckInterval: 5 * telem.Second, AlertEveryNChecks: 12}
+	DefaultServiceConfig = ServiceConfig{
+		HealthCheckInterval: 5 * telem.Second,
+		AlertEveryNChecks:   12,
+	}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -89,7 +94,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("hardware.rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -101,49 +106,46 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	Config
-	EmbeddedKey     Key
+	shutdownSignals io.Closer
 	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
-	shutdownSignals io.Closer
-	group           group.Group
 	monitor         *monitor
+	ServiceConfig
+	group       group.Group
+	EmbeddedKey Key
 }
 
-const localKeyCounterSuffix = ".rack.counter"
-
-const groupName = "Devices"
-
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Devices", ontology.RootID)
 	if err != nil {
-		return
+		return nil, err
 	}
-	counterKey := []byte(cfg.HostProvider.HostKey().String() + localKeyCounterSuffix)
+	counterKey := []byte(cfg.HostProvider.HostKey().String() + ".rack.counter")
 	c, err := kv.OpenCounter(ctx, cfg.DB, counterKey)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{Config: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
+	s := &Service{ServiceConfig: cfg, localKeyCounter: c, group: g, keyMu: &sync.Mutex{}}
 	if err = s.loadEmbeddedRack(ctx); err != nil {
 		return nil, err
 	}
+	if err = s.migrateStatusesForExistingRacks(ctx); err != nil {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
-	s.monitor, err = openMonitor(s.Child("monitor"), s)
-	if err != nil {
+	if s.monitor, err = openMonitor(s.Child("monitor"), s); err != nil {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		s.shutdownSignals, err = signals.PublishFromGorp[Key](
+		if s.shutdownSignals, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
 			signals.GorpPublisherConfigNumeric[Key, Rack](cfg.DB, telem.Uint32T),
-		)
-		if err != nil {
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -160,7 +162,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	// Check if a v1 rack exists.
 	v1RackName := fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
 	err := s.NewRetrieve().WhereNames(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
-	isNotFound := errors.Is(err, query.NotFound)
+	isNotFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !isNotFound {
 		return err
 	}
@@ -171,7 +173,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 			WhereEmbedded(true, gorp.Required()).
 			WhereNode(s.HostProvider.HostKey(), gorp.Required()).
 			Entry(&embeddedRack).Exec(ctx, s.DB)
-		if err != nil && !errors.Is(err, query.NotFound) {
+		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 	}
@@ -182,6 +184,50 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
 	s.EmbeddedKey = embeddedRack.Key
 	return err
+}
+
+func (s *Service) migrateStatusesForExistingRacks(ctx context.Context) error {
+	var racks []Rack
+	if err := s.NewRetrieve().Entries(&racks).Exec(ctx, s.DB); err != nil {
+		return err
+	}
+	if len(racks) == 0 {
+		return nil
+	}
+	statusKeys := make([]string, len(racks))
+	for i, r := range racks {
+		statusKeys[i] = OntologyID(r.Key).String()
+	}
+	var existingStatuses []Status
+	if err := status.NewRetrieve[StatusDetails](s.Status).
+		WhereKeys(statusKeys...).
+		Entries(&existingStatuses).
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	existingKeys := make(map[string]bool)
+	for _, stat := range existingStatuses {
+		existingKeys[stat.Key] = true
+	}
+	var missingStatuses []Status
+	for _, r := range racks {
+		key := OntologyID(r.Key).String()
+		if !existingKeys[key] {
+			missingStatuses = append(missingStatuses, Status{
+				Key:     key,
+				Name:    r.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.VariantWarning,
+				Message: "Status unknown",
+				Details: StatusDetails{Rack: r.Key},
+			})
+		}
+	}
+	if len(missingStatuses) == 0 {
+		return nil
+	}
+	s.L.Info("creating unknown statuses for existing racks", zap.Int("count", len(missingStatuses)))
+	return status.NewWriter[StatusDetails](s.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) Close() error {

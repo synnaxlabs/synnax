@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -166,7 +166,7 @@ var _ = Describe("Gorp", func() {
 
 				// No version key should be set
 				Expect(db.Get(ctx, []byte("test_migration_version_5"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(kv.ErrNotFound))
 			})
 		})
 
@@ -191,7 +191,7 @@ var _ = Describe("Gorp", func() {
 
 				// Version should not be updated
 				Expect(db.Get(ctx, []byte("test_migration_version_6"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(kv.ErrNotFound))
 			})
 
 			It("Should fail when migration count exceeds 255", func() {
@@ -249,7 +249,7 @@ var _ = Describe("Gorp", func() {
 
 				// Version should be undefined because the transaction was rolled back
 				Expect(db.Get(ctx, []byte("test_migration_version_8"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(kv.ErrNotFound))
 			})
 		})
 
@@ -337,7 +337,7 @@ var _ = Describe("Gorp", func() {
 							Migrate: func(ctx context.Context, tx gorp.Tx) error {
 								// Version should be undefined before the migration
 								Expect(tx.Get(ctx, []byte("test_migration_version_12"))).
-									Error().To(MatchError(kv.NotFound))
+									Error().To(MatchError(kv.ErrNotFound))
 								return nil
 							},
 						},
@@ -404,11 +404,11 @@ var _ = Describe("Gorp", func() {
 
 				// Data from first migration should be rolled back
 				Expect(db.Get(ctx, []byte("test_key"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(kv.ErrNotFound))
 
 				// Version should not be set
 				Expect(db.Get(ctx, []byte("test_migration_version_13"))).Error().
-					To(MatchError(kv.NotFound))
+					To(MatchError(kv.ErrNotFound))
 			})
 
 			It("Should commit all changes when all migrations succeed", func() {

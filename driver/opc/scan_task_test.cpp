@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -55,8 +55,9 @@ protected:
     }
 };
 
+/// @brief it should browse and return OPC UA server nodes.
 TEST_F(TestScanTask, testBasicScan) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -128,8 +129,9 @@ TEST_F(TestScanTask, testBasicScan) {
     EXPECT_TRUE(found_double);
 }
 
+/// @brief it should reuse pooled connections for multiple scans.
 TEST_F(TestScanTask, testConnectionPooling) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -162,8 +164,9 @@ TEST_F(TestScanTask, testConnectionPooling) {
     EXPECT_EQ(ctx->statuses[1].variant, status::variant::SUCCESS);
 }
 
+/// @brief it should successfully test connection to OPC UA server.
 TEST_F(TestScanTask, testTestConnection) {
-    const auto cfg = opc::ScannerConfig{};
+    const auto cfg = opc::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -194,8 +197,9 @@ TEST_F(TestScanTask, testTestConnection) {
     EXPECT_EQ(state.message, "Connection successful");
 }
 
+/// @brief it should return error for invalid connection endpoint.
 TEST_F(TestScanTask, testInvalidConnection) {
-    auto cfg = opc::ScannerConfig{};
+    auto cfg = opc::ScanTaskConfig{};
     const auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<opc::Scanner>(ctx, task, conn_pool),
         ctx,
@@ -264,8 +268,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
-    auto [devices, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
     EXPECT_EQ(devices[0].status.message, "Server connected");
@@ -298,8 +301,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
 
     // Step 1: Server is running (started in SetUp) - health should be good
     {
-        auto [devices, err] = scanner.scan(scan_ctx);
-        ASSERT_NIL(err);
+        auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
         EXPECT_EQ(devices[0].status.message, "Server connected");
@@ -313,8 +315,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     opc::Scanner scanner2(ctx, task, fresh_conn_pool);
 
     {
-        auto [devices, err] = scanner2.scan(scan_ctx);
-        ASSERT_NIL(err);
+        auto devices = ASSERT_NIL_P(scanner2.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         // When server is down, health check should return WARNING with connection error
         EXPECT_EQ(devices[0].status.variant, status::variant::WARNING);
@@ -347,8 +348,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     opc::Scanner scanner3(ctx, task, fresh_conn_pool);
 
     {
-        auto [devices, err] = scanner3.scan(scan_ctx);
-        ASSERT_NIL(err);
+        auto devices = ASSERT_NIL_P(scanner3.scan(scan_ctx));
         ASSERT_EQ(devices.size(), 1);
         EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
         EXPECT_EQ(devices[0].status.message, "Server connected");

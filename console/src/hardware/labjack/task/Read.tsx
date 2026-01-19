@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { deep, id, primitive } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
@@ -33,7 +33,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -42,12 +42,11 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const READ_SELECTABLE: Selector.Selectable = {
-  key: READ_TYPE,
+export const ReadSelectable = Selector.createSimpleItem({
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
-};
+  layout: READ_LAYOUT,
+});
 
 const Properties = () => (
   <>
@@ -179,6 +178,7 @@ const getOpenChannel = (
       channelToCopy,
       INPUT_CHANNEL_SCHEMAS[channelTypeUsed],
     ),
+    ...Common.Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
     port: port.key,
     channel: device.properties[port.type].channels[port.key] ?? 0,
@@ -269,45 +269,49 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
     }
   else shouldCreateIndex = true;
   let modified = false;
-  if (shouldCreateIndex) {
-    modified = true;
-    const index = await client.channels.create({
-      name: `${dev.properties.identifier}_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.readIndex = index.key;
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
+  try {
+    if (shouldCreateIndex) {
+      modified = true;
+      const index = await client.channels.create({
+        name: `${identifier}_time`,
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      dev.properties.readIndex = index.key;
+    }
+    const toCreate: InputChannel[] = [];
+    for (const c of config.channels) {
+      const type = convertChannelTypeToPortType(c.type);
+      const existing = dev.properties[type].channels[c.port];
+      // check if the channel is in properties
+      if (primitive.isZero(existing)) toCreate.push(c);
+      else
+        try {
+          await client.channels.retrieve(existing.toString());
+        } catch (e) {
+          if (NotFoundError.matches(e)) toCreate.push(c);
+          else throw e;
+        }
+    }
+    if (toCreate.length > 0) {
+      modified = true;
+      const channels = await client.channels.create(
+        toCreate.map((c) => ({
+          name: primitive.isNonZero(c.name) ? c.name : `${identifier}_${c.port}`,
+          dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
+          index: dev.properties.readIndex,
+        })),
+      );
+      channels.forEach((c, i) => {
+        const toCreateC = toCreate[i];
+        const type = convertChannelTypeToPortType(toCreateC.type);
+        dev.properties[type].channels[toCreateC.port] = c.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev);
   }
-  const toCreate: InputChannel[] = [];
-  for (const c of config.channels) {
-    const type = convertChannelTypeToPortType(c.type);
-    const existing = dev.properties[type].channels[c.port];
-    // check if the channel is in properties
-    if (primitive.isZero(existing)) toCreate.push(c);
-    else
-      try {
-        await client.channels.retrieve(existing.toString());
-      } catch (e) {
-        if (NotFoundError.matches(e)) toCreate.push(c);
-        else throw e;
-      }
-  }
-  if (toCreate.length > 0) {
-    modified = true;
-    const channels = await client.channels.create(
-      toCreate.map((c) => ({
-        name: `${dev.properties.identifier}_${c.port}`,
-        dataType: c.type === DI_CHANNEL_TYPE ? "uint8" : "float32",
-        index: dev.properties.readIndex,
-      })),
-    );
-    channels.forEach((c, i) => {
-      const toCreateC = toCreate[i];
-      const type = convertChannelTypeToPortType(toCreateC.type);
-      dev.properties[type].channels[toCreateC.port] = c.key;
-    });
-  }
-  if (modified) await client.devices.create(dev);
   config.channels.forEach(
     (c) =>
       (c.channel =

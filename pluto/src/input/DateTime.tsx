@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,8 +31,7 @@ import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 
 export interface DateTimeProps
-  extends Omit<TextProps, "type" | "value" | "onChange">,
-    Control<number> {}
+  extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
 
 export const DateTime = ({
   value,

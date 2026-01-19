@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, Icon, Menu as PMenu, Text, Tree } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { Flux, Group, Icon, Menu as PMenu, Tree } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { MenuItem } from "@/group/MenuItem";
+import { useCreateEmpty } from "@/group/useCreateEmpty";
 import { useCreateFromSelection } from "@/group/useCreateFromSelection";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
@@ -29,10 +28,11 @@ const useRename = createUseRename({
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, nodes, shape },
+    state,
   } = props;
+  const { getResource, nodes, shape } = state;
   const ungroup = useUngroupSelection();
-  const createEmptyGroup = useCreateEmpty(props);
+  const createEmptyGroup = useCreateEmpty({ parent: ids[0], state, root: rootID });
   const createFromSelection = useCreateFromSelection();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const firstID = ids[0];
@@ -173,39 +173,6 @@ const useUngroupSelection = () =>
     beforeUpdate: beforeUngroup,
     afterFailure: afterUngroupFailure,
   });
-
-const useCreateEmpty = ({
-  selection: {
-    ids: [firstID],
-  },
-  state: { nodes: tree, setNodes, setResource, expand },
-}: Ontology.TreeContextMenuProps) => {
-  const { update } = Group.useCreate({
-    beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
-        const newID = group.ontologyID(uuid.create());
-        const newIDString = ontology.idToString(newID);
-        const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
-        const node: Tree.Node<string> = { key: newIDString, children: [] };
-        setResource(res);
-        const destination = ontology.idToString(data.parent);
-        expand(destination);
-        setNodes([...Tree.setNode({ tree, destination, additions: node })]);
-        rollbacks.push(() =>
-          setNodes([...Tree.removeNode({ tree, keys: newIDString })]),
-        );
-        const [name, renamed] = await Text.asyncEdit(newIDString);
-        if (!renamed || name === "") return false;
-        return { ...data, key: newID.key, name };
-      },
-      [tree, setNodes, setResource, expand],
-    ),
-  });
-  return useCallback(
-    () => update({ key: uuid.create(), name: "", parent: firstID }),
-    [firstID],
-  );
-};
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,

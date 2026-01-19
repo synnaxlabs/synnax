@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,4 +20,6 @@ const driver::LibraryInfo NI_SYSCFG = {
     "National Instruments System Configuration",
     "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
 };
+
+const xerrors::Error END_OF_ENUM("ni.end_of_enum");
 }

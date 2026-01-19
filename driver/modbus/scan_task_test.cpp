@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,6 +18,7 @@
 #include "driver/modbus/scan_task.h"
 #include "driver/task/common/scan_task.h"
 
+/// @brief it should successfully test connection to Modbus device.
 TEST(ScanTask, testConnection) {
     auto slave = modbus::mock::Slave(modbus::mock::SlaveConfig{});
     ASSERT_NIL(slave.start());
@@ -30,7 +31,7 @@ TEST(ScanTask, testConnection) {
 
     auto dev_manager = std::make_shared<modbus::device::Manager>();
 
-    const auto cfg = modbus::ScannerConfig{};
+    const auto cfg = modbus::ScanTaskConfig{};
     auto scan_task = std::make_unique<common::ScanTask>(
         std::make_unique<modbus::Scanner>(ctx, t, dev_manager),
         ctx,
@@ -112,8 +113,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
-    auto [devices, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.variant, status::variant::SUCCESS);
     EXPECT_EQ(devices[0].status.message, "Device connected");
@@ -147,8 +147,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     common::ScannerContext scan_ctx;
     scan_ctx.devices = &devices_map;
 
-    auto [devices, err] = scanner.scan(scan_ctx);
-    ASSERT_NIL(err);
+    auto devices = ASSERT_NIL_P(scanner.scan(scan_ctx));
     ASSERT_EQ(devices.size(), 1);
     EXPECT_EQ(devices[0].status.variant, status::variant::WARNING);
     EXPECT_EQ(devices[0].status.message, "Failed to reach device");

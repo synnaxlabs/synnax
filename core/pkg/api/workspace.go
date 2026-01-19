@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -46,7 +46,7 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: workspace.OntologyIDsFromWorkspaces(req.Workspaces),
 	}); err != nil {
 		return res, err
@@ -70,14 +70,14 @@ func (s *WorkspaceService) Create(ctx context.Context, req WorkspaceCreateReques
 }
 
 type WorkspaceRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameRequest) (res types.Nil, err error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -88,14 +88,14 @@ func (s *WorkspaceService) Rename(ctx context.Context, req WorkspaceRenameReques
 }
 
 type WorkspaceSetLayoutRequest struct {
-	Key    uuid.UUID `json:"key" msgpack:"key"`
 	Layout string    `json:"layout" msgpack:"layout"`
+	Key    uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayoutRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -107,11 +107,11 @@ func (s *WorkspaceService) SetLayout(ctx context.Context, req WorkspaceSetLayout
 
 type (
 	WorkspaceRetrieveRequest struct {
-		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		SearchTerm string      `json:"search_term" msgpack:"search_term"`
-		Author     uuid.UUID   `json:"author" msgpack:"author"`
+		Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
 		Limit      int         `json:"limit" msgpack:"limit"`
 		Offset     int         `json:"offset" msgpack:"offset"`
+		Author     uuid.UUID   `json:"author" msgpack:"author"`
 	}
 	WorkspaceRetrieveResponse struct {
 		Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`
@@ -138,7 +138,7 @@ func (s *WorkspaceService) Retrieve(
 	err = q.Entries(&res.Workspaces).Exec(ctx, nil)
 	if eErr := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: workspace.OntologyIDsFromWorkspaces(res.Workspaces),
 	}); eErr != nil {
 		return WorkspaceRetrieveResponse{}, eErr
@@ -153,7 +153,7 @@ type WorkspaceDeleteRequest struct {
 func (s *WorkspaceService) Delete(ctx context.Context, req WorkspaceDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: workspace.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

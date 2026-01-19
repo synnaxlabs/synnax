@@ -44,5 +44,4 @@ pnpm genApi
 ```
 
 Finally, if changes to the code warrant changing the documentation website, please edit
-the pages on the
-[TypeScript client](../../docs/site/src/pages/reference/typescript-client/)
+the pages on the [TypeScript client](../../docs/site/src/pages/reference/client/)

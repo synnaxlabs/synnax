@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,11 +14,12 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -28,8 +29,6 @@ import (
 // (via writers) against an underlying domain.DB. It also manages the channel's control
 // state, allowing for dynamic handoff between multiple writers.
 type DB struct {
-	// Config contains validated configuration parameters for the DB.
-	cfg Config
 	// domain is the underlying domain database on which writes will be executed.
 	domain     *domain.DB
 	controller *control.Controller[*controlledWriter]
@@ -38,13 +37,15 @@ type DB struct {
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *atomic.Uint32
+	// Config contains validated configuration parameters for the DB.
+	cfg Config
 }
 
 // ErrDBClosed is returned when an operation is attempted on a closed unary database.
-var ErrDBClosed = core.NewErrResourceClosed("unary.db")
+var ErrDBClosed = resource.NewClosedError("unary.db")
 
 // Channel returns the channel for this unary database.
-func (db *DB) Channel() core.Channel { return db.cfg.Channel }
+func (db *DB) Channel() channel.Channel { return db.cfg.Channel }
 
 // Index returns the index for the unary database IF AND ONLY IF the channel is an index
 // channel. Otherwise, this method will panic.
@@ -88,7 +89,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 }
 
 // Read reads a Time Range of data at the unary level.
-func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
+func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame channel.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
 	var iter *Iterator
 	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {
@@ -104,6 +105,9 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	return frame, err
 }
 
+// Size returns the total size of all data stored in the database.
+func (db *DB) Size() telem.Size { return db.domain.Size() }
+
 // Close closes the unary database, releasing all resources associated with it. Close
 // will return an error if there are any unclosed writers, iterators, or delete
 // operations being executed on the database. Close is idempotent, and will return nil
@@ -117,7 +121,7 @@ func (db *DB) Close() error {
 		return nil
 	}
 	if err := db.domain.Close(); err != nil {
-		if errors.Is(err, core.ErrOpenResource) {
+		if errors.Is(err, resource.ErrOpen) {
 			// If the close failed because of an open entity, the database should not be
 			// marked as closed and can still serve reads/writes.
 			db.closed.Store(false)
@@ -143,7 +147,7 @@ func (db *DB) RenameChannelInMeta(ctx context.Context, newName string) error {
 
 // SetIndexKeyInMeta changes the channel's index to the channel with the given key, and
 // persists the change to the underlying file system.
-func (db *DB) SetIndexKeyInMeta(ctx context.Context, key core.ChannelKey) error {
+func (db *DB) SetIndexKeyInMeta(ctx context.Context, key channel.Key) error {
 	if db.closed.Load() {
 		return db.wrapError(ErrDBClosed)
 	}
@@ -153,7 +157,7 @@ func (db *DB) SetIndexKeyInMeta(ctx context.Context, key core.ChannelKey) error 
 
 // SetChannelKeyInMeta changes the channel's key to the channel with the given key, and
 // persists the change to the underlying file system.
-func (db *DB) SetChannelKeyInMeta(ctx context.Context, key core.ChannelKey) error {
+func (db *DB) SetChannelKeyInMeta(ctx context.Context, key channel.Key) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}

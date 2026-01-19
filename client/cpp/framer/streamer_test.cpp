@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -42,7 +42,7 @@ TEST(StreamerTests, testStreamBasic) {
         }
     ));
 
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     float v = 1.0;
     frame.emplace(data.key, telem::Series(v));
     ASSERT_NIL(writer.write(frame));
@@ -55,7 +55,7 @@ TEST(StreamerTests, testStreamBasic) {
     ASSERT_NIL(streamer.close());
 }
 
-///@brief test streamer set channels after construction.
+/// @brief it should update streamer channels after construction.
 TEST(StreamerTests, testStreamSetChannels) {
     auto client = new_test_client();
     auto data = create_virtual_channel(client);
@@ -81,7 +81,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
     ASSERT_NIL(set_err);
 
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     frame.emplace(
         data.key,
         telem::Series(
@@ -98,7 +98,7 @@ TEST(StreamerTests, testStreamSetChannels) {
     ASSERT_NIL(streamer.close());
 }
 
-/// @brief it should correctly receive a frame of streamed telemetry from the DB.
+/// @brief it should correctly downsample streamed telemetry with various factors.
 TEST(StreamerTests, TestStreamDownsample) {
     const std::vector data = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
 
@@ -134,6 +134,7 @@ TEST(StreamerTests, TestStreamDownsample) {
     test_downsample(data, data, 0);
 }
 
+/// @brief it should return a validation error for negative downsample factor.
 TEST(StreamerTests, TestStreamDownsampleNegative) {
     auto client = new_test_client();
     ASSERT_OCCURRED_AS_P(
@@ -168,7 +169,7 @@ TEST(StreamerTests, TestStreamVariableChannel) {
     ));
 
     const std::string value = "cat";
-    auto frame = synnax::Frame(data.key, telem::Series(value));
+    auto frame = telem::Frame(data.key, telem::Series(value));
     ASSERT_NIL(writer.write(frame));
 
     auto res_frame = ASSERT_NIL_P(streamer.read());
@@ -203,7 +204,7 @@ void test_downsample(
     // Sleep for 5 milliseconds to allow for the streamer to bootstrap.
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(1);
+    auto frame = telem::Frame(1);
     frame.emplace(data.key, telem::Series(raw_data));
     ASSERT_NIL(writer.write(frame));
     auto res_frame = ASSERT_NIL_P(streamer.read());
@@ -246,7 +247,7 @@ void test_downsample_string(
 
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    auto frame = synnax::Frame(
+    auto frame = telem::Frame(
         virtual_channel.key,
         telem::Series(raw_data, telem::STRING_T)
     );
@@ -263,6 +264,7 @@ void test_downsample_string(
     ASSERT_NIL(streamer.close());
 }
 
+/// @brief it should correctly downsample string series data.
 TEST(StreamerTests, TestStreamDownsampleString) {
     const std::vector<std::string> data =
         {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"};

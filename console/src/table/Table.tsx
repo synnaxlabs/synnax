@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,10 +12,11 @@ import "@/table/Table.css";
 import { table } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
+  Access,
   Button,
   Icon,
   Menu as PMenu,
-  Table as Core,
+  Table as Base,
   TableCells,
   Triggers,
   usePrevious,
@@ -28,7 +29,7 @@ import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 import {
   select,
   useSelectCell,
@@ -85,8 +86,10 @@ const parseRowCalArgs = <L extends location.Outer | undefined>(
 
 export const useSyncComponent = Workspace.createSyncComponent(
   "Table",
-  async ({ key, workspace, store, client }) => {
+  async ({ key, workspace, store, fluxStore, client }) => {
     const storeState = store.getState();
+    if (!Access.updateGranted({ id: table.ontologyID(key), store: fluxStore, client }))
+      return;
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
@@ -104,7 +107,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
-  const editable = useSelectEditable(layoutKey);
+  const editMode = useSelectEditable(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
+  const canEdit = hasEditPermission && editMode;
 
   const handleAddRow = () => {
     syncDispatch(addRow({ key: layoutKey }));
@@ -170,10 +175,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <PMenu.Divider />
         </>
       )}
-      <PMenu.Item itemKey="toggleEdit">
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
-        {`${editable ? "Disable" : "Enable"} editing`}
-      </PMenu.Item>
+      {canEdit && (
+        <PMenu.Item itemKey="toggleEdit">
+          {editMode ? <Icon.EditOff /> : <Icon.Edit />}
+          {`${editMode ? "Disable" : "Enable"} editing`}
+        </PMenu.Item>
+      )}
       <PMenu.Divider />
       <Menu.ReloadConsoleItem />
     </PMenu.Menu>
@@ -188,11 +195,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
 
   const handleDoubleClick = useCallback(() => {
-    if (!editable) return;
+    if (!canEdit) return;
     syncDispatch(
       Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
     );
-  }, [editable]);
+  }, [canEdit]);
 
   const colSizes = layout.columns.map((col) => col.size);
   const totalColSizes = colSizes.reduce((acc, size) => acc + size, 0);
@@ -223,7 +230,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <div className={CSS.B("table")} ref={ref} onDoubleClick={handleDoubleClick}>
       <PMenu.ContextMenu menu={contextMenu} {...menuProps}>
-        <Core.Table
+        <Base.Table
           visible={visible}
           style={{ width: totalColSizes, height: totalRowSizes }}
           onContextMenu={menuProps.open}
@@ -249,8 +256,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               />
             );
           })}
-        </Core.Table>
-        {editable && (
+        </Base.Table>
+        {canEdit && (
           <>
             <Button.Button
               className={CSS.BE("table", "add-col")}
@@ -286,21 +293,25 @@ interface TableControls {
 
 const TableControls = ({ tableKey }: TableControls) => {
   const dispatch = useDispatch();
-  const editable = useSelectEditable(tableKey);
+  const editMode = useSelectEditable(tableKey);
+  const hasEditPermission = Access.useUpdateGranted(table.ontologyID(tableKey));
+  const canEdit = hasEditPermission && editMode;
   const handleEdit = useCallback(() => {
     dispatch(setEditable({ key: tableKey }));
   }, []);
 
+  if (!hasEditPermission) return null;
+
   return (
     <Controls>
       <Button.Toggle
-        value={editable}
+        value={canEdit}
         onChange={handleEdit}
         size="small"
         tooltipLocation={location.BOTTOM_LEFT}
-        tooltip={`${editable ? "Disable" : "Enable"} editing`}
+        tooltip={`${canEdit ? "Disable" : "Enable"} editing`}
       >
-        {editable ? <Icon.EditOff /> : <Icon.Edit />}
+        {canEdit ? <Icon.EditOff /> : <Icon.Edit />}
       </Button.Toggle>
     </Controls>
   );
@@ -325,7 +336,7 @@ const Row = ({ cells, size, columns, position, index, tableKey }: RowProps) => {
   }, []);
   let currPos = 3.5 * 6;
   return (
-    <Core.Row
+    <Base.Row
       index={index}
       position={position}
       size={size}
@@ -347,7 +358,7 @@ const Row = ({ cells, size, columns, position, index, tableKey }: RowProps) => {
           />
         );
       })}
-    </Core.Row>
+    </Base.Row>
   );
 };
 
@@ -376,12 +387,25 @@ export const create =
     };
   };
 
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Table",
-  icon: <Icon.Table />,
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const visible = Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
+  const handleClick = useCallback(() => {
+    onPlace(create({ key: layoutKey }));
+  }, [onPlace, layoutKey]);
+
+  if (!visible) return null;
+
+  return (
+    <Selector.Item
+      key={LAYOUT_TYPE}
+      title="Table"
+      icon={<Icon.Table />}
+      onClick={handleClick}
+    />
+  );
 };
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
 
 interface ColResizerProps {
   tableKey: string;
@@ -397,7 +421,7 @@ const ColResizer = ({ tableKey, columns, onResize }: ColResizerProps) => {
   }, []);
 
   return (
-    <Core.ColumnIndicators
+    <Base.ColumnIndicators
       onSelect={handleSelect}
       selected={selectedCols}
       onResize={onResize}
@@ -435,7 +459,7 @@ const Cell = memo(({ tableKey, cellKey, box }: CellContainerProps): ReactElement
 Cell.displayName = "Cell";
 
 const useLoadRemote = createLoadRemote<table.Table>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),

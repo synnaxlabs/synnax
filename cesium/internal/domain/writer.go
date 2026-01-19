@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,10 +14,10 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -25,6 +25,13 @@ import (
 
 // WriterConfig is the configuration for opening a writer.
 type WriterConfig struct {
+	// EnableAutoCommit determines whether the writer will automatically commit after
+	// each write. If EnableAutoCommit is true, then the writer will commit after each
+	// write, and will flush that commit to index on FS after the specified
+	// AutoIndexPersistInterval.
+	//
+	// [OPTIONAL] - Defaults to true.
+	EnableAutoCommit *bool
 	// Start marks the starting bound of the domain. This starting bound must not
 	// overlap with any existing domains within the DB.
 	// [REQUIRED]
@@ -35,13 +42,6 @@ type WriterConfig struct {
 	// called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
-	// EnableAutoCommit determines whether the writer will automatically commit after
-	// each write. If EnableAutoCommit is true, then the writer will commit after each
-	// write, and will flush that commit to index on FS after the specified
-	// AutoIndexPersistInterval.
-	//
-	// [OPTIONAL] - Defaults to true.
-	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the frequency at which the changes to index are
 	// persisted to the disk. If AutoIndexPersistInterval <=0, then the writer persists
 	// changes to disk after every commit. Setting an AutoIndexPersistInterval is
@@ -51,7 +51,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = core.NewErrResourceClosed("domain.writer")
+	errWriterClosed     = resource.NewClosedError("domain.writer")
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         config.True(),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -71,7 +71,7 @@ func (w WriterConfig) Domain() telem.TimeRange {
 }
 
 func (w WriterConfig) Validate() error {
-	v := validate.New("domain.WriterConfig")
+	v := validate.New("domain.writer_config")
 	v.Ternary("end", w.End.Before(w.Start), "end timestamp must be after or equal to start timestamp")
 	return nil
 }
@@ -117,35 +117,35 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err er
 // A Writer is not safe for concurrent use, but it is safe to have multiple writer and
 // iterators open concurrently over the same DB.
 type Writer struct {
-	alamos.Instrumentation
-	WriterConfig
-	// prevCommit is the timestamp for the previous Commit call made to the database.
-	prevCommit telem.TimeStamp
+	// internal is a TrackedWriteCloser used to write telemetry to FS.
+	internal io.TrackedWriteCloser
+	// onClose is called when the writer is closed.
+	onClose func()
 	// idx is the underlying index for the database that stores locations of domains in FS.
 	idx *index
+	// fc is the file controller for the writer's FS.
+	fc *fileController
+	alamos.Instrumentation
+	WriterConfig
+	// fileSize is the writer's file's size
+	fileSize telem.Size
+	// prevCommit is the timestamp for the previous Commit call made to the database.
+	prevCommit telem.TimeStamp
+	// len is the number of bytes written by all internal writers of the domain writer.
+	len int64
+	// lastIndexPersist stores the timestamp of the last time changes to index were
+	// flushed to disk.
+	lastIndexPersist telem.TimeStamp
 	// fileKey represents the key of the file written to by the writer. One can convert
 	// it to a filename via the fileKeyToName function.
 	fileKey uint16
-	// fc is the file controller for the writer's FS.
-	fc *fileController
-	// fileSize is the writer's file's size
-	fileSize telem.Size
-	// len is the number of bytes written by all internal writers of the domain writer.
-	len int64
-	// internal is a TrackedWriteCloser used to write telemetry to FS.
-	internal xio.TrackedWriteCloser
 	// presetEnd denotes whether the writer has a preset end as part of its
 	// WriterConfig. If it does, then commits to the writer will use that end as the end
 	// of the domain.
 	presetEnd bool
-	// lastIndexPersist stores the timestamp of the last time changes to index were
-	// flushed to disk.
-	lastIndexPersist telem.TimeStamp
 	// closed denotes whether the writer is closed. A closed writer returns an error
 	// when attempts to Write or Commit with it are made.
 	closed bool
-	// onClose is called when the writer is closed.
-	onClose func()
 }
 
 // OpenWriter opens a new Writer using the given configuration. If err is nil, then the
@@ -161,7 +161,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 	}
 	if db.idx.overlap(cfg.Domain()) {
 		return nil, errors.Wrap(
-			NewErrRangeWriteConflict(cfg.Domain(), db.idx.timeRange()),
+			NewRangeWriteConflictError(cfg.Domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}
@@ -338,10 +338,10 @@ func (w *Writer) Close() error {
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
 	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
-		return errors.Wrapf(validate.Error, "commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v", end, w.prevCommit, end.Span(w.prevCommit))
+		return errors.Wrapf(validate.ErrValidation, "commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v", end, w.prevCommit, end.Span(w.prevCommit))
 	}
 	if !w.Start.Before(end) {
-		return errors.Wrapf(validate.Error, "commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v", end, w.Start, end.Span(w.Start))
+		return errors.Wrapf(validate.ErrValidation, "commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v", end, w.Start, end.Span(w.Start))
 	}
 	return nil
 }

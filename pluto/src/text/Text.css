@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Synnax Labs, Inc.
+ * Copyright 2026 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -86,5 +86,16 @@ span.pluto-text {
 
     &.pluto-text--overflow-nowrap {
         white-space: nowrap;
+    }
+
+    &.pluto-text--overflow-wrap {
+        white-space: wrap;
+    }
+
+    &.pluto-text--line-clamp {
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,6 +39,13 @@ const (
 	configFlag          = "--config"
 	debugFlag           = "--debug"
 	startedMessage      = "started successfully"
+)
+
+var errStartTimeout = errors.New(
+	`timed out waiting for embedded Driver to start. This occurs either because
+the Driver could not reach the Core or a task took an unusual amount of time to
+start. Check logs above categorized 'driver' for more information.
+`,
 )
 
 const (
@@ -87,11 +94,11 @@ func (d *Driver) start(ctx context.Context) error {
 			return err
 		}
 		workDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
-		if err = os.MkdirAll(workDir, xfs.OwnerReadWriteExecute); err != nil {
+		if err = os.MkdirAll(workDir, xfs.UserRWX); err != nil {
 			return err
 		}
 		cfgFileName := filepath.Join(workDir, configFileName)
-		if err = os.WriteFile(cfgFileName, b, xfs.OwnerReadWrite); err != nil {
+		if err = os.WriteFile(cfgFileName, b, xfs.UserRW); err != nil {
 			return err
 		}
 		data, err := executable.ReadFile(embeddedDriverPath)
@@ -99,7 +106,7 @@ func (d *Driver) start(ctx context.Context) error {
 			return err
 		}
 		driverFileName := filepath.Join(workDir, driverName)
-		if err = os.WriteFile(driverFileName, data, xfs.OwnerReadWriteExecute); err != nil {
+		if err = os.WriteFile(driverFileName, data, xfs.UserRWX); err != nil {
 			return err
 		}
 		defer func() {
@@ -175,8 +182,13 @@ func (d *Driver) start(ctx context.Context) error {
 		return err
 	}
 	sCtx.Go(mf)
-	_, err = signal.RecvUnderContext(ctx, d.started)
-	return err
+	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return errStartTimeout
+		}
+		return errors.Wrap(err, "failed to start Embedded Driver")
+	}
+	return nil
 }
 
 const stopKeyword = "STOP\n"
@@ -217,10 +229,7 @@ func pipeOutputToLogger(
 		if len(split) >= 3 {
 			callerSplit := strings.Split(split[0], " ")
 			caller = callerSplit[len(callerSplit)-1]
-			first := split[1]
-			if len(first) >= 2 {
-				first = first[2:]
-			}
+			first := strings.TrimSpace(split[1])
 			namedLogger = logger.Named(first)
 			message = split[2]
 			if len(message) > 1 {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { channel } from "@synnaxlabs/client";
+import { Access, Icon } from "@synnaxlabs/pluto";
 
 import { Channel } from "@/channel";
 import { type Palette } from "@/palette";
@@ -17,6 +18,8 @@ const CREATE_COMMAND: Palette.Command = {
   name: "Create a Channel",
   key: "create-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.CREATE_LAYOUT),
+  visible: ({ store, client }) =>
+    Access.createGranted({ id: channel.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 const CREATE_CALCULATED_COMMAND: Palette.Command = {
@@ -24,6 +27,8 @@ const CREATE_CALCULATED_COMMAND: Palette.Command = {
   name: "Create a Calculated Channel",
   key: "create-calculated-channel",
   onSelect: ({ placeLayout }) => placeLayout(Channel.CALCULATED_LAYOUT),
+  visible: ({ store, client }) =>
+    Access.createGranted({ id: channel.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, CREATE_CALCULATED_COMMAND];

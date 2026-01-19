@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, User } from "@synnaxlabs/pluto";
+import { user } from "@synnaxlabs/client";
+import { Access, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Toolbar } from "@/components";
@@ -18,14 +19,20 @@ import { REGISTER_LAYOUT } from "@/user/Register";
 const Content = (): ReactElement => {
   const { data: groupID } = User.useRetrieveGroupID({});
   const placeLayout = Layout.usePlacer();
+  const canEditUser = Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID);
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.User />}>Users</Toolbar.Title>
         <Toolbar.Actions>
-          <Toolbar.Action onClick={() => placeLayout(REGISTER_LAYOUT)}>
-            <Icon.Add />
-          </Toolbar.Action>
+          {canEditUser && (
+            <Toolbar.Action
+              onClick={() => placeLayout(REGISTER_LAYOUT)}
+              tooltip="Create user"
+            >
+              <User.CreateIcon />
+            </Toolbar.Action>
+          )}
         </Toolbar.Actions>
       </Toolbar.Header>
       <Ontology.Tree root={groupID} />
@@ -42,4 +49,5 @@ export const TOOLBAR: Layout.NavDrawerItem = {
   minSize: 175,
   maxSize: 400,
   trigger: ["U"],
+  useVisible: () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID),
 };

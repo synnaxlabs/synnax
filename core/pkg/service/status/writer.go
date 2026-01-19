@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -66,17 +66,17 @@ func (w Writer[D]) SetWithParent(
 	// Status already exists and no parent provided = do nothing
 	// Status does not exist = define parent
 	if exists && hasParent {
-		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.ParentOf, otgID); hasRel || err != nil {
+		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); hasRel || err != nil {
 			return err
 		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.ParentOf); err != nil {
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
 			return err
 		}
 	} else if !exists {
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.ParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
 			return err
 		}
 	}
@@ -125,7 +125,7 @@ func (w Writer[D]) SetManyWithParent(
 func (w Writer[D]) Delete(ctx context.Context, key string) error {
 	if err := gorp.NewDelete[string, Status[D]]().
 		WhereKeys(key).
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.NotFound) {
+		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
 	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
@@ -142,9 +142,9 @@ func (w Writer[D]) DeleteMany(ctx context.Context, keys ...string) error {
 }
 
 func (w Writer[D]) validate(s Status[D]) error {
-	v := validate.New("status.Status")
-	validate.NotEmptyString(v, "Key", s.Key)
-	validate.Positive(v, "Time", s.Time)
-	validate.NotEmptyString(v, "Variant", s.Variant)
+	v := validate.New("status.status")
+	validate.NotEmptyString(v, "key", s.Key)
+	validate.Positive(v, "time", s.Time)
+	validate.NotEmptyString(v, "variant", s.Variant)
 	return v.Error()
 }

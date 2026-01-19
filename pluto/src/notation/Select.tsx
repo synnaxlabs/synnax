@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,15 +10,17 @@
 import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Select as CoreSelect } from "@/select";
+import { Select as BaseSelect } from "@/select";
 
-export interface SelectNotationProps
-  extends Omit<CoreSelect.ButtonsProps<notation.Notation>, "keys"> {}
+export interface SelectNotationProps extends Omit<
+  BaseSelect.ButtonsProps<notation.Notation>,
+  "keys"
+> {}
 
 export const Select = (props: SelectNotationProps): ReactElement => (
-  <CoreSelect.Buttons {...props} keys={notation.NOTATIONS}>
-    <CoreSelect.Button itemKey="standard">Standard</CoreSelect.Button>
-    <CoreSelect.Button itemKey="scientific">Scientific</CoreSelect.Button>
-    <CoreSelect.Button itemKey="engineering">Engineering</CoreSelect.Button>
-  </CoreSelect.Buttons>
+  <BaseSelect.Buttons {...props} keys={notation.NOTATIONS}>
+    <BaseSelect.Button itemKey="standard">Standard</BaseSelect.Button>
+    <BaseSelect.Button itemKey="scientific">Scientific</BaseSelect.Button>
+    <BaseSelect.Button itemKey="engineering">Engineering</BaseSelect.Button>
+  </BaseSelect.Buttons>
 );

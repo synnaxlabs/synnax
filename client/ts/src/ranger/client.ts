@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@ import { type channel } from "@/channel";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
-import { type ontology } from "@/ontology";
+import { ontology } from "@/ontology";
 import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
@@ -324,7 +324,8 @@ export class Client {
   }
 }
 
-export const ontologyID = (key: Key): ontology.ID => ({ type: "range", key });
+export const ontologyID = ontology.createIDFactory<Key>("range");
+export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const aliasOntologyID = (key: Key): ontology.ID => ({
   type: "range-alias",

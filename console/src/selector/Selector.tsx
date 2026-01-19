@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,23 +9,23 @@
 
 import "@/selector/Selector.css";
 
-import { Button, Eraser, Flex, type Icon, Status, Text } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
+import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 
-export interface SelectableCreateArgs {
+export interface SelectableProps {
   layoutKey: string;
   rename: Modals.PromptRename;
+  onPlace: Layout.Placer;
+  handleError: Status.ErrorHandler;
 }
 
-export interface Selectable {
-  key: string;
-  title: string;
-  icon: Icon.ReactElement;
-  create: (props: SelectableCreateArgs) => Promise<Layout.PlacerArgs | null>;
+export interface Selectable extends FC<SelectableProps> {
+  type: string;
+  useVisible?: () => boolean;
 }
 
 export interface SelectorProps extends Layout.RendererProps {
@@ -43,33 +43,26 @@ export const Selector = ({
   const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
-      <Flex.Box className={CSS.B("vis-layout-selector")} gap="large" wrap center>
+      <Flex.Box className={CSS.BE("layout-selector", "frame")} gap="large" wrap center>
         <Text.Text level="h4" color={10} weight={400}>
           {text}
         </Text.Text>
         <Flex.Box
           x
           wrap
-          style={{ maxWidth: "500px" }}
           full="x"
           justify="center"
           gap={2.5}
+          className={CSS.BE("layout-selector", "items")}
         >
-          {selectables.map(({ key, title, icon, create }) => (
-            <Button.Button
-              key={key}
-              variant="outlined"
-              onClick={() =>
-                handleError(async () => {
-                  const layout = await create({ layoutKey, rename });
-                  if (layout != null) place(layout);
-                }, `Failed to create ${title}`)
-              }
-              style={{ flexBasis: "185px" }}
-            >
-              {icon}
-              {title}
-            </Button.Button>
+          {selectables.map((Selectable) => (
+            <Selectable
+              key={Selectable.type}
+              layoutKey={layoutKey}
+              rename={rename}
+              onPlace={place}
+              handleError={handleError}
+            />
           ))}
         </Flex.Box>
       </Flex.Box>

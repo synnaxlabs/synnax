@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import { describe, expect, it, vitest } from "vitest";
 
 import { Icon } from "@/icon";
 import { Text } from "@/text";
-import { text } from "@/text/core";
+import { text } from "@/text/base";
 
 describe("Text", () => {
   describe("levels", () => {
@@ -219,6 +219,28 @@ describe("Text", () => {
     it("should add a status classname if the status is set to loading", () => {
       const c = render(<Text.Text status="loading">Hello</Text.Text>);
       expect(c.getByText("Hello").className).toContain("pluto--status-loading");
+    });
+  });
+
+  describe("lineClamp", () => {
+    it("should not add a line-clamp classname by default", () => {
+      const c = render(<Text.Text>Hello</Text.Text>);
+      expect(c.getByText("Hello").className).not.toContain("pluto-text--line-clamp");
+    });
+
+    it("should add a line-clamp classname when lineClamp is set", () => {
+      const c = render(<Text.Text lineClamp={2}>Hello</Text.Text>);
+      expect(c.getByText("Hello").className).toContain("pluto-text--line-clamp");
+    });
+
+    it("should set the WebkitLineClamp style to the provided value", () => {
+      const c = render(<Text.Text lineClamp={3}>Hello</Text.Text>);
+      expect(c.getByText("Hello").style.webkitLineClamp).toBe("3");
+    });
+
+    it("should work with different lineClamp values", () => {
+      const c = render(<Text.Text lineClamp={5}>Hello</Text.Text>);
+      expect(c.getByText("Hello").style.webkitLineClamp).toBe("5");
     });
   });
 

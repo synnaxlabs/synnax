@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package x.v1.spatial;
+
+option go_package = "github.com/synnaxlabs/x/spatial";
+
+message PBXY {
+  float x = 1;
+  float y = 2;
+}

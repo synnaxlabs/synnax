@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,24 +18,26 @@ import (
 	"github.com/synnaxlabs/alamos"
 	arclsp "github.com/synnaxlabs/arc/lsp"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
+	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Arc struct {
-	arc.Arc
 	Status *status.Status[arc.StatusDetails] `json:"status" msgpack:"status"`
+	arc.Arc
 }
 
 type ArcService struct {
 	dbProvider
 	accessProvider
-	alamos.Instrumentation
 	internal *arc.Service
 	status   *status.Service
+	alamos.Instrumentation
 }
 
 func NewArcService(p Provider) *ArcService {
@@ -58,18 +60,18 @@ type (
 func (s *ArcService) Create(ctx context.Context, req ArcCreateRequest) (res ArcCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: arc.OntologyIDsFromArcs(translateArcsToService(req.Arcs)),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
-		for i, arc_ := range req.Arcs {
-			if err = w.Create(ctx, &arc_.Arc); err != nil {
+		for i, a := range req.Arcs {
+			if err = w.Create(ctx, &a.Arc); err != nil {
 				return err
 			}
-			req.Arcs[i] = arc_
+			req.Arcs[i] = a
 		}
 		res.Arcs = req.Arcs
 		return nil
@@ -83,7 +85,7 @@ type ArcDeleteRequest struct {
 func (s *ArcService) Delete(ctx context.Context, req ArcDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: arc.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
@@ -95,12 +97,13 @@ func (s *ArcService) Delete(ctx context.Context, req ArcDeleteRequest) (res type
 
 type (
 	ArcRetrieveRequest struct {
+		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
 		Keys          []uuid.UUID `json:"keys" msgpack:"keys"`
 		Names         []string    `json:"names" msgpack:"names"`
-		SearchTerm    string      `json:"search_term" msgpack:"search_term"`
 		Limit         int         `json:"limit" msgpack:"limit"`
 		Offset        int         `json:"offset" msgpack:"offset"`
 		IncludeStatus bool        `json:"include_status" msgpack:"include_status"`
+		Compile       bool        `json:"compile" msgpack:"compile"`
 	}
 	ArcRetrieveResponse struct {
 		Arcs []Arc `json:"arcs" msgpack:"arcs"`
@@ -138,6 +141,15 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 
 	res.Arcs = translateArcsFromService(svcArcs)
 
+	// Compile Arcs to modules if requested
+	if req.Compile {
+		for i := range res.Arcs {
+			if err = s.compileArc(ctx, &res.Arcs[i]); err != nil {
+				return ArcRetrieveResponse{}, err
+			}
+		}
+	}
+
 	if req.IncludeStatus {
 		statuses := make([]status.Status[arc.StatusDetails], 0, len(res.Arcs))
 		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
@@ -155,7 +167,7 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: arc.OntologyIDsFromArcs(svcArcs),
 	}); err != nil {
 		return ArcRetrieveResponse{}, err
@@ -186,4 +198,30 @@ func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcL
 		return err
 	}
 	return arctransport.ServeFreighter(ctx, lspServer, stream)
+}
+
+// compileArc compiles the Arc text to a module containing IR and WASM bytecode.
+// Returns an error if parsing, analysis, or compilation fails.
+func (s *ArcService) compileArc(ctx context.Context, arc *Arc) error {
+	// Step 1: Parse the Arc text
+	parsed, diag := arctext.Parse(arc.Text)
+	if diag != nil && !diag.Ok() {
+		return errors.Newf("parse failed for arc %s: %w", arc.Key, diag)
+	}
+
+	// Step 2: Analyze the parsed text to produce IR
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.SymbolResolver())
+	if diag != nil && !diag.Ok() {
+		return errors.Newf("analysis failed for arc %s: %w", arc.Key, diag)
+	}
+
+	// Step 3: Compile IR to WebAssembly module
+	mod, err := arctext.Compile(ctx, ir)
+	if err != nil {
+		return errors.Newf("compilation failed for arc %s: %w", arc.Key, err)
+	}
+
+	// Step 4: Attach compiled module to Arc
+	arc.Module = mod
+	return nil
 }

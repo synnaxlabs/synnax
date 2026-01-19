@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -203,10 +203,10 @@ protected:
         auto server_cfg = mock::ServerConfig::create_default();
 
         ctx = std::make_shared<task::MockContext>(client);
-        auto reads = std::make_shared<std::vector<synnax::Frame>>();
+        auto reads = std::make_shared<std::vector<::telem::Frame>>();
 
         // Create test frames with different data types
-        auto fr = synnax::Frame(10);
+        auto fr = ::telem::Frame(10);
 
         // Create Series with single values using the value constructor
         fr.emplace(
@@ -326,34 +326,26 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Connect and read back the values to verify they were written
-    auto [client, conn_err] = opc::connection::connect(
-        conn_cfg,
-        "[test.write_verification] "
+    auto client = ASSERT_NIL_P(
+        opc::connection::connect(conn_cfg, "[test.write_verification] ")
     );
-    ASSERT_FALSE(conn_err) << conn_err;
 
     // Verify boolean value (should be 1)
-    auto [bool_result, bool_err] = opc::testutil::simple_read(
-        client,
-        "NS=1;S=TestBoolean"
+    const auto bool_result = ASSERT_NIL_P(
+        opc::testutil::simple_read(client, "NS=1;S=TestBoolean")
     );
-    ASSERT_FALSE(bool_err) << bool_err;
     EXPECT_EQ(bool_result.at<uint8_t>(0), 1);
 
     // Verify uint32 value (should be 12345)
-    auto [uint32_result, uint32_err] = opc::testutil::simple_read(
-        client,
-        "NS=1;S=TestUInt32"
+    const auto uint32_result = ASSERT_NIL_P(
+        opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
-    ASSERT_FALSE(uint32_err) << uint32_err;
     EXPECT_EQ(uint32_result.at<uint32_t>(0), 12345);
 
     // Verify float value (should be 2.718f)
-    auto [float_result, float_err] = opc::testutil::simple_read(
-        client,
-        "NS=1;S=TestFloat"
+    const auto float_result = ASSERT_NIL_P(
+        opc::testutil::simple_read(client, "NS=1;S=TestFloat")
     );
-    ASSERT_FALSE(float_err) << float_err;
     EXPECT_FLOAT_EQ(float_result.at<float>(0), 2.718f);
 }
 
@@ -362,31 +354,27 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     auto conn_cfg = cfg->connection;
 
     auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(*cfg));
-    ASSERT_FALSE(sink->start());
+    ASSERT_NIL(sink->start());
 
     // First write should succeed
-    auto fr1 = synnax::Frame(1);
+    auto fr1 = ::telem::Frame(1);
     fr1.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(11111), telem::UINT32_T)
     );
-    auto write_err1 = sink->write(fr1);
-    EXPECT_FALSE(write_err1) << write_err1;
+    ASSERT_NIL(sink->write(fr1));
 
     // Stop the server to simulate connection loss
     server->stop();
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     // Write while server is down - should fail
-    auto fr2 = synnax::Frame(1);
+    auto fr2 = ::telem::Frame(1);
     fr2.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(22222), telem::UINT32_T)
     );
-    auto write_err2 = sink->write(fr2);
-    EXPECT_TRUE(write_err2) << "Write should fail when server is down";
-    EXPECT_TRUE(write_err2.matches(opc::errors::UNREACHABLE))
-        << "Error should be UNREACHABLE_ERROR, got: " << write_err2;
+    ASSERT_OCCURRED_AS(sink->write(fr2), opc::errors::UNREACHABLE);
 
     // Restart the server and wait for it to be ready
     server->start();
@@ -398,23 +386,21 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     UA_Client_disconnect(test_client.get());
 
     // Write after server restart - should trigger reconnect and succeed
-    auto fr3 = synnax::Frame(1);
+    auto fr3 = ::telem::Frame(1);
     fr3.emplace(
         this->uint32_cmd_channel.key,
         telem::Series(static_cast<uint32_t>(33333), telem::UINT32_T)
     );
-    auto write_err3 = sink->write(fr3);
-    EXPECT_FALSE(write_err3) << "Write after reconnect should succeed: " << write_err3;
+    ASSERT_NIL(sink->write(fr3));
 
     // Verify the third value was written
-    auto [client, conn_err] = opc::connection::connect(conn_cfg, "[test.reconnect] ");
-    ASSERT_FALSE(conn_err) << conn_err;
-
-    auto [result, read_err] = opc::testutil::simple_read(client, "NS=1;S=TestUInt32");
-    ASSERT_FALSE(read_err) << read_err;
+    auto client = ASSERT_NIL_P(opc::connection::connect(conn_cfg, "[test.reconnect] "));
+    const auto result = ASSERT_NIL_P(
+        opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
     EXPECT_EQ(result.at<uint32_t>(0), 33333);
 
-    ASSERT_FALSE(sink->stop());
+    ASSERT_NIL(sink->stop());
 }
 
 TEST_F(TestWriteTask, testMultipleSequentialWrites) {
@@ -422,29 +408,92 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     auto conn_cfg = cfg->connection;
 
     auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(*cfg));
-    ASSERT_FALSE(sink->start());
+    ASSERT_NIL(sink->start());
 
     // Perform multiple writes with different values
     for (int i = 0; i < 5; i++) {
-        auto fr = synnax::Frame(1);
+        auto fr = ::telem::Frame(1);
         fr.emplace(
             this->uint32_cmd_channel.key,
             telem::Series(static_cast<uint32_t>(i * 1000), telem::UINT32_T)
         );
-
-        auto write_err = sink->write(fr);
-        EXPECT_FALSE(write_err) << "Write " << i << " failed: " << write_err;
-
+        ASSERT_NIL(sink->write(fr));
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     // Verify the final value
-    auto [client, conn_err] = opc::connection::connect(conn_cfg, "[test.multi_write] ");
-    ASSERT_FALSE(conn_err) << conn_err;
-
-    auto [result, read_err] = opc::testutil::simple_read(client, "NS=1;S=TestUInt32");
-    ASSERT_FALSE(read_err) << read_err;
+    auto client = ASSERT_NIL_P(
+        opc::connection::connect(conn_cfg, "[test.multi_write] ")
+    );
+    const auto result = ASSERT_NIL_P(
+        opc::testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
     EXPECT_EQ(result.at<uint32_t>(0), 4000);
 
-    ASSERT_FALSE(sink->stop());
+    ASSERT_NIL(sink->stop());
+}
+
+TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto invalid_cmd_channel = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("invalid_node_cmd"),
+        telem::UINT32_T,
+        true
+    ));
+
+    auto rack = ASSERT_NIL_P(client->racks.create("invalid_node_test_rack"));
+
+    opc::connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
+    conn_cfg.security_mode = "None";
+    conn_cfg.security_policy = "None";
+
+    synnax::Device dev(
+        "invalid_node_dev",
+        "invalid_node_device",
+        rack.key,
+        "dev_invalid",
+        "ni",
+        "PXI-6255",
+        nlohmann::to_string(json::object({{"connection", conn_cfg.to_json()}}))
+    );
+    ASSERT_NIL(client->devices.create(dev));
+
+    // Create config with an invalid node ID that doesn't exist on the server
+    json task_cfg = {
+        {"data_saving", true},
+        {"device", dev.key},
+        {"channels",
+         json::array(
+             {{{"node_id", "NS=99;I=99999"},
+               {"cmd_channel", invalid_cmd_channel.key},
+               {"enabled", true}}}
+         )}
+    };
+
+    auto p = xjson::Parser(task_cfg);
+    auto invalid_cfg = opc::WriteTaskConfig(client, p);
+    ASSERT_FALSE(p.error()) << p.error().message();
+
+    auto sink = std::make_unique<opc::WriteTaskSink>(conn_pool, std::move(invalid_cfg));
+    ASSERT_NIL(sink->start());
+
+    // Attempt to write to the invalid node
+    auto fr = telem::Frame(1);
+    fr.emplace(
+        invalid_cmd_channel.key,
+        telem::Series(static_cast<uint32_t>(12345), telem::UINT32_T)
+    );
+
+    auto err = sink->write(fr);
+    ASSERT_TRUE(err) << "Expected error for invalid node ID";
+
+    const std::string err_msg = err.data;
+    EXPECT_TRUE(err_msg.find(invalid_cmd_channel.name) != std::string::npos)
+        << "Error message should contain channel name. Got: " << err_msg;
+    EXPECT_TRUE(err_msg.find("NS=99;I=99999") != std::string::npos)
+        << "Error message should contain node ID. Got: " << err_msg;
+
+    ASSERT_NIL(sink->stop());
 }

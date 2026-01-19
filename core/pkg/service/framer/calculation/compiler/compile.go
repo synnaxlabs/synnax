@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,14 +26,14 @@ import (
 )
 
 type Config struct {
+	SymbolResolver arc.SymbolResolver
 	ChannelService *channel.Service
 	Channel        channel.Channel
-	SymbolResolver arc.SymbolResolver
 }
 
 var (
-	_                       config.Config[Config] = Config{}
-	DefaultCalculatorConfig                       = Config{}
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
 )
 
 // Override implements config.Config.
@@ -70,13 +70,13 @@ func preProcess(ctx context.Context, cfg Config) (arc.Module, error) {
 }
 
 type Module struct {
-	Channel     channel.Channel
 	StateConfig runtime.ExtendedStateConfig
 	arc.Module
+	Channel channel.Channel
 }
 
 func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
-	cfg, err := config.New(DefaultCalculatorConfig, cfgs...)
+	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return Module{}, err
 	}
@@ -164,7 +164,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		}
 		g.Functions[0].Inputs = append(
 			g.Functions[0].Inputs,
-			types.Param{Name: sym.Name, Type: *sym.Type.ValueType},
+			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
 		)
 		g.Nodes = append(g.Nodes, graph.Node{
 			Key:    sym.Name,

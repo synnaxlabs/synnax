@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,4 +11,4 @@ package main
 
 import "github.com/synnaxlabs/synnax/cmd"
 
-func main() { cmd.Execute() }
+func main() { cmd.RunMain() }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,8 +16,8 @@ import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { state } from "@/state";
+import { flatten, getNodeShape, type Node, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
-import { flatten, getNodeShape, type Node, type Shape } from "@/tree/core";
 import { Triggers } from "@/triggers";
 
 export const HAUL_TYPE = "tree-item";
@@ -128,11 +128,13 @@ export const use = <K extends record.Key = string>({
   };
 };
 
-export interface ItemRenderProps<K extends record.Key = string>
-  extends List.ItemRenderProps<K> {}
+export interface ItemRenderProps<
+  K extends record.Key = string,
+> extends List.ItemRenderProps<K> {}
 
 export interface TreeProps<K extends record.Key, E extends record.Keyed<K>>
-  extends Omit<
+  extends
+    Omit<
       Select.FrameProps<K, E>,
       "children" | "ref" | "virtualizer" | "data" | "onChange"
     >,

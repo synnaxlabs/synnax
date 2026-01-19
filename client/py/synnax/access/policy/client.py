@@ -1,0 +1,94 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from typing import overload
+from uuid import UUID
+
+from alamos import NOOP, Instrumentation
+from freighter import Empty, Payload, UnaryClient, send_required
+
+from synnax.access.policy.payload import Policy
+from synnax.ontology.payload import ID
+from synnax.util.normalize import normalize
+
+
+class _CreateRequest(Payload):
+    policies: list[Policy]
+
+
+_CreateResponse = _CreateRequest
+
+
+class _RetrieveRequest(Payload):
+    keys: list[UUID] | None
+    subjects: list[ID] | None
+    internal: bool | None = None
+
+
+class _RetrieveResponse(Payload):
+    policies: list[Policy] | None
+
+
+class _DeleteRequest(Payload):
+    keys: list[UUID]
+
+
+ONTOLOGY_TYPE = ID(type="policy")
+
+
+class PolicyClient:
+    _client: UnaryClient
+    instrumentation: Instrumentation
+
+    def __init__(
+        self,
+        client: UnaryClient,
+        instrumentation: Instrumentation = NOOP,
+    ):
+        self._client = client
+        self.instrumentation = instrumentation
+
+    @overload
+    def create(
+        self,
+        policies: Policy,
+    ) -> Policy: ...
+
+    @overload
+    def create(
+        self,
+        policies: list[Policy],
+    ) -> list[Policy]: ...
+
+    def create(
+        self,
+        policies: Policy | list[Policy],
+    ) -> Policy | list[Policy]:
+        is_single = not isinstance(policies, list)
+        req = _CreateRequest(policies=normalize(policies))
+        res = send_required(self._client, "/access/policy/create", req, _CreateResponse)
+        return res.policies[0] if is_single else res.policies
+
+    def retrieve(
+        self,
+        keys: list[UUID] | None = None,
+        subjects: list[ID] | None = None,
+        internal: bool | None = None,
+    ) -> list[Policy]:
+        res = send_required(
+            self._client,
+            "/access/policy/retrieve",
+            _RetrieveRequest(keys=keys, subjects=subjects, internal=internal),
+            _RetrieveResponse,
+        )
+        return [] if res.policies is None else res.policies
+
+    def delete(self, keys: UUID | list[UUID]) -> None:
+        req = _DeleteRequest(keys=normalize(keys))
+        send_required(self._client, "/access/policy/delete", req, Empty)

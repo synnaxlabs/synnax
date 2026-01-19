@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -44,7 +46,7 @@ var _ = Describe("Writer", func() {
 
 				Expect(s.Key).To(Equal(statusKey))
 				Expect(s.Name).To(Equal(fmt.Sprintf("%s Status", a.Name)))
-				Expect(s.Variant).To(Equal(xstatus.LoadingVariant))
+				Expect(s.Variant).To(Equal(xstatus.VariantLoading))
 				Expect(s.Message).To(Equal("Deploying"))
 			})
 
@@ -153,31 +155,57 @@ var _ = Describe("Writer", func() {
 		})
 
 		Describe("Delete with Status cleanup", func() {
-			It("Should not directly delete status on arc deletion", func() {
+			It("Should delete status when arc is deleted", func() {
 				a := arc.Arc{
 					Name:  "arc-to-delete",
 					Graph: graph.Graph{},
 					Text:  text.Text{},
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-
-				// Verify status exists
 				var s status.Status[arc.StatusDetails]
 				statusKey := a.Key.String()
 				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
 					WhereKeys(statusKey).
 					Entry(&s).
 					Exec(ctx, tx)).To(Succeed())
+				Expect(s.Key).To(Equal(statusKey))
 
-				// Delete the arc
 				Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 
-				// Status should still exist (it's managed separately)
-				// The status service would handle cleanup through ontology relationships
-				Expect(gorp.NewRetrieve[string, status.Status[arc.StatusDetails]]().
+				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
 					WhereKeys(statusKey).
-					Entry(&s).
-					Exec(ctx, tx)).To(Succeed())
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+			})
+
+			It("Should delete multiple statuses when multiple arcs are deleted", func() {
+				a1 := arc.Arc{
+					Name:  "arc-to-delete-1",
+					Graph: graph.Graph{},
+					Text:  text.Text{},
+				}
+				a2 := arc.Arc{
+					Name:  "arc-to-delete-2",
+					Graph: graph.Graph{},
+					Text:  text.Text{},
+				}
+				w := svc.NewWriter(tx)
+				Expect(w.Create(ctx, &a1)).To(Succeed())
+				Expect(w.Create(ctx, &a2)).To(Succeed())
+
+				Expect(svc.NewWriter(tx).Delete(ctx, a1.Key, a2.Key)).To(Succeed())
+
+				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
+					WhereKeys(a1.Key.String()).
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+
+				Expect(status.NewRetrieve[arc.StatusDetails](statusSvc).
+					WhereKeys(a2.Key.String()).
+					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+			})
+
+			It("Should handle delete of non-existent arc gracefully", func() {
+				nonExistentKey := uuid.New()
+				Expect(svc.NewWriter(tx).Delete(ctx, nonExistentKey)).To(Succeed())
 			})
 		})
 	})

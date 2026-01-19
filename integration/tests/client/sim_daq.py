@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -20,7 +20,7 @@ class SimDaq(TestCase):
     """
 
     def setup(self) -> None:
-        self.set_manual_timeout(120)
+        self.set_manual_timeout(60)
         super().setup()
 
     def run(self) -> None:

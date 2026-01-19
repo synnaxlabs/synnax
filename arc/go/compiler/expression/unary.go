@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,6 +34,18 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 			ctx.Writer.WriteOpcode(wasm.OpF32Neg)
 		case types.KindF64:
 			ctx.Writer.WriteOpcode(wasm.OpF64Neg)
+		case types.KindSeries:
+			// Series negation - only for signed element types
+			elemType := innerType.Unwrap()
+			if elemType.IsSigned() {
+				funcIdx, err := ctx.Imports.GetSeriesNegate(elemType)
+				if err != nil {
+					return types.Type{}, err
+				}
+				ctx.Writer.WriteCall(funcIdx)
+			} else {
+				return types.Type{}, errors.Newf("cannot negate series of unsigned type %s", elemType)
+			}
 		default:
 			return types.Type{}, errors.Newf("cannot negate type %s", innerType)
 		}
@@ -41,20 +53,28 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 	}
 
 	if ctx.AST.NOT() != nil {
-		// Compile the inner expression
-		if _, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression())); err != nil {
+		innerType, err := compileUnary(context.Child(ctx, ctx.AST.UnaryExpression()))
+		if err != nil {
 			return types.Type{}, err
 		}
+
+		if innerType.Kind == types.KindSeries {
+			if !innerType.IsBool() {
+				return types.Type{}, errors.Newf(
+					"logical NOT on series requires boolean (u8) element type, got %s",
+					innerType.Unwrap(),
+				)
+			}
+			ctx.Writer.WriteCall(ctx.Imports.SeriesNotU8)
+			return innerType, nil
+		}
+
 		// Logical NOT expects a boolean (u8) and returns boolean
 		// Use i32.eqz to check if value is 0 (false becomes true, true becomes false)
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
 		return types.U8(), nil
 	}
 
-	if blockRead := ctx.AST.BlockingReadExpr(); blockRead != nil {
-		// TODO: Implement blocking channel read
-		return types.F64(), nil // Placeholder
-	}
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {
 		return compilePostfix(context.Child(ctx, postfix))
 	}

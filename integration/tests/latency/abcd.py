@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -53,7 +53,7 @@ class Abcd(Latency):
         Setup the test case.
         """
         self.log("WARNING (⚠️): This test does not have any reporting.")
-        self.configure(loop_rate=0.01, manual_timeout=20)
+        self.configure(loop_rate=0.01, manual_timeout=15)
 
         # Get mode from matrix parameters
         self.mode = self.params.get("mode")

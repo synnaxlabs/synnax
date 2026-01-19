@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,17 +16,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import {
-  type Arc,
-  arcZ,
-  type Key,
-  keyZ,
-  type New,
-  newZ,
-  ONTOLOGY_TYPE,
-  type Params,
-} from "@/arc/payload";
-import { type ontology } from "@/ontology";
+import { type Arc, arcZ, keyZ, type New, newZ, type Params } from "@/arc/payload";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_arc_set";
@@ -126,5 +116,3 @@ export class Client {
     return await this.streamClient.stream("/arc/lsp", lspMessageZ, lspMessageZ);
   }
 }
-
-export const ontologyID = (key: Key): ontology.ID => ({ type: ONTOLOGY_TYPE, key });

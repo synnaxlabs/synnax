@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -101,13 +101,15 @@ var _ = Describe("Expression func Conversion", func() {
 			ast := MustSucceed(parser.Parse(`ox_pt_1 > 100 -> alarm{}`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
-			Expect(fnSym.Name).To(Equal("__expr_0"))
+			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
+			Expect(fnSym.Name).To(Equal("expression_0"))
 			Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 			Expect(fnSym.Type.Kind).To(Equal(types.KindFunction))
 			Expect(fnSym.Type.Config).To(BeEmpty())
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output.Type).To(Equal(types.U8()))
+			Expect(fnSym.Channels.Read).To(HaveLen(1))
+			Expect(fnSym.Channels.Read).To(HaveKey(uint32(12)))
 		})
 
 		It("should extract multiple channels from arithmetic expressions", func() {
@@ -116,7 +118,7 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthFunc).ToNot(BeNil())
 			output := MustBeOk(synthFunc.Type.Outputs.Get(ir.DefaultOutputParam))
 			Expect(output.Type).To(Equal(types.F64()))
@@ -130,7 +132,7 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthTask := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			synthTask := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthTask).ToNot(BeNil())
 			Expect(synthTask.Type.Kind).To(Equal(types.KindFunction))
 		})
@@ -143,7 +145,8 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unknown"))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: unknown_channel"))
 		})
 	})
 
@@ -156,9 +159,9 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-			fn0 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
-			fn1 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_1"))
-			fn2 := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_2"))
+			fn0 := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
+			fn1 := MustSucceed(ctx.Scope.Resolve(ctx, "expression_1"))
+			fn2 := MustSucceed(ctx.Scope.Resolve(ctx, "expression_2"))
 			Expect(fn0).ToNot(BeNil())
 			Expect(fn1).ToNot(BeNil())
 			Expect(fn2).ToNot(BeNil())
@@ -172,7 +175,7 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
-			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthFunc).ToNot(BeNil())
 		})
 	})
@@ -184,7 +187,7 @@ var _ = Describe("Expression func Conversion", func() {
 			`))
 			ctx := context.CreateRoot(bCtx, ast, testResolver)
 			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
-			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "__expr_0"))
+			synthFunc := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(synthFunc).ToNot(BeNil())
 		})
 	})

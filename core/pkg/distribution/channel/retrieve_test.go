@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -175,7 +175,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 				NewRetrieve().
 				WhereKeys(0).
 				Entries(&resChannels).
-				Exec(ctx, nil)).To(MatchError(query.NotFound))
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 
 	})

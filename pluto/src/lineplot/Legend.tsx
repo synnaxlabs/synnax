@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,10 +14,10 @@ import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
 import { Text } from "@/text";
-import { Legend as Core } from "@/vis/legend";
+import { Legend as Base } from "@/vis/legend";
 import { Entries, type EntryData } from "@/vis/legend/Entries";
 
-export interface LegendProps extends Omit<Core.SimpleProps, "data" | "onEntryChange"> {
+export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
   variant?: "floating" | "fixed";
   onLineChange?: (line: optional.Optional<LineSpec, "legendGroup">) => void;
 }
@@ -29,17 +29,17 @@ interface FloatingProps extends Omit<LegendProps, "variant"> {}
 
 const Floating = memo(({ onLineChange, ...rest }: FloatingProps): ReactElement => {
   const { lines } = useContext("LinePlot.Legend");
-  const groups: Core.GroupData[] = useGroupData(lines);
+  const groups: Base.GroupData[] = useGroupData(lines);
   if (groups.length === 1)
-    return <Core.Simple data={groups[0].data} onEntryChange={onLineChange} {...rest} />;
-  return <Core.Grouped data={groups} onEntryChange={onLineChange} {...rest} />;
+    return <Base.Simple data={groups[0].data} onEntryChange={onLineChange} {...rest} />;
+  return <Base.Grouped data={groups} onEntryChange={onLineChange} {...rest} />;
 });
 Floating.displayName = "LinePlot.FloatingLegend";
 
 interface FixedProps extends Pick<LegendProps, "onLineChange"> {}
 
-const useGroupData = (lines: LineSpec[]): Core.GroupData[] => {
-  const groups: Core.GroupData[] = useMemo(() => {
+const useGroupData = (lines: LineSpec[]): Base.GroupData[] => {
+  const groups: Base.GroupData[] = useMemo(() => {
     const groupInfo: Record<string, LineSpec[]> = {};
     for (const line of lines) {
       const group = groupInfo[line.legendGroup];
@@ -59,7 +59,7 @@ const useGroupData = (lines: LineSpec[]): Core.GroupData[] => {
 
 const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
   const { lines } = useContext("LinePlot.Legend");
-  const groups: Core.GroupData[] = useGroupData(lines);
+  const groups: Base.GroupData[] = useGroupData(lines);
   const key = useUniqueKey();
   const gridStyle = useGridEntry(
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },

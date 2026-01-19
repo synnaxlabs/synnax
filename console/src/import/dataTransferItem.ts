@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,6 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { type Synnax } from "@synnaxlabs/client";
+import { type Pluto } from "@synnaxlabs/pluto";
 import { ZodError } from "zod";
 
 import { type DirectoryIngestor, type FileIngestors } from "@/import/ingestor";
@@ -68,6 +69,7 @@ interface DataTransferItemContext {
   layout: Partial<Layout.State>;
   placeLayout: Layout.Placer;
   store: Store;
+  fluxStore: Pluto.FluxStore;
 }
 
 export const dataTransferItem = async (
@@ -79,6 +81,7 @@ export const dataTransferItem = async (
     layout,
     placeLayout,
     store,
+    fluxStore,
   }: DataTransferItemContext,
 ) => {
   const entry = await parseDataTransferItem(item);
@@ -97,7 +100,8 @@ export const dataTransferItem = async (
         ingest(parsedData, {
           layout: { ...layout, name },
           placeLayout,
-          store,
+          store: fluxStore,
+          client,
         });
         hasBeenIngested = true;
         break;
@@ -122,5 +126,6 @@ export const dataTransferItem = async (
     fileIngestors,
     placeLayout,
     store,
+    fluxStore,
   });
 };

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,13 +18,20 @@ import {
   type TimeSpan,
   type xy,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  type ReactElement,
+  type Ref,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
-import { LinePlot as Core } from "@/lineplot";
+import { LinePlot as Base } from "@/lineplot";
 import { Range } from "@/lineplot/range";
 import { Tooltip } from "@/lineplot/tooltip";
 import { telem } from "@/telem/aether";
@@ -35,7 +42,7 @@ import { type measure } from "@/vis/measure/aether";
 import { Rule } from "@/vis/rule";
 
 /** Props for an axis in {@link LinePlot} */
-export interface AxisProps extends Omit<Core.AxisProps, "axisKey"> {
+export interface AxisProps extends Omit<Base.AxisProps, "axisKey"> {
   /** A unique identifier for the axis */
   key: string;
 }
@@ -74,7 +81,7 @@ export interface RuleProps {
   units?: string;
 }
 
-export interface LinePlotProps extends Core.LinePlotProps {
+export interface LinePlotProps extends Omit<Base.LinePlotProps, "ref"> {
   axes: AxisProps[];
   onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   onAxisChange?: (axis: Partial<AxisProps> & { key: string }) => void;
@@ -88,7 +95,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   onTitleChange?: (value: string) => void;
   titleLevel?: Text.Level;
   showLegend?: boolean;
-  legendVariant?: Core.LegendProps["variant"];
+  legendVariant?: Base.LegendProps["variant"];
   legendPosition?: xy.XY;
   onLegendPositionChange?: (value: xy.XY) => void;
   enableTooltip?: boolean;
@@ -99,6 +106,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   rangeProviderProps?: Range.ProviderProps;
   measureMode?: measure.Mode;
   onMeasureModeChange?: (mode: measure.Mode) => void;
+  ref?: Ref<Base.LinePlotRef>;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -133,20 +141,21 @@ export const LinePlot = ({
   measureMode,
   onMeasureModeChange,
   children,
+  ref,
   ...rest
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
-  const ref = useRef<Viewport.UseRefValue | null>(null);
+  const viewportRef = useRef<Viewport.UseRefValue | null>(null);
   const prevLinesLength = usePrevious(lines.length);
   const prevHold = usePrevious(rest.hold);
   const shouldResetViewport =
     (prevLinesLength === 0 && lines.length !== 0) ||
     (prevHold === true && rest.hold === false);
   useEffect(() => {
-    if (shouldResetViewport) ref.current?.reset();
+    if (shouldResetViewport) viewportRef.current?.reset();
   }, [shouldResetViewport]);
   return (
-    <Core.LinePlot {...rest}>
+    <Base.LinePlot ref={ref} {...rest}>
       {xAxes.map((a, i) => {
         const axisLines = lines.filter((l) => l.axes.x === a.key);
         const yAxes = axes.filter(({ location: l }) => loc.isX(l));
@@ -170,7 +179,7 @@ export const LinePlot = ({
         );
       })}
       {showLegend && (
-        <Core.Legend
+        <Base.Legend
           onLineChange={onLineChange}
           position={legendPosition}
           onPositionChange={onLegendPositionChange}
@@ -178,34 +187,33 @@ export const LinePlot = ({
         />
       )}
       {showTitle && (
-        <Core.Title value={title} onChange={onTitleChange} level={titleLevel} />
+        <Base.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}
-      <Core.Viewport
+      <Base.Viewport
         initial={initialViewport}
         onChange={onViewportChange}
         triggers={viewportTriggers}
-        ref={ref}
+        ref={viewportRef}
       >
         {enableTooltip && <Tooltip.Tooltip />}
         {enableMeasure && (
           <Measure.Measure mode={measureMode} onModeChange={onMeasureModeChange} />
         )}
         {children}
-      </Core.Viewport>
-    </Core.LinePlot>
+      </Base.Viewport>
+    </Base.LinePlot>
   );
 };
 
-interface XAxisProps
-  extends Pick<
-    LinePlotProps,
-    | "onRuleChange"
-    | "lines"
-    | "rules"
-    | "onAxisChannelDrop"
-    | "onAxisChange"
-    | "onSelectRule"
-  > {
+interface XAxisProps extends Pick<
+  LinePlotProps,
+  | "onRuleChange"
+  | "lines"
+  | "rules"
+  | "onAxisChannelDrop"
+  | "onAxisChange"
+  | "onSelectRule"
+> {
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
@@ -243,7 +251,7 @@ const XAxis = ({
   const xRules = rules?.filter((r) => r.axis === key);
   const dragging = Haul.useDraggingState();
   return (
-    <Core.XAxis
+    <Base.XAxis
       {...axis}
       {...dropProps}
       location={location as loc.Y}
@@ -283,20 +291,19 @@ const XAxis = ({
         />
       ))}
       <Range.Provider {...rangeProviderProps} />
-    </Core.XAxis>
+    </Base.XAxis>
   );
 };
 
-interface YAxisProps
-  extends Pick<
-    LinePlotProps,
-    | "onRuleChange"
-    | "lines"
-    | "rules"
-    | "onAxisChannelDrop"
-    | "onAxisChange"
-    | "onSelectRule"
-  > {
+interface YAxisProps extends Pick<
+  LinePlotProps,
+  | "onRuleChange"
+  | "lines"
+  | "rules"
+  | "onAxisChannelDrop"
+  | "onAxisChange"
+  | "onSelectRule"
+> {
   axis: AxisProps;
 }
 
@@ -330,7 +337,7 @@ const YAxis = ({
   const dragging = Haul.useDraggingState();
 
   return (
-    <Core.YAxis
+    <Base.YAxis
       {...props}
       {...dropProps}
       location={loc as loc.X}
@@ -353,7 +360,7 @@ const YAxis = ({
           onClick={() => onSelectRule?.(r.key)}
         />
       ))}
-    </Core.YAxis>
+    </Base.YAxis>
   );
 };
 
@@ -388,7 +395,7 @@ const DynamicLine = ({
     return { xTelem, yTelem };
   }, [timeSpan.valueOf(), x, y]);
   return (
-    <Core.Line
+    <Base.Line
       key={key}
       aetherKey={key}
       y={yTelem}
@@ -420,7 +427,7 @@ const StaticLine = ({
     return { xTelem, yTelem };
   }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
   return (
-    <Core.Line
+    <Base.Line
       key={key}
       aetherKey={key}
       y={yTelem}

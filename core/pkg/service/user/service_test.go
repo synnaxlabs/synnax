@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,10 +34,10 @@ var _ = Describe("User", Ordered, func() {
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		g := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-		_, err := user.NewService(ctx, user.Config{})
+		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+		_, err := user.OpenService(ctx, user.ServiceConfig{})
 		Expect(err).To(HaveOccurred())
-		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
+		svc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{DB: db, Ontology: otg, Group: g}))
 		w = svc.NewWriter(nil)
 	})
 	AfterAll(func() {

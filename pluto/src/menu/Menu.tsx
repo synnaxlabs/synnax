@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,8 +29,7 @@ const [Context, useContext] = context.create<ContextValue>({
 export { useContext };
 
 export interface MenuProps
-  extends PropsWithChildren,
-    Pick<ContextValue, "level" | "gap" | "background"> {
+  extends PropsWithChildren, Pick<ContextValue, "level" | "gap" | "background"> {
   value?: string;
   onChange?: ((key: string) => void) | Record<string, (key: string) => void>;
 }

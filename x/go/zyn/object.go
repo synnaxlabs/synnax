@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,17 +22,21 @@ import (
 // converting structured data. ObjectZ supports validation of structs and maps with
 // defined field schemas.
 type ObjectZ struct {
-	baseZ
+	caseConversions struct {
+		snake  map[string]string
+		pascal map[string]string
+	}
 	fields map[string]Schema
+	baseZ
 }
 
 var _ Schema = (*ObjectZ)(nil)
 
 // fieldByName finds a field in a struct by its name, supporting both PascalCase and
-// snake_case.
-func fieldByName(v reflect.Value, field string) reflect.Value {
-	snake := lo.SnakeCase(field)
-	pascal := lo.PascalCase(field)
+// snake_case. Uses pre-computed case conversions from the schema.
+func (o ObjectZ) fieldByName(v reflect.Value, field string) reflect.Value {
+	snake := o.caseConversions.snake[field]
+	pascal := o.caseConversions.pascal[field]
 	return v.FieldByNameFunc(func(s string) bool { return pascal == s || snake == s })
 }
 
@@ -41,8 +45,8 @@ func (o ObjectZ) Optional() ObjectZ { o.optional = true; return o }
 
 // objectShape represents the shape of an object schema.
 type objectShape struct {
-	baseZ
 	fields map[string]Shape
+	baseZ
 }
 
 // Shape returns the base shape of the object schema.
@@ -57,13 +61,28 @@ func (o ObjectZ) Shape() Shape {
 // Fields returns a map of field names to their shapes.
 func (o objectShape) Fields() map[string]Shape { return o.fields }
 
-// Field adds a field to the object schema. The field name can be in PascalCase or
-// snake_case. The shape parameter defines the validation rules for the field.
-func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
+func (o ObjectZ) initializeFields() ObjectZ {
 	if o.fields == nil {
 		o.fields = make(map[string]Schema)
 	}
+	if o.caseConversions.snake == nil || o.caseConversions.pascal == nil {
+		o.caseConversions.snake = make(map[string]string)
+		o.caseConversions.pascal = make(map[string]string)
+		for name := range o.fields {
+			o.caseConversions.snake[name] = lo.SnakeCase(name)
+			o.caseConversions.pascal[name] = lo.PascalCase(name)
+		}
+	}
+	return o
+}
+
+// Field adds a field to the object schema. The field name can be in PascalCase or
+// snake_case. The shape parameter defines the validation rules for the field.
+func (o ObjectZ) Field(name string, shape Schema) ObjectZ {
+	o = o.initializeFields()
 	o.fields[name] = shape
+	o.caseConversions.snake[name] = lo.SnakeCase(name)
+	o.caseConversions.pascal[name] = lo.PascalCase(name)
 	return o
 }
 
@@ -94,17 +113,17 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		if o.optional {
 			return nil, nil
 		}
-		return nil, errors.WithStack(validate.RequiredError)
+		return nil, errors.WithStack(validate.ErrRequired)
 	}
 	if dataMap, ok := data.(map[string]any); ok {
 		result := make(map[string]any)
 		for fieldName, schema := range o.fields {
-			fieldData, exists := getFieldOnMap(dataMap, fieldName)
+			fieldData, exists := o.getFieldOnMap(dataMap, fieldName)
 			if !exists {
 				if schema.Shape().Optional() {
 					continue
 				}
-				return nil, validate.PathedError(validate.RequiredError, fieldName)
+				return nil, validate.PathedError(validate.ErrRequired, fieldName)
 			}
 			fieldData, err := schema.Dump(fieldData)
 			if err != nil {
@@ -113,8 +132,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if fieldData == nil && schema.Shape().Optional() {
 				continue
 			}
-			snakeCaseName := lo.SnakeCase(fieldName)
-			result[snakeCaseName] = fieldData
+			result[o.caseConversions.snake[fieldName]] = fieldData
 		}
 		return result, nil
 	}
@@ -124,7 +142,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 			if o.optional {
 				return nil, nil
 			}
-			return nil, errors.WithStack(validate.RequiredError)
+			return nil, errors.WithStack(validate.ErrRequired)
 		}
 		val = val.Elem()
 	}
@@ -136,12 +154,12 @@ func (o ObjectZ) Dump(data any) (any, error) {
 	}
 	result := make(map[string]any)
 	for fieldName, schema := range o.fields {
-		field := fieldByName(val, fieldName)
+		field := o.fieldByName(val, fieldName)
 		if !field.IsValid() {
 			if schema.Shape().Optional() {
 				continue
 			}
-			return nil, validate.PathedError(validate.RequiredError, fieldName)
+			return nil, validate.PathedError(validate.ErrRequired, fieldName)
 		}
 		fieldData, err := schema.Dump(field.Interface())
 		if err != nil {
@@ -150,9 +168,7 @@ func (o ObjectZ) Dump(data any) (any, error) {
 		if fieldData == nil && schema.Shape().Optional() {
 			continue
 		}
-		// Convert field name to snake case for output
-		snakeCaseName := lo.SnakeCase(fieldName)
-		result[snakeCaseName] = fieldData
+		result[o.caseConversions.snake[fieldName]] = fieldData
 	}
 	return result, nil
 }
@@ -174,7 +190,7 @@ func (o ObjectZ) Parse(data any, dest any) error {
 		if o.optional {
 			return nil
 		}
-		return errors.WithStack(validate.RequiredError)
+		return errors.WithStack(validate.ErrRequired)
 	}
 	destVal = destVal.Elem()
 	dataVal := reflect.ValueOf(data)
@@ -185,23 +201,17 @@ func (o ObjectZ) Parse(data any, dest any) error {
 	if !ok {
 		return NewInvalidDestinationTypeError("map[string]any", destVal)
 	}
-	// Create a map of snake case field names to their original names
-	fieldNameMap := make(map[string]string)
-	for fieldName := range o.fields {
-		fieldNameMap[lo.SnakeCase(fieldName)] = fieldName
-	}
 	for fieldName, fieldSchema := range o.fields {
-		field := fieldByName(destVal, fieldName)
+		field := o.fieldByName(destVal, fieldName)
 		if !field.IsValid() {
 			continue
 		}
-		// Try both original and snake case field names
-		fieldData, exists := getFieldOnMap(dataMap, fieldName)
+		fieldData, exists := o.getFieldOnMap(dataMap, fieldName)
 		if !exists {
 			if fieldSchema.Shape().Optional() {
 				continue
 			}
-			return validate.PathedError(validate.RequiredError, fieldName)
+			return validate.PathedError(validate.ErrRequired, fieldName)
 		}
 		if err := fieldSchema.Parse(fieldData, field.Addr().Interface()); err != nil {
 			return validate.PathedError(err, fieldName)
@@ -219,13 +229,13 @@ func Object(fields map[string]Schema) ObjectZ {
 		fields: fields,
 	}
 	o.wrapper = o
-	return o
+	return o.initializeFields()
 }
 
-func getFieldOnMap(data map[string]any, field string) (any, bool) {
-	v, ok := data[lo.PascalCase(field)]
+func (o ObjectZ) getFieldOnMap(data map[string]any, field string) (any, bool) {
+	v, ok := data[o.caseConversions.pascal[field]]
 	if !ok {
-		v, ok = data[lo.SnakeCase(field)]
+		v, ok = data[o.caseConversions.snake[field]]
 	}
 	return v, ok
 }

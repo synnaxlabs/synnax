@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -82,15 +82,15 @@ func (r Retrieve) ExcludeFieldData(excludeFieldData bool) Retrieve {
 type Direction uint8
 
 const (
-	// Forward represents a forward traversal i.e. Start -> To.
-	Forward Direction = iota + 1
-	// Backward represents a backward traversal i.e. To -> Start.
-	Backward Direction = 2
+	// DirectionForward represents a forward traversal i.e. Start -> To.
+	DirectionForward Direction = iota + 1
+	// DirectionBackward represents a backward traversal i.e. To -> Start.
+	DirectionBackward Direction = 2
 )
 
 // GetID returns the directional ID of the relationship.
 func (d Direction) GetID(rel *Relationship) ID {
-	return lo.Ternary(d == Forward, rel.To, rel.From)
+	return lo.Ternary(d == DirectionForward, rel.To, rel.From)
 }
 
 // Traverser is a struct that defines the traversal of a relationship between entities
@@ -99,26 +99,39 @@ type Traverser struct {
 	// Filter if a function that returns true if the given Resource and Relationship
 	// should be included in the traversal results.
 	Filter func(res *Resource, rel *Relationship) bool
+	// Prefix is an optional function that returns a prefix for efficient lookup.
+	// If nil, a full table scan will be used.
+	Prefix func(id ID) []byte
 	// Direction is the direction of the traversal. See (Direction) for more.
 	Direction Direction
 }
 
 var (
-	// Parents traverses to the parents of a resource.
-	Parents = Traverser{
+	// ParentsTraverser traverses to the parents of a resource.
+	ParentsTraverser = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == ParentOf && rel.To == res.ID
+			return rel.Type == RelationshipTypeParentOf && rel.To == res.ID
 		},
-		Direction: Backward,
+		Direction: DirectionBackward,
 	}
-	// Children traverse to the children of a resource.
-	Children = Traverser{
+	// ChildrenTraverser traverse to the children of a resource.
+	ChildrenTraverser = Traverser{
 		Filter: func(res *Resource, rel *Relationship) bool {
-			return rel.Type == ParentOf && rel.From == res.ID
+			return rel.Type == RelationshipTypeParentOf && rel.From == res.ID
 		},
-		Direction: Forward,
+		Direction: DirectionForward,
+		Prefix:    childrenPrefix,
 	}
+	childrenPrefixSuffix = []byte("->" + string(RelationshipTypeParentOf) + "->")
 )
+
+func childrenPrefix(id ID) []byte {
+	idStr := id.String()
+	prefix := make([]byte, 0, len(idStr)+len(childrenPrefixSuffix))
+	prefix = append(prefix, idStr...)
+	prefix = append(prefix, childrenPrefixSuffix...)
+	return prefix
+}
 
 // TraverseTo traverses to the provided relationship type. All filtering methods will
 // now be applied to elements of the traversed relationship.
@@ -150,22 +163,55 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if i != 0 {
 			clause.WhereKeys(nextIDs...)
 		}
-		cErr := clause.Exec(ctx, tx)
 		atLast := len(r.query.Clauses) == i+1
-		resources, err := r.retrieveEntities(ctx, clause, tx)
-		if cErr != nil || err != nil || len(resources) == 0 || atLast {
-			return errors.Combine(cErr, err)
+		entriesBound := gorp.HasEntries[ID, Resource](clause.Params)
+		// If we only have keys and no filters, and don't need entries, skip execution
+		// entirely and use the keys directly.
+		if canSkipExec(clause.Params, entriesBound, atLast) {
+			nextIDs, _ = gorp.GetWhereKeys[ID](clause.Params)
+		} else {
+			cErr := clause.Exec(ctx, tx)
+			if atLast || entriesBound {
+				resources, err := r.retrieveEntities(ctx, clause, tx)
+				if cErr != nil || err != nil || len(resources) == 0 || atLast {
+					return errors.Combine(cErr, err)
+				}
+				nextIDs = ResourceIDs(resources)
+			} else {
+				ids := r.extractIDs(clause)
+				if cErr != nil || len(ids) == 0 {
+					return cErr
+				}
+				nextIDs = ids
+			}
 		}
+		var err error
 		if nextIDs, err = r.traverse(
 			ctx,
 			tx,
 			getTraverser(clause.Params),
-			resources,
+			nextIDs,
 		); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func canSkipExec(q query.Parameters, entriesBound, atLast bool) bool {
+	if entriesBound || atLast {
+		return false
+	}
+	if _, hasKeys := gorp.GetWhereKeys[ID](q); !hasKeys {
+		return false
+	}
+	if gorp.HasFilters(q) {
+		return false
+	}
+	if _, hasLimit := gorp.GetLimit(q); hasLimit {
+		return false
+	}
+	return gorp.GetOffset(q) == 0
 }
 
 const traverseOptKey = "traverse"
@@ -206,7 +252,7 @@ func (r Retrieve) retrieveEntities(
 	err := entries.MapInPlace(func(res Resource) (Resource, bool, error) {
 		if res.ID.IsZero() {
 			if !entries.IsMultiple() {
-				return res, false, query.NotFound
+				return res, false, query.ErrNotFound
 			}
 			return res, false, nil
 		}
@@ -214,7 +260,7 @@ func (r Retrieve) retrieveEntities(
 			return res, true, nil
 		}
 		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
-		if errors.Is(err, query.NotFound) && entries.IsMultiple() {
+		if errors.Is(err, query.ErrNotFound) && entries.IsMultiple() {
 			return res, false, nil
 		}
 		if excludeFieldData {
@@ -225,17 +271,65 @@ func (r Retrieve) retrieveEntities(
 	return entries.All(), err
 }
 
+func (r Retrieve) extractIDs(clause gorp.Retrieve[ID, Resource]) []ID {
+	entries := gorp.GetEntries[ID, Resource](clause.Params)
+	resources := entries.All()
+	ids := make([]ID, 0, len(resources))
+	for _, res := range resources {
+		if !res.ID.IsZero() {
+			ids = append(ids, res.ID)
+		}
+	}
+	return ids
+}
+
 func (r Retrieve) traverse(
 	ctx context.Context,
 	tx gorp.Tx,
 	traverse Traverser,
-	resources []Resource,
+	ids []ID,
 ) ([]ID, error) {
-	var nextIDs []ID
+	if traverse.Prefix != nil {
+		return r.traverseByPrefix(ctx, tx, traverse, ids)
+	}
+	return r.traverseByScan(ctx, tx, traverse, ids)
+}
+
+func (r Retrieve) traverseByPrefix(
+	ctx context.Context,
+	tx gorp.Tx,
+	traverse Traverser,
+	ids []ID,
+) ([]ID, error) {
+	nextIDs := make([]ID, 0, len(ids)*4)
+	relationships := make([]Relationship, 0, 16)
+	for _, id := range ids {
+		relationships = relationships[:0]
+		if err := gorp.NewRetrieve[[]byte, Relationship]().
+			WherePrefix(traverse.Prefix(id)).
+			Entries(&relationships).
+			Exec(ctx, tx); err != nil {
+			return nil, err
+		}
+		for i := range relationships {
+			nextIDs = append(nextIDs, traverse.Direction.GetID(&relationships[i]))
+		}
+	}
+	return nextIDs, nil
+}
+
+func (r Retrieve) traverseByScan(
+	ctx context.Context,
+	tx gorp.Tx,
+	traverse Traverser,
+	ids []ID,
+) ([]ID, error) {
+	nextIDs := make([]ID, 0, len(ids)*4)
 	return nextIDs, gorp.NewRetrieve[[]byte, Relationship]().
 		Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
-			for _, resource := range resources {
-				if traverse.Filter(&resource, rel) {
+			for _, id := range ids {
+				res := Resource{ID: id}
+				if traverse.Filter(&res, rel) {
 					nextIDs = append(nextIDs, traverse.Direction.GetID(rel))
 				}
 			}

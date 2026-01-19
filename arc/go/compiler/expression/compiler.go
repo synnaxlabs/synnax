@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,9 +10,12 @@
 package expression
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -187,19 +190,179 @@ func getIntPowImport(imports *bindings.ImportIndex, t types.Type) (uint32, error
 
 func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, error) {
 	primary := ctx.AST.PrimaryExpression()
-	primaryType, err := compilePrimary(context.Child(ctx, primary))
+	funcCalls := ctx.AST.AllFunctionCallSuffix()
+
+	// Check if this is a function call (identifier + functionCallSuffix)
+	if len(funcCalls) > 0 && primary.IDENTIFIER() != nil {
+		funcName := primary.IDENTIFIER().GetText()
+		// Exclude boolean literals and check if it's a function
+		if funcName != "true" && funcName != "false" {
+			scope, err := ctx.Scope.Resolve(ctx, funcName)
+			if err == nil && scope.Kind == symbol.KindFunction {
+				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
+			}
+		}
+	}
+
+	// Normal path: compile primary expression
+	currentType, err := compilePrimary(context.Child(ctx, primary))
 	if err != nil {
 		return types.Type{}, err
 	}
-	return primaryType, nil
+
+	// Handle any indexOrSlice operations
+	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
+		currentType, err = compileIndexOrSlice(ctx, indexOrSlice, currentType)
+		if err != nil {
+			return types.Type{}, err
+		}
+	}
+
+	return currentType, nil
+}
+
+func compileFunctionCallExpr(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	funcName string,
+	scope *symbol.Scope,
+	funcCall parser.IFunctionCallSuffixContext,
+) (types.Type, error) {
+	funcType := scope.Type
+	funcIdx, ok := ctx.FunctionIndices[funcName]
+	if !ok {
+		return types.Type{}, errors.Newf("function %s not found in index map", funcName)
+	}
+
+	var args []parser.IExpressionContext
+	if argList := funcCall.ArgumentList(); argList != nil {
+		args = argList.AllExpression()
+	}
+
+	requiredCount := funcType.Inputs.RequiredCount()
+	totalCount := len(funcType.Inputs)
+	actualCount := len(args)
+	if actualCount < requiredCount || actualCount > totalCount {
+		return types.Type{}, errors.Newf(
+			"function %s expects %d to %d arguments, got %d",
+			funcName, requiredCount, totalCount, actualCount,
+		)
+	}
+
+	// Compile provided arguments
+	for i, arg := range args {
+		paramType := funcType.Inputs[i].Type
+		argType, err := Compile(context.Child(ctx, arg).WithHint(paramType))
+		if err != nil {
+			return types.Type{}, errors.Wrapf(err, "argument %d", i)
+		}
+		if !types.Equal(argType, paramType) {
+			if err := EmitCast(ctx, argType, paramType); err != nil {
+				return types.Type{}, err
+			}
+		}
+	}
+
+	// Emit default values for missing optional arguments
+	for i := actualCount; i < totalCount; i++ {
+		param := funcType.Inputs[i]
+		if err := emitDefaultValue(ctx, param.Type, param.Value); err != nil {
+			return types.Type{}, errors.Wrapf(err, "default value for parameter %s", param.Name)
+		}
+	}
+
+	ctx.Writer.WriteCall(funcIdx)
+	defaultOutput, hasDefault := funcType.Outputs.Get(ir.DefaultOutputParam)
+	if hasDefault {
+		return defaultOutput.Type, nil
+	}
+	return types.Type{}, nil
+}
+
+func compileIndexOrSlice(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	indexOrSlice parser.IIndexOrSliceContext,
+	operandType types.Type,
+) (types.Type, error) {
+	expressions := indexOrSlice.AllExpression()
+	isSliceOp := indexOrSlice.COLON() != nil
+
+	if !isSliceOp {
+		if operandType.Kind != types.KindSeries {
+			return types.Type{}, errors.New("indexing is only supported on series types")
+		}
+		if _, err := Compile(context.Child(ctx, expressions[0]).WithHint(types.I32())); err != nil {
+			return types.Type{}, err
+		}
+		t := operandType.Unwrap()
+		funcIdx, err := ctx.Imports.GetSeriesIndex(t)
+		if err != nil {
+			return types.Type{}, err
+		}
+		ctx.Writer.WriteCall(funcIdx)
+		return t, nil
+	}
+
+	// Slice operation: series[start:end]
+	if operandType.Kind != types.KindSeries {
+		return types.Type{}, errors.New("slicing is only supported on series types")
+	}
+
+	// Determine start and end expressions
+	// Grammar: LBRACKET expression? COLON expression? RBRACKET
+	var startExpr, endExpr parser.IExpressionContext
+	if len(expressions) == 1 {
+		if indexOrSlice.GetChild(1) == expressions[0] {
+			startExpr = expressions[0] // before colon: s[start:]
+		} else {
+			endExpr = expressions[0] // after colon: s[:end]
+		}
+	} else if len(expressions) == 2 {
+		startExpr = expressions[0]
+		endExpr = expressions[1]
+	} else {
+		return types.Type{}, errors.Newf("expected 1 or 2 items in slice expression, received %v", len(expressions))
+	}
+
+	// Compile start index (or push 0 if not specified)
+	if startExpr != nil {
+		if _, err := Compile(context.Child(ctx, startExpr).WithHint(types.I32())); err != nil {
+			return types.Type{}, err
+		}
+	} else {
+		ctx.Writer.WriteI32Const(0)
+	}
+
+	// Compile end index (or push -1 to indicate "to end")
+	if endExpr != nil {
+		if _, err := Compile(context.Child(ctx, endExpr).WithHint(types.I32())); err != nil {
+			return types.Type{}, err
+		}
+	} else {
+		ctx.Writer.WriteI32Const(-1)
+	}
+
+	// Call SeriesSlice(handle, start, end) → new handle
+	ctx.Writer.WriteCall(ctx.Imports.SeriesSlice)
+
+	return operandType, nil
 }
 
 func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (types.Type, error) {
 	if lit := ctx.AST.Literal(); lit != nil {
 		return compileLiteral(context.Child(ctx, lit))
 	}
-	if ctx.AST.IDENTIFIER() != nil {
-		return compileIdentifier(ctx, ctx.AST.IDENTIFIER().GetText())
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		text := id.GetText()
+		// Handle boolean literals (parsed as identifiers in the grammar)
+		if text == "true" {
+			ctx.Writer.WriteI32Const(1)
+			return types.U8(), nil
+		}
+		if text == "false" {
+			ctx.Writer.WriteI32Const(0)
+			return types.U8(), nil
+		}
+		return compileIdentifier(ctx, text)
 	}
 	if ctx.AST.LPAREN() != nil && ctx.AST.Expression() != nil {
 		return Compile(context.Child(ctx, ctx.AST.Expression()))
@@ -207,8 +370,72 @@ func compilePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) (type
 	if cast := ctx.AST.TypeCast(); cast != nil {
 		return compileTypeCast(context.Child(ctx, cast))
 	}
-	if builtin := ctx.AST.BuiltinFunction(); builtin != nil {
-		return types.Type{}, errors.New("builtin functions not yet implemented")
-	}
 	return types.Type{}, errors.New("unknown primary expression")
+}
+
+// emitDefaultValue emits WASM bytecode for a default parameter value.
+func emitDefaultValue[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	paramType types.Type,
+	defaultVal any,
+) error {
+	switch paramType.Kind {
+	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+		var i32Val int32
+		switch v := defaultVal.(type) {
+		case int8:
+			i32Val = int32(v)
+		case int16:
+			i32Val = int32(v)
+		case int32:
+			i32Val = v
+		case uint8:
+			i32Val = int32(v)
+		case uint16:
+			i32Val = int32(v)
+		case uint32:
+			i32Val = int32(v)
+		default:
+			return errors.Newf("unexpected default value type %T for %s", defaultVal, paramType)
+		}
+		ctx.Writer.WriteI32Const(i32Val)
+	case types.KindI64:
+		switch v := defaultVal.(type) {
+		case int64:
+			ctx.Writer.WriteI64Const(v)
+		default:
+			return errors.Newf("unexpected default value type %T for i64", defaultVal)
+		}
+	case types.KindU64:
+		v, ok := defaultVal.(uint64)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for u64", defaultVal)
+		}
+		ctx.Writer.WriteI64Const(int64(v))
+	case types.KindF32:
+		v, ok := defaultVal.(float32)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for f32", defaultVal)
+		}
+		ctx.Writer.WriteF32Const(v)
+	case types.KindF64:
+		v, ok := defaultVal.(float64)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for f64", defaultVal)
+		}
+		ctx.Writer.WriteF64Const(v)
+	case types.KindString:
+		str, ok := defaultVal.(string)
+		if !ok {
+			return errors.Newf("unexpected default value type %T for str", defaultVal)
+		}
+		strBytes := []byte(str)
+		offset := ctx.Module.AddData(strBytes)
+		ctx.Writer.WriteI32Const(int32(offset))
+		ctx.Writer.WriteI32Const(int32(len(strBytes)))
+		ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral)
+	default:
+		return errors.Newf("unsupported default value type: %s", paramType)
+	}
+	return nil
 }

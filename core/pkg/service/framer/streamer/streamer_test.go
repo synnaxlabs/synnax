@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -39,7 +39,7 @@ var _ = Describe("Streamer", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
@@ -66,6 +66,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Framer:            dist.Framer,
 			Channel:           dist.Channel,
 			ChannelObservable: dist.Channel.NewObservable(),
+			Status:            statusSvc,
 		}))
 		streamerSvc = MustSucceed(streamer.NewService(streamer.ServiceConfig{
 			DistFramer:  dist.Framer,
@@ -98,7 +99,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 			time.Sleep(5 * time.Millisecond)
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -159,7 +160,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			writtenFr := core.MultiFrame(
+			writtenFr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -201,7 +202,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			inlet.Inlet() <- streamer.Request{Keys: channel.Keys{calculation.Key()}}
 			time.Sleep(100 * time.Millisecond)
 			runtime.Gosched()
-			writtenFr := core.MultiFrame(
+			writtenFr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
@@ -242,7 +243,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
 			Eventually(outlet.Outlet()).Should(Receive(&res))
@@ -316,7 +317,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.MultiFrame(
+			writtenFr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
@@ -351,7 +352,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hz
+			throttleRate := 5 * telem.Hertz
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -365,7 +366,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			time.Sleep(50 * time.Millisecond)
 
@@ -404,7 +405,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 
 			var res streamer.Response
@@ -433,7 +434,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hz,
+				ThrottleRate:     5 * telem.Hertz,
 			}))
 
 			sCtx, cancel := signal.Isolated()
@@ -443,7 +444,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6))
 			MustSucceed(w.Write(writtenFr))
 
 			var res streamer.Response
@@ -470,7 +471,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hz
+			throttleRate := 5 * telem.Hertz
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -484,7 +485,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			time.Sleep(50 * time.Millisecond)
 
@@ -523,7 +524,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 
 			var res streamer.Response
@@ -552,7 +553,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hz,
+				ThrottleRate:     5 * telem.Hertz,
 			}))
 
 			sCtx, cancel := signal.Isolated()
@@ -562,7 +563,7 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			Eventually(outlet.Outlet()).Should(Receive())
 
-			writtenFr := core.UnaryFrame(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6))
+			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3, 4, 5, 6))
 			MustSucceed(w.Write(writtenFr))
 
 			var res streamer.Response

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,8 +23,8 @@ import (
 type gossipState byte
 
 const (
-	infected gossipState = iota
-	recovered
+	gossipStateInfected gossipState = iota
+	gossipStateRecovered
 )
 
 // codec used to be implemented by a gob codec, but we want to switch to msgpack.
@@ -48,7 +48,7 @@ func (o Operation) Digest() Digest {
 }
 
 func (o Operation) apply(ctx context.Context, b xkv.Writer) error {
-	if o.Variant == change.Delete {
+	if o.Variant == change.VariantDelete {
 		return b.Delete(ctx, o.Key)
 	}
 	return b.Set(ctx, o.Key, o.Value)
@@ -56,9 +56,9 @@ func (o Operation) apply(ctx context.Context, b xkv.Writer) error {
 
 type Digest struct {
 	Key         []byte
-	Variant     change.Variant
 	Version     version.Counter
 	Leaseholder node.Key
+	Variant     change.Variant
 }
 
 func (d Digest) apply(ctx context.Context, w xkv.Writer) error {

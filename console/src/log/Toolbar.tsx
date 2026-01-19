@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Channel, Flex, Icon, Input } from "@synnaxlabs/pluto";
+import { Access, Channel, Flex, Icon, Input } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
-import { Toolbar as Core } from "@/components";
+import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
@@ -28,14 +28,15 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectOptional(layoutKey);
+  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
   const handleChannelChange = (v: channel.Key) =>
     dispatch(setChannels({ key: layoutKey, channels: [v ?? 0] }));
   const handleExport = useExport();
   if (state == null) return null;
   return (
-    <Core.Content>
-      <Core.Header>
-        <Core.Title icon={<Icon.Log />}>{name}</Core.Title>
+    <Base.Content>
+      <Base.Header>
+        <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
         <Flex.Box x style={{ width: 66 }} empty>
           <Export.ToolbarButton onExport={() => handleExport(state.key)} />
           <Cluster.CopyLinkToolbarButton
@@ -43,16 +44,17 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             ontologyID={log.ontologyID(state.key)}
           />
         </Flex.Box>
-      </Core.Header>
+      </Base.Header>
       <Flex.Box full style={{ padding: "2rem" }}>
         <Input.Item label="Channel" grow>
           <Channel.SelectSingle
             value={state.channels[0]}
             onChange={handleChannelChange}
             initialQuery={{ internal: IS_DEV ? undefined : false }}
+            disabled={!hasEditPermission}
           />
         </Input.Item>
       </Flex.Box>
-    </Core.Content>
+    </Base.Content>
   );
 };

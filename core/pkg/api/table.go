@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -36,8 +36,8 @@ func NewTableService(p Provider) *TableService {
 
 type (
 	TableCreateRequest struct {
-		Workspace uuid.UUID     `json:"workspace" msgpack:"workspace"`
 		Tables    []table.Table `json:"tables" msgpack:"tables"`
+		Workspace uuid.UUID     `json:"workspace" msgpack:"workspace"`
 	}
 	TableCreateResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`
@@ -47,17 +47,17 @@ type (
 func (s *TableService) Create(ctx context.Context, req TableCreateRequest) (res TableCreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: table.OntologyIDsFromTables(req.Tables),
 	}); err != nil {
 		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, table_ := range req.Tables {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &table_); err != nil {
+		for i, t := range req.Tables {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &t); err != nil {
 				return err
 			}
-			req.Tables[i] = table_
+			req.Tables[i] = t
 		}
 		res.Tables = req.Tables
 		return nil
@@ -65,14 +65,14 @@ func (s *TableService) Create(ctx context.Context, req TableCreateRequest) (res 
 }
 
 type TableRenameRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Name string    `json:"name" msgpack:"name"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *TableService) Rename(ctx context.Context, req TableRenameRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{table.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -83,14 +83,14 @@ func (s *TableService) Rename(ctx context.Context, req TableRenameRequest) (res 
 }
 
 type TableSetDataRequest struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
 	Data string    `json:"data" msgpack:"data"`
+	Key  uuid.UUID `json:"key" msgpack:"key"`
 }
 
 func (s *TableService) SetData(ctx context.Context, req TableSetDataRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Update,
+		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{table.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
@@ -117,7 +117,7 @@ func (s *TableService) Retrieve(ctx context.Context, req TableRetrieveRequest) (
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: table.OntologyIDs(req.Keys),
 	}); err != nil {
 		return TableRetrieveResponse{}, err
@@ -132,7 +132,7 @@ type TableDeleteRequest struct {
 func (s *TableService) Delete(ctx context.Context, req TableDeleteRequest) (res types.Nil, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: table.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err

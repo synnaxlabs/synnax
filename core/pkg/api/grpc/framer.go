@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/control"
@@ -79,18 +79,18 @@ var (
 	_ fgrpc.Translator[api.FrameDeleteRequest, *gapi.FrameDeleteRequest]       = (*FrameDeleteRequestTranslator)(nil)
 )
 
-func translateFrameForward(f api.Frame) *gapi.Frame {
-	return &gapi.Frame{
+func translateFrameForward(f api.Frame) *telem.PBFrame {
+	return &telem.PBFrame{
 		Keys:   translateChannelKeysForward(f.KeysSlice()),
 		Series: telem.TranslateManySeriesForward(f.SeriesSlice()),
 	}
 }
 
-func translateFrameBackward(f *gapi.Frame) api.Frame {
+func translateFrameBackward(f *telem.PBFrame) api.Frame {
 	if f == nil {
 		return api.Frame{}
 	}
-	return core.MultiFrame(
+	return frame.NewMulti(
 		translateChannelKeysBackward(f.Keys),
 		telem.TranslateManySeriesBackward(f.Series),
 	)

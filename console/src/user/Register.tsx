@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Form, Nav, Synnax, User } from "@synnaxlabs/pluto";
+import { type access } from "@synnaxlabs/client";
+import {
+  Access,
+  Button,
+  Flex,
+  Form,
+  type Input,
+  Nav,
+  Synnax,
+  User,
+} from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -30,6 +40,32 @@ export const REGISTER_LAYOUT: Layout.BaseState = {
   },
 };
 
+const FIRST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  variant: "text",
+  level: "h2",
+  autoFocus: true,
+  placeholder: "Richard",
+  full: "x",
+};
+
+const LAST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  variant: "text",
+  level: "h2",
+  placeholder: "Feynman",
+  full: "x",
+};
+
+const USERNAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "username",
+  full: "x",
+};
+
+const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "password",
+  type: "password",
+  full: "x",
+};
+
 export const Register: Layout.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const { form, save, variant } = User.useForm({
@@ -50,43 +86,30 @@ export const Register: Layout.Renderer = ({ onClose }) => {
             <Flex.Box x grow>
               <Form.TextField
                 path="firstName"
-                label="First Name"
-                inputProps={{
-                  variant: "text",
-                  level: "h2",
-                  autoFocus: true,
-                  placeholder: "Richard",
-                  full: "x",
-                }}
+                label="First"
+                inputProps={FIRST_NAME_INPUT_PROPS}
               />
               <Form.TextField
                 path="lastName"
-                label="Last Name"
-                inputProps={{
-                  variant: "text",
-                  level: "h2",
-                  placeholder: "Feynman",
-                  full: "x",
-                }}
+                label="Last"
+                inputProps={LAST_NAME_INPUT_PROPS}
               />
             </Flex.Box>
             <Form.TextField
               path="username"
               label="Username"
-              inputProps={{
-                placeholder: "username",
-                full: "x",
-              }}
+              inputProps={USERNAME_INPUT_PROPS}
             />
             <Form.TextField
               path="password"
               label="Password"
-              inputProps={{
-                placeholder: "password",
-                type: "password",
-                full: "x",
-              }}
+              inputProps={PASSWORD_INPUT_PROPS}
             />
+            <Form.Field<access.role.Key> path="role" label="Role">
+              {({ value, onChange }) => (
+                <Access.Role.Select value={value} onChange={onChange} />
+              )}
+            </Form.Field>
           </Flex.Box>
         </Form.Form>
       </Flex.Box>
@@ -97,12 +120,6 @@ export const Register: Layout.Renderer = ({ onClose }) => {
             onClick={() => save()}
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
-            tooltip={
-              client == null
-                ? "No Core Connected"
-                : `Save to ${client.params.name ?? "Synnax"}`
-            }
-            tooltipLocation="bottom"
             trigger={Triggers.SAVE}
             variant="filled"
           >

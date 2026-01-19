@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,8 @@ import { Select } from "@/select";
 import { Text } from "@/text";
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
+  extends
+    Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,
     Flux.UseListParams<ListQuery, rack.Key, rack.Payload>,
     Omit<Dialog.FrameProps, "onChange">,
     Pick<Select.DialogProps<rack.Key>, "emptyContent"> {}

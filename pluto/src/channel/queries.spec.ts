@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -764,6 +764,92 @@ describe("queries", () => {
       expect(result.current.form.get("dataType").status.message).toContain(
         "Persisted channels must have a fixed-size data type",
       );
+    });
+
+    it("should validate that name cannot be empty", async () => {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.form.set("name", "");
+        result.current.form.set("virtual", true);
+      });
+
+      expect(result.current.form.validate()).toBe(false);
+      expect(result.current.form.get("name").status.message).toContain(
+        "Name can only contain letters, digits, and underscores, and cannot start with a digit",
+      );
+    });
+
+    it("should validate that name cannot start with a digit", async () => {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.form.set("name", "1sensor");
+        result.current.form.set("virtual", true);
+      });
+
+      expect(result.current.form.validate()).toBe(false);
+      // Regex validation covers both "cannot start with digit" and "invalid characters"
+      expect(result.current.form.get("name").status.message).toContain(
+        "can only contain letters, digits, and underscores",
+      );
+    });
+
+    it("should validate that name cannot contain spaces", async () => {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.form.set("name", "my channel");
+        result.current.form.set("virtual", true);
+      });
+
+      expect(result.current.form.validate()).toBe(false);
+      expect(result.current.form.get("name").status.message).toContain(
+        "can only contain letters, digits, and underscores",
+      );
+    });
+
+    it("should validate that name cannot contain special characters", async () => {
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.form.set("name", "sensor-temp");
+        result.current.form.set("virtual", true);
+      });
+
+      expect(result.current.form.validate()).toBe(false);
+      expect(result.current.form.get("name").status.message).toContain(
+        "can only contain letters, digits, and underscores",
+      );
+    });
+
+    it("should accept valid names with letters, digits, and underscores", async () => {
+      const indexChannel = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.form.set("name", "sensor_temp_123");
+        result.current.form.set("dataType", DataType.FLOAT32.toString());
+        result.current.form.set("index", indexChannel.key);
+      });
+
+      expect(result.current.form.validate()).toBe(true);
+      expect(result.current.form.get("name").status.variant).not.toBe("error");
     });
   });
 

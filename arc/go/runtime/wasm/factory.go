@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,12 +25,12 @@ type factory struct {
 func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error) {
 	irFn, ok := cfg.Module.Functions.Find(cfg.Node.Type)
 	if !ok {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
 	n := &nodeImpl{
-		ir:    cfg.Node,
-		state: cfg.State,
+		Node: cfg.State,
+		ir:   cfg.Node,
 		wasm: WrapFunction(
 			wasmFn,
 			w.wasm.Memory(),
@@ -49,5 +49,5 @@ type FactoryConfig struct {
 }
 
 func NewFactory(mod *Module) (node2.Factory, error) {
-	return &factory{wasm: mod.module}, nil
+	return &factory{wasm: mod.wasmModule}, nil
 }

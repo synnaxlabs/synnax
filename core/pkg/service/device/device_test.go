@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,9 +44,9 @@ var _ = Describe("Device", func() {
 		ctx := context.Background()
 		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc = MustSucceed(
-			group.OpenService(ctx, group.Config{DB: db, Ontology: otg}),
+			group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}),
 		)
-		label := MustSucceed(label.OpenService(ctx, label.Config{
+		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -57,14 +57,14 @@ var _ = Describe("Device", func() {
 			Group:    groupSvc,
 			Label:    label,
 		}))
-		rackSvc = MustSucceed(rack.OpenService(ctx, rack.Config{
+		rackSvc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        groupSvc,
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       stat,
 		}))
-		svc = MustSucceed(device.OpenService(ctx, device.Config{
+		svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
@@ -121,7 +121,7 @@ var _ = Describe("Device", func() {
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -138,17 +138,17 @@ var _ = Describe("Device", func() {
 			Expect(otg.NewWriter(tx).DeleteRelationship(
 				ctx,
 				rackSvc.EmbeddedKey.OntologyID(),
-				ontology.ParentOf,
+				ontology.RelationshipTypeParentOf,
 				d.OntologyID(),
 			)).To(Succeed())
 			Expect(w.Create(ctx, d)).To(Succeed())
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rackSvc.EmbeddedKey.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
-			).To(MatchError(query.NotFound))
+			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should redefine ontology relationships if a device has moved racks", func() {
 			rw := rackSvc.NewWriter(tx)
@@ -175,7 +175,7 @@ var _ = Describe("Device", func() {
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rack2.Key.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&res).
 				Exec(ctx, tx),
 			).To(Succeed())
@@ -185,10 +185,10 @@ var _ = Describe("Device", func() {
 			var nRes ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(rack1.Key.OntologyID()).
-				TraverseTo(ontology.Children).
+				TraverseTo(ontology.ChildrenTraverser).
 				Entry(&nRes).
 				Exec(ctx, tx),
-			).To(MatchError(query.NotFound))
+			).To(MatchError(query.ErrNotFound))
 		})
 		It("Should update the status name when renaming a device", func() {
 			d := device.Device{
@@ -213,7 +213,7 @@ var _ = Describe("Device", func() {
 
 		It("Should use the provided status when creating a device", func() {
 			providedStatus := &device.Status{
-				Variant:     xstatus.SuccessVariant,
+				Variant:     xstatus.VariantSuccess,
 				Time:        telem.Now(),
 				Message:     "Device is connected",
 				Description: "Custom device description",
@@ -232,7 +232,7 @@ var _ = Describe("Device", func() {
 				WhereKeys(device.OntologyID(d.Key).String()).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceStatus.Variant).To(Equal(xstatus.SuccessVariant))
+			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantSuccess))
 			Expect(deviceStatus.Message).To(Equal("Device is connected"))
 			Expect(deviceStatus.Description).To(Equal("Custom device description"))
 			// Key should be auto-assigned
@@ -364,7 +364,7 @@ var _ = Describe("Device", func() {
 		})
 	})
 	Describe("Delete", func() {
-		It("Should correctly delete a device", func() {
+		It("Should correctly delete a device and its associated status", func() {
 			d := device.Device{
 				Key:      "device14",
 				Rack:     rackSvc.EmbeddedKey,
@@ -375,7 +375,12 @@ var _ = Describe("Device", func() {
 			Expect(w.Delete(ctx, d.Key)).To(Succeed())
 			var res device.Device
 			Expect(svc.NewRetrieve().WhereKeys(d.Key).Entry(&res).Exec(ctx, tx)).
-				To(MatchError(query.NotFound))
+				To(MatchError(query.ErrNotFound))
+			var deletedStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&deletedStatus).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should correctly delete an ontology resource for the device", func() {
 			d := device.Device{
@@ -389,7 +394,7 @@ var _ = Describe("Device", func() {
 			var res ontology.Resource
 			Expect(
 				otg.NewRetrieve().WhereIDs(d.OntologyID()).Entry(&res).Exec(ctx, tx),
-			).To(MatchError(query.NotFound))
+			).To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Suspect Rack", func() {
@@ -397,8 +402,8 @@ var _ = Describe("Device", func() {
 			ctx := context.Background()
 			db := gorp.Wrap(memkv.New())
 			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-			groupSvc := MustSucceed(group.OpenService(ctx, group.Config{DB: db, Ontology: otg}))
-			labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -409,7 +414,7 @@ var _ = Describe("Device", func() {
 				Group:    groupSvc,
 				Label:    labelSvc,
 			}))
-			rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:                  db,
 				Ontology:            otg,
 				Group:               groupSvc,
@@ -417,7 +422,7 @@ var _ = Describe("Device", func() {
 				Status:              stat,
 				HealthCheckInterval: 10 * telem.Millisecond,
 			}))
-			svc := MustSucceed(device.OpenService(ctx, device.Config{
+			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
@@ -451,11 +456,81 @@ var _ = Describe("Device", func() {
 					WhereKeys(device.OntologyID(d.Key).String()).
 					Entry(&deviceStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(deviceStatus.Variant).To(Equal(xstatus.WarningVariant))
+				g.Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
 				g.Expect(deviceStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
 				g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
 			}).Should(Succeed())
+		})
+	})
+	Describe("Migration", func() {
+		It("Should create unknown statuses for devices missing them", func() {
+			ctx := context.Background()
+			db := gorp.Wrap(memkv.New())
+			otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+			groupSvc := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
+			labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+			}))
+			stat := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+				Ontology: otg,
+				DB:       db,
+				Group:    groupSvc,
+				Label:    labelSvc,
+			}))
+			rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:           db,
+				Ontology:     otg,
+				Group:        groupSvc,
+				HostProvider: mock.StaticHostKeyProvider(1),
+				Status:       stat,
+			}))
+			svc := MustSucceed(device.OpenService(ctx, device.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Status:   stat,
+				Rack:     rackSvc,
+			}))
+			d := device.Device{
+				Key:      "migration-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "loc",
+				Name:     "Migration Test Device",
+			}
+			Expect(svc.NewWriter(nil).Create(ctx, d)).To(Succeed())
+			Expect(status.NewWriter[device.StatusDetails](stat, nil).Delete(ctx, device.OntologyID(d.Key).String())).To(Succeed())
+			var deletedStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&deletedStatus).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Expect(svc.Close()).To(Succeed())
+			svc = MustSucceed(device.OpenService(ctx, device.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Group:    groupSvc,
+				Status:   stat,
+				Rack:     rackSvc,
+			}))
+			var restoredStatus device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				WhereKeys(device.OntologyID(d.Key).String()).
+				Entry(&restoredStatus).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
+			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
+			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
+			Expect(svc.Close()).To(Succeed())
+			Expect(rackSvc.Close()).To(Succeed())
+			Expect(stat.Close()).To(Succeed())
+			Expect(labelSvc.Close()).To(Succeed())
+			Expect(groupSvc.Close()).To(Succeed())
+			Expect(otg.Close()).To(Succeed())
+			Expect(db.Close()).To(Succeed())
 		})
 	})
 })

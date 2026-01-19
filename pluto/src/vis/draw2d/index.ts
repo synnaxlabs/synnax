@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,10 +18,10 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type text } from "@/text/core";
-import { dimensions as textDimensions } from "@/text/core/dimensions";
+import { type text } from "@/text/base";
+import { dimensions as textDimensions } from "@/text/base/dimensions";
 import { type theming } from "@/theming/aether";
-import { fontString } from "@/theming/core/fontString";
+import { fontString } from "@/theming/base/fontString";
 import {
   type FillTextOptions,
   type SugaredOffscreenCanvasRenderingContext2D,
@@ -75,8 +75,10 @@ export interface DrawTextProps extends FillTextOptions {
   color?: ColorSpec;
 }
 
-export interface DrawTextInCenterProps
-  extends Omit<DrawTextProps, "position" | "direction"> {
+export interface DrawTextInCenterProps extends Omit<
+  DrawTextProps,
+  "position" | "direction"
+> {
   box: box.Box;
 }
 
@@ -96,8 +98,7 @@ export interface Draw2DBorderProps {
 }
 
 export interface Draw2DTextContainerProps
-  extends Omit<Draw2DContainerProps, "region">,
-    Draw2DMeasureTextContainerProps {
+  extends Omit<Draw2DContainerProps, "region">, Draw2DMeasureTextContainerProps {
   position: xy.XY;
   offset?: xy.XY;
   root?: location.CornerXY;

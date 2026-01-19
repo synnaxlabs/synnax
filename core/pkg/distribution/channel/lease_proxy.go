@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,32 +31,28 @@ import (
 )
 
 type leaseProxy struct {
-	Config
-	createRouter       proxy.BatchFactory[Channel]
-	renameRouter       proxy.BatchFactory[renameBatchEntry]
-	keyRouter          proxy.BatchFactory[Key]
+	cfg                ServiceConfig
 	leasedCounter      *counter
 	freeCounter        *counter
-	group              group.Group
 	analyzeCalculation CalculationAnalyzer
+	group              group.Group
 	mu                 struct {
-		sync.RWMutex
 		externalNonVirtualSet *set.Integer[Key]
+		sync.RWMutex
 	}
+	createRouter proxy.BatchFactory[Channel]
+	renameRouter proxy.BatchFactory[renameBatchEntry]
+	keyRouter    proxy.BatchFactory[Key]
 }
 
-const (
-	leasedCounterSuffix       = ".distribution.channel.leasedCounter"
-	freeCounterSuffix         = ".distribution.channel.counter.free"
-	calculatedIndexNameSuffix = "_time"
-)
+const calculatedIndexNameSuffix = "_time"
 
 func newLeaseProxy(
 	ctx context.Context,
-	cfg Config,
+	cfg ServiceConfig,
 	group group.Group,
 ) (*leaseProxy, error) {
-	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
+	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
 	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
 		return nil, err
@@ -74,7 +70,7 @@ func newLeaseProxy(
 	}
 
 	p := &leaseProxy{
-		Config:        cfg,
+		cfg:           cfg,
 		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:     keyRouter,
 		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
@@ -82,22 +78,22 @@ func newLeaseProxy(
 		group:         group,
 	}
 	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	if cfg.HostResolver.HostKey() == cluster.Bootstrapper {
-		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
+	if cfg.HostResolver.HostKey() == cluster.NodeKeyBootstrapper {
+		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
 		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
 		if err != nil {
 			return nil, err
 		}
 		p.freeCounter = c
 	}
-	p.Transport.CreateServer().BindHandler(p.createHandler)
-	p.Transport.DeleteServer().BindHandler(p.deleteHandler)
-	p.Transport.RenameServer().BindHandler(p.renameHandler)
+	p.cfg.Transport.CreateServer().BindHandler(p.createHandler)
+	p.cfg.Transport.DeleteServer().BindHandler(p.deleteHandler)
+	p.cfg.Transport.RenameServer().BindHandler(p.renameHandler)
 	return p, nil
 }
 
 func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
-	txn := lp.ClusterDB.OpenTx()
+	txn := lp.cfg.ClusterDB.OpenTx()
 	err := lp.create(ctx, txn, &msg.Channels, msg.Opts)
 	if err != nil {
 		return CreateMessage{}, err
@@ -106,7 +102,7 @@ func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (Cre
 }
 
 func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
-	txn := lp.ClusterDB.OpenTx()
+	txn := lp.cfg.ClusterDB.OpenTx()
 	err := lp.delete(ctx, txn, msg.Keys, false)
 	if err != nil {
 		return types.Nil{}, err
@@ -115,7 +111,7 @@ func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (typ
 }
 
 func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
-	txn := lp.ClusterDB.OpenTx()
+	txn := lp.cfg.ClusterDB.OpenTx()
 	err := lp.rename(ctx, txn, msg.Keys, msg.Names, false)
 	if err != nil {
 		return types.Nil{}, err
@@ -125,7 +121,7 @@ func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (typ
 
 func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
-	if *lp.ValidateNames {
+	if *lp.cfg.ValidateNames {
 		keys := KeysFromChannels(channels)
 		names := Names(channels)
 		if err := lp.validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
@@ -134,17 +130,17 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
-			channels[i].Leaseholder = lp.HostResolver.HostKey()
+			channels[i].Leaseholder = lp.cfg.HostResolver.HostKey()
 		}
 		if ch.IsCalculated() {
 			// Reject manually-specified indexes on calculated channels
 			if ch.LocalIndex != 0 && ch.LocalKey == 0 {
 				return validate.PathedError(
-					errors.Wrap(validate.Error, "calculated channels cannot specify an index manually"),
+					errors.Wrap(validate.ErrValidation, "calculated channels cannot specify an index manually"),
 					"local_index",
 				)
 			}
-			channels[i].Leaseholder = cluster.Free
+			channels[i].Leaseholder = cluster.NodeKeyFree
 			channels[i].Virtual = true
 			if lp.analyzeCalculation != nil {
 				dt, err := lp.analyzeCalculation(ctx, ch.Expression)
@@ -160,16 +156,15 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 
 	// Auto-create index channels for calculated channels (only for new calculated channels)
-	// Skip channels with non-empty Requires field (legacy channels not yet migrated)
 	indexChannels := make([]Channel, 0, len(channels))
 	for _, ch := range channels {
-		if ch.IsCalculated() && ch.LocalKey == 0 && !ch.IsLegacyCalculated() {
+		if ch.IsCalculated() && ch.LocalKey == 0 {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannels = append(indexChannels, indexCh)
@@ -189,8 +184,8 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 		oChannels = append(oChannels, remoteChannels...)
 	}
 	if len(batch.Free) > 0 {
-		if !lp.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, cluster.Bootstrapper, batch.Free, opts)
+		if !lp.cfg.HostResolver.HostKey().IsBootstrapper() {
+			remoteChannels, err := lp.createRemote(ctx, cluster.NodeKeyBootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
@@ -246,12 +241,11 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					if c.IsCalculated() && ic.IsCalculated() {
 						c.Expression = ic.Expression
 						c.Operations = ic.Operations
-						c.Requires = ic.Requires
 						c.LocalIndex = ic.LocalIndex
 					}
 					return c, nil
 				}).
-			Exec(ctx, tx); err != nil && !errors.Is(err, query.NotFound) {
+			Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
 	}
@@ -263,17 +257,16 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	}
 
 	// Check for existing calculated channels that need index channels created
-	// This handles legacy channels that were migrated but don't have indexes yet
 	indexChannelsForExisting := make([]Channel, 0)
 	existingCalcChannelIndices := make([]int, 0) // Track which channels need linking
 	for i, ch := range *channels {
-		if ch.LocalKey != 0 && ch.IsCalculated() && ch.LocalIndex == 0 && len(ch.Requires) == 0 {
+		if ch.LocalKey != 0 && ch.IsCalculated() && ch.LocalIndex == 0 {
 			indexCh := Channel{
 				Name:        ch.Name + calculatedIndexNameSuffix,
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.Free,
+				Leaseholder: cluster.NodeKeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannelsForExisting = append(indexChannelsForExisting, indexCh)
@@ -373,7 +366,7 @@ func (lp *leaseProxy) validateChannelNames(
 	for i, name := range names {
 		if namesSeen.Contains(name) {
 			return validate.PathedError(
-				errors.Wrapf(validate.Error, "duplicate channel name '%s' in request", name),
+				errors.Wrapf(validate.ErrValidation, "duplicate channel name '%s' in request", name),
 				fmt.Sprintf("[%d].name", i),
 			)
 		}
@@ -388,7 +381,7 @@ func (lp *leaseProxy) validateChannelNames(
 			return namesSeen.Contains(c.Name), nil
 		}).
 		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
-		return errors.Skip(err, query.NotFound)
+		return errors.Skip(err, query.ErrNotFound)
 	}
 	nameConflicts := make(map[string]int, len(conflictingChannels))
 	for i, ch := range conflictingChannels {
@@ -404,7 +397,7 @@ func (lp *leaseProxy) validateChannelNames(
 			continue
 		}
 		return validate.PathedError(
-			errors.Wrapf(validate.Error, "channel with name '%s' already exists", name),
+			errors.Wrapf(validate.ErrValidation, "channel with name '%s' already exists", name),
 			fmt.Sprintf("[%d].name", i),
 		)
 	}
@@ -414,7 +407,7 @@ func (lp *leaseProxy) validateChannelNames(
 func (lp *leaseProxy) validateFreeVirtual(channels *[]Channel) error {
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
-			return validate.PathedError(validate.RequiredError, "name")
+			return validate.PathedError(validate.ErrRequired, "name")
 		}
 	}
 	return nil
@@ -493,7 +486,7 @@ func (lp *leaseProxy) deleteOverwritten(
 		}).Exec(ctx, tx); err != nil {
 		return err
 	}
-	return lp.TSChannel.DeleteChannels(storageToDelete)
+	return lp.cfg.TSChannel.DeleteChannels(storageToDelete)
 }
 
 func (lp *leaseProxy) createGateway(
@@ -524,19 +517,24 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 	lp.mu.Lock()
+	defer lp.mu.Unlock()
 	count := lp.mu.externalNonVirtualSet.Size()
-	if err = lp.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
-		lp.mu.Unlock()
+	if err = lp.cfg.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
+		return err
+	}
+	storageChannels := toStorage(toCreate)
+	if err = lp.cfg.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
+		return err
+	}
+	if err = gorp.
+		NewCreate[Key, Channel]().
+		Entries(&toCreate).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
 	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
-	lp.mu.Unlock()
+	return nil
 
-	storageChannels := toStorage(toCreate)
-	if err = lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
-		return err
-	}
-	return gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) maybeSetResources(
@@ -544,21 +542,21 @@ func (lp *leaseProxy) maybeSetResources(
 	txn gorp.Tx,
 	channels []Channel,
 ) error {
-	if lp.Ontology == nil || lp.Group == nil {
+	if lp.cfg.Ontology == nil || lp.cfg.Group == nil {
 		return nil
 	}
-	externalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
-	w := lp.Ontology.NewWriter(txn)
-	if err := w.DefineManyResources(ctx, externalIds); err != nil {
+	w := lp.cfg.Ontology.NewWriter(txn)
+	if err := w.DefineManyResources(ctx, externalIDs); err != nil {
 		return err
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
 		group.OntologyID(lp.group.Key),
-		ontology.ParentOf,
-		externalIds,
+		ontology.RelationshipTypeParentOf,
+		externalIDs,
 	)
 }
 
@@ -568,12 +566,12 @@ func (lp *leaseProxy) createRemote(
 	channels []Channel,
 	opts CreateOptions,
 ) ([]Channel, error) {
-	addr, err := lp.HostResolver.Resolve(target)
+	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return nil, err
 	}
 	cm := CreateMessage{Channels: channels, Opts: opts}
-	res, err := lp.Transport.CreateClient().Send(ctx, addr, cm)
+	res, err := lp.cfg.Transport.CreateClient().Send(ctx, addr, cm)
 	if err != nil {
 		return nil, err
 	}
@@ -643,12 +641,15 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
+	// It's very important that this goes last, as it's the only operation that can fail
+	// without an atomic guarantee.
+	if err := lp.cfg.TSChannel.DeleteChannels(keys.Storage()); err != nil {
+		return err
+	}
 	lp.mu.Lock()
 	lp.mu.externalNonVirtualSet.Remove(keys...)
 	lp.mu.Unlock()
-	// It's very important that this goes last, as it's the only operation that can fail
-	// without an atomic guarantee.
-	return lp.TSChannel.DeleteChannels(keys.Storage())
+	return nil
 }
 
 func (lp *leaseProxy) maybeDeleteResources(
@@ -656,26 +657,26 @@ func (lp *leaseProxy) maybeDeleteResources(
 	tx gorp.Tx,
 	keys Keys,
 ) error {
-	if lp.Ontology == nil {
+	if lp.cfg.Ontology == nil {
 		return nil
 	}
 	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
-	w := lp.Ontology.NewWriter(tx)
+	w := lp.cfg.Ontology.NewWriter(tx)
 	return w.DeleteManyResources(ctx, ids)
 }
 
 func (lp *leaseProxy) deleteRemote(ctx context.Context, target cluster.NodeKey, keys Keys) error {
-	addr, err := lp.HostResolver.Resolve(target)
+	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
 	}
-	_, err = lp.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
+	_, err = lp.cfg.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
 	return err
 }
 
 type renameBatchEntry struct {
-	key  Key
 	name string
+	key  Key
 }
 
 var _ proxy.Entry = renameBatchEntry{}
@@ -702,9 +703,9 @@ func (lp *leaseProxy) rename(
 	allowInternal bool,
 ) error {
 	if len(keys) != len(names) {
-		return errors.Wrap(validate.Error, "keys and names must be the same length")
+		return errors.Wrap(validate.ErrValidation, "keys and names must be the same length")
 	}
-	if *lp.ValidateNames {
+	if *lp.cfg.ValidateNames {
 		if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
 			return err
 		}
@@ -731,18 +732,18 @@ func (lp *leaseProxy) rename(
 }
 
 func (lp *leaseProxy) renameRemote(ctx context.Context, target cluster.NodeKey, keys Keys, names []string) error {
-	addr, err := lp.HostResolver.Resolve(target)
+	addr, err := lp.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
 	}
-	_, err = lp.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
+	_, err = lp.cfg.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
 	return err
 }
 
 func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.ChangeFunc[Key, Channel] {
 	return func(_ gorp.Context, c Channel) (Channel, error) {
 		if c.Internal && !allowInternal {
-			return c, errors.Wrapf(validate.Error, "cannot rename internal channel %v", c)
+			return c, errors.Wrapf(validate.ErrValidation, "cannot rename internal channel %v", c)
 		}
 		c.Name = names[lo.IndexOf(keys, c.Key())]
 		return c, nil
@@ -763,5 +764,5 @@ func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, 
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	return lp.TSChannel.RenameChannels(ctx, keys.Storage(), names)
+	return lp.cfg.TSChannel.RenameChannels(ctx, keys.Storage(), names)
 }

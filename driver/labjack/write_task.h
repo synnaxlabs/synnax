@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -211,7 +211,7 @@ public:
     }
 
     /// @brief implements pipeline::Sink to write to the LabJack device.
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(telem::Frame &frame) override {
         this->reset_buffer(this->cfg.channels.size());
         for (const auto &[cmd_key, s]: frame)
             if (const auto it = this->cfg.channels.find(cmd_key);

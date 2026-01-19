@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -86,7 +86,7 @@ func (w Writer) Label(
 	labels []uuid.UUID,
 ) error {
 	for _, label := range labels {
-		if err := w.otg.DefineRelationship(ctx, target, LabeledBy, OntologyID(label)); err != nil {
+		if err := w.otg.DefineRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
 			return err
 		}
 	}
@@ -98,7 +98,7 @@ func (w Writer) Clear(
 	ctx context.Context,
 	target ontology.ID,
 ) error {
-	return w.otg.DeleteOutgoingRelationshipsOfType(ctx, target, LabeledBy)
+	return w.otg.DeleteOutgoingRelationshipsOfType(ctx, target, OntologyRelationshipTypeLabeledBy)
 }
 
 // RemoveLabel removes a set of labels from the target resource. RemoveLabel is idempotent,
@@ -109,7 +109,7 @@ func (w Writer) RemoveLabel(
 	labels []uuid.UUID,
 ) error {
 	for _, label := range labels {
-		if err := w.otg.DeleteRelationship(ctx, target, LabeledBy, OntologyID(label)); err != nil {
+		if err := w.otg.DeleteRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
 			return err
 		}
 	}

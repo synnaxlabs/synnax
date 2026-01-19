@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,7 @@ import {
   Schematic as PSchematic,
   Synnax,
   Table as PTable,
-  Workspace as Core,
+  Workspace as Base,
 } from "@synnaxlabs/pluto";
 import { array, deep, strings } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
@@ -46,7 +46,7 @@ import { maybeRename, setActive } from "@/workspace/slice";
 
 const useDelete = createUseDelete({
   type: "Workspace",
-  query: Core.useDelete,
+  query: Base.useDelete,
   convertKey: String,
   afterSuccess: ({ data, store }) => {
     const s = store.getState();
@@ -172,7 +172,7 @@ const useCreateTable = ({
 };
 
 const useRename = createUseRename({
-  query: Core.useRename,
+  query: Base.useRename,
   ontologyID: workspace.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
@@ -221,7 +221,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     link: () => handleLink({ name: first.name, ontologyID: first.id }),
   };
   const singleResource = resources.length === 1;
-  const canCreateSchematic = Schematic.useSelectHasPermission();
   return (
     <PMenu.Menu onChange={handleSelect} level="small" background={1} gap="small">
       {singleResource && (
@@ -247,12 +246,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             <TableServices.CreateIcon />
             Create table
           </PMenu.Item>
-          {canCreateSchematic && (
-            <PMenu.Item itemKey="createSchematic">
-              <SchematicServices.CreateIcon />
-              Create schematic
-            </PMenu.Item>
-          )}
+          <PMenu.Item itemKey="createSchematic">
+            <SchematicServices.CreateIcon />
+            Create schematic
+          </PMenu.Item>
           <PMenu.Divider />
           <PMenu.Item itemKey="importPlot">
             <LinePlotServices.ImportIcon />
@@ -262,12 +259,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
             <LogServices.ImportIcon />
             Import log(s)
           </PMenu.Item>
-          {canCreateSchematic && (
-            <PMenu.Item itemKey="importSchematic">
-              <SchematicServices.ImportIcon />
-              Import schematic(s)
-            </PMenu.Item>
-          )}
+          <PMenu.Item itemKey="importSchematic">
+            <SchematicServices.ImportIcon />
+            Import schematic(s)
+          </PMenu.Item>
           <PMenu.Item itemKey="importTable">
             <TableServices.ImportIcon />
             Import table(s)

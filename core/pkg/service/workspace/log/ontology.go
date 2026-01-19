@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,19 +17,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/core"
-	changex "github.com/synnaxlabs/x/change"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/zyn"
 )
 
-const ontologyType ontology.Type = "log"
+const OntologyType ontology.Type = "log"
 
 // OntologyID returns unique identifier for the log within the ontology.
 func OntologyID(k uuid.UUID) ontology.ID {
-	return ontology.ID{Type: ontologyType, Key: k.String()}
+	return ontology.ID{Type: OntologyType, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the logs within the ontology.
@@ -39,49 +38,37 @@ func OntologyIDs(keys []uuid.UUID) []ontology.ID {
 	})
 }
 
-// KeysFromOntologyIDs extracts the keys of the logs from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (keys []uuid.UUID, err error) {
-	keys = make([]uuid.UUID, len(ids))
-	for i, id := range ids {
-		keys[i], err = uuid.Parse(id.Key)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
-}
-
 // OntologyIDsFromLogs returns the ontology IDs of the logs.
 func OntologyIDsFromLogs(logs []Log) []ontology.ID {
-	return lo.Map(logs, func(l Log, _ int) ontology.ID {
-		return OntologyID(l.Key)
-	})
+	return lo.Map(logs, func(l Log, _ int) ontology.ID { return OntologyID(l.Key) })
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.UUID(),
-	"name": zyn.String(),
-})
+var schema = zyn.Object(map[string]zyn.Schema{"key": zyn.UUID(), "name": zyn.String()})
 
 func newResource(l Log) ontology.Resource {
-	return core.NewResource(schema, OntologyID(l.Key), l.Name, l)
+	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
 }
 
-type change = changex.Change[uuid.UUID, Log]
+type change = xchange.Change[uuid.UUID, Log]
 
 var _ ontology.Service = (*Service)(nil)
 
-func (s *Service) Type() ontology.Type { return ontologyType }
+func (s *Service) Type() ontology.Type { return OntologyType }
 
 // Schema implements ontology.Service.
 func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	k := uuid.MustParse(key)
+	k, err := uuid.Parse(key)
+	if err != nil {
+		return ontology.Resource{}, err
+	}
 	var log Log
-	err := s.NewRetrieve().WhereKeys(k).Entry(&log).Exec(ctx, tx)
-	return newResource(log), err
+	if err = s.NewRetrieve().WhereKeys(k).Entry(&log).Exec(ctx, tx); err != nil {
+		return ontology.Resource{}, err
+	}
+	return newResource(log), nil
 }
 
 func translateChange(c change) ontology.Change {
@@ -103,5 +90,8 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 // OpenNexter implements ontology.Service.
 func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := gorp.WrapReader[uuid.UUID, Log](s.DB).OpenNexter(ctx)
-	return xiter.Map(n, newResource), closer, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return xiter.Map(n, newResource), closer, nil
 }

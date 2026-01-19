@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -21,17 +22,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
-// Config is the configuration for creating a Service.
-type Config struct {
-	alamos.Instrumentation
+// ServiceConfig is the configuration for creating a Service.
+type ServiceConfig struct {
 	// DB is the gorp database that tasks will be stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -55,15 +58,16 @@ type Config struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
+	alamos.Instrumentation
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements config.Config.
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -76,7 +80,7 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("task")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
@@ -87,50 +91,49 @@ func (c Config) Validate() error {
 }
 
 type Service struct {
-	cfg                           Config
+	cfg                           ServiceConfig
 	shutdownSignals               io.Closer
-	group                         group.Group
 	disconnectSuspectRackObserver observe.Disconnect
+	group                         group.Group
 }
 
-const groupName = "Tasks"
-
-func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
-		return
+		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	g, err := cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID)
 	if err != nil {
-		return
+		return nil, err
 	}
-	s = &Service{cfg: cfg, group: g}
+	s := &Service{cfg: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
+	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
+		return nil, err
+	}
 	if cfg.Channel != nil {
 		if err = cfg.Channel.Create(ctx, &channel.Channel{
 			Name:     "sy_task_cmd",
 			DataType: telem.JSONT,
 			Virtual:  true,
 			Internal: true,
-		}); err != nil {
+		}, channel.RetrieveIfNameExists()); err != nil {
 			return nil, err
 		}
 	}
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals == nil {
-		return
+		return s, nil
 	}
-	cdcS, err := signals.PublishFromGorp(
+	if s.shutdownSignals, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
-	)
-	if err != nil {
-		return
+	); err != nil {
+		return nil, err
 	}
-	s.shutdownSignals = cdcS
-	return
+	return s, nil
 }
 
 // cleanupInternalOntologyResources purges existing internal task resources from the ontology.
@@ -174,6 +177,50 @@ func (s *Service) NewRetrieve() Retrieve {
 		baseTX: s.cfg.DB,
 		gorp:   gorp.NewRetrieve[Key, Task](),
 	}
+}
+
+func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
+	var tasks []Task
+	if err := s.NewRetrieve().Entries(&tasks).Exec(ctx, nil); err != nil {
+		return err
+	}
+	if len(tasks) == 0 {
+		return nil
+	}
+	statusKeys := make([]string, len(tasks))
+	for i, t := range tasks {
+		statusKeys[i] = OntologyID(t.Key).String()
+	}
+	var existingStatuses []Status
+	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
+		WhereKeys(statusKeys...).
+		Entries(&existingStatuses).
+		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	existingKeys := make(map[string]bool)
+	for _, stat := range existingStatuses {
+		existingKeys[stat.Key] = true
+	}
+	var missingStatuses []Status
+	for _, t := range tasks {
+		key := OntologyID(t.Key).String()
+		if !existingKeys[key] {
+			missingStatuses = append(missingStatuses, Status{
+				Key:     key,
+				Name:    t.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.VariantWarning,
+				Message: fmt.Sprintf("%s status unknown", t.Name),
+				Details: StatusDetails{Task: t.Key},
+			})
+		}
+	}
+	if len(missingStatuses) == 0 {
+		return nil
+	}
+	s.cfg.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
+	return status.NewWriter[StatusDetails](s.cfg.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {

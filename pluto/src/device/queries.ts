@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,19 +15,19 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { type Rack } from "@/rack";
 import { state } from "@/state";
-import { type Status } from "@/status";
+import { Status } from "@/status";
 import { type Task } from "@/task";
 
 export const FLUX_STORE_KEY = "devices";
-const RESOURCE_NAME = "Device";
-const PLURAL_RESOURCE_NAME = "Devices";
-
-type ChangeVariant = "payload" | "status";
+const RESOURCE_NAME = "device";
+const PLURAL_RESOURCE_NAME = "devices";
 
 // Explicitly omit 'status' from the device type to make sure we aren't storing two
 // copies of the statuses in the flux store.
-export interface FluxStore
-  extends Flux.UnaryStore<string, Omit<device.Device, "status">, ChangeVariant> {}
+export interface FluxStore extends Flux.UnaryStore<
+  string,
+  Omit<device.Device, "status">
+> {}
 
 export interface FluxSubStore extends Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
@@ -38,7 +38,7 @@ export interface FluxSubStore extends Task.FluxSubStore {
 const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.deviceZ> = {
   channel: device.SET_CHANNEL_NAME,
   schema: device.deviceZ,
-  onChange: ({ store, changed }) => store.devices.set(changed.key, changed, "payload"),
+  onChange: ({ store, changed }) => store.devices.set(changed.key, changed),
 };
 
 const DELETE_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.keyZ> = {
@@ -58,6 +58,8 @@ export const useSetSynchronizer = (onSet: (device: device.Device) => void): void
 
 export interface RetrieveQuery extends device.RetrieveSingleParams {}
 
+const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
+
 const retrieveSingle = async <
   Properties extends record.Unknown = record.Unknown,
   Make extends string = string,
@@ -70,14 +72,23 @@ const retrieveSingle = async <
   device.Device<Properties, Make, Model>
 > => {
   const cached = store.devices.get(query.key);
-  if (cached != null) return cached as device.Device<Properties, Make, Model>;
-  const device = await client.devices.retrieve<Properties, Make, Model>({
+  if (cached != null) {
+    const status = await Status.retrieveSingle<typeof device.statusDetailsZ>({
+      store,
+      client,
+      query: { key: device.statusKey(query.key) },
+      detailsSchema: device.statusDetailsZ,
+    });
+    const dev: device.Device = { ...cached, status };
+    return dev as device.Device<Properties, Make, Model>;
+  }
+  const dev = await client.devices.retrieve<Properties, Make, Model>({
+    ...BASE_QUERY,
     ...query,
-    includeStatus: true,
   });
-  store.devices.set(device, "payload");
-  if (device.status != null) store.statuses.set(device.status);
-  return device;
+  store.devices.set(dev);
+  if (dev.status != null) store.statuses.set(dev.status);
+  return dev;
 };
 
 export const createRetrieve = <
@@ -90,11 +101,16 @@ export const createRetrieve = <
     device.Device<Properties, Make, Model>,
     FluxSubStore
   >({
-    name: "Device",
+    name: RESOURCE_NAME,
     retrieve: retrieveSingle<Properties, Make, Model>,
     mountListeners: ({ store, onChange, query: { key } }) => [
       store.devices.onSet(
-        (changed) => onChange(changed as device.Device<Properties, Make, Model>),
+        (changed) =>
+          onChange((p) => ({
+            ...p,
+            ...(changed as device.Device<Properties, Make, Model>),
+            status: p?.status,
+          })),
         key,
       ),
       store.statuses.onSet((status) => {
@@ -139,11 +155,8 @@ export const useList = Flux.createList<
       return true;
     }),
   retrieve: async ({ client, query, store }) => {
-    const devices = await client.devices.retrieve({
-      includeStatus: true,
-      ...query,
-    });
-    devices.forEach((d) => store.devices.set(d, "payload"));
+    const devices = await client.devices.retrieve({ ...BASE_QUERY, ...query });
+    store.devices.set(devices);
     return devices;
   },
   retrieveByKey: async ({ key, ...rest }) =>
@@ -169,7 +182,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((key) => device.ontologyID(key));
+    const ids = device.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
@@ -190,7 +203,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ data, client, rollbacks, store }) => {
     const dev = await client.devices.create(data);
-    rollbacks.push(store.devices.set(dev, "payload"));
+    rollbacks.push(store.devices.set(dev));
     return dev;
   },
 });
@@ -228,7 +241,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const { key, name } = data;
     const dev = await retrieveSingle({ client, store, query: { key } });
     const renamed = { ...dev, name };
-    rollbacks.push(store.devices.set(renamed, "payload"));
+    rollbacks.push(store.devices.set(renamed));
     await client.devices.create(renamed);
     return data;
   },
@@ -283,7 +296,7 @@ export const createForm = <
     },
     update: async ({ value, client, store, rollbacks }) => {
       const result = await client.devices.create(value());
-      rollbacks.push(store.devices.set(result, "payload"));
+      rollbacks.push(store.devices.set(result));
     },
     mountListeners: ({ store, query: { key }, reset, set, get }) => {
       if (primitive.isZero(key)) return [];

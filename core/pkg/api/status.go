@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -85,12 +85,9 @@ func (s *StatusService) Set(
 	req StatusSetRequest,
 ) (res StatusSetResponse, err error) {
 	ids := statusAccessOntologyIDs(req.Statuses)
-	// For status setting, we use Create action for new statuses
-	// and Update action for existing ones. Since Set can do both,
-	// we'll use Create permission.
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Create,
+		Action:  access.ActionCreate,
 		Objects: ids,
 	}); err != nil {
 		return res, err
@@ -110,19 +107,19 @@ func (s *StatusService) Set(
 }
 
 type StatusRetrieveRequest struct {
-	// Keys are the keys of the statuses to retrieve.
-	Keys []string `json:"keys" msgpack:"keys"`
 	// SearchTerm is used for fuzzy searching statuses.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Keys are the keys of the statuses to retrieve.
+	Keys []string `json:"keys" msgpack:"keys"`
+	// HasLabels retrieves statuses that are labeled by one or more labels with the
+	// given keys.
+	HasLabels []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
 	// Limit is the maximum number of statuses to retrieve.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
 	Offset int `json:"offset" msgpack:"offset"`
 	// IncludeLabels sets whether to fetch labels for the retrieved statuses.
 	IncludeLabels bool `json:"include_labels" msgpack:"include_labels"`
-	// HasLabels retrieves statuses that are labeled by one or more labels with the
-	// given keys.
-	HasLabels []uuid.UUID `json:"has_labels" msgpack:"has_labels"`
 }
 
 type StatusRetrieveResponse struct {
@@ -140,10 +137,10 @@ func (s *StatusService) Retrieve(
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)
 	}
-	if req.Limit != 0 {
+	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
-	if req.Offset != 0 {
+	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
 	if len(req.HasLabels) > 0 {
@@ -169,7 +166,7 @@ func (s *StatusService) Retrieve(
 
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Retrieve,
+		Action:  access.ActionRetrieve,
 		Objects: ids,
 	}); err != nil {
 		return StatusRetrieveResponse{}, err
@@ -188,7 +185,7 @@ func (s *StatusService) Delete(
 ) (types.Nil, error) {
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
-		Action:  access.Delete,
+		Action:  access.ActionDelete,
 		Objects: status.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err

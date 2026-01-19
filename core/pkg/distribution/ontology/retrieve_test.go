@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -60,11 +60,11 @@ var _ = Describe("retrieveResource", func() {
 				b := newSampleType("B")
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
 				var r ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&r).
 					Exec(ctx, nil),
 				).To(Succeed())
@@ -80,12 +80,12 @@ var _ = Describe("retrieveResource", func() {
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineResource(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
@@ -103,18 +103,46 @@ var _ = Describe("retrieveResource", func() {
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineResource(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
 				var res Sample
 				Expect(r.Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("C"))
+			})
+
+			It("Should retrieve resources at intermediate and final clauses", func() {
+				a := newSampleType("A")
+				b := newSampleType("B")
+				c := newSampleType("C")
+				Expect(w.DefineResource(ctx, a)).To(Succeed())
+				Expect(w.DefineResource(ctx, b)).To(Succeed())
+				Expect(w.DefineResource(ctx, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				var intermediate []ontology.Resource
+				var final []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(a).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&intermediate).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&final).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(intermediate).To(HaveLen(1))
+				Expect(final).To(HaveLen(1))
+				var res Sample
+				Expect(intermediate[0].Parse(&res)).To(Succeed())
+				Expect(res.Key).To(Equal("B"))
+				Expect(final[0].Parse(&res)).To(Succeed())
 				Expect(res.Key).To(Equal("C"))
 			})
 
@@ -125,14 +153,14 @@ var _ = Describe("retrieveResource", func() {
 				Expect(w.DefineResource(ctx, a)).To(Succeed())
 				Expect(w.DefineResource(ctx, b)).To(Succeed())
 				Expect(w.DefineResource(ctx, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, b)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, a, ontology.ParentOf, c)).To(Succeed())
-				Expect(w.DefineRelationship(ctx, b, ontology.ParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, b)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, a, ontology.RelationshipTypeParentOf, c)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, b, ontology.RelationshipTypeParentOf, c)).To(Succeed())
 				var r []ontology.Resource
 				Expect(w.NewRetrieve().
 					WhereIDs(a).
-					TraverseTo(ontology.Children).
-					WhereTypes(sampleType).
+					TraverseTo(ontology.ChildrenTraverser).
+					WhereTypes(sampleOntologyType).
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())

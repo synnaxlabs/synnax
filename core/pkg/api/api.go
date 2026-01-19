@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,9 +30,9 @@ import (
 // Config is all required configuration parameters and services necessary to instantiate
 // the API.
 type Config struct {
-	alamos.Instrumentation
 	Service      *service.Layer
 	Distribution *distribution.Layer
+	alamos.Instrumentation
 }
 
 var (
@@ -115,11 +115,11 @@ type Transport struct {
 	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
 	// SCHEMATIC SYMBOL
-	SchematicSymbolCreate        freighter.UnaryServer[SymbolCreateRequest, SymbolCreateResponse]
-	SchematicSymbolRetrieve      freighter.UnaryServer[SymbolRetrieveRequest, SymbolRetrieveResponse]
-	SchematicSymbolDelete        freighter.UnaryServer[SymbolDeleteRequest, types.Nil]
-	SchematicSymbolRename        freighter.UnaryServer[SymbolRenameRequest, types.Nil]
-	SchematicSymbolRetrieveGroup freighter.UnaryServer[SymbolRetrieveGroupRequest, SymbolRetrieveGroupResponse]
+	SchematicCreateSymbol        freighter.UnaryServer[SchematicCreateSymbolRequest, SchematicCreateSymbolResponse]
+	SchematicRetrieveSymbol      freighter.UnaryServer[SchematicRetrieveSymbolRequest, SchematicRetrieveSymbolResponse]
+	SchematicDeleteSymbol        freighter.UnaryServer[SchematicDeleteSymbolRequest, types.Nil]
+	SchematicRenameSymbol        freighter.UnaryServer[SchematicRenameSymbolRequest, types.Nil]
+	SchematicRetrieveSymbolGroup freighter.UnaryServer[SchematicRetrieveSymbolGroupRequest, SchematicRetrieveSymbolGroupResponse]
 	// LOG
 	LogCreate   freighter.UnaryServer[LogCreateRequest, LogCreateResponse]
 	LogRetrieve freighter.UnaryServer[LogRetrieveRequest, LogRetrieveResponse]
@@ -160,23 +160,32 @@ type Transport struct {
 	AccessCreatePolicy   freighter.UnaryServer[AccessCreatePolicyRequest, AccessCreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[AccessDeletePolicyRequest, types.Nil]
 	AccessRetrievePolicy freighter.UnaryServer[AccessRetrievePolicyRequest, AccessRetrievePolicyResponse]
+	AccessCreateRole     freighter.UnaryServer[AccessCreateRoleRequest, AccessCreateRoleResponse]
+	AccessDeleteRole     freighter.UnaryServer[AccessDeleteRoleRequest, types.Nil]
+	AccessRetrieveRole   freighter.UnaryServer[AccessRetrieveRoleRequest, AccessRetrieveRoleResponse]
+	AccessAssignRole     freighter.UnaryServer[AccessAssignRoleRequest, types.Nil]
+	AccessUnassignRole   freighter.UnaryServer[AccessUnassignRoleRequest, types.Nil]
 	// STATUS
 	StatusSet      freighter.UnaryServer[StatusSetRequest, StatusSetResponse]
 	StatusRetrieve freighter.UnaryServer[StatusRetrieveRequest, StatusRetrieveResponse]
 	StatusDelete   freighter.UnaryServer[StatusDeleteRequest, types.Nil]
-	// Arc
+	// ARC
 	ArcCreate   freighter.UnaryServer[ArcCreateRequest, ArcCreateResponse]
 	ArcDelete   freighter.UnaryServer[ArcDeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[ArcRetrieveRequest, ArcRetrieveResponse]
 	ArcLSP      freighter.StreamServer[ArcLSPMessage, ArcLSPMessage]
+	// VIEW
+	ViewCreate   freighter.UnaryServer[ViewCreateRequest, ViewCreateResponse]
+	ViewRetrieve freighter.UnaryServer[ViewRetrieveRequest, ViewRetrieveResponse]
+	ViewDelete   freighter.UnaryServer[ViewDeleteRequest, types.Nil]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
 // implementations should use this struct during instantiation.
 type Layer struct {
 	provider     Provider
-	config       Config
-	Auth         *AuthService
+	Workspace    *WorkspaceService
+	LinePlot     *LinePlotService
 	User         *UserService
 	Framer       *FrameService
 	Channel      *ChannelService
@@ -184,10 +193,10 @@ type Layer struct {
 	Ontology     *OntologyService
 	Range        *RangeService
 	Group        *GroupService
-	Workspace    *WorkspaceService
-	Schematic    *SchematicService
-	LinePlot     *LinePlotService
 	Log          *LogService
+	Auth         *AuthService
+	Schematic    *SchematicService
+	View         *ViewService
 	Table        *TableService
 	Label        *LabelService
 	Rack         *RackService
@@ -196,6 +205,7 @@ type Layer struct {
 	Access       *AccessService
 	Arc          *ArcService
 	Status       *StatusService
+	config       Config
 }
 
 // BindTo binds the API layer to the provided Transport implementation.
@@ -282,11 +292,11 @@ func (a *Layer) BindTo(t Transport) {
 		t.SchematicCopy,
 
 		// SCHEMATIC SYMBOL
-		t.SchematicSymbolCreate,
-		t.SchematicSymbolRetrieve,
-		t.SchematicSymbolDelete,
-		t.SchematicSymbolRename,
-		t.SchematicSymbolRetrieveGroup,
+		t.SchematicCreateSymbol,
+		t.SchematicRetrieveSymbol,
+		t.SchematicDeleteSymbol,
+		t.SchematicRenameSymbol,
+		t.SchematicRetrieveSymbolGroup,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -336,11 +346,21 @@ func (a *Layer) BindTo(t Transport) {
 		t.AccessCreatePolicy,
 		t.AccessDeletePolicy,
 		t.AccessRetrievePolicy,
+		t.AccessCreateRole,
+		t.AccessDeleteRole,
+		t.AccessRetrieveRole,
+		t.AccessAssignRole,
+		t.AccessUnassignRole,
 
 		// STATUS
 		t.StatusSet,
 		t.StatusRetrieve,
 		t.StatusDelete,
+
+		// VIEW
+		t.ViewCreate,
+		t.ViewRetrieve,
+		t.ViewDelete,
 
 		// ARC
 		t.ArcCreate,
@@ -414,11 +434,11 @@ func (a *Layer) BindTo(t Transport) {
 	t.SchematicCopy.BindHandler(a.Schematic.Copy)
 
 	// SCHEMATIC SYMBOL
-	t.SchematicSymbolCreate.BindHandler(a.Schematic.CreateSymbol)
-	t.SchematicSymbolRetrieve.BindHandler(a.Schematic.RetrieveSymbol)
-	t.SchematicSymbolDelete.BindHandler(a.Schematic.DeleteSymbol)
-	t.SchematicSymbolRename.BindHandler(a.Schematic.RenameSymbol)
-	t.SchematicSymbolRetrieveGroup.BindHandler(a.Schematic.RetrieveSymbolGroup)
+	t.SchematicCreateSymbol.BindHandler(a.Schematic.CreateSymbol)
+	t.SchematicRetrieveSymbol.BindHandler(a.Schematic.RetrieveSymbol)
+	t.SchematicDeleteSymbol.BindHandler(a.Schematic.DeleteSymbol)
+	t.SchematicRenameSymbol.BindHandler(a.Schematic.RenameSymbol)
+	t.SchematicRetrieveSymbolGroup.BindHandler(a.Schematic.RetrieveSymbolGroup)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(a.LinePlot.Create)
@@ -468,13 +488,23 @@ func (a *Layer) BindTo(t Transport) {
 	t.AccessCreatePolicy.BindHandler(a.Access.CreatePolicy)
 	t.AccessDeletePolicy.BindHandler(a.Access.DeletePolicy)
 	t.AccessRetrievePolicy.BindHandler(a.Access.RetrievePolicy)
+	t.AccessCreateRole.BindHandler(a.Access.CreateRole)
+	t.AccessDeleteRole.BindHandler(a.Access.DeleteRole)
+	t.AccessRetrieveRole.BindHandler(a.Access.RetrieveRole)
+	t.AccessAssignRole.BindHandler(a.Access.AssignRole)
+	t.AccessUnassignRole.BindHandler(a.Access.UnassignRole)
 
 	// STATUS
 	t.StatusSet.BindHandler(a.Status.Set)
 	t.StatusRetrieve.BindHandler(a.Status.Retrieve)
 	t.StatusDelete.BindHandler(a.Status.Delete)
 
-	// Arc
+	// VIEW
+	t.ViewCreate.BindHandler(a.View.Create)
+	t.ViewRetrieve.BindHandler(a.View.Retrieve)
+	t.ViewDelete.BindHandler(a.View.Delete)
+
+	// ARC
 	t.ArcCreate.BindHandler(a.Arc.Create)
 	t.ArcDelete.BindHandler(a.Arc.Delete)
 	t.ArcRetrieve.BindHandler(a.Arc.Retrieve)
@@ -512,5 +542,6 @@ func New(cfgs ...Config) (*Layer, error) {
 		Table:        NewTableService(provider),
 		Status:       NewStatusService(provider),
 		Arc:          NewArcService(provider),
+		View:         NewViewService(provider),
 	}, nil
 }

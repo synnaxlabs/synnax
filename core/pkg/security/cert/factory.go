@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,13 +29,13 @@ import (
 
 // FactoryConfig is the configuration for creating a new Factory.
 type FactoryConfig struct {
-	LoaderConfig
-	// KeySize is the size of the private key to generate.
-	KeySize int
-	// Hosts is the list of hosts to use for the node certificate.
-	Hosts []address.Address
 	// AllowKeyReuse allows the CA key to be reused if it already exists.
 	AllowKeyReuse *bool
+	LoaderConfig
+	// Hosts is the list of hosts to use for the node certificate.
+	Hosts []address.Address
+	// KeySize is the size of the private key to generate.
+	KeySize int
 }
 
 var (
@@ -59,17 +59,17 @@ func (f FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 
 // Validate implements [config.Config].
 func (f FactoryConfig) Validate() error {
-	v := validate.New("cert.Factory")
-	validate.Positive(v, "KeySize", f.KeySize)
-	validate.NotNil(v, "AllowKeyReuse", f.AllowKeyReuse)
+	v := validate.New("cert.factory")
+	validate.Positive(v, "key_size", f.KeySize)
+	validate.NotNil(v, "allow_key_reuse", f.AllowKeyReuse)
 	v.Exec(f.LoaderConfig.Validate)
 	return v.Error()
 }
 
 // Factory generates self-signed certificates.
 type Factory struct {
-	FactoryConfig
 	Loader Loader
+	FactoryConfig
 }
 
 // NewFactory creates a new Factory.
@@ -167,7 +167,7 @@ func (c *Factory) CreateNodePair() error {
 	}
 
 	if len(c.Hosts) == 0 {
-		return errors.Wrap(validate.Error, "[cert] - no hosts provided")
+		return errors.Wrap(validate.ErrValidation, "[cert] - no hosts provided")
 	}
 
 	nodeKey, err := rsa.GenerateKey(rand.Reader, c.KeySize)

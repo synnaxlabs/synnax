@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -39,6 +39,7 @@ protected:
     opc::connection::Config conn_cfg_;
 };
 
+/// @brief it should acquire a new connection from empty pool.
 TEST_F(ConnectionPoolTest, AcquireNewConnection) {
     opc::connection::Pool pool;
 
@@ -49,6 +50,7 @@ TEST_F(ConnectionPoolTest, AcquireNewConnection) {
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
 }
 
+/// @brief it should reuse released connection from pool.
 TEST_F(ConnectionPoolTest, ReuseConnection) {
     opc::connection::Pool pool;
 
@@ -62,6 +64,7 @@ TEST_F(ConnectionPoolTest, ReuseConnection) {
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 0);
 }
 
+/// @brief it should create multiple simultaneous connections.
 TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
     opc::connection::Pool pool;
 
@@ -74,6 +77,7 @@ TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
     EXPECT_NE(conn1.get(), conn2.get());
 }
 
+/// @brief it should create separate connections for different endpoints.
 TEST_F(ConnectionPoolTest, DifferentEndpoints) {
     mock::ServerConfig server2_cfg = mock::ServerConfig::create_default();
     server2_cfg.port = 4846;
@@ -95,6 +99,7 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
     server2.stop();
 }
 
+/// @brief it should properly transfer ownership with move semantics.
 TEST_F(ConnectionPoolTest, MoveSemantics) {
     opc::connection::Pool pool;
 
@@ -111,6 +116,7 @@ TEST_F(ConnectionPoolTest, MoveSemantics) {
     EXPECT_FALSE(conn2);
 }
 
+/// @brief it should handle concurrent access from multiple threads safely.
 TEST_F(ConnectionPoolTest, ThreadSafety) {
     opc::connection::Pool pool;
     const int num_threads = 10;
@@ -138,6 +144,7 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
     EXPECT_EQ(success_count, num_threads * acquisitions_per_thread);
 }
 
+/// @brief it should replace invalidated connections with new ones.
 TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
     opc::connection::Pool pool;
 
@@ -154,6 +161,7 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
     EXPECT_EQ(pool.size(), 1);
 }
 
+/// @brief it should create separate connections for different credentials.
 TEST_F(ConnectionPoolTest, DifferentCredentials) {
     opc::connection::Pool pool;
 
@@ -174,6 +182,7 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
     EXPECT_EQ(pool.size(), 2);
 }
 
+/// @brief it should return error when connecting to unavailable server.
 TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
     opc::connection::Pool pool;
     opc::connection::Config bad_cfg = conn_cfg_;
@@ -184,6 +193,7 @@ TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
     EXPECT_EQ(pool.size(), 0);
 }
 
+/// @brief it should automatically reconnect when stale connection is detected.
 TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
     opc::connection::Pool pool;
 
@@ -202,6 +212,7 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 }
 
+/// @brief it should create new connection after server restart.
 TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
     opc::connection::Pool pool;
 

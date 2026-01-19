@@ -1,5 +1,5 @@
 /*
- * Copyright 2025 Synnax Labs, Inc.
+ * Copyright 2026 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -9,9 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-vis-layout-selector {
+.console-layout-selector__frame {
     container-type: size;
     & .pluto-btn {
         width: 100px;
+    }
+
+    .console-layout-selector__items {
+        max-width: 500px;
+
+        & .pluto-btn {
+            flex-basis: 185px;
+        }
     }
 }

@@ -15,6 +15,9 @@ on:
       - freighter/py/**
       - go.work
       - go.work.sum
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
       - x/go/**
   push:
     branches:
@@ -33,6 +36,9 @@ on:
       - freighter/py/**
       - go.work
       - go.work.sum
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
       - x/go/**
   workflow_dispatch:
 
@@ -44,7 +50,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Start Main Server
         id: start_main
@@ -55,7 +61,7 @@ jobs:
           ghcr.io/synnaxlabs/synnax:latest
 
       - name: Checkout Main Branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           ref: main
 
@@ -84,7 +90,7 @@ jobs:
           docker rm synnax-main
 
       - name: Checkout Current Branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Login to Github Container Registry
         uses: docker/login-action@v3
@@ -117,18 +123,16 @@ jobs:
           SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
           ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: client/py/pyproject.toml
-          cache: poetry
-
-      - name: Install Dependencies
-        run: poetry install
-        working-directory: client/py
 
       - name: Python Test with Current Server
-        run: poetry run pytest
+        run: uv run pytest
         working-directory: client/py
 
       - name: Stop Current Server

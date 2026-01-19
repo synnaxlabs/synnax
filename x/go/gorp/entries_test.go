@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -102,6 +102,23 @@ var _ = Describe("Entries", func() {
 			gorp.SetEntry(q.Params, &entry{ID: 1})
 			entries := gorp.GetEntries[int, entry](q.Params)
 			Expect(entries.Keys()).To(ConsistOf(1))
+		})
+	})
+
+	Describe("HasEntries", func() {
+		It("Should return false if no entries were set on the query", func() {
+			q := gorp.NewRetrieve[int, entry]()
+			Expect(gorp.HasEntries[int, entry](q.Params)).To(BeFalse())
+		})
+		It("Should return true if a single entry was set via SetEntry", func() {
+			q := gorp.NewRetrieve[int, entry]()
+			gorp.SetEntry(q.Params, &entry{ID: 1})
+			Expect(gorp.HasEntries[int, entry](q.Params)).To(BeTrue())
+		})
+		It("Should return true if entries were set via SetEntries", func() {
+			q := gorp.NewRetrieve[int, entry]()
+			gorp.SetEntries(q.Params, &[]entry{{ID: 1}, {ID: 2}})
+			Expect(gorp.HasEntries[int, entry](q.Params)).To(BeTrue())
 		})
 	})
 })

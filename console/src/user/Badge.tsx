@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,18 +14,13 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
-import { Layout } from "@/layout";
-import { Workspace } from "@/workspace";
+import { logout } from "@/cluster/services/logout";
 
 export const Badge = (): ReactElement | null => {
   const dispatch = useDispatch();
   const { data: u } = User.useRetrieve({}, { addStatusOnFailure: false });
   const cluster = Cluster.useSelect();
-  const handleLogout = useCallback(() => {
-    dispatch(Cluster.setActive(null));
-    dispatch(Workspace.setActive(null));
-    dispatch(Layout.clearWorkspace());
-  }, [dispatch]);
+  const handleLogout = useCallback(() => logout(dispatch), [dispatch]);
   const username = u?.username ?? cluster?.username ?? "";
   const displayName =
     u?.firstName != null && u?.firstName != "" ? u.firstName : username;

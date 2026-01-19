@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -46,8 +46,7 @@ export const use = (extract: Extractor, type: string): ((key: string) => void) =
             return;
           }
           Runtime.downloadFromBrowser(
-            extractorReturn.data,
-            "application/json",
+            new Blob([extractorReturn.data], { type: "application/json" }),
             `${name}.json`,
           );
         },

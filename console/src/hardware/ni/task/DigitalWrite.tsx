@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Icon } from "@synnaxlabs/pluto";
-import { primitive } from "@synnaxlabs/x";
+import { type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Common } from "@/hardware/common";
@@ -29,7 +29,7 @@ import {
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -38,12 +38,11 @@ export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_WRITE_TYPE,
 };
 
-export const DIGITAL_WRITE_SELECTABLE: Selector.Selectable = {
-  create: async ({ layoutKey }) => ({ ...DIGITAL_WRITE_LAYOUT, key: layoutKey }),
-  icon: <Icon.Logo.NI />,
-  key: DIGITAL_WRITE_TYPE,
+export const DigitalWriteSelectable = Selector.createSimpleItem({
   title: "NI Digital Write Task",
-};
+  icon: <Icon.Logo.NI />,
+  layout: DIGITAL_WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>
@@ -58,9 +57,21 @@ const Properties = () => (
 
 interface NameComponentProps extends DigitalNameComponentProps<DOChannel> {}
 
-const NameComponent = (props: NameComponentProps) => (
-  <Common.Task.WriteChannelNames {...props} />
-);
+const NameComponent = ({ path, ...rest }: NameComponentProps) => {
+  const filteredRest: optional.Optional<
+    typeof rest,
+    "cmdChannelName" | "stateChannelName"
+  > = rest;
+  delete filteredRest.cmdChannelName;
+  delete filteredRest.stateChannelName;
+  return (
+    <Common.Task.WriteChannelNames
+      {...rest}
+      cmdNamePath={`${path}.cmdChannelName`}
+      stateNamePath={`${path}.stateChannelName`}
+    />
+  );
+};
 
 const name = Component.renderProp(NameComponent);
 
@@ -114,80 +125,90 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       if (NotFoundError.matches(e)) shouldCreateStateIndex = true;
       else throw e;
     }
-  if (shouldCreateStateIndex) {
-    modified = true;
-    const stateIndex = await client.channels.create({
-      name: `${dev.properties.identifier}_do_state_time`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    dev.properties.digitalOutput.stateIndex = stateIndex.key;
-    dev.properties.digitalOutput.channels = {};
-  }
-  const commandsToCreate: DOChannel[] = [];
-  const statesToCreate: DOChannel[] = [];
-  for (const channel of config.channels) {
-    const key = getDigitalChannelDeviceKey(channel);
-    const exPair = dev.properties.digitalOutput.channels[key];
-    if (exPair == null) {
-      commandsToCreate.push(channel);
-      statesToCreate.push(channel);
-    } else {
-      const { state, command } = exPair;
-      try {
-        await client.channels.retrieve(state);
-      } catch (e) {
-        if (NotFoundError.matches(e)) statesToCreate.push(channel);
-        else throw e;
-      }
-      try {
-        await client.channels.retrieve(command);
-      } catch (e) {
-        if (NotFoundError.matches(e)) commandsToCreate.push(channel);
-        else throw e;
-      }
-    }
-  }
-  if (statesToCreate.length > 0) {
-    modified = true;
-    const states = await client.channels.create(
-      statesToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_state`,
-        index: dev.properties.digitalOutput.stateIndex,
-        dataType: "uint8",
-      })),
-    );
-    states.forEach((s, i) => {
-      const key = getDigitalChannelDeviceKey(statesToCreate[i]);
-      if (!(key in dev.properties.digitalOutput.channels))
-        dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
-      else dev.properties.digitalOutput.channels[key].state = s.key;
-    });
-  }
-  if (commandsToCreate.length > 0) {
-    modified = true;
-    const commandIndexes = await client.channels.create(
-      commandsToCreate.map((c) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd_time`,
+  const identifier = channel.escapeInvalidName(dev.properties.identifier);
+  try {
+    if (shouldCreateStateIndex) {
+      modified = true;
+      const stateIndex = await client.channels.create({
+        name: `${identifier}_do_state_time`,
         dataType: "timestamp",
         isIndex: true,
-      })),
-    );
-    const commands = await client.channels.create(
-      commandsToCreate.map((c, i) => ({
-        name: `${dev.properties.identifier}_do_${c.port}_${c.line}_cmd`,
-        index: commandIndexes[i].key,
-        dataType: "uint8",
-      })),
-    );
-    commands.forEach((s, i) => {
-      const key = getDigitalChannelDeviceKey(commandsToCreate[i]);
-      if (!(key in dev.properties.digitalOutput.channels))
-        dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
-      else dev.properties.digitalOutput.channels[key].command = s.key;
-    });
+      });
+      dev.properties.digitalOutput.stateIndex = stateIndex.key;
+      dev.properties.digitalOutput.channels = {};
+    }
+    const commandsToCreate: DOChannel[] = [];
+    const statesToCreate: DOChannel[] = [];
+    for (const channel of config.channels) {
+      const key = getDigitalChannelDeviceKey(channel);
+      const exPair = dev.properties.digitalOutput.channels[key];
+      if (exPair == null) {
+        commandsToCreate.push(channel);
+        statesToCreate.push(channel);
+      } else {
+        const { state, command } = exPair;
+        try {
+          await client.channels.retrieve(state);
+        } catch (e) {
+          if (NotFoundError.matches(e)) statesToCreate.push(channel);
+          else throw e;
+        }
+        try {
+          await client.channels.retrieve(command);
+        } catch (e) {
+          if (NotFoundError.matches(e)) commandsToCreate.push(channel);
+          else throw e;
+        }
+      }
+    }
+    if (statesToCreate.length > 0) {
+      modified = true;
+      const states = await client.channels.create(
+        statesToCreate.map((c) => ({
+          name: primitive.isNonZero(c.stateChannelName)
+            ? c.stateChannelName
+            : `${identifier}_do_${c.port}_${c.line}_state`,
+          index: dev.properties.digitalOutput.stateIndex,
+          dataType: "uint8",
+        })),
+      );
+      states.forEach((s, i) => {
+        const key = getDigitalChannelDeviceKey(statesToCreate[i]);
+        if (!(key in dev.properties.digitalOutput.channels))
+          dev.properties.digitalOutput.channels[key] = { state: s.key, command: 0 };
+        else dev.properties.digitalOutput.channels[key].state = s.key;
+      });
+    }
+    if (commandsToCreate.length > 0) {
+      modified = true;
+      const commandIndexes = await client.channels.create(
+        commandsToCreate.map((c) => ({
+          name: primitive.isNonZero(c.cmdChannelName)
+            ? `${c.cmdChannelName}_time`
+            : `${identifier}_do_${c.port}_${c.line}_cmd_time`,
+          dataType: "timestamp",
+          isIndex: true,
+        })),
+      );
+      const commands = await client.channels.create(
+        commandsToCreate.map((c, i) => ({
+          name: primitive.isNonZero(c.cmdChannelName)
+            ? c.cmdChannelName
+            : `${identifier}_do_${c.port}_${c.line}_cmd`,
+          index: commandIndexes[i].key,
+          dataType: "uint8",
+        })),
+      );
+      commands.forEach((s, i) => {
+        const key = getDigitalChannelDeviceKey(commandsToCreate[i]);
+        if (!(key in dev.properties.digitalOutput.channels))
+          dev.properties.digitalOutput.channels[key] = { state: 0, command: s.key };
+        else dev.properties.digitalOutput.channels[key].command = s.key;
+      });
+    }
+  } finally {
+    if (modified) await client.devices.create(dev);
   }
-  if (modified) await client.devices.create(dev);
   config.channels = config.channels.map((c) => {
     const key = getDigitalChannelDeviceKey(c);
     const pair = dev.properties.digitalOutput.channels[key];

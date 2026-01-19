@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,15 +37,14 @@ const retrieveReqZ = z.object({
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
-export interface RetrieveOptions
-  extends Pick<
-    RetrieveRequest,
-    "excludeFieldData" | "types" | "children" | "parents"
-  > {}
+export interface RetrieveOptions extends Pick<
+  RetrieveRequest,
+  "excludeFieldData" | "types" | "children" | "parents"
+> {}
 
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 
-/** The core client class for executing queries against a Synnax cluster ontology */
+/** The main client class for executing queries against a Synnax cluster ontology */
 export class Client {
   readonly type: string = "ontology";
   groups: group.Client;

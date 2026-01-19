@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,16 +23,91 @@ func compileLiteral(
 	if num := ctx.AST.NumericLiteral(); num != nil {
 		return compileNumericLiteral(context.Child(ctx, num))
 	}
-	if temp := ctx.AST.TemporalLiteral(); temp != nil {
-		return types.TimeSpan(), nil
-	}
 	if str := ctx.AST.STR_LITERAL(); str != nil {
-		return types.Type{}, errors.New("str literals are not yet supported")
+		return compileStringLiteral(ctx, str.GetText())
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
-		return types.Type{}, errors.New("series literals not yet implemented")
+		return compileSeriesLiteral(context.Child(ctx, series))
 	}
 	return types.Type{}, errors.New("unknown literal type")
+}
+
+func compileStringLiteral(
+	ctx context.Context[parser.ILiteralContext],
+	text string,
+) (types.Type, error) {
+	parsed, err := literal.ParseString(text, types.String())
+	if err != nil {
+		return types.Type{}, err
+	}
+	strBytes := []byte(parsed.Value.(string))
+	offset := ctx.Module.AddData(strBytes)
+	// Emit WASM bytecode:
+	// i32.const <offset>    ; push pointer to string in linear memory
+	// i32.const <length>    ; push length
+	// call $string_from_literal  ; returns handle (i32)
+	ctx.Writer.WriteI32Const(int32(offset))
+	ctx.Writer.WriteI32Const(int32(len(strBytes)))
+	ctx.Writer.WriteCall(ctx.Imports.StringFromLiteral)
+	return types.String(), nil
+}
+
+func compileSeriesLiteral(
+	ctx context.Context[parser.ISeriesLiteralContext],
+) (types.Type, error) {
+	// Get the series type from the hint or TypeMap
+	seriesType := ctx.Hint
+	if !seriesType.IsValid() {
+		if parent := ctx.AST.GetParent(); parent != nil {
+			if litCtx, ok := parent.(parser.ILiteralContext); ok {
+				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
+					seriesType = inferredType
+				}
+			}
+		}
+	}
+
+	if seriesType.Kind != types.KindSeries {
+		return types.Type{}, errors.New("series literal requires series type hint")
+	}
+
+	elemType := seriesType.Elem
+	if elemType == nil {
+		return types.Type{}, errors.New("series type missing element type")
+	}
+
+	// Get expressions from the list
+	var expressions []parser.IExpressionContext
+	if exprList := ctx.AST.ExpressionList(); exprList != nil {
+		expressions = exprList.AllExpression()
+	}
+	length := len(expressions)
+
+	// Create the series: push length and call series_create_empty_<type>
+	ctx.Writer.WriteI32Const(int32(length))
+	createIdx, err := ctx.Imports.GetSeriesCreateEmpty(*elemType)
+	if err != nil {
+		return types.Type{}, err
+	}
+	ctx.Writer.WriteCall(createIdx)
+
+	// SetElement returns the handle, so we can chain calls directly on the stack.
+	// Stack after create: [handle]
+	// For each element: push index, push value, call SetElement -> [handle]
+	for i, expr := range expressions {
+		ctx.Writer.WriteI32Const(int32(i))
+		if _, err = Compile(context.Child(ctx, expr).WithHint(*elemType)); err != nil {
+			return types.Type{}, err
+		}
+		setIdx, err := ctx.Imports.GetSeriesSetElement(*elemType)
+		if err != nil {
+			return types.Type{}, err
+		}
+		ctx.Writer.WriteCall(setIdx)
+	}
+
+	// Handle is already on stack as the expression result
+	return seriesType, nil
 }
 
 func compileNumericLiteral(
@@ -54,6 +129,16 @@ func compileNumericLiteral(
 			}
 		}
 	}
+
+	// Unwrap series/channel types to get the element type for scalar literals.
+	// When compiling `100 - s` where s is `series i32`, the hint may be `series i32`
+	// but the literal should compile to the element type `i32`.
+	targetType = targetType.Unwrap()
+
+	// Clear the unit from target type - unit literals should always convert to SI base units.
+	// The unit is preserved in the TypeMap for dimensional analysis but should not affect
+	// the numeric value emitted (which is always in SI base units).
+	targetType.Unit = nil
 
 	// Use shared literal parser to parse and validate the value
 	// This enforces Go-like semantics: no truncation for literal constants

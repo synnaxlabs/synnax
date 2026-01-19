@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { type destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
-import { type core } from "@/flux/core";
+import { type base } from "@/flux/base";
 import { useStore } from "@/flux/Provider";
 import {
   errorResult,
@@ -31,26 +31,28 @@ import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
-  Schema extends z.ZodType<core.Shape>,
-  ScopedStore extends core.Store = {},
-> extends Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
+  Schema extends z.ZodType<base.Shape>,
+  ScopedStore extends base.Store = {},
+>
+  extends
+    Omit<UpdateParams<z.infer<Schema>, ScopedStore>, "data" | "onChange">,
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
 export interface FormRetrieveParams<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store = {},
-> extends Form.UseReturn<Schema>,
-    RetrieveParams<Query, Store> {}
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store = {},
+>
+  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
 
 export interface CreateFormParams<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store,
 > {
   name: string;
   schema: Schema;
@@ -62,44 +64,46 @@ export interface CreateFormParams<
   ) => destructor.Destructor | destructor.Destructor[];
 }
 
-export type UseFormReturn<Schema extends z.ZodType<core.Shape>> = Omit<
+export type UseFormReturn<Schema extends z.ZodType<base.Shape>> = Omit<
   Result<z.infer<Schema>>,
   "data"
 > & {
   form: Form.UseReturn<Schema>;
-  save: (opts?: core.FetchOptions) => void;
+  save: (opts?: base.FetchOptions) => void;
 };
 
 export interface FormBeforeSaveParams<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store,
-> extends Form.UseReturn<Schema>,
-    RetrieveParams<Query, Store> {}
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store,
+>
+  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
 
 interface FormMountListenersParams<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store,
-> extends Form.UseReturn<Schema>,
-    Omit<RetrieveMountListenersParams<Query, core.Shape, Store>, "onChange"> {}
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store,
+>
+  extends
+    Form.UseReturn<Schema>,
+    Omit<RetrieveMountListenersParams<Query, base.Shape, Store>, "onChange"> {}
 
 export interface AfterSaveParams<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store,
 > extends FormBeforeSaveParams<Query, Schema, Store> {}
 
 export interface BeforeValidateArgs<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store,
 > extends FormBeforeSaveParams<Query, Schema, Store> {}
 
 export interface UseFormArgs<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store,
 > extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
@@ -111,9 +115,9 @@ export interface UseFormArgs<
 }
 
 export interface UseForm<
-  Query extends core.Shape,
-  Schema extends z.ZodType<core.Shape>,
-  Store extends core.Store,
+  Query extends base.Shape,
+  Schema extends z.ZodType<base.Shape>,
+  Store extends base.Store,
 > {
   (args: UseFormArgs<Query, Schema, Store>): UseFormReturn<Schema>;
 }
@@ -125,9 +129,9 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
 
 export const createForm =
   <
-    Query extends core.Shape,
-    Schema extends z.ZodType<core.Shape>,
-    Store extends core.Store = {},
+    Query extends base.Shape,
+    Schema extends z.ZodType<base.Shape>,
+    Store extends base.Store = {},
   >({
     name,
     schema,
@@ -161,6 +165,7 @@ export const createForm =
       schema,
       values: initialValues ?? baseInitialValues,
       onChange: ({ path }) => {
+        // Don't save if the path is empty to prevent infinite save loops.
         if (autoSave && path !== "") save();
       },
       sync,
@@ -173,7 +178,7 @@ export const createForm =
       [form],
     );
     const retrieveAsync = useCallback(
-      async (query: Query, options: core.FetchOptions = {}) => {
+      async (query: Query, options: base.FetchOptions = {}) => {
         const { signal } = options;
         try {
           if (client == null)
@@ -202,7 +207,7 @@ export const createForm =
     );
 
     const saveAsync = useCallback(
-      async (opts: core.FetchOptions = {}): Promise<boolean> => {
+      async (opts: base.FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
         const rollbacks: destructor.Destructor[] = [];
         try {
@@ -249,7 +254,7 @@ export const createForm =
       [name, query, beforeSave, afterSave, beforeValidate],
     );
     const save = useCallback(
-      (opts?: core.FetchOptions) => void saveAsync(opts),
+      (opts?: base.FetchOptions) => void saveAsync(opts),
       [saveAsync],
     );
 

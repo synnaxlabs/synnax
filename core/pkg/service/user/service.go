@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,18 +11,20 @@ package user
 
 import (
 	"context"
+	"io"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening a user.Service.
-type Config struct {
+// ServiceConfig is the configuration for opening a user.Service.
+type ServiceConfig struct {
 	// DB is the underlying database that the service will use to store Users.
 	DB *gorp.DB
 	// Ontology will be used to create relationships between users and other resources,
@@ -31,51 +33,62 @@ type Config struct {
 	// Group is used to create the top level "Users" group that will be the default
 	// parent of all users.
 	Group *group.Service
+	// Signals is used to propagate user changes through the Synnax signals' channel
+	// communication mechanism.
+	// [OPTIONAL]
+	Signals *signals.Provider
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	defaultConfig                       = Config{}
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	defaultServiceConfig                              = ServiceConfig{}
 )
 
 // Override implements [config.Config].
-func (c Config) Override(other Config) Config {
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
 // Validate implements [config.Config].
-func (c Config) Validate() error {
+func (c ServiceConfig) Validate() error {
 	v := validate.New("user")
-	validate.NotNil(v, "DB", c.DB)
-	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "group", c.Group)
 	return v.Error()
 }
 
 // A Service is how users are managed in the Synnax cluster.
 type Service struct {
-	// Config is the configuration for the service.
-	Config
-	group group.Group
+	cfg             ServiceConfig
+	shutdownSignals io.Closer
 }
 
-const groupName = "Users"
+// OpenService opens a new Service with the given context ctx and configurations configs.
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(defaultServiceConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
 
-// NewService opens a new Service with the given context ctx and configurations configs.
-func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
-	cfg, err := config.New(defaultConfig, cfgs...)
-	if err != nil {
-		return nil, err
-	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
-		return nil, err
-	}
-	s := &Service{Config: cfg, group: g}
+	s := &Service{cfg: cfg}
 	cfg.Ontology.RegisterService(s)
+
+	if cfg.Signals != nil {
+		cdcS, err := signals.PublishFromGorp[uuid.UUID, User](
+			ctx,
+			cfg.Signals,
+			signals.GorpPublisherConfigUUID[User](cfg.DB),
+		)
+		s.shutdownSignals = cdcS
+		if err != nil {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -83,8 +96,8 @@ func NewService(ctx context.Context, cfgs ...Config) (*Service, error) {
 // writer operates within the given transaction tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.DB, tx),
-		otg: s.Ontology.NewWriter(tx),
+		tx:  gorp.OverrideTx(s.cfg.DB, tx),
+		otg: s.cfg.Ontology.NewWriter(tx),
 		svc: s,
 	}
 }
@@ -93,7 +106,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   gorp.NewRetrieve[uuid.UUID, User](),
-		baseTX: s.DB,
+		baseTX: s.cfg.DB,
 	}
 }
 
@@ -103,5 +116,13 @@ func (s *Service) UsernameExists(ctx context.Context, username string) (bool, er
 		Where(func(_ gorp.Context, u *User) (bool, error) {
 			return u.Username == username, nil
 		}).
-		Exists(ctx, s.DB)
+		Exists(ctx, s.cfg.DB)
+}
+
+// Close closes the service and stops any signal publishing.
+func (s *Service) Close() error {
+	if s.shutdownSignals == nil {
+		return nil
+	}
+	return s.shutdownSignals.Close()
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,13 +45,20 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
       resetOnBlurIfEmpty
       placeholder="Value"
       textColor={isLink ? "var(--pluto-primary-z)" : "var(--pluto-gray-l10)"}
+      propagateClick
       {...rest}
     >
       <Button.Button onClick={() => copyToClipboard(value, "value")} variant="outlined">
         <Icon.Copy />
       </Button.Button>
       {isLink && (
-        <Button.Button href={value} target="_blank" autoFormatHref variant="outlined">
+        <Button.Button
+          href={value}
+          target="_blank"
+          autoFormatHref
+          variant="outlined"
+          propagateClick
+        >
           <Icon.LinkExternal />
         </Button.Button>
       )}
@@ -111,6 +118,7 @@ const MetaDataListItem = ({
         PCSS.visible(visible),
       )}
       preventClick
+      propagateClick
       {...rest}
     >
       <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,7 +26,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Publish publishes changes from the provided ontology into the provided signals.Provider.
+// Publish publishes changes from the provided ontology into the provided
+// signals.Provider.
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
@@ -41,7 +42,7 @@ func Publish(
 				err error
 			)
 			for ch := range nexter {
-				if ch.Variant == change.Set {
+				if ch.Variant == change.VariantSet {
 					key, err = signals.MarshalJSON(ch.Value)
 					if err != nil {
 						otg.L.DPanic("unexpected failure to marshal ontology resource set", zap.Error(err))

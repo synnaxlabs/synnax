@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,14 +32,14 @@ import (
 // the transaction is not guaranteed to be atomic. See https://github.com/synnaxlabs/synnax/issues/102
 // for more details.
 type tx struct {
-	alamos.Instrumentation
 	// Tx is the underlying key-value transaction. This transaction is not actually
 	// applied, and simply serves as a cache for the operations that are applied.
 	// It also serves all read operations.
 	xkv.Tx
+	lease *leaseAllocator
+	apply func(reqs []TxRequest) error
+	alamos.Instrumentation
 	digests []Digest
-	lease   *leaseAllocator
-	apply   func(reqs []TxRequest) error
 }
 
 var _ xkv.Tx = (*tx)(nil)
@@ -51,14 +51,14 @@ func (b *tx) Set(ctx context.Context, key, value []byte, options ...any) error {
 		return err
 	}
 	return b.applyOp(ctx, Operation{
-		Change:      xkv.Change{Key: key, Value: value, Variant: change.Set},
+		Change:      xkv.Change{Key: key, Value: value, Variant: change.VariantSet},
 		Leaseholder: lease,
 	})
 }
 
 // Delete implements xkv.Tx.
 func (b *tx) Delete(ctx context.Context, key []byte, _ ...any) error {
-	op := Operation{Change: xkv.Change{Key: key, Variant: change.Delete}}
+	op := Operation{Change: xkv.Change{Key: key, Variant: change.VariantDelete}}
 	return b.applyOp(ctx, op)
 }
 
@@ -87,7 +87,7 @@ func (b *tx) applyOp(ctx context.Context, op Operation) error {
 	if err != nil {
 		return err
 	}
-	if op.Variant == change.Delete {
+	if op.Variant == change.VariantDelete {
 		if err := b.Tx.Delete(ctx, op.Key); err != nil {
 			return err
 		}
@@ -105,9 +105,9 @@ func (b *tx) toRequests(ctx context.Context) ([]TxRequest, error) {
 	dm := make(map[node.Key]TxRequest)
 	for _, dig := range b.digests {
 		op := dig.Operation()
-		if op.Variant == change.Set {
+		if op.Variant == change.VariantSet {
 			v, closer, err := b.Get(ctx, dig.Key)
-			if errors.Is(err, xkv.NotFound) {
+			if errors.Is(err, xkv.ErrNotFound) {
 				zap.S().Error("[aspen] - operation not found when batching tx", zap.String("key", string(dig.Key)))
 				continue
 			}
@@ -144,11 +144,11 @@ type TxRequest struct {
 	// cancellation and tracing, but is extremely easy to misuse. If you don't know
 	// what you're doing, be careful when passing this context around.
 	Context     context.Context
+	span        alamos.Span
+	doneF       func(err error)
+	Operations  []Operation
 	Leaseholder node.Key
 	Sender      node.Key
-	Operations  []Operation
-	doneF       func(err error)
-	span        alamos.Span
 }
 
 func (tr TxRequest) empty() bool { return len(tr.Operations) == 0 }
@@ -201,7 +201,7 @@ func (tr TxRequest) digests() []Digest {
 }
 
 func validateLeaseOption(maybeLease []any) (node.Key, error) {
-	lease := DefaultLeaseholder
+	lease := nodeKeyDefaultLeaseholder
 	if len(maybeLease) == 1 {
 		l, ok := maybeLease[0].(node.Key)
 		if !ok {
@@ -213,11 +213,11 @@ func validateLeaseOption(maybeLease []any) (node.Key, error) {
 }
 
 type txCoordinator struct {
-	wg sync.WaitGroup
 	mu struct {
-		sync.Mutex
 		err error
+		sync.Mutex
 	}
+	wg sync.WaitGroup
 }
 
 func (bc *txCoordinator) done(err error) {

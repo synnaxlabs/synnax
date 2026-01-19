@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,9 @@ export interface StaticEntry<K extends record.Key> extends record.KeyedNamed<K> 
 export interface StaticProps<
   K extends record.Key,
   E extends StaticEntry<K> = StaticEntry<K>,
-> extends optional.Optional<
+>
+  extends
+    optional.Optional<
       Omit<SingleProps<K, E>, "data" | "getItem" | "subscribe">,
       "children"
     >,

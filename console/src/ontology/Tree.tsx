@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,7 +25,7 @@ import {
   Status,
   Synnax,
   Text,
-  Tree as Core,
+  Tree as Base,
   useAsyncEffect,
   useCombinedStateAndRef,
   useInitializerRef,
@@ -46,6 +46,7 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
+import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
 import {
   type BaseProps,
   type GetResource,
@@ -82,7 +83,7 @@ const DefaultItem = ({
   loading,
   ...rest
 }: TreeItemProps) => (
-  <Core.Item {...rest} onDoubleClick={onDoubleClick}>
+  <Base.Item {...rest} onDoubleClick={onDoubleClick}>
     {icon}
     <Text.MaybeEditable
       id={ontology.idToString(id)}
@@ -96,11 +97,11 @@ const DefaultItem = ({
       }}
       overflow="ellipsis"
     />
-  </Core.Item>
+  </Base.Item>
 );
 
 const itemRenderProp = Component.renderProp(
-  ({ onDrop: _, ...rest }: Core.ItemProps<string>) => {
+  ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
     const { itemKey } = rest;
     const id = ontology.idZ.parse(itemKey);
     const resource = List.useItem<string, ontology.Resource>(itemKey);
@@ -161,7 +162,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const services = useServices();
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
-  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node<string>[]>([]);
+  const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>([]);
   const resourceStore = Flux.useStore<Ontology.FluxSubStore>().resources;
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
@@ -171,13 +172,17 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     onChange: useCallback(
       ({ data: resources, variant }, { id }) => {
         if (variant == "success") {
-          const converted = resources.map((r) => ({
+          const filtered = resources.filter((r) => {
+            const svc = services[r.id.type];
+            return svc.visible == null || svc.visible(r);
+          });
+          const converted = filtered.map((r) => ({
             key: ontology.idToString(r.id),
             children: services[r.id.type].hasChildren ? [] : undefined,
           }));
-          const ids = new Set(resources.map((r) => ontology.idToString(r.id)));
+          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
           setNodes((prevNodes) => [
-            ...Core.updateNodeChildren({
+            ...Base.updateNodeChildren({
               tree: prevNodes,
               parent: ontology.idToString(id),
               updater: (prevNodes) => [
@@ -219,7 +224,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const resources = await client.ontology.retrieveChildren(root);
       resources.forEach((r) => resourceStore.set(r));
       if (signal.aborted) return;
-      const nodes = resources.map((c) => ({
+      const filtered = resources.filter((r) => {
+        const svc = services[r.id.type];
+        return svc.visible == null || svc.visible(r);
+      });
+      const nodes = filtered.map((c) => ({
         key: ontology.idToString(c.id),
         children: services[c.id.type].hasChildren ? [] : undefined,
       }));
@@ -241,10 +250,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
           ? null
           : ontology.idToString(rel.from);
         const nextNodes = [
-          ...Core.removeNode({
+          ...Base.removeNode({
             parent,
             keys: ontology.idToString(rel.to),
-            tree: Core.deepCopy(prevNodes),
+            tree: Base.deepCopy(prevNodes),
           }),
         ];
         return nextNodes;
@@ -260,8 +269,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       let destination: string | null = ontology.idToString(from);
       if (ontology.idsEqual(from, root)) destination = null;
       const nextNodes = [
-        ...Core.setNode({
-          tree: Core.deepCopy(prevNodes),
+        ...Base.setNode({
+          tree: Base.deepCopy(prevNodes),
           destination,
           additions: [
             {
@@ -277,7 +286,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   }, []);
   Ontology.useRelationshipSetSynchronizer(handleRelationshipSet);
 
-  const handleExpand = useCallback(({ action, clicked }: Core.HandleExpandProps) => {
+  const handleExpand = useCallback(({ action, clicked }: Base.HandleExpandProps) => {
     if (action !== "expand") return;
     const clickedID = ontology.idZ.parse(clicked);
     setLoading(clicked);
@@ -312,7 +321,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   const sort = useCallback(
-    (a: Core.Node<string>, b: Core.Node<string>) => {
+    (a: Base.Node<string>, b: Base.Node<string>) => {
       const [aResource, bResource] = resourceStore.get([a.key, b.key]);
       if (aResource == null && bResource == null) return 0;
       if (aResource == null) return 1;
@@ -324,7 +333,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [resourceStore],
   );
 
-  const treeProps = Core.use({
+  const treeProps = Base.use({
     nodes,
     onExpand: handleExpand,
     selected,
@@ -372,7 +381,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleDrop = useCallback(
     (key: string, { source, items }: Haul.OnDropProps): Haul.Item[] => {
       const nodesSnapshot = nodesRef.current;
-      const dropped = Haul.filterByType(Core.HAUL_TYPE, items);
+      const dropped = Haul.filterByType(Base.HAUL_TYPE, items);
       const isValidDrop = dropped.length > 0 && source.type === "Tree.Item";
       if (!isValidDrop) return [];
       const destination = ontology.idZ.parse(key);
@@ -386,7 +395,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (firstNodeOfMinDepth == null) return [];
       const moved = dropped.filter(({ data }) => data?.depth === minDepth);
       const keys = moved.map(({ key }) => key as string);
-      const parent = Core.findNodeParent({
+      const parent = Base.findNodeParent({
         tree: nodesSnapshot,
         key: firstNodeOfMinDepth.key.toString(),
       });
@@ -407,10 +416,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (selectedRef.current.includes(itemKey)) {
         const selectedHaulItems = selectedResources.flatMap((res) => {
           const svcItems = services[res.id.type].haulItems(res);
-          const depth = Core.getDepth(itemKey, shapeRef.current);
+          const depth = Base.getDepth(itemKey, shapeRef.current);
           const baseItems: Haul.Item[] = [
             {
-              type: Core.HAUL_TYPE,
+              type: Base.HAUL_TYPE,
               key: ontology.idToString(res.id),
               data: { depth },
             },
@@ -429,10 +438,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const haulItems = services[ontology.idZ.parse(itemKey).type].haulItems(
         getResource(itemKey),
       );
-      const depth = Core.getDepth(itemKey, shapeRef.current);
+      const depth = Base.getDepth(itemKey, shapeRef.current);
       startDrag([
-        { type: Core.HAUL_TYPE, key: itemKey, data: { depth } },
-        ...haulItems.map((item) => ({ ...item, data: { depth } })),
+        { type: Base.HAUL_TYPE, key: itemKey, data: { depth } },
+        ...haulItems.map((item) => ({ ...item, data: { ...item.data, depth } })),
       ]);
     },
     [getResource, selectedRef],
@@ -458,7 +467,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
-      if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
+      if (client == null) return <Layout.DefaultContextMenu />;
+      if (keys.length === 0)
+        return <DefaultContextMenu root={root} state={getState()} />;
       const rightClickedButNotSelected = keys.find(
         (v) => !selectedRef.current.includes(v),
       );
@@ -476,11 +487,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       // TODO: we might be selecting two nodes that are not ascendants or
       // descendants of the other ones. We need to change this function to
       // implement recursion.
-      const parent = Core.findNodeParent({
+      const parent = Base.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
         // might be selecting nodes AND their children.
-        key: keys.sort((a, b) => Core.getDepth(a, shape) - Core.getDepth(b, shape))[0],
+        key: keys.sort((a, b) => Base.getDepth(a, shape) - Base.getDepth(b, shape))[0],
       });
 
       const parentID = parent == null ? root : ontology.idZ.parse(parent.key);
@@ -520,7 +531,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   return (
     <Context value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
-      <Core.Tree<string, ontology.Resource>
+      <Base.Tree<string, ontology.Resource>
         {...treeProps}
         showRules
         shape={shape}
@@ -533,7 +544,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         onContextMenu={menuProps.open}
       >
         {itemRenderProp}
-      </Core.Tree>
+      </Base.Tree>
     </Context>
   );
 };

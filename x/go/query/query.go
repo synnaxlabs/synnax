@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,15 +44,3 @@ func (p Parameters) SetOnce(key Parameter, value any) {
 	}
 	p[key] = value
 }
-
-type Compound struct {
-	Clauses []Parameters
-}
-
-func (c *Compound) Next() Parameters {
-	n := make(Parameters)
-	c.Clauses = append(c.Clauses, n)
-	return n
-}
-
-func (c *Compound) Current() Parameters { return c.Clauses[len(c.Clauses)-1] }

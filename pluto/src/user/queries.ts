@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, UnexpectedError, user } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import {
+  access,
+  ontology,
+  type Synnax,
+  UnexpectedError,
+  user,
+} from "@synnaxlabs/client";
+import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -21,7 +27,7 @@ export type UseDeleteArgs = user.Key | user.Key[];
 export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 
 export const FLUX_STORE_KEY = "users";
-const RESOURCE_NAME = "User";
+const RESOURCE_NAME = "user";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
@@ -42,7 +48,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const keys = array.toArray(data);
-    const ids = keys.map((k) => user.ontologyID(k));
+    const ids = user.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
@@ -118,6 +124,7 @@ export const formSchema = user.newZ.extend({
   password: z.string().min(1, "Password is required"),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
+  role: access.role.keyZ,
 });
 
 export interface UseFormParams {
@@ -129,6 +136,7 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   firstName: "",
   lastName: "",
   password: "",
+  role: "",
 };
 
 export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
@@ -138,12 +146,34 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   retrieve: async ({ client, query: { key }, reset, store }) => {
     if (key == null) return;
     const user = await retrieveSingle({ client, query: { key }, store });
-    reset({ ...user, password: "" });
+    reset({ ...user, password: "", role: "" });
   },
-  update: async ({ client, value }) => {
-    await client.users.create(value());
+  update: async ({ client, value, rollbacks, store }) => {
+    const v = value();
+    const newUser: user.New & user.User = { key: uuid.create(), rootUser: false, ...v };
+    rollbacks.push(store.users.set(newUser.key, newUser));
+    const createdUser = await client.users.create(newUser);
+    if (v.role == null) return;
+    await client.access.roles.assign({
+      user: createdUser.key,
+      role: v.role,
+    });
   },
 });
+
+const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
+  const user = client.auth?.user;
+  if (user == null) {
+    const res = await client.connectivity.check();
+    if (res.error != null) throw res.error;
+    if (client.auth?.user == null)
+      throw new UnexpectedError(
+        "Expected user to be available after successfully connecting to cluster",
+      );
+    return client.auth.user;
+  }
+  return user;
+};
 
 export const { useRetrieve } = Flux.createRetrieve<
   Partial<RetrieveQuery>,
@@ -153,18 +183,8 @@ export const { useRetrieve } = Flux.createRetrieve<
   name: RESOURCE_NAME,
   retrieve: async ({ client, query, store }) => {
     const { key } = query;
-    if (key == null) {
-      const user = client.auth?.user;
-      if (user == null) {
-        const res = await client.connectivity.check();
-        if (res.error != null) throw res.error;
-      }
-      if (client.auth?.user == null)
-        throw new UnexpectedError(
-          "Expected user to be available after successfully connecting to cluster",
-        );
-      return client.auth.user;
-    }
+    if (key == null) return await retrieveCurrent(client);
+
     return await retrieveSingle({ client, query: { key }, store });
   },
 });

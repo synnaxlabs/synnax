@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,6 @@ export interface CalculatedLayoutArgs {
 export interface CalculatedLayout extends Layout.BaseState<CalculatedLayoutArgs> {}
 
 export const CALCULATED_LAYOUT: CalculatedLayout = {
-  beta: true,
   name: "Channel.Create.Calculated",
   icon: "Channel",
   location: "modal",

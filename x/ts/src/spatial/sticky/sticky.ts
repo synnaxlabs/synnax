@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,49 +37,61 @@ export const toCSS = (pos: XY): ToCSSReturn => {
   return ret;
 };
 
-export const toDecimal = (pos: XY, element: box.Box, container: box.Box): base.XY => {
-  const ret = { x: pos.x, y: pos.y };
-  if (pos.units?.x === "decimal") {
-    if (pos.root?.x === "right") ret.x = 1 - pos.x;
-  } else if (pos.root?.x === "right")
-    ret.x = 1 - (pos.x + box.width(element)) / box.width(container);
+export interface ToDecimalProps {
+  position: XY;
+  element: box.Box;
+  container: box.Box;
+}
+
+export const toDecimal = ({
+  position,
+  element,
+  container,
+}: ToDecimalProps): base.XY => {
+  const ret = { x: position.x, y: position.y };
+  if (position.units?.x === "decimal") {
+    if (position.root?.x === "right") ret.x = 1 - position.x;
+  } else if (position.root?.x === "right")
+    ret.x = 1 - (position.x + box.width(element)) / box.width(container);
   else ret.x /= box.width(container);
-  if (pos.units?.y === "decimal") {
-    if (pos.root?.y === "bottom") ret.y = 1 - pos.y;
-  } else if (pos.root?.y === "bottom")
-    ret.y = 1 - (pos.y + box.height(element)) / box.height(container);
+  if (position.units?.y === "decimal") {
+    if (position.root?.y === "bottom") ret.y = 1 - position.y;
+  } else if (position.root?.y === "bottom")
+    ret.y = 1 - (position.y + box.height(element)) / box.height(container);
   else ret.y /= box.height(container);
   return ret;
 };
 
-export interface CalculateOptions {
+export interface CalculateProps {
+  position: XY;
+  element: box.Box;
+  container: box.Box;
   lowerThreshold?: number;
   upperThreshold?: number;
 }
 
-export const calculate = (
-  pos: XY,
-  element: box.Box,
-  container: box.Box,
-  options?: CalculateOptions,
-): XY => {
-  const lowerThreshold = options?.lowerThreshold ?? 0.2;
-  const upperThreshold = options?.upperThreshold ?? 0.8;
+export const calculate = ({
+  position,
+  element,
+  container,
+  lowerThreshold = 0.2,
+  upperThreshold = 0.8,
+}: CalculateProps): XY => {
   const ret: Required<XY> = {
-    x: pos.x,
-    y: pos.y,
+    x: position.x,
+    y: position.y,
     root: { ...location.TOP_LEFT },
     units: { x: "px", y: "px" },
   };
-  if (pos.x > upperThreshold) {
-    ret.x = (1 - pos.x) * box.width(container) - box.width(element);
+  if (position.x > upperThreshold) {
+    ret.x = (1 - position.x) * box.width(container) - box.width(element);
     ret.root.x = "right";
-  } else if (pos.x < lowerThreshold) ret.x = pos.x * box.width(container);
+  } else if (position.x < lowerThreshold) ret.x = position.x * box.width(container);
   else ret.units.x = "decimal";
-  if (pos.y > upperThreshold) {
-    ret.y = (1 - pos.y) * box.height(container) - box.height(element);
+  if (position.y > upperThreshold) {
+    ret.y = (1 - position.y) * box.height(container) - box.height(element);
     ret.root.y = "bottom";
-  } else if (pos.y < lowerThreshold) ret.y = pos.y * box.height(container);
+  } else if (position.y < lowerThreshold) ret.y = position.y * box.height(container);
   else ret.units.y = "decimal";
   ret.x = Math.round(ret.x * 100) / 100;
   return { ...ret, ...base.truncate(ret, 3) };

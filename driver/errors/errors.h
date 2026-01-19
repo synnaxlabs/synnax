@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,6 +35,20 @@ inline xerrors::Error missing_lib(const LibraryInfo &lib) {
                    ". Restart Driver after installation.";
     }
     return xerrors::Error(xlib::LOAD_ERROR, message);
+}
+
+/// @brief wraps an error with channel name and hardware location context for easier
+/// debugging. The hardware location is integration-specific (e.g., node_id for OPC UA,
+/// port for LabJack, physical_channel for NI, address for Modbus).
+inline xerrors::Error wrap_channel_error(
+    const xerrors::Error &err,
+    const std::string &channel_name,
+    const std::string &hardware_location
+) {
+    return xerrors::Error(
+        err,
+        channel_name + " (" + hardware_location + "): " + err.data
+    );
 }
 
 }

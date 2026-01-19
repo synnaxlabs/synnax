@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x";
 
 import { createHexOpacityVariants, CSS, unitProperty } from "@/css";
-import { type Theme } from "@/theming/core/theme";
+import { type Theme } from "@/theming/base/theme";
 
 const OPACITIES: readonly number[] = [
   95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5,

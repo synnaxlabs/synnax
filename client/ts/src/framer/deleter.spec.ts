@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -58,7 +58,7 @@ describe("Deleter", () => {
     });
 
     await expect(
-      client.delete(["billy bob", dataCh.name], TimeRange.MAX),
+      client.delete(["nonexistent_channel_name", dataCh.name], TimeRange.MAX),
     ).rejects.toThrow(NotFoundError);
 
     const res = await client.read(TimeRange.MAX, dataCh.key);

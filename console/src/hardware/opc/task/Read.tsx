@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
-import { caseconv, DataType } from "@synnaxlabs/x";
+import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -25,7 +25,7 @@ import {
   type readTypeZ,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -34,12 +34,11 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const READ_SELECTABLE: Selector.Selectable = {
-  key: READ_TYPE,
+export const ReadSelectable = Selector.createSimpleItem({
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
-};
+  layout: READ_LAYOUT,
+});
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
   props.read.channels[nodeId] ??
@@ -118,6 +117,7 @@ const convertHaulItemToChannel = ({ data }: Haul.Item): ReadChannel => {
     enabled: true,
     useAsIndex: false,
     dataType,
+    name: "",
   };
 };
 
@@ -184,7 +184,7 @@ const determineIndexChannel = async ({
         if (!NotFoundError.matches(e)) throw e;
       }
     const { key } = await client.channels.create({
-      name: indexChannelInTaskConfig.nodeName,
+      name: channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true),
       dataType: "timestamp",
       isIndex: true,
     });
@@ -208,13 +208,13 @@ const determineIndexChannel = async ({
   }
 
   // there is not an index channel in the task config, so just create a new channel
-  const idx = await client.channels.create({
-    name: `${device.name} time for ${taskName}`,
+  const idxCh = await client.channels.create({
+    name: `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
     dataType: "timestamp",
     isIndex: true,
   });
-  device.properties.read.indexes.push(idx.key);
-  return idx.key;
+  device.properties.read.indexes.push(idxCh.key);
+  return idxCh.key;
 };
 
 const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
@@ -257,7 +257,13 @@ const onConfigure: Common.Task.OnConfigure<typeof readConfigZ> = async (
   }
   if (toCreate.length > 0) {
     const channels = await client.channels.create(
-      toCreate.map(({ nodeName, dataType }) => ({ dataType, name: nodeName, index })),
+      toCreate.map(({ name, nodeName, dataType }) => ({
+        dataType,
+        name: primitive.isNonZero(name)
+          ? name
+          : channel.escapeInvalidName(nodeName, true),
+        index,
+      })),
     );
     channels.forEach(
       ({ key }, i) => (device.properties.read.channels[toCreate[i].nodeId] = key),

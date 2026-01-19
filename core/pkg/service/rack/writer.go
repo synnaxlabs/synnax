@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,7 +44,7 @@ func resolveStatus(r *Rack) *Status {
 			Key:     OntologyID(r.Key).String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.WarningVariant,
+			Variant: xstatus.VariantWarning,
 			Message: "Status unknown",
 			Details: StatusDetails{Rack: r.Key},
 		}
@@ -79,18 +79,22 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	if err = w.status.Set(ctx, stat); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
 }
 
-// Delete deletes the rack with the provided key. Delete is idempotent, and deleting
-// a non-existent rack will not return an error.
+// Delete deletes the rack with the provided key and its associated status. Delete is
+// idempotent, and deleting a non-existent rack will not return an error.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	return w.DeleteGuard(ctx, key, nil)
 }
 
-// DeleteGuard deletes the rack with the given key if the provided guard function returns nil.
+// DeleteGuard deletes the rack with the given key and its associated status if the
+// provided guard function returns nil.
 func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[Key, Rack]) error {
-	return gorp.NewDelete[Key, Rack]().WhereKeys(key).Guard(guard).Exec(ctx, w.tx)
+	if err := gorp.NewDelete[Key, Rack]().WhereKeys(key).Guard(guard).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	return w.status.Delete(ctx, OntologyID(key).String())
 }
 
 // NewTaskKey returns a new, unique key for the task on the provided rack.

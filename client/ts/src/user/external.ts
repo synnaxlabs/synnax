@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,5 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/user/client";
+export {
+  Client,
+  DELETE_CHANNEL_NAME,
+  type KeyRetrieveRequest,
+  ontologyID,
+  type RetrieveArgs,
+  type RetrieveRequest,
+  SET_CHANNEL_NAME,
+  TYPE_ONTOLOGY_ID,
+  type UsernameRetrieveRequest,
+  type UsernamesRetrieveRequest,
+} from "@/user/client";
 export * from "@/user/payload";

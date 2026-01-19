@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Status } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/client";
+import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
 import { type Palette } from "@/palette";
 import { CREATE_LAYOUT } from "@/status/Create";
@@ -18,6 +19,8 @@ export const CREATE_COMMAND: Palette.Command = {
   name: "Create a Status",
   icon: <Status.CreateIcon />,
   onSelect: ({ placeLayout }) => placeLayout(CREATE_LAYOUT),
+  visible: ({ store, client }) =>
+    Access.updateGranted({ id: status.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const OPEN_EXPLORER_COMMAND: Palette.Command = {
@@ -25,6 +28,8 @@ export const OPEN_EXPLORER_COMMAND: Palette.Command = {
   name: "Open Status Explorer",
   icon: <Icon.Explore />,
   onSelect: ({ placeLayout }) => placeLayout(EXPLORER_LAYOUT),
+  visible: ({ store, client }) =>
+    Access.viewGranted({ id: status.TYPE_ONTOLOGY_ID, store, client }),
 };
 
 export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];
