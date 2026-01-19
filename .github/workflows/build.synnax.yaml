@@ -401,13 +401,13 @@ jobs:
       - name: Copy Driver to Assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/driver/cpp/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/driver/assets/driver${{ matrix.executable }}
 
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/cpp/assets/driver.exe
+          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
 
       - name: Set up pnpm
         if: inputs.console

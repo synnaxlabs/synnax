@@ -252,7 +252,7 @@ synnax-data/**
 # |||| EMBEDDED DRIVER ||||
 # Allow driver service assets to be tracked
 assets
-!core/pkg/driver/cpp/assets
+!core/pkg/driver/assets
 
 # |||| OTHER ||||
 .obsidian
