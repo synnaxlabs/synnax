@@ -20,6 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -187,7 +189,6 @@ var _ = Describe("Driver", Ordered, func() {
 		hostProvider = mock.StaticHostKeyProvider(1)
 	)
 
-	// openDriver creates a driver with the given factory and registers cleanup.
 	openDriver := func(factory driver.Factory) *driver.Driver {
 		driver := MustSucceed(driver.Open(ctx, driver.Config{
 			DB:      dist.DB,
@@ -203,7 +204,6 @@ var _ = Describe("Driver", Ordered, func() {
 		return driver
 	}
 
-	// newTask creates a task on the given rack with an auto-incrementing local key.
 	var taskCounter atomic.Uint32
 	newTask := func(rackKey rack.Key) task.Task {
 		return task.Task{
@@ -240,15 +240,16 @@ var _ = Describe("Driver", Ordered, func() {
 			HostProvider: mock.StaticHostKeyProvider(1),
 			Status:       statusSvc,
 		}))
+		channelSvc = dist.Channel
+		framerSvc = dist.Framer
 		taskService = MustSucceed(task.OpenService(ctx, task.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Rack:     rackService,
 			Status:   statusSvc,
+			Channel:  channelSvc,
 		}))
-		channelSvc = dist.Channel
-		framerSvc = dist.Framer
 
 		DeferCleanup(func() {
 			Expect(dist.Close()).To(Succeed())
@@ -658,6 +659,155 @@ var _ = Describe("Driver", Ordered, func() {
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
 			}, "100ms", "25ms").Should(Succeed())
+		})
+	})
+
+	Describe("Command Processing", func() {
+		// writeCommand writes a command to the task command channel via the framer.
+		writeCommand := func(cmd task.Command) {
+			w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+				Keys:  channel.Keys{taskService.CommandChannelKey()},
+				Start: telem.Now(),
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewUnary(
+				taskService.CommandChannelKey(),
+				telem.NewSeriesStaticJSONV(cmd),
+			))).To(BeTrue())
+		}
+
+		// Catches the bug: with inverted condition, Exec is never called on known tasks.
+		It("should execute command on configured task", func() {
+			var (
+				execCalled  atomic.Bool
+				receivedCmd atomic.Value
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(cmd task.Command) error {
+							execCalled.Store(true)
+							receivedCmd.Store(cmd)
+							return nil
+						},
+					}, true, nil
+				},
+			}
+			driver := openDriver(factory)
+			// Allow streamer to boot up
+			time.Sleep(50 * time.Millisecond)
+
+			t := newTask(driver.RackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			cmd := task.Command{
+				Task: t.Key,
+				Type: "start",
+				Key:  "cmd-1",
+			}
+			writeCommand(cmd)
+
+			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			stored := receivedCmd.Load().(task.Command)
+			Expect(stored.Type).To(Equal("start"))
+			Expect(stored.Key).To(Equal("cmd-1"))
+		})
+
+		// Verifies commands for unknown tasks are ignored without crashing.
+		It("should ignore commands for unknown tasks", func() {
+			var execCalled atomic.Bool
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+					return &mockTask{
+						key:      t.Key,
+						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
+					}, true, nil
+				},
+			}
+			driver := openDriver(factory)
+			time.Sleep(50 * time.Millisecond)
+
+			unknownTaskKey := task.NewKey(driver.RackKey(), 99999)
+			cmd := task.Command{
+				Task: unknownTaskKey,
+				Type: "start",
+				Key:  "cmd-unknown",
+			}
+			writeCommand(cmd)
+
+			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
+		})
+
+		// Verifies commands for tasks on other racks are filtered out.
+		It("should ignore commands for tasks on other racks", func() {
+			var execCalled atomic.Bool
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+					return &mockTask{
+						key:      t.Key,
+						execFunc: func(cmd task.Command) error { execCalled.Store(true); return nil },
+					}, true, nil
+				},
+			}
+			openDriver(factory)
+			time.Sleep(5 * time.Millisecond)
+
+			otherRack := rack.Rack{Name: "Other Rack for Commands"}
+			Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+
+			otherTaskKey := task.NewKey(otherRack.Key, 1)
+			cmd := task.Command{
+				Task: otherTaskKey,
+				Type: "start",
+				Key:  "cmd-other-rack",
+			}
+			writeCommand(cmd)
+
+			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
+		})
+
+		It("should handle command execution errors gracefully", func() {
+			var (
+				execCalled  atomic.Bool
+				configReady = make(chan struct{})
+				readyOnce   sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(t task.Task) (driver.Task, bool, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(cmd task.Command) error {
+							execCalled.Store(true)
+							return errors.New("execution failed")
+						},
+					}, true, nil
+				},
+			}
+			driver := openDriver(factory)
+			time.Sleep(5 * time.Millisecond)
+
+			t := newTask(driver.RackKey())
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			cmd := task.Command{
+				Task: t.Key,
+				Type: "failing-command",
+				Key:  "cmd-fail",
+			}
+			writeCommand(cmd)
+
+			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
 		})
 	})
 })

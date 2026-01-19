@@ -79,7 +79,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
-		return d, nil
+		return nil, err
 	}
 	return d, nil
 }
@@ -109,7 +109,7 @@ func (d *Driver) startHeartbeat(ctx context.Context) {
 // startCommandStreaming initializes the command channel streamer. This is optional
 // and will log warnings if the command channel doesn't exist or streaming fails.
 func (d *Driver) startCommandStreaming(ctx context.Context) error {
-	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(d.cfg.Instrumentation))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdownCommands = signal.NewGracefulShutdown(sCtx, cancel)
 	streamer, err := d.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys: channel.Keys{d.cfg.Task.CommandChannelKey()},
@@ -126,7 +126,7 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
 	d.streamerRequests = streamerRequests
-	sink.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return nil
 }
 
@@ -149,7 +149,7 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 			d.mu.RLock()
 			t, ok := d.mu.tasks[cmd.Task]
 			d.mu.RUnlock()
-			if ok {
+			if !ok {
 				d.cfg.L.Warn("received command for unknown task", zap.Stringer("task", cmd.Task))
 				continue
 			}
