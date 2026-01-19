@@ -25,12 +25,10 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
 
 export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
 
-export const useSelectorVisible = (): boolean => {
-  // Call ALL hooks first to maintain consistent hook order across renders.
-  // Using .some() directly would short-circuit and skip hooks, violating Rules of Hooks.
-  const results = SELECTABLES.map(({ useVisible }) => useVisible?.() ?? true);
-  return results.some(Boolean);
-};
+export const useSelectorVisible = (): boolean =>
+  // It's safe to call hooks in map since SELECTABLES is a module-level constant
+  // and never changes between renders, ensuring consistent hook order.
+  SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
 export const createSelectorLayout = (): Layout.BaseState => ({
   type: SELECTOR_LAYOUT_TYPE,

@@ -27,7 +27,7 @@ import {
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -36,12 +36,11 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const WRITE_SELECTABLE: Selector.Selectable = {
-  key: WRITE_TYPE,
+export const WriteSelectable = Selector.createSimpleItem({
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
-};
+  layout: WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>
