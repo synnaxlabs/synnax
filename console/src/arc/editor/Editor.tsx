@@ -60,7 +60,7 @@ import { Controls as BaseControls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 
 export const HAUL_TYPE = "arc-element";
@@ -388,17 +388,34 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 export const LAYOUT_TYPE = "arc_editor";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Arc Automation",
-  icon: <Icon.Arc />,
-  useVisible: () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID),
-  create: async ({ layoutKey, rename }) => {
-    const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
-    if (name == null) return null;
-    return create({ key: layoutKey, name });
-  },
+export const Selectable: Selector.Selectable = ({
+  layoutKey,
+  onPlace,
+  rename,
+  handleError,
+}) => {
+  const visible = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
+
+  const handleClick = useCallback(() => {
+    handleError(async () => {
+      const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
+      if (name != null) onPlace(create({ key: layoutKey, name }));
+    }, "Failed to create Arc Editor");
+  }, [onPlace, layoutKey, rename, handleError]);
+
+  if (!visible) return null;
+
+  return (
+    <Selector.Item
+      key={LAYOUT_TYPE}
+      title="Arc Automation"
+      icon={<Icon.Arc />}
+      onClick={handleClick}
+    />
+  );
 };
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 

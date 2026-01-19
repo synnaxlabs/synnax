@@ -38,7 +38,7 @@ import {
   ZERO_PAYLOAD,
 } from "@/hardware/task/sequence/types";
 import { type Modals } from "@/modals";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 const FAILED_TO_UPDATE_AUTOCOMPLETE = "Failed to update sequence auto-complete";
 
@@ -62,15 +62,29 @@ export const createLayout = async ({
   return name == null ? null : { ...LAYOUT, name, args: { rackKey } };
 };
 
-export const SELECTABLE: Selector.Selectable = {
-  key: TYPE,
-  title: "Control Sequence",
-  icon: <Icon.Control />,
-  create: async ({ layoutKey, rename }) => {
-    const layout = await createLayout({ rename });
-    return layout == null ? null : { ...layout, key: layoutKey };
-  },
+export const Selectable: Selector.Selectable = ({
+  layoutKey,
+  onPlace,
+  rename,
+  handleError,
+}) => {
+  const handleClick = useCallback(() => {
+    handleError(async () => {
+      const layout = await createLayout({ rename });
+      if (layout != null) onPlace({ ...layout, key: layoutKey });
+    }, "Failed to create Control Sequence");
+  }, [onPlace, layoutKey, rename, handleError]);
+
+  return (
+    <Selector.Item
+      key={TYPE}
+      title="Control Sequence"
+      icon={<Icon.Control />}
+      onClick={handleClick}
+    />
+  );
 };
+Selectable.type = TYPE;
 
 interface EditorProps extends Input.Control<string> {
   globals?: UsePhantomGlobalsReturn;

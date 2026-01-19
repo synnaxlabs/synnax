@@ -13,7 +13,7 @@ import { ContextMenu } from "@/lineplot/ContextMenu";
 import { extract } from "@/lineplot/export";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
 import { LinePlot } from "@/lineplot/LinePlot";
-import { SELECTABLE } from "@/lineplot/Selectable";
+import { Selectable } from "@/lineplot/Selectable";
 import { type Selector } from "@/selector";
 
 export * from "@/lineplot/Controls";
@@ -34,4 +34,4 @@ export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: LinePlot };
 
-export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [Selectable];

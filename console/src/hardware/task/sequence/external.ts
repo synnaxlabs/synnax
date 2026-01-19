@@ -10,7 +10,7 @@
 import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import { ingest } from "@/hardware/task/sequence/import";
-import { LAYOUT, SELECTABLE, Sequence } from "@/hardware/task/sequence/Sequence";
+import { LAYOUT, Selectable, Sequence } from "@/hardware/task/sequence/Sequence";
 import { TYPE } from "@/hardware/task/sequence/types";
 import { type Import } from "@/import";
 import { type Layout } from "@/layout";
@@ -30,6 +30,6 @@ export const FILE_INGESTORS: Import.FileIngestors = { [TYPE]: ingest };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = { [TYPE]: Sequence };
 
-export const SELECTABLES: Selector.Selectable[] = [SELECTABLE];
+export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
 export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = { [TYPE]: LAYOUT };
