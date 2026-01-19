@@ -19,6 +19,8 @@ from typing import Any, Literal
 import synnax as sy
 from playwright.sync_api import Locator, Page
 
+from framework.utils import get_results_path
+
 from .access import AccessClient
 from .channels import ChannelClient
 from .labels import LabelClient
@@ -409,17 +411,16 @@ class Console:
 
     def screenshot(self, name: str | None = None) -> None:
         """Take a screenshot of the entire console page."""
-        results_dir = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
-        os.makedirs(results_dir, exist_ok=True)
         if name is None:
             name = "console.png"
-        else:
-            if not name.endswith(".png"):
-                name = name + ".png"
+        elif not name.endswith(".png"):
+            name = name + ".png"
 
-        path = os.path.join(results_dir, name)
         self.page.screenshot(
-            path=path, full_page=True, animations="disabled", type="png"
+            path=get_results_path(name),
+            full_page=True,
+            animations="disabled",
+            type="png",
         )
 
     def click_btn(self, button_label: str) -> None:

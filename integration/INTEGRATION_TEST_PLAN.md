@@ -27,13 +27,30 @@ The test conductor runs tests via JSON sequence files. Always run in headed mode
 ```bash
 cd integration
 
-# Run a test sequence in headed mode
-PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor \
-  -s channel_tests
+# Run a specific sequence using Bazel-like target path
+uv run tc //console/general/... --headed true
 
-# Or use --headed flag
-poetry run python -m framework.test_conductor -s channel_tests --headed true
+# Run tests matching a substring in a specific sequence
+uv run tc //console/access/user --headed true
+
+# Run all sequences in a test file
+uv run tc //console/... --headed true
+
+# Legacy syntax (still supported)
+uv run tc -s console --headed true
 ```
+
+### Target Path Syntax
+
+Format: `//test_file/sequence/case_filter`
+
+| Component | Description | Examples |
+|-----------|-------------|----------|
+| `test_file` | JSON file name (without `_tests.json`) | `console`, `driver` |
+| `sequence` | Sequence name or `...` for all | `general`, `access`, `...` |
+| `case_filter` | Substring to match in case path, or `...` for all | `channel`, `user`, `ni` |
+
+The `case_filter` uses substring matching against the full case path (e.g., `channel` matches `console/channel/channel_operations`).
 
 ### Creating a Test Sequence JSON
 
@@ -60,16 +77,30 @@ Each feature needs a `*_tests.json` file in `tests/`:
 ```bash
 cd integration
 
-# Run single sequence (headed)
-PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor \
-  -s channel_tests
+# Run specific sequence (Bazel-like syntax)
+uv run tc //console/general/...
 
-# Run multiple sequences
-PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor \
-  -s channel_tests,layout_tests
+# Run tests matching a substring in a specific file/sequence
+uv run tc //console/tasks/ni
+
+# Run all tests in a file
+uv run tc //console/...
+
+# Filter across ALL test files (auto-discovers all *_tests.json)
+uv run tc -f channel
+uv run tc -f user
+
+# Run in headed mode for development
+uv run tc //console/general/... --headed true
+
+# Legacy: Run single sequence
+uv run tc -s console
+
+# Legacy: Run multiple sequences
+uv run tc -s console,driver
 
 # Auto-discover all *_tests.json files
-PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor
+uv run tc
 ```
 
 ### Session Checklist
@@ -135,13 +166,16 @@ The following sections map each RC QA step to existing/needed tests.
 **Every session MUST:**
 
 1. **Create JSON sequence file first** (e.g., `tests/channel_tests.json`)
-2. Run tests in **headed mode**: `PLAYWRIGHT_CONSOLE_HEADED=1`
+2. Run tests in **headed mode** with `--headed true`
 3. Write **ONE test at a time**, verify it passes before writing the next
 4. Use the test command:
    ```bash
    cd integration
-   PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor \
-     -s <feature>_tests
+   # Run specific sequence
+   uv run tc //console/general/... --headed true
+
+   # Run tests matching a substring
+   uv run tc //console/access/user --headed true
    ```
 5. Never write multiple untested methods/tests in one go
 
@@ -205,7 +239,7 @@ class ChannelOperations(ConsoleCase):
 ```bash
 # Run to verify:
 cd integration
-PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor -s channel_tests
+uv run tc //channel/Channel_Operations/... --headed true
 ```
 
 #### Step 4: Add `open_plot()` to channels.py
@@ -216,7 +250,7 @@ def open_plot(self, name: str) -> None:
 ```
 ```bash
 # Run to verify test passes:
-PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor -s channel_tests
+uv run tc //channel/Channel_Operations/... --headed true
 ```
 
 #### Step 5: Add `group()` method + test
@@ -231,7 +265,7 @@ def test_group_channels(self) -> None:
 ```
 ```bash
 # Run to verify:
-PLAYWRIGHT_CONSOLE_HEADED=1 poetry run python -m framework.test_conductor -s channel_tests
+uv run tc //channel/Channel_Operations/... --headed true
 ```
 
 #### Continue pattern for remaining methods...

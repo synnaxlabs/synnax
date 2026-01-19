@@ -52,18 +52,38 @@ class ConsolePage:
 
         self.new()
 
+    def _get_tab(self) -> Locator:
+        """Get the tab locator for this page."""
+        return self.page.locator("div").filter(
+            has_text=re.compile(f"^{re.escape(self.page_name)}$")
+        ).first
+
     def close(self) -> None:
         """
         Close a page by name.
         Ignore unsaved changes.
         """
-        tab = self.page.locator("div").filter(
-            has_text=re.compile(f"^{re.escape(self.page_name)}$")
-        )
+        tab = self._get_tab()
         tab.get_by_label("pluto-tabs__close").click()
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
+
+    def rename(self, new_name: str) -> None:
+        """Rename the page by double-clicking the tab name.
+
+        Args:
+            new_name: The new name for the page
+        """
+        tab = self._get_tab()
+        tab.dblclick()
+
+        editable = self.page.get_by_text(self.page_name).first
+        editable.fill(new_name)
+        self.console.ENTER
+        self.page.wait_for_timeout(100)
+
+        self.page_name = new_name
 
     def _dblclick_canvas(self) -> None:
         """Double click on canvas."""
@@ -190,6 +210,16 @@ class ConsolePage:
         self.page.mouse.up()
         # Wait for the UI
         time.sleep(0.5)
+
+    def get_title(self) -> str:
+        """Get the current page title from the Properties tab.
+
+        Returns:
+            The current page title
+        """
+        self.console.close_all_notifications()
+        self.page.locator("#properties").click(timeout=5000)
+        return self.console.get_input_field("Title")
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""

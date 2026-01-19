@@ -77,8 +77,8 @@ I can successfully:
   - [x] Create multiple channels with the "Create More" flag set to true. (channel_operations.py)
 - **Resources Toolbar**
   - [x] Open a channel plot by double-clicking it. (channel_operations.py)
-  - [ ] Drag and drop a channel onto a line plot.
-  - [ ] Drag and drop a channel onto the line plot toolbar.
+  - [x] Drag and drop a channel onto a line plot. (plot/line_plot.py)
+  - [x] Drag and drop a channel onto the line plot toolbar. (plot/line_plot.py)
   - **Context Menu**
     - [x] Rename a channel. (channel_lifecycle.py)
     - [x] Group multiple channels. (channel_operations.py)
@@ -229,16 +229,16 @@ I can successfully:
 
 - [x] Create a new line plot from the mosaic. (pages/open_close.py)
 - **Visualization**
-  - [x] Plot a historical range of data. (download_csv.py)
-  - [ ] Plot a live range of data. (download_csv.py, abcd.py)
-  - [ ] Move channels between axes.
-  - [ ] Adjust the line thickness.
-  - [ ] Relabel a line.
-  - [ ] Set the plot title.
-  - [x] Download a range as a CSV. (lineplot/download_csv.py, abcd.py)
+  - [x] Plot a historical range of data. (plot/line_plot.py)
+  - [x] Plot a live range of data. (plot/line_plot.py)
+  - [x] Move channels between axes. (plot/line_plot.py)
+  - [x] Adjust the line thickness. (plot/line_plot.py)
+  - [x] Relabel a line. (plot/line_plot.py)
+  - [x] Set the plot title. (plot/line_plot.py)
+  - [x] Download a range as a CSV. (plot/line_plot.py)
   - [ ] Create a range from line plot selection.
   - [ ] Use the measuring tool on the line plot.
-  - [ ] Rename a line plot from its tab title.
+  - [x] Rename a line plot from its tab title. (plot/line_plot.py)
   - [ ] Export a line plot.
   - [ ] Copy a link to a line plot.
   - [ ] Download a line plot as a CSV from the toolbar.
@@ -322,7 +322,7 @@ I can successfully:
   - [x] Cannot register new users or assign roles. (role_engineer_permissions.py)
 
 - **As an Operator:**
-  - [ ] Can actuate valves on a schematic.
+  - [x] Can actuate valves on a schematic. (simple_press_valves.py)
   - [x] Cannot create or edit schematics. (role_operator_permissions.py)
 
 - **As a Viewer:**

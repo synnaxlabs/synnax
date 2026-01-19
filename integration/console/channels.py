@@ -276,7 +276,7 @@ class ChannelClient:
         self.page.wait_for_timeout(200)
 
         # Click "Group" option - this creates a folder in the toolbar
-        self.page.get_by_text("Group", exact=True).first.click()
+        self.page.get_by_text("Group Selection", exact=True).first.click()
         self.page.wait_for_timeout(500)
 
         # A folder is created with an inline editable name - look for the input

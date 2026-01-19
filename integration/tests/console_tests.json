@@ -13,16 +13,13 @@
           "case": "console/schematic/edit_props"
         },
         {
-          "case": "console/lineplot/download_csv"
-        },
-        {
-          "case": "console/lineplot/plot_context_menu"
-        },
-        {
           "case": "console/pages/open_close"
         },
         {
           "case": "console/channel/channel_operations"
+        },
+        {
+          "case": "console/plot/line_plot"
         },
         {
           "case": "console/label/label_lifecycle"

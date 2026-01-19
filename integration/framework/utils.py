@@ -15,6 +15,15 @@ import subprocess
 import sys
 from typing import Any
 
+# Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
+RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
+
+
+def get_results_path(filename: str) -> str:
+    """Get the full path for a results file, ensuring the directory exists."""
+    os.makedirs(RESULTS_DIR, exist_ok=True)
+    return os.path.join(RESULTS_DIR, filename)
+
 # SY-2920: Websocket Error handling improvements
 WEBSOCKET_ERROR_PATTERNS = [
     "1011",
