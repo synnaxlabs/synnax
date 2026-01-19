@@ -9,17 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-layout-selector__frame {
-    container-type: size;
-    & .pluto-btn {
-        width: 100px;
-    }
+.console-arc-editor__controls {
+    max-width: 700px;
+    width: 100%;
+    padding: 2rem;
+    position: absolute;
+    bottom: 2rem;
+    right: 2rem;
+    box-shadow: var(--pluto-shadow-v2);
 
-    .console-layout-selector__items {
-        max-width: 500px;
-
-        & .pluto-btn {
-            flex-basis: 185px;
-        }
+    & .console-rack-select {
+        min-width: 225px;
     }
 }

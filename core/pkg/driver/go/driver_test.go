@@ -10,8 +10,10 @@
 package godriver_test
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
@@ -28,8 +30,46 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+type mockFactory struct {
+	configureFunc func(t task.Task) (godriver.Task, bool, error)
+	name          string
+}
+
+func (f *mockFactory) ConfigureTask(_ godriver.Context, t task.Task) (godriver.Task, bool, error) {
+	if f.configureFunc != nil {
+		return f.configureFunc(t)
+	}
+	return nil, false, nil
+}
+
+func (f *mockFactory) Name() string { return f.name }
+
+type mockTask struct {
+	execFunc func(cmd task.Command) error
+	stopFunc func() error
+	key      task.Key
+}
+
+func (t *mockTask) Exec(_ context.Context, cmd task.Command) error {
+	if t.execFunc != nil {
+		return t.execFunc(cmd)
+	}
+	return nil
+}
+
+func (t *mockTask) Stop(_ context.Context, _ bool) error {
+	if t.stopFunc != nil {
+		return t.stopFunc()
+	}
+	return nil
+}
+
+func (t *mockTask) Key() task.Key { return t.key }
 
 var _ = Describe("Config", Ordered, func() {
 	var (
@@ -66,6 +106,7 @@ var _ = Describe("Config", Ordered, func() {
 			}),
 		)
 		factory = &mockFactory{name: "test"}
+		ShouldNotLeakGoroutines()
 
 		DeferCleanup(func() {
 			Expect(db.Close()).To(Succeed())
@@ -509,6 +550,114 @@ var _ = Describe("Driver", Ordered, func() {
 			driver := openDriver(&mockFactory{name: "test"})
 			Expect(driver.Close()).To(Succeed())
 			Expect(driver.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Heartbeat", func() {
+		It("should send periodic status updates", func() {
+			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+				DB:                dist.DB,
+				Rack:              rackService,
+				Task:              taskService,
+				Framer:            framerSvc,
+				Channel:           channelSvc,
+				Status:            statusSvc,
+				Factory:           &mockFactory{name: "test"},
+				Host:              hostProvider,
+				HeartbeatInterval: 50 * time.Millisecond,
+			}))
+			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
+
+			statusKey := rack.OntologyID(driver.RackKey()).String()
+			Eventually(func(g Gomega) {
+				var statuses []status.Status[any]
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+					WhereKeys(statusKey).
+					Entries(&statuses).
+					Exec(ctx, dist.DB)).To(Succeed())
+				g.Expect(statuses).To(HaveLen(1))
+				g.Expect(statuses[0].Variant).To(Equal(xstatus.VariantSuccess))
+			}).Should(Succeed())
+		})
+
+		It("should use the configured heartbeat interval", func() {
+			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+				DB:                dist.DB,
+				Rack:              rackService,
+				Task:              taskService,
+				Framer:            framerSvc,
+				Channel:           channelSvc,
+				Status:            statusSvc,
+				Factory:           &mockFactory{name: "test"},
+				Host:              hostProvider,
+				HeartbeatInterval: 25 * time.Millisecond,
+			}))
+			DeferCleanup(func() { Expect(driver.Close()).To(Succeed()) })
+
+			statusKey := rack.OntologyID(driver.RackKey()).String()
+			var firstTime telem.TimeStamp
+			Eventually(func(g Gomega) {
+				var statuses []status.Status[any]
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+					WhereKeys(statusKey).
+					Entries(&statuses).
+					Exec(ctx, dist.DB)).To(Succeed())
+				g.Expect(statuses).To(HaveLen(1))
+				firstTime = statuses[0].Time
+			}).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				var statuses []status.Status[any]
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+					WhereKeys(statusKey).
+					Entries(&statuses).
+					Exec(ctx, dist.DB)).To(Succeed())
+				g.Expect(statuses).To(HaveLen(1))
+				g.Expect(statuses[0].Time).To(BeNumerically(">", firstTime))
+			}).Should(Succeed())
+		})
+
+		It("should stop heartbeat when driver is closed", func() {
+			driver := MustSucceed(godriver.Open(ctx, godriver.Config{
+				DB:                dist.DB,
+				Rack:              rackService,
+				Task:              taskService,
+				Framer:            framerSvc,
+				Channel:           channelSvc,
+				Status:            statusSvc,
+				Factory:           &mockFactory{name: "test"},
+				Host:              hostProvider,
+				HeartbeatInterval: 25 * time.Millisecond,
+			}))
+
+			statusKey := rack.OntologyID(driver.RackKey()).String()
+			Eventually(func(g Gomega) {
+				var statuses []status.Status[any]
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+					WhereKeys(statusKey).
+					Entries(&statuses).
+					Exec(ctx, dist.DB)).To(Succeed())
+				g.Expect(statuses).To(HaveLen(1))
+			}).Should(Succeed())
+
+			Expect(driver.Close()).To(Succeed())
+
+			var lastTime telem.TimeStamp
+			var statuses []status.Status[any]
+			Expect(gorp.NewRetrieve[string, status.Status[any]]().
+				WhereKeys(statusKey).
+				Entries(&statuses).
+				Exec(ctx, dist.DB)).To(Succeed())
+			lastTime = statuses[0].Time
+
+			Consistently(func(g Gomega) {
+				var statuses []status.Status[any]
+				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
+					WhereKeys(statusKey).
+					Entries(&statuses).
+					Exec(ctx, dist.DB)).To(Succeed())
+				g.Expect(statuses[0].Time).To(Equal(lastTime))
+			}, "100ms", "25ms").Should(Succeed())
 		})
 	})
 })

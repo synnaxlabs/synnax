@@ -25,9 +25,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -47,6 +47,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Task is used for deleting tasks associated with arcs when arcs are deleted.
+	//
+	// [OPTIONAL] - If nil, child tasks will not be deleted when arcs are deleted.
+	Task *task.Service
 	// Signals is used for propagating changes to arcs through the cluster.
 	//
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
@@ -69,6 +73,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Task = override.Nil(c.Task, other.Task)
 	return c
 }
 
@@ -116,9 +121,9 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 	return types.ToTelem(dataType), nil
 }
 
-// GetModule retrieves an Arc program by key and compiles its Module.
+// CompileModule retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
-func (s *Service) GetModule(ctx context.Context, key uuid.UUID) (Arc, error) {
+func (s *Service) CompileModule(ctx context.Context, key uuid.UUID) (Arc, error) {
 	var prog Arc
 	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
 		return Arc{}, err
@@ -139,20 +144,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	var (
-		closer xio.MultiCloser
-		s      = &Service{cfg: cfg}
-	)
+	var s = &Service{cfg: cfg}
 	s.symbolResolver = symbol.CreateResolver(cfg.Channel)
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
-		stopSignals, err := signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
+		s.closer, err = signals.PublishFromGorp(ctx, s.cfg.Signals, signals.GorpPublisherConfigUUID[Arc](cfg.DB))
 		if err != nil {
 			return nil, err
 		}
-		closer = append(closer, stopSignals)
 	}
-	s.closer = closer
 	return s, nil
 }
 
@@ -160,10 +160,14 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer will
 // execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{
+	w := Writer{
 		tx:  gorp.OverrideTx(s.cfg.DB, tx),
 		otg: s.cfg.Ontology.NewWriter(tx),
 	}
+	if s.cfg.Task != nil {
+		w.task = s.cfg.Task.NewWriter(tx)
+	}
+	return w
 }
 
 // NewRetrieve opens a new query builder for retrieving arcs from Synnax.

@@ -300,6 +300,17 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return nil
 	}
 
+	var arcTaskFactory godriver.Factory
+	arcTaskFactory, err = arcruntime.NewFactory(arcruntime.FactoryConfig{
+		Channel:   distributionLayer.Channel,
+		Framer:    distributionLayer.Framer,
+		Status:    serviceLayer.Status,
+		GetModule: serviceLayer.Arc.CompileModule,
+	})
+	if !ok(err, nil) {
+		return err
+	}
+
 	driverIns := cfg.Child("driver")
 	if embeddedDriver, err = driver.Open(
 		ctx,
@@ -312,13 +323,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				Framer:          distributionLayer.Framer,
 				Channel:         distributionLayer.Channel,
 				Status:          serviceLayer.Status,
-				Factory: arcruntime.NewFactory(arcruntime.FactoryConfig{
-					Channel:   distributionLayer.Channel,
-					Framer:    distributionLayer.Framer,
-					Status:    serviceLayer.Status,
-					GetModule: serviceLayer.Arc.GetModule,
-				}),
-				Host: distributionLayer.Cluster,
+				Factory:         arcTaskFactory,
+				Host:            distributionLayer.Cluster,
 			},
 			CPP: cppdriver.Config{
 				Enabled:             config.Bool(!*cfg.noDriver),

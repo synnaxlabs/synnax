@@ -49,8 +49,7 @@ export type Params = Key | Key[];
 
 export const modeZ = z
   .enum(["graph", "text"])
-  .or(z.literal(""))
-  .transform((v) => v || "graph");
+  .or(z.literal("").transform<"graph">(() => "graph"));
 export type Mode = z.infer<typeof modeZ>;
 
 export const arcZ = z.object({

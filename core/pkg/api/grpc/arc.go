@@ -241,7 +241,7 @@ func translateArcForward(msg api.Arc, _ int) (*gapi.Arc, error) {
 		Text:    textPb,
 		Module:  modulePb,
 		Version: msg.Version,
-		Mode:    msg.Mode,
+		Mode:    string(msg.Mode),
 	}, nil
 }
 
@@ -278,7 +278,7 @@ func translateArcBackward(msg *gapi.Arc, _ int) (api.Arc, error) {
 			Text:    textGo,
 			Module:  moduleGo,
 			Version: msg.Version,
-			Mode:    mode,
+			Mode:    arc.Mode(mode),
 		},
 	}, nil
 }

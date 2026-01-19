@@ -73,7 +73,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	newFactory := func(g graph.Graph) *runtime.Factory {
-		return runtime.NewFactory(runtime.FactoryConfig{
+		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 			Channel: dist.Channel,
 			Framer:  dist.Framer,
 			Status:  statusSvc,
@@ -82,7 +82,7 @@ var _ = Describe("Task", Ordered, func() {
 				module := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(resolver)))
 				return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: module}, nil
 			},
-		})
+		}))
 	}
 
 	newTask := func(factory *runtime.Factory) godriver.Task {
@@ -93,9 +93,7 @@ var _ = Describe("Task", Ordered, func() {
 			Type:   runtime.TaskType,
 			Config: string(cfgJSON),
 		}
-		t, handled, err := factory.ConfigureTask(newContext(), svcTask)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(handled).To(BeTrue())
+		t := MustBeOk(MustSucceed2(factory.ConfigureTask(newContext(), svcTask)))
 		return t
 	}
 
@@ -107,19 +105,18 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return false for non-arc task types", func() {
-			factory := runtime.NewFactory(runtime.FactoryConfig{
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
 				Status:    statusSvc,
 				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
-			})
+			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   "not-arc",
 				Config: "{}",
 			}
-			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).ToNot(HaveOccurred())
+			t, handled := MustSucceed2(factory.ConfigureTask(newContext(), svcTask))
 			Expect(handled).To(BeFalse())
 			Expect(t).To(BeNil())
 		})
@@ -127,38 +124,37 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create Task for arc type", func() {
 			ch := &channel.Channel{Name: "factory_test_ch", Virtual: true, DataType: telem.Float32T}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
-
 			t := newTask(newFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
 
 		It("Should return error for invalid config JSON", func() {
-			factory := runtime.NewFactory(runtime.FactoryConfig{
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
 				Status:    statusSvc,
 				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
-			})
+			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   runtime.TaskType,
 				Config: "invalid json",
 			}
-			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(HaveOccurred())
-			Expect(handled).To(BeTrue())
-			Expect(t).To(BeNil())
+			task, ok, err := factory.ConfigureTask(newContext(), svcTask)
+			Expect(err).To(MatchError(ContainSubstring("invalid character 'i'")))
+			Expect(ok).To(BeTrue())
+			Expect(task).To(BeNil())
 		})
 
-		It("Should return error when GetModule fails", func() {
-			factory := runtime.NewFactory(runtime.FactoryConfig{
+		It("Should return error when CompileModule fails", func() {
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel: dist.Channel,
 				Framer:  dist.Framer,
 				Status:  statusSvc,
 				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
 					return svcarc.Arc{}, errors.New("module not found")
 				},
-			})
+			}))
 			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -166,8 +162,7 @@ var _ = Describe("Task", Ordered, func() {
 				Config: string(cfgJSON),
 			}
 			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("module not found"))
+			Expect(err).To(MatchError(ContainSubstring("module not found")))
 			Expect(handled).To(BeTrue())
 			Expect(t).To(BeNil())
 		})
@@ -188,7 +183,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		AfterEach(func() {
 			if arcTask != nil {
-				_ = arcTask.Stop(ctx, false)
+				Expect(arcTask.Stop(ctx, false)).To(Succeed())
 			}
 		})
 
@@ -242,12 +237,30 @@ var _ = Describe("Task", Ordered, func() {
 					}},
 				},
 				Edges: []graph.Edge{
-					{Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "ge", Param: ir.LHSInputParam}},
-					{Source: graph.Handle{Node: "constant", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "ge", Param: ir.RHSInputParam}},
-					{Source: graph.Handle{Node: "ge", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "stable_for", Param: ir.DefaultInputParam}},
-					{Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "select", Param: ir.DefaultOutputParam}},
-					{Source: graph.Handle{Node: "select", Param: "false"}, Target: graph.Handle{Node: "status_success", Param: ir.DefaultOutputParam}},
-					{Source: graph.Handle{Node: "select", Param: "true"}, Target: graph.Handle{Node: "status_error", Param: ir.DefaultOutputParam}},
+					{
+						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: graph.Handle{Node: "ge", Param: ir.LHSInputParam},
+					},
+					{
+						Source: graph.Handle{Node: "constant", Param: ir.DefaultOutputParam},
+						Target: graph.Handle{Node: "ge", Param: ir.RHSInputParam},
+					},
+					{
+						Source: graph.Handle{Node: "ge", Param: ir.DefaultOutputParam},
+						Target: graph.Handle{Node: "stable_for", Param: ir.DefaultInputParam},
+					},
+					{
+						Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
+						Target: graph.Handle{Node: "select", Param: ir.DefaultOutputParam},
+					},
+					{
+						Source: graph.Handle{Node: "select", Param: "false"},
+						Target: graph.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
+					},
+					{
+						Source: graph.Handle{Node: "select", Param: "true"},
+						Target: graph.Handle{Node: "status_error", Param: ir.DefaultOutputParam},
+					},
 				},
 			}
 
@@ -265,7 +278,6 @@ var _ = Describe("Task", Ordered, func() {
 			time.Sleep(20 * time.Millisecond)
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
-
 			Eventually(func(g Gomega) {
 				var stat status.Status[svcarc.StatusDetails]
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).

@@ -36,13 +36,16 @@ struct TaskConfig {
     module::Module module;
     /// @brief execution loop configuration.
     runtime::loop::Config loop_config;
+    /// @brief whether to auto-start the task after configuration.
+    bool auto_start = false;
 
     TaskConfig() = default;
 
     TaskConfig(TaskConfig &&other) noexcept:
         arc_key(std::move(other.arc_key)),
         module(std::move(other.module)),
-        loop_config(std::move(other.loop_config)) {}
+        loop_config(std::move(other.loop_config)),
+        auto_start(other.auto_start) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -62,7 +65,10 @@ struct TaskConfig {
 
         cfg.module = module::Module(arc_data.module);
 
-        const auto mode_str = parser.field<std::string>("execution_mode", "HIGH_RATE");
+        const auto mode_str = parser.field<std::string>(
+            "execution_mode",
+            "EVENT_DRIVEN"
+        );
         auto mode = runtime::loop::ExecutionMode::HIGH_RATE;
         if (mode_str == "BUSY_WAIT") {
             mode = runtime::loop::ExecutionMode::BUSY_WAIT;
@@ -91,7 +97,7 @@ struct TaskConfig {
             .rt_priority = parser.field<int>("rt_priority", 47),
             .cpu_affinity = parser.field<int>("cpu_affinity", -1),
         };
-
+        cfg.auto_start = parser.field<bool>("auto_start", false);
         return {std::move(cfg), xerrors::NIL};
     }
 };

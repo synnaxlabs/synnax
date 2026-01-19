@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { arc, createTestClient, task } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -398,6 +399,196 @@ describe("Arc queries", () => {
 
       const retrieved = await client.arcs.retrieve({ key: testArc.key });
       expect(retrieved.name).toBe(newName);
+    });
+  });
+
+  describe("useRetrieveTask", () => {
+    it("should return undefined when no task is associated with arc", async () => {
+      const testArc = await client.arcs.create({
+        name: `arc-no-task-${Math.random().toString(36).substring(7)}`,
+        version: "1.0.0",
+        graph: { nodes: [], edges: [] },
+        text: { raw: "" },
+      });
+
+      const { result } = renderHook(
+        () => Arc.useRetrieveTask({ arcKey: testArc.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+
+      expect(result.current.data).toBeUndefined();
+    });
+
+    it("should retrieve task associated with arc", async () => {
+      const testArc = await client.arcs.create({
+        name: `arc-with-task-${Math.random().toString(36).substring(7)}`,
+        version: "1.0.0",
+        graph: { nodes: [], edges: [] },
+        text: { raw: "" },
+      });
+
+      const rack = await client.racks.create({ name: "test-rack" });
+      const testTask = await rack.createTask({
+        name: "arc-task",
+        type: "testType",
+        config: { value: "test" },
+      });
+
+      await client.ontology.addChildren(
+        arc.ontologyID(testArc.key),
+        task.ontologyID(testTask.key),
+      );
+
+      const { result } = renderHook(
+        () => Arc.useRetrieveTask({ arcKey: testArc.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toBeDefined();
+      });
+
+      expect(result.current.data?.key).toEqual(testTask.key);
+      expect(result.current.data?.name).toEqual("arc-task");
+      expect(result.current.data?.config).toEqual({ value: "test" });
+    });
+
+    it("should update when a task is associated with arc", async () => {
+      const testArc = await client.arcs.create({
+        name: `arc-task-add-${Math.random().toString(36).substring(7)}`,
+        version: "1.0.0",
+        graph: { nodes: [], edges: [] },
+        text: { raw: "" },
+      });
+
+      const { result } = renderHook(
+        () => Arc.useRetrieveTask({ arcKey: testArc.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(result.current.data).toBeUndefined();
+
+      const rack = await client.racks.create({ name: "test-rack-add" });
+      const testTask = await rack.createTask({
+        name: "new-arc-task",
+        type: "testType",
+        config: {},
+      });
+
+      await act(async () => {
+        await client.ontology.addChildren(
+          arc.ontologyID(testArc.key),
+          task.ontologyID(testTask.key),
+        );
+      });
+
+      await waitFor(() => {
+        expect(result.current.data).toBeDefined();
+        expect(result.current.data?.key).toEqual(testTask.key);
+      });
+    });
+
+    it("should update when task status changes", async () => {
+      const testArc = await client.arcs.create({
+        name: `arc-status-${Math.random().toString(36).substring(7)}`,
+        version: "1.0.0",
+        graph: { nodes: [], edges: [] },
+        text: { raw: "" },
+      });
+
+      const rack = await client.racks.create({ name: "test-rack-status" });
+      const testTask = await rack.createTask({
+        name: "status-task",
+        type: "testType",
+        config: {},
+      });
+
+      await client.ontology.addChildren(
+        arc.ontologyID(testArc.key),
+        task.ontologyID(testTask.key),
+      );
+
+      const { result } = renderHook(
+        () => Arc.useRetrieveTask({ arcKey: testArc.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toBeDefined();
+      });
+
+      const taskStatus: task.Status = status.create<
+        ReturnType<typeof task.statusDetailsZ>
+      >({
+        key: task.statusKey(testTask.key),
+        variant: "error",
+        message: "Task failed",
+        details: {
+          task: testTask.key,
+          running: false,
+          data: undefined,
+        },
+      });
+
+      await act(async () => {
+        await client.statuses.set(taskStatus);
+      });
+
+      await waitFor(() => {
+        expect(result.current.data?.status?.variant).toEqual("error");
+        expect(result.current.data?.status?.message).toEqual("Task failed");
+      });
+    });
+
+    it("should update when task is renamed", async () => {
+      const testArc = await client.arcs.create({
+        name: `arc-rename-${Math.random().toString(36).substring(7)}`,
+        version: "1.0.0",
+        graph: { nodes: [], edges: [] },
+        text: { raw: "" },
+      });
+
+      const rack = await client.racks.create({ name: "test-rack-rename" });
+      const testTask = await rack.createTask({
+        name: "original-task-name",
+        type: "testType",
+        config: {},
+      });
+
+      await client.ontology.addChildren(
+        arc.ontologyID(testArc.key),
+        task.ontologyID(testTask.key),
+      );
+
+      const { result } = renderHook(
+        () => Arc.useRetrieveTask({ arcKey: testArc.key }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.name).toEqual("original-task-name");
+      });
+
+      await act(async () => {
+        await client.tasks.create({
+          ...testTask.payload,
+          name: "renamed-task-name",
+        });
+      });
+
+      await waitFor(() => {
+        expect(result.current.data?.name).toEqual("renamed-task-name");
+      });
     });
   });
 });

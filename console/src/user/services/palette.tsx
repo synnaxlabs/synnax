@@ -10,16 +10,17 @@
 import { user } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { User } from "@/user";
 
-const REGISTER_USER_COMMAND: Palette.Command = {
-  icon: <Icon.User />,
-  name: "Register a User",
-  key: "register-user",
-  onSelect: ({ placeLayout }) => placeLayout(User.REGISTER_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: user.TYPE_ONTOLOGY_ID, store, client }),
-};
+const useVisible = () => Access.useUpdateGranted(user.TYPE_ONTOLOGY_ID);
 
-export const COMMANDS = [REGISTER_USER_COMMAND];
+export const RegisterCommand = Palette.createSimpleCommand({
+  key: "register-user",
+  name: "Register a User",
+  icon: <Icon.User />,
+  layout: User.REGISTER_LAYOUT,
+  useVisible,
+});
+
+export const COMMANDS = [RegisterCommand];

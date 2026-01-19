@@ -7,132 +7,120 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/arc/editor/Controls.css";
+
 import { arc, type rack, task } from "@synnaxlabs/client";
-import {
-  Arc,
-  Button,
-  Flex,
-  type Flux,
-  Icon,
-  Ontology,
-  Rack,
-  Status,
-  Task,
-} from "@synnaxlabs/pluto";
+import { Arc, Button, Flex, type Flux, Icon, Rack, Status } from "@synnaxlabs/pluto";
+import { primitive, status, TimeStamp } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
+import { useTask } from "@/arc/hooks";
 import { type State } from "@/arc/slice";
 import { translateGraphToServer } from "@/arc/types/translate";
+import { taskConfigZ, taskStatusDataZ, taskTypeZ } from "@/arc/types/v0";
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
 interface ControlsProps {
   state: State;
 }
 
+const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
+  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
+    key: task.statusKey(taskKey),
+    name: "Configuring task",
+    time: TimeStamp.now(),
+    variant: "loading",
+    message: "Configuring task...",
+    details: {
+      task: taskKey,
+      running: false,
+      data: undefined,
+    },
+  });
+
 export const Controls = ({ state }: ControlsProps) => {
   const name = Layout.useSelectRequiredName(state.key);
-  const children = Ontology.useRetrieveChildren({
-    id: arc.ontologyID(state.key),
-    types: ["task"],
-  });
-  const tsk = Task.useRetrieve(
-    { key: children.data?.[0]?.id.key ?? 0 },
-    { addStatusOnFailure: false },
-  );
+  const { running, onStartStop, taskStatus, taskKey } = useTask(state.key);
+  const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   useEffect(() => {
-    if (tsk.data?.key == null) return;
-    setSelectedRack(task.rackKey(tsk.data.key));
-  }, [tsk.data?.key]);
+    if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
+  }, [taskKey]);
   const { update } = Arc.useCreate({
     afterSuccess: useCallback(
       async ({ client, data }: Flux.AfterSuccessParams<arc.Arc, false>) => {
         const { key } = data;
         if (selectedRack == null) return;
-        let taskKey = tsk.data?.key;
-        taskKey ??= task.newKey(selectedRack, 0);
-        const newTsk = await client.tasks.create({
-          key: taskKey,
-          name,
-          type: "arc",
-          config: {
-            arc_key: key,
+        let taskKeyToUse = taskKey;
+        if (!taskKeyDefined) taskKeyToUse = task.newKey(selectedRack, 0);
+        const newTsk = await client.tasks.create(
+          {
+            key: taskKeyToUse,
+            name,
+            type: "arc",
+            config: { arcKey: key },
+            status: configuringStatus(taskKeyToUse),
           },
-        });
-        if (tsk.data?.key == null)
+          {
+            typeSchema: taskTypeZ,
+            configSchema: taskConfigZ,
+            statusDataSchema: taskStatusDataZ,
+          },
+        );
+        if (!taskKeyDefined)
           await client.ontology.addChildren(
             arc.ontologyID(key),
             task.ontologyID(newTsk.key),
           );
-
-        await client.tasks.executeCommand({ task: taskKey, type: "start" });
       },
-      [name, selectedRack, tsk.data?.key],
+      [name, selectedRack, taskKey],
     ),
   });
-  const cmd = Task.useCommand();
-  const handleStop = useCallback(() => {
-    if (tsk.data?.key == null) return;
-    cmd.update([{ task: tsk.data.key, type: "stop" }]);
-  }, [cmd, tsk.data?.key]);
 
-  const isRunning = tsk.data?.status?.details.running ?? false;
-  const handleDeploy = useCallback(() => {
-    if (isRunning) handleStop();
-    else
-      update({
-        name,
-        key: state.key,
-        text: state.text,
-        version: "0.0.0",
-        graph: translateGraphToServer(state.graph),
-        mode: state.mode,
-      });
-  }, [state, update, handleStop, isRunning, name]);
-
+  const handleConfigure = useCallback(() => {
+    update({
+      name,
+      key: state.key,
+      text: state.text,
+      version: "0.0.0",
+      graph: translateGraphToServer(state.graph),
+      mode: state.mode,
+    });
+  }, [state, update, name]);
   return (
     <Flex.Box
-      style={{
-        padding: "2rem",
-        position: "absolute",
-        bottom: 0,
-        right: 0,
-        width: 500,
-      }}
-      justify="end"
+      className={CSS.BE("arc-editor", "controls")}
+      justify="between"
       grow
+      x
+      background={0}
+      borderColor={5}
+      bordered
+      rounded={1}
     >
-      <Flex.Box
-        x
-        background={1}
-        style={{ padding: "2rem" }}
-        bordered
-        borderColor={5}
-        grow
-        rounded={2}
-        justify="between"
-        gap="medium"
-      >
-        <Flex.Box x gap="small" align="center" grow>
-          <Rack.SelectSingle
-            value={selectedRack}
-            onChange={setSelectedRack}
-            allowNone
-            style={{ minWidth: 150 }}
-          />
-          <Status.Summary
-            variant="disabled"
-            message="Not deployed"
-            status={tsk.data?.status}
-          />
-        </Flex.Box>
+      <Status.Summary variant="disabled" message="Not deployed" status={taskStatus} />
+      <Flex.Box x gap="small" align="center">
+        <Rack.SelectSingle
+          className={CSS.B("rack-select")}
+          value={selectedRack}
+          onChange={setSelectedRack}
+          allowNone
+          location="top"
+        />
         <Button.Button
-          onClick={handleDeploy}
+          onClick={handleConfigure}
+          variant="outlined"
+          disabled={selectedRack === undefined}
+        >
+          Configure
+        </Button.Button>
+        <Button.Button
+          onClick={onStartStop}
           variant="filled"
           disabled={selectedRack === undefined}
         >
-          {isRunning ? <Icon.Pause /> : <Icon.Play />}
-          {isRunning ? "Stop" : "Start"}
+          {running ? <Icon.Pause /> : <Icon.Play />}
         </Button.Button>
       </Flex.Box>
     </Flex.Box>
