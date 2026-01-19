@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -27,9 +26,9 @@ export const Editor: Layout.Renderer = ({ layoutKey }) => {
     [layoutKey, dispatch],
   );
   return (
-    <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <BaseEditor value={state.text.raw} onChange={onChange} language="arc" />;
+    <>
+      <BaseEditor value={state.text.raw} onChange={onChange} language="arc" />
       <Controls state={state} />
-    </Flex.Box>
+    </>
   );
 };
