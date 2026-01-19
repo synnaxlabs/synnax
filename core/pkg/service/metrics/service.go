@@ -140,15 +140,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	hostKey := cfg.HostProvider.HostKey().String()
-	nodeGroup, err := cfg.Group.CreateOrRetrieve(
-		ctx, "Node "+hostKey, metricsGroup.OntologyID(),
-	)
-	if err != nil {
-		return nil, err
-	}
 	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
-	nameBase := fmt.Sprintf("sy_node_%s_metrics_", hostKey)
+	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
 	allMetrics := s.buildMetrics()
 	c := &collector{
 		ins:      cfg.Child("collector"),
@@ -180,7 +173,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		}
 		if err := otgWriter.DefineRelationship(
 			ctx,
-			nodeGroup.OntologyID(),
+			metricsGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,
 			c.idx.OntologyID(),
 		); err != nil {
@@ -196,7 +189,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		}
 		if err := otgWriter.DefineFromOneToManyRelationships(
 			ctx,
-			nodeGroup.OntologyID(),
+			metricsGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,
 			channel.OntologyIDsFromChannels(metricChannels),
 		); err != nil {
