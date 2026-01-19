@@ -1343,12 +1343,33 @@ def main() -> None:
         "-d",
         help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
     )
+    parser.add_argument(
+        "--console-profile",
+        action="store_true",
+        help="Enable CPU profiling for Console tests (sets PLAYWRIGHT_CONSOLE_PROFILE=1)",
+    )
+    parser.add_argument(
+        "--console-trace",
+        action="store_true",
+        help="Enable Playwright tracing for Console tests (sets PLAYWRIGHT_CONSOLE_TRACE=1)",
+    )
+    parser.add_argument(
+        "--console-heap",
+        action="store_true",
+        help="Enable heap snapshots for Console tests (sets PLAYWRIGHT_CONSOLE_HEAP=1)",
+    )
 
     args = parser.parse_args()
 
     os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
     if args.driver:
         os.environ["SYNNAX_DRIVER_RACK"] = args.driver
+    if args.console_profile:
+        os.environ["PLAYWRIGHT_CONSOLE_PROFILE"] = "1"
+    if args.console_trace:
+        os.environ["PLAYWRIGHT_CONSOLE_TRACE"] = "1"
+    if args.console_heap:
+        os.environ["PLAYWRIGHT_CONSOLE_HEAP"] = "1"
 
     # Create connection object
     connection = SynnaxConnection(
