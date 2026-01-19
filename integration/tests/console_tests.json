@@ -16,10 +16,22 @@
           "case": "console/lineplot/download_csv"
         },
         {
+          "case": "console/lineplot/plot_context_menu"
+        },
+        {
           "case": "console/pages/open_close"
         },
         {
           "case": "console/channel/channel_operations"
+        },
+        {
+          "case": "console/label/label_lifecycle"
+        },
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
         }
       ]
     },
