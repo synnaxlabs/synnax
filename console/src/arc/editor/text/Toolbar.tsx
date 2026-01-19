@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon } from "@synnaxlabs/pluto";
+import { Breadcrumb, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useExport } from "@/arc/export";
@@ -25,20 +25,25 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const handleExport = useExport();
   return (
-    <Base.Header>
-      <Breadcrumb.Breadcrumb level="h5">
-        <Breadcrumb.Segment weight={500} color={10} level="h5">
-          <Icon.Arc />
-          {name}
-        </Breadcrumb.Segment>
-      </Breadcrumb.Breadcrumb>
-      <Flex.Box x align="center" empty style={{ height: "100%", width: 66 }}>
-        <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
-        <Cluster.CopyLinkToolbarButton
-          name={name}
-          ontologyID={arc.ontologyID(layoutKey)}
-        />
+    <>
+      <Base.Header>
+        <Breadcrumb.Breadcrumb level="h5">
+          <Breadcrumb.Segment weight={500} color={10} level="h5">
+            <Icon.Arc />
+            {name}
+          </Breadcrumb.Segment>
+        </Breadcrumb.Breadcrumb>
+        <Flex.Box x align="center" empty style={{ height: "100%", width: 66 }}>
+          <Export.ToolbarButton onExport={() => void handleExport(layoutKey)} />
+          <Cluster.CopyLinkToolbarButton
+            name={name}
+            ontologyID={arc.ontologyID(layoutKey)}
+          />
+        </Flex.Box>
+      </Base.Header>
+      <Flex.Box center>
+        <Text.Text status="disabled">No Content</Text.Text>
       </Flex.Box>
-    </Base.Header>
+    </>
   );
 };

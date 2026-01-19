@@ -13,6 +13,7 @@ import { arc, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
   Arc,
+  Button,
   Flex,
   type Flux,
   Icon,
@@ -27,6 +28,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Editor } from "@/arc/editor";
+import { useTask } from "@/arc/hooks";
 import { remove } from "@/arc/slice";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Menu, Toolbar } from "@/components";
@@ -206,9 +208,14 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const { running, onStartStop, taskStatus: status } = useTask(itemKey);
   return (
     <Select.ListItem {...rest} justify="between" align="center">
       <Flex.Box y gap="small" grow className={CSS.BE("arc", "metadata")}>
+        <Status.Indicator
+          variant={status.variant}
+          style={{ fontSize: "2rem", minWidth: "2rem" }}
+        />
         <Flex.Box x align="center" gap="small">
           <Text.MaybeEditable
             id={`text-${itemKey}`}
@@ -220,6 +227,13 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
           />
         </Flex.Box>
       </Flex.Box>
+      <Button.Button
+        variant="outlined"
+        onClick={onStartStop}
+        tooltip={`${running ? "Stop" : "Start"} ${arcItem?.name ?? ""}`}
+      >
+        {running ? <Icon.Pause /> : <Icon.Play />}
+      </Button.Button>
     </Select.ListItem>
   );
 };

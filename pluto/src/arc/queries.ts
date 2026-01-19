@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError, ontology, type task } from "@synnaxlabs/client";
+import { arc, ontology, task } from "@synnaxlabs/client";
 import { primitive } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -147,27 +147,6 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const arc = await client.arcs.create(data);
-    try {
-      const task = await client.tasks.retrieve({ name: arc.key });
-      await client.tasks.create({
-        ...task.payload,
-        config: {
-          arcKey: arc.key,
-        },
-      });
-    } catch (error) {
-      if (NotFoundError.matches(error)) {
-        const rack = await client.racks.retrieve({ key: 65538 });
-        await rack.createTask({
-          name: arc.key,
-          type: "arc",
-          config: {
-            arcKey: arc.key,
-          },
-        });
-      }
-    }
-
     rollbacks.push(store.arcs.set(arc));
     return arc;
   },
@@ -215,25 +194,25 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
 >({
   name: "Task",
   retrieve: async ({ client, query, store }) => {
+    const arcOntologyID = arc.ontologyID(query.arcKey);
     const cachedChild = store.relationships.get((r) =>
       ontology.matchRelationship(r, {
-        from: arc.ontologyID(query.arcKey),
-        type: "child",
+        from: arcOntologyID,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: { type: "task" },
       }),
     )[0];
+
     let taskKey = cachedChild?.to.key;
+
     if (taskKey == null) {
-      const children = await client.ontology.retrieveChildren(
-        arc.ontologyID(query.arcKey),
-        {
-          types: ["task"],
-        },
-      );
+      const children = await client.ontology.retrieveChildren(arcOntologyID, {
+        types: ["task"],
+      });
       children.forEach((c) => {
-        const rel = {
-          from: arc.ontologyID(query.arcKey),
-          type: "child",
+        const rel: ontology.Relationship = {
+          from: arcOntologyID,
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
           to: c.id,
         };
         store.relationships.set(ontology.relationshipToString(rel), rel);
@@ -241,14 +220,78 @@ export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
       if (children.length === 0) return undefined;
       taskKey = children[0].id.key;
     }
+
     return await Task.retrieveSingle({
       store,
       client,
-      query: { key: cachedChild.to.key },
+      query: { key: taskKey },
     });
   },
-  mountListeners: ({ store, query, onChange }) => {
+  mountListeners: ({ store, query, onChange, client }) => {
     if (!("arcKey" in query) || primitive.isZero(query.arcKey)) return [];
-    return [store.tasks.onSet(onChange, query.arcKey)];
+    const arcOntologyID = arc.ontologyID(query.arcKey);
+
+    return [
+      store.relationships.onSet(async (rel) => {
+        const isTaskChild = ontology.matchRelationship(rel, {
+          from: arcOntologyID,
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: { type: "task" },
+        });
+        if (!isTaskChild) return;
+        const tsk = await Task.retrieveSingle({
+          store,
+          client,
+          query: { key: rel.to.key },
+        });
+        onChange(tsk);
+      }),
+
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        const isTaskChild = ontology.matchRelationship(rel, {
+          from: arcOntologyID,
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: { type: "task" },
+        });
+        if (!isTaskChild) return;
+        onChange(undefined);
+      }),
+
+      store.tasks.onSet(async (tsk) => {
+        const isChild =
+          store.relationships.get((r) =>
+            ontology.matchRelationship(r, {
+              from: arcOntologyID,
+              type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+              to: task.ontologyID(tsk.key),
+            }),
+          ).length > 0;
+        if (isChild)
+          onChange((prev) => {
+            if (prev == null) return tsk as task.Task;
+            return client.tasks.sugar({ ...tsk.payload, status: prev.status });
+          });
+      }),
+
+      store.statuses.onSet(async (status) => {
+        const cachedRel = store.relationships.get((r) =>
+          ontology.matchRelationship(r, {
+            from: arcOntologyID,
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            to: { type: "task" },
+          }),
+        )[0];
+        if (cachedRel == null) return;
+        const taskStatusKey = task.statusKey(cachedRel.to.key);
+        if (status.key !== taskStatusKey) return;
+        const parsed = task.statusZ(z.null().or(z.undefined())).safeParse(status);
+        if (!parsed.success) return;
+        onChange((prev) => {
+          if (prev == null) return prev;
+          return client.tasks.sugar({ ...prev.payload, status: parsed.data });
+        });
+      }),
+    ];
   },
 });

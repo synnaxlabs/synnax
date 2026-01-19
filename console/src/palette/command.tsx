@@ -220,7 +220,9 @@ export const useCommandList = (): UseListReturn<Command> => {
   );
 
   const handleSelect = useCallback((key: string) => {
-    (document.querySelector(`[data-command-key="${key}"]`) as HTMLElement)?.click();
+    const element = document.querySelector(`[data-command-key="${key}"]`);
+    if (element == null || !(element instanceof HTMLElement)) return;
+    element.click();
   }, []);
 
   const listItem = useMemo(

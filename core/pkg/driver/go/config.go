@@ -10,6 +10,8 @@
 package godriver
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -40,12 +42,14 @@ type Config struct {
 	Channel *channel.Service
 	// Status is the status service for task status updates.
 	Status *status.Service
+	// HeartbeatInterval is the interval at which the driver reports its health.
+	HeartbeatInterval time.Duration
 	alamos.Instrumentation
 }
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	DefaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
 )
 
 // Override implements config.Config.
@@ -59,6 +63,7 @@ func (c Config) Override(other Config) Config {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Factory = override.Nil(c.Factory, other.Factory)
 	c.Host = override.Nil(c.Host, other.Host)
+	c.HeartbeatInterval = override.Numeric(c.HeartbeatInterval, other.HeartbeatInterval)
 	return c
 }
 

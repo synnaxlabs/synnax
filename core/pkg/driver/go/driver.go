@@ -15,25 +15,31 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
 // Driver is the Go task executor that handles task lifecycle and command processing.
 type Driver struct {
 	cfg                Config
-	shutdown           io.Closer
+	shutdownCommands   io.Closer
+	shutdownHeartbeat  io.Closer
 	disconnectObserver observe.Disconnect
 	streamerRequests   confluence.Inlet[framer.StreamerRequest]
 	rack               rack.Rack
@@ -69,19 +75,42 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	}
 	cfg.L.Info("created go driver rack", zap.Stringer("key", d.rack.Key))
 
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	d.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
+	d.startHeartbeat(ctx)
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
-	if err = d.setupCommandStreaming(ctx, sCtx); err != nil {
+	if err = d.startCommandStreaming(ctx); err != nil {
 		return d, nil
 	}
 	return d, nil
 }
 
-// setupCommandStreaming initializes the command channel streamer. This is optional
+func (d *Driver) startHeartbeat(ctx context.Context) {
+	statusWriter := status.NewWriter[rack.StatusDetails](d.cfg.Status, nil)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
+	d.shutdownHeartbeat = signal.NewHardShutdown(sCtx, cancel)
+	signal.GoTick(
+		sCtx,
+		d.cfg.HeartbeatInterval,
+		func(ctx context.Context, _ time.Time) error {
+			if err := statusWriter.Set(ctx, &rack.Status{
+				Key:     rack.StatusKey(d.rack.Key),
+				Name:    d.rack.Name,
+				Time:    telem.Now(),
+				Variant: xstatus.VariantSuccess,
+				Message: "Driver is running",
+				Details: rack.StatusDetails{Rack: d.rack.Key},
+			}); err != nil {
+				d.cfg.L.Error("failed to update rack status", zap.Error(err))
+			}
+			return nil
+		})
+}
+
+// startCommandStreaming initializes the command channel streamer. This is optional
 // and will log warnings if the command channel doesn't exist or streaming fails.
-func (d *Driver) setupCommandStreaming(ctx context.Context, sCtx signal.Context) error {
+func (d *Driver) startCommandStreaming(ctx context.Context) error {
+	sCtx, cancel := signal.WithCancel(ctx, signal.WithInstrumentation(d.cfg.Instrumentation))
+	d.shutdownCommands = signal.NewGracefulShutdown(sCtx, cancel)
 	streamer, err := d.cfg.Framer.NewStreamer(ctx, framer.StreamerConfig{
 		Keys: channel.Keys{d.cfg.Task.CommandChannelKey()},
 	})
@@ -221,5 +250,6 @@ func (d *Driver) Close() error {
 	if d.streamerRequests != nil {
 		d.streamerRequests.Close()
 	}
-	return d.shutdown.Close()
+	heartbeatErr := d.shutdownHeartbeat.Close()
+	return errors.Combine(d.shutdownCommands.Close(), heartbeatErr)
 }

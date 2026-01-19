@@ -86,8 +86,6 @@ type Rack struct {
 	// Embedded sets whether the rack is built-in to the Synnax node, or it is an
 	// external rack.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
-	// Internal marks the rack as non-visible to end users.
-	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 var _ gorp.Entry[Key] = Rack{}
@@ -104,4 +102,8 @@ func (r Rack) Validate() error {
 	validate.NonZero(v, "key", r.Key)
 	validate.NotEmptyString(v, "name", r.Name)
 	return v.Error()
+}
+
+func StatusKey(k Key) string {
+	return OntologyID(k).String()
 }
