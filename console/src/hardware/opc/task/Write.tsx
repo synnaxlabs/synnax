@@ -24,7 +24,7 @@ import {
   type writeTypeZ,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/opc/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -33,12 +33,11 @@ export const WRITE_LAYOUT: Common.Task.Layout = {
   icon: "Logo.OPC",
 };
 
-export const WRITE_SELECTABLE: Selector.Selectable = {
-  key: WRITE_TYPE,
+export const WriteSelectable = Selector.createSimpleItem({
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
-};
+  layout: WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>
