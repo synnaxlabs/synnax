@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Context provides shared services to tasks, similar to task::Context in C++.
@@ -27,5 +28,8 @@ func NewContext(ctx context.Context, statusSvc *status.Service) Context {
 }
 
 func (c Context) SetStatus(stat task.Status) error {
+	if stat.Time == 0 {
+		stat.Time = telem.Now()
+	}
 	return status.NewWriter[task.StatusDetails](c.status, nil).Set(c.Context, &stat)
 }

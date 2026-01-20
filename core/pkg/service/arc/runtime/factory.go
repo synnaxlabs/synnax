@@ -23,7 +23,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // TaskType is the type identifier for Arc tasks.
@@ -107,14 +110,45 @@ func (f *Factory) ConfigureTask(
 	}
 	var cfg TaskConfig
 	if err := json.Unmarshal([]byte(t.Config), &cfg); err != nil {
+		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, true, err
 	}
 	prog, err := f.cfg.GetModule(ctx, cfg.ArcKey)
 	if err != nil {
+		f.setConfigStatus(ctx, t, xstatus.VariantError, err.Error())
 		return nil, true, err
 	}
 	arcTask := newTask(t, prog, cfg, ctx, f.cfg)
+	if cfg.AutoStart {
+		if err := arcTask.Exec(ctx, task.Command{Type: "start"}); err != nil {
+			return arcTask, true, err
+		}
+	} else {
+		f.setConfigStatus(ctx, t, xstatus.VariantSuccess, "Task configured successfully")
+	}
 	return arcTask, true, nil
+}
+
+func (f *Factory) setConfigStatus(ctx driver.Context, t task.Task, variant xstatus.Variant, message string) {
+	stat := task.Status{
+		Key:     task.OntologyID(t.Key).String(),
+		Name:    t.Name,
+		Variant: variant,
+		Message: message,
+		Time:    telem.Now(),
+		Details: task.StatusDetails{
+			Task:    t.Key,
+			Running: false,
+		},
+	}
+	if err := ctx.SetStatus(stat); err != nil {
+		f.cfg.L.Error(
+			"failed to set configuration status for task",
+			zap.Uint64("key", uint64(t.Key)),
+			zap.String("name", t.Name),
+			zap.Error(err),
+		)
+	}
 }
 
 // Name returns the factory name.

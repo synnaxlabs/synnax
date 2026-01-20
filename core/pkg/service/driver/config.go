@@ -42,9 +42,9 @@ type Config struct {
 	Channel *channel.Service
 	// Status is the status service for task status updates.
 	Status *status.Service
-	alamos.Instrumentation
 	// HeartbeatInterval is the interval at which the driver reports its health.
 	HeartbeatInterval time.Duration
+	alamos.Instrumentation
 }
 
 var (
@@ -52,7 +52,6 @@ var (
 	DefaultConfig                       = Config{HeartbeatInterval: 1 * time.Second}
 )
 
-// Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -66,16 +67,24 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d := &Driver{cfg: cfg}
 	d.mu.tasks = make(map[task.Key]Task)
 
-	d.rack = rack.Rack{
-		Name:     fmt.Sprintf("Node %d", cfg.Host.HostKey()),
-		Embedded: true,
-	}
-	if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
+	if err = cfg.Rack.NewRetrieve().
+		WhereEmbedded(true).
+		WhereNames(fmt.Sprintf("Node %s", cfg.Host.HostKey())).
+		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
+		d.rack = rack.Rack{
+			Name:     fmt.Sprintf("Node %d", cfg.Host.HostKey()),
+			Embedded: true,
+		}
+		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
+			return nil, err
+		}
+	} else if err != nil {
 		return nil, err
 	}
 	cfg.L.Info("created go driver rack", zap.Stringer("key", d.rack.Key))
 
 	d.startHeartbeat()
+	go d.configureInitialTasks(ctx)
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
@@ -173,6 +182,22 @@ func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task
 				d.delete(ctx, ch.Key)
 			}
 		}
+	}
+}
+
+func (d *Driver) configureInitialTasks(ctx context.Context) {
+	var tasks []task.Task
+	if err := d.cfg.Task.NewRetrieve().
+		WhereRacks(d.rack.Key).
+		WhereSnapshot(false).
+		Entries(&tasks).
+		Exec(ctx, nil); err != nil {
+		d.cfg.L.Error("failed to retrieve initial tasks", zap.Error(err))
+		return
+	}
+	d.cfg.L.Info("configuring initial tasks", zap.Int("count", len(tasks)))
+	for _, t := range tasks {
+		d.configure(ctx, t)
 	}
 }
 

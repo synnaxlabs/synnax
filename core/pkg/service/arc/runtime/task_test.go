@@ -169,6 +169,114 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(handled).To(BeTrue())
 			Expect(t).To(BeNil())
 		})
+
+		It("Should set error status when config JSON is invalid", func() {
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+				Channel:   dist.Channel,
+				Framer:    dist.Framer,
+				Status:    statusSvc,
+				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+			}))
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 2),
+				Name:   "test-invalid-config",
+				Type:   runtime.TaskType,
+				Config: "invalid json",
+			}
+			_, _, err := factory.ConfigureTask(newContext(), svcTask)
+			Expect(err).To(HaveOccurred())
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("error"))
+			Expect(stat.Message).To(ContainSubstring("invalid character"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		It("Should set error status when GetModule fails", func() {
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+				Channel: dist.Channel,
+				Framer:  dist.Framer,
+				Status:  statusSvc,
+				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
+					return svcarc.Arc{}, errors.New("module not found")
+				},
+			}))
+			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 3),
+				Name:   "test-module-not-found",
+				Type:   runtime.TaskType,
+				Config: string(cfgJSON),
+			}
+			_, _, err := factory.ConfigureTask(newContext(), svcTask)
+			Expect(err).To(HaveOccurred())
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("error"))
+			Expect(stat.Message).To(ContainSubstring("module not found"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		It("Should set success status when task is configured", func() {
+			ch := &channel.Channel{
+				Name:     "config_status_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 4),
+				Name:   "test-config-success",
+				Type:   runtime.TaskType,
+				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))),
+			}
+			t, handled, err := newFactory(simpleGraph(ch.Key())).ConfigureTask(newContext(), svcTask)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handled).To(BeTrue())
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("success"))
+			Expect(stat.Message).To(Equal("Task configured successfully"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		It("Should auto-start task and set running status when auto_start is true", func() {
+			ch := &channel.Channel{
+				Name:     "auto_start_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			svcTask := task.Task{
+				Key:  task.NewKey(rack.NewKey(1, 1), 5),
+				Name: "test-auto-start",
+				Type: runtime.TaskType,
+				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{
+					ArcKey:    uuid.New(),
+					AutoStart: true,
+				}))),
+			}
+			t, handled, err := newFactory(simpleGraph(ch.Key())).ConfigureTask(newContext(), svcTask)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handled).To(BeTrue())
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("success"))
+			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Details.Running).To(BeTrue())
+		})
 	})
 
 	Describe("Task Lifecycle", func() {

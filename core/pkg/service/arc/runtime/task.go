@@ -239,6 +239,7 @@ func (t *taskImpl) setStatus(variant status.Variant, running bool, message strin
 		Key:     task.OntologyID(t.task.Key).String(),
 		Variant: variant,
 		Message: message,
+		Time:    telem.Now(),
 		Details: task.StatusDetails{
 			Task:    t.task.Key,
 			Running: running,
