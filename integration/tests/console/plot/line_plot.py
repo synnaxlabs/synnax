@@ -61,15 +61,12 @@ class LinePlot(ConsoleCase):
         now = sy.TimeStamp.now()
         start_time = now - sy.TimeSpan.SECOND * 30
 
-        timestamps = np.linspace(
-            int(start_time), int(now), num_samples, dtype=np.int64
-        )
+        timestamps = np.linspace(int(start_time), int(now), num_samples, dtype=np.int64)
         values = np.sin(np.linspace(0, 4 * np.pi, num_samples)).astype(np.float32)
 
         self.client.write(start_time, {index_name: timestamps, data_name: values})
 
         return index_name, data_name
-
 
     def test_move_channel_between_axes(self, plot: Plot, data_name: str) -> None:
         """Test adding a channel to Y2 axis."""
@@ -106,14 +103,15 @@ class LinePlot(ConsoleCase):
         value = plot.get_title()
         assert value == new_title, f"Expected title '{new_title}', got '{value}'"
 
-
     def test_live_data(self, plot: Plot) -> None:
         """Test plotting live data with a rolling time range."""
         self.log("Testing live data")
 
         live_channel = "sy_node_1_metrics_mem_percentage"
         plot.add_channels("Y1", live_channel)
-        assert live_channel in plot.data["Y1"], f"Channel {live_channel} should be on Y1"
+        assert (
+            live_channel in plot.data["Y1"]
+        ), f"Channel {live_channel} should be on Y1"
 
     def test_drag_channel_to_canvas(self, plot: Plot) -> None:
         """Test dragging a channel from sidebar onto the plot canvas."""
@@ -151,4 +149,6 @@ class LinePlot(ConsoleCase):
         plot.create_range_from_selection(range_name)
 
         created_range = self.client.ranges.retrieve(name=range_name)
-        assert created_range.name == range_name, f"Range name mismatch: {created_range.name}"
+        assert (
+            created_range.name == range_name
+        ), f"Range name mismatch: {created_range.name}"

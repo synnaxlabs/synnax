@@ -26,12 +26,14 @@ class Workspace(ConsoleCase):
         self.log("Testing switch workspaces in resources view")
 
         self.console.workspace.select("WorkspaceA")
-        assert self.page.get_by_role("button").filter(has_text="WorkspaceA").is_visible(), \
-            "WorkspaceA should be active after selection"
+        assert (
+            self.page.get_by_role("button").filter(has_text="WorkspaceA").is_visible()
+        ), "WorkspaceA should be active after selection"
 
         self.console.workspace.select("WorkspaceB")
-        assert self.page.get_by_role("button").filter(has_text="WorkspaceB").is_visible(), \
-            "WorkspaceB should be active after selection"
+        assert (
+            self.page.get_by_role("button").filter(has_text="WorkspaceB").is_visible()
+        ), "WorkspaceB should be active after selection"
 
     def test_rename_workspace(self) -> None:
         """Test renaming a workspace via context menu and verify synchronization."""
@@ -39,13 +41,17 @@ class Workspace(ConsoleCase):
         self.console.workspace.select("WorkspaceA")
         self.console.workspace.rename("WorkspaceA", "RenamedWorkspace")
 
-        assert self.console.workspace.exists("RenamedWorkspace"), \
-            "Workspace should be renamed in Resources Toolbar"
+        assert self.console.workspace.exists(
+            "RenamedWorkspace"
+        ), "Workspace should be renamed in Resources Toolbar"
 
-        workspace_selector = self.page.get_by_role("button").filter(has_text="RenamedWorkspace")
+        workspace_selector = self.page.get_by_role("button").filter(
+            has_text="RenamedWorkspace"
+        )
         workspace_selector.wait_for(state="visible", timeout=5000)
-        assert workspace_selector.is_visible(), \
-            "Workspace Selector should show renamed workspace"
+        assert (
+            workspace_selector.is_visible()
+        ), "Workspace Selector should show renamed workspace"
 
         self.console.workspace.rename("RenamedWorkspace", "WorkspaceA")
         self.console.close_nav_drawer()
@@ -56,18 +62,20 @@ class Workspace(ConsoleCase):
 
         self.console.workspace.select("WorkspaceA")
 
-        workspace_selector = self.page.get_by_role("button").filter(has_text="WorkspaceA")
+        workspace_selector = self.page.get_by_role("button").filter(
+            has_text="WorkspaceA"
+        )
         workspace_selector.click(timeout=5000)
         self.page.get_by_role("button", name="Clear").click(timeout=5000)
 
         self.page.get_by_role("button", name="No workspace").wait_for(
             state="visible", timeout=5000
         )
-        assert self.page.get_by_role("button", name="No workspace").is_visible(), \
-            "No workspace should be active after clearing"
+        assert self.page.get_by_role(
+            "button", name="No workspace"
+        ).is_visible(), "No workspace should be active after clearing"
 
         self.console.close_nav_drawer()
-
 
     def test_delete_workspace(self) -> None:
         """Test deleting a workspace via context menu."""
@@ -76,6 +84,9 @@ class Workspace(ConsoleCase):
         self.console.workspace.delete("WorkspaceB")
         self.console.workspace.delete("WorkspaceA")
 
-        assert not self.console.workspace.exists("WorkspaceB"), "WorkspaceB should be deleted"
-        assert not self.console.workspace.exists("WorkspaceA"), "WorkspaceA should be deleted"
-
+        assert not self.console.workspace.exists(
+            "WorkspaceB"
+        ), "WorkspaceB should be deleted"
+        assert not self.console.workspace.exists(
+            "WorkspaceA"
+        ), "WorkspaceA should be deleted"

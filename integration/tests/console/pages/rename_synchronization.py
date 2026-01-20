@@ -36,15 +36,17 @@ class RenameSynchronization(ConsoleCase):
         console.workspace.refresh_tree()
 
         self.log(f"2. Verifying page exists in Resources Toolbar")
-        assert console.workspace.page_exists(original_name), \
-            f"{page_type} '{original_name}' should exist in Resources Toolbar after creation"
+        assert console.workspace.page_exists(
+            original_name
+        ), f"{page_type} '{original_name}' should exist in Resources Toolbar after creation"
 
         self.log(f"3. Renaming to: {new_name}")
         console.workspace.rename_page(original_name, new_name)
 
         self.log("4. Verifying Resources Toolbar after rename")
-        assert console.workspace.page_exists(new_name), \
-            f"{page_type} should be renamed in Resources Toolbar"
+        assert console.workspace.page_exists(
+            new_name
+        ), f"{page_type} should be renamed in Resources Toolbar"
 
         self.log("5. Verifying Mosaic Tab")
         console.ESCAPE
@@ -53,8 +55,9 @@ class RenameSynchronization(ConsoleCase):
         self.log("6. Verifying Visualization Toolbar")
         console.layout.show_visualization_toolbar()
         toolbar_title = console.layout.get_visualization_toolbar_title()
-        assert toolbar_title == new_name, \
-            f"Visualization Toolbar should show '{new_name}', got '{toolbar_title}'"
+        assert (
+            toolbar_title == new_name
+        ), f"Visualization Toolbar should show '{new_name}', got '{toolbar_title}'"
         console.layout.hide_visualization_toolbar()
 
         self.log(f"7. Cleanup: Closing {new_name}")

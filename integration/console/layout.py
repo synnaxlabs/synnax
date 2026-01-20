@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import re
-import synnax as sy
 from typing import TYPE_CHECKING
 
+import synnax as sy
 from playwright.sync_api import Locator, Page
 
 if TYPE_CHECKING:

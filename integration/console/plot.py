@@ -69,7 +69,9 @@ class Plot(ConsolePage):
     def add_ranges(
         self,
         ranges: list[
-            Literal["Rolling 30s", "Rolling 1m", "Rolling 5m", "Rolling 15m", "Rolling 30m"]
+            Literal[
+                "Rolling 30s", "Rolling 1m", "Rolling 5m", "Rolling 15m", "Rolling 30m"
+            ]
         ],
     ) -> None:
         """Add time ranges to the plot."""
@@ -96,7 +98,9 @@ class Plot(ConsolePage):
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
         csv_button.click()
 
-        self.page.get_by_text("Download data for").wait_for(state="visible", timeout=5000)
+        self.page.get_by_text("Download data for").wait_for(
+            state="visible", timeout=5000
+        )
         download_button = self.page.get_by_role("button", name="Download").last
         self.page.evaluate("delete window.showSaveFilePicker")
 
@@ -242,7 +246,9 @@ class Plot(ConsolePage):
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         if lines_container.count() == 0:
             html = self.page.locator(".console-line-plot-toolbar").inner_html()
-            raise RuntimeError(f"Lines container not found. Toolbar HTML: {html[:1000]}")
+            raise RuntimeError(
+                f"Lines container not found. Toolbar HTML: {html[:1000]}"
+            )
 
         line_items = lines_container.locator(".pluto-list__item")
         if line_items.count() == 0:
@@ -308,9 +314,9 @@ class Plot(ConsolePage):
         """
         self.console.channels.show_channels()
 
-        channel_item = self.page.locator("div[id^='channel:']").filter(
-            has_text=channel_name
-        ).first
+        channel_item = (
+            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
+        )
         channel_item.wait_for(state="visible", timeout=5000)
 
         if not self.pane_locator:
@@ -330,9 +336,9 @@ class Plot(ConsolePage):
         """
         self.console.channels.show_channels()
 
-        channel_item = self.page.locator("div[id^='channel:']").filter(
-            has_text=channel_name
-        ).first
+        channel_item = (
+            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
+        )
         channel_item.wait_for(state="visible", timeout=5000)
 
         self.page.locator("#data").click(timeout=5000)
@@ -369,11 +375,11 @@ class Plot(ConsolePage):
         self.page.mouse.move(end_x, center_y, steps=10)
         self.page.mouse.up()
         self.page.keyboard.up("Alt")
-        self.page.mouse.click(
-            (start_x + end_x) / 2, center_y, button="right"
-        )
+        self.page.mouse.click((start_x + end_x) / 2, center_y, button="right")
 
         self.page.get_by_text("Create range from selection").click(timeout=5000)
-        self.page.get_by_role("textbox", name="Name").wait_for(state="visible", timeout=5000)
+        self.page.get_by_role("textbox", name="Name").wait_for(
+            state="visible", timeout=5000
+        )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
         self.page.get_by_role("button", name="Save to Synnax").click()

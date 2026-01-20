@@ -102,9 +102,9 @@ class MosaicOperations(ConsoleCase):
 
         assert left_box is not None, "Left pane should have bounding box"
         assert right_box is not None, "Right pane should have bounding box"
-        assert right_box["x"] > left_box["x"], (
-            f"Right pane ({right_box['x']}) should be to the right of left pane ({left_box['x']})"
-        )
+        assert (
+            right_box["x"] > left_box["x"]
+        ), f"Right pane ({right_box['x']}) should be to the right of left pane ({left_box['x']})"
 
         # Clean up
         console.close_page(left_name)
@@ -155,9 +155,9 @@ class MosaicOperations(ConsoleCase):
 
         assert top_box is not None, "Top pane should have bounding box"
         assert bottom_box is not None, "Bottom pane should have bounding box"
-        assert bottom_box["y"] > top_box["y"], (
-            f"Bottom pane ({bottom_box['y']}) should be below top pane ({top_box['y']})"
-        )
+        assert (
+            bottom_box["y"] > top_box["y"]
+        ), f"Bottom pane ({bottom_box['y']}) should be below top pane ({top_box['y']})"
 
         # Clean up
         console.close_page(top_name)

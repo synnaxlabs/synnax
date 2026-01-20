@@ -24,6 +24,7 @@ def get_results_path(filename: str) -> str:
     os.makedirs(RESULTS_DIR, exist_ok=True)
     return os.path.join(RESULTS_DIR, filename)
 
+
 # SY-2920: Websocket Error handling improvements
 WEBSOCKET_ERROR_PATTERNS = [
     "1011",

@@ -38,8 +38,16 @@ class ChannelOperations(ConsoleCase):
         index_name = f"multi_idx_{prefix}"
         channels = [
             {"name": index_name, "is_index": True},
-            {"name": f"multi_f32_{prefix}", "data_type": sy.DataType.FLOAT32, "index": index_name},
-            {"name": f"multi_i64_{prefix}", "data_type": sy.DataType.INT64, "index": index_name},
+            {
+                "name": f"multi_f32_{prefix}",
+                "data_type": sy.DataType.FLOAT32,
+                "index": index_name,
+            },
+            {
+                "name": f"multi_i64_{prefix}",
+                "data_type": sy.DataType.INT64,
+                "index": index_name,
+            },
         ]
 
         # Create all channels using create_with_create_more
@@ -58,14 +66,14 @@ class ChannelOperations(ConsoleCase):
             # Verify data type via client
             ch = client.channels.retrieve(ch_name)
             if ch_config.get("is_index"):
-                assert ch.data_type == sy.DataType.TIMESTAMP, (
-                    f"Index channel should be TIMESTAMP, got {ch.data_type}"
-                )
+                assert (
+                    ch.data_type == sy.DataType.TIMESTAMP
+                ), f"Index channel should be TIMESTAMP, got {ch.data_type}"
             else:
                 expected_type = ch_config["data_type"]
-                assert ch.data_type == expected_type, (
-                    f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
-                )
+                assert (
+                    ch.data_type == expected_type
+                ), f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
 
         self.log("Create multiple channels test passed")
 
@@ -101,7 +109,9 @@ class ChannelOperations(ConsoleCase):
 
         line_plot = self.page.locator(".pluto-line-plot")
         plot_visible = line_plot.count() > 0 and line_plot.first.is_visible()
-        assert plot_visible, "Expected a line plot to be visible after double-clicking channel"
+        assert (
+            plot_visible
+        ), "Expected a line plot to be visible after double-clicking channel"
 
         self.log("Open channel plot test passed")
 
@@ -199,9 +209,9 @@ class ChannelOperations(ConsoleCase):
         # Verify a link was copied (or at least no error occurred)
         # Clipboard access may not be available in all browsers
         if link:
-            assert "channel" in link.lower() or data_name in link, (
-                f"Expected link to contain 'channel' or channel name, got: {link}"
-            )
+            assert (
+                "channel" in link.lower() or data_name in link
+            ), f"Expected link to contain 'channel' or channel name, got: {link}"
             self.log(f"Copied link: {link}")
         else:
             # If clipboard isn't accessible, just verify no error occurred
