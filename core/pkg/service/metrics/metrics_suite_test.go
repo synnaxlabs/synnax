@@ -55,8 +55,6 @@ var _ = BeforeSuite(func() {
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
-		Framer:   dist.Framer,
-		Status:   statusSvc,
 		Signals:  dist.Signals,
 	}))
 	statusSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
