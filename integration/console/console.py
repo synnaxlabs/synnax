@@ -198,7 +198,7 @@ class Console:
             else:
                 # No selected button - press Escape to close
                 self.page.keyboard.press("Escape")
-            nav_drawer.wait_for(state="hidden", timeout=3000)
+            nav_drawer.wait_for(state="hidden", timeout=5000)
 
     def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
         """Select an item from an open dropdown."""

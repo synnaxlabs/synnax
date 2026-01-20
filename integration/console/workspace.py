@@ -80,6 +80,7 @@ class WorkspaceClient:
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
             workspace_item.click()
+            sy.sleep(0.1)
         workspace_item.click()
         sy.sleep(0.1)
 

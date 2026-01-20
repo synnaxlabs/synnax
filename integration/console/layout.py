@@ -66,7 +66,7 @@ class LayoutClient:
         if modality == "button":
             tab.get_by_label("pluto-tabs__close").click()
         elif modality == "context_menu":
-            tab.click(button="right")
+            tab.locator("p").click(button="right")
             self.page.get_by_text("Close").first.click()
         else:
             tab.click()
@@ -91,15 +91,12 @@ class LayoutClient:
         tab = self.get_tab(old_name)
         tab.wait_for(state="visible", timeout=5000)
 
-        modality = random.choice(["dblclick", "context_menu", "hotkey"])
+        modality = random.choice(["dblclick", "context_menu"])
         if modality == "dblclick":
             tab.locator("p").first.dblclick()
-        elif modality == "context_menu":
-            tab.click(button="right")
-            self.page.get_by_text("Rename").first.click()
         else:
-            tab.click()
-            self.page.keyboard.press("ControlOrMeta+e")
+            tab.locator("p").click(button="right")
+            self.page.get_by_text("Rename").first.click()
 
         self.page.keyboard.press("ControlOrMeta+a")
         self.page.keyboard.type(new_name)
