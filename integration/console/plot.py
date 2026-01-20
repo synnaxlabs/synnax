@@ -344,3 +344,36 @@ class Plot(ConsolePage):
         self.console.channels.hide_channels()
 
         self.data[axis].append(channel_name)
+
+    def create_range_from_selection(self, range_name: str) -> None:
+        """Create a range by selecting a region on the plot and using the context menu.
+
+        Args:
+            range_name: Name for the new range
+        """
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+
+        box = self.pane_locator.bounding_box()
+        if not box:
+            raise RuntimeError("Could not get plot bounding box")
+
+        start_x = box["x"] + box["width"] * 0.25
+        end_x = box["x"] + box["width"] * 0.75
+        center_y = box["y"] + box["height"] / 2
+
+        # Alt+drag to create selection
+        self.page.keyboard.down("Alt")
+        self.page.mouse.move(start_x, center_y)
+        self.page.mouse.down()
+        self.page.mouse.move(end_x, center_y, steps=10)
+        self.page.mouse.up()
+        self.page.keyboard.up("Alt")
+        self.page.mouse.click(
+            (start_x + end_x) / 2, center_y, button="right"
+        )
+
+        self.page.get_by_text("Create range from selection").click(timeout=5000)
+        self.page.get_by_role("textbox", name="Name").wait_for(state="visible", timeout=5000)
+        self.page.get_by_role("textbox", name="Name").fill(range_name)
+        self.page.get_by_role("button", name="Save to Synnax").click()

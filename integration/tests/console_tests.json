@@ -2,6 +2,14 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
+      "sequence_name": "workspace",
+      "tests": [
+        {
+          "case": "console/workspace"
+        }
+      ]
+    },
+    {
       "sequence_name": "general",
       "sequence_order": "asynchronous",
       "pool_size": 3,

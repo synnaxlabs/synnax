@@ -236,7 +236,7 @@ I can successfully:
   - [x] Relabel a line. (plot/line_plot.py)
   - [x] Set the plot title. (plot/line_plot.py)
   - [x] Download a range as a CSV. (plot/line_plot.py)
-  - [ ] Create a range from line plot selection.
+  - [x] Create a range from line plot selection. (plot/line_plot.py)
   - [ ] Use the measuring tool on the line plot.
   - [x] Rename a line plot from its tab title. (plot/line_plot.py)
   - [ ] Export a line plot.
@@ -665,32 +665,32 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new workspace.
+- [x] Create a new workspace. (workspace.py)
 - [ ] Import a workspace by drag and dropping from a directory.
 - **Workspace Selector**
-  - [ ] Create a new workspace.
-  - [ ] Switch workspaces in the selector.
-  - [ ] Clear workspaces from the selector.
+  - [x] Create a new workspace. (workspace.py)
+  - [x] Switch workspaces in the selector. (workspace.py)
+  - [x] Clear workspaces from the selector. (workspace.py)
 - **Resources Toolbar**
-  - [ ] Switch workspaces in the resources view.
+  - [x] Switch workspaces in the resources view. (workspace.py)
   - **Context Menu**
-    - [ ] Rename a workspace.
-    - [ ] Delete a workspace.
+    - [x] Rename a workspace. (workspace.py)
+    - [x] Delete a workspace. (workspace.py)
     - [ ] Export a workspace.
-    - [ ] Create a new line plot in a workspace.
-    - [ ] Create a new log in a workspace.
-    - [ ] Create a new schematic in a workspace.
-    - [ ] Create a new table in a workspace.
+    - [x] Create a new line plot in a workspace. (pages/open_close.py, plot/line_plot.py, layout/mosaic_operations.py, layout/keyboard_shortcuts.py)
+    - [x] Create a new log in a workspace. (pages/open_close.py, pages/snap_to_grid.py)
+    - [x] Create a new schematic in a workspace. (pages/open_close.py, schematic/alignment.py, schematic/edit_props.py)
+    - [x] Create a new table in a workspace. (pages/open_close.py)
     - [ ] Import a line plot.
     - [ ] Import a schematic.
     - [ ] Import a log.
     - [ ] Import a table.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
-  - [ ] Open the "Create Workspace" dialog.
+  - [x] Open the "Create Workspace" dialog. (workspace.py)
   - [ ] Import a workspace.
-  - [ ] Open an existing workspace.
-- [ ] Rename a workspace and ensure synchronization across:
+  - [x] Open an existing workspace. (workspace.py)
+- [x] Rename a workspace and ensure synchronization across: (workspace.py)
   - Resources Toolbar
   - Workspace Selector
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.

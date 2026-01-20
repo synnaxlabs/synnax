@@ -163,6 +163,44 @@ class Console:
             > 0
         )
 
+    def show_resource_toolbar(self, resource: str) -> None:
+        """Show a resource toolbar by clicking its icon in the sidebar."""
+        items = self.page.locator(f"div[id^='{resource}:']")
+        if items.count() > 0 and items.first.is_visible():
+            return
+
+        button = self.page.locator("button.console-main-nav__item").filter(
+            has=self.page.locator(f"svg.pluto-icon--{resource}")
+        )
+        button.click(timeout=5000)
+
+    def close_nav_drawer(self) -> None:
+        """Close any open nav drawer."""
+        nav_drawer = self.page.locator(".console-nav__drawer.pluto--visible")
+        if nav_drawer.count() > 0 and nav_drawer.first.is_visible():
+            active_nav_btn = self.page.locator(
+                "button.console-main-nav__item.pluto--selected"
+            ).first
+            if active_nav_btn.count() > 0:
+                active_nav_btn.click()
+            else:
+                # No selected button - press Escape to close
+                self.page.keyboard.press("Escape")
+            nav_drawer.wait_for(state="hidden", timeout=3000)
+
+    def get_workspace_item(self, name: str) -> Locator:
+        """Get a workspace item locator from the resources toolbar."""
+        return self.page.locator("div[id^='workspace:']").filter(has_text=name).first
+
+    def workspace_exists(self, name: str) -> bool:
+        """Check if a workspace exists in the resources toolbar."""
+        self.show_resource_toolbar("workspace")
+        try:
+            self.page.locator("div[id^='workspace:']").first.wait_for(state="visible", timeout=300)
+        except Exception:
+            return False
+        return self.page.locator("div[id^='workspace:']").filter(has_text=name).count() > 0
+
     def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
         """Select an item from an open dropdown."""
         sy.sleep(0.3)
@@ -207,6 +245,7 @@ class Console:
         self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Create a new page via the New Page (+) button."""
+        self.close_nav_drawer()
         add_btn = self.page.locator(
             ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
         ).first
@@ -224,6 +263,7 @@ class Console:
         self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Create a new page via command palette"""
+        self.close_nav_drawer()
 
         # Handle "a" vs "an" article for proper command matching
         vowels = ["A", "E", "I", "O", "U"]
@@ -240,45 +280,53 @@ class Console:
         self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Handle the new page creation after clicking create button."""
-        if self.MODAL_OPEN:
-            page_name = page_name or page_type
-            self.page.get_by_role("textbox", name="Name").fill(page_name)
-            self.page.get_by_role("textbox", name="Name").press("ControlOrMeta+Enter")
+        modal_was_open = self.MODAL_OPEN
+        tab_name = page_type
 
-        page_tab = (
-            self.page.locator("div")
-            .filter(has_text=re.compile(f"^{re.escape(page_type)}$"))
-            .first
-        )
+        if modal_was_open:
+            tab_name = page_name or page_type
+            name_input = self.page.get_by_role("textbox", name="Name")
+            name_input.fill(tab_name)
+            name_input.press("ControlOrMeta+Enter")
+
+        page_tab = self._get_tab_locator(tab_name)
         page_tab.wait_for(state="visible", timeout=15000)
         page_id = page_tab.inner_text().strip()
 
-        # If page name provided, rename the page
-        if page_name is not None:
-            page_tab.dblclick()
-            self.page.get_by_text(page_type).first.fill(page_name)
-            self.page.keyboard.press("Enter")
+        if page_name is not None and not modal_was_open:
+            text_element = page_tab.locator("p").first
+            text_element.dblclick()
+            self.page.keyboard.press("ControlOrMeta+a")
+            self.page.keyboard.type(page_name)
+            self.ENTER
             page_id = page_name
+            page_tab = self._get_tab_locator(page_name)
+
         return page_tab, page_id
+
+    def _get_tab_locator(self, tab_name: str) -> Locator:
+        """Get a tab locator by name, ensuring it has a close button (is a real tab)."""
+        return (
+            self.page.locator(".pluto-tabs-selector")
+            .locator("div")
+            .filter(has_text=re.compile(f"^{re.escape(tab_name)}$"))
+            .filter(has=self.page.locator("[aria-label='pluto-tabs__close']"))
+            .first
+        )
 
     def close_page(self, page_name: str) -> None:
         """Close a page by name. Ignores unsaved changes."""
-        tab = (
-            self.page.locator("div")
-            .filter(has_text=re.compile(f"^{re.escape(page_name)}$"))
-            .first
-        )
+        self.close_nav_drawer()
+
+        tab = self._get_tab_locator(page_name)
         tab.wait_for(state="visible", timeout=5000)
 
         close_btn = tab.get_by_label("pluto-tabs__close")
         close_btn.wait_for(state="visible", timeout=5000)
         close_btn.click()
 
-        # Handle unsaved changes dialog
-        sy.sleep(0.2)
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
-            sy.sleep(0.2)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""

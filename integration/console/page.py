@@ -77,11 +77,9 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.dblclick()
-
-        editable = self.page.get_by_text(self.page_name).first
-        editable.fill(new_name)
-        self.console.ENTER
-        self.page.wait_for_timeout(100)
+        self.page.keyboard.press("ControlOrMeta+a")
+        self.page.keyboard.type(new_name)
+        self.page.keyboard.press("Enter")
 
         self.page_name = new_name
 
@@ -89,13 +87,11 @@ class ConsolePage:
         """Double click on canvas."""
         if self.pane_locator and self.pane_locator.count() > 0:
             self.pane_locator.dblclick()
-            time.sleep(0.1)
 
     def _click_canvas(self) -> None:
         """Single click on canvas."""
         if self.pane_locator and self.pane_locator.count() > 0:
             self.pane_locator.click()
-            time.sleep(0.1)
 
     def new(self) -> str:
         self.tab_locator, self.id = self.console.create_page(

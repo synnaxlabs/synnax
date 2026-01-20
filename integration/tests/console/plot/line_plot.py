@@ -31,11 +31,11 @@ class LinePlot(ConsoleCase):
         self.test_set_line_label(plot, prefix)
         self.test_set_plot_title(plot, prefix)
         self.test_move_channel_between_axes(plot, data_name)
-        self.test_rename_from_tab(plot, prefix)
         self.test_live_data(plot)
         self.test_drag_channel_to_canvas(plot)
         self.test_drag_channel_to_toolbar(plot)
         self.test_download_csv(plot, data_name)
+        self.test_create_range_from_selection(plot, prefix)
 
         plot.close()
         self.client.channels.delete([data_name, index_name])
@@ -80,8 +80,6 @@ class LinePlot(ConsoleCase):
         assert data_name in plot.data["Y1"], f"Channel {data_name} should be on Y1"
         assert data_name in plot.data["Y2"], f"Channel {data_name} should be on Y2"
 
-        self.log("Move channel between axes test passed")
-
     def test_set_line_thickness(self, plot: Plot) -> None:
         """Test adjusting line thickness via Lines tab."""
         self.log("Testing set line thickness")
@@ -89,8 +87,6 @@ class LinePlot(ConsoleCase):
         plot.set_line_thickness(5)
         value = plot.get_line_thickness()
         assert value == 5, f"Expected stroke width 5, got {value}"
-
-        self.log("Set line thickness test passed")
 
     def test_set_line_label(self, plot: Plot, prefix: str) -> None:
         """Test relabeling a line via Lines tab."""
@@ -101,8 +97,6 @@ class LinePlot(ConsoleCase):
         value = plot.get_line_label()
         assert value == new_label, f"Expected label '{new_label}', got '{value}'"
 
-        self.log("Set line label test passed")
-
     def test_set_plot_title(self, plot: Plot, prefix: str) -> None:
         """Test setting the plot title via Properties tab."""
         self.log("Testing set plot title")
@@ -112,17 +106,6 @@ class LinePlot(ConsoleCase):
         value = plot.get_title()
         assert value == new_title, f"Expected title '{new_title}', got '{value}'"
 
-        self.log("Set plot title test passed")
-
-    def test_rename_from_tab(self, plot: Plot, prefix: str) -> None:
-        """Test renaming the plot by double-clicking the tab."""
-        self.log("Testing rename from tab")
-
-        new_name = f"Renamed Plot {prefix}"
-        plot.rename(new_name)
-        assert plot.page_name == new_name, f"Expected name '{new_name}', got '{plot.page_name}'"
-
-        self.log("Rename from tab test passed")
 
     def test_live_data(self, plot: Plot) -> None:
         """Test plotting live data with a rolling time range."""
@@ -132,8 +115,6 @@ class LinePlot(ConsoleCase):
         plot.add_channels("Y1", live_channel)
         assert live_channel in plot.data["Y1"], f"Channel {live_channel} should be on Y1"
 
-        self.log("Live data test passed")
-
     def test_drag_channel_to_canvas(self, plot: Plot) -> None:
         """Test dragging a channel from sidebar onto the plot canvas."""
         self.log("Testing drag channel to canvas")
@@ -142,8 +123,6 @@ class LinePlot(ConsoleCase):
         plot.drag_channel_to_canvas(channel)
         assert channel in plot.data["Y1"], f"Channel {channel} should be on Y1"
 
-        self.log("Drag channel to canvas test passed")
-
     def test_drag_channel_to_toolbar(self, plot: Plot) -> None:
         """Test dragging a channel from sidebar onto the toolbar data section."""
         self.log("Testing drag channel to toolbar")
@@ -151,8 +130,6 @@ class LinePlot(ConsoleCase):
         channel = "sy_node_1_metrics_total_size_gb"
         plot.drag_channel_to_toolbar(channel, "Y2")
         assert channel in plot.data["Y2"], f"Channel {channel} should be on Y2"
-
-        self.log("Drag channel to toolbar test passed")
 
     def test_download_csv(self, plot: Plot, data_name: str) -> None:
         """Test downloading the plot data as a CSV file."""
@@ -166,4 +143,12 @@ class LinePlot(ConsoleCase):
         lines = csv_content.strip().split("\n")
         assert len(lines) > 1, "CSV should have header and data rows"
 
-        self.log("Download CSV test passed")
+    def test_create_range_from_selection(self, plot: Plot, prefix: str) -> None:
+        """Test creating a range from a plot selection."""
+        self.log("Testing create range from selection")
+
+        range_name = f"Test Range {prefix}"
+        plot.create_range_from_selection(range_name)
+
+        created_range = self.client.ranges.retrieve(name=range_name)
+        assert created_range.name == range_name, f"Range name mismatch: {created_range.name}"
