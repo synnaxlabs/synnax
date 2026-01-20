@@ -7,14 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
 import platform
 import random
 import re
-import time
 from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Literal
+from typing import Literal
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
@@ -25,6 +23,7 @@ from .access import AccessClient
 from .channels import ChannelClient
 from .labels import LabelClient
 from .layout import LayoutClient
+from .notifications import NotificationsClient
 from .workspace import WorkspaceClient
 
 # Define literal types for page creation
@@ -59,6 +58,7 @@ class Console:
     channels: ChannelClient
     labels: LabelClient
     layout: LayoutClient
+    notifications: NotificationsClient
     workspace: WorkspaceClient
     page: Page
 
@@ -69,6 +69,7 @@ class Console:
         self.channels = ChannelClient(page, self)
         self.labels = LabelClient(page, self)
         self.layout = LayoutClient(page, self)
+        self.notifications = NotificationsClient(page, self)
         self.workspace = WorkspaceClient(page, self)
 
     def command_palette(self, command: str, retries: int = 3) -> None:
@@ -307,127 +308,6 @@ class Console:
             sy.sleep(0.2)
             self.page.get_by_text("Try again").click()
             sy.sleep(0.2)
-
-    def check_for_notifications(
-        self, timeout: sy.CrudeTimeSpan = 0.2
-    ) -> list[dict[str, Any]]:
-        """
-        Check for notifications in the bottom right corner.
-        Polls every 100ms until notifications are found or timeout is reached.
-
-        :param timeout: Maximum time to wait for notifications in seconds (default: 0.2)
-        :returns: List of notification dictionaries with details
-        """
-        start_time = time.time()
-        poll_interval = 50  # ms
-
-        while time.time() - start_time < timeout:
-            notifications = []
-            notification_elements = self.page.locator(".pluto-notification").all()
-
-            # If we found notifications, parse and return them
-            if len(notification_elements) > 0:
-                for notification in notification_elements:
-                    try:
-                        # Extract notification details
-                        notification_data = {}
-
-                        # Get the count (e.g., "x1")
-                        count_element = notification.locator(".pluto-text--small").first
-                        if count_element.count() > 0:
-                            count_text = count_element.inner_text().strip()
-                            notification_data["count"] = count_text
-
-                        # Get the timestamp
-                        time_element = notification.locator(".pluto-notification__time")
-                        if time_element.count() > 0:
-                            timestamp = time_element.inner_text().strip()
-                            notification_data["timestamp"] = timestamp
-
-                        # Get the main message
-                        message_element = notification.locator(
-                            ".pluto-notification__message"
-                        )
-                        if message_element.count() > 0:
-                            message = message_element.inner_text().strip()
-                            notification_data["message"] = message
-
-                        # Get the description
-                        description_element = notification.locator(
-                            ".pluto-notification__description"
-                        )
-                        if description_element.count() > 0:
-                            description = description_element.inner_text().strip()
-                            notification_data["description"] = description
-
-                        # Determine notification type based on icon or styling
-                        error_icon = notification.locator("svg[color*='error']")
-                        if error_icon.count() > 0:
-                            notification_data["type"] = "error"
-                        else:
-                            notification_data["type"] = "info"
-
-                        notifications.append(notification_data)
-
-                    except Exception as e:
-                        raise RuntimeError(f"Error parsing notification: {e}")
-
-                return notifications
-
-            sy.sleep(poll_interval / 1000)
-
-        # Timeout reached, return empty list
-        return []
-
-    def close_notification(self, notification_index: int = 0) -> bool:
-        """
-        Close a notification by clicking its close button.
-
-        :param notification_index: Index of the notification to close (0 for first)
-        :returns: True if notification was closed, False if not found
-        """
-        try:
-            notification_elements = self.page.locator(".pluto-notification").all()
-            if notification_index >= len(notification_elements):
-                return False
-
-            notification = notification_elements[notification_index]
-            close_button = notification.locator(".pluto-notification__silence")
-
-            if close_button.count() > 0:
-                close_button.wait_for(state="attached", timeout=500)
-                close_button.click()
-                notification.wait_for(state="hidden", timeout=2000)
-                return True
-            return False
-
-        except Exception:
-            return False
-
-    def close_all_notifications(self) -> int:
-        """
-        Close all visible notifications.
-
-        :returns: Number of notifications closed
-        """
-        closed_count = 0
-        max_attempts = 10
-
-        for _ in range(max_attempts):
-            notification_elements = self.page.locator(".pluto-notification").all()
-            if len(notification_elements) == 0:
-                break
-
-            if self.close_notification(0):
-                closed_count += 1
-            else:
-                sy.sleep(0.1)
-
-        # Small sleep to ensure any closing animations complete
-        if closed_count > 0:
-            sy.sleep(0.1)
-
-        return closed_count
 
     def screenshot(self, name: str | None = None) -> None:
         """Take a screenshot of the entire console page."""

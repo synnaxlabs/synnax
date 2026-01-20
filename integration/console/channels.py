@@ -441,7 +441,7 @@ class ChannelClient:
 
                     # Check for notifications and close them if there's an error
                     i = -1
-                    for notification in self.console.check_for_notifications():
+                    for notification in self.console.notifications.check():
                         i += 1
                         message = notification.get("message", "")
                         description = notification.get("description", "")
@@ -449,7 +449,7 @@ class ChannelClient:
                             name in description
                         ):
                             # Close the notification before raising the error
-                            self.console.close_notification(i)
+                            self.console.notifications.close(i)
                             raise RuntimeError(f"{message} {name}, {description}")
                     break
         self.hide_channels()

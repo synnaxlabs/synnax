@@ -47,7 +47,7 @@ class Valve(Symbol):
         if self.page is None or self.console is None:
             raise RuntimeError("Symbol not attached to schematic")
 
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.console.click("Symbols")
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
 

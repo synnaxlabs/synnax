@@ -207,7 +207,7 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
         return self.console.get_input_field("Title")
 
