@@ -55,6 +55,7 @@ class RenameSynchronization(ConsoleCase):
         toolbar_title = console.layout.get_visualization_toolbar_title()
         assert toolbar_title == new_name, \
             f"Visualization Toolbar should show '{new_name}', got '{toolbar_title}'"
+        console.layout.hide_visualization_toolbar()
 
         self.log(f"7. Cleanup: Closing {new_name}")
         console.close_page(new_name)

@@ -122,6 +122,17 @@ class LayoutClient:
             self.page.keyboard.press("V")
         bottom_drawer.wait_for(state="visible", timeout=5000)
 
+    def hide_visualization_toolbar(self) -> None:
+        """Hide the visualization toolbar by pressing V."""
+        bottom_drawer = self.page.locator(
+            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+        )
+        if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
+            # Click on mosaic area to ensure focus before toggling
+            self.page.locator(".console-mosaic").first.click()
+            self.page.keyboard.press("V")
+            bottom_drawer.wait_for(state="hidden", timeout=5000)
+
     def get_visualization_toolbar_title(self) -> str:
         """Get the title from the visualization toolbar header."""
         bottom_drawer = self.page.locator(
