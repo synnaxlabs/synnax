@@ -13,7 +13,9 @@ import (
 	"context"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"go.lsp.dev/protocol"
 )
 
@@ -25,6 +27,20 @@ const (
 	SemanticTokenTypeString
 	SemanticTokenTypeNumber
 	SemanticTokenTypeComment
+	SemanticTokenTypeFunction
+	SemanticTokenTypeParameter
+	SemanticTokenTypeChannel
+	SemanticTokenTypeSequence
+	SemanticTokenTypeStage
+	SemanticTokenTypeBlock
+	SemanticTokenTypeStatefulVariable
+	SemanticTokenTypeEdgeOneShot
+	SemanticTokenTypeEdgeContinuous
+	SemanticTokenTypeConstant
+	SemanticTokenTypeConfig
+	SemanticTokenTypeInput
+	SemanticTokenTypeOutput
+	SemanticTokenTypeUnit
 )
 
 var semanticTokenTypes = []string{
@@ -32,18 +48,31 @@ var semanticTokenTypes = []string{
 	"type",
 	"operator",
 	"variable",
-	"function",
 	"string",
 	"number",
 	"comment",
+	"function",
+	"parameter",
+	"channel",
+	"sequence",
+	"stage",
+	"block",
+	"statefulVariable",
+	"edgeOneShot",
+	"edgeContinuous",
+	"constant",
+	"config",
+	"input",
+	"output",
+	"unit",
 }
 
-func (s *Server) SemanticTokensFull(_ context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
+func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return &protocol.SemanticTokens{Data: []uint32{}}, nil
 	}
-	tokens := extractSemanticTokens(doc.Content)
+	tokens := extractSemanticTokens(ctx, doc.Content, doc.IR)
 	return &protocol.SemanticTokens{Data: tokens}, nil
 }
 
@@ -54,21 +83,16 @@ type token struct {
 	tokenType uint32
 }
 
-// extractSemanticTokens parses the document and extracts semantic tokens
-func extractSemanticTokens(content string) []uint32 {
-	var (
-		input  = antlr.NewInputStream(content)
-		lexer  = parser.NewArcLexer(input)
-		stream = antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-	)
-	stream.Fill()
-	allTokens := stream.GetAllTokens()
+func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
+	input := antlr.NewInputStream(content)
+	lexer := parser.NewArcLexer(input)
+	allTokens := lexer.GetAllTokens()
 	var tokens []token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
 		}
-		tokenType := mapTokenType(t.GetTokenType())
+		tokenType := classifyToken(ctx, t, docIR)
 		if tokenType == nil {
 			continue
 		}
@@ -82,7 +106,109 @@ func extractSemanticTokens(content string) []uint32 {
 	return encodeSemanticTokens(tokens)
 }
 
-func mapTokenType(antlrType int) *uint32 {
+func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
+	antlrType := t.GetTokenType()
+
+	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
+		return classifyIdentifier(ctx, t, docIR.Symbols)
+	}
+
+	return mapLexerTokenType(antlrType)
+}
+
+func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Scope) *uint32 {
+	name := t.GetText()
+	line := t.GetLine()
+	col := t.GetColumn()
+
+	scope := findScopeAtLine(rootScope, line, col)
+	if scope == nil {
+		scope = rootScope
+	}
+
+	sym, err := scope.Resolve(ctx, name)
+	if err != nil || sym == nil {
+		tokenType := uint32(SemanticTokenTypeVariable)
+		return &tokenType
+	}
+
+	return mapSymbolKind(sym.Kind)
+}
+
+func findScopeAtLine(scope *symbol.Scope, line, col int) *symbol.Scope {
+	if scope == nil {
+		return nil
+	}
+
+	var deepest *symbol.Scope
+	findScopeAtLineRecursive(scope, line, col, &deepest)
+	if deepest == nil {
+		return scope
+	}
+	return deepest
+}
+
+func findScopeAtLineRecursive(scope *symbol.Scope, line, col int, deepest **symbol.Scope) {
+	if scope.AST != nil {
+		start := scope.AST.GetStart()
+		stop := scope.AST.GetStop()
+		if start != nil && stop != nil {
+			startLine := start.GetLine()
+			startCol := start.GetColumn()
+			stopLine := stop.GetLine()
+			stopCol := stop.GetColumn() + len(stop.GetText())
+			inRange := false
+			if line > startLine && line < stopLine {
+				inRange = true
+			} else if line == startLine && line == stopLine {
+				inRange = col >= startCol && col <= stopCol
+			} else if line == startLine {
+				inRange = col >= startCol
+			} else if line == stopLine {
+				inRange = col <= stopCol
+			}
+			if inRange {
+				*deepest = scope
+			}
+		}
+	}
+	for _, child := range scope.Children {
+		findScopeAtLineRecursive(child, line, col, deepest)
+	}
+}
+
+func mapSymbolKind(kind symbol.Kind) *uint32 {
+	var tokenType uint32
+	switch kind {
+	case symbol.KindFunction:
+		tokenType = SemanticTokenTypeFunction
+	case symbol.KindVariable:
+		tokenType = SemanticTokenTypeVariable
+	case symbol.KindConstant:
+		tokenType = SemanticTokenTypeConstant
+	case symbol.KindStatefulVariable:
+		tokenType = SemanticTokenTypeStatefulVariable
+	case symbol.KindConfig:
+		tokenType = SemanticTokenTypeConfig
+	case symbol.KindInput:
+		tokenType = SemanticTokenTypeInput
+	case symbol.KindOutput:
+		tokenType = SemanticTokenTypeOutput
+	case symbol.KindChannel:
+		tokenType = SemanticTokenTypeChannel
+	case symbol.KindSequence:
+		tokenType = SemanticTokenTypeSequence
+	case symbol.KindStage:
+		tokenType = SemanticTokenTypeStage
+	case symbol.KindBlock:
+		tokenType = SemanticTokenTypeBlock
+	default:
+		tokenType = SemanticTokenTypeVariable
+	}
+	return &tokenType
+}
+
+func mapLexerTokenType(antlrType int) *uint32 {
 	var tokenType uint32
 	switch antlrType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF,
@@ -96,8 +222,11 @@ func mapTokenType(antlrType int) *uint32 {
 		parser.ArcLexerSERIES,
 		parser.ArcLexerCHAN:
 		tokenType = SemanticTokenTypeType
-	case parser.ArcLexerARROW, parser.ArcLexerDECLARE,
-		parser.ArcLexerSTATE_DECLARE, parser.ArcLexerTRANSITION, parser.ArcLexerASSIGN,
+	case parser.ArcLexerTRANSITION:
+		tokenType = SemanticTokenTypeEdgeOneShot
+	case parser.ArcLexerARROW:
+		tokenType = SemanticTokenTypeEdgeContinuous
+	case parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,
 		parser.ArcLexerPLUS, parser.ArcLexerMINUS, parser.ArcLexerSTAR,
 		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerCARET,
 		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,

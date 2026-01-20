@@ -16,6 +16,16 @@ import (
 	"go.lsp.dev/protocol"
 )
 
+type CompletionCategory int
+
+const (
+	CategoryType CompletionCategory = 1 << iota
+	CategoryKeyword
+	CategoryFunction
+	CategoryUnit
+	CategoryValue
+)
+
 type CompletionInfo struct {
 	Label        string
 	Detail       string
@@ -23,90 +33,105 @@ type CompletionInfo struct {
 	Insert       string
 	InsertFormat protocol.InsertTextFormat
 	Kind         protocol.CompletionItemKind
+	Category     CompletionCategory
 }
 
 var completions = []CompletionInfo{
 	{
-		Label:  "i8",
-		Detail: "Signed 8-bit integer",
-		Doc:    "Range: -128 to 172",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "i8",
+		Detail:   "Signed 8-bit integer",
+		Doc:      "Range: -128 to 172",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "u8",
-		Detail: "Unsigned 8-bit integer",
-		Doc:    "Range: 0 to 255",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "u8",
+		Detail:   "Unsigned 8-bit integer",
+		Doc:      "Range: 0 to 255",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "i16",
-		Detail: "Signed 16-bit integer",
-		Doc:    "Range: -32768 to 32767",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "i16",
+		Detail:   "Signed 16-bit integer",
+		Doc:      "Range: -32768 to 32767",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "u16",
-		Detail: "Unsigned 16-bit integer",
-		Doc:    "Range: 0 to 65535",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "u16",
+		Detail:   "Unsigned 16-bit integer",
+		Doc:      "Range: 0 to 65535",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "i32",
-		Detail: "Signed 32-bit integer",
-		Doc:    "Range: -2147483648 to 2147483647",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "i32",
+		Detail:   "Signed 32-bit integer",
+		Doc:      "Range: -2147483648 to 2147483647",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "u32",
-		Detail: "Unsigned 32-bit integer",
-		Doc:    "Range: 0 to 4294967295",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "u32",
+		Detail:   "Unsigned 32-bit integer",
+		Doc:      "Range: 0 to 4294967295",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "i64",
-		Detail: "Signed 64-bit integer",
-		Doc:    "Range: -9223372036854775808 to 9223372036854775807",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "i64",
+		Detail:   "Signed 64-bit integer",
+		Doc:      "Range: -9223372036854775808 to 9223372036854775807",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "u64",
-		Detail: "Unsigned 64-bit integer",
-		Doc:    "Range: 0 to 18446744073709551615",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "u64",
+		Detail:   "Unsigned 64-bit integer",
+		Doc:      "Range: 0 to 18446744073709551615",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "f32",
-		Detail: "32-bit float",
-		Doc:    "Single precision floating point",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "f32",
+		Detail:   "32-bit float",
+		Doc:      "Single precision floating point",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "f64",
-		Detail: "64-bit float",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "f64",
+		Detail:   "64-bit float",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "string",
-		Detail: "String type",
-		Doc:    "Immutable UTF-8 string",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "string",
+		Detail:   "String type",
+		Doc:      "Immutable UTF-8 string",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "timestamp",
-		Detail: "Timestamp type",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "timestamp",
+		Detail:   "Timestamp type",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "series",
-		Detail: "Series type",
-		Doc:    "Homogeneous array of values",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "series",
+		Detail:   "Series type",
+		Doc:      "Homogeneous array of values",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
-		Label:  "chan",
-		Detail: "Channel type",
-		Doc:    "Communication channel",
-		Kind:   protocol.CompletionItemKindClass,
+		Label:    "chan",
+		Detail:   "Channel type",
+		Doc:      "Communication channel",
+		Kind:     protocol.CompletionItemKindClass,
+		Category: CategoryType,
 	},
 	{
 		Label:        "len",
@@ -115,6 +140,7 @@ var completions = []CompletionInfo{
 		Insert:       "len($0)",
 		Kind:         protocol.CompletionItemKindFunction,
 		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     CategoryFunction | CategoryValue,
 	},
 	{
 		Label:        "now",
@@ -123,72 +149,83 @@ var completions = []CompletionInfo{
 		Insert:       "now()",
 		Kind:         protocol.CompletionItemKindFunction,
 		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     CategoryFunction | CategoryValue,
 	},
 	{
-		Label:  "ns",
-		Detail: "Nanoseconds",
-		Doc:    "1/1000000000 seconds",
-		Insert: "ns",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "ns",
+		Detail:   "Nanoseconds",
+		Doc:      "1/1000000000 seconds",
+		Insert:   "ns",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "us",
-		Detail: "Microseconds",
-		Doc:    "1/1000000 seconds",
-		Insert: "us",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "us",
+		Detail:   "Microseconds",
+		Doc:      "1/1000000 seconds",
+		Insert:   "us",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "ms",
-		Detail: "Milliseconds",
-		Doc:    "1/1000 seconds",
-		Insert: "ms",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "ms",
+		Detail:   "Milliseconds",
+		Doc:      "1/1000 seconds",
+		Insert:   "ms",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "s",
-		Detail: "Seconds",
-		Doc:    "1 second",
-		Insert: "s",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "s",
+		Detail:   "Seconds",
+		Doc:      "1 second",
+		Insert:   "s",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "m",
-		Detail: "Minutes",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "m",
+		Detail:   "Minutes",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "h",
-		Detail: "Hours",
-		Doc:    "1 hour",
-		Insert: "h",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "h",
+		Detail:   "Hours",
+		Doc:      "1 hour",
+		Insert:   "h",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "hz",
-		Detail: "Hertz",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "hz",
+		Detail:   "Hertz",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "khz",
-		Detail: "Kilohertz",
-		Doc:    "1000 hertz",
-		Insert: "khz",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "khz",
+		Detail:   "Kilohertz",
+		Doc:      "1000 hertz",
+		Insert:   "khz",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "mhz",
-		Detail: "Megahertz",
-		Doc:    "1000000 hertz",
-		Insert: "mhz",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "mhz",
+		Detail:   "Megahertz",
+		Doc:      "1000000 hertz",
+		Insert:   "mhz",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:  "ghz",
-		Detail: "Gigahertz",
-		Doc:    "1000000 hertz",
-		Insert: "ghz",
-		Kind:   protocol.CompletionItemKindUnit,
+		Label:    "ghz",
+		Detail:   "Gigahertz",
+		Doc:      "1000000 hertz",
+		Insert:   "ghz",
+		Kind:     protocol.CompletionItemKindUnit,
+		Category: CategoryUnit | CategoryValue,
 	},
 	{
 		Label:        "func",
@@ -197,6 +234,7 @@ var completions = []CompletionInfo{
 		Insert:       "func ${1:name}($2) $3 {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     CategoryKeyword,
 	},
 	{
 		Label:        "if",
@@ -205,6 +243,7 @@ var completions = []CompletionInfo{
 		Insert:       "if ${1:condition} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     CategoryKeyword,
 	},
 	{
 		Label:        "else",
@@ -213,6 +252,7 @@ var completions = []CompletionInfo{
 		Insert:       "else {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     CategoryKeyword,
 	},
 	{
 		Label:        "else if",
@@ -221,6 +261,7 @@ var completions = []CompletionInfo{
 		Insert:       "else if ${1:condition} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     CategoryKeyword,
 	},
 	{
 		Label:        "return",
@@ -229,6 +270,7 @@ var completions = []CompletionInfo{
 		Insert:       "return $0",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
+		Category:     CategoryKeyword,
 	},
 }
 
@@ -264,7 +306,6 @@ func (s *Server) Completion(
 	}, nil
 }
 
-// getCompletionItems generates completion items based on context
 func (s *Server) getCompletionItems(
 	ctx context.Context,
 	doc *Document,
@@ -272,8 +313,19 @@ func (s *Server) getCompletionItems(
 	_ string,
 	pos protocol.Position,
 ) []protocol.CompletionItem {
+	completionCtx := DetectCompletionContext(doc.Content, pos)
+
+	if completionCtx == ContextComment {
+		return []protocol.CompletionItem{}
+	}
+
+	allowed := getAllowedCategories(completionCtx)
 	items := make([]protocol.CompletionItem, 0, len(completions))
+
 	for _, c := range completions {
+		if (c.Category & allowed) == 0 {
+			continue
+		}
 		if !strings.HasPrefix(c.Label, prefix) {
 			continue
 		}
@@ -290,7 +342,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if doc.IR.Symbols != nil {
+	if completionCtx != ContextTypeAnnotation && doc.IR.Symbols != nil {
 		searchPos := pos
 		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
 		if scopeAtCursor != nil {
@@ -321,4 +373,17 @@ func (s *Server) getCompletionItems(
 		}
 	}
 	return items
+}
+
+func getAllowedCategories(ctx CompletionContext) CompletionCategory {
+	switch ctx {
+	case ContextTypeAnnotation:
+		return CategoryType
+	case ContextExpression:
+		return CategoryValue | CategoryFunction | CategoryUnit
+	case ContextStatementStart:
+		return CategoryKeyword | CategoryValue | CategoryFunction
+	default:
+		return CategoryType | CategoryKeyword | CategoryFunction | CategoryUnit | CategoryValue
+	}
 }

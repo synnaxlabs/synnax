@@ -42,15 +42,178 @@ var _ = Describe("Completion", func() {
 			content := "func test() {\n    i\n}"
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			// Request completion at "i|" - should match i8, i16, i32, i64, if
 			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 5}, // after "i"
+					Position:     protocol.Position{Line: 1, Character: 5},
 				},
 			}))
 			Expect(completions).ToNot(BeNil())
 			Expect(len(completions.Items)).To(BeNumerically(">", 0))
+		})
+	})
+
+	Describe("Context-Aware Completion", func() {
+		It("should return empty completions in single-line comment", func() {
+			content := "// comment here"
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 10},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+			Expect(completions.Items).To(BeEmpty())
+		})
+
+		It("should return empty completions in multi-line comment", func() {
+			content := "/* multi\nline\ncomment */"
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 2},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+			Expect(completions.Items).To(BeEmpty())
+		})
+
+		It("should return only types in type annotation position", func() {
+			content := "func foo(x "
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 11},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+			Expect(len(completions.Items)).To(BeNumerically(">", 0))
+
+			for _, item := range completions.Items {
+				Expect(item.Kind).To(Equal(protocol.CompletionItemKindClass),
+					"Expected only type completions, got: %s (kind: %v)", item.Label, item.Kind)
+			}
+
+			_, foundFunc := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "func"
+			})
+			Expect(foundFunc).To(BeFalse(), "Should not show 'func' keyword in type annotation context")
+
+			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "if"
+			})
+			Expect(foundIf).To(BeFalse(), "Should not show 'if' keyword in type annotation context")
+		})
+
+		It("should return types matching prefix in type annotation position", func() {
+			content := "func foo(x i"
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 12},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+			Expect(len(completions.Items)).To(BeNumerically(">", 0))
+
+			for _, item := range completions.Items {
+				Expect(item.Label).To(HavePrefix("i"), "Expected items with 'i' prefix, got: %s", item.Label)
+			}
+		})
+
+		It("should not show keywords in expression context", func() {
+			content := "x := "
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 5},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+
+			_, foundFunc := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "func"
+			})
+			Expect(foundFunc).To(BeFalse(), "Should not show 'func' keyword in expression context")
+
+			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "if"
+			})
+			Expect(foundIf).To(BeFalse(), "Should not show 'if' keyword in expression context")
+		})
+
+		It("should show functions and values in expression context", func() {
+			content := "x := "
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 5},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+
+			_, foundLen := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "len"
+			})
+			Expect(foundLen).To(BeTrue(), "Should show 'len' function in expression context")
+
+			_, foundNow := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "now"
+			})
+			Expect(foundNow).To(BeTrue(), "Should show 'now' function in expression context")
+		})
+
+		It("should show keywords at statement start", func() {
+			content := "func foo() { "
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 13},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+
+			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "if"
+			})
+			Expect(foundIf).To(BeTrue(), "Should show 'if' keyword at statement start")
+
+			_, foundReturn := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "return"
+			})
+			Expect(foundReturn).To(BeTrue(), "Should show 'return' keyword at statement start")
+		})
+
+		It("should not show types at statement start", func() {
+			content := "func foo() { "
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 13},
+				},
+			}))
+			Expect(completions).ToNot(BeNil())
+
+			_, foundI32 := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
+				return item.Label == "i32"
+			})
+			Expect(foundI32).To(BeFalse(), "Should not show 'i32' type at statement start")
 		})
 	})
 

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/arc/lsp/doc"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"go.lsp.dev/protocol"
@@ -25,7 +26,7 @@ func (s *Server) Hover(
 	_ context.Context,
 	params *protocol.HoverParams,
 ) (*protocol.Hover, error) {
-	doc, ok := s.getDocument(params.TextDocument.URI)
+	d, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		s.cfg.L.Debug(
 			"hover: document not found",
@@ -34,7 +35,20 @@ func (s *Server) Hover(
 		return nil, nil
 	}
 
-	word := s.getWordAtPosition(doc.Content, params.Position)
+	operator := s.getOperatorAtPosition(d.Content, params.Position)
+	if operator != "" {
+		contents := s.getOperatorHoverContents(operator)
+		if contents != "" {
+			return &protocol.Hover{
+				Contents: protocol.MarkupContent{
+					Kind:  protocol.Markdown,
+					Value: contents,
+				},
+			}, nil
+		}
+	}
+
+	word := s.getWordAtPosition(d.Content, params.Position)
 	if word == "" {
 		s.cfg.L.Debug(
 			"hover: no word at position",
@@ -45,8 +59,8 @@ func (s *Server) Hover(
 	}
 
 	contents := s.getHoverContents(word)
-	if contents == "" && doc.IR.Symbols != nil {
-		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, params.Position)
+	if contents == "" && d.IR.Symbols != nil {
+		scopeAtCursor := s.findScopeAtPosition(d.IR.Symbols, params.Position)
 		contents = s.getUserSymbolHover(scopeAtCursor, word)
 	}
 
@@ -86,42 +100,259 @@ func isWordChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
+var operators = []string{
+	":=", "$=", "=>", "->",
+	"+=", "-=", "*=", "/=", "%=",
+	"==", "!=", "<=", ">=",
+}
+
+func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {
+	lines := strings.Split(content, "\n")
+	if int(pos.Line) >= len(lines) {
+		return ""
+	}
+	line := lines[pos.Line]
+	col := int(pos.Character)
+	if col >= len(line) {
+		return ""
+	}
+	for _, op := range operators {
+		opLen := len(op)
+		for startOffset := 0; startOffset < opLen; startOffset++ {
+			start := col - startOffset
+			if start < 0 || start+opLen > len(line) {
+				continue
+			}
+			if line[start:start+opLen] == op {
+				return op
+			}
+		}
+	}
+	return ""
+}
+
+func (s *Server) getOperatorHoverContents(op string) string {
+	switch op {
+	case ":=":
+		return doc.New(
+			doc.NewTitleWithKind(":=", "Operator"),
+			doc.Paragraph("Declares and initializes a new local variable."),
+			doc.NewDivider(),
+			doc.NewArcCode("x := 42\nname := \"hello\""),
+			doc.NewDivider(),
+			doc.Paragraph("The variable type is inferred from the right-hand side expression."),
+		).Render()
+	case "$=":
+		return doc.New(
+			doc.NewTitleWithKind("$=", "Operator"),
+			doc.Paragraph("Declares a stateful variable that persists across executions."),
+			doc.NewDivider(),
+			doc.NewArcCode("count $= 0\ncount = count + 1"),
+			doc.NewDivider(),
+			doc.Paragraph("Stateful variables retain their values between reactive stage executions, making them useful for counters, accumulators, and maintaining state."),
+		).Render()
+	case "=>":
+		return doc.New(
+			doc.NewTitleWithKind("=>", "Operator"),
+			doc.Paragraph("Transitions to another stage in a sequence."),
+			doc.NewDivider(),
+			doc.NewArcCode("sequence main {\n    stage first {\n        if ready => second\n    }\n    stage second {}\n}"),
+			doc.NewDivider(),
+			doc.Paragraph("When the condition is true, execution transitions to the specified stage on the next cycle."),
+		).Render()
+	case "->":
+		return doc.New(
+			doc.NewTitleWithKind("->", "Operator"),
+			doc.Paragraph("Writes a value to a channel."),
+			doc.NewDivider(),
+			doc.NewArcCode("value -> outputChannel"),
+			doc.NewDivider(),
+			doc.Paragraph("Sends the left-hand value to the channel on the right."),
+		).Render()
+	case "+=":
+		return doc.New(
+			doc.NewTitleWithKind("+=", "Operator"),
+			doc.Paragraph("Adds and assigns."),
+			doc.NewDivider(),
+			doc.NewArcCode("x += 5  // equivalent to: x = x + 5"),
+		).Render()
+	case "-=":
+		return doc.New(
+			doc.NewTitleWithKind("-=", "Operator"),
+			doc.Paragraph("Subtracts and assigns."),
+			doc.NewDivider(),
+			doc.NewArcCode("x -= 5  // equivalent to: x = x - 5"),
+		).Render()
+	case "*=":
+		return doc.New(
+			doc.NewTitleWithKind("*=", "Operator"),
+			doc.Paragraph("Multiplies and assigns."),
+			doc.NewDivider(),
+			doc.NewArcCode("x *= 2  // equivalent to: x = x * 2"),
+		).Render()
+	case "/=":
+		return doc.New(
+			doc.NewTitleWithKind("/=", "Operator"),
+			doc.Paragraph("Divides and assigns."),
+			doc.NewDivider(),
+			doc.NewArcCode("x /= 2  // equivalent to: x = x / 2"),
+		).Render()
+	case "%=":
+		return doc.New(
+			doc.NewTitleWithKind("%=", "Operator"),
+			doc.Paragraph("Computes modulo and assigns."),
+			doc.NewDivider(),
+			doc.NewArcCode("x %= 3  // equivalent to: x = x % 3"),
+		).Render()
+	case "==":
+		return doc.New(
+			doc.NewTitleWithKind("==", "Operator"),
+			doc.Paragraph("Tests equality between two values."),
+			doc.NewDivider(),
+			doc.NewArcCode("if x == 10 { ... }"),
+		).Render()
+	case "!=":
+		return doc.New(
+			doc.NewTitleWithKind("!=", "Operator"),
+			doc.Paragraph("Tests inequality between two values."),
+			doc.NewDivider(),
+			doc.NewArcCode("if x != 0 { ... }"),
+		).Render()
+	case "<=":
+		return doc.New(
+			doc.NewTitleWithKind("<=", "Operator"),
+			doc.Paragraph("Tests if left value is less than or equal to right value."),
+			doc.NewDivider(),
+			doc.NewArcCode("if x <= 100 { ... }"),
+		).Render()
+	case ">=":
+		return doc.New(
+			doc.NewTitleWithKind(">=", "Operator"),
+			doc.Paragraph("Tests if left value is greater than or equal to right value."),
+			doc.NewDivider(),
+			doc.NewArcCode("if x >= 0 { ... }"),
+		).Render()
+	default:
+		return ""
+	}
+}
+
 func (s *Server) getHoverContents(word string) string {
 	switch word {
 	case "func":
-		return "#### func\nDeclares a function.\n\n```arc\nfunc name(param type) returnType {\n    // body\n}\n```"
+		return doc.New(
+			doc.NewTitleWithKind("func", "Keyword"),
+			doc.Paragraph("Declares a function."),
+			doc.NewDivider(),
+			doc.NewArcCode("func name(param type) returnType {\n    // body\n}"),
+		).Render()
 	case "stage":
-		return "#### stage\nDeclares a reactive stage.\n\n```arc\nfunc name{\n    config type\n} (runtime type) returnType {\n    // body\n}\n```"
+		return doc.New(
+			doc.NewTitleWithKind("stage", "Keyword"),
+			doc.Paragraph("Declares a stage within a sequence."),
+			doc.NewDivider(),
+			doc.NewArcCode("sequence name {\n    stage stageName {\n        // body\n    }\n}"),
+		).Render()
+	case "sequence":
+		return doc.New(
+			doc.NewTitleWithKind("sequence", "Keyword"),
+			doc.Paragraph("Declares a sequence (state machine)."),
+			doc.NewDivider(),
+			doc.NewArcCode("sequence name {\n    stage first {\n        // initial stage\n    }\n}"),
+		).Render()
 	case "if":
-		return "#### if\nConditional statement.\n\n```arc\nif condition {\n    // body\n}\n```"
+		return doc.New(
+			doc.NewTitleWithKind("if", "Keyword"),
+			doc.Paragraph("Conditional statement."),
+			doc.NewDivider(),
+			doc.NewArcCode("if condition {\n    // body\n}"),
+		).Render()
 	case "else":
-		return "#### else\nAlternative branch for if statement.\n\n```arc\nif condition {\n    // body\n} else {\n    // alternative\n}\n```"
+		return doc.New(
+			doc.NewTitleWithKind("else", "Keyword"),
+			doc.Paragraph("Alternative branch for if statement."),
+			doc.NewDivider(),
+			doc.NewArcCode("if condition {\n    // body\n} else {\n    // alternative\n}"),
+		).Render()
 	case "return":
-		return "#### return\nReturns a value from a function."
+		return doc.New(
+			doc.NewTitleWithKind("return", "Keyword"),
+			doc.Paragraph("Returns a value from a function."),
+		).Render()
+	case "next":
+		return doc.New(
+			doc.NewTitleWithKind("next", "Keyword"),
+			doc.Paragraph("Transitions to a stage unconditionally."),
+			doc.NewDivider(),
+			doc.NewArcCode("stage first {\n    next second\n}"),
+		).Render()
 	case "i8", "i16", "i32", "i64":
 		bits := word[1:]
-		return fmt.Sprintf("#### %s\nSigned %s-bit integer.\n\nRange: -%d to %d", word, bits, 1<<(parseInt(bits)-1), (1<<(parseInt(bits)-1))-1)
+		return doc.New(
+			doc.NewTitleWithKind(word, "Type"),
+			doc.Paragraph(fmt.Sprintf("Signed %s-bit integer.", bits)),
+			doc.NewDetail("Range", fmt.Sprintf("-%d to %d", 1<<(parseInt(bits)-1), (1<<(parseInt(bits)-1))-1), false),
+		).Render()
 	case "u8", "u16", "u32", "u64":
 		bits := word[1:]
-		return fmt.Sprintf("#### %s\nUnsigned %s-bit integer.\n\nRange: 0 to %d", word, bits, (1<<parseInt(bits))-1)
+		return doc.New(
+			doc.NewTitleWithKind(word, "Type"),
+			doc.Paragraph(fmt.Sprintf("Unsigned %s-bit integer.", bits)),
+			doc.NewDetail("Range", fmt.Sprintf("0 to %d", (1<<parseInt(bits))-1), false),
+		).Render()
 	case "f32":
-		return "#### f32\n32-bit floating point number (single precision)."
+		return doc.New(
+			doc.NewTitleWithKind("f32", "Type"),
+			doc.Paragraph("32-bit floating point number (single precision)."),
+		).Render()
 	case "f64":
-		return "#### f64\n64-bit floating point number (double precision)."
+		return doc.New(
+			doc.NewTitleWithKind("f64", "Type"),
+			doc.Paragraph("64-bit floating point number (double precision)."),
+		).Render()
 	case "string":
-		return "#### string\nImmutable UTF-8 encoded string."
+		return doc.New(
+			doc.NewTitleWithKind("string", "Type"),
+			doc.Paragraph("Immutable UTF-8 encoded string."),
+		).Render()
 	case "timestamp":
-		return "#### timestamp\nPoint in time represented as nanoseconds since Unix epoch."
+		return doc.New(
+			doc.NewTitleWithKind("timestamp", "Type"),
+			doc.Paragraph("Point in time represented as nanoseconds since Unix epoch."),
+		).Render()
 	case "timespan":
-		return "#### timespan\nDuration represented as nanoseconds."
+		return doc.New(
+			doc.NewTitleWithKind("timespan", "Type"),
+			doc.Paragraph("Duration represented as nanoseconds."),
+		).Render()
 	case "series":
-		return "#### series\nHomogeneous array of values.\n\n```arc\nseries f64\n```"
+		return doc.New(
+			doc.NewTitleWithKind("series", "Type"),
+			doc.Paragraph("Homogeneous array of values."),
+			doc.NewDivider(),
+			doc.NewArcCode("series f64"),
+		).Render()
 	case "chan":
-		return "#### chan\nBidirectional channel for communication.\n\n```arc\nchan f64\n```"
+		return doc.New(
+			doc.NewTitleWithKind("chan", "Type"),
+			doc.Paragraph("Bidirectional channel for communication."),
+			doc.NewDivider(),
+			doc.NewArcCode("chan f64"),
+		).Render()
 	case "len":
-		return "#### len\nReturns the length of a series.\n\n```arc\nlength := len(data)\n```"
+		return doc.New(
+			doc.NewTitleWithKind("len", "Function"),
+			doc.Paragraph("Returns the length of a series."),
+			doc.NewDivider(),
+			doc.NewArcCode("length := len(data)"),
+		).Render()
 	case "now":
-		return "#### now\nReturns the current timestamp.\n\n```arc\ntime := now()\n```"
+		return doc.New(
+			doc.NewTitleWithKind("now", "Function"),
+			doc.Paragraph("Returns the current timestamp."),
+			doc.NewDivider(),
+			doc.NewArcCode("time := now()"),
+		).Render()
 	default:
 		return ""
 	}
@@ -141,43 +372,51 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
 	if err != nil {
 		return ""
 	}
-	var content strings.Builder
-	content.WriteString(fmt.Sprintf("## %s\n\n", sym.Name))
+	var d doc.Doc
 	switch sym.Kind {
 	case symbol.KindFunction:
-		content.WriteString(formatFunctionSignature(sym))
-		content.WriteString("\n\n")
-		content.WriteString(formatFunctionKindDescription(sym))
+		d = doc.New(doc.NewTitleWithKind(sym.Name, formatFunctionKindDescription(sym)))
+		d.Add(doc.NewDivider())
+		d.Add(doc.Code{Language: "arc", Content: formatFunctionSignatureContent(sym)})
 	case symbol.KindVariable:
-		content.WriteString("**Variable**\n\n")
-		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Variable"))
+		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
 	case symbol.KindStatefulVariable:
-		content.WriteString("**Stateful Variable** (persists across executions)\n\n")
-		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Stateful Variable"))
+		d.Add(doc.Paragraph("Persists across executions"))
+		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
 	case symbol.KindInput:
-		content.WriteString("**Input Parameter**\n\n")
-		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Input Parameter"))
+		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
 	case symbol.KindOutput:
-		content.WriteString("**Output Parameter**\n\n")
-		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Output Parameter"))
+		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
 	case symbol.KindConfig:
-		content.WriteString("**Configuration Parameter**\n\n")
-		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Configuration Parameter"))
+		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
 	case symbol.KindChannel:
-		content.WriteString("**Channel**\n\n")
-		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Channel"))
+		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+	case symbol.KindSequence:
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Sequence"))
+		if stages := formatSequenceStagesList(sym); len(stages) > 0 {
+			d.Add(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
+		}
+	case symbol.KindStage:
+		d = doc.New(doc.NewTitleWithKind(sym.Name, "Stage"))
 	default:
-		content.WriteString(fmt.Sprintf("Type: `%s`", sym.Type))
+		d = doc.New(doc.NewTitle(sym.Name))
+		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
 	}
-	return content.String()
+	return d.Render()
 }
 
-func formatFunctionSignature(sym *symbol.Scope) string {
+// formatFunctionSignatureContent returns the function signature without code fences.
+func formatFunctionSignatureContent(sym *symbol.Scope) string {
 	if sym.Type.Kind != types.KindFunction {
 		return ""
 	}
 	var sig strings.Builder
-	sig.WriteString("```arc\n")
 	sig.WriteString("func ")
 	sig.WriteString(sym.Name)
 	if len(sym.Type.Config) > 0 {
@@ -217,16 +456,25 @@ func formatFunctionSignature(sym *symbol.Scope) string {
 			sig.WriteString("\n}")
 		}
 	}
-
-	sig.WriteString("\n```")
 	return sig.String()
 }
 
 func formatFunctionKindDescription(sym *symbol.Scope) string {
 	if sym.Type.Config != nil {
-		return "_Reactive stage with configuration_"
+		return "Reactive stage with configuration"
 	}
-	return "_Function_"
+	return "Function"
+}
+
+// formatSequenceStagesList returns a list of formatted stage names.
+func formatSequenceStagesList(sym *symbol.Scope) []string {
+	var stages []string
+	for _, child := range sym.Children {
+		if child.Kind == symbol.KindStage {
+			stages = append(stages, "`"+child.Name+"`")
+		}
+	}
+	return stages
 }
 
 func (s *Server) findScopeAtPosition(

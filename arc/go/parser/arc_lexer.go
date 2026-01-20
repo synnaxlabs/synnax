@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser
@@ -249,9 +240,9 @@ func arclexerLexerInit() {
 		370, 368, 1, 0, 0, 0, 371, 372, 5, 42, 0, 0, 372, 373, 5, 47, 0, 0, 373,
 		374, 1, 0, 0, 0, 374, 375, 6, 61, 0, 0, 375, 124, 1, 0, 0, 0, 376, 378,
 		7, 7, 0, 0, 377, 376, 1, 0, 0, 0, 378, 379, 1, 0, 0, 0, 379, 377, 1, 0,
-		0, 0, 379, 380, 1, 0, 0, 0, 380, 381, 1, 0, 0, 0, 381, 382, 6, 62, 1, 0,
+		0, 0, 379, 380, 1, 0, 0, 0, 380, 381, 1, 0, 0, 0, 381, 382, 6, 62, 0, 0,
 		382, 126, 1, 0, 0, 0, 11, 0, 308, 317, 321, 326, 328, 342, 348, 357, 368,
-		379, 2, 6, 0, 0, 0, 1, 0,
+		379, 1, 0, 1, 0,
 	}
 	deserializer := antlr.NewATNDeserializer(nil)
 	staticData.atn = deserializer.Deserialize(staticData.serializedATN)

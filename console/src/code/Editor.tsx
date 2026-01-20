@@ -32,20 +32,54 @@ const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   formatOnType: true,
   suggestOnTriggerCharacters: false,
   showFoldingControls: "never",
+  hover: { above: false },
 };
 
-const disableCommandPalette = (
-  mon: Pick<typeof Monaco, "editor" | "KeyMod" | "KeyCode" | "KeyMod">,
-) => {
-  const CMD_ID = "ctrl-p";
+const disableMonacoCommandPalette = (
+  mon: Pick<typeof Monaco, "editor" | "KeyMod" | "KeyCode">,
+): void => {
+  const NOOP_COMMAND = "noop";
   mon.editor.addKeybindingRule({
     keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP,
-    command: CMD_ID,
+    command: NOOP_COMMAND,
   });
   mon.editor.addKeybindingRule({
     keybinding: mon.KeyMod.CtrlCmd | mon.KeyCode.KeyP | mon.KeyMod.Shift,
-    command: CMD_ID,
+    command: NOOP_COMMAND,
   });
+};
+
+const hasGlobalModifier = (e: KeyboardEvent): boolean =>
+  e.ctrlKey || e.metaKey || e.altKey;
+
+const redispatchToWindow = (e: KeyboardEvent): void => {
+  const synthetic = new KeyboardEvent(e.type, {
+    key: e.key,
+    code: e.code,
+    ctrlKey: e.ctrlKey,
+    shiftKey: e.shiftKey,
+    altKey: e.altKey,
+    metaKey: e.metaKey,
+    bubbles: true,
+  });
+  window.dispatchEvent(synthetic);
+};
+
+const forwardGlobalTriggers = (
+  editor: Monaco.editor.IStandaloneCodeEditor,
+): Monaco.IDisposable => {
+  const downDispose = editor.onKeyDown((e) => {
+    if (hasGlobalModifier(e.browserEvent)) redispatchToWindow(e.browserEvent);
+  });
+  const upDispose = editor.onKeyUp((e) => {
+    if (hasGlobalModifier(e.browserEvent)) redispatchToWindow(e.browserEvent);
+  });
+  return {
+    dispose: () => {
+      downDispose.dispose();
+      upDispose.dispose();
+    },
+  };
 };
 
 interface UseProps extends Input.Control<string> {
@@ -53,9 +87,10 @@ interface UseProps extends Input.Control<string> {
   isBlock?: boolean;
 }
 
-const useTheme = () => {
+const useTheme = (language: string) => {
   const theme = Theming.use();
   const prefersDark = theme.key.includes("Dark");
+  if (language === "arc") return prefersDark ? "Default Dark+" : "Default Light+";
   return prefersDark ? "vs-dark" : "vs";
 };
 
@@ -85,7 +120,7 @@ const use = ({
 }: UseProps): RefObject<HTMLDivElement | null> => {
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
-  const theme = useTheme();
+  const theme = useTheme(language);
   const monaco = useMonaco();
 
   const customURIRef = useRef<string | undefined>(undefined);
@@ -117,18 +152,20 @@ const use = ({
       ...ZERO_OPTIONS,
     });
 
-    // Trigger language features by making a temporary edit
     triggerSmallModelChangeToActiveLanguageServerFeatures(editorRef.current, value);
+    disableMonacoCommandPalette(monaco);
 
-    disableCommandPalette(monaco);
-    const dispose = editorRef.current.onDidChangeModelContent(() => {
+    const contentDispose = editorRef.current.onDidChangeModelContent(() => {
       if (editorRef.current == null) return;
       onChange(editorRef.current.getValue());
     });
+    const triggerDispose = forwardGlobalTriggers(editorRef.current);
+
     return () => {
-      dispose.dispose();
-      if (editorRef.current != null) editorRef.current.dispose();
-      if (model != null) model.dispose();
+      contentDispose.dispose();
+      triggerDispose.dispose();
+      editorRef.current?.dispose();
+      model?.dispose();
     };
   }, [theme, monaco, customURI]);
 

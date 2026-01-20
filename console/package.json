@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@codingame/monaco-vscode-api": "^14.0.6",
+    "@codingame/monaco-vscode-configuration-service-override": "^14.0.6",
     "@codingame/monaco-vscode-languages-service-override": "^14.0.6",
     "@codingame/monaco-vscode-lua-default-extension": "^14.0.6",
     "@codingame/monaco-vscode-textmate-service-override": "^14.0.6",

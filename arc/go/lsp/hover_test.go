@@ -50,17 +50,17 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'stage' keyword", func() {
-			content := "stage max{} (value f32) f32 { return value }"
+			content := "sequence main { stage first {} }"
 			testutil.OpenDocument(server, ctx, uri, content)
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 3}, // sta|ge
+					Position:     protocol.Position{Line: 0, Character: 18}, // sta|ge
 				},
 			}))
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## stage"))
-			Expect(hover.Contents.Value).To(ContainSubstring("reactive stage"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### stage"))
+			Expect(hover.Contents.Value).To(ContainSubstring("within a sequence"))
 		})
 
 		It("should provide hover for 'if' keyword", func() {
@@ -73,7 +73,7 @@ var _ = Describe("Hover", func() {
 				},
 			}))
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## if"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### if"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Conditional"))
 		})
 
@@ -87,7 +87,21 @@ var _ = Describe("Hover", func() {
 				},
 			}))
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## return"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### return"))
+		})
+
+		It("should provide hover for 'sequence' keyword", func() {
+			content := "sequence main { stage first {} }"
+			testutil.OpenDocument(server, ctx, uri, content)
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 4}, // sequ|ence
+				},
+			}))
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### sequence"))
+			Expect(hover.Contents.Value).To(ContainSubstring("state machine"))
 		})
 	})
 
@@ -117,7 +131,7 @@ var _ = Describe("Hover", func() {
 					},
 				}))
 				Expect(hover).ToNot(BeNil(), "type: "+tc.typeName)
-				Expect(hover.Contents.Value).To(ContainSubstring("## "+tc.typeName), "type: "+tc.typeName)
+				Expect(hover.Contents.Value).To(ContainSubstring("#### "+tc.typeName), "type: "+tc.typeName)
 				Expect(hover.Contents.Value).To(ContainSubstring("Range:"), "type: "+tc.typeName)
 			}
 		})
@@ -135,7 +149,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## f32"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### f32"))
 			Expect(hover.Contents.Value).To(ContainSubstring("32-bit floating point"))
 
 			// Hover over f64
@@ -147,7 +161,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## f64"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### f64"))
 			Expect(hover.Contents.Value).To(ContainSubstring("64-bit floating point"))
 		})
 
@@ -163,7 +177,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## series"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### series"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Homogeneous array"))
 		})
 
@@ -179,7 +193,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## chan"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### chan"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Bidirectional channel"))
 		})
 	})
@@ -197,7 +211,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## len"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### len"))
 			Expect(hover.Contents.Value).To(ContainSubstring("length of a series"))
 		})
 
@@ -213,7 +227,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## now"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### now"))
 			Expect(hover.Contents.Value).To(ContainSubstring("current timestamp"))
 		})
 	})
@@ -238,7 +252,7 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## add"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
 			Expect(hover.Contents.Value).To(ContainSubstring("func add"))
 			Expect(hover.Contents.Value).To(ContainSubstring("x i32"))
 			Expect(hover.Contents.Value).To(ContainSubstring("y i32"))
@@ -264,7 +278,7 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## max"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### max"))
 			Expect(hover.Contents.Value).To(ContainSubstring("func max"))
 			Expect(hover.Contents.Value).To(ContainSubstring("value f32"))
 		})
@@ -289,7 +303,7 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## threshold"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### threshold"))
 			Expect(hover.Contents.Value).To(ContainSubstring("func threshold"))
 			Expect(hover.Contents.Value).To(ContainSubstring("limit f64"))
 			Expect(hover.Contents.Value).To(ContainSubstring("value f64"))
@@ -312,7 +326,7 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## x"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### x"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Variable"))
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
 		})
@@ -335,9 +349,9 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## count"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### count"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Stateful Variable"))
-			Expect(hover.Contents.Value).To(ContainSubstring("persists across executions"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Persists across executions"))
 		})
 
 		It("should provide hover for function parameters", func() {
@@ -356,9 +370,157 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## x"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### x"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Input Parameter"))
 			Expect(hover.Contents.Value).To(ContainSubstring("f64"))
+		})
+
+		It("should provide hover for sequence declarations", func() {
+			content := `sequence main {
+    stage first {}
+    stage second {}
+}`
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			// Hover over 'main' sequence name
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 10}, // sequence m|ain
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### main"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Sequence"))
+			Expect(hover.Contents.Value).To(ContainSubstring("first"))
+			Expect(hover.Contents.Value).To(ContainSubstring("second"))
+		})
+
+		It("should provide hover for stage declarations within sequence", func() {
+			content := `sequence main {
+    stage first {}
+}`
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			// Hover over 'first' stage name
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 11}, // stage fi|rst
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### first"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Stage"))
+		})
+	})
+
+	Describe("Operators", func() {
+		It("should provide hover for := operator", func() {
+			content := "x := 42"
+			testutil.OpenDocument(server, ctx, uri, content)
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 2},
+				},
+			}))
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring(":="))
+			Expect(hover.Contents.Value).To(ContainSubstring("Declares and initializes"))
+		})
+
+		It("should provide hover for $= operator", func() {
+			content := "count $= 0"
+			testutil.OpenDocument(server, ctx, uri, content)
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 6},
+				},
+			}))
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("$="))
+			Expect(hover.Contents.Value).To(ContainSubstring("stateful"))
+		})
+
+		It("should provide hover for => operator", func() {
+			content := "if ready => next_stage"
+			testutil.OpenDocument(server, ctx, uri, content)
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 9},
+				},
+			}))
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("=>"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Transitions"))
+		})
+
+		It("should provide hover for -> operator", func() {
+			content := "value -> channel"
+			testutil.OpenDocument(server, ctx, uri, content)
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 6},
+				},
+			}))
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("->"))
+			Expect(hover.Contents.Value).To(ContainSubstring("channel"))
+		})
+
+		It("should provide hover for comparison operators", func() {
+			testCases := []struct {
+				op      string
+				content string
+				pos     uint32
+			}{
+				{"==", "x == y", 2},
+				{"!=", "x != y", 2},
+				{"<=", "x <= y", 2},
+				{">=", "x >= y", 2},
+			}
+			for _, tc := range testCases {
+				testutil.OpenDocument(server, ctx, uri, tc.content)
+				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+						Position:     protocol.Position{Line: 0, Character: tc.pos},
+					},
+				}))
+				Expect(hover).ToNot(BeNil(), "operator: "+tc.op)
+				Expect(hover.Contents.Value).To(ContainSubstring(tc.op), "operator: "+tc.op)
+			}
+		})
+
+		It("should provide hover for compound assignment operators", func() {
+			testCases := []struct {
+				op      string
+				content string
+				pos     uint32
+			}{
+				{"+=", "x += 5", 2},
+				{"-=", "x -= 5", 2},
+				{"*=", "x *= 5", 2},
+				{"/=", "x /= 5", 2},
+				{"%=", "x %= 5", 2},
+			}
+			for _, tc := range testCases {
+				testutil.OpenDocument(server, ctx, uri, tc.content)
+				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+						Position:     protocol.Position{Line: 0, Character: tc.pos},
+					},
+				}))
+				Expect(hover).ToNot(BeNil(), "operator: "+tc.op)
+				Expect(hover.Contents.Value).To(ContainSubstring(tc.op), "operator: "+tc.op)
+			}
 		})
 	})
 
@@ -415,7 +577,7 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## func"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle hovering at start of word", func() {
@@ -431,7 +593,7 @@ func main() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("## func"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle empty lines", func() {
@@ -478,6 +640,245 @@ func main() {
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("myGlobal"))
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
+		})
+	})
+
+	Describe("SemanticTokens", func() {
+		DescribeTable("Keywords",
+			func(content string, expectedType uint32) {
+				testutil.OpenDocument(server, ctx, uri, content)
+				tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}))
+				Expect(tokens).ToNot(BeNil())
+				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+				Expect(tokens.Data[3]).To(Equal(expectedType))
+			},
+			Entry("func", "func test() {}", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("if", "if x {}", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("else", "else {}", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("return", "return 1", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("sequence", "sequence main {}", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("stage", "stage first {}", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("next", "next foo", uint32(lsp.SemanticTokenTypeKeyword)),
+		)
+
+		DescribeTable("Types",
+			func(content string, expectedType uint32) {
+				testutil.OpenDocument(server, ctx, uri, content)
+				tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}))
+				Expect(tokens).ToNot(BeNil())
+				Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
+				Expect(tokens.Data[8]).To(Equal(expectedType))
+			},
+			Entry("i8", "x i8", uint32(lsp.SemanticTokenTypeType)),
+			Entry("i16", "x i16", uint32(lsp.SemanticTokenTypeType)),
+			Entry("i32", "x i32", uint32(lsp.SemanticTokenTypeType)),
+			Entry("i64", "x i64", uint32(lsp.SemanticTokenTypeType)),
+			Entry("u8", "x u8", uint32(lsp.SemanticTokenTypeType)),
+			Entry("u16", "x u16", uint32(lsp.SemanticTokenTypeType)),
+			Entry("u32", "x u32", uint32(lsp.SemanticTokenTypeType)),
+			Entry("u64", "x u64", uint32(lsp.SemanticTokenTypeType)),
+			Entry("f32", "x f32", uint32(lsp.SemanticTokenTypeType)),
+			Entry("f64", "x f64", uint32(lsp.SemanticTokenTypeType)),
+			Entry("str", "x str", uint32(lsp.SemanticTokenTypeType)),
+			Entry("series", "x series", uint32(lsp.SemanticTokenTypeType)),
+			Entry("chan", "x chan", uint32(lsp.SemanticTokenTypeType)),
+		)
+
+		DescribeTable("Operators",
+			func(content string, expectedType uint32) {
+				testutil.OpenDocument(server, ctx, uri, content)
+				tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}))
+				Expect(tokens).ToNot(BeNil())
+				Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
+				Expect(tokens.Data[8]).To(Equal(expectedType))
+			},
+			Entry("declare :=", "x := 1", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("state declare $=", "x $= 1", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("assign =", "x = 1", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("arrow ->", "x -> y", uint32(lsp.SemanticTokenTypeEdgeContinuous)),
+			Entry("transition =>", "x => y", uint32(lsp.SemanticTokenTypeEdgeOneShot)),
+			Entry("plus +", "x + y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("minus -", "x - y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("star *", "x * y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("slash /", "x / y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("percent %", "x % y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("caret ^", "x ^ y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("eq ==", "x == y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("neq !=", "x != y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("lt <", "x < y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("gt >", "x > y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("leq <=", "x <= y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("geq >=", "x >= y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("and", "x and y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("or", "x or y", uint32(lsp.SemanticTokenTypeOperator)),
+		)
+
+		It("should tokenize not operator", func() {
+			testutil.OpenDocument(server, ctx, uri, "not x")
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeOperator)))
+		})
+
+		It("should tokenize variables", func() {
+			testutil.OpenDocument(server, ctx, uri, "myVariable")
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeVariable)))
+		})
+
+		It("should tokenize string literals", func() {
+			testutil.OpenDocument(server, ctx, uri, `"hello world"`)
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeString)))
+		})
+
+		DescribeTable("Numbers",
+			func(content string, expectedType uint32) {
+				testutil.OpenDocument(server, ctx, uri, content)
+				tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}))
+				Expect(tokens).ToNot(BeNil())
+				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+				Expect(tokens.Data[3]).To(Equal(expectedType))
+			},
+			Entry("integer", "42", uint32(lsp.SemanticTokenTypeNumber)),
+			Entry("float", "3.14", uint32(lsp.SemanticTokenTypeNumber)),
+			Entry("float starting with dot", ".5", uint32(lsp.SemanticTokenTypeNumber)),
+		)
+
+		DescribeTable("Comments",
+			func(content string, expectedType uint32) {
+				testutil.OpenDocument(server, ctx, uri, content)
+				tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				}))
+				Expect(tokens).ToNot(BeNil())
+				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+				Expect(tokens.Data[3]).To(Equal(expectedType))
+			},
+			Entry("single-line", "// comment", uint32(lsp.SemanticTokenTypeComment)),
+			Entry("multi-line", "/* comment */", uint32(lsp.SemanticTokenTypeComment)),
+		)
+
+		It("should tokenize function names as function type", func() {
+			testutil.OpenDocument(server, ctx, uri, "func myFunc() {}")
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
+			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeFunction)))
+		})
+
+		It("should tokenize input parameters as input type", func() {
+			testutil.OpenDocument(server, ctx, uri, "func myFunc(x f32) {}")
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			foundInput := false
+			for i := 3; i < len(tokens.Data); i += 5 {
+				if tokens.Data[i] == uint32(lsp.SemanticTokenTypeInput) {
+					foundInput = true
+					break
+				}
+			}
+			Expect(foundInput).To(BeTrue())
+		})
+
+		It("should tokenize sequence names as sequence type", func() {
+			testutil.OpenDocument(server, ctx, uri, "sequence main { stage init {} }")
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
+			Expect(tokens.Data[8]).To(Equal(uint32(lsp.SemanticTokenTypeSequence)))
+		})
+
+		It("should tokenize stage names as stage type", func() {
+			testutil.OpenDocument(server, ctx, uri, "sequence main { stage init {} }")
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			stageKeywordIdx := -1
+			for i := 0; i < len(tokens.Data)-5; i += 5 {
+				if tokens.Data[i+3] == uint32(lsp.SemanticTokenTypeKeyword) {
+					if i >= 10 {
+						stageKeywordIdx = i
+						break
+					}
+				}
+			}
+			Expect(stageKeywordIdx).ToNot(Equal(-1))
+			Expect(tokens.Data[stageKeywordIdx+8]).To(Equal(uint32(lsp.SemanticTokenTypeStage)))
+		})
+
+		It("should tokenize stateful variables as statefulVariable type", func() {
+			testutil.OpenDocument(server, ctx, uri, `func counter{} () u32 {
+    count u32 $= 0
+    return count
+}`)
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			foundStateful := false
+			for i := 3; i < len(tokens.Data); i += 5 {
+				if tokens.Data[i] == uint32(lsp.SemanticTokenTypeStatefulVariable) {
+					foundStateful = true
+					break
+				}
+			}
+			Expect(foundStateful).To(BeTrue())
+		})
+
+		It("should tokenize channel variables as channel type", func() {
+			globalResolver := symbol.MapResolver{
+				"sensorData": symbol.Symbol{
+					Name: "sensorData",
+					Type: types.Chan(types.F64()),
+					Kind: symbol.KindChannel,
+				},
+			}
+
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&testutil.MockClient{})
+
+			testutil.OpenDocument(server, ctx, uri, "func test() { x := sensorData }")
+			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			}))
+			Expect(tokens).ToNot(BeNil())
+			foundChannel := false
+			for i := 3; i < len(tokens.Data); i += 5 {
+				if tokens.Data[i] == uint32(lsp.SemanticTokenTypeChannel) {
+					foundChannel = true
+					break
+				}
+			}
+			Expect(foundChannel).To(BeTrue())
 		})
 	})
 })
