@@ -118,6 +118,19 @@ class LinePlot(ConsoleCase):
         self.log("Testing drag channel to canvas")
 
         channel = "sy_node_1_metrics_cpu_percentage"
+
+        # Debug: Show what channels are visible
+        self.console.channels.show_channels()
+        visible_channels = self.page.locator("div[id^='channel:']").all()
+        self.log(f"Found {len(visible_channels)} channel elements")
+        for i, ch in enumerate(visible_channels[:10]):  # Log first 10
+            try:
+                text = ch.inner_text(timeout=1000)
+                self.log(f"  Channel {i}: {text}")
+            except Exception as e:
+                self.log(f"  Channel {i}: (error getting text: {e})")
+        self.console.channels.hide_channels()
+
         plot.drag_channel_to_canvas(channel)
         assert channel in plot.data["Y1"], f"Channel {channel} should be on Y1"
 
