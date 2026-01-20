@@ -353,25 +353,25 @@ I can successfully:
   - [x] Add labels while creating a range. (range/range_lifecycle.py)
   - [x] Update the start and end times through changing the stage of a range (range/range_lifecycle.py)
 - **Range Details**
-  - [ ] Rename a range from the tab name.
-  - [ ] Rename a range.
+  - [x] Rename a range from the tab name. (range/range_lifecycle.py)
+  - [x] Rename a range. (range/range_lifecycle.py)
   - [x] Navigate to a parent range from a range (range/range_lifecycle.py)
-  - [ ] Copy Python code
-  - [ ] Copy TypeScript code
-  - [ ] Copy a link to the range
-  - [ ] Open and successfully download data as a CSV
-  - [ ] Favorite the range
-  - [ ] Unfavorite the range
-  - [ ] Change start and end times.
-  - [ ] Change start and end times via the stage
-  - [ ] Add labels.
-  - [ ] Remove labels.
+  - [x] Copy Python code (range/range_lifecycle.py)
+  - [x] Copy TypeScript code (range/range_lifecycle.py)
+  - [x] Copy a link to the range (range/range_lifecycle.py)
+  - [x] Open and successfully download data as a CSV (range/range_lifecycle.py)
+  - [x] Favorite the range (range/range_lifecycle.py)
+  - [x] Unfavorite the range (range/range_lifecycle.py)
+  - [x] Change start and end times. (range/range_lifecycle.py)
+  - [x] Change start and end times via the stage (range/range_lifecycle.py)
+  - [x] Add labels. (range/range_lifecycle.py)
+  - [x] Remove labels. (range/range_lifecycle.py)
   - **Child Ranges**
-    - [ ] Click and navigate to a child range
-    - [ ] Create child ranges
-    - [ ] Change the stage of a child range
-    - [ ] Favorite a child range
-    - [ ] Unfavorite a child range
+    - [x] Click and navigate to a child range (range/range_lifecycle.py)
+    - [x] Create child ranges (range/range_lifecycle.py)
+    - [x] Change the stage of a child range (range/range_lifecycle.py)
+    - [x] Favorite a child range (range/range_lifecycle.py)
+    - [x] Unfavorite a child range (range/range_lifecycle.py)
     - **Context Menu**
       - [ ] Rename a child range
       - [ ] Create a child range
