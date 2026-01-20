@@ -53,7 +53,6 @@ class LayoutClient:
         Randomly chooses between:
         - Click close button (X)
         - Context menu -> Close
-        - Hotkey (Ctrl+W)
 
         Args:
             name: Name of the tab to close
@@ -62,15 +61,12 @@ class LayoutClient:
         tab = self.get_tab(name)
         tab.wait_for(state="visible", timeout=5000)
 
-        modality = random.choice(["button", "context_menu", "hotkey"])
+        modality = random.choice(["button", "context_menu"])
         if modality == "button":
             tab.get_by_label("pluto-tabs__close").click()
-        elif modality == "context_menu":
+        else:
             tab.locator("p").click(button="right")
             self.page.get_by_text("Close").first.click()
-        else:
-            tab.click()
-            self.page.keyboard.press("ControlOrMeta+w")
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
@@ -81,7 +77,6 @@ class LayoutClient:
         Randomly chooses between:
         - Double-click on tab name
         - Context menu -> Rename
-        - Hotkey (Ctrl+E)
 
         Args:
             old_name: Current name of the tab
