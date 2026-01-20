@@ -53,7 +53,7 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
+          disk-cache: false
           repository-cache: true
 
       - name: Install Clang Format
