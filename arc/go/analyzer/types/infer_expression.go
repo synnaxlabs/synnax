@@ -221,7 +221,10 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 		}
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
-				return varScope.Type
+				// When a variable is referenced, resolve literal constraints to concrete types.
+				// This ensures `x := 10; x + 3.2` fails (x becomes i64, can't add float to int),
+				// while `2 + 3.2` (both fresh literals) can still promote to float.
+				return resolveLiteralConstraint(varScope.Type)
 			}
 		}
 		return types.Type{}
@@ -431,4 +434,30 @@ func inferNumericLiteralType(
 	_ = ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
+}
+
+// resolveLiteralConstraint converts a type variable with a literal constraint to a concrete type.
+// This is used when a variable is referenced in an expression to distinguish between:
+// - Direct literals (2 + 3.2) which can be promoted
+// - Variable references (x := 10; x + 3.2) which should fail
+func resolveLiteralConstraint(t types.Type) types.Type {
+	if t.Kind != types.KindVariable || t.Constraint == nil {
+		return t
+	}
+	switch t.Constraint.Kind {
+	case types.KindIntegerConstant:
+		result := types.I64()
+		result.Unit = t.Unit
+		return result
+	case types.KindFloatConstant:
+		result := types.F64()
+		result.Unit = t.Unit
+		return result
+	case types.KindNumericConstant:
+		result := types.F64()
+		result.Unit = t.Unit
+		return result
+	default:
+		return t
+	}
 }

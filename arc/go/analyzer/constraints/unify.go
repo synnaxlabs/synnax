@@ -208,13 +208,6 @@ func (s *System) unifyTypeVariableWithVisited(
 			s.Substitutions[tv.Name] = other
 			return nil
 		} else if tv.Name != other.Name {
-			// Both have constraints - check if they're compatible
-			if tv.Constraint != nil && other.Constraint != nil {
-				if !numericConstraintsCompatible(tv.Constraint.Kind, other.Constraint.Kind) {
-					return errors.Wrapf(ErrConstraintViolation,
-						"cannot mix integer and floating-point types in operation")
-				}
-			}
 			s.Substitutions[tv.Name] = other
 			return nil
 		}
@@ -247,24 +240,15 @@ func (s *System) unifyTypeVariableWithVisited(
 			)
 		}
 	} else if tv.Constraint.Kind == types.KindFloatConstant {
-		// Float constraint: accepts float types, or any numeric if compatible context
-		if source.Kind == KindCompatible {
-			if !checkType.IsNumeric() {
-				return errors.Wrapf(
-					ErrConstraintViolation,
-					"%v does not satisfy float constraint",
-					other,
-				)
-			}
-		} else {
-			// In equality/assignment context, only accept floats
-			if !checkType.IsFloat() {
-				return errors.Wrapf(
-					ErrConstraintViolation,
-					"%v does not satisfy float constraint",
-					other,
-				)
-			}
+		// Float constraint: in compatible context, only accept floats (not concrete integers).
+		// This ensures `x := 10; x + 3.2` fails (x is resolved to i64, can't add float literal).
+		// But `2 + 3.2` still works because both are type variables that can promote.
+		if !checkType.IsFloat() {
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy float constraint",
+				other,
+			)
 		}
 	}
 

@@ -756,6 +756,10 @@ var _ = Describe("Statement", func() {
 					a := 10
 					x := [5, a * 2]
 				}`),
+				Entry("inferred float variable and int literal", `{
+					a := 12.0
+					x := [a, 5]
+				}`),
 			)
 		})
 
@@ -1031,10 +1035,6 @@ var _ = Describe("Statement", func() {
 				Entry("inferred int variable and float literal", `{
 					a := 5
 					x := [a, 12.0]
-				}`),
-				Entry("inferred float variable and int literal", `{
-					a := 12.0
-					x := [a, 5]
 				}`),
 			)
 		})

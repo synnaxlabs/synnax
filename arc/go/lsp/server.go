@@ -299,6 +299,7 @@ func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagn
 			endLine = diag.Line
 			endColumn = diag.Column + 1
 		}
+
 		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
