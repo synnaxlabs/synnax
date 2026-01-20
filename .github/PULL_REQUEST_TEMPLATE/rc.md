@@ -335,11 +335,11 @@ I can successfully:
 I can successfully:
 
 - **Devices Toolbar**
-  - [ ] See a rack's state get updated.
+  - [x] See a rack's state get updated. (rack_lifecycle.py)
   - **Context Menu**
-    - [ ] Rename a rack.
-    - [ ] Delete a rack.
-    - [ ] Copy a rack's key.
+    - [x] Rename a rack. (rack_lifecycle.py)
+    - [x] Delete a rack. (rack_lifecycle.py)
+    - [x] Copy a rack's key. (rack_lifecycle.py)
     - [ ] Create a control sequence from a rack.
 
 ### Ranges

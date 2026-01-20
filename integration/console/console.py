@@ -24,6 +24,7 @@ from .channels import ChannelClient
 from .labels import LabelClient
 from .layout import LayoutClient
 from .notifications import NotificationsClient
+from .rack import RackClient
 from .workspace import WorkspaceClient
 
 # Define literal types for page creation
@@ -59,6 +60,7 @@ class Console:
     labels: LabelClient
     layout: LayoutClient
     notifications: NotificationsClient
+    rack: RackClient
     workspace: WorkspaceClient
     page: Page
 
@@ -70,6 +72,7 @@ class Console:
         self.labels = LabelClient(page, self)
         self.layout = LayoutClient(page, self)
         self.notifications = NotificationsClient(page, self)
+        self.rack = RackClient(page, self)
         self.workspace = WorkspaceClient(page, self)
 
     def command_palette(self, command: str, retries: int = 3) -> None:
