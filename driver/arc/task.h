@@ -24,55 +24,40 @@
 #include "driver/arc/arc.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
+#include "driver/task/common/common.h"
 #include "driver/task/common/status.h"
 #include "driver/task/task.h"
 
 namespace arc {
 /// @brief configuration for an arc runtime task.
-struct TaskConfig {
+struct TaskConfig : common::BaseTaskConfig {
     /// @brief the key of the arc program to retrieve from Synnax.
     std::string arc_key;
     /// @brief the arc module retrieved from Synnax (already constructed).
     module::Module module;
     /// @brief execution loop configuration.
     runtime::loop::Config loop_config;
-    /// @brief whether to auto-start the task after configuration.
-    bool auto_start = false;
-
-    TaskConfig() = default;
 
     TaskConfig(TaskConfig &&other) noexcept:
+        common::BaseTaskConfig(std::move(other)),
         arc_key(std::move(other.arc_key)),
         module(std::move(other.module)),
-        loop_config(std::move(other.loop_config)),
-        auto_start(other.auto_start) {}
+        loop_config(std::move(other.loop_config)) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
 
-    static std::pair<TaskConfig, xerrors::Error>
-    parse(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &parser) {
-        TaskConfig cfg;
-
-        cfg.arc_key = parser.field<std::string>("arc_key");
-        if (!parser.ok()) return {std::move(cfg), parser.error()};
-
-        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            cfg.arc_key,
-            synnax::RetrieveOptions{.compile = true}
-        );
-        if (arc_err) return {std::move(cfg), arc_err};
-
-        cfg.module = module::Module(arc_data.module);
-
+    explicit TaskConfig(xjson::Parser &parser):
+        common::BaseTaskConfig(parser),
+        arc_key(parser.field<std::string>("arc_key")) {
         const auto mode_str = parser.field<std::string>(
             "execution_mode",
             "EVENT_DRIVEN"
         );
         auto mode = runtime::loop::ExecutionMode::HIGH_RATE;
-        if (mode_str == "BUSY_WAIT") {
+        if (mode_str == "BUSY_WAIT")
             mode = runtime::loop::ExecutionMode::BUSY_WAIT;
-        } else if (mode_str == "HIGH_RATE")
+        else if (mode_str == "HIGH_RATE")
             mode = runtime::loop::ExecutionMode::HIGH_RATE;
         else if (mode_str == "RT_EVENT")
             mode = runtime::loop::ExecutionMode::RT_EVENT;
@@ -86,10 +71,9 @@ struct TaskConfig {
                 "invalid execution mode: " + mode_str +
                     " (must be BUSY_WAIT, HIGH_RATE, RT_EVENT, HYBRID, or EVENT_DRIVEN)"
             );
-            return {std::move(cfg), parser.error()};
+            return;
         }
-
-        cfg.loop_config = runtime::loop::Config{
+        loop_config = runtime::loop::Config{
             .mode = mode,
             .interval = telem::TimeSpan(
                 parser.field<uint64_t>("interval_ns", 10000000ULL)
@@ -97,7 +81,18 @@ struct TaskConfig {
             .rt_priority = parser.field<int>("rt_priority", 47),
             .cpu_affinity = parser.field<int>("cpu_affinity", -1),
         };
-        cfg.auto_start = parser.field<bool>("auto_start", false);
+    }
+
+    static std::pair<TaskConfig, xerrors::Error>
+    parse(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &parser) {
+        auto cfg = TaskConfig(parser);
+        if (!parser.ok()) return {std::move(cfg), parser.error()};
+        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
+            cfg.arc_key,
+            synnax::RetrieveOptions{.compile = true}
+        );
+        if (arc_err) return {std::move(cfg), arc_err};
+        cfg.module = module::Module(arc_data.module);
         return {std::move(cfg), xerrors::NIL};
     }
 };
@@ -195,7 +190,7 @@ public:
             synnax::WriterConfig{
                 .channels = this->runtime->write_channels,
                 .start = telem::TimeStamp::now(),
-                .mode = synnax::WriterMode::PersistStream,
+                .mode = common::data_saving_writer_mode(cfg.data_saving),
             },
             std::move(source),
             breaker::default_config("arc_acquisition"),

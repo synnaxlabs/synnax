@@ -46,17 +46,17 @@ import (
 
 // taskImpl implements the driver.Task interface and manages Arc program execution.
 type taskImpl struct {
-	factoryCfg FactoryConfig
 	ctx        driver.Context
 	closer     io.Closer
 	scheduler  *scheduler.Scheduler
 	streamer   *streamerSeg
 	writer     *writerSeg
 	state      *state.State
-	prog       arc.Arc
-	startTime  telem.TimeStamp
+	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        TaskConfig
+	prog       arc.Arc
+	startTime  telem.TimeStamp
 	running    bool
 }
 

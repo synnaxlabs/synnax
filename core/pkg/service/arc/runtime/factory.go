@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	. "github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -43,7 +43,6 @@ type GetModuleFunc func(ctx context.Context, key uuid.UUID) (arc.Arc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
-	alamos.Instrumentation
 	// Channel is used for retrieving channel information.
 	// [REQUIRED]
 	Channel *channel.Service
@@ -56,6 +55,7 @@ type FactoryConfig struct {
 	// GetModule retrieves an Arc with its compiled Module by key.
 	// [REQUIRED]
 	GetModule GetModuleFunc
+	alamos.Instrumentation
 }
 
 var (
@@ -100,7 +100,7 @@ func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
 // ConfigureTask creates an Arc taskImpl if this factory handles the taskImpl type.
 func (f *Factory) ConfigureTask(
 	ctx driver.Context,
-	t Task,
+	t task.Task,
 ) (driver.Task, bool, error) {
 	if t.Type != TaskType {
 		return nil, false, nil
