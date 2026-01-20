@@ -103,19 +103,25 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 }
 
 // GetSeriesReverseArithmetic returns the import index for reverse scalar arithmetic
-// operations (scalar op series instead of series op scalar). This is needed for
-// non-commutative operations like subtraction and division where order matters.
+// operations (scalar op series instead of series op scalar). This is needed because
+// the stack has [scalar, handle] but series_element_* functions expect [handle, scalar].
 func (idx *ImportIndex) GetSeriesReverseArithmetic(op string, t types.Type) (uint32, error) {
 	suffix := t.Unwrap().String()
 
 	var m map[string]uint32
 	switch op {
+	case "+":
+		m = idx.SeriesElementRAdd // scalar + series
 	case "-":
 		m = idx.SeriesElementRSub // scalar - series
+	case "*":
+		m = idx.SeriesElementRMul // scalar * series
 	case "/":
 		m = idx.SeriesElementRDiv // scalar / series
+	case "%":
+		m = idx.SeriesElementRMod // scalar % series
 	default:
-		return 0, errors.Newf("reverse arithmetic only supported for - and /: got %s", op)
+		return 0, errors.Newf("reverse arithmetic not supported for: %s", op)
 	}
 
 	if funcIdx, ok := m[suffix]; ok {
