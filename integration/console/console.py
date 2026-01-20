@@ -25,6 +25,7 @@ from .access import AccessClient
 from .channels import ChannelClient
 from .labels import LabelClient
 from .layout import LayoutClient
+from .workspace import WorkspaceClient
 
 # Define literal types for page creation
 PageType = Literal[
@@ -58,6 +59,7 @@ class Console:
     channels: ChannelClient
     labels: LabelClient
     layout: LayoutClient
+    workspace: WorkspaceClient
     page: Page
 
     def __init__(self, page: Page):
@@ -67,6 +69,7 @@ class Console:
         self.channels = ChannelClient(page, self)
         self.labels = LabelClient(page, self)
         self.layout = LayoutClient(page, self)
+        self.workspace = WorkspaceClient(page, self)
 
     def command_palette(self, command: str, retries: int = 3) -> None:
         """Execute a command via the command palette."""
@@ -175,8 +178,10 @@ class Console:
         button.click(timeout=5000)
 
     def close_nav_drawer(self) -> None:
-        """Close any open nav drawer."""
-        nav_drawer = self.page.locator(".console-nav__drawer.pluto--visible")
+        """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
+        nav_drawer = self.page.locator(
+            ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+        )
         if nav_drawer.count() > 0 and nav_drawer.first.is_visible():
             active_nav_btn = self.page.locator(
                 "button.console-main-nav__item.pluto--selected"
@@ -187,19 +192,6 @@ class Console:
                 # No selected button - press Escape to close
                 self.page.keyboard.press("Escape")
             nav_drawer.wait_for(state="hidden", timeout=3000)
-
-    def get_workspace_item(self, name: str) -> Locator:
-        """Get a workspace item locator from the resources toolbar."""
-        return self.page.locator("div[id^='workspace:']").filter(has_text=name).first
-
-    def workspace_exists(self, name: str) -> bool:
-        """Check if a workspace exists in the resources toolbar."""
-        self.show_resource_toolbar("workspace")
-        try:
-            self.page.locator("div[id^='workspace:']").first.wait_for(state="visible", timeout=300)
-        except Exception:
-            return False
-        return self.page.locator("div[id^='workspace:']").filter(has_text=name).count() > 0
 
     def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
         """Select an item from an open dropdown."""

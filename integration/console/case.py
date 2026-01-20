@@ -83,30 +83,8 @@ class ConsoleCase(TestCase):
         # Initialize Console interface
         self.console = Console(self.page)
         self.page.wait_for_selector("text=Get Started", timeout=5000)
-        self._select_default_workspace()
-
-    def _select_default_workspace(self) -> None:
-        """Create and select the default TestSpace workspace."""
-        workspace_name = "TestSpace"
-        if not self.console.workspace_exists(workspace_name):
-            self.log(f"Creating default workspace '{workspace_name}'")
-            self.console.command_palette("Create a Workspace")
-            name_input = self.page.locator("input[placeholder='Workspace Name']")
-            name_input.wait_for(state="visible", timeout=5000)
-            name_input.fill(workspace_name)
-            self.page.get_by_role("button", name="Create", exact=True).click(timeout=5000)
-
-        self.console.get_workspace_item(workspace_name).dblclick(timeout=5000)
-        self.page.get_by_role("button").filter(has_text=workspace_name).wait_for(
-            state="visible", timeout=5000
-        )
-
-        self.console.close_nav_drawer()
-
-        assert self.page.get_by_role("button").filter(has_text=workspace_name).is_visible(), \
-            f"Failed to select default workspace '{workspace_name}'"
-        self.log(f"Selected default workspace '{workspace_name}'")
-
+        self.console.workspace.ensure_selected("TestSpace")
+        self.log("Selected default workspace 'TestSpace'")
 
     def teardown(self) -> None:
         self.browser.close()

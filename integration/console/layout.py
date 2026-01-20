@@ -85,7 +85,7 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        sy.sleep(0.3)
+        sy.sleep(0.2)
         self.page.get_by_text("Split Horizontally").first.click()
         sy.sleep(0.2)
 
@@ -97,7 +97,7 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        sy.sleep(0.3)
+        sy.sleep(0.2)
         self.page.get_by_text("Split Vertically").first.click()
         sy.sleep(0.2)
 
@@ -109,6 +109,27 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        sy.sleep(0.3)
+        sy.sleep(0.2)
         self.page.get_by_text("Focus").first.click()
         sy.sleep(0.2)
+
+    def show_visualization_toolbar(self) -> None:
+        """Show the visualization toolbar by pressing V."""
+        bottom_drawer = self.page.locator(
+            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+        )
+        if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
+            self.page.keyboard.press("V")
+        bottom_drawer.wait_for(state="visible", timeout=5000)
+
+    def get_visualization_toolbar_title(self) -> str:
+        """Get the title from the visualization toolbar header."""
+        bottom_drawer = self.page.locator(
+            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+        )
+        # Use combined selector to handle different page type structures
+        header = bottom_drawer.locator(
+            "header .pluto-breadcrumb__segment, header .pluto-header__text"
+        ).first
+        header.wait_for(state="visible", timeout=5000)
+        return header.inner_text().strip()

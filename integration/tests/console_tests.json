@@ -37,6 +37,9 @@
         },
         {
           "case": "console/layout/keyboard_shortcuts"
+        },
+        {
+          "case": "console/pages/rename_synchronization"
         }
       ]
     },

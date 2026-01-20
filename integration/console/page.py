@@ -75,12 +75,7 @@ class ConsolePage:
         Args:
             new_name: The new name for the page
         """
-        tab = self._get_tab()
-        tab.dblclick()
-        self.page.keyboard.press("ControlOrMeta+a")
-        self.page.keyboard.type(new_name)
-        self.page.keyboard.press("Enter")
-
+        self.console.layout.rename_tab(self.page_name, new_name)
         self.page_name = new_name
 
     def _dblclick_canvas(self) -> None:
@@ -95,10 +90,9 @@ class ConsolePage:
 
     def new(self) -> str:
         self.tab_locator, self.id = self.console.create_page(
-            cast(PageType, self.page_type)
+            cast(PageType, self.page_type), self.page_name
         )
         if self.pluto_label:
-            # Handler assumes only one page with label will be open.
             self.pane_locator = self.page.locator(self.pluto_label)
         self._dblclick_canvas()
         return self.id or ""

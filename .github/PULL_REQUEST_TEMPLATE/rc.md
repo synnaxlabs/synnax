@@ -257,10 +257,10 @@ I can successfully:
   - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
 - [ ] Import a line plot.
-- [ ] Rename a line plot and ensure synchronization across:
-  - Resources Toolbar
-  - Mosaic Tab
-  - Visualization Toolbar
+- [x] Rename a line plot and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Resources Toolbar
+  - [x] Mosaic Tab
+  - [x] Visualization Toolbar
 
 ### Logs
 
@@ -289,10 +289,10 @@ I can successfully:
   - [x] Create a new log. (pages/open_close.py)
   - [ ] Open an existing log.
 - [ ] Open a log from its link.
-- [ ] Rename a log and ensure synchronization across:
-  - Visualization Toolbar
-  - Resources Toolbar
-  - Mosaic Tab Name
+- [x] Rename a log and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Resources Toolbar
+  - [x] Mosaic Tab
+  - [x] Visualization Toolbar
 
 ### Ontology
 
@@ -478,10 +478,10 @@ I can successfully:
   - [x] Open an existing schematic. (pages/open_close.py)
   - [x] Create a new schematic. (pages/open_close.py)
   - [ ] Import a schematic from a file.
-- [ ] Rename a schematic and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
+- [x] Rename a schematic and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Mosaic Tab
+  - [x] Resources Toolbar
+  - [x] Visualization Toolbar
 - [ ] Rename a schematic snapshot and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
@@ -539,10 +539,10 @@ I can successfully:
   - [ ] Open an existing table.
   - [x] Create a new table. (pages/open_close.py)
   - [ ] Import a table from a file.
-- [ ] Rename a table and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
+- [x] Rename a table and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Resources Toolbar
+  - [x] Mosaic Tab
+  - [x] Visualization Toolbar
 
 ### Tasks
 
