@@ -55,7 +55,9 @@ class RangesClient:
 
     def get_explorer_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
-        return self.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name).first
+        return (
+            self.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name).first
+        )
 
     def exists_in_toolbar(self, name: str) -> bool:
         """Check if a range exists in the toolbar (is favorited)."""
@@ -97,11 +99,17 @@ class RangesClient:
         name_input.fill(name)
 
         if stage is not None:
-            stage_button = modal.locator("button").filter(has_text="To Do").or_(
-                modal.locator("button").filter(has_text="In Progress")
-            ).or_(modal.locator("button").filter(has_text="Completed")).first
+            stage_button = (
+                modal.locator("button")
+                .filter(has_text="To Do")
+                .or_(modal.locator("button").filter(has_text="In Progress"))
+                .or_(modal.locator("button").filter(has_text="Completed"))
+                .first
+            )
             stage_button.click()
-            self.page.locator(".pluto-list__item").filter(has_text=stage).click(timeout=2000)
+            self.page.locator(".pluto-list__item").filter(has_text=stage).click(
+                timeout=2000
+            )
 
         if parent is not None:
             parent_button = modal.locator("button").filter(has_text="Select a range")

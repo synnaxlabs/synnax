@@ -9,7 +9,7 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Page
+from playwright.sync_api import Locator, Page
 
 if TYPE_CHECKING:
     from .console import Console
@@ -127,7 +127,7 @@ class LabelClient:
 
         return labels
 
-    def find_label_item(self, name: str):
+    def find_label_item(self, name: str) -> Locator | None:
         """Find a label item by name.
 
         Args:

@@ -123,7 +123,7 @@ class BenchReport(Latency):
         # Bottom left plot: Jitter over time
         ax2.plot(consecutive_differences, label="Jitter", color="purple", alpha=0.6)
         ax2.axhline(
-            y=average_jitter,
+            y=float(average_jitter),
             color="r",
             linestyle="--",
             label=f"Avg Jitter: {average_jitter:.2f}ms",

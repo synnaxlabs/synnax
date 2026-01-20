@@ -115,7 +115,7 @@ class ChannelClient:
 
     def create_with_create_more(
         self,
-        channels: list[dict],
+        channels: list[dict[str, str | int | bool]],
     ) -> list[ChannelName]:
         """Creates multiple channels using the 'Create More' checkbox.
 
@@ -135,11 +135,12 @@ class ChannelClient:
         created_channels: list[ChannelName] = []
 
         for i, ch_config in enumerate(channels):
-            name = ch_config["name"]
+            name = str(ch_config["name"])
             data_type = ch_config.get("data_type", DataType.UNKNOWN)
             is_index = ch_config.get("is_index", False)
             index = ch_config.get("index", 0)
             virtual = ch_config.get("virtual", False)
+            index_str = str(index) if index != 0 else ""
 
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
@@ -182,7 +183,7 @@ class ChannelClient:
 
                 # Set index
                 self.console.click_btn("Index")
-                self.console.select_from_dropdown(index, "Search Channels")
+                self.console.select_from_dropdown(index_str, "Search Channels")
 
             # Check "Create More" for all but the last channel
             is_last = i == len(channels) - 1
@@ -324,7 +325,7 @@ class ChannelClient:
         # Try to get the link from clipboard
         # Note: Clipboard access may require permissions in some browsers
         try:
-            link = self.page.evaluate("navigator.clipboard.readText()")
+            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
         except Exception:
             # If clipboard access fails, return empty string

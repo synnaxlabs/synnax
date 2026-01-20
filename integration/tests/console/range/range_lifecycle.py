@@ -49,9 +49,9 @@ class RangeLifecycle(ConsoleCase):
         self.log("Testing: Create local range")
         local_range_name = f"LocalRange_{self.rand_suffix}"
         self.console.ranges.create(local_range_name, persisted=False)
-        assert self.console.ranges.exists_in_toolbar(local_range_name), (
-            "Local range should appear in toolbar"
-        )
+        assert self.console.ranges.exists_in_toolbar(
+            local_range_name
+        ), "Local range should appear in toolbar"
         self.local_range_name = local_range_name
 
     def test_create_persisted_range(self) -> None:
@@ -68,9 +68,9 @@ class RangeLifecycle(ConsoleCase):
             self.staged_range_name, persisted=True, stage="Completed"
         )
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(self.staged_range_name), (
-            "Staged range should exist in explorer"
-        )
+        assert self.console.ranges.exists_in_explorer(
+            self.staged_range_name
+        ), "Staged range should exist in explorer"
 
     def test_create_range_with_parent(self) -> None:
         """Test creating a range with a parent range."""
@@ -80,9 +80,9 @@ class RangeLifecycle(ConsoleCase):
             self.child_range_name, persisted=True, parent=self.staged_range_name
         )
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(self.child_range_name), (
-            "Child range should exist in explorer"
-        )
+        assert self.console.ranges.exists_in_explorer(
+            self.child_range_name
+        ), "Child range should exist in explorer"
 
     def test_navigate_to_parent(self) -> None:
         """Test navigating to parent range from child range overview."""
@@ -92,9 +92,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.child_range_name)
         self.console.ranges.navigate_to_parent(self.staged_range_name)
         self.console.ranges.wait_for_overview(self.staged_range_name)
-        assert self.console.ranges.is_overview_showing(self.staged_range_name), (
-            "Should navigate to parent range overview"
-        )
+        assert self.console.ranges.is_overview_showing(
+            self.staged_range_name
+        ), "Should navigate to parent range overview"
 
     def test_create_label_for_range(self) -> None:
         """Create a label to use when creating a range with labels."""
@@ -113,9 +113,9 @@ class RangeLifecycle(ConsoleCase):
             self.labeled_range_name, persisted=True, labels=[self.test_label_name]
         )
         self.console.ranges.open_explorer()
-        assert self.console.ranges.exists_in_explorer(self.labeled_range_name), (
-            "Labeled range should exist in explorer"
-        )
+        assert self.console.ranges.exists_in_explorer(
+            self.labeled_range_name
+        ), "Labeled range should exist in explorer"
 
     def test_open_range_explorer(self) -> None:
         """Test opening the Range Explorer."""
@@ -127,17 +127,17 @@ class RangeLifecycle(ConsoleCase):
     def test_range_exists_in_explorer(self) -> None:
         """Test that created range exists in the explorer."""
         self.log("Testing: Range exists in explorer")
-        assert self.console.ranges.exists_in_explorer(self.range_name), (
-            f"Range '{self.range_name}' should exist in explorer"
-        )
+        assert self.console.ranges.exists_in_explorer(
+            self.range_name
+        ), f"Range '{self.range_name}' should exist in explorer"
 
     def test_favorite_range(self) -> None:
         """Test favoriting a range from the explorer."""
         self.log("Testing: Favorite range")
         self.console.ranges.favorite_from_explorer(self.range_name)
-        assert self.console.ranges.exists_in_toolbar(self.range_name), (
-            f"Range '{self.range_name}' should appear in toolbar after favoriting"
-        )
+        assert self.console.ranges.exists_in_toolbar(
+            self.range_name
+        ), f"Range '{self.range_name}' should appear in toolbar after favoriting"
 
     def test_set_active_range(self) -> None:
         """Test setting a range as active from the toolbar."""
@@ -153,18 +153,18 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.open_explorer()
         new_name = f"RenamedRange_{self.rand_suffix}"
         self.console.ranges.rename_from_explorer(self.range_name, new_name)
-        assert self.console.ranges.exists_in_explorer(new_name), (
-            "Range should exist with new name"
-        )
+        assert self.console.ranges.exists_in_explorer(
+            new_name
+        ), "Range should exist with new name"
         self.range_name = new_name
 
     def test_delete_range(self) -> None:
         """Test deleting a range from the explorer."""
         self.log("Testing: Delete range")
         self.console.ranges.delete_from_explorer(self.range_name)
-        assert not self.console.ranges.exists_in_explorer(self.range_name), (
-            "Range should be deleted"
-        )
+        assert not self.console.ranges.exists_in_explorer(
+            self.range_name
+        ), "Range should be deleted"
 
     def test_cleanup_ranges(self) -> None:
         """Clean up test ranges and labels."""

@@ -208,7 +208,7 @@ class Plot(ConsolePage):
 
         # Try to get the link from clipboard
         try:
-            link = self.page.evaluate("navigator.clipboard.readText()")
+            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
         except Exception:
             # If clipboard access fails, return empty string

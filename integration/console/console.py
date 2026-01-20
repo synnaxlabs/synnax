@@ -280,10 +280,10 @@ class Console:
     ) -> tuple[Locator, str]:
         """Handle the new page creation after clicking create button."""
         modal_was_open = self.MODAL_OPEN
-        tab_name = page_type
+        tab_name: str = page_type
 
         if modal_was_open:
-            tab_name = page_name or page_type
+            tab_name = page_name if page_name is not None else page_type
             name_input = self.page.get_by_role("textbox", name="Name")
             name_input.fill(tab_name)
             name_input.press("ControlOrMeta+Enter")

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import random
+
 import synnax as sy
 
 from console.case import ConsoleCase
@@ -40,9 +41,10 @@ class RackLifecycle(ConsoleCase):
         """Test that rack status is displayed correctly."""
         self.log("Testing: Rack status display")
         status = self.console.rack.get_status(self.rack_name)
-        assert status["variant"] in ["disabled", "warning"], (
-            f"Expected disabled/warning status without driver, got {status['variant']}"
-        )
+        assert status["variant"] in [
+            "disabled",
+            "warning",
+        ], f"Expected disabled/warning status without driver, got {status['variant']}"
 
     def test_rename_rack(self) -> None:
         """Test renaming a rack via context menu."""
@@ -50,9 +52,9 @@ class RackLifecycle(ConsoleCase):
         new_name = f"RenamedRack_{self.rand_suffix}"
         self.console.rack.rename(self.rack_name, new_name)
         assert self.console.rack.exists(new_name), "Rack should exist with new name"
-        assert not self.console.rack.exists(self.rack_name), (
-            "Rack should not exist with old name"
-        )
+        assert not self.console.rack.exists(
+            self.rack_name
+        ), "Rack should not exist with old name"
         self.console.rack.rename(new_name, self.rack_name)
         assert self.console.rack.exists(self.rack_name), "Rack should be renamed back"
 
@@ -61,9 +63,9 @@ class RackLifecycle(ConsoleCase):
         self.log("Testing: Copy rack key")
         rack_key = self.console.rack.copy_key(self.rack_name)
         assert rack_key, "Should have extracted rack key from element"
-        assert rack_key == str(self.test_rack.key), (
-            f"Key should match: {rack_key} vs {self.test_rack.key}"
-        )
+        assert rack_key == str(
+            self.test_rack.key
+        ), f"Key should match: {rack_key} vs {self.test_rack.key}"
 
     def test_delete_rack(self) -> None:
         """Test deleting a rack via context menu."""
@@ -72,8 +74,8 @@ class RackLifecycle(ConsoleCase):
         self.client.racks.create(name=delete_name)
         self.page.keyboard.press("d")
         self.page.keyboard.press("d")
-        assert self.console.rack.exists(delete_name), (
-            f"Rack '{delete_name}' should exist before deletion"
-        )
+        assert self.console.rack.exists(
+            delete_name
+        ), f"Rack '{delete_name}' should exist before deletion"
         self.console.rack.delete(delete_name)
         assert not self.console.rack.exists(delete_name), "Rack should be deleted"
