@@ -47,6 +47,20 @@ class LayoutClient:
             .first
         )
 
+    def close_tab(self, name: str) -> None:
+        """Close a tab by name.
+
+        Args:
+            name: Name of the tab to close
+        """
+        self.console.close_nav_drawer()
+        tab = self.get_tab(name)
+        tab.wait_for(state="visible", timeout=5000)
+        tab.get_by_label("pluto-tabs__close").click()
+
+        if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
+            self.page.get_by_role("button", name="Confirm").click()
+
     def rename_tab(self, old_name: str, new_name: str) -> None:
         """Rename a tab by double-clicking and typing a new name.
 
@@ -55,14 +69,12 @@ class LayoutClient:
             new_name: New name for the tab
         """
         self.console.close_nav_drawer()
-
         tab = self.get_tab(old_name)
         tab.wait_for(state="visible", timeout=5000)
-        text_element = tab.locator("p").first
-        text_element.dblclick()
+        tab.locator("p").first.dblclick()
         self.page.keyboard.press("ControlOrMeta+a")
         self.page.keyboard.type(new_name)
-        self.page.keyboard.press("Enter")
+        self.console.ENTER
         self.get_tab(new_name).wait_for(state="visible", timeout=5000)
 
     def split_horizontal(self, tab_name: str) -> None:

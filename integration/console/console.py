@@ -294,11 +294,7 @@ class Console:
         page_id = page_tab.inner_text().strip()
 
         if page_name is not None and not modal_was_open:
-            text_element = page_tab.locator("p").first
-            text_element.dblclick()
-            self.page.keyboard.press("ControlOrMeta+a")
-            self.page.keyboard.type(page_name)
-            self.ENTER
+            self.layout.rename_tab(tab_name, page_name)
             page_id = page_name
             page_tab = self._get_tab_locator(page_name)
 
@@ -306,27 +302,11 @@ class Console:
 
     def _get_tab_locator(self, tab_name: str) -> Locator:
         """Get a tab locator by name, ensuring it has a close button (is a real tab)."""
-        return (
-            self.page.locator(".pluto-tabs-selector")
-            .locator("div")
-            .filter(has_text=re.compile(f"^{re.escape(tab_name)}$"))
-            .filter(has=self.page.locator("[aria-label='pluto-tabs__close']"))
-            .first
-        )
+        return self.layout.get_tab(tab_name)
 
     def close_page(self, page_name: str) -> None:
         """Close a page by name. Ignores unsaved changes."""
-        self.close_nav_drawer()
-
-        tab = self._get_tab_locator(page_name)
-        tab.wait_for(state="visible", timeout=5000)
-
-        close_btn = tab.get_by_label("pluto-tabs__close")
-        close_btn.wait_for(state="visible", timeout=5000)
-        close_btn.click()
-
-        if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
-            self.page.get_by_role("button", name="Confirm").click()
+        self.layout.close_tab(page_name)
 
     def check_for_error_screen(self) -> None:
         """Checks for 'Something went wrong' text and clicks 'Try again' if found"""
