@@ -386,9 +386,6 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
-      react-error-boundary:
-        specifier: ^6.0.0
-        version: 6.0.0(react@19.2.3)
       react-icons:
         specifier: 'catalog:'
         version: 5.5.0(react@19.2.3)
@@ -693,6 +690,9 @@ importers:
       '@synnaxlabs/freighter':
         specifier: workspace:*
         version: link:../freighter/ts
+      '@synnaxlabs/media':
+        specifier: workspace:*
+        version: link:../x/media
       '@synnaxlabs/x':
         specifier: workspace:^
         version: link:../x/ts
@@ -735,6 +735,9 @@ importers:
       react-color:
         specifier: ^2.19.3
         version: 2.19.3(react@19.2.3)
+      react-error-boundary:
+        specifier: ^6.0.0
+        version: 6.0.0(react@19.2.3)
       react-icons:
         specifier: 'catalog:'
         version: 5.5.0(react@19.2.3)
