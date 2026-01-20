@@ -15,10 +15,10 @@ import (
 )
 
 type declarationGroup struct {
-	startIdx    int
-	endIdx      int
-	maxNameLen  int
-	maxTypeLen  int
+	startIdx     int
+	endIdx       int
+	maxNameLen   int
+	maxTypeLen   int
 	declarations []declaration
 }
 
