@@ -107,7 +107,7 @@ class LinePlot(ConsoleCase):
         """Test plotting live data with a rolling time range."""
         self.log("Testing live data")
 
-        live_channel = "sy_node_1_metrics_mem_percentage"
+        live_channel = "line_plot_uptime"
         plot.add_channels("Y1", live_channel)
         assert (
             live_channel in plot.data["Y1"]
@@ -117,7 +117,7 @@ class LinePlot(ConsoleCase):
         """Test dragging a channel from sidebar onto the plot canvas."""
         self.log("Testing drag channel to canvas")
 
-        channel = "sy_node_1_metrics_cpu_percentage"
+        channel = "line_plot_state"
 
         # Debug: Show what channels are visible
         self.console.channels.show_channels()
@@ -138,7 +138,7 @@ class LinePlot(ConsoleCase):
         """Test dragging a channel from sidebar onto the toolbar data section."""
         self.log("Testing drag channel to toolbar")
 
-        channel = "sy_node_1_metrics_total_size_gb"
+        channel = "line_plot_time"
         plot.drag_channel_to_toolbar(channel, "Y2")
         assert channel in plot.data["Y2"], f"Channel {channel} should be on Y2"
 
