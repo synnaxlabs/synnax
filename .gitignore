@@ -247,8 +247,6 @@ synnax-data/**
 
 # |||| EMBEDDED CONSOLE ||||
 
-!core/pkg/console/dist
-
 # |||| EMBEDDED DRIVER ||||
 # Allow driver service assets to be tracked
 assets
