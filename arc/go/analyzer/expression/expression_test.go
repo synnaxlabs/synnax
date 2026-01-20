@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -1040,7 +1039,7 @@ var _ = Describe("Expressions", func() {
 					Expect(isLiteral).To(BeFalse())
 					return
 				}
-				Expect(expression.IsLiteral(expr)).To(Equal(isLiteral))
+				Expect(parser.IsLiteral(expr)).To(Equal(isLiteral))
 			},
 			Entry("integer literal", `42 -> out`, true),
 			Entry("float literal", `3.14 -> out`, true),
@@ -1063,12 +1062,12 @@ var _ = Describe("Expressions", func() {
 			`))
 			flowNode := ast.AllTopLevelItem()[1].FlowStatement().AllFlowNode()[0]
 			expr := flowNode.Expression()
-			Expect(expression.IsLiteral(expr)).To(BeFalse())
+			Expect(parser.IsLiteral(expr)).To(BeFalse())
 		})
 
 		It("Should return false for index expression", func() {
 			expr := getExpr(`arr[0] -> out`)
-			Expect(expression.IsLiteral(expr)).To(BeFalse())
+			Expect(parser.IsLiteral(expr)).To(BeFalse())
 		})
 	})
 
@@ -1081,7 +1080,7 @@ var _ = Describe("Expressions", func() {
 		DescribeTable("literal extraction",
 			func(code string, expectedText string) {
 				expr := getExpr(code)
-				lit := expression.GetLiteral(expr)
+				lit := parser.GetLiteral(expr)
 				if expectedText == "" {
 					Expect(lit).To(BeNil())
 				} else {

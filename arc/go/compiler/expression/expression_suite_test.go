@@ -49,6 +49,39 @@ func compileWithCtx(ctx ccontext.Context[antlr.ParserRuleContext], source string
 	return ctx.Writer.Bytes(), exprType
 }
 
+func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source string, hint types.Type) ([]byte, types.Type) {
+	expr := MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
+
+	if hint.Kind == types.KindSeries {
+		if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
+			if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
+				if eqs := ands[0].AllEqualityExpression(); len(eqs) == 1 {
+					if rels := eqs[0].AllRelationalExpression(); len(rels) == 1 {
+						if adds := rels[0].AllAdditiveExpression(); len(adds) == 1 {
+							if muls := adds[0].AllMultiplicativeExpression(); len(muls) == 1 {
+								if pows := muls[0].AllPowerExpression(); len(pows) == 1 {
+									if unary := pows[0].UnaryExpression(); unary != nil {
+										if postfix := unary.PostfixExpression(); postfix != nil {
+											if primary := postfix.PrimaryExpression(); primary != nil {
+												if lit := primary.Literal(); lit != nil {
+													ctx.TypeMap[lit] = hint
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	exprType := MustSucceedWithOffset[types.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
+	return ctx.Writer.Bytes(), exprType
+}
+
 func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
 	analyzerCtx := acontext.CreateRoot(bCtx, expr, resolver)
@@ -108,6 +141,90 @@ func seriesReverseArithmeticIdx(op string, elemType types.Type) uint32 {
 // seriesComparisonIdx returns the function index for series-series comparison operations
 func seriesComparisonIdx(op string, elemType types.Type) uint32 {
 	return MustSucceed(testImports.GetSeriesComparison(op, elemType))
+}
+
+func seriesCreateEmptyIdx(elemType types.Type) uint32 {
+	return MustSucceed(testImports.GetSeriesCreateEmpty(elemType))
+}
+
+func seriesSetElementIdx(elemType types.Type) uint32 {
+	return MustSucceed(testImports.GetSeriesSetElement(elemType))
+}
+
+func scalarSymbol(name string, t types.Type, id int) symbol.Symbol {
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindVariable,
+		Type: t,
+		ID:   id,
+	}
+}
+
+func expectSeriesWithFunctions(
+	expr string,
+	funcIndices map[string]uint32,
+	funcSymbols []symbol.Symbol,
+	hint types.Type,
+	expectedOpcodes ...any,
+) {
+	ctx := NewContext(bCtx)
+	ctx.FunctionIndices = funcIndices
+	for _, sym := range funcSymbols {
+		MustSucceed(ctx.Scope.Add(ctx, sym))
+	}
+	bytecode, exprType := compileWithCtxAndHint(ctx, expr, hint)
+	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
+	Expect(exprType).To(Equal(hint))
+}
+
+func expectSeriesLiteralWithHint(
+	expr string,
+	resolver symbol.Resolver,
+	hint types.Type,
+	expectedOpcodes ...any,
+) {
+	parsedExpr := MustSucceed(parser.ParseExpression(expr))
+	analyzerCtx := acontext.CreateRoot(bCtx, parsedExpr, resolver)
+	aexpression.Analyze(analyzerCtx)
+	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
+
+	if analyzerCtx.Constraints.HasTypeVariables() {
+		Expect(analyzerCtx.Constraints.Unify()).To(Succeed())
+		for node, typ := range analyzerCtx.TypeMap {
+			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
+		}
+	}
+
+	if hint.IsValid() && hint.Kind == types.KindSeries {
+		if logicalOr := parsedExpr.LogicalOrExpression(); logicalOr != nil {
+			if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
+				if eqs := ands[0].AllEqualityExpression(); len(eqs) == 1 {
+					if rels := eqs[0].AllRelationalExpression(); len(rels) == 1 {
+						if adds := rels[0].AllAdditiveExpression(); len(adds) == 1 {
+							if muls := adds[0].AllMultiplicativeExpression(); len(muls) == 1 {
+								if pows := muls[0].AllPowerExpression(); len(pows) == 1 {
+									if unary := pows[0].UnaryExpression(); unary != nil {
+										if postfix := unary.PostfixExpression(); postfix != nil {
+											if primary := postfix.PrimaryExpression(); primary != nil {
+												if lit := primary.Literal(); lit != nil {
+													analyzerCtx.TypeMap[lit] = hint
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, false)
+	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
+	Expect(compilerCtx.Writer.Bytes()).To(MatchOpcodes(expectedOpcodes...))
+	Expect(exprType).To(Equal(hint))
 }
 
 func TestExpression(t *testing.T) {

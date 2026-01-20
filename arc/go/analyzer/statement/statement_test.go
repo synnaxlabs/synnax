@@ -631,6 +631,8 @@ var _ = Describe("Statement", func() {
 				Entry("integer literals", `{ x := [1, 2, 3] }`),
 				Entry("float literals", `{ x := [1.0, 2.0, 3.0] }`),
 				Entry("mixed int and float literals", `{ x := [1, 2.0, 3] }`),
+				Entry("int then float literal", `{ x := [1, 2.0] }`),
+				Entry("float then int literal", `{ x := [1.0, 2] }`),
 				Entry("empty series", `{ x := [] }`),
 				Entry("single element", `{ x := [42] }`),
 				Entry("unary negation", `{ x := [-1, -2, -3] }`),
@@ -1001,6 +1003,26 @@ var _ = Describe("Statement", func() {
 					a i64 := 1
 					b f64 := 2.0
 					x := [a, b]
+				}`),
+				// Inferred type variables - these should also be rejected for consistency
+				// with explicit type annotations above
+				Entry("inferred int and inferred float variables", `{
+					a := 5
+					b := 12.0
+					x := [a, b]
+				}`),
+				Entry("inferred float and inferred int variables", `{
+					a := 12.0
+					b := 5
+					x := [a, b]
+				}`),
+				Entry("inferred int variable and float literal", `{
+					a := 5
+					x := [a, 12.0]
+				}`),
+				Entry("inferred float variable and int literal", `{
+					a := 12.0
+					x := [a, 5]
 				}`),
 			)
 		})
