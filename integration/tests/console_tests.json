@@ -3,9 +3,13 @@
   "sequences": [
     {
       "sequence_name": "workspace",
+      "sequence_order": "sequential",
       "tests": [
         {
           "case": "console/workspace"
+        },
+        {
+          "case": "console/pages/rename_synchronization"
         }
       ]
     },
@@ -37,9 +41,6 @@
         },
         {
           "case": "console/layout/keyboard_shortcuts"
-        },
-        {
-          "case": "console/pages/rename_synchronization"
         },
         {
           "case": "console/rack/rack_lifecycle"
