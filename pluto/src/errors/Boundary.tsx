@@ -14,7 +14,7 @@ import {
   type ErrorBoundaryPropsWithComponent,
 } from "react-error-boundary";
 
-import { Fallback } from "@/error/Fallback";
+import { Fallback } from "@/errors/Fallback";
 
 export interface BoundaryProps extends optional.Optional<
   ErrorBoundaryPropsWithComponent,

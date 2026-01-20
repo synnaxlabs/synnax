@@ -21,7 +21,7 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { Error as PError } from "@/error";
+import { Errors } from "@/errors";
 import { type Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { mapNodes } from "@/mosaic/tree";
@@ -301,9 +301,9 @@ const TabLeaf = memo(
         {...rest}
       >
         {node.selected != null && (
-          <PError.Boundary>
+          <Errors.Boundary>
             {children(tabs.find((t) => t.tabKey === node.selected) as Tabs.Spec)}
-          </PError.Boundary>
+          </Errors.Boundary>
         )}
         {dragging && (
           <div
@@ -403,9 +403,9 @@ export const usePortal = ({
       existing.add(tab.tabKey);
       return (
         <Portal.In key={tab.tabKey} node={pNode}>
-          <PError.Boundary>
+          <Errors.Boundary>
             {children({ ...tab, visible: tab.tabKey === node.selected })}
-          </PError.Boundary>
+          </Errors.Boundary>
         </Portal.In>
       );
     }),

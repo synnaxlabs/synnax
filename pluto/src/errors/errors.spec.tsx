@@ -10,7 +10,7 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Error as PlutoError } from "@/error";
+import { Errors } from "@/errors";
 
 interface ThrowingComponentProps {
   shouldThrow: boolean;
@@ -35,18 +35,18 @@ describe("Error", () => {
   describe("Boundary", () => {
     it("should render children when no error occurs", () => {
       const c = render(
-        <PlutoError.Boundary>
+        <Errors.Boundary>
           <ThrowingComponent shouldThrow={false} />
-        </PlutoError.Boundary>,
+        </Errors.Boundary>,
       );
       expect(c.getByText("Content rendered successfully")).toBeTruthy();
     });
 
     it("should render fallback when an error occurs", () => {
       const c = render(
-        <PlutoError.Boundary>
+        <Errors.Boundary>
           <ThrowingComponent shouldThrow />
-        </PlutoError.Boundary>,
+        </Errors.Boundary>,
       );
       expect(c.getByText("Test error message")).toBeTruthy();
     });
@@ -54,9 +54,9 @@ describe("Error", () => {
     it("should call onError when an error occurs", () => {
       const onError = vi.fn();
       render(
-        <PlutoError.Boundary onError={onError}>
+        <Errors.Boundary onError={onError}>
           <ThrowingComponent shouldThrow />
-        </PlutoError.Boundary>,
+        </Errors.Boundary>,
       );
       expect(onError).toHaveBeenCalled();
       expect(onError.mock.calls[0][0].message).toBe("Test error message");
@@ -65,9 +65,9 @@ describe("Error", () => {
     it("should use custom FallbackComponent when provided", () => {
       const CustomFallback = () => <div>Custom fallback</div>;
       const c = render(
-        <PlutoError.Boundary FallbackComponent={CustomFallback}>
+        <Errors.Boundary FallbackComponent={CustomFallback}>
           <ThrowingComponent shouldThrow />
-        </PlutoError.Boundary>,
+        </Errors.Boundary>,
       );
       expect(c.getByText("Custom fallback")).toBeTruthy();
     });
@@ -79,9 +79,9 @@ describe("Error", () => {
         return <div>Recovered</div>;
       };
       const c = render(
-        <PlutoError.Boundary>
+        <Errors.Boundary>
           <TestComponent />
-        </PlutoError.Boundary>,
+        </Errors.Boundary>,
       );
       expect(c.getByText("Test error")).toBeTruthy();
       shouldThrow = false;
@@ -97,21 +97,21 @@ describe("Error", () => {
 
     it("should render the error name", () => {
       const c = render(
-        <PlutoError.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
       expect(c.getByText("TestError")).toBeTruthy();
     });
 
     it("should render the error message", () => {
       const c = render(
-        <PlutoError.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
       expect(c.getByText("Something went wrong")).toBeTruthy();
     });
 
     it("should render the default reload button", () => {
       const c = render(
-        <PlutoError.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
       expect(c.getByText("Reload")).toBeTruthy();
     });
@@ -119,7 +119,7 @@ describe("Error", () => {
     it("should call resetErrorBoundary when reload button is clicked", () => {
       const resetFn = vi.fn();
       const c = render(
-        <PlutoError.Fallback error={mockError} resetErrorBoundary={resetFn} />,
+        <Errors.Fallback error={mockError} resetErrorBoundary={resetFn} />,
       );
       fireEvent.click(c.getByText("Reload"));
       expect(resetFn).toHaveBeenCalled();
@@ -128,9 +128,9 @@ describe("Error", () => {
     it("should render custom children instead of default button", () => {
       const customAction = vi.fn();
       const c = render(
-        <PlutoError.Fallback error={mockError} resetErrorBoundary={mockReset}>
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset}>
           <button onClick={customAction}>Custom Action</button>
-        </PlutoError.Fallback>,
+        </Errors.Fallback>,
       );
       expect(c.queryByText("Reload")).not.toBeTruthy();
       expect(c.getByText("Custom Action")).toBeTruthy();
@@ -140,18 +140,14 @@ describe("Error", () => {
 
     it("should render the logo when showLogo is true", () => {
       const c = render(
-        <PlutoError.Fallback
-          error={mockError}
-          resetErrorBoundary={mockReset}
-          showLogo
-        />,
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} showLogo />,
       );
       expect(c.container.querySelector("svg")).toBeTruthy();
     });
 
     it("should not render the logo by default", () => {
       const c = render(
-        <PlutoError.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
       expect(c.container.querySelector("svg")).not.toBeTruthy();
     });
@@ -159,7 +155,7 @@ describe("Error", () => {
     describe("compact variant", () => {
       it("should use smaller text sizes", () => {
         const c = render(
-          <PlutoError.Fallback
+          <Errors.Fallback
             error={mockError}
             resetErrorBoundary={mockReset}
             variant="compact"
@@ -173,7 +169,7 @@ describe("Error", () => {
     describe("full variant", () => {
       it("should use larger text sizes", () => {
         const c = render(
-          <PlutoError.Fallback
+          <Errors.Fallback
             error={mockError}
             resetErrorBoundary={mockReset}
             variant="full"
@@ -189,7 +185,7 @@ describe("Error", () => {
         const errorWithStack = new Error("Test");
         errorWithStack.stack = "Error: Test\n    at TestComponent";
         const c = render(
-          <PlutoError.Fallback error={errorWithStack} resetErrorBoundary={mockReset} />,
+          <Errors.Fallback error={errorWithStack} resetErrorBoundary={mockReset} />,
         );
         expect(c.getByText(/at TestComponent/)).toBeTruthy();
       });
@@ -198,7 +194,7 @@ describe("Error", () => {
         const errorNoStack = new Error("Test");
         errorNoStack.stack = "";
         const c = render(
-          <PlutoError.Fallback error={errorNoStack} resetErrorBoundary={mockReset} />,
+          <Errors.Fallback error={errorNoStack} resetErrorBoundary={mockReset} />,
         );
         expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeFalsy();
       });

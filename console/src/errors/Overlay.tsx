@@ -7,18 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/error/Overlay.css";
+import "@/errors/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
-import {
-  Button,
-  CSS as PCSS,
-  Error as PError,
-  Flex,
-  Nav,
-  OS,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Button, CSS as PCSS, Errors, Flex, Nav, OS, Theming } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   type PropsWithChildren,
@@ -35,7 +27,7 @@ import { Runtime } from "@/runtime";
 
 export interface OverlayProps extends PropsWithChildren {}
 
-const FallbackRenderWithStore = ({ error }: PError.FallbackProps): ReactElement => {
+const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement => {
   const dispatch = useDispatch();
   const handleTryAgain = useCallback((): void => {
     dispatch(REVERT_STATE);
@@ -52,7 +44,7 @@ const FallbackRenderWithStore = ({ error }: PError.FallbackProps): ReactElement 
   );
 };
 
-const FallbackRenderWithoutStore = ({ error }: PError.FallbackProps): ReactElement => (
+const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactElement => (
   <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />
 );
 
@@ -132,7 +124,7 @@ const FallBackRenderContent = ({
         </Nav.Bar.End>
       </Nav.Bar>
 
-      <PError.Fallback
+      <Errors.Fallback
         error={error}
         resetErrorBoundary={resetErrorBoundary}
         variant="full"
@@ -148,15 +140,15 @@ const FallBackRenderContent = ({
             Clear storage and reload Console
           </Button.Button>
         </Flex.Box>
-      </PError.Fallback>
+      </Errors.Fallback>
     </Flex.Box>
   );
 };
 
 export const OverlayWithStore = (props: OverlayProps): ReactElement => (
-  <PError.Boundary {...props} FallbackComponent={FallbackRenderWithStore} />
+  <Errors.Boundary {...props} FallbackComponent={FallbackRenderWithStore} />
 );
 
 export const OverlayWithoutStore = (props: OverlayProps): ReactElement => (
-  <PError.Boundary {...props} FallbackComponent={FallbackRenderWithoutStore} />
+  <Errors.Boundary {...props} FallbackComponent={FallbackRenderWithoutStore} />
 );
