@@ -309,7 +309,7 @@ func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagn
 				},
 			},
 			Severity: severity(diag.Severity),
-			Source:   "arc-analyzer",
+			Source:   "arc",
 			Message:  diag.Message,
 		})
 	}
