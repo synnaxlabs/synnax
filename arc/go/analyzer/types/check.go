@@ -75,7 +75,30 @@ func formatTypeMismatch(expected, actual types.Type, reason string) string {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
 	}
 	if expected.IsNumeric() && actual.IsNumeric() {
-		msg += fmt.Sprintf(" (hint: use %v(value) to convert)", expected)
+		hintType := concreteTypeForHint(expected)
+		msg += fmt.Sprintf(" (hint: use %s(value) to convert)", hintType)
 	}
 	return msg
+}
+
+// concreteTypeForHint returns a concrete type name for use in error hints.
+// Converts constraint kinds (integer, float) to their default concrete types (i64, f64).
+func concreteTypeForHint(t types.Type) string {
+	if t.Kind == types.KindVariable && t.Constraint != nil {
+		switch t.Constraint.Kind {
+		case types.KindIntegerConstant:
+			return "i64"
+		case types.KindFloatConstant:
+			return "f64"
+		case types.KindNumericConstant:
+			return "f64"
+		}
+	}
+	if t.Kind == types.KindIntegerConstant {
+		return "i64"
+	}
+	if t.Kind == types.KindFloatConstant {
+		return "f64"
+	}
+	return t.String()
 }

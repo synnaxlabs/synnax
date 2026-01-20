@@ -286,7 +286,7 @@ func (s *Server) getHoverContents(word string) string {
 			doc.NewTitleWithKind("next", "Keyword"),
 			doc.Paragraph("Transitions to a stage unconditionally."),
 			doc.NewDivider(),
-			doc.NewArcCode("stage first {\n    next second\n}"),
+			doc.NewArcCode("stage first {\n    condition => next\n}"),
 		).Render()
 	case "i8", "i16", "i32", "i64":
 		bits := word[1:]

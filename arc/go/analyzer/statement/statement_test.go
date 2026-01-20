@@ -427,6 +427,18 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 			})
 
+			It("Should reject compound assignments of inferred literal float vs. integer", func() {
+				block := MustSucceed(parser.ParseBlock(`{
+					x := 10
+					y := x + 3.2
+				}`))
+				ctx := context.CreateRoot(bCtx, block, nil)
+				statement.AnalyzeBlock(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+			})
+
 			It("should reject compound assignment on undefined variable", func() {
 				block := MustSucceed(parser.ParseBlock(`{ undefined_var += 5 }`))
 				ctx := context.CreateRoot(bCtx, block, nil)

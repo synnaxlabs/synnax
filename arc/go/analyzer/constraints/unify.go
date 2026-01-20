@@ -96,11 +96,35 @@ func (s *System) unifyConstraint(c Constraint) error {
 			msg = fmt.Sprintf("type mismatch in %s: %v is not compatible with %v", c.Reason, right, left)
 		}
 		if left.IsNumeric() && right.IsNumeric() {
-			msg += fmt.Sprintf(" (hint: use %v(value) to convert)", left)
+			// Get a concrete type name for the hint (not "integer" or "float")
+			hintType := concreteTypeForHint(left)
+			msg += fmt.Sprintf(" (hint: use %s(value) to convert)", hintType)
 		}
 		return errors.New(msg)
 	}
 	return nil
+}
+
+// concreteTypeForHint returns a concrete type name for use in error hints.
+// Converts constraint kinds (integer, float) to their default concrete types (i64, f64).
+func concreteTypeForHint(t types.Type) string {
+	if t.Kind == types.KindVariable && t.Constraint != nil {
+		switch t.Constraint.Kind {
+		case types.KindIntegerConstant:
+			return "i64"
+		case types.KindFloatConstant:
+			return "f64"
+		case types.KindNumericConstant:
+			return "f64"
+		}
+	}
+	if t.Kind == types.KindIntegerConstant {
+		return "i64"
+	}
+	if t.Kind == types.KindFloatConstant {
+		return "f64"
+	}
+	return t.String()
 }
 
 func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
@@ -184,6 +208,13 @@ func (s *System) unifyTypeVariableWithVisited(
 			s.Substitutions[tv.Name] = other
 			return nil
 		} else if tv.Name != other.Name {
+			// Both have constraints - check if they're compatible
+			if tv.Constraint != nil && other.Constraint != nil {
+				if !numericConstraintsCompatible(tv.Constraint.Kind, other.Constraint.Kind) {
+					return errors.Wrapf(ErrConstraintViolation,
+						"cannot mix integer and floating-point types in operation")
+				}
+			}
 			s.Substitutions[tv.Name] = other
 			return nil
 		}
@@ -306,6 +337,30 @@ func promoteNumericTypes(t1, t2 types.Type) types.Type {
 		return types.I32()
 	}
 	return types.U32()
+}
+
+// isNumericConstraint returns true if the kind is a numeric constraint kind.
+func isNumericConstraint(kind types.Kind) bool {
+	return kind == types.KindNumericConstant ||
+		kind == types.KindIntegerConstant ||
+		kind == types.KindFloatConstant
+}
+
+// numericConstraintsCompatible checks if two constraint kinds are compatible.
+// IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
+// float variables in operations, consistent with how explicit i32 and f64 are rejected.
+// NumericConstant is compatible with both since it represents an unconstrained numeric literal.
+func numericConstraintsCompatible(k1, k2 types.Kind) bool {
+	if k1 == k2 {
+		return true
+	}
+	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
+		return isNumericConstraint(k1) && isNumericConstraint(k2)
+	}
+	if isNumericConstraint(k1) && isNumericConstraint(k2) {
+		return false
+	}
+	return k1 == k2
 }
 
 // String formats the constraint system for debugging with type variables,
