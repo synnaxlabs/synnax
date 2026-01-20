@@ -17,7 +17,11 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var ctx context.Context
+
+var _ = BeforeEach(func() {
+	ctx = context.Background()
+})
 
 func TestGoDriver(t *testing.T) {
 	RegisterFailHandler(Fail)

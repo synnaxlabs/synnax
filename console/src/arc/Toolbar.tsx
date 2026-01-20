@@ -223,7 +223,11 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasEditPermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
-  const { running, onStartStop, taskStatus: status } = useTask(itemKey);
+  const {
+    running,
+    onStartStop,
+    taskStatus: status,
+  } = useTask(itemKey, arcItem?.name ?? "");
   let statusMessage = "Stopped";
   if (status.variant === "success" && running) statusMessage = "Running";
   else if (status.variant === "error") statusMessage = "Error";

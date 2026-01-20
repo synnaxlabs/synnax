@@ -20,7 +20,7 @@ type Task interface {
 	// Exec handles commands (start, stop, etc.)
 	Exec(ctx context.Context, cmd task.Command) error
 	// Stop gracefully shuts down the task.
-	Stop(ctx context.Context, willReconfigure bool) error
+	Stop(willReconfigure bool) error
 	// Key returns the task key.
 	Key() task.Key
 }

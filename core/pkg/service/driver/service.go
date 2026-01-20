@@ -75,7 +75,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	}
 	cfg.L.Info("created go driver rack", zap.Stringer("key", d.rack.Key))
 
-	d.startHeartbeat(ctx)
+	d.startHeartbeat()
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
@@ -84,7 +84,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	return d, nil
 }
 
-func (d *Driver) startHeartbeat(ctx context.Context) {
+func (d *Driver) startHeartbeat() {
 	statusWriter := status.NewWriter[rack.StatusDetails](d.cfg.Status, nil)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdownHeartbeat = signal.NewHardShutdown(sCtx, cancel)
@@ -180,7 +180,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if existing, ok := d.mu.tasks[t.Key]; ok {
-		if err := existing.Stop(ctx, true); err != nil {
+		if err := existing.Stop(true); err != nil {
 			d.cfg.L.Error("failed to stop existing task for reconfiguration",
 				zap.Stringer("task", t.Key),
 				zap.Error(err),
@@ -220,7 +220,7 @@ func (d *Driver) delete(ctx context.Context, key task.Key) {
 	if !ok {
 		return
 	}
-	if err := t.Stop(ctx, false); err != nil {
+	if err := t.Stop(false); err != nil {
 		d.cfg.L.Error("failed to stop task during deletion",
 			zap.Stringer("task", key),
 			zap.Error(err),
@@ -237,7 +237,7 @@ func (d *Driver) RackKey() rack.Key {
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {
-		if err := t.Stop(context.TODO(), false); err != nil {
+		if err := t.Stop(false); err != nil {
 			d.cfg.L.Error("failed to stop task during shutdown",
 				zap.Stringer("task", key),
 				zap.Error(err),

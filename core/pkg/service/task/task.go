@@ -96,3 +96,7 @@ type Command struct {
 	// Task is the key of the task to execute the command on.
 	Task Key `json:"task"`
 }
+
+func (c Command) String() string {
+	return fmt.Sprintf("%s (%s)", c.Type, c.Key)
+}

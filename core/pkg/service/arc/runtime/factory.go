@@ -14,12 +14,13 @@ import (
 	"encoding/json"
 
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
+	. "github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -28,11 +29,12 @@ import (
 // TaskType is the type identifier for Arc tasks.
 const TaskType = "arc"
 
-// TaskConfig is the configuration for an Arc task.
+// TaskConfig is the configuration for an Arc taskImpl.
 type TaskConfig struct {
+	alamos.Instrumentation
 	// ArcKey is the UUID of the Arc program to execute.
 	ArcKey uuid.UUID `json:"arc_key"`
-	// AutoStart sets whether the task should start automatically when configured.
+	// AutoStart sets whether the taskImpl should start automatically when configured.
 	AutoStart bool `json:"auto_start"`
 }
 
@@ -41,6 +43,7 @@ type GetModuleFunc func(ctx context.Context, key uuid.UUID) (arc.Arc, error)
 
 // FactoryConfig is the configuration for creating an Arc factory.
 type FactoryConfig struct {
+	alamos.Instrumentation
 	// Channel is used for retrieving channel information.
 	// [REQUIRED]
 	Channel *channel.Service
@@ -56,11 +59,12 @@ type FactoryConfig struct {
 }
 
 var (
-	_             config.Config[FactoryConfig] = FactoryConfig{}
-	DefaultConfig                              = FactoryConfig{}
+	_                    config.Config[FactoryConfig] = FactoryConfig{}
+	DefaultFactoryConfig                              = FactoryConfig{}
 )
 
 func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Status = override.Nil(c.Status, other.Status)
@@ -77,24 +81,26 @@ func (c FactoryConfig) Validate() error {
 	return v.Error()
 }
 
-// Factory creates Arc tasks from task definitions.
+// Factory creates Arc tasks from taskImpl definitions.
 type Factory struct {
 	cfg FactoryConfig
 }
 
+var _ driver.Factory = (*Factory)(nil)
+
 // NewFactory creates a new Arc factory.
 func NewFactory(cfgs ...FactoryConfig) (*Factory, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(DefaultFactoryConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Factory{cfg: cfg}, nil
 }
 
-// ConfigureTask creates an Arc task if this factory handles the task type.
+// ConfigureTask creates an Arc taskImpl if this factory handles the taskImpl type.
 func (f *Factory) ConfigureTask(
 	ctx driver.Context,
-	t task.Task,
+	t Task,
 ) (driver.Task, bool, error) {
 	if t.Type != TaskType {
 		return nil, false, nil
@@ -107,7 +113,7 @@ func (f *Factory) ConfigureTask(
 	if err != nil {
 		return nil, true, err
 	}
-	arcTask := newTask(t.Key, prog, cfg, ctx, f.cfg)
+	arcTask := newTask(t, prog, cfg, ctx, f.cfg)
 	return arcTask, true, nil
 }
 

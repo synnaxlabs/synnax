@@ -49,7 +49,7 @@ type ServiceConfig struct {
 	Channel *channel.Service
 	// Task is used for deleting tasks associated with arcs when arcs are deleted.
 	//
-	// [OPTIONAL] - If nil, child tasks will not be deleted when arcs are deleted.
+	// [REQUIRED]
 	Task *task.Service
 	// Signals is used for propagating changes to arcs through the cluster.
 	//
