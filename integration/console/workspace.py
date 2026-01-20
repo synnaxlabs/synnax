@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import random
 from typing import TYPE_CHECKING
 
 import synnax as sy
@@ -70,6 +71,7 @@ class WorkspaceClient:
             return
         workspace_item.click()
 
+    # SY-3576
     def refresh_tree(self) -> None:
         """Collapse and re-expand the workspace to refresh the tree contents."""
         self.console.show_resource_toolbar("workspace")
@@ -78,7 +80,6 @@ class WorkspaceClient:
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
             workspace_item.click()
-            sy.sleep(0.1)
         workspace_item.click()
         sy.sleep(0.1)
 
@@ -120,7 +121,7 @@ class WorkspaceClient:
         self.page.keyboard.press("ControlOrMeta+a")
         self.page.keyboard.type(new_name)
         self.console.ENTER
-        sy.sleep(0.2)
+        self.refresh_tree()
 
     def create(self, name: str) -> bool:
         """Create a workspace via command palette.
@@ -134,12 +135,23 @@ class WorkspaceClient:
         if self.exists(name):
             return False
 
-        self.console.command_palette("Create a Workspace")
+        if random.choice([True, False]):
+            self.console.command_palette("Create a Workspace")
+        else:
+            self.console.close_nav_drawer()
+            selector = (
+                self.page.locator("button.pluto-dialog__trigger")
+                .filter(has=self.page.locator(".pluto-icon--workspace"))
+                .first
+            )
+            selector.click(timeout=5000)
+            self.page.get_by_role("button", name="New", exact=True).click(timeout=5000)
+
         name_input = self.page.locator("input[placeholder='Workspace Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.page.get_by_role("button", name="Create", exact=True).click(timeout=5000)
-        sy.sleep(0.1)
+        self.refresh_tree()
         return True
 
     def select(self, name: str) -> None:
@@ -148,11 +160,19 @@ class WorkspaceClient:
         Args:
             name: Name of the workspace to select
         """
+        selector = (
+            self.page.locator("button.pluto-dialog__trigger")
+            .filter(has=self.page.locator(".pluto-icon--workspace"))
+            .first
+        )
+        if name in selector.inner_text():
+            return
         self.console.show_resource_toolbar("workspace")
         self.get_item(name).dblclick(timeout=5000)
         self.page.get_by_role("button").filter(has_text=name).wait_for(
             state="visible", timeout=5000
         )
+        self.console.close_nav_drawer()
 
     def rename(self, old_name: str, new_name: str) -> None:
         """Rename a workspace via context menu.
@@ -169,7 +189,7 @@ class WorkspaceClient:
         self.page.keyboard.press("ControlOrMeta+a")
         self.page.keyboard.type(new_name)
         self.console.ENTER
-        sy.sleep(0.2)
+        self.refresh_tree()
 
     def delete(self, name: str) -> None:
         """Delete a workspace via context menu.
@@ -188,7 +208,7 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
-        sy.sleep(0.1)
+        self.refresh_tree()
 
         self.console.close_nav_drawer()
 

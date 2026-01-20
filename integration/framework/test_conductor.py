@@ -98,15 +98,15 @@ COLORS: list[str] = [
 
 def parse_target_path(target: str) -> tuple[str, str | None, str | None]:
     """
-    Parse Bazel-like target path.
+    Parse target path.
 
-    Format: //test_file/sequence/case_filter
+    Format: test_file/sequence/case_filter
 
     Examples:
-        //console/general/...        -> ("console", "general", None)
-        //console/access/user        -> ("console", "access", "user")
-        //console/...                -> ("console", None, None)
-        //driver/modbus/...          -> ("driver", "modbus", None)
+        console/general/...        -> ("console", "general", None)
+        console/access/user        -> ("console", "access", "user")
+        console/...                -> ("console", None, None)
+        driver/modbus/...          -> ("driver", "modbus", None)
 
     Returns:
         tuple[str, str | None, str | None]: (test_file, sequence_filter, case_filter)
@@ -114,10 +114,7 @@ def parse_target_path(target: str) -> tuple[str, str | None, str | None]:
         - sequence_filter: None for all sequences, or specific sequence name
         - case_filter: None for all cases, or substring to match in case path
     """
-    if not target.startswith("//"):
-        raise ValueError(f"Target must start with '//': {target}")
-
-    path = target[2:]
+    path = target.lstrip("/")
     if not path:
         raise ValueError(f"Target path cannot be empty: {target}")
 
@@ -1415,12 +1412,10 @@ def main() -> None:
         description="Run test sequences",
         epilog="""
 Examples:
-  uv run tc //console/general/...     Run all tests in 'general' sequence
-  uv run tc //console/access/user     Run tests containing 'user' in case path
-  uv run tc //console/general/channel Run tests containing 'channel' in 'general' sequence
-  uv run tc //console/...             Run all sequences in console_tests.json
-  uv run tc -f channel                Run all tests containing 'channel' across all files
-  uv run tc -s console                Run all sequences in console_tests.json (legacy)
+  uv run tc -f channel              Run all tests containing 'channel' (like ginkgo --focus)
+  uv run tc console/...             Run all tests in console_tests.json
+  uv run tc console/general/...     Run all tests in 'general' sequence
+  uv run tc console/general/channel Run tests containing 'channel' in 'general' sequence
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -1428,7 +1423,7 @@ Examples:
         "target",
         nargs="?",
         default=None,
-        help="Bazel-like target path (e.g., //console/general/...)",
+        help="Target path (e.g., console/general/...)",
     )
     parser.add_argument("--name", default="tc", help="Test conductor name")
     parser.add_argument("--server", default="localhost", help="Synnax server address")
@@ -1436,11 +1431,6 @@ Examples:
     parser.add_argument("--username", default="synnax", help="Synnax username")
     parser.add_argument("--password", default="seldon", help="Synnax password")
     parser.add_argument("--secure", default=False, help="Use secure connection")
-    parser.add_argument(
-        "--sequence",
-        "-s",
-        help="Path to test sequence JSON file or comma-separated list of files (legacy, use target instead)",
-    )
     parser.add_argument(
         "--filter",
         "-f",
@@ -1490,30 +1480,8 @@ Examples:
             test_file, sequence_filter, case_filter = parse_target_path(args.target)
             sequence_input = f"{test_file}_tests.json"
         elif args.filter:
-            # Filter across all test files (auto-discover)
             case_filter = args.filter
-            sequence_input = None  # Will auto-discover all *_tests.json
-        elif args.sequence:
-            # Legacy: Handle sequence parameter - support both single file and list
-            if "," in args.sequence:
-                raw_list = [s.strip() for s in args.sequence.split(",")]
-                sequence_input = [
-                    (
-                        s
-                        if s.endswith(".json")
-                        else (
-                            f"{s}.json" if s.endswith("_tests") else f"{s}_tests.json"
-                        )
-                    )
-                    for s in raw_list
-                ]
-            else:
-                if args.sequence.endswith(".json"):
-                    sequence_input = args.sequence
-                elif args.sequence.endswith("_tests"):
-                    sequence_input = f"{args.sequence}.json"
-                else:
-                    sequence_input = f"{args.sequence}_tests.json"
+            sequence_input = None
 
         conductor.load_test_sequence(sequence_input, sequence_filter, case_filter)
         results = conductor.run_sequence()

@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import random
 import re
 from typing import TYPE_CHECKING
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
 
 if TYPE_CHECKING:
@@ -48,7 +48,12 @@ class LayoutClient:
         )
 
     def close_tab(self, name: str) -> None:
-        """Close a tab by name.
+        """Close a tab using a randomly selected modality.
+
+        Randomly chooses between:
+        - Click close button (X)
+        - Context menu -> Close
+        - Hotkey (Ctrl+W)
 
         Args:
             name: Name of the tab to close
@@ -56,13 +61,27 @@ class LayoutClient:
         self.console.close_nav_drawer()
         tab = self.get_tab(name)
         tab.wait_for(state="visible", timeout=5000)
-        tab.get_by_label("pluto-tabs__close").click()
+
+        modality = random.choice(["button", "context_menu", "hotkey"])
+        if modality == "button":
+            tab.get_by_label("pluto-tabs__close").click()
+        elif modality == "context_menu":
+            tab.click(button="right")
+            self.page.get_by_text("Close").first.click()
+        else:
+            tab.click()
+            self.page.keyboard.press("ControlOrMeta+w")
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
 
     def rename_tab(self, old_name: str, new_name: str) -> None:
-        """Rename a tab by double-clicking and typing a new name.
+        """Rename a tab using a randomly selected modality.
+
+        Randomly chooses between:
+        - Double-click on tab name
+        - Context menu -> Rename
+        - Hotkey (Ctrl+E)
 
         Args:
             old_name: Current name of the tab
@@ -71,7 +90,17 @@ class LayoutClient:
         self.console.close_nav_drawer()
         tab = self.get_tab(old_name)
         tab.wait_for(state="visible", timeout=5000)
-        tab.locator("p").first.dblclick()
+
+        modality = random.choice(["dblclick", "context_menu", "hotkey"])
+        if modality == "dblclick":
+            tab.locator("p").first.dblclick()
+        elif modality == "context_menu":
+            tab.click(button="right")
+            self.page.get_by_text("Rename").first.click()
+        else:
+            tab.click()
+            self.page.keyboard.press("ControlOrMeta+e")
+
         self.page.keyboard.press("ControlOrMeta+a")
         self.page.keyboard.type(new_name)
         self.console.ENTER
@@ -85,9 +114,7 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        sy.sleep(0.2)
         self.page.get_by_text("Split Horizontally").first.click()
-        sy.sleep(0.2)
 
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
@@ -97,9 +124,7 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        sy.sleep(0.2)
         self.page.get_by_text("Split Vertically").first.click()
-        sy.sleep(0.2)
 
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
@@ -109,9 +134,7 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        sy.sleep(0.2)
         self.page.get_by_text("Focus").first.click()
-        sy.sleep(0.2)
 
     def show_visualization_toolbar(self) -> None:
         """Show the visualization toolbar by pressing V."""

@@ -252,7 +252,9 @@ class RangesClient:
         """Navigate the calendar picker to the target month."""
         month_row = calendar.locator(".pluto-calendar-header")
         while True:
-            current_month = month_row.locator(".pluto-calendar-header__month").inner_text()
+            current_month = month_row.locator(
+                ".pluto-calendar-header__month"
+            ).inner_text()
             if current_month == target_month:
                 break
             month_row.locator("button").first.click()
@@ -438,13 +440,17 @@ class RangesClient:
         """Click the CSV download button in the range overview and wait for modal."""
         csv_btn = self.page.locator("button:has(svg.pluto-icon--csv)")
         csv_btn.click(timeout=5000)
-        self.page.get_by_text("Download data for").wait_for(state="visible", timeout=5000)
+        self.page.get_by_text("Download data for").wait_for(
+            state="visible", timeout=5000
+        )
 
     def close_csv_download_modal(self) -> None:
         """Close the CSV download modal."""
         close_btn = self.page.locator("button:has(svg.pluto-icon--close)").first
         close_btn.click(timeout=2000)
-        self.page.get_by_text("Download data for").wait_for(state="hidden", timeout=5000)
+        self.page.get_by_text("Download data for").wait_for(
+            state="hidden", timeout=5000
+        )
 
     def download_csv(self, range_name: str, channel: str) -> str:
         """Download CSV data for a range with specified channel.
@@ -480,7 +486,11 @@ class RangesClient:
 
     def _get_child_ranges_section(self) -> Locator:
         """Get the Child Ranges section in the overview."""
-        return self.page.get_by_text("Child Ranges", exact=True).locator("..").locator("..")
+        return (
+            self.page.get_by_text("Child Ranges", exact=True)
+            .locator("..")
+            .locator("..")
+        )
 
     def get_child_range_item(self, name: str) -> Locator:
         """Get a child range item from the Child Ranges section by name.
@@ -524,8 +534,16 @@ class RangesClient:
         stage_button = (
             item.locator("button")
             .filter(has=self.page.locator("svg.pluto-icon--to-do"))
-            .or_(item.locator("button").filter(has=self.page.locator("svg.pluto-icon--in-progress")))
-            .or_(item.locator("button").filter(has=self.page.locator("svg.pluto-icon--completed")))
+            .or_(
+                item.locator("button").filter(
+                    has=self.page.locator("svg.pluto-icon--in-progress")
+                )
+            )
+            .or_(
+                item.locator("button").filter(
+                    has=self.page.locator("svg.pluto-icon--completed")
+                )
+            )
             .first
         )
         stage_button.click()

@@ -72,8 +72,6 @@ class RangeLifecycle(ConsoleCase):
         # Cleanup
         self.test_cleanup_ranges()
 
-        
-
     def test_open_range_toolbar(self) -> None:
         """Test opening the ranges toolbar."""
         self.log("Testing: Open ranges toolbar")
@@ -221,8 +219,12 @@ class RangeLifecycle(ConsoleCase):
         end_ts = sy.TimeStamp(rng.time_range.end)
         start_utc = start_ts.datetime(timezone.utc)
         end_utc = end_ts.datetime(timezone.utc)
-        assert start_utc.year == 2024, f"Start year should be 2024, got {start_utc.year}"
-        assert start_utc.month == 1, f"Start month should be January, got {start_utc.month}"
+        assert (
+            start_utc.year == 2024
+        ), f"Start year should be 2024, got {start_utc.year}"
+        assert (
+            start_utc.month == 1
+        ), f"Start month should be January, got {start_utc.month}"
         assert start_utc.day == 1, f"Start day should be 1, got {start_utc.day}"
         assert end_utc.day == 2, f"End day should be 2, got {end_utc.day}"
 
@@ -250,9 +252,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.add_label_in_overview(self.second_label_name)
 
         labels = self.console.ranges.get_labels_in_overview()
-        assert self.second_label_name in labels, (
-            f"Label '{self.second_label_name}' should be in overview"
-        )
+        assert (
+            self.second_label_name in labels
+        ), f"Label '{self.second_label_name}' should be in overview"
 
     def test_remove_label_in_overview(self) -> None:
         """Test removing a label from a range in the overview."""
@@ -264,9 +266,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.remove_label_in_overview(self.second_label_name)
 
         labels = self.console.ranges.get_labels_in_overview()
-        assert self.second_label_name not in labels, (
-            f"Label '{self.second_label_name}' should be removed from overview"
-        )
+        assert (
+            self.second_label_name not in labels
+        ), f"Label '{self.second_label_name}' should be removed from overview"
 
     def test_rename_range_from_tab(self) -> None:
         """Test renaming a range from the tab name."""
@@ -459,9 +461,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.open_explorer()
         if self.console.ranges.exists_in_explorer(self.labeled_range_name):
             self.console.ranges.delete_from_explorer(self.labeled_range_name)
-        if hasattr(self, "new_child_range_name") and self.console.ranges.exists_in_explorer(
-            self.new_child_range_name
-        ):
+        if hasattr(
+            self, "new_child_range_name"
+        ) and self.console.ranges.exists_in_explorer(self.new_child_range_name):
             self.console.ranges.delete_from_explorer(self.new_child_range_name)
         if self.console.ranges.exists_in_explorer(self.child_range_name):
             self.console.ranges.delete_from_explorer(self.child_range_name)
