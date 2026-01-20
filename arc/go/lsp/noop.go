@@ -97,10 +97,6 @@ func (s *Server) Exit(context.Context) error {
 	return nil
 }
 
-func (s *Server) FoldingRange(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
-	return nil, nil
-}
-
 func (s *Server) FoldingRanges(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
 	return nil, nil
 }
@@ -137,15 +133,7 @@ func (s *Server) PrepareCallHierarchy(context.Context, *protocol.CallHierarchyPr
 	return nil, nil
 }
 
-func (s *Server) PrepareRename(context.Context, *protocol.PrepareRenameParams) (*protocol.Range, error) {
-	return nil, nil
-}
-
 func (s *Server) References(context.Context, *protocol.ReferenceParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
-func (s *Server) Rename(context.Context, *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
 	return nil, nil
 }
 

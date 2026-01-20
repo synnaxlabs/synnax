@@ -98,7 +98,9 @@ func New(cfgs ...Config) (*Server, error) {
 			DocumentSymbolProvider:           true,
 			DocumentFormattingProvider:       true,
 			DocumentRangeFormattingProvider:  true,
-			SemanticTokensProvider: map[string]interface{}{
+			FoldingRangeProvider:   true,
+			RenameProvider:         true,
+			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
 				},
@@ -288,10 +290,15 @@ func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	return out
 }
 
-// translateDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
 func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
+		endLine := diag.EndLine
+		endColumn := diag.EndColumn
+		if endLine == 0 && endColumn == 0 {
+			endLine = diag.Line
+			endColumn = diag.Column + 1
+		}
 		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
@@ -299,8 +306,8 @@ func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagn
 					Character: uint32(diag.Column),
 				},
 				End: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column + 10),
+					Line:      uint32(endLine - 1),
+					Character: uint32(endColumn),
 				},
 			},
 			Severity: severity(diag.Severity),

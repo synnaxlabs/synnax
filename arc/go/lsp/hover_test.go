@@ -403,17 +403,98 @@ func main() {
 }`
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			// Hover over 'first' stage name
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 11}, // stage fi|rst
+					Position:     protocol.Position{Line: 1, Character: 11},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### first"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Stage"))
+		})
+
+		It("should include single-line doc comment in hover", func() {
+			content := `// Adds two numbers together
+func add(x i32, y i32) i32 {
+    return x + y
+}`
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 6},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Adds two numbers together"))
+		})
+
+		It("should include multi-line doc comment in hover", func() {
+			content := `/* Computes the maximum of two values */
+func max(a i32, b i32) i32 {
+    if a > b { return a }
+    return b
+}`
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 1, Character: 6},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### max"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Computes the maximum of two values"))
+		})
+
+		It("should include multiple consecutive single-line comments in hover", func() {
+			content := `// Threshold function
+// Returns 1 if value exceeds limit, 0 otherwise
+func threshold(value f64) u8 {
+    return u8(0)
+}`
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 2, Character: 6},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("Threshold function"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Returns 1 if value exceeds limit"))
+		})
+
+		It("should not include comment separated by code from symbol", func() {
+			content := `// Comment for helper
+func helper() i32 {
+    return 0
+}
+
+func add(a i32, b i32) i32 {
+    return a + b
+}`
+			testutil.OpenDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 5, Character: 6},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### add"))
+			Expect(hover.Contents.Value).ToNot(ContainSubstring("Comment for helper"))
 		})
 	})
 

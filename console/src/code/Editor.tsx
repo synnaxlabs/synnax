@@ -9,18 +9,31 @@
 
 import "@/code/Editor.css";
 
-import { Flex, type Input, Theming, TimeSpan } from "@synnaxlabs/pluto";
-import { type RefObject, useEffect, useRef } from "react";
+import {
+  Flex,
+  Icon,
+  type Input,
+  Menu,
+  Theming,
+  TimeSpan,
+  type Triggers,
+} from "@synnaxlabs/pluto";
+import { type RefObject, useCallback, useEffect, useRef } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";
 import { CSS } from "@/css";
+
+const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
+const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
+const PASTE_TRIGGER: Triggers.Trigger = ["Control", "V"];
+const RENAME_TRIGGER: Triggers.Trigger = ["F2"];
 
 const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   automaticLayout: true,
   minimap: { enabled: false },
   bracketPairColorization: { enabled: false },
   lineNumbersMinChars: 3,
-  folding: false,
+  folding: true,
   links: false,
   contextmenu: false,
   renderControlCharacters: false,
@@ -31,7 +44,7 @@ const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   formatOnPaste: false,
   formatOnType: true,
   suggestOnTriggerCharacters: false,
-  showFoldingControls: "never",
+  showFoldingControls: "mouseover",
   hover: { above: false },
 };
 
@@ -85,6 +98,7 @@ const forwardGlobalTriggers = (
 interface UseProps extends Input.Control<string> {
   language: string;
   isBlock?: boolean;
+  openContextMenu?: Menu.ContextMenuProps["open"];
 }
 
 const useTheme = (language: string) => {
@@ -112,14 +126,22 @@ const triggerSmallModelChangeToActiveLanguageServerFeatures = (
   }, TRIGGER_SMALL_DELAY);
 };
 
+interface UseReturn {
+  containerRef: RefObject<HTMLDivElement | null>;
+  editorRef: RefObject<Monaco.editor.IStandaloneCodeEditor | null>;
+}
+
 const use = ({
   value,
   onChange,
   language,
   isBlock = false,
-}: UseProps): RefObject<HTMLDivElement | null> => {
-  const editorContainerRef = useRef<HTMLDivElement>(null);
+  openContextMenu,
+}: UseProps): UseReturn => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
+  const openContextMenuRef = useRef(openContextMenu);
+  openContextMenuRef.current = openContextMenu;
   const theme = useTheme(language);
   const monaco = useMonaco();
 
@@ -135,7 +157,8 @@ const use = ({
   const customURI = customURIRef.current;
 
   useEffect(() => {
-    if (monaco == null || editorContainerRef.current == null) return;
+    if (monaco == null || containerRef.current == null) return;
+    const container = containerRef.current;
 
     // Create model with custom URI if this is a block
     let model: Monaco.editor.ITextModel | null = null;
@@ -144,7 +167,7 @@ const use = ({
       model = monaco.editor.createModel(value, language, uri);
     }
 
-    editorRef.current = monaco.editor.create(editorContainerRef.current, {
+    editorRef.current = monaco.editor.create(container, {
       value: customURI != null ? undefined : value,
       model: model ?? undefined,
       language: customURI != null ? undefined : language,
@@ -160,16 +183,31 @@ const use = ({
       onChange(editorRef.current.getValue());
     });
     const triggerDispose = forwardGlobalTriggers(editorRef.current);
+    const contextMenuDispose = editorRef.current.onContextMenu((e) =>
+      openContextMenuRef.current?.({
+        clientX: e.event.posx,
+        clientY: e.event.posy,
+        preventDefault: () => e.event.preventDefault(),
+        stopPropagation: () => e.event.stopPropagation(),
+        target: container,
+      }),
+    );
 
     return () => {
       contentDispose.dispose();
       triggerDispose.dispose();
+      contextMenuDispose.dispose();
       editorRef.current?.dispose();
       model?.dispose();
     };
-  }, [theme, monaco, customURI]);
+  }, [monaco, customURI]);
 
-  return editorContainerRef;
+  useEffect(() => {
+    if (monaco == null) return;
+    monaco.editor.setTheme(theme);
+  }, [monaco, theme]);
+
+  return { containerRef, editorRef };
 };
 export interface EditorProps
   extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
@@ -185,10 +223,68 @@ export const Editor = ({
   isBlock,
   ...rest
 }: EditorProps) => {
-  const editorContainerRef = use({ value, onChange, language, isBlock });
+  const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
+  const { containerRef, editorRef } = use({
+    value,
+    onChange,
+    language,
+    isBlock,
+    openContextMenu: menuProps.open,
+  });
+
+  const handleMenuSelect = useCallback((key: string) => {
+    const editor = editorRef.current;
+    if (editor == null) return;
+    switch (key) {
+      case "cut":
+        editor.trigger("contextMenu", "editor.action.clipboardCutAction", null);
+        break;
+      case "copy":
+        editor.trigger("contextMenu", "editor.action.clipboardCopyAction", null);
+        break;
+      case "paste":
+        editor.trigger("contextMenu", "editor.action.clipboardPasteAction", null);
+        break;
+      case "rename":
+        editor.trigger("contextMenu", "editor.action.rename", null);
+        break;
+    }
+  }, []);
+
+  const menuContent = useCallback(
+    () => (
+      <Menu.Menu level="small" onChange={handleMenuSelect}>
+        <Menu.Item itemKey="cut" trigger={CUT_TRIGGER} triggerIndicator>
+          <Icon.Cut />
+          Cut
+        </Menu.Item>
+        <Menu.Item itemKey="copy" trigger={COPY_TRIGGER} triggerIndicator>
+          <Icon.Copy />
+          Copy
+        </Menu.Item>
+        <Menu.Item itemKey="paste" trigger={PASTE_TRIGGER} triggerIndicator>
+          <Icon.Paste />
+          Paste
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item itemKey="rename" trigger={RENAME_TRIGGER} triggerIndicator>
+          <Icon.Rename />
+          Rename
+        </Menu.Item>
+      </Menu.Menu>
+    ),
+    [handleMenuSelect],
+  );
+
   return (
     <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
-      <Flex.Box ref={editorContainerRef} full role="textbox" />
+      <Menu.ContextMenu
+        className={CSS(CSS.BE("editor", "context-menu"), className)}
+        menu={menuContent}
+        {...menuProps}
+      >
+        <Flex.Box ref={containerRef} full role="textbox" />
+      </Menu.ContextMenu>
     </Flex.Box>
   );
 };

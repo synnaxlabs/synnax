@@ -130,3 +130,7 @@ using the default for now.  */
     font-size: calc(var(--pluto-small-size) * 0.95) !important;
     line-height: 1.5 !important;
 }
+
+.console-editor__context-menu {
+    min-width: 25rem;
+}

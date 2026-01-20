@@ -18,8 +18,8 @@ import { MonacoLanguageClient } from "monaco-languageclient";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
 
-import arcGrammar from "@/code/arc/arc.tmLanguage.json";
-import arcLanguageConfiguration from "@/code/arc/language-configuration.json";
+import arcGrammarRaw from "@/code/arc/arc.tmLanguage.json?raw";
+import arcLanguageConfigurationRaw from "@/code/arc/language-configuration.json?raw";
 import { type Extension } from "@/code/init/initialize";
 
 const NOOP_DISPOSER = () => ({ dispose: () => {} });
@@ -139,9 +139,18 @@ const createFreighterTransport = ({
 };
 
 let synnaxClient: Synnax | null = null;
+let lspDestructor: destructor.Async | null = null;
 
-export const setSynnaxClient = (client: Synnax) => {
+export const setSynnaxClient = async (client: Synnax | null): Promise<void> => {
+  if (lspDestructor != null) {
+    await lspDestructor();
+    lspDestructor = null;
+  }
+
   synnaxClient = client;
+  if (client == null) return;
+
+  lspDestructor = await startArcLSP();
 };
 
 const startArcLSP = async (): Promise<destructor.Async> => {
@@ -209,7 +218,7 @@ export interface ThemedSemanticTokenColors {
   light: SemanticTokenColors;
 }
 
-export const ARC_SEMANTIC_TOKEN_COLORS: ThemedSemanticTokenColors = {
+export const SEMANTIC_TOKEN_COLORS: ThemedSemanticTokenColors = {
   dark: {
     statefulVariable: "#E5A84B",
     edgeOneShot: "#E06C75",
@@ -258,8 +267,52 @@ export const ARC_SEMANTIC_TOKEN_COLORS: ThemedSemanticTokenColors = {
   },
 };
 
+const TEXTMATE_SCOPE_TO_SEMANTIC: Record<string, SemanticTokenType> = {
+  "keyword.control.arc": "keyword",
+  "keyword.other.arc": "keyword",
+  "keyword.operator.logical.arc": "keyword",
+  "constant.language.boolean.arc": "keyword",
+  "constant.language.null.arc": "keyword",
+  "keyword.operator.arithmetic.arc": "operator",
+  "keyword.operator.comparison.arc": "operator",
+  "keyword.operator.assignment.arc": "operator",
+  "keyword.operator.assignment.declare.arc": "operator",
+  "keyword.operator.channel.arc": "operator",
+  "keyword.operator.assignment.stateful.arc": "statefulVariable",
+  "keyword.operator.transition.arc": "edgeOneShot",
+  "keyword.operator.flow.arc": "edgeContinuous",
+  "string.quoted.double.arc": "string",
+  "string.quoted.single.arc": "string",
+  "constant.numeric": "number",
+  "support.type.primitive.arc": "type",
+  "support.type.composite.arc": "type",
+  "support.type.channel.arc": "channel",
+  comment: "comment",
+  "entity.name.function.arc": "function",
+  "support.function.builtin.arc": "function",
+  "support.function.builtin.stage.arc": "stage",
+  "entity.name.type.sequence.arc": "sequence",
+  "entity.name.type.stage.arc": "stage",
+  "variable.other.arc": "variable",
+};
+
+type Theme = "dark" | "light";
+
+interface TextMateRule {
+  scope: string;
+  settings: { foreground: string };
+}
+
+const generateTextMateRules = (theme: Theme): TextMateRule[] =>
+  Object.entries(TEXTMATE_SCOPE_TO_SEMANTIC).map(([scope, tokenType]) => ({
+    scope,
+    settings: { foreground: SEMANTIC_TOKEN_COLORS[theme][tokenType] },
+  }));
+
 const GRAMMAR_PATH = "./arc.tmLanguage.json";
 const LANGUAGE_CONFIGURATION_PATH = "./language-configuration.json";
+const GRAMMAR_DATA_URL = `data:application/json;base64,${btoa(arcGrammarRaw)}`;
+const LANGUAGE_CONFIG_DATA_URL = `data:application/json;base64,${btoa(arcLanguageConfigurationRaw)}`;
 
 const registerArcLanguage = async (): Promise<destructor.Async> => {
   const { registerFileUrl } = registerExtension(
@@ -289,94 +342,15 @@ const registerArcLanguage = async (): Promise<destructor.Async> => {
     ExtensionHostKind.LocalProcess,
   );
 
-  registerFileUrl(
-    GRAMMAR_PATH,
-    `data:application/json;base64,${btoa(JSON.stringify(arcGrammar))}`,
-  );
-  registerFileUrl(
-    LANGUAGE_CONFIGURATION_PATH,
-    `data:application/json;base64,${btoa(JSON.stringify(arcLanguageConfiguration))}`,
-  );
+  registerFileUrl(GRAMMAR_PATH, GRAMMAR_DATA_URL);
+  registerFileUrl(LANGUAGE_CONFIGURATION_PATH, LANGUAGE_CONFIG_DATA_URL);
 
   return async () => {};
 };
 
-// TextMate scope to color mappings (for hover popups and fallback highlighting)
-const ARC_TEXTMATE_RULES = {
-  dark: [
-    { scope: "keyword.control.arc", settings: { foreground: "#CC255F" } },
-    { scope: "keyword.other.arc", settings: { foreground: "#CC255F" } },
-    { scope: "keyword.operator.logical.arc", settings: { foreground: "#CC255F" } },
-    { scope: "keyword.operator.arithmetic.arc", settings: { foreground: "#dadada" } },
-    { scope: "keyword.operator.comparison.arc", settings: { foreground: "#dadada" } },
-    { scope: "keyword.operator.assignment.arc", settings: { foreground: "#dadada" } },
-    {
-      scope: "keyword.operator.assignment.declare.arc",
-      settings: { foreground: "#dadada" },
-    },
-    {
-      scope: "keyword.operator.assignment.stateful.arc",
-      settings: { foreground: "#E5A84B" },
-    },
-    { scope: "keyword.operator.channel.arc", settings: { foreground: "#dadada" } },
-    { scope: "keyword.operator.transition.arc", settings: { foreground: "#E06C75" } },
-    { scope: "keyword.operator.flow.arc", settings: { foreground: "#56c8d8" } },
-    { scope: "constant.language.boolean.arc", settings: { foreground: "#CC255F" } },
-    { scope: "constant.language.null.arc", settings: { foreground: "#CC255F" } },
-    { scope: "string.quoted.double.arc", settings: { foreground: "#98C379" } },
-    { scope: "string.quoted.single.arc", settings: { foreground: "#98C379" } },
-    { scope: "constant.numeric", settings: { foreground: "#98C379" } },
-    { scope: "support.type.primitive.arc", settings: { foreground: "#4EC9B0" } },
-    { scope: "support.type.composite.arc", settings: { foreground: "#4EC9B0" } },
-    { scope: "support.type.channel.arc", settings: { foreground: "#61AFEF" } },
-    { scope: "comment", settings: { foreground: "#5C6370" } },
-    { scope: "entity.name.function.arc", settings: { foreground: "#556bf8" } },
-    { scope: "support.function.builtin.arc", settings: { foreground: "#556bf8" } },
-    {
-      scope: "support.function.builtin.stage.arc",
-      settings: { foreground: "#dadada" },
-    },
-    { scope: "entity.name.type.sequence.arc", settings: { foreground: "#dadada" } },
-    { scope: "entity.name.type.stage.arc", settings: { foreground: "#dadada" } },
-    { scope: "variable.other.arc", settings: { foreground: "#dadada" } },
-  ],
-  light: [
-    { scope: "keyword.control.arc", settings: { foreground: "#CC255F" } },
-    { scope: "keyword.other.arc", settings: { foreground: "#CC255F" } },
-    { scope: "keyword.operator.logical.arc", settings: { foreground: "#CC255F" } },
-    { scope: "keyword.operator.arithmetic.arc", settings: { foreground: "#292929" } },
-    { scope: "keyword.operator.comparison.arc", settings: { foreground: "#292929" } },
-    { scope: "keyword.operator.assignment.arc", settings: { foreground: "#292929" } },
-    {
-      scope: "keyword.operator.assignment.declare.arc",
-      settings: { foreground: "#292929" },
-    },
-    {
-      scope: "keyword.operator.assignment.stateful.arc",
-      settings: { foreground: "#B45000" },
-    },
-    { scope: "keyword.operator.channel.arc", settings: { foreground: "#292929" } },
-    { scope: "keyword.operator.transition.arc", settings: { foreground: "#BE3E4A" } },
-    { scope: "keyword.operator.flow.arc", settings: { foreground: "#0097A7" } },
-    { scope: "constant.language.boolean.arc", settings: { foreground: "#CC255F" } },
-    { scope: "constant.language.null.arc", settings: { foreground: "#CC255F" } },
-    { scope: "string.quoted.double.arc", settings: { foreground: "#0A7D00" } },
-    { scope: "string.quoted.single.arc", settings: { foreground: "#0A7D00" } },
-    { scope: "constant.numeric", settings: { foreground: "#0A7D00" } },
-    { scope: "support.type.primitive.arc", settings: { foreground: "#267F99" } },
-    { scope: "support.type.composite.arc", settings: { foreground: "#267F99" } },
-    { scope: "support.type.channel.arc", settings: { foreground: "#0070C1" } },
-    { scope: "comment", settings: { foreground: "#9DA5B4" } },
-    { scope: "entity.name.function.arc", settings: { foreground: "#3774D0" } },
-    { scope: "support.function.builtin.arc", settings: { foreground: "#3774D0" } },
-    {
-      scope: "support.function.builtin.stage.arc",
-      settings: { foreground: "#292929" },
-    },
-    { scope: "entity.name.type.sequence.arc", settings: { foreground: "#292929" } },
-    { scope: "entity.name.type.stage.arc", settings: { foreground: "#292929" } },
-    { scope: "variable.other.arc", settings: { foreground: "#292929" } },
-  ],
+const TEXTMATE_RULES = {
+  dark: generateTextMateRules("dark"),
+  light: generateTextMateRules("light"),
 };
 
 const applySemanticTokenColors = async (): Promise<destructor.Async> => {
@@ -387,10 +361,10 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
     // Apply semantic token colors
     const semanticColorCustomizations = {
       "[Default Dark+]": {
-        rules: ARC_SEMANTIC_TOKEN_COLORS.dark,
+        rules: SEMANTIC_TOKEN_COLORS.dark,
       },
       "[Default Light+]": {
-        rules: ARC_SEMANTIC_TOKEN_COLORS.light,
+        rules: SEMANTIC_TOKEN_COLORS.light,
       },
     };
     await config.update(
@@ -402,10 +376,10 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
     // Apply TextMate token colors (for hover popups)
     const textmateColorCustomizations = {
       "[Default Dark+]": {
-        textMateRules: ARC_TEXTMATE_RULES.dark,
+        textMateRules: TEXTMATE_RULES.dark,
       },
       "[Default Light+]": {
-        textMateRules: ARC_TEXTMATE_RULES.light,
+        textMateRules: TEXTMATE_RULES.light,
       },
     };
     await config.update(
@@ -421,4 +395,4 @@ const applySemanticTokenColors = async (): Promise<destructor.Async> => {
 
 export const EXTENSIONS: Extension[] = [];
 
-export const SERVICES = [registerArcLanguage, applySemanticTokenColors, startArcLSP];
+export const SERVICES = [registerArcLanguage, applySemanticTokenColors];

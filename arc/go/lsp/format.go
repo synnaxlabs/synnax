@@ -61,25 +61,6 @@ func (s *Server) Formatting(
 	}, nil
 }
 
-func splitLines(content string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(content); i++ {
-		if content[i] == '\n' {
-			if i > 0 && content[i-1] == '\r' {
-				lines = append(lines, content[start:i-1])
-			} else {
-				lines = append(lines, content[start:i])
-			}
-			start = i + 1
-		}
-	}
-	if start <= len(content) {
-		lines = append(lines, content[start:])
-	}
-	return lines
-}
-
 func (s *Server) RangeFormatting(
 	_ context.Context,
 	params *protocol.DocumentRangeFormattingParams,
