@@ -85,6 +85,24 @@ func (s *System) Unify() error {
 	return nil
 }
 
+// unifyConstraint attempts to unify a single constraint immediately.
+// Returns an error with user-friendly message if types are incompatible.
+func (s *System) unifyConstraint(c Constraint) error {
+	if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
+		left := s.ApplySubstitutions(c.Left)
+		right := s.ApplySubstitutions(c.Right)
+		msg := fmt.Sprintf("type mismatch: %v is not compatible with %v", right, left)
+		if c.Reason != "" {
+			msg = fmt.Sprintf("type mismatch in %s: %v is not compatible with %v", c.Reason, right, left)
+		}
+		if left.IsNumeric() && right.IsNumeric() {
+			msg += fmt.Sprintf(" (hint: use %v(value) to convert)", left)
+		}
+		return errors.New(msg)
+	}
+	return nil
+}
+
 func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
 	return s.unifyTypesWithVisited(t1, t2, source, make(map[string]bool))
 }

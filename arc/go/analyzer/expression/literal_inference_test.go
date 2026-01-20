@@ -142,8 +142,8 @@ var _ = Describe("Literal Type Inference", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
 			Expect(errorMsg).To(Or(
-				ContainSubstring("f64 and i8"),
-				ContainSubstring("i8 and f64"),
+				ContainSubstring("is not compatible with"),
+				ContainSubstring("type mismatch"),
 			))
 		})
 

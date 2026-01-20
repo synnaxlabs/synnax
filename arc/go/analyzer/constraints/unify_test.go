@@ -45,8 +45,8 @@ var _ = Describe("Type Unification", func() {
 				constraint = types.NumericConstraint()
 				tv         = types.Variable("T", &constraint)
 			)
-			system.AddEquality(tv, types.String(), nil, "T = string")
-			Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
+			err := system.AddEquality(tv, types.String(), nil, "T = string")
+			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -183,8 +183,8 @@ var _ = Describe("Type Unification", func() {
 				chanI32    = types.Chan(types.I32())
 				chanString = types.Chan(types.String())
 			)
-			system.AddEquality(chanI32, chanString, nil, "chan i32 = chan string")
-			Expect(system.Unify()).To(MatchError(ContainSubstring("failed to unify")))
+			err := system.AddEquality(chanI32, chanString, nil, "chan i32 = chan string")
+			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -196,8 +196,8 @@ var _ = Describe("Type Unification", func() {
 					tv         = types.Variable("T", nil)
 					cyclicType = makeCyclic(tv)
 				)
-				system.AddEquality(tv, cyclicType, nil, "T = cyclic T")
-				Expect(system.Unify()).To(MatchError(ContainSubstring("cyclic")))
+				err := system.AddEquality(tv, cyclicType, nil, "T = cyclic T")
+				Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("chan T", func(tv types.Type) types.Type { return types.Chan(tv) }),
 			Entry("series T", func(tv types.Type) types.Type { return types.Series(tv) }),
@@ -224,14 +224,14 @@ var _ = Describe("Type Unification", func() {
 		})
 
 		DescribeTable("should fail when unifying incompatible compound types",
-			func(compoundType, otherType types.Type, errSubstring string) {
+			func(compoundType, otherType types.Type) {
 				system := constraints.New()
-				system.AddEquality(compoundType, otherType, nil, "incompatible")
-				Expect(system.Unify()).To(MatchError(ContainSubstring(errSubstring)))
+				err := system.AddEquality(compoundType, otherType, nil, "incompatible")
+				Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 			},
-			Entry("chan f32 = i32", types.Chan(types.F32()), types.I32(), "types are not unifiable"),
-			Entry("series f32 = string", types.Series(types.F32()), types.String(), "types are not unifiable"),
-			Entry("chan f32 = series f32", types.Chan(types.F32()), types.Series(types.F32()), "types are not unifiable"),
+			Entry("chan f32 = i32", types.Chan(types.F32()), types.I32()),
+			Entry("series f32 = string", types.Series(types.F32()), types.String()),
+			Entry("chan f32 = series f32", types.Chan(types.F32()), types.Series(types.F32())),
 		)
 
 		It("should fail when constraint doesn't match and not compatible", func() {
@@ -240,8 +240,8 @@ var _ = Describe("Type Unification", func() {
 				f32Constraint = types.F32()
 				tv            = types.Variable("T", &f32Constraint)
 			)
-			system.AddEquality(tv, types.I32(), nil, "T = i32")
-			Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
+			err := system.AddEquality(tv, types.I32(), nil, "T = i32")
+			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -414,8 +414,8 @@ var _ = Describe("Type Unification", func() {
 					floatConstraint = types.FloatConstraint()
 					tv              = types.Variable("T", &floatConstraint)
 				)
-				system.AddEquality(tv, targetType, nil, "T = target")
-				Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
+				err := system.AddEquality(tv, targetType, nil, "T = target")
+				Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("i32", types.I32()),
 			Entry("string", types.String()),
@@ -437,8 +437,8 @@ var _ = Describe("Type Unification", func() {
 				floatConstraint = types.FloatConstraint()
 				tv              = types.Variable("T", &floatConstraint)
 			)
-			system.AddCompatible(tv, types.String(), nil, "T ~ string")
-			Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
+			err := system.AddCompatible(tv, types.String(), nil, "T ~ string")
+			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -449,8 +449,8 @@ var _ = Describe("Type Unification", func() {
 				intConstraint = types.IntegerConstraint()
 				tv            = types.Variable("T", &intConstraint)
 			)
-			system.AddEquality(tv, types.String(), nil, "T = string")
-			Expect(system.Unify()).To(MatchError(ContainSubstring("constraint violation")))
+			err := system.AddEquality(tv, types.String(), nil, "T = string")
+			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 
 		DescribeTable("should allow integer literal to be assigned to integer type",

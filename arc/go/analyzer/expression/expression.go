@@ -197,7 +197,10 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 		}
 
 		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
-			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
+			if err := ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible"); err != nil {
+				ctx.Diagnostics.AddError(err, ctx.AST)
+				return
+			}
 		} else {
 			// Unit compatibility is already validated above by units.ValidateBinaryOp
 			if !types.Compatible(firstType, nextType) {
@@ -441,8 +444,11 @@ func validateFunctionCall(
 		paramType := funcType.Inputs[i].Type
 		argType := types.InferFromExpression(context.Child(ctx, arg)).UnwrapChan()
 		if paramType.Kind == basetypes.KindVariable || argType.Kind == basetypes.KindVariable {
-			ctx.Constraints.AddCompatible(argType, paramType, arg,
-				fmt.Sprintf("argument %d of %s", i+1, funcName))
+			if err := ctx.Constraints.AddCompatible(argType, paramType, arg,
+				fmt.Sprintf("argument %d of %s", i+1, funcName)); err != nil {
+				ctx.Diagnostics.AddError(err, arg)
+				return
+			}
 			continue
 		}
 		if !types.Compatible(argType, paramType) {

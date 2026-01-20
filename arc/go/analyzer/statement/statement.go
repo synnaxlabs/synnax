@@ -68,6 +68,7 @@ func analyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationC
 
 func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
+	name string,
 	expression parser.IExpressionContext,
 	typeCtx parser.ITypeContext,
 ) types.Type {
@@ -95,7 +96,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 					isLiteral := isLiteralExpression(context.Child(ctx, expression))
 					if (isLiteral && !atypes.LiteralAssignmentCompatible(varType, exprType)) || (!isLiteral && !atypes.Compatible(varType, exprType)) {
 						ctx.Diagnostics.AddError(
-							errors.Newf("type mismatch: cannot assign %s to %s", exprType, varType),
+							errors.Newf("type mismatch: cannot assign %s to '%s' (type %s)", exprType, name, varType),
 							ctx.AST,
 						)
 						return types.Type{}
@@ -147,6 +148,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	}
 	varType := analyzeVariableDeclarationType(
 		ctx,
+		name,
 		expr,
 		ctx.AST.Type_(),
 	)
@@ -197,6 +199,7 @@ func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext
 	expr := ctx.AST.Expression()
 	varType := analyzeVariableDeclarationType(
 		ctx,
+		name,
 		expr,
 		ctx.AST.Type_(),
 	)
@@ -255,12 +258,13 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		enclosingScope, err = ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 		if err != nil {
 			ctx.Diagnostics.AddError(
-				errors.New("return statement not in function or fn"),
+				errors.New("return statement can only be used inside a function body"),
 				ctx.AST,
 			)
 			return
 		}
 	}
+	funcName := enclosingScope.Name
 	var expectedReturnType types.Type
 	if enclosingScope.Kind == symbol.KindFunction {
 		if param, ok := enclosingScope.Type.Outputs.Get(ir.DefaultOutputParam); ok {
@@ -275,7 +279,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		// Check for void function first - this error applies even in type inference mode
 		if !expectedReturnType.IsValid() && !ctx.InTypeInferenceMode {
 			ctx.Diagnostics.AddError(
-				errors.New("unexpected return value in function/func with void return type"),
+				errors.New("cannot return a value from a function with no return type"),
 				ctx.AST,
 			)
 			return
@@ -299,8 +303,9 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 					if !atypes.LiteralAssignmentCompatible(expectedReturnType, actualReturnType) {
 						ctx.Diagnostics.AddError(
 							errors.Newf(
-								"cannot return %s, expected %s",
+								"cannot return %s from '%s': expected %s",
 								actualReturnType,
+								funcName,
 								expectedReturnType,
 							),
 							ctx.AST,
@@ -311,8 +316,9 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 					if !atypes.Compatible(expectedReturnType, actualReturnType) {
 						ctx.Diagnostics.AddError(
 							errors.Newf(
-								"cannot return %s, expected %s",
+								"cannot return %s from '%s': expected %s",
 								actualReturnType,
+								funcName,
 								expectedReturnType,
 							),
 							ctx.AST,
@@ -327,7 +333,8 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	if expectedReturnType.IsValid() {
 		ctx.Diagnostics.AddError(
 			errors.Newf(
-				"return statement missing value of type %s",
+				"return statement in '%s' missing value of type %s",
+				funcName,
 				expectedReturnType,
 			),
 			ctx.AST,
@@ -376,8 +383,9 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 	} else {
 		isLiteral := isLiteralExpression(context.Child(ctx, expr))
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(chanValueType, exprType)) || (!isLiteral && !atypes.Compatible(chanValueType, exprType)) {
+			channelName := ctx.AST.IDENTIFIER().GetText()
 			ctx.Diagnostics.AddError(
-				errors.Newf("type mismatch: cannot write %s to channel of type %s", exprType, chanValueType),
+				errors.Newf("type mismatch: cannot write %s to channel '%s' (type %s)", exprType, channelName, chanValueType),
 				ctx.AST,
 			)
 		}
@@ -697,7 +705,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	// Check structural compatibility (series/channel structure must match)
 	if !types.StructuralMatch(varType, exprType) {
 		ctx.Diagnostics.AddError(
-			errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
+			errors.Newf("type mismatch: cannot assign %s to '%s' (type %s)", exprType, name, varType),
 			ctx.AST,
 		)
 		return
@@ -714,7 +722,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 	ctx.Diagnostics.AddError(
-		errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
+		errors.Newf("type mismatch: cannot assign %s to '%s' (type %s)", exprType, name, varType),
 		ctx.AST,
 	)
 }

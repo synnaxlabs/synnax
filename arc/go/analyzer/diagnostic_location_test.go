@@ -192,7 +192,7 @@ func test() i64 {
 func test() {
 	return 42
 }`,
-				expectedMsg:    "unexpected return value",
+				expectedMsg:    "cannot return a value from a function with no return type",
 				expectedLine:   3,
 				expectedColumn: -1,
 				expectedSev:    0,
@@ -207,8 +207,8 @@ func test() {
 func test() {
 	x := "hello" + 12
 }`,
-				expectedMsg:    "+ operands must be compatible",
-				expectedLine:   2,
+				expectedMsg:    "is not compatible with",
+				expectedLine:   3,
 				expectedColumn: -1,
 				expectedSev:    0,
 			}),

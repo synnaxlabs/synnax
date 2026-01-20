@@ -61,37 +61,51 @@ func New() *System {
 }
 
 // AddEquality adds an equality constraint requiring left and right to unify to the
-// same type.
+// same type. It immediately attempts unification and returns an error if the types
+// are incompatible. If unification fails, the constraint is not added to avoid
+// duplicate errors during batch unification.
 func (s *System) AddEquality(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
-) {
+) error {
 	s.recordTypeVars(left, right)
-	s.Constraints = append(s.Constraints, Constraint{
+	constraint := Constraint{
 		Kind:   KindEquality,
 		Left:   left,
 		Right:  right,
 		Source: source,
 		Reason: reason,
-	})
+	}
+	if err := s.unifyConstraint(constraint); err != nil {
+		return err
+	}
+	s.Constraints = append(s.Constraints, constraint)
+	return nil
 }
 
 // AddCompatible adds a compatibility constraint allowing numeric promotion between
-// left and right.
+// left and right. It immediately attempts unification and returns an error if the
+// types are incompatible. If unification fails, the constraint is not added to avoid
+// duplicate errors during batch unification.
 func (s *System) AddCompatible(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
-) {
+) error {
 	s.recordTypeVars(left, right)
-	s.Constraints = append(s.Constraints, Constraint{
+	constraint := Constraint{
 		Kind:   KindCompatible,
 		Left:   left,
 		Right:  right,
 		Source: source,
 		Reason: reason,
-	})
+	}
+	if err := s.unifyConstraint(constraint); err != nil {
+		return err
+	}
+	s.Constraints = append(s.Constraints, constraint)
+	return nil
 }
 
 func (s *System) recordTypeVars(toRecord ...types.Type) {

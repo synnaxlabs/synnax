@@ -318,9 +318,9 @@ func (t Type) String() string {
 		return "series <invalid>"
 	case KindVariable:
 		if t.Constraint != nil {
-			return t.Name + ":" + t.Constraint.String()
+			return t.Constraint.String()
 		}
-		return t.Name
+		return "unknown"
 	case KindNumericConstant:
 		return "numeric"
 	case KindIntegerConstant:
@@ -342,6 +342,30 @@ func (t Type) String() string {
 		return base + " " + t.Unit.Name
 	}
 	return base
+}
+
+// DebugString returns a detailed string representation of the type for debugging.
+// Unlike String(), this includes type variable names for better debugging visibility.
+func (t Type) DebugString() string {
+	switch t.Kind {
+	case KindChan:
+		if t.Elem != nil {
+			return "chan " + t.Elem.DebugString()
+		}
+		return "chan <invalid>"
+	case KindSeries:
+		if t.Elem != nil {
+			return "series " + t.Elem.DebugString()
+		}
+		return "series <invalid>"
+	case KindVariable:
+		if t.Constraint != nil {
+			return t.Name + ":" + t.Constraint.DebugString()
+		}
+		return t.Name
+	default:
+		return t.String()
+	}
 }
 
 // U8 returns an 8-bit unsigned integer type.

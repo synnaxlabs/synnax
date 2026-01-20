@@ -11,6 +11,8 @@
 package types
 
 import (
+	"fmt"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/types"
@@ -31,13 +33,25 @@ func Check(
 
 	if t1.Kind != types.KindVariable && t2.Kind != types.KindVariable {
 		if !types.StructuralMatch(t1, t2) {
-			return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
+			msg := formatTypeMismatch(t1, t2, reason)
+			return errors.New(msg)
 		}
 	}
 
+	// Check for wrapped type mismatch (series vs scalar, chan vs scalar)
+	t1Wrapped := t1.Kind == types.KindChan || t1.Kind == types.KindSeries
+	t2Wrapped := t2.Kind == types.KindChan || t2.Kind == types.KindSeries
+	if t1Wrapped != t2Wrapped {
+		resolved1 := cs.ApplySubstitutions(t1)
+		resolved2 := cs.ApplySubstitutions(t2)
+		if reason != "" {
+			return errors.Newf("type mismatch in %s: cannot assign %v to %v", reason, resolved2, resolved1)
+		}
+		return errors.Newf("type mismatch: cannot assign %v to %v", resolved2, resolved1)
+	}
+
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
-		cs.AddEquality(t1, t2, source, reason)
-		return nil
+		return cs.AddEquality(t1, t2, source, reason)
 	}
 
 	if t1.Kind == types.KindSeries || t1.Kind == types.KindChan {
@@ -45,7 +59,23 @@ func Check(
 	}
 
 	if !types.Equal(t1, t2) {
-		return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
+		msg := formatTypeMismatch(t1, t2, reason)
+		return errors.New(msg)
 	}
 	return nil
+}
+
+// formatTypeMismatch creates a descriptive error message for type mismatches.
+// If both types are numeric, it includes a cast suggestion hint.
+func formatTypeMismatch(expected, actual types.Type, reason string) string {
+	var msg string
+	if reason != "" {
+		msg = fmt.Sprintf("type mismatch in %s: expected %v, got %v", reason, expected, actual)
+	} else {
+		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
+	}
+	if expected.IsNumeric() && actual.IsNumeric() {
+		msg += fmt.Sprintf(" (hint: use %v(value) to convert)", expected)
+	}
+	return msg
 }

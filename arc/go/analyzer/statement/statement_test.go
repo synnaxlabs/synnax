@@ -64,7 +64,7 @@ var _ = Describe("Statement", func() {
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to i32"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to 'x' (type i32)"))
 			})
 
 			It("should detect duplicate variable declaration", func() {
@@ -615,7 +615,7 @@ var _ = Describe("Statement", func() {
 			statement.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign i32 to f32"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign i32 to 'y' (type f32)"))
 		})
 	})
 

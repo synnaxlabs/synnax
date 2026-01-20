@@ -427,7 +427,8 @@ func inferNumericLiteralType(
 		}
 	}
 
-	ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
+	// Registering a type variable with itself - cannot fail
+	_ = ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
 }

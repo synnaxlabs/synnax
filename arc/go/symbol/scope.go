@@ -230,6 +230,10 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 		}
 		return scope, nil
 	}
+	suggestions := s.SuggestSimilar(ctx, name, 2, 3)
+	if len(suggestions) > 0 {
+		return nil, errors.Newf("undefined symbol: %s (did you mean: %s?)", name, strings.Join(suggestions, ", "))
+	}
 	return nil, errors.Newf("undefined symbol: %s", name)
 }
 
