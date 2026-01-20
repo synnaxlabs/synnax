@@ -94,8 +94,10 @@ func New(cfgs ...Config) (*Server, error) {
 			CompletionProvider: &protocol.CompletionOptions{
 				TriggerCharacters: []string{".", ":", "<", "-", ">"},
 			},
-			DefinitionProvider:     true,
-			DocumentSymbolProvider: true,
+			DefinitionProvider:               true,
+			DocumentSymbolProvider:           true,
+			DocumentFormattingProvider:       true,
+			DocumentRangeFormattingProvider:  true,
 			SemanticTokensProvider: map[string]interface{}{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),

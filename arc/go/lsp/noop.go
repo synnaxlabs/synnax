@@ -105,10 +105,6 @@ func (s *Server) FoldingRanges(context.Context, *protocol.FoldingRangeParams) ([
 	return nil, nil
 }
 
-func (s *Server) Formatting(context.Context, *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, nil
-}
-
 func (s *Server) Implementation(context.Context, *protocol.ImplementationParams) ([]protocol.Location, error) {
 	return nil, nil
 }
@@ -142,10 +138,6 @@ func (s *Server) PrepareCallHierarchy(context.Context, *protocol.CallHierarchyPr
 }
 
 func (s *Server) PrepareRename(context.Context, *protocol.PrepareRenameParams) (*protocol.Range, error) {
-	return nil, nil
-}
-
-func (s *Server) RangeFormatting(context.Context, *protocol.DocumentRangeFormattingParams) ([]protocol.TextEdit, error) {
 	return nil, nil
 }
 
