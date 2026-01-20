@@ -21,11 +21,13 @@ import (
 
 var _ = Describe("Diagnostic Locations", func() {
 	type diagnosticCase struct {
-		source         string
-		expectedMsg    string
-		expectedLine   int
-		expectedColumn int // -1 means don't check
-		expectedSev    diagnostics.Severity
+		source            string
+		expectedMsg       string
+		expectedLine      int
+		expectedColumn    int
+		expectedEndLine   int
+		expectedEndColumn int
+		expectedSev       diagnostics.Severity
 	}
 
 	runDiagnosticTest := func(tc diagnosticCase) {
@@ -37,11 +39,17 @@ var _ = Describe("Diagnostic Locations", func() {
 
 		diag := (*ctx.Diagnostics)[0]
 		Expect(diag.Message).To(ContainSubstring(tc.expectedMsg))
-		if tc.expectedLine >= 0 {
+		if tc.expectedLine > 0 {
 			Expect(diag.Line).To(Equal(tc.expectedLine))
 		}
-		if tc.expectedColumn >= 0 {
+		if tc.expectedColumn > 0 {
 			Expect(diag.Column).To(Equal(tc.expectedColumn))
+		}
+		if tc.expectedEndLine > 0 {
+			Expect(diag.EndLine).To(Equal(tc.expectedEndLine))
+		}
+		if tc.expectedEndColumn > 0 {
+			Expect(diag.EndColumn).To(Equal(tc.expectedEndColumn))
 		}
 		if tc.expectedSev != 0 {
 			Expect(diag.Severity).To(Equal(tc.expectedSev))
@@ -275,7 +283,6 @@ func test() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			// Complete analysis: report all errors, not just the first one
 			Expect(*ctx.Diagnostics).To(HaveLen(2))
 
 			diag := (*ctx.Diagnostics)[0]
@@ -287,4 +294,38 @@ func test() {
 			Expect(diag2.Line).To(Equal(4))
 		})
 	})
+
+	DescribeTable("Diagnostic End Range",
+		runDiagnosticTest,
+		Entry("undefined variable should span the identifier",
+			diagnosticCase{
+				source:            "func test() {\n\tx := undefined_var\n}",
+				expectedMsg:       "undefined symbol: undefined_var",
+				expectedLine:      2,
+				expectedColumn:    6,
+				expectedEndLine:   2,
+				expectedEndColumn: 19,
+				expectedSev:       diagnostics.SeverityError,
+			}),
+		Entry("short identifier should have correct end column",
+			diagnosticCase{
+				source:            "func test() {\n\tx := y\n}",
+				expectedMsg:       "undefined symbol: y",
+				expectedLine:      2,
+				expectedColumn:    6,
+				expectedEndLine:   2,
+				expectedEndColumn: 7,
+				expectedSev:       diagnostics.SeverityError,
+			}),
+		Entry("multiline expression should span correctly",
+			diagnosticCase{
+				source:            "func test() {\n\tx := undefined_symbol +\n\t\t1\n}",
+				expectedMsg:       "undefined symbol: undefined_symbol",
+				expectedLine:      2,
+				expectedColumn:    6,
+				expectedEndLine:   2,
+				expectedEndColumn: 22,
+				expectedSev:       diagnostics.SeverityError,
+			}),
+	)
 })

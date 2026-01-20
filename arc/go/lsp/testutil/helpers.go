@@ -18,13 +18,19 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// SetupTestServer creates a new LSP server configured for testing with a MockClient.
-// Returns the server, a background context, and a default test URI.
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
 	server := testutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
 	server.SetClient(&MockClient{})
 	return server, uri
+}
+
+func SetupTestServerWithClient(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI, *MockClient) {
+	server := testutil.MustSucceed(lsp.New(cfgs...))
+	uri := protocol.DocumentURI("file:///test.arc")
+	client := &MockClient{}
+	server.SetClient(client)
+	return server, uri, client
 }
 
 // OpenDocument is a helper to open a document in the LSP server.

@@ -173,6 +173,12 @@ var _ = Describe("Freighter Transport", func() {
 				_, err := adapter.Write([]byte("test"))
 				Expect(err).To(Equal(io.ErrClosedPipe))
 			})
+			It("Should return error when Content-Length exceeds max", func() {
+				adapter := &streamAdapter{stream: serverStream, maxContentLength: 10}
+				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
+				message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
+				Expect(adapter.Write([]byte(message))).Error().To(MatchError(transport.ErrContentLengthExceeded))
+			})
 		})
 		Describe("Close", func() {
 			It("Should mark adapter as closed", func() {
@@ -192,7 +198,7 @@ var _ = Describe("Freighter Transport", func() {
 			clientStream, serverStream := fmock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
 			errChan := make(chan error, 1)
 			go func() {
-				errChan <- transport.ServeFreighter(ctx, server, serverStream)
+				errChan <- transport.ServeFreighter(ctx, server, serverStream, transport.DefaultConfig)
 			}()
 			Expect(clientStream.CloseSend()).To(Succeed())
 			Eventually(errChan, time.Second).Should(Receive())
@@ -223,10 +229,11 @@ var _ = Describe("Freighter Transport", func() {
 })
 
 type streamAdapter struct {
-	stream      *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-	buffer      []byte
-	writeBuffer []byte
-	closed      bool
+	stream           *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+	buffer           []byte
+	writeBuffer      []byte
+	closed           bool
+	maxContentLength int
 }
 
 func (s *streamAdapter) Read(p []byte) (n int, err error) {
@@ -261,7 +268,10 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 		headerEnd := -1
 		contentLength := -1
 		data := s.writeBuffer
-		for i := 0; i < len(data)-16; i++ {
+		if len(data) < 16 {
+			break
+		}
+		for i := 0; i <= len(data)-16; i++ {
 			if data[i] == 'C' && string(data[i:i+15]) == "Content-Length:" {
 				j := i + 15
 				for j < len(data) && (data[j] == ' ' || data[j] == '\t') {
@@ -291,6 +301,9 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 		}
 		if headerEnd == -1 || contentLength == -1 || len(data) < headerEnd+contentLength {
 			break
+		}
+		if contentLength < 0 || (s.maxContentLength > 0 && contentLength > s.maxContentLength) {
+			return 0, transport.ErrContentLengthExceeded
 		}
 		jsonContent := data[headerEnd : headerEnd+contentLength]
 		msg := transport.JSONRPCMessage{Content: string(jsonContent)}

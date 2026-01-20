@@ -47,13 +47,14 @@ func (s Severity) String() string {
 	}
 }
 
-// Diagnostic represents a single issue found during analysis.
 type Diagnostic struct {
-	Key      string   `json:"key"`
-	Message  string   `json:"message"`
-	Severity Severity `json:"severity"`
-	Line     int      `json:"line"`
-	Column   int      `json:"column"`
+	Key       string   `json:"key"`
+	Message   string   `json:"message"`
+	Severity  Severity `json:"severity"`
+	Line      int      `json:"line"`
+	Column    int      `json:"column"`
+	EndLine   int      `json:"endLine"`
+	EndColumn int      `json:"endColumn"`
 }
 
 // Diagnostics is a collection of diagnostic messages.
@@ -99,58 +100,74 @@ func (d *Diagnostics) AtLocation(line, column int) []int {
 	return indices
 }
 
-// AddError adds an error-level diagnostic with the given message and source location.
-// Duplicate diagnostics (same location and message) are automatically filtered.
-func (d *Diagnostics) AddError(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
+func (d *Diagnostics) AddError(err error, ctx antlr.ParserRuleContext) {
 	diag := Diagnostic{Severity: SeverityError, Message: err.Error()}
 	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
+		start := ctx.GetStart()
+		stop := ctx.GetStop()
+		diag.Line = start.GetLine()
+		diag.Column = start.GetColumn()
+		if stop != nil {
+			diag.EndLine = stop.GetLine()
+			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+		} else {
+			diag.EndLine = diag.Line
+			diag.EndColumn = diag.Column + len(start.GetText())
+		}
 	}
 	d.Add(diag)
 }
 
-// AddWarning adds a warning-level diagnostic with the given message and source location.
-// Duplicate diagnostics (same location and message) are automatically filtered.
-func (d *Diagnostics) AddWarning(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
+func (d *Diagnostics) AddWarning(err error, ctx antlr.ParserRuleContext) {
 	diag := Diagnostic{Severity: SeverityWarning, Message: err.Error()}
 	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
+		start := ctx.GetStart()
+		stop := ctx.GetStop()
+		diag.Line = start.GetLine()
+		diag.Column = start.GetColumn()
+		if stop != nil {
+			diag.EndLine = stop.GetLine()
+			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+		} else {
+			diag.EndLine = diag.Line
+			diag.EndColumn = diag.Column + len(start.GetText())
+		}
 	}
 	d.Add(diag)
 }
 
-// AddInfo adds an info-level diagnostic with the given message and source location.
-// Duplicate diagnostics (same location and message) are automatically filtered.
-func (d *Diagnostics) AddInfo(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
+func (d *Diagnostics) AddInfo(err error, ctx antlr.ParserRuleContext) {
 	diag := Diagnostic{Severity: SeverityInfo, Message: err.Error()}
 	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
+		start := ctx.GetStart()
+		stop := ctx.GetStop()
+		diag.Line = start.GetLine()
+		diag.Column = start.GetColumn()
+		if stop != nil {
+			diag.EndLine = stop.GetLine()
+			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+		} else {
+			diag.EndLine = diag.Line
+			diag.EndColumn = diag.Column + len(start.GetText())
+		}
 	}
 	d.Add(diag)
 }
 
-// AddHint adds a hint-level diagnostic with the given message and source location.
-// Duplicate diagnostics (same location and message) are automatically filtered.
-func (d *Diagnostics) AddHint(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
+func (d *Diagnostics) AddHint(err error, ctx antlr.ParserRuleContext) {
 	diag := Diagnostic{Severity: SeverityHint, Message: err.Error()}
 	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
+		start := ctx.GetStart()
+		stop := ctx.GetStop()
+		diag.Line = start.GetLine()
+		diag.Column = start.GetColumn()
+		if stop != nil {
+			diag.EndLine = stop.GetLine()
+			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+		} else {
+			diag.EndLine = diag.Line
+			diag.EndColumn = diag.Column + len(start.GetText())
+		}
 	}
 	d.Add(diag)
 }

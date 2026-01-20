@@ -15,7 +15,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/lsp/doc"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"go.lsp.dev/protocol"
@@ -61,7 +63,7 @@ func (s *Server) Hover(
 	contents := s.getHoverContents(word)
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := s.findScopeAtPosition(d.IR.Symbols, params.Position)
-		contents = s.getUserSymbolHover(scopeAtCursor, word)
+		contents = s.getUserSymbolHover(scopeAtCursor, word, d.Content)
 	}
 
 	if contents == "" {
@@ -366,12 +368,122 @@ func parseInt(s string) int {
 	return n
 }
 
-// getUserSymbolHover returns hover documentation for user-defined symbols
-func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
+func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
+	if sym.AST == nil {
+		return ""
+	}
+	start := sym.AST.GetStart()
+	if start == nil {
+		return ""
+	}
+
+	symLine := start.GetLine()
+	tokens := tokenizeContentWithComments(content)
+	if len(tokens) == 0 {
+		return ""
+	}
+
+	var commentTokens []string
+	for i := len(tokens) - 1; i >= 0; i-- {
+		t := tokens[i]
+		tokenType := t.GetTokenType()
+		tokenLine := t.GetLine()
+
+		if tokenLine >= symLine {
+			continue
+		}
+
+		if tokenType == parser.ArcLexerSINGLE_LINE_COMMENT ||
+			tokenType == parser.ArcLexerMULTI_LINE_COMMENT {
+			if hasCodeBetween(tokens, i, symLine) {
+				break
+			}
+			commentTokens = append([]string{t.GetText()}, commentTokens...)
+		} else if tokenType != parser.ArcLexerWS && tokenType != antlr.TokenEOF {
+			break
+		}
+	}
+
+	if len(commentTokens) == 0 {
+		return ""
+	}
+
+	return cleanDocComment(commentTokens)
+}
+
+func tokenizeContentWithComments(content string) []antlr.Token {
+	input := antlr.NewInputStream(content)
+	lexer := parser.NewArcLexer(input)
+	lexer.RemoveErrorListeners()
+	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
+	stream.Fill()
+	return stream.GetAllTokens()
+}
+
+func hasCodeBetween(tokens []antlr.Token, fromIndex int, targetLine int) bool {
+	startLine := tokens[fromIndex].GetLine()
+	commentText := tokens[fromIndex].GetText()
+	endLine := startLine
+	for _, ch := range commentText {
+		if ch == '\n' {
+			endLine++
+		}
+	}
+
+	for i := fromIndex + 1; i < len(tokens); i++ {
+		t := tokens[i]
+		tokenLine := t.GetLine()
+		tokenType := t.GetTokenType()
+
+		if tokenLine <= endLine {
+			continue
+		}
+		if tokenLine >= targetLine {
+			break
+		}
+
+		if tokenType == parser.ArcLexerWS ||
+			tokenType == antlr.TokenEOF ||
+			tokenType == parser.ArcLexerSINGLE_LINE_COMMENT ||
+			tokenType == parser.ArcLexerMULTI_LINE_COMMENT {
+			continue
+		}
+
+		return true
+	}
+	return false
+}
+
+func cleanDocComment(comments []string) string {
+	var lines []string
+	for _, comment := range comments {
+		if strings.HasPrefix(comment, "//") {
+			line := strings.TrimPrefix(comment, "//")
+			line = strings.TrimPrefix(line, " ")
+			lines = append(lines, line)
+		} else if strings.HasPrefix(comment, "/*") {
+			text := strings.TrimPrefix(comment, "/*")
+			text = strings.TrimSuffix(text, "*/")
+			text = strings.TrimSpace(text)
+			for _, line := range strings.Split(text, "\n") {
+				line = strings.TrimSpace(line)
+				line = strings.TrimPrefix(line, "*")
+				line = strings.TrimPrefix(line, " ")
+				lines = append(lines, line)
+			}
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content string) string {
 	sym, err := scope.Resolve(context.Background(), name)
 	if err != nil {
 		return ""
 	}
+
+	docComment := s.extractDocComment(content, sym)
+
 	var d doc.Doc
 	switch sym.Kind {
 	case symbol.KindFunction:
@@ -407,6 +519,10 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string) string {
 	default:
 		d = doc.New(doc.NewTitle(sym.Name))
 		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+	}
+	if docComment != "" {
+		d.Add(doc.NewDivider())
+		d.Add(doc.Paragraph(docComment))
 	}
 	return d.Render()
 }

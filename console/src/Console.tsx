@@ -131,9 +131,12 @@ const useBlockDefaultDropBehavior = (): void =>
 
 const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElement => {
   const client = Synnax.use();
+  const monaco = Code.useMonaco();
   useEffect(() => {
-    if (client != null) ArcCode.setSynnaxClient(client);
-  }, [client]);
+    // Only start LSP when Monaco is initialized and client is available
+    if (monaco == null) return;
+    void ArcCode.setSynnaxClient(client);
+  }, [client, monaco]);
   return children;
 };
 
@@ -156,16 +159,13 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <ArcLSPClientSetter>
-        <Code.Provider
-          importExtensions={monacoExtensions}
-          initServices={monacoServices}
-        >
+      <Code.Provider importExtensions={monacoExtensions} initServices={monacoServices}>
+        <ArcLSPClientSetter>
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>
-        </Code.Provider>
-      </ArcLSPClientSetter>
+        </ArcLSPClientSetter>
+      </Code.Provider>
     </Pluto.Provider>
   );
 };

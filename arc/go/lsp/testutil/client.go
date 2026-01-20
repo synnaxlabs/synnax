@@ -15,8 +15,9 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// MockClient for testing (satisfies protocol.Client interface)
-type MockClient struct{}
+type MockClient struct {
+	Diagnostics []protocol.Diagnostic
+}
 
 func (m *MockClient) ShowMessage(context.Context, *protocol.ShowMessageParams) error {
 	return nil
@@ -54,8 +55,8 @@ func (m *MockClient) ApplyEdit(context.Context, *protocol.ApplyWorkspaceEditPara
 	return false, nil
 }
 
-func (m *MockClient) PublishDiagnostics(context.Context, *protocol.PublishDiagnosticsParams) error {
-	// Silently ignore diagnostics in tests
+func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.PublishDiagnosticsParams) error {
+	m.Diagnostics = params.Diagnostics
 	return nil
 }
 

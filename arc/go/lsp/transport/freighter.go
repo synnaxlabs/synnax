@@ -18,6 +18,7 @@ import (
 
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/errors"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 )
@@ -26,12 +27,17 @@ type JSONRPCMessage struct {
 	Content string `json:"content" msgpack:"content"`
 }
 
+const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
+
+var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
+
 type streamAdapter struct {
-	stream      freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
-	buffer      []byte
-	writeBuffer []byte
-	mu          sync.Mutex
-	closed      bool
+	stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
+	buffer           []byte
+	writeBuffer      []byte
+	mu               sync.Mutex
+	closed           bool
+	maxContentLength int
 }
 
 func (s *streamAdapter) Read(p []byte) (n int, err error) {
@@ -74,7 +80,10 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 			contentLength = -1
 			data          = s.writeBuffer
 		)
-		for i := 0; i < len(data)-16; i++ {
+		if len(data) < 16 {
+			break
+		}
+		for i := 0; i <= len(data)-16; i++ {
 			if data[i] == 'C' && string(data[i:i+15]) == "Content-Length:" {
 				j := i + 15
 				for j < len(data) && (data[j] == ' ' || data[j] == '\t') {
@@ -105,6 +114,9 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 		if headerEnd == -1 || contentLength == -1 || len(data) < headerEnd+contentLength {
 			break
 		}
+		if contentLength < 0 || contentLength > s.maxContentLength {
+			return 0, ErrContentLengthExceeded
+		}
 		jsonContent := data[headerEnd : headerEnd+contentLength]
 		msg := JSONRPCMessage{Content: string(jsonContent)}
 		if err := s.stream.Send(msg); err != nil {
@@ -122,13 +134,23 @@ func (s *streamAdapter) Close() error {
 	return nil
 }
 
+type Config struct {
+	MaxContentLength int
+}
+
+var DefaultConfig = Config{MaxContentLength: DefaultMaxContentLength}
+
 func ServeFreighter(
 	ctx context.Context,
 	server *lsp.Server,
 	stream freighter.ServerStream[JSONRPCMessage, JSONRPCMessage],
+	cfg Config,
 ) error {
+	if cfg.MaxContentLength == 0 {
+		cfg.MaxContentLength = DefaultMaxContentLength
+	}
 	var (
-		adapter = &streamAdapter{stream: stream}
+		adapter = &streamAdapter{stream: stream, maxContentLength: cfg.MaxContentLength}
 		conn    = jsonrpc2.NewConn(jsonrpc2.NewStream(adapter))
 		client  = protocol.ClientDispatcher(conn, server.Logger())
 	)
