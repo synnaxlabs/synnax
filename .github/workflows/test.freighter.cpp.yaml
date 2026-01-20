@@ -80,7 +80,9 @@ jobs:
 
       - name: Test (Ubuntu)
         if: matrix.os == 'ubuntu-build-bot'
-        run: bazel test $BAZEL_REMOTE_CACHE_FLAGS --config=asan-leak --test_output=all //freighter/cpp/...
+        run:
+          bazel test $BAZEL_REMOTE_CACHE_FLAGS --config=asan-leak --test_output=all
+          //freighter/cpp/...
         shell: bash
 
       - name: Test (Windows)
