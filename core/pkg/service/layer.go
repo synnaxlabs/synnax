@@ -319,11 +319,14 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.ServiceConfig{
+			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
 			Storage:         cfg.Storage,
+			Group:           cfg.Distribution.Group,
+			Ontology:        cfg.Distribution.Ontology,
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}

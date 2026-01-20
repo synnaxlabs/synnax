@@ -34,7 +34,7 @@ import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
-import { Error } from "@/error";
+import { Errors } from "@/errors";
 import { EXTRACTORS } from "@/extractors";
 import { Hardware } from "@/hardware";
 import { FILE_INGESTORS } from "@/ingestors";
@@ -171,9 +171,9 @@ const MainUnderContext = (): ReactElement => {
 };
 
 export const Console = (): ReactElement => (
-  <Error.OverlayWithoutStore>
+  <Errors.OverlayWithoutStore>
     <Provider store={store}>
-      <Error.OverlayWithStore>
+      <Errors.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
@@ -187,7 +187,7 @@ export const Console = (): ReactElement => (
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
-      </Error.OverlayWithStore>
+      </Errors.OverlayWithStore>
     </Provider>
-  </Error.OverlayWithoutStore>
+  </Errors.OverlayWithoutStore>
 );

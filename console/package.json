@@ -50,7 +50,6 @@
     "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-error-boundary": "^6.0.0",
     "react-icons": "catalog:",
     "react-redux": "catalog:",
     "vscode": "npm:@codingame/monaco-vscode-extension-api@^14.0.6",
