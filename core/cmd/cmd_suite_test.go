@@ -7,18 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package version provides utilities for printing the version of Synnax.
-package version
+package cmd_test
 
 import (
-	"fmt"
-	"io"
+	"os"
+	"testing"
 
-	"github.com/synnaxlabs/synnax/pkg/version"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// FPrint prints the version of Synnax to the given writer.
-func FPrint(w io.Writer) error {
-	_, err := fmt.Fprintf(w, "Synnax %s\n", version.Full())
-	return err
+var version string
+
+var _ = BeforeSuite(func() {
+	data := MustSucceed(os.ReadFile("../pkg/version/VERSION"))
+	version = "Synnax " + string(data)
+})
+
+func TestCmd(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cmd Suite")
 }
