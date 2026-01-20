@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import re
+import synnax as sy
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
@@ -38,11 +39,13 @@ class LayoutClient:
         Returns:
             Locator for the tab element
         """
-        # Tab is a div that contains exactly the tab name text
-        tab = self.page.locator("div").filter(
-            has_text=re.compile(f"^{re.escape(name)}$")
+        return (
+            self.page.locator(".pluto-tabs-selector")
+            .locator("div")
+            .filter(has_text=re.compile(f"^{re.escape(name)}$"))
+            .filter(has=self.page.locator("[aria-label='pluto-tabs__close']"))
+            .first
         )
-        return tab.first
 
     def rename_tab(self, old_name: str, new_name: str) -> None:
         """Rename a tab by double-clicking and typing a new name.
@@ -51,15 +54,16 @@ class LayoutClient:
             old_name: Current name of the tab
             new_name: New name for the tab
         """
-        tab = self.get_tab(old_name)
-        tab.dblclick()
-        self.page.wait_for_timeout(100)
+        self.console.close_nav_drawer()
 
-        # Find the editable text input and clear it
-        editable = self.page.get_by_text(old_name).first
-        editable.fill(new_name)
+        tab = self.get_tab(old_name)
+        tab.wait_for(state="visible", timeout=5000)
+        text_element = tab.locator("p").first
+        text_element.dblclick()
+        self.page.keyboard.press("ControlOrMeta+a")
+        self.page.keyboard.type(new_name)
         self.page.keyboard.press("Enter")
-        self.page.wait_for_timeout(200)
+        self.get_tab(new_name).wait_for(state="visible", timeout=5000)
 
     def split_horizontal(self, tab_name: str) -> None:
         """Split a leaf horizontally via context menu.
@@ -69,9 +73,9 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        self.page.wait_for_timeout(500)
+        sy.sleep(0.3)
         self.page.get_by_text("Split Horizontally").first.click()
-        self.page.wait_for_timeout(200)
+        sy.sleep(0.2)
 
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
@@ -81,9 +85,9 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        self.page.wait_for_timeout(500)
+        sy.sleep(0.3)
         self.page.get_by_text("Split Vertically").first.click()
-        self.page.wait_for_timeout(200)
+        sy.sleep(0.2)
 
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
@@ -93,6 +97,6 @@ class LayoutClient:
         """
         tab = self.get_tab(tab_name)
         tab.click(button="right")
-        self.page.wait_for_timeout(500)
+        sy.sleep(0.3)
         self.page.get_by_text("Focus").first.click()
-        self.page.wait_for_timeout(200)
+        sy.sleep(0.2)
