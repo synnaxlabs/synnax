@@ -279,6 +279,7 @@ class Console:
         self, page_type: PageType, page_name: str | None = None
     ) -> tuple[Locator, str]:
         """Handle the new page creation after clicking create button."""
+        sy.sleep(0.2)
         modal_was_open = self.MODAL_OPEN
         tab_name: str = page_type
 

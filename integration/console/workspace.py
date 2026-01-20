@@ -95,17 +95,22 @@ class WorkspaceClient:
         """
         return self.page.locator(".pluto-tree__item").filter(has_text=name).first
 
-    def page_exists(self, name: str) -> bool:
+    def page_exists(self, name: str, timeout: int = 2000) -> bool:
         """Check if a page (schematic, line plot, etc.) exists in the workspace.
 
         Args:
             name: Name of the page to check
+            timeout: Maximum time in milliseconds to wait for the page to appear
 
         Returns:
             True if page exists, False otherwise
         """
         self.expand_active()
-        return self.get_page(name).count() > 0
+        try:
+            self.get_page(name).wait_for(state="visible", timeout=timeout)
+            return True
+        except Exception:
+            return False
 
     def rename_page(self, old_name: str, new_name: str) -> None:
         """Rename a page via context menu in the workspace resources toolbar.
