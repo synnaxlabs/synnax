@@ -75,31 +75,8 @@ check_run_has_artifacts() {
 check_run_built_artifacts() {
     local run_id=$1
     local run_jobs=$(gh api "repos/:owner/:repo/actions/runs/${run_id}/jobs")
-
-    # Check if build jobs succeeded (not the overall run, just the builds).
-    # When the build workflow is called as a reusable workflow, jobs appear as
-    # "build / Build (os-name)". We need both Linux and Windows builds to succeed.
-    local linux_build=$(echo "${run_jobs}" | jq -r '
-        .jobs[]?
-        | select(.name | test("build.*ubuntu|ubuntu.*build"; "i"))
-        | select(.conclusion == "success")
-        | .name
-    ' | head -1)
-
-    local windows_build=$(echo "${run_jobs}" | jq -r '
-        .jobs[]?
-        | select(.name | test("build.*windows|windows.*build"; "i"))
-        | select(.conclusion == "success")
-        | .name
-    ' | head -1)
-
-    if [ -n "${linux_build}" ] && [ -n "${windows_build}" ]; then
-        log "Build jobs succeeded: Linux='${linux_build}', Windows='${windows_build}'"
-        return 0
-    fi
-
-    log "Build jobs not found or failed (Linux='${linux_build}', Windows='${windows_build}')"
-    return 1
+    local built_artifacts=$(echo "${run_jobs}" | jq -r '.jobs[].steps[]? | select(.name | contains("Upload") and contains("Artifact")) | select(.conclusion == "success") | .name' | head -1)
+    [ -n "${built_artifacts}" ]
 }
 
 find_cached_run() {
