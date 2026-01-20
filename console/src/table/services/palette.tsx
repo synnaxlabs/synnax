@@ -9,29 +9,54 @@
 
 import { table } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { Table } from "@/table";
 import { CreateIcon, ImportIcon } from "@/table/services/Icon";
 import { import_ } from "@/table/services/import";
 
-const CREATE_COMMAND: Palette.Command = {
-  key: "create-table",
-  name: "Create a Table",
-  icon: <CreateIcon />,
-  onSelect: ({ placeLayout }) => placeLayout(Table.create()),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }),
-};
+const useVisible = () => Access.useUpdateGranted(table.TYPE_ONTOLOGY_ID);
 
-const IMPORT_COMMAND: Palette.Command = {
-  key: "import-table",
-  name: "Import Table(s)",
-  sortOrder: -1,
-  icon: <ImportIcon />,
-  onSelect: import_,
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }),
+export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+  const handleSelect = useCallback(() => placeLayout(Table.create()), [placeLayout]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a Table"
+      icon={<CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
 };
+CreateCommand.key = "create-table";
+CreateCommand.commandName = "Create a Table";
+CreateCommand.useVisible = useVisible;
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+export const ImportCommand: Palette.Command = ({
+  placeLayout,
+  handleError,
+  store,
+  client,
+  fluxStore,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () => import_({ placeLayout, handleError, store, client, fluxStore }),
+    [placeLayout, handleError, store, client, fluxStore],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import Table(s)"
+      icon={<ImportIcon />}
+      onSelect={handleSelect}
+    />
+  );
+};
+ImportCommand.key = "import-table";
+ImportCommand.commandName = "Import Table(s)";
+ImportCommand.sortOrder = -1;
+ImportCommand.useVisible = useVisible;
+
+export const COMMANDS = [CreateCommand, ImportCommand];
