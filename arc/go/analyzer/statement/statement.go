@@ -310,7 +310,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
 		expression.Analyze(context.Child(ctx, returnExpr))
-		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType))
+		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType)).UnwrapChan()
 
 		// Check for void function first - this error applies even in type inference mode
 		if !expectedReturnType.IsValid() && !ctx.InTypeInferenceMode {
@@ -734,6 +734,15 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
 	}
 
+	// Check structural compatibility (series/channel structure must match)
+	if !types.StructuralMatch(varType, exprType) {
+		ctx.Diagnostics.AddError(
+			errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
+			ctx.AST,
+		)
+		return
+	}
+
 	// If either type is a type variable, add a constraint instead of checking directly
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
@@ -741,7 +750,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		}
 		return
 	}
-	if atypes.Compatible(varType, exprType) {
+	if atypes.AssignmentCompatible(varType, exprType) {
 		return
 	}
 	ctx.Diagnostics.AddError(

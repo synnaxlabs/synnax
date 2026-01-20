@@ -245,6 +245,9 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	if numLit := ctx.AST.NumericLiteral(); numLit != nil {
 		return inferNumericLiteralType(ctx, numLit)
 	}
+	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
+		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
+	}
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		t := types.String()
@@ -255,6 +258,103 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	t := types.I64()
 	ctx.TypeMap[ctx.AST] = t
 	return t
+}
+
+func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) types.Type {
+	exprList := ctx.AST.ExpressionList()
+	if exprList == nil {
+		// Empty series literal [] - return series with type variable element
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
+		constraint := types.NumericConstraint()
+		elemType := types.Variable(tvName, &constraint)
+		t := types.Series(elemType)
+		ctx.TypeMap[ctx.AST] = t
+		return t
+	}
+
+	exprs := exprList.AllExpression()
+	if len(exprs) == 0 {
+		// Empty series - same as above
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
+		constraint := types.NumericConstraint()
+		elemType := types.Variable(tvName, &constraint)
+		t := types.Series(elemType)
+		ctx.TypeMap[ctx.AST] = t
+		return t
+	}
+
+	// Infer element type from first expression
+	firstExpr := exprs[0]
+	elemType := InferFromExpression(context.Child(ctx, firstExpr))
+
+	// Validate all elements have compatible types
+	for i := 1; i < len(exprs); i++ {
+		nextType := InferFromExpression(context.Child(ctx, exprs[i]))
+		if !seriesElementCompatible(elemType, nextType) {
+			ctx.Diagnostics.AddError(
+				fmt.Errorf("series element %d has incompatible type %s, expected %s", i+1, nextType, elemType),
+				exprs[i],
+			)
+		}
+		// Prefer concrete type over type variable
+		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {
+			elemType = nextType
+		}
+	}
+
+	t := types.Series(elemType)
+	ctx.TypeMap[ctx.AST] = t
+	return t
+}
+
+// seriesElementCompatible checks if two types are compatible for use in the same series literal.
+func seriesElementCompatible(t1, t2 types.Type) bool {
+	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
+		return false
+	}
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable {
+		c1Numeric := t1.Constraint != nil && isNumericConstraint(t1.Constraint.Kind)
+		c2Numeric := t2.Constraint != nil && isNumericConstraint(t2.Constraint.Kind)
+		if c1Numeric && c2Numeric {
+			return true
+		}
+		if t1.Constraint == nil || t2.Constraint == nil {
+			return true
+		}
+		return types.Equal(*t1.Constraint, *t2.Constraint)
+	}
+	if t1.Kind == types.KindVariable {
+		return constraintAccepts(t1.Constraint, t2)
+	}
+	if t2.Kind == types.KindVariable {
+		return constraintAccepts(t2.Constraint, t1)
+	}
+	return Compatible(t1, t2)
+}
+
+// isNumericConstraint returns true if the kind is a numeric constraint kind.
+func isNumericConstraint(kind types.Kind) bool {
+	return kind == types.KindNumericConstant ||
+		kind == types.KindIntegerConstant ||
+		kind == types.KindFloatConstant
+}
+
+func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
+	if constraint == nil {
+		return true
+	}
+	switch constraint.Kind {
+	case types.KindNumericConstant, types.KindIntegerConstant:
+		return concreteType.IsNumeric()
+	case types.KindFloatConstant:
+		return concreteType.IsFloat()
+	default:
+		return types.Equal(*constraint, concreteType)
+	}
 }
 
 func inferNumericLiteralType(

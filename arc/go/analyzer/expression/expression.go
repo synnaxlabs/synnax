@@ -542,7 +542,7 @@ func validateFunctionCall(
 
 	for i, arg := range args {
 		paramType := funcType.Inputs[i].Type
-		argType := types.InferFromExpression(context.Child(ctx, arg)).Unwrap()
+		argType := types.InferFromExpression(context.Child(ctx, arg)).UnwrapChan()
 		if paramType.Kind == basetypes.KindVariable || argType.Kind == basetypes.KindVariable {
 			ctx.Constraints.AddCompatible(argType, paramType, arg,
 				fmt.Sprintf("argument %d of %s", i+1, funcName))

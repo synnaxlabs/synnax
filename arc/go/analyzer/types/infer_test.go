@@ -273,6 +273,142 @@ var _ = Describe("Type Inference", func() {
 				Expect(t.Kind).To(Equal(types.KindInvalid))
 			})
 		})
+
+		Context("series literal type inference", func() {
+			It("should infer empty series as series with type variable element", func() {
+				t := inferExprType(bCtx, testResolver, "[]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindVariable))
+			})
+
+			It("should infer single integer literal as series with integer constraint", func() {
+				t := inferExprType(bCtx, testResolver, "[42]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindVariable))
+				Expect(t.Elem.Constraint).ToNot(BeNil())
+				Expect(t.Elem.Constraint.Kind).To(Equal(types.KindIntegerConstant))
+			})
+
+			It("should infer single float literal as series with float constraint", func() {
+				t := inferExprType(bCtx, testResolver, "[3.14]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindVariable))
+				Expect(t.Elem.Constraint).ToNot(BeNil())
+				Expect(t.Elem.Constraint.Kind).To(Equal(types.KindFloatConstant))
+			})
+
+			It("should infer multiple integer literals as series with integer constraint", func() {
+				t := inferExprType(bCtx, testResolver, "[1, 2, 3]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindVariable))
+				Expect(t.Elem.Constraint).ToNot(BeNil())
+				Expect(t.Elem.Constraint.Kind).To(Equal(types.KindIntegerConstant))
+			})
+
+			It("should infer series with typed variable as series of that type", func() {
+				testResolver["int_var"] = symbol.Symbol{
+					Name: "int_var",
+					Kind: symbol.KindVariable,
+					Type: types.I32(),
+				}
+				t := inferExprType(bCtx, testResolver, "[int_var, 1, 2]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindI32))
+			})
+
+			It("should prefer concrete type over type variable in series", func() {
+				testResolver["i64_var"] = symbol.Symbol{
+					Name: "i64_var",
+					Kind: symbol.KindVariable,
+					Type: types.I64(),
+				}
+				t := inferExprType(bCtx, testResolver, "[1, i64_var]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindI64))
+			})
+
+			It("should infer series with expression as series", func() {
+				t := inferExprType(bCtx, testResolver, "[1 + 2, 3 * 4]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+			})
+
+			It("should infer series with variable expression", func() {
+				testResolver["i32_var"] = symbol.Symbol{
+					Name: "i32_var",
+					Kind: symbol.KindVariable,
+					Type: types.I32(),
+				}
+				t := inferExprType(bCtx, testResolver, "[i32_var + 1, i32_var * 2]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindI32))
+			})
+
+			It("should infer series with channel references as series of channels", func() {
+				t := inferExprType(bCtx, testResolver, "[temp_sensor, temp_sensor]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindChan))
+			})
+
+			It("should infer series with channel expression as series of unwrapped type", func() {
+				t := inferExprType(bCtx, testResolver, "[temp_sensor + 0, temp_sensor * 1]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindF32))
+			})
+
+			It("should infer series with function call", func() {
+				testResolver["get_value"] = symbol.Symbol{
+					Name: "get_value",
+					Kind: symbol.KindVariable,
+					Type: types.Function(types.FunctionProperties{
+						Outputs: types.Params{{Type: types.I64()}},
+					}),
+				}
+				t := inferExprType(bCtx, testResolver, "[get_value(), 42]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindI64))
+			})
+
+			It("should infer series with multiple typed variables", func() {
+				testResolver["a"] = symbol.Symbol{
+					Name: "a",
+					Kind: symbol.KindVariable,
+					Type: types.F64(),
+				}
+				testResolver["b"] = symbol.Symbol{
+					Name: "b",
+					Kind: symbol.KindVariable,
+					Type: types.F64(),
+				}
+				t := inferExprType(bCtx, testResolver, "[a, b, a + b]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindF64))
+			})
+
+			It("should infer series with negated literals", func() {
+				t := inferExprType(bCtx, testResolver, "[-1, -2, -3]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+			})
+
+			It("should infer nested series expression correctly", func() {
+				t := inferExprType(bCtx, testResolver, "[data_series[0], data_series[1]]")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Elem).ToNot(BeNil())
+				Expect(t.Elem.Kind).To(Equal(types.KindI64))
+			})
+		})
 	})
 
 	Describe("Compatible", func() {
@@ -322,6 +458,28 @@ var _ = Describe("Type Inference", func() {
 		)
 	})
 
+	Describe("AssignmentCompatible", func() {
+		DescribeTable("assignment compatibility",
+			func(varType, exprType types.Type, expected bool) {
+				Expect(atypes.AssignmentCompatible(varType, exprType)).To(Equal(expected))
+			},
+			Entry("f32 with f32", types.F32(), types.F32(), true),
+			Entry("i64 with i64", types.I64(), types.I64(), true),
+			Entry("series f32 with series f32", types.Series(types.F32()), types.Series(types.F32()), true),
+			Entry("chan f32 with chan f32", types.Chan(types.F32()), types.Chan(types.F32()), true),
+			Entry("type var to concrete", types.Variable("T", nil), types.I32(), true),
+			Entry("concrete to type var", types.F32(), types.Variable("T", nil), true),
+			Entry("series to scalar", types.I32(), types.Series(types.I32()), false),
+			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
+			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
+			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
+			Entry("series to channel", types.Chan(types.I32()), types.Series(types.I32()), false),
+			Entry("channel to series", types.Series(types.I32()), types.Chan(types.I32()), false),
+			Entry("invalid with concrete", types.Type{}, types.I32(), false),
+			Entry("concrete with invalid", types.F32(), types.Type{}, false),
+		)
+	})
+
 	Describe("LiteralAssignmentCompatible", func() {
 		DescribeTable("literal assignment",
 			func(varType, litType types.Type, expected bool) {
@@ -334,6 +492,10 @@ var _ = Describe("Type Inference", func() {
 			Entry("float to wider float", types.F32(), types.F64(), true),
 			Entry("invalid var type", types.Type{}, types.I32(), false),
 			Entry("invalid lit type", types.F32(), types.Type{}, false),
+			Entry("series to scalar", types.I32(), types.Series(types.I32()), false),
+			Entry("scalar to series", types.Series(types.I32()), types.I32(), false),
+			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
+			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
 		)
 	})
 

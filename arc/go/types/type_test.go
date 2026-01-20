@@ -957,4 +957,29 @@ var _ = Describe("Types", func() {
 			Expect(u1.Equal(u2)).To(BeFalse())
 		})
 	})
+
+	Describe("StructuralMatch", func() {
+		DescribeTable("Should match types with same structure",
+			func(t1, t2 types.Type) {
+				Expect(types.StructuralMatch(t1, t2)).To(BeTrue())
+			},
+			Entry("scalar to scalar", types.I32(), types.F64()),
+			Entry("series to series", types.Series(types.I32()), types.Series(types.F64())),
+			Entry("channel to channel", types.Chan(types.I32()), types.Chan(types.F64())),
+			Entry("string to int", types.String(), types.I32()),
+			Entry("type variable to scalar", types.Variable("T", nil), types.I32()),
+		)
+
+		DescribeTable("Should not match types with different structure",
+			func(t1, t2 types.Type) {
+				Expect(types.StructuralMatch(t1, t2)).To(BeFalse())
+			},
+			Entry("scalar to series", types.I32(), types.Series(types.I32())),
+			Entry("series to scalar", types.Series(types.I32()), types.I32()),
+			Entry("scalar to channel", types.I32(), types.Chan(types.I32())),
+			Entry("channel to scalar", types.Chan(types.I32()), types.I32()),
+			Entry("series to channel", types.Series(types.I32()), types.Chan(types.I32())),
+			Entry("channel to series", types.Chan(types.I32()), types.Series(types.I32())),
+		)
+	})
 })
