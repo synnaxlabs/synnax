@@ -123,7 +123,7 @@ class LinePlot(ConsoleCase):
         self.console.channels.show_channels()
         visible_channels = self.page.locator("div[id^='channel:']").all()
         self.log(f"Found {len(visible_channels)} channel elements")
-        for i, ch in enumerate(visible_channels[:10]):  # Log first 10
+        for i, ch in enumerate(visible_channels):  # Log first 10
             try:
                 text = ch.inner_text(timeout=1000)
                 self.log(f"  Channel {i}: {text}")
