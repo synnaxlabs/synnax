@@ -347,15 +347,15 @@ I can successfully:
 I can successfully:
 
 - **Create Range Modal**
-  - [ ] Create a new local range.
-  - [ ] Create a new persisted range.
-  - [ ] Create a range with a parent range.
-  - [ ] Add labels while creating a range.
-  - [ ] Update the start and end times through changing the stage of a range
+  - [x] Create a new local range. (range/range_lifecycle.py)
+  - [x] Create a new persisted range. (range/range_lifecycle.py)
+  - [x] Create a range with a parent range. (range/range_lifecycle.py)
+  - [x] Add labels while creating a range. (range/range_lifecycle.py)
+  - [x] Update the start and end times through changing the stage of a range (range/range_lifecycle.py)
 - **Range Details**
   - [ ] Rename a range from the tab name.
   - [ ] Rename a range.
-  - [ ] Navigate to a parent range from a range
+  - [x] Navigate to a parent range from a range (range/range_lifecycle.py)
   - [ ] Copy Python code
   - [ ] Copy TypeScript code
   - [ ] Copy a link to the range
@@ -394,11 +394,11 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Open an existing range layout window.
   - [ ] Open the "Create Range" dialog.
-  - [ ] Open the Range Explorer
+  - [x] Open the Range Explorer (range/range_lifecycle.py)
 - **Range Toolbar**
   - [ ] Open the "Create Range" modal from the toolbar.
   - [ ] Open the Range Explorer from the toolbar
-  - [ ] Switch the active range by clicking it.
+  - [x] Switch the active range by clicking it. (range/range_lifecycle.py)
   - **Context Menu**
     - [ ] Open the "Create Range" modal.
     - [ ] Open the range layout tab.
@@ -416,17 +416,17 @@ I can successfully:
   - [ ] Open the range overview dialog by clicking on a range.
   - [ ] Search ranges
   - [ ] Filter ranges by labels
-  - [ ] Favorite and unfavorite ranges and see them added to the range toolbar
+  - [x] Favorite and unfavorite ranges and see them added to the range toolbar (range/range_lifecycle.py)
   - [ ] Change the stage of a range
   - **Context Menu**
-    - [ ] Rename a range
+    - [x] Rename a range (range/range_lifecycle.py)
     - [ ] Create a child range
-    - [ ] Favorite a range
+    - [x] Favorite a range (range/range_lifecycle.py)
     - [ ] Favorite multiple ranges
     - [ ] Unfavorite a range
     - [ ] Unfavorite multiple ranges
     - [ ] Copy the link to a range
-    - [ ] Delete a range
+    - [x] Delete a range (range/range_lifecycle.py)
     - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
 - [ ] Rename a range and ensure synchronization across:

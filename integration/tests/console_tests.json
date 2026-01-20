@@ -43,6 +43,9 @@
         },
         {
           "case": "console/rack/rack_lifecycle"
+        },
+        {
+          "case": "console/range/range_lifecycle"
         }
       ]
     },
