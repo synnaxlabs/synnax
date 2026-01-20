@@ -27,6 +27,7 @@ const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const PASTE_TRIGGER: Triggers.Trigger = ["Control", "V"];
 const RENAME_TRIGGER: Triggers.Trigger = ["F2"];
+const FORMAT_TRIGGER: Triggers.Trigger = ["Shift", "Alt", "F"];
 
 const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   automaticLayout: true,
@@ -248,6 +249,9 @@ export const Editor = ({
       case "rename":
         editor.trigger("contextMenu", "editor.action.rename", null);
         break;
+      case "format":
+        editor.trigger("contextMenu", "editor.action.formatDocument", null);
+        break;
     }
   }, []);
 
@@ -270,6 +274,10 @@ export const Editor = ({
         <Menu.Item itemKey="rename" trigger={RENAME_TRIGGER} triggerIndicator>
           <Icon.Rename />
           Rename
+        </Menu.Item>
+        <Menu.Item itemKey="format" trigger={FORMAT_TRIGGER} triggerIndicator>
+          <Icon.TextAlign.Left />
+          Format
         </Menu.Item>
       </Menu.Menu>
     ),

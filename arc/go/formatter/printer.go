@@ -17,20 +17,31 @@ import (
 )
 
 type printer struct {
-	cfg           Config
-	output        strings.Builder
-	indentLevel   int
-	linePos       int
-	lastTokenType int
-	prevToken     antlr.Token
-	needsSpace    bool
-	atLineStart   bool
+	cfg               Config
+	output            strings.Builder
+	indentLevel       int
+	linePos           int
+	lastTokenType     int
+	prevToken         antlr.Token
+	needsSpace        bool
+	atLineStart       bool
+	prevLine          int
+	lastWasUnaryMinus bool
+	indentCache       []string
+	delimiterStack    []int
 }
 
-func newPrinter(cfg Config, _ string) *printer {
+const maxCachedIndentLevel = 16
+
+func newPrinter(cfg Config) *printer {
+	cache := make([]string, maxCachedIndentLevel)
+	for i := 0; i < maxCachedIndentLevel; i++ {
+		cache[i] = strings.Repeat(" ", i*cfg.IndentWidth)
+	}
 	return &printer{
 		cfg:         cfg,
 		atLineStart: true,
+		indentCache: cache,
 	}
 }
 
@@ -44,8 +55,7 @@ func (p *printer) print(tokens []antlr.Token) string {
 			continue
 		}
 
-		p.emitLeadingComments(commentAttacher, tok)
-		p.emitToken(tok, i, visibleTokens)
+		p.emitToken(tok, i, visibleTokens, commentAttacher)
 		if p.isLastTokenOnLine(tok, i, visibleTokens) {
 			p.emitTrailingComment(commentAttacher, tok)
 		}
@@ -81,9 +91,8 @@ func (p *printer) separateTokens(tokens []antlr.Token) (visible []antlr.Token, c
 	return
 }
 
-func (p *printer) emitLeadingComments(ca *commentAttacher, tok antlr.Token) {
-	leading := ca.getLeadingComments(tok)
-	for _, comment := range leading {
+func (p *printer) emitLeadingCommentsPreFetched(comments []antlr.Token) {
+	for _, comment := range comments {
 		p.writeIndent()
 		p.output.WriteString(strings.TrimSpace(comment.GetText()))
 		p.writeNewline()
@@ -110,8 +119,30 @@ func (p *printer) emitTrailingComments(ca *commentAttacher) {
 	}
 }
 
-func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token) {
+func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *commentAttacher) {
 	tokType := tok.GetTokenType()
+	tokLine := tok.GetLine()
+
+	leadingComments := ca.getLeadingComments(tok)
+	hasLeadingComments := len(leadingComments) > 0
+
+	if p.prevLine > 0 && tokLine > p.prevLine && !p.atLineStart {
+		if tokType != parser.ArcLexerRBRACE || hasLeadingComments {
+			p.writeNewline()
+			if !hasLeadingComments {
+				lineDiff := tokLine - p.prevLine
+				blankLines := lineDiff - 1
+				if blankLines > p.cfg.MaxBlankLines {
+					blankLines = p.cfg.MaxBlankLines
+				}
+				for i := 0; i < blankLines; i++ {
+					p.writeNewline()
+				}
+			}
+		}
+	}
+
+	p.emitLeadingCommentsPreFetched(leadingComments)
 
 	switch tokType {
 	case parser.ArcLexerLBRACE:
@@ -127,20 +158,22 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token) {
 	case parser.ArcLexerRBRACKET:
 		p.handleCloseBracket()
 	case parser.ArcLexerCOMMA:
-		p.handleComma(idx, tokens)
+		p.handleComma()
 	case parser.ArcLexerCOLON:
 		p.handleColon()
 	default:
 		p.handleDefault(tok, idx, tokens)
 	}
 
+	p.lastWasUnaryMinus = p.isUnaryMinus(tokType)
 	p.lastTokenType = tokType
+	p.prevLine = tokLine
 }
 
 func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 	p.writeSpace()
-	p.output.WriteString("{")
-	p.linePos++
+	p.emitChar("{")
+	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLBRACE)
 	if p.isEmptyBlock(idx, tokens) {
 		return
 	}
@@ -149,6 +182,7 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 }
 
 func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
+	p.popDelimiter()
 	isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
 	if !isEmptyBlock {
 		p.indentLevel--
@@ -160,54 +194,49 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 		}
 		p.writeIndent()
 	}
-	p.output.WriteString("}")
-	p.linePos++
-	p.atLineStart = false
+	p.emitChar("}")
 }
 
 func (p *printer) handleOpenParen() {
-	if p.needsSpaceBeforeParen() {
+	if p.prevToken != nil && p.isBinaryOperator(p.lastTokenType) {
+		p.writeSpace()
+	} else if p.needsSpaceBeforeParen() {
 		p.writeSpace()
 	}
-	p.output.WriteString("(")
-	p.linePos++
-	p.atLineStart = false
+	p.emitChar("(")
+	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
 }
 
 func (p *printer) handleCloseParen() {
-	p.output.WriteString(")")
-	p.linePos++
-	p.atLineStart = false
+	p.popDelimiter()
+	p.emitChar(")")
 }
 
 func (p *printer) handleOpenBracket() {
-	p.output.WriteString("[")
-	p.linePos++
-	p.atLineStart = false
+	if p.prevToken != nil && p.isBinaryOperator(p.lastTokenType) {
+		p.writeSpace()
+	}
+	p.emitChar("[")
+	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLBRACKET)
 }
 
 func (p *printer) handleCloseBracket() {
-	p.output.WriteString("]")
-	p.linePos++
-	p.atLineStart = false
+	p.popDelimiter()
+	p.emitChar("]")
 }
 
-func (p *printer) handleComma(idx int, tokens []antlr.Token) {
-	p.output.WriteString(",")
-	p.linePos++
-	if p.shouldBreakAfterComma(idx, tokens) {
+func (p *printer) handleComma() {
+	p.emitChar(",")
+	if p.shouldBreakAfterComma() {
 		p.writeNewline()
 	} else {
 		p.needsSpace = true
 	}
-	p.atLineStart = false
 }
 
 func (p *printer) handleColon() {
-	p.output.WriteString(":")
-	p.linePos++
+	p.emitChar(":")
 	p.needsSpace = true
-	p.atLineStart = false
 }
 
 func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) {
@@ -222,7 +251,7 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 
 	if p.atLineStart {
 		p.writeIndent()
-	} else if p.needsSpaceBefore(tok, idx, tokens) {
+	} else if p.needsSpaceBefore(tok) {
 		p.writeSpace()
 	}
 
@@ -263,7 +292,7 @@ func (p *printer) needsNewlineAfter(tokType int, idx int, tokens []antlr.Token) 
 	return false
 }
 
-func (p *printer) needsSpaceBefore(tok antlr.Token, idx int, tokens []antlr.Token) bool {
+func (p *printer) needsSpaceBefore(tok antlr.Token) bool {
 	if p.needsSpace {
 		return true
 	}
@@ -275,6 +304,10 @@ func (p *printer) needsSpaceBefore(tok antlr.Token, idx int, tokens []antlr.Toke
 	prevType := p.lastTokenType
 
 	if p.isUnitSuffix(tok) {
+		return false
+	}
+
+	if p.lastWasUnaryMinus {
 		return false
 	}
 
@@ -291,25 +324,18 @@ func (p *printer) needsSpaceBefore(tok antlr.Token, idx int, tokens []antlr.Toke
 		return false
 	}
 
-	if prevType == parser.ArcLexerIDENTIFIER || p.isKeyword(prevType) || p.isType(prevType) ||
-		p.isLiteral(prevType) {
-		if tokType == parser.ArcLexerIDENTIFIER || p.isKeyword(tokType) || p.isType(tokType) ||
-			p.isLiteral(tokType) {
-			return true
-		}
+	if p.isWordToken(prevType) && p.isWordToken(tokType) {
+		return true
 	}
 
-	// Space after closing paren before type (return type)
 	if prevType == parser.ArcLexerRPAREN && p.isType(tokType) {
 		return true
 	}
 
-	// Space after type cast closing paren if followed by open brace
 	if prevType == parser.ArcLexerRPAREN && tokType == parser.ArcLexerLBRACE {
 		return true
 	}
 
-	// Space after closing brace before else
 	if prevType == parser.ArcLexerRBRACE && tokType == parser.ArcLexerELSE {
 		return true
 	}
@@ -350,6 +376,26 @@ func (p *printer) isBinaryOperator(tokType int) bool {
 	return false
 }
 
+func (p *printer) isUnaryMinus(tokType int) bool {
+	if tokType != parser.ArcLexerMINUS {
+		return false
+	}
+	if p.prevToken == nil {
+		return true
+	}
+	switch p.lastTokenType {
+	case parser.ArcLexerLPAREN, parser.ArcLexerLBRACKET, parser.ArcLexerCOMMA,
+		parser.ArcLexerCOLON, parser.ArcLexerRETURN, parser.ArcLexerDECLARE,
+		parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,
+		parser.ArcLexerPLUS, parser.ArcLexerSTAR, parser.ArcLexerSLASH, parser.ArcLexerPERCENT,
+		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
+		parser.ArcLexerLEQ, parser.ArcLexerGEQ, parser.ArcLexerAND, parser.ArcLexerOR,
+		parser.ArcLexerARROW, parser.ArcLexerTRANSITION:
+		return true
+	}
+	return false
+}
+
 func (p *printer) isKeyword(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF, parser.ArcLexerELSE,
@@ -379,6 +425,11 @@ func (p *printer) isLiteral(tokType int) bool {
 	return false
 }
 
+func (p *printer) isWordToken(tokType int) bool {
+	return tokType == parser.ArcLexerIDENTIFIER ||
+		p.isKeyword(tokType) || p.isType(tokType) || p.isLiteral(tokType)
+}
+
 func (p *printer) needsSpaceBeforeParen() bool {
 	if p.prevToken == nil {
 		return false
@@ -401,29 +452,32 @@ func (p *printer) isEmptyBlock(idx int, tokens []antlr.Token) bool {
 	return tokens[idx+1].GetTokenType() == parser.ArcLexerRBRACE
 }
 
-func (p *printer) shouldBreakAfterComma(idx int, tokens []antlr.Token) bool {
-	depth := 0
-	for i := idx - 1; i >= 0; i-- {
-		tokType := tokens[i].GetTokenType()
-		switch tokType {
-		case parser.ArcLexerLBRACE:
-			if depth == 0 {
-				return true
-			}
-			depth--
-		case parser.ArcLexerRBRACE:
-			depth++
-		case parser.ArcLexerLPAREN, parser.ArcLexerLBRACKET:
-			if depth == 0 {
-				return false
-			}
-		}
+func (p *printer) shouldBreakAfterComma() bool {
+	if len(p.delimiterStack) == 0 {
+		return false
 	}
-	return false
+	return p.delimiterStack[len(p.delimiterStack)-1] == parser.ArcLexerLBRACE
+}
+
+func (p *printer) emitChar(char string) {
+	p.output.WriteString(char)
+	p.linePos++
+	p.atLineStart = false
+}
+
+func (p *printer) popDelimiter() {
+	if len(p.delimiterStack) > 0 {
+		p.delimiterStack = p.delimiterStack[:len(p.delimiterStack)-1]
+	}
 }
 
 func (p *printer) writeIndent() {
-	indent := strings.Repeat(" ", p.indentLevel*p.cfg.IndentWidth)
+	var indent string
+	if p.indentLevel < maxCachedIndentLevel {
+		indent = p.indentCache[p.indentLevel]
+	} else {
+		indent = strings.Repeat(" ", p.indentLevel*p.cfg.IndentWidth)
+	}
 	p.output.WriteString(indent)
 	p.linePos = len(indent)
 	p.atLineStart = false

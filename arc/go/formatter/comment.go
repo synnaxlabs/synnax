@@ -14,65 +14,54 @@ import (
 )
 
 type commentAttacher struct {
-	comments []antlr.Token
-	used     []bool
+	comments   []antlr.Token
+	nextUnused int
 }
 
 func newCommentAttacher(comments []antlr.Token) *commentAttacher {
-	return &commentAttacher{
-		comments: comments,
-		used:     make([]bool, len(comments)),
-	}
+	return &commentAttacher{comments: comments}
 }
 
 func (ca *commentAttacher) getLeadingComments(tok antlr.Token) []antlr.Token {
-	if tok == nil {
+	if tok == nil || ca.nextUnused >= len(ca.comments) {
 		return nil
 	}
 	tokLine := tok.GetLine()
 	var leading []antlr.Token
 
-	for i, comment := range ca.comments {
-		if ca.used[i] {
-			continue
+	for ca.nextUnused < len(ca.comments) {
+		comment := ca.comments[ca.nextUnused]
+		if comment.GetLine() >= tokLine {
+			break
 		}
-		commentLine := comment.GetLine()
-		if commentLine < tokLine {
-			leading = append(leading, comment)
-			ca.used[i] = true
-		}
+		leading = append(leading, comment)
+		ca.nextUnused++
 	}
 	return leading
 }
 
 func (ca *commentAttacher) getTrailingComment(tok antlr.Token) antlr.Token {
-	if tok == nil {
+	if tok == nil || ca.nextUnused >= len(ca.comments) {
 		return nil
 	}
 	tokLine := tok.GetLine()
 	tokEnd := tok.GetStop()
 
-	for i, comment := range ca.comments {
-		if ca.used[i] {
-			continue
-		}
-		commentLine := comment.GetLine()
-		commentStart := comment.GetStart()
-		if commentLine == tokLine && commentStart > tokEnd {
-			ca.used[i] = true
-			return comment
-		}
+	comment := ca.comments[ca.nextUnused]
+	commentLine := comment.GetLine()
+	commentStart := comment.GetStart()
+	if commentLine == tokLine && commentStart > tokEnd {
+		ca.nextUnused++
+		return comment
 	}
 	return nil
 }
 
 func (ca *commentAttacher) getRemainingComments() []antlr.Token {
-	var remaining []antlr.Token
-	for i, comment := range ca.comments {
-		if !ca.used[i] {
-			remaining = append(remaining, comment)
-			ca.used[i] = true
-		}
+	if ca.nextUnused >= len(ca.comments) {
+		return nil
 	}
+	remaining := ca.comments[ca.nextUnused:]
+	ca.nextUnused = len(ca.comments)
 	return remaining
 }

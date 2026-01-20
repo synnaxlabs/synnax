@@ -26,11 +26,8 @@ func (s *Server) Formatting(
 	}
 
 	cfg := formatter.Config{
-		IndentWidth:       4,
-		MaxLineLength:     88,
-		MaxBlankLines:     2,
-		TrailingCommas:    true,
-		AlignDeclarations: true,
+		IndentWidth:   4,
+		MaxBlankLines: 2,
 	}
 
 	if params.Options.TabSize > 0 {
@@ -71,11 +68,8 @@ func (s *Server) RangeFormatting(
 	}
 
 	cfg := formatter.Config{
-		IndentWidth:       4,
-		MaxLineLength:     88,
-		MaxBlankLines:     2,
-		TrailingCommas:    true,
-		AlignDeclarations: true,
+		IndentWidth:   4,
+		MaxBlankLines: 2,
 	}
 
 	if params.Options.TabSize > 0 {

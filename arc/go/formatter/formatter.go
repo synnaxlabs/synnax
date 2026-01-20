@@ -17,19 +17,13 @@ import (
 )
 
 type Config struct {
-	IndentWidth       int
-	MaxLineLength     int
-	MaxBlankLines     int
-	TrailingCommas    bool
-	AlignDeclarations bool
+	IndentWidth   int
+	MaxBlankLines int
 }
 
 var DefaultConfig = Config{
-	IndentWidth:       4,
-	MaxLineLength:     88,
-	MaxBlankLines:     2,
-	TrailingCommas:    true,
-	AlignDeclarations: true,
+	IndentWidth:   4,
+	MaxBlankLines: 2,
 }
 
 func Format(content string, cfg Config) string {
@@ -53,7 +47,7 @@ func Format(content string, cfg Config) string {
 		return content
 	}
 
-	p := newPrinter(cfg, content)
+	p := newPrinter(cfg)
 	return p.print(tokens)
 }
 
@@ -65,19 +59,22 @@ func FormatRange(content string, startLine, endLine int, cfg Config) string {
 
 	rangeContent := strings.Join(lines[startLine:endLine+1], "\n")
 	formatted := Format(rangeContent, cfg)
+	formatted = strings.TrimSuffix(formatted, "\n")
 
 	var result strings.Builder
-	for i, line := range lines {
+	for i := 0; i < startLine; i++ {
 		if i > 0 {
 			result.WriteString("\n")
 		}
-		if i >= startLine && i <= endLine {
-			if i == startLine {
-				result.WriteString(formatted)
-			}
-		} else {
-			result.WriteString(line)
-		}
+		result.WriteString(lines[i])
+	}
+	if startLine > 0 {
+		result.WriteString("\n")
+	}
+	result.WriteString(formatted)
+	for i := endLine + 1; i < len(lines); i++ {
+		result.WriteString("\n")
+		result.WriteString(lines[i])
 	}
 	return result.String()
 }
