@@ -34,6 +34,9 @@ on:
       - x/go/**/*.pb.go
   workflow_dispatch:
 
+env:
+  BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
@@ -52,9 +55,9 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: true
+          bazelisk-cache: false
           disk-cache: false
-          repository-cache: true
+          repository-cache: false
 
       - name: Install Clang Format
         if: matrix.format
@@ -77,10 +80,12 @@ jobs:
 
       - name: Test (Ubuntu)
         if: matrix.os == 'ubuntu-build-bot'
-        run: bazel test --config=asan-leak --test_output=all //freighter/cpp/...
+        run: bazel test $BAZEL_REMOTE_CACHE_FLAGS --config=asan-leak --test_output=all //freighter/cpp/...
         shell: bash
 
       - name: Test (Windows)
         if: matrix.os == 'windows-build-bot'
-        run: bazel test --test_output=all //freighter/cpp/...
+        run: |
+          export MSYS_NO_PATHCONV=1
+          bazel --output_user_root=C:/tmp test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all //freighter/cpp/...
         shell: bash
