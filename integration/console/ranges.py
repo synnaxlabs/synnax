@@ -608,7 +608,9 @@ class RangesClient:
         self.show_toolbar()
         return self.get_label_in_toolbar(range_name, label_name).count() > 0
 
-    def get_label_color_in_toolbar(self, range_name: str, label_name: str) -> str | None:
+    def get_label_color_in_toolbar(
+        self, range_name: str, label_name: str
+    ) -> str | None:
         """Get the color of a label's icon in the range toolbar."""
         self.show_toolbar()
         label = self.get_label_in_toolbar(range_name, label_name)
