@@ -50,6 +50,9 @@
         },
         {
           "case": "console/device/lifecycle"
+        },
+        {
+          "case": "console/documentation"
         }
       ]
     },
