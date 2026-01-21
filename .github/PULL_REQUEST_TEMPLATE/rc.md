@@ -101,7 +101,7 @@ I can successfully:
     - [x] 100 Hz
     - [x] 1,000 Hz
 - [ ] Open a channel plot from a link.
-- [x] Rename a channel and ensure the change synchronizes properly across:
+- [ ] Rename a channel and ensure the change synchronizes properly across:
   - Resources Toolbar
   - Line Plot Visualization Toolbar
   - Log Visualization Toolbar

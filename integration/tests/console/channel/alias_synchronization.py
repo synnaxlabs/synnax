@@ -10,7 +10,7 @@
 """
 Test channel alias synchronization across UI elements.
 
-Verifies that setting an alias for a channel properly synchronizes across:
+Verifies that setting and removing an alias for a channel properly synchronizes across:
 - Resources Toolbar (channel list)
 - Line Plot Visualization Toolbar
 
@@ -46,7 +46,7 @@ class AliasSynchronization(ConsoleCase):
         self.alias_name = f"AliasSync_{self.prefix}"
 
     def teardown(self) -> None:
-        self.console.channels.delete([self.alias_name, self.index_name])
+        self.console.channels.delete([self.data_name, self.index_name])
         self.console.ranges.open_explorer()
         self.console.ranges.delete_from_explorer(self.range_name)
         super().teardown()
@@ -97,5 +97,30 @@ class AliasSynchronization(ConsoleCase):
         assert plot.has_channel(
             "Y1", self.alias_name
         ), f"Alias {self.alias_name} should appear in Line Plot toolbar"
+
+        self.log("Removing alias for channel")
+        console.channels.clear_alias(self.alias_name)
+
+        self.log("Verifying alias removal in Resources Toolbar")
+        console.channels.show_channels()
+        alias_item_after = console.channels._find_channel_item(
+            self.alias_name, retry_with_refresh=False
+        )
+        assert (
+            alias_item_after is None
+        ), f"Alias {self.alias_name} should no longer appear in Resources Toolbar"
+        original_item = console.channels._find_channel_item(self.data_name)
+        assert (
+            original_item is not None
+        ), f"Original channel {self.data_name} should appear in Resources Toolbar"
+        console.channels.hide_channels()
+
+        self.log("Verifying alias removal in Line Plot Toolbar")
+        assert not plot.has_channel(
+            "Y1", self.alias_name
+        ), f"Alias {self.alias_name} should no longer appear in Line Plot toolbar"
+        assert plot.has_channel(
+            "Y1", self.data_name
+        ), f"Original channel {self.data_name} should appear in Line Plot toolbar"
 
         plot.close()

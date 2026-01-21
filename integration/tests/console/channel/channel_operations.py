@@ -115,12 +115,6 @@ class ChannelOperations(ConsoleCase):
         self.test_plot_calculated_channel()
         self.test_erroneous_calculated_channel()
 
-        # Miscellaneous
-        # test_open_a_channel_plot_from_a_link()
-        # test_rename_a_channel_and_ensure_synchronization_across_ui_elements()
-        # test_set_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
-        # test_remove_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
-
     def test_create_multiple_channels(self) -> None:
         """Test creating multiple channels using the 'Create More' checkbox."""
         self.log("Testing create multiple channels with 'Create More'")
