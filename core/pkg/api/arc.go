@@ -150,21 +150,6 @@ func (s *ArcService) Retrieve(ctx context.Context, req ArcRetrieveRequest) (res 
 		}
 	}
 
-	if req.IncludeStatus {
-		statuses := make([]status.Status[arc.StatusDetails], 0, len(res.Arcs))
-		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
-			return a.Key.String()
-		})
-		if err = status.NewRetrieve[arc.StatusDetails](s.status).
-			WhereKeys(uuidStrings...).
-			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
-			return ArcRetrieveResponse{}, err
-		}
-		for i, stat := range statuses {
-			res.Arcs[i].Status = &stat
-		}
-	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: getSubject(ctx),
 		Action:  access.ActionRetrieve,

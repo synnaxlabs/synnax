@@ -234,19 +234,21 @@ export const renameFluxResource = (
   name: string,
 ) => Flux.partialUpdate(store.resources, ontology.idToString(id), { name });
 
-export interface RetrieveChildrenQuery {
+export interface RetrieveChildrenQuery extends ontology.RetrieveOptions {
   id: ontology.ID;
 }
 
-export const { useRetrieveObservable: useRetrieveObservableChildren } =
-  Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[], FluxSubStore>({
-    name: RESOURCE_RESOURCE_NAME,
-    retrieve: async ({ client, query, store }) => {
-      const children = await client.ontology.retrieveChildren(query.id);
-      store.resources.set(children);
-      return children;
-    },
-  });
+export const {
+  useRetrieve: useRetrieveChildren,
+  useRetrieveObservable: useRetrieveObservableChildren,
+} = Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[], FluxSubStore>({
+  name: RESOURCE_RESOURCE_NAME,
+  retrieve: async ({ client, query, store }) => {
+    const children = await client.ontology.retrieveChildren(query.id, query);
+    store.resources.set(children);
+    return children;
+  },
+});
 
 interface RetrieveResourceQuery {
   ids: ontology.ID[];

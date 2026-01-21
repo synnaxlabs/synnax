@@ -224,7 +224,6 @@ synnax-data/**
 # |||| BINARIES ||||
 
 **/bin/**
-!**/bin/.gitkeep
 **/binaries/**
 
 # |||| PROFILING ||||
@@ -246,9 +245,10 @@ synnax-data/**
 ./driver/.vs
 
 # |||| EMBEDDED CONSOLE ||||
+
+# |||| EMBEDDED DRIVER ||||
 # Allow driver service assets to be tracked
 assets
-!core/pkg/service/driver/assets
 
 # |||| OTHER ||||
 .obsidian
