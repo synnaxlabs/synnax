@@ -10,25 +10,26 @@
 import { ranger } from "@synnaxlabs/client";
 import { Access, Icon, Ranger } from "@synnaxlabs/pluto";
 
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { Range } from "@/range";
 
-const CREATE_COMMAND: Palette.Command = {
+const useUpdateVisible = () => Access.useUpdateGranted(ranger.TYPE_ONTOLOGY_ID);
+const useViewVisible = () => Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand = Palette.createSimpleCommand({
   key: "define-range",
   name: "Create a Range",
   icon: <Ranger.CreateIcon />,
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: ranger.TYPE_ONTOLOGY_ID, store, client }),
-  onSelect: ({ placeLayout }) => placeLayout(Range.CREATE_LAYOUT),
-};
+  layout: Range.CREATE_LAYOUT,
+  useVisible: useUpdateVisible,
+});
 
-const OPEN_EXPLORER_COMMAND: Palette.Command = {
+export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open-explorer",
   name: "Open Range Explorer",
   icon: <Icon.Explore />,
-  onSelect: ({ placeLayout }) => placeLayout(Range.EXPLORER_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.viewGranted({ id: ranger.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: Range.EXPLORER_LAYOUT,
+  useVisible: useViewVisible,
+});
 
-export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];
+export const COMMANDS = [CreateCommand, OpenExplorerCommand];

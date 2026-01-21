@@ -18,12 +18,15 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -32,6 +35,10 @@ import (
 )
 
 type ServiceConfig struct {
+	// DB is the database used to open a transaction for the service.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// HostProvider is for identify the current host for channel naming.
 	//
 	// [REQUIRED]
@@ -48,10 +55,19 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
+	// Ontology is used to create relationships between metrics and other entities in
+	// the Synnax resource graph.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Group is used to create a metrics group for the node.
+	//
+	// [REQUIRED]
+	Group *group.Service
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
-	// CollectionInterval sets the interval at which metrics will be collected
-	// from the host machine.
+	// CollectionInterval sets the interval at which metrics will be collected from the
+	// host machine.
 	//
 	// [OPTIONAL] - Defaults to 2s
 	CollectionInterval time.Duration
@@ -60,9 +76,7 @@ type ServiceConfig struct {
 var (
 	_ config.Config[ServiceConfig] = ServiceConfig{}
 	// DefaultServiceConfig is the default configuration for a metrics service.
-	DefaultServiceConfig = ServiceConfig{
-		CollectionInterval: 2 * time.Second,
-	}
+	DefaultServiceConfig = ServiceConfig{CollectionInterval: 2 * time.Second}
 )
 
 // Override implements config.Config.
@@ -71,19 +85,28 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
-	c.CollectionInterval = override.Numeric(c.CollectionInterval, other.CollectionInterval)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.CollectionInterval = override.Numeric(
+		c.CollectionInterval,
+		other.CollectionInterval,
+	)
 	c.Storage = override.Nil(c.Storage, other.Storage)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("config")
+	v := validate.New("service.metrics")
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "host_provider", c.HostProvider)
 	validate.NotNil(v, "storage", c.Storage)
 	validate.Positive(v, "collection_interval", c.CollectionInterval)
+	validate.NotNil(v, "group", c.Group)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "db", c.DB)
 	return v.Error()
 }
 
@@ -111,6 +134,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	metricsGroup, err := cfg.Group.CreateOrRetrieve(
+		ctx, "Metrics", cfg.Channel.Group().OntologyID(),
+	)
+	if err != nil {
+		return nil, err
+	}
 	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
 	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
 	allMetrics := s.buildMetrics()
@@ -125,24 +154,61 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := cfg.Channel.Create(
-		ctx,
-		&c.idx,
-		channel.RetrieveIfNameExists(),
-	); err != nil {
-		return nil, err
-	}
 	metricChannels := make([]channel.Channel, len(allMetrics))
-	for i, metric := range allMetrics {
-		metric.ch.Name = nameBase + metric.ch.Name
-		metric.ch.LocalIndex = c.idx.LocalKey
-		metricChannels[i] = metric.ch
-	}
-	if err := cfg.Channel.CreateMany(
-		ctx,
-		&metricChannels,
-		channel.RetrieveIfNameExists(),
-	); err != nil {
+	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		chWriter := cfg.Channel.NewWriter(tx)
+		otgWriter := cfg.Ontology.NewWriter(tx)
+		if err := chWriter.Create(
+			ctx,
+			&c.idx,
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
+		); err != nil {
+			return err
+		}
+		for i, metric := range allMetrics {
+			metric.ch.Name = nameBase + metric.ch.Name
+			metric.ch.LocalIndex = c.idx.LocalKey
+			metricChannels[i] = metric.ch
+		}
+		if err := otgWriter.DefineRelationship(
+			ctx,
+			metricsGroup.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			c.idx.OntologyID(),
+		); err != nil {
+			return err
+		}
+		if err := chWriter.CreateMany(
+			ctx,
+			&metricChannels,
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
+		); err != nil {
+			return err
+		}
+		if err := otgWriter.DefineFromOneToManyRelationships(
+			ctx,
+			metricsGroup.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			channel.OntologyIDsFromChannels(metricChannels),
+		); err != nil {
+			return err
+		}
+		// delete any existing relationships between the parent Channels group and the
+		// metrics channels
+		for _, ch := range metricChannels {
+			if err := otgWriter.DeleteRelationship(
+				ctx,
+				cfg.Channel.Group().OntologyID(),
+				ontology.RelationshipTypeParentOf,
+				ch.OntologyID(),
+			); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	for i, ch := range metricChannels {
@@ -151,7 +217,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,
 		framer.WriterConfig{
-			Keys:                     append(channel.KeysFromChannels(metricChannels), c.idx.Key()),
+			Keys: append(
+				channel.KeysFromChannels(metricChannels),
+				c.idx.Key(),
+			),
 			Start:                    telem.Now(),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},
@@ -171,15 +240,22 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		}
 	})
 	plumber.SetSink[framer.WriterResponse](p, loggerAddr, o)
-	plumber.MustConnect[framer.WriterRequest](p, collectorAddr, writerAddr, channelBufferSize)
-	plumber.MustConnect[framer.WriterResponse](p, writerAddr, loggerAddr, channelBufferSize)
+	plumber.MustConnect[framer.WriterRequest](
+		p,
+		collectorAddr,
+		writerAddr,
+		channelBufferSize,
+	)
+	plumber.MustConnect[framer.WriterResponse](
+		p,
+		writerAddr,
+		loggerAddr,
+		channelBufferSize,
+	)
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	p.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	return s, nil
 }
 
 // Close gracefully stops the service, waiting for all internal goroutines to exit.
-func (s *Service) Close() error {
-	close(s.stopCollector)
-	return s.shutdown.Close()
-}
+func (s *Service) Close() error { close(s.stopCollector); return s.shutdown.Close() }

@@ -9,31 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-error-overlay {
-    height: 100vh;
-    & .console-dialog {
-        max-width: 1200px;
-    }
+.pluto-error-fallback__ {
+    padding: 2rem;
 
-    & .pluto-navbar.pluto--location-top {
-        padding-left: 2rem;
-        padding-right: 1rem;
-
-        & .synnax-logo {
-            height: 3rem;
-            width: 3rem;
-        }
-    }
-
-    & .console-details {
-        max-width: 650px;
-    }
-
-    & .console-stack {
-        max-height: 700px;
+    .pluto-error-fallback__stack {
+        max-height: 800px;
         overflow: auto;
     }
-
     & .synnax-logo {
         width: 150px;
     }

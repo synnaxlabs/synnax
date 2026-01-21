@@ -9,29 +9,54 @@
 
 import { log } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { Log } from "@/log";
 import { CreateIcon, ImportIcon } from "@/log/services/Icon";
 import { import_ } from "@/log/services/import";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const CREATE_COMMAND: Palette.Command = {
-  key: "create-log",
-  name: "Create a Log",
-  icon: <CreateIcon />,
-  onSelect: ({ placeLayout }) => placeLayout(Log.create()),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }),
+const useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
+  const handleSelect = useCallback(() => placeLayout(Log.create()), [placeLayout]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Create a Log"
+      icon={<CreateIcon />}
+      onSelect={handleSelect}
+    />
+  );
 };
+CreateCommand.key = "create-log";
+CreateCommand.commandName = "Create a Log";
+CreateCommand.useVisible = useVisible;
 
-const IMPORT_COMMAND: Palette.Command = {
-  key: "import-log",
-  name: "Import Log(s)",
-  sortOrder: -1,
-  icon: <ImportIcon />,
-  onSelect: import_,
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }),
+export const ImportCommand: Palette.Command = ({
+  placeLayout,
+  handleError,
+  store,
+  client,
+  fluxStore,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () => import_({ placeLayout, handleError, store, client, fluxStore }),
+    [placeLayout, handleError, store, client, fluxStore],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import Log(s)"
+      icon={<ImportIcon />}
+      onSelect={handleSelect}
+    />
+  );
 };
+ImportCommand.key = "import-log";
+ImportCommand.commandName = "Import Log(s)";
+ImportCommand.sortOrder = -1;
+ImportCommand.useVisible = useVisible;
 
-export const COMMANDS = [CREATE_COMMAND, IMPORT_COMMAND];
+export const COMMANDS = [CreateCommand, ImportCommand];
