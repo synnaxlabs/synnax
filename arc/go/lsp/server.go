@@ -64,18 +64,6 @@ type Server struct {
 
 var _ protocol.Server = (*Server)(nil)
 
-// Document represents an open document
-type Document struct {
-	Metadata *DocumentMetadata // Metadata for calculated channels
-	Content  string
-	URI      protocol.DocumentURI
-	// IR with symbol table
-	IR ir.IR
-	// Diagnostics diagnostics
-	Diagnostics diagnostics.Diagnostics
-	Version     int32
-}
-
 // New creates a new LSP server
 func New(cfgs ...Config) (*Server, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -167,17 +155,17 @@ func (s *Server) Shutdown(_ context.Context) error {
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
-	metadata := ExtractMetadataFromURI(uri)
+	metadata := extractMetadataFromURI(uri)
 	s.cfg.L.Debug("file meta-data",
 		zap.String("uri", string(uri)),
 		zap.Bool("hasMetadata", metadata != nil),
-		zap.Bool("isBlock", metadata != nil && metadata.IsFunctionBlock))
+		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	s.mu.Lock()
 	s.documents[uri] = &Document{
 		URI:      uri,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
-		Metadata: metadata,
+		metadata: metadata,
 	}
 	s.mu.Unlock()
 
@@ -234,8 +222,11 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 
 	var pDiagnostics []protocol.Diagnostic
-	if doc.Metadata.IsFunctionBlock {
-		t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
+	if doc.metadata.isFunctionBlock {
+		// Wrap content with {} for parsing - store wrapped content so AST positions match
+		wrappedContent := fmt.Sprintf("{%s}", content)
+		doc.Content = wrappedContent
+		t, err := parser.ParseBlock(wrappedContent)
 		if err != nil {
 			pDiagnostics = translateDiagnostics(*err)
 		} else {

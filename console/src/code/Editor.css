@@ -201,7 +201,6 @@ using the default for now.  */
     background: var(--pluto-gray-l2) !important;
     padding: 0.15rem 0.4rem !important;
     border-radius: var(--pluto-border-radius) !important;
-    color: var(--pluto-primary-m1) !important;
 }
 
 /* Code blocks and tokenized source */

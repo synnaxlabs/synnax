@@ -14,37 +14,18 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 )
 
-func TokenizeContent(content string) []antlr.Token {
+func tokenizeContent(content string) []antlr.Token {
 	input := antlr.NewInputStream(content)
 	lexer := parser.NewArcLexer(input)
 	lexer.RemoveErrorListeners()
 	return lexer.GetAllTokens()
 }
 
-func TokenizeContentWithComments(content string) []antlr.Token {
+func tokenizeContentWithComments(content string) []antlr.Token {
 	input := antlr.NewInputStream(content)
 	lexer := parser.NewArcLexer(input)
 	lexer.RemoveErrorListeners()
 	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
 	stream.Fill()
 	return stream.GetAllTokens()
-}
-
-func SplitLines(content string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(content); i++ {
-		if content[i] == '\n' {
-			end := i
-			if i > 0 && content[i-1] == '\r' {
-				end--
-			}
-			lines = append(lines, content[start:end])
-			start = i + 1
-		}
-	}
-	if start <= len(content) {
-		lines = append(lines, content[start:])
-	}
-	return lines
 }

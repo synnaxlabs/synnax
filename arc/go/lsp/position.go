@@ -10,21 +10,35 @@
 package lsp
 
 import (
+	"strings"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/symbol"
 	"go.lsp.dev/protocol"
 )
 
-type Position struct {
+type position struct {
 	Line int
 	Col  int
 }
 
-func FromProtocol(pos protocol.Position) Position {
-	return Position{Line: int(pos.Line) + 1, Col: int(pos.Character)}
+func fromProtocol(pos protocol.Position) position {
+	return position{Line: int(pos.Line) + 1, Col: int(pos.Character)}
 }
 
-func FindScopeAtPosition(rootScope *symbol.Scope, pos Position) *symbol.Scope {
+func getLine(content string, line uint32) (string, bool) {
+	lines := strings.Split(content, "\n")
+	if int(line) >= len(lines) {
+		return "", false
+	}
+	return lines[line], true
+}
+
+func isWordChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+func findScopeAtInternalPosition(rootScope *symbol.Scope, pos position) *symbol.Scope {
 	if rootScope == nil {
 		return nil
 	}
@@ -37,6 +51,9 @@ func FindScopeAtPosition(rootScope *symbol.Scope, pos Position) *symbol.Scope {
 }
 
 func findScopeRecursive(scope *symbol.Scope, line, col int, deepest **symbol.Scope) {
+	if scope == nil {
+		return
+	}
 	if scope.AST != nil {
 		start := scope.AST.GetStart()
 		stop := scope.AST.GetStop()

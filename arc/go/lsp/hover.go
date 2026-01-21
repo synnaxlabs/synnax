@@ -36,7 +36,9 @@ func (s *Server) Hover(
 		return nil, nil
 	}
 
-	operator := s.getOperatorAtPosition(d.Content, params.Position)
+	displayContent := d.displayContent()
+
+	operator := s.getOperatorAtPosition(displayContent, params.Position)
 	if operator != "" {
 		contents := s.getOperatorHoverContents(operator)
 		if contents != "" {
@@ -49,7 +51,7 @@ func (s *Server) Hover(
 		}
 	}
 
-	word := s.getWordAtPosition(d.Content, params.Position)
+	word := d.getWordAtPosition(params.Position)
 	if word == "" {
 		s.cfg.L.Debug(
 			"hover: no word at position",
@@ -61,8 +63,8 @@ func (s *Server) Hover(
 
 	contents := s.getHoverContents(word)
 	if contents == "" && d.IR.Symbols != nil {
-		scopeAtCursor := FindScopeAtPosition(d.IR.Symbols, FromProtocol(params.Position))
-		contents = s.getUserSymbolHover(scopeAtCursor, word, d.Content)
+		scopeAtCursor := d.findScopeAtPosition(params.Position)
+		contents = s.getUserSymbolHover(scopeAtCursor, word, displayContent)
 	}
 
 	if contents == "" {
@@ -75,30 +77,6 @@ func (s *Server) Hover(
 			Value: contents,
 		},
 	}, nil
-}
-
-func (s *Server) getWordAtPosition(content string, pos protocol.Position) string {
-	lines := strings.Split(content, "\n")
-	if int(pos.Line) >= len(lines) {
-		return ""
-	}
-	line := lines[pos.Line]
-	if int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && isWordChar(line[end]) {
-		end++
-	}
-	return line[start:end]
-}
-
-func isWordChar(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 var operators = []string{
@@ -326,11 +304,10 @@ var keywordDocs = map[string]string{
 }
 
 func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {
-	lines := strings.Split(content, "\n")
-	if int(pos.Line) >= len(lines) {
+	line, ok := getLine(content, pos.Line)
+	if !ok {
 		return ""
 	}
-	line := lines[pos.Line]
 	col := int(pos.Character)
 	if col >= len(line) {
 		return ""
@@ -368,7 +345,7 @@ func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
 	}
 
 	symLine := start.GetLine()
-	tokens := TokenizeContentWithComments(content)
+	tokens := tokenizeContentWithComments(content)
 	if len(tokens) == 0 {
 		return ""
 	}

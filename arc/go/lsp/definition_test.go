@@ -15,9 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
@@ -30,11 +31,8 @@ var _ = Describe("Definition", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		var err error
-		server, err = lsp.New()
-		Expect(err).ToNot(HaveOccurred())
-
-		server.SetClient(&testutil.MockClient{})
+		server = MustSucceed(lsp.New())
+		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
 
@@ -47,10 +45,10 @@ var _ = Describe("Definition", func() {
 func main() {
     result := add(1, 2)
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'add' in the function call
-			locations := testutil.Definition(server, ctx, uri, 5, 15) // add|(1, 2)
+			locations := Definition(server, ctx, uri, 5, 15) // add|(1, 2)
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
@@ -62,10 +60,10 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'multiply' in the declaration itself
-			locations := testutil.Definition(server, ctx, uri, 0, 7) // func m|ultiply
+			locations := Definition(server, ctx, uri, 0, 7) // func m|ultiply
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
@@ -82,10 +80,10 @@ func main() {
     }
     return max_val
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'max' in the declaration
-			locations := testutil.Definition(server, ctx, uri, 0, 6) // func m|ax
+			locations := Definition(server, ctx, uri, 0, 6) // func m|ax
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
@@ -99,10 +97,10 @@ func main() {
     x i32 := 42
     y := x + 10
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the expression
-			locations := testutil.Definition(server, ctx, uri, 2, 9) // x| + 10
+			locations := Definition(server, ctx, uri, 2, 9) // x| + 10
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
@@ -115,10 +113,10 @@ func main() {
     count = count + 1
     return count
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'count' in the assignment
-			locations := testutil.Definition(server, ctx, uri, 2, 5) // count| = count + 1
+			locations := Definition(server, ctx, uri, 2, 5) // count| = count + 1
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
@@ -131,10 +129,10 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the return statement
-			locations := testutil.Definition(server, ctx, uri, 1, 11) // x| * y
+			locations := Definition(server, ctx, uri, 1, 11) // x| * y
 
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
@@ -147,10 +145,10 @@ func main() {
 			content := `func test() {
     return 42
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'return' keyword - keywords don't have definitions
-			locations := testutil.Definition(server, ctx, uri, 1, 5) // ret|urn
+			locations := Definition(server, ctx, uri, 1, 5) // ret|urn
 			Expect(locations).To(BeNil())
 		})
 
@@ -158,15 +156,15 @@ func main() {
 			content := `func test() {
     x := undefined_symbol
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'undefined_symbol' - undefined symbols should return nil
-			locations := testutil.Definition(server, ctx, uri, 1, 13) // undefined_symbol|
+			locations := Definition(server, ctx, uri, 1, 13) // undefined_symbol|
 			Expect(locations).To(BeNil())
 		})
 
 		It("should return nil when document not found", func() {
-			locations := testutil.Definition(server, ctx, "file:///nonexistent.arc", 0, 0)
+			locations := Definition(server, ctx, "file:///nonexistent.arc", 0, 0)
 			Expect(locations).To(BeNil())
 		})
 
@@ -174,10 +172,10 @@ func main() {
 			content := `func test() {
 
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on empty line
-			locations := testutil.Definition(server, ctx, uri, 1, 0) // Empty line
+			locations := Definition(server, ctx, uri, 1, 0) // Empty line
 			Expect(locations).To(BeNil())
 		})
 	})
@@ -194,16 +192,14 @@ func main() {
 			}
 
 			// Create server with GlobalResolver
-			var err error
-			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
-			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&testutil.MockClient{})
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Try to jump to definition of myGlobal - GlobalResolver symbols have no AST
-			locations := testutil.Definition(server, ctx, uri, 1, 12) // myGl|obal
+			locations := Definition(server, ctx, uri, 1, 12) // myGl|obal
 			Expect(locations).To(BeNil())
 		})
 	})

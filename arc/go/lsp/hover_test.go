@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,13 +31,13 @@ var _ = Describe("Hover", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		server, uri = testutil.SetupTestServer()
+		server, uri = SetupTestServer()
 	})
 
 	DescribeTable("keyword hover",
 		func(content string, char uint32, expectedTitle string, expectedSubstring string) {
-			testutil.OpenDocument(server, ctx, uri, content)
-			hover := testutil.Hover(server, ctx, uri, 0, char)
+			OpenDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedTitle))
 			if expectedSubstring != "" {
@@ -53,8 +53,8 @@ var _ = Describe("Hover", func() {
 
 	DescribeTable("type hover with range",
 		func(content string, char uint32, expectedType string) {
-			testutil.OpenDocument(server, ctx, uri, content)
-			hover := testutil.Hover(server, ctx, uri, 0, char)
+			OpenDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedType))
 			Expect(hover.Contents.Value).To(ContainSubstring("Range:"))
@@ -71,8 +71,8 @@ var _ = Describe("Hover", func() {
 
 	DescribeTable("type hover",
 		func(content string, line, char uint32, expectedType, expectedSubstring string) {
-			testutil.OpenDocument(server, ctx, uri, content)
-			hover := testutil.Hover(server, ctx, uri, line, char)
+			OpenDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, line, char)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### " + expectedType))
 			Expect(hover.Contents.Value).To(ContainSubstring(expectedSubstring))
@@ -86,7 +86,7 @@ var _ = Describe("Hover", func() {
 	Describe("Built-in Functions", func() {
 		It("should provide hover for 'len' function", func() {
 			content := "length := len(data)"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -102,7 +102,7 @@ var _ = Describe("Hover", func() {
 
 		It("should provide hover for 'now' function", func() {
 			content := "time := now()"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -126,7 +126,7 @@ var _ = Describe("Hover", func() {
 func main() {
     result := add(1, 2)
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'add' in the function call
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -152,7 +152,7 @@ func main() {
     }
     return max_val
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'max' in the function declaration
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -177,7 +177,7 @@ func main() {
     }
     return u8(0)
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'threshold' in the function declaration
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -200,7 +200,7 @@ func main() {
     y := x + 10
 }
 `
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'x' in the expression
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -223,7 +223,7 @@ func main() {
     return count
 }
 `
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'count' on line 2
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -244,7 +244,7 @@ func main() {
     return x * y
 }
 `
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'x' parameter in function body
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -265,7 +265,7 @@ func main() {
     stage first {}
     stage second {}
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Hover over 'main' sequence name
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -286,7 +286,7 @@ func main() {
 			content := `sequence main {
     stage first {}
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -305,7 +305,7 @@ func main() {
 func add(x i32, y i32) i32 {
     return x + y
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -325,7 +325,7 @@ func max(a i32, b i32) i32 {
     if a > b { return a }
     return b
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -345,7 +345,7 @@ func max(a i32, b i32) i32 {
 func threshold(value f64) u8 {
     return u8(0)
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -368,7 +368,7 @@ func helper() i32 {
 func add(a i32, b i32) i32 {
     return a + b
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -385,8 +385,8 @@ func add(a i32, b i32) i32 {
 
 	DescribeTable("operator hover",
 		func(content string, char uint32, expectedOp, expectedSubstring string) {
-			testutil.OpenDocument(server, ctx, uri, content)
-			hover := testutil.Hover(server, ctx, uri, 0, char)
+			OpenDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 0, char)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring(expectedOp))
 			if expectedSubstring != "" {
@@ -410,37 +410,37 @@ func add(a i32, b i32) i32 {
 
 	Describe("Edge Cases", func() {
 		It("should return nil for unknown words", func() {
-			testutil.OpenDocument(server, ctx, uri, "unknown_identifier")
-			Expect(testutil.Hover(server, ctx, uri, 0, 5)).To(BeNil())
+			OpenDocument(server, ctx, uri, "unknown_identifier")
+			Expect(Hover(server, ctx, uri, 0, 5)).To(BeNil())
 		})
 
 		It("should return nil for position out of bounds", func() {
-			testutil.OpenDocument(server, ctx, uri, "func test() {}")
-			Expect(testutil.Hover(server, ctx, uri, 10, 0)).To(BeNil())
+			OpenDocument(server, ctx, uri, "func test() {}")
+			Expect(Hover(server, ctx, uri, 10, 0)).To(BeNil())
 		})
 
 		It("should return nil for closed document", func() {
-			hover := testutil.Hover(server, ctx, "file:///nonexistent.arc", 0, 0)
+			hover := Hover(server, ctx, "file:///nonexistent.arc", 0, 0)
 			Expect(hover).To(BeNil())
 		})
 
 		It("should handle hovering at end of word", func() {
-			testutil.OpenDocument(server, ctx, uri, "func")
-			hover := testutil.Hover(server, ctx, uri, 0, 3)
+			OpenDocument(server, ctx, uri, "func")
+			hover := Hover(server, ctx, uri, 0, 3)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle hovering at start of word", func() {
-			testutil.OpenDocument(server, ctx, uri, "func")
-			hover := testutil.Hover(server, ctx, uri, 0, 0)
+			OpenDocument(server, ctx, uri, "func")
+			hover := Hover(server, ctx, uri, 0, 0)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("#### func"))
 		})
 
 		It("should handle empty lines", func() {
-			testutil.OpenDocument(server, ctx, uri, "\n\nfunc test() {}")
-			Expect(testutil.Hover(server, ctx, uri, 0, 0)).To(BeNil())
+			OpenDocument(server, ctx, uri, "\n\nfunc test() {}")
+			Expect(Hover(server, ctx, uri, 0, 0)).To(BeNil())
 		})
 	})
 
@@ -455,10 +455,10 @@ func add(a i32, b i32) i32 {
 			}
 
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
-			server.SetClient(&testutil.MockClient{})
+			server.SetClient(&MockClient{})
 
-			testutil.OpenDocument(server, ctx, uri, "func test() i32 {\n    return myGlobal\n}")
-			hover := testutil.Hover(server, ctx, uri, 1, 12)
+			OpenDocument(server, ctx, uri, "func test() i32 {\n    return myGlobal\n}")
+			hover := Hover(server, ctx, uri, 1, 12)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("myGlobal"))
 			Expect(hover.Contents.Value).To(ContainSubstring("i32"))
@@ -468,8 +468,8 @@ func add(a i32, b i32) i32 {
 	Describe("SemanticTokens", func() {
 		DescribeTable("Keywords",
 			func(content string, expectedType uint32) {
-				testutil.OpenDocument(server, ctx, uri, content)
-				tokens := testutil.SemanticTokens(server, ctx, uri)
+				OpenDocument(server, ctx, uri, content)
+				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 				Expect(tokens.Data[3]).To(Equal(expectedType))
@@ -485,8 +485,8 @@ func add(a i32, b i32) i32 {
 
 		DescribeTable("Types",
 			func(content string, expectedType uint32) {
-				testutil.OpenDocument(server, ctx, uri, content)
-				tokens := testutil.SemanticTokens(server, ctx, uri)
+				OpenDocument(server, ctx, uri, content)
+				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 				Expect(tokens.Data[8]).To(Equal(expectedType))
@@ -508,8 +508,8 @@ func add(a i32, b i32) i32 {
 
 		DescribeTable("Operators",
 			func(content string, expectedType uint32) {
-				testutil.OpenDocument(server, ctx, uri, content)
-				tokens := testutil.SemanticTokens(server, ctx, uri)
+				OpenDocument(server, ctx, uri, content)
+				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 				Expect(tokens.Data[8]).To(Equal(expectedType))
@@ -537,8 +537,8 @@ func add(a i32, b i32) i32 {
 
 		DescribeTable("Single token types",
 			func(content string, expectedType uint32) {
-				testutil.OpenDocument(server, ctx, uri, content)
-				tokens := testutil.SemanticTokens(server, ctx, uri)
+				OpenDocument(server, ctx, uri, content)
+				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 				Expect(tokens.Data[3]).To(Equal(expectedType))
@@ -554,8 +554,8 @@ func add(a i32, b i32) i32 {
 		)
 
 		It("should tokenize function names as function type", func() {
-			testutil.OpenDocument(server, ctx, uri, "func myFunc() {}")
-			tokens := testutil.SemanticTokens(server, ctx, uri)
+			OpenDocument(server, ctx, uri, "func myFunc() {}")
+			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
@@ -563,8 +563,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize input parameters as input type", func() {
-			testutil.OpenDocument(server, ctx, uri, "func myFunc(x f32) {}")
-			tokens := testutil.SemanticTokens(server, ctx, uri)
+			OpenDocument(server, ctx, uri, "func myFunc(x f32) {}")
+			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			foundInput := false
 			for i := 3; i < len(tokens.Data); i += 5 {
@@ -577,8 +577,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize sequence names as sequence type", func() {
-			testutil.OpenDocument(server, ctx, uri, "sequence main { stage init {} }")
-			tokens := testutil.SemanticTokens(server, ctx, uri)
+			OpenDocument(server, ctx, uri, "sequence main { stage init {} }")
+			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
 			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
@@ -586,8 +586,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize stage names as stage type", func() {
-			testutil.OpenDocument(server, ctx, uri, "sequence main { stage init {} }")
-			tokens := testutil.SemanticTokens(server, ctx, uri)
+			OpenDocument(server, ctx, uri, "sequence main { stage init {} }")
+			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			stageKeywordIdx := -1
 			for i := 0; i < len(tokens.Data)-5; i += 5 {
@@ -603,8 +603,8 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize stateful variables as statefulVariable type", func() {
-			testutil.OpenDocument(server, ctx, uri, "func counter{} () u32 {\n    count u32 $= 0\n    return count\n}")
-			tokens := testutil.SemanticTokens(server, ctx, uri)
+			OpenDocument(server, ctx, uri, "func counter{} () u32 {\n    count u32 $= 0\n    return count\n}")
+			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			foundStateful := false
 			for i := 3; i < len(tokens.Data); i += 5 {
@@ -626,10 +626,10 @@ func add(a i32, b i32) i32 {
 			}
 
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
-			server.SetClient(&testutil.MockClient{})
+			server.SetClient(&MockClient{})
 
-			testutil.OpenDocument(server, ctx, uri, "func test() { x := sensorData }")
-			tokens := testutil.SemanticTokens(server, ctx, uri)
+			OpenDocument(server, ctx, uri, "func test() { x := sensorData }")
+			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			foundChannel := false
 			for i := 3; i < len(tokens.Data); i += 5 {

@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -28,8 +28,8 @@ var _ = Describe("FoldingRange", func() {
 
 	Describe("Functions", func() {
 		It("Should return folding range for a simple function", func() {
-			server, uri := testutil.SetupTestServer()
-			testutil.OpenDocument(server, ctx, uri, "func test() {\n\tx := 1\n}")
+			server, uri := SetupTestServer()
+			OpenDocument(server, ctx, uri, "func test() {\n\tx := 1\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -44,8 +44,8 @@ var _ = Describe("FoldingRange", func() {
 		})
 
 		It("Should return folding ranges for multiple functions", func() {
-			server, uri := testutil.SetupTestServer()
-			testutil.OpenDocument(server, ctx, uri, "func foo() {\n\tx := 1\n}\n\nfunc bar() {\n\ty := 2\n}")
+			server, uri := SetupTestServer()
+			OpenDocument(server, ctx, uri, "func foo() {\n\tx := 1\n}\n\nfunc bar() {\n\ty := 2\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -61,8 +61,8 @@ var _ = Describe("FoldingRange", func() {
 		})
 
 		It("Should not return folding range for single-line function", func() {
-			server, uri := testutil.SetupTestServer()
-			testutil.OpenDocument(server, ctx, uri, "func test() { x := 1 }")
+			server, uri := SetupTestServer()
+			OpenDocument(server, ctx, uri, "func test() { x := 1 }")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -76,8 +76,8 @@ var _ = Describe("FoldingRange", func() {
 
 	Describe("Sequences", func() {
 		It("Should return folding range for a sequence", func() {
-			server, uri := testutil.SetupTestServer()
-			testutil.OpenDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n}")
+			server, uri := SetupTestServer()
+			OpenDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -97,8 +97,8 @@ var _ = Describe("FoldingRange", func() {
 		})
 
 		It("Should return folding ranges for nested stages", func() {
-			server, uri := testutil.SetupTestServer()
-			testutil.OpenDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n\tstage second {\n\t}\n}")
+			server, uri := SetupTestServer()
+			OpenDocument(server, ctx, uri, "sequence main {\n\tstage first {\n\t}\n\tstage second {\n\t}\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -112,8 +112,8 @@ var _ = Describe("FoldingRange", func() {
 
 	Describe("Edge Cases", func() {
 		It("Should return empty ranges for empty document", func() {
-			server, uri := testutil.SetupTestServer()
-			testutil.OpenDocument(server, ctx, uri, "")
+			server, uri := SetupTestServer()
+			OpenDocument(server, ctx, uri, "")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -125,7 +125,7 @@ var _ = Describe("FoldingRange", func() {
 		})
 
 		It("Should return empty ranges for unknown document", func() {
-			server, _ := testutil.SetupTestServer()
+			server, _ := SetupTestServer()
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -137,9 +137,9 @@ var _ = Describe("FoldingRange", func() {
 		})
 
 		It("Should handle block URIs", func() {
-			server, _ := testutil.SetupTestServer()
+			server, _ := SetupTestServer()
 			blockURI := protocol.DocumentURI("arc://block/test")
-			testutil.OpenDocument(server, ctx, blockURI, "if x > 0 {\n\ty := 1\n}")
+			OpenDocument(server, ctx, blockURI, "if x > 0 {\n\ty := 1\n}")
 
 			ranges := MustSucceed(server.FoldingRange(ctx, &protocol.FoldingRangeParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{

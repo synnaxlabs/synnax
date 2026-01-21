@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"go.lsp.dev/protocol"
 )
 
@@ -27,8 +27,8 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Range", func() {
 		It("Should publish diagnostics with correct end position for undefined symbol", func() {
-			server, uri, client := testutil.SetupTestServerWithClient()
-			testutil.OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
 			diag := client.Diagnostics[0]
@@ -40,8 +40,8 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should publish diagnostics with correct end position for short identifier", func() {
-			server, uri, client := testutil.SetupTestServerWithClient()
-			testutil.OpenDocument(server, ctx, uri, "func test() {\n\tx := y\n}")
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\tx := y\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
 			diag := client.Diagnostics[0]
@@ -53,8 +53,8 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should publish diagnostics with fallback end position when no stop token", func() {
-			server, uri, client := testutil.SetupTestServerWithClient()
-			testutil.OpenDocument(server, ctx, uri, "func test() i32 {\n\tx := 1\n}")
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() i32 {\n\tx := 1\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
 			diag := client.Diagnostics[0]
@@ -64,8 +64,8 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should handle multiple diagnostics with correct ranges", func() {
-			server, uri, client := testutil.SetupTestServerWithClient()
-			testutil.OpenDocument(server, ctx, uri, "func test() {\n\ta := undefined1\n\tb := undefined2\n}")
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\ta := undefined1\n\tb := undefined2\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(2))
 
@@ -83,9 +83,9 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should handle block URI diagnostics with correct ranges", func() {
-			server, _, client := testutil.SetupTestServerWithClient()
+			server, _, client := SetupTestServerWithClient()
 			blockURI := protocol.DocumentURI("arc://block/test")
-			testutil.OpenDocument(server, ctx, blockURI, "x := undefined_var")
+			OpenDocument(server, ctx, blockURI, "x := undefined_var")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
 			diag := client.Diagnostics[0]
@@ -96,8 +96,8 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Severity", func() {
 		It("Should set correct severity for errors", func() {
-			server, uri, client := testutil.SetupTestServerWithClient()
-			testutil.OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}")
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
 			Expect(client.Diagnostics[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
