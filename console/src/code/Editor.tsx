@@ -263,9 +263,7 @@ export const Editor = ({
     const position = editor?.getPosition();
     const model = editor?.getModel();
     const wordAtCursor =
-      position != null && model != null
-        ? model.getWordAtPosition(position)
-        : null;
+      position != null && model != null ? model.getWordAtPosition(position) : null;
     const canRename = wordAtCursor != null;
 
     return (
