@@ -10,6 +10,7 @@
 package task
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 
@@ -83,3 +84,20 @@ type StatusDetails struct {
 
 // Status represents the state of a task.
 type Status = status.Status[StatusDetails]
+
+// Command represents a command to be executed by a task.
+type Command struct {
+	// Type is the type of command (e.g. "start", "stop").
+	Type string `json:"type"`
+	// Key is the command key for acknowledgment.
+	Key string `json:"key"`
+	// Args contains command-specific arguments.
+	Args json.RawMessage `json:"args"`
+	// Task is the key of the task to execute the command on.
+	Task Key `json:"task"`
+}
+
+// String returns a string representation of the command.
+func (c Command) String() string {
+	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
+}

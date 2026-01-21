@@ -141,7 +141,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.LocalIndex).ToNot(BeZero())
 		})
-		It("Should create total disk size metric channel", func() {
+		It("Should create total disk size metric channel as calculated", func() {
 			expectedName := names[3]
 			var ch channel.Channel
 			Expect(dist.Channel.NewRetrieve().
@@ -151,7 +151,7 @@ var _ = Describe("Metrics", func() {
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
 			Expect(ch.DataType).To(Equal(telem.Float32T))
-			Expect(ch.LocalIndex).ToNot(BeZero())
+			Expect(ch.IsCalculated()).To(BeTrue())
 		})
 		It("Should create ts (cesium) size metric channel", func() {
 			expectedName := names[4]
@@ -175,18 +175,6 @@ var _ = Describe("Metrics", func() {
 			).To(Succeed())
 			Expect(ch.Name).To(Equal(expectedName))
 			Expect(ch.DataType).To(Equal(telem.Float32T))
-			Expect(ch.LocalIndex).ToNot(BeZero())
-		})
-		It("Should create channel count metric channel", func() {
-			expectedName := names[6]
-			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().
-				WhereNames(expectedName).
-				Entry(&ch).
-				Exec(ctx, nil),
-			).To(Succeed())
-			Expect(ch.Name).To(Equal(expectedName))
-			Expect(ch.DataType).To(Equal(telem.Int32T))
 			Expect(ch.LocalIndex).ToNot(BeZero())
 		})
 		It("Should reuse existing channels", func() {
@@ -276,12 +264,11 @@ var _ = Describe("Metrics", func() {
 		It("Should write metrics at configured interval", func() {
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(7))
+			Expect(res.Frame.Count()).To(Equal(5))
 
 			timeSeries := res.Frame.SeriesAt(0)
 			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
 			Expect(timeSeries.Len()).To(Equal(int64(1)))
-			latestTime := telem.ValueAt[telem.TimeStamp](res.Frame.SeriesAt(0), -1)
 
 			cpuSeries := res.Frame.SeriesAt(1)
 			Expect(cpuSeries.DataType).To(Equal(telem.Float32T))
@@ -297,39 +284,25 @@ var _ = Describe("Metrics", func() {
 			Expect(memVal).To(BeNumerically(">=", 0))
 			Expect(memVal).To(BeNumerically("<=", 100))
 
-			tsSizeSeries := res.Frame.SeriesAt(4)
+			tsSizeSeries := res.Frame.SeriesAt(3)
 			Expect(tsSizeSeries.DataType).To(Equal(telem.Float32T))
 			Expect(tsSizeSeries.Len()).To(Equal(int64(1)))
 			tsSize := telem.ValueAt[float32](tsSizeSeries, 0)
 			Expect(tsSize).To(BeNumerically(">", 0))
 
-			kvSizeSeries := res.Frame.SeriesAt(5)
+			kvSizeSeries := res.Frame.SeriesAt(4)
 			Expect(kvSizeSeries.DataType).To(Equal(telem.Float32T))
 			Expect(kvSizeSeries.Len()).To(Equal(int64(1)))
 			kvSize := telem.ValueAt[float32](kvSizeSeries, 0)
 			Expect(kvSize).To(BeNumerically(">", 0))
 
-			totalSizeSeries := res.Frame.SeriesAt(3)
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			Expect(res.Frame.Count()).To(Equal(1))
+			totalSizeSeries := res.Frame.SeriesAt(0)
 			Expect(totalSizeSeries.DataType).To(Equal(telem.Float32T))
 			Expect(totalSizeSeries.Len()).To(Equal(int64(1)))
 			totalSize := telem.ValueAt[float32](totalSizeSeries, 0)
 			Expect(totalSize).To(BeNumerically("~", tsSize+kvSize, 0.0001))
-
-			// Verify channel count metric (index 6)
-			channelCountSeries := res.Frame.SeriesAt(6)
-			Expect(channelCountSeries.DataType).To(Equal(telem.Int32T))
-			Expect(channelCountSeries.Len()).To(Equal(int64(1)))
-			channelCount := telem.ValueAt[int32](channelCountSeries, 0)
-			Expect(channelCount).To(BeNumerically(">", 0))
-			Expect(channelCount).To(BeEquivalentTo(dist.Channel.CountExternalNonVirtual()))
-
-			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(7))
-			timeSeries = res.Frame.SeriesAt(0)
-			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
-			Expect(timeSeries.Len()).To(Equal(int64(1)))
-			nextTime := telem.ValueAt[telem.TimeStamp](res.Frame.SeriesAt(0), -1)
-			Expect(nextTime).To(BeNumerically(">", latestTime))
 		})
 	})
 })
@@ -343,6 +316,5 @@ func getNames(hostKey cluster.NodeKey) []string {
 		prefix + "total_size_gb",
 		prefix + "ts_size_gb",
 		prefix + "kv_size_gb",
-		prefix + "channel_count",
 	}
 }

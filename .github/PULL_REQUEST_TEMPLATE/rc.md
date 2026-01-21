@@ -322,18 +322,6 @@ I can successfully:
   - [ ] Cannot actuate valves on a schematic.
   - [x] Cannot create or edit any resources. (role_viewer_permissions.py)
 
-### Racks
-
-I can successfully:
-
-- **Devices Toolbar**
-  - [x] See a rack's state get updated. (rack_lifecycle.py)
-  - **Context Menu**
-    - [x] Rename a rack. (rack_lifecycle.py)
-    - [x] Delete a rack. (rack_lifecycle.py)
-    - [x] Copy a rack's key. (rack_lifecycle.py)
-    - [ ] Create a control sequence from a rack.
-
 ### Ranges
 
 I can successfully:
