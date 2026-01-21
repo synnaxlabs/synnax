@@ -23,7 +23,7 @@ var _ = BeforeEach(func() {
 	ctx = context.Background()
 })
 
-func TestGoDriver(t *testing.T) {
+func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Driver Suite")
+	RunSpecs(t, "Driver Suite")
 }

@@ -161,14 +161,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer will
 // execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	w := Writer{
-		tx:  gorp.OverrideTx(s.cfg.DB, tx),
-		otg: s.cfg.Ontology.NewWriter(tx),
+	return Writer{
+		tx:   gorp.OverrideTx(s.cfg.DB, tx),
+		otg:  s.cfg.Ontology.NewWriter(tx),
+		task: s.cfg.Task.NewWriter(tx),
 	}
-	if s.cfg.Task != nil {
-		w.task = s.cfg.Task.NewWriter(tx)
-	}
-	return w
 }
 
 // NewRetrieve opens a new query builder for retrieving arcs from Synnax.

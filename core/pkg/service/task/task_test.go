@@ -440,6 +440,20 @@ var _ = Describe("Task", Ordered, func() {
 			}).Should(Succeed())
 		})
 	})
+
+	Describe("Command", func() {
+		Describe("String", func() {
+			It("Should return a string representation of the command", func() {
+				c := &task.Command{
+					Key:  "cmd",
+					Task: task.Key(12345),
+					Type: "doc",
+				}
+				Expect(c.String()).To(Equal("doc (key=cmd, task=12345)"))
+			})
+		})
+	})
+
 	Describe("Migration", func() {
 		It("Should create unknown statuses for tasks missing them", func() {
 			db := gorp.Wrap(memkv.New())

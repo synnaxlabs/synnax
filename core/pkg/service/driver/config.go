@@ -68,7 +68,7 @@ func (c Config) Override(other Config) Config {
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
-	v := validate.New("go_driver")
+	v := validate.New("service.driver")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "task", c.Task)

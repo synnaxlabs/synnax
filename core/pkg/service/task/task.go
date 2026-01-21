@@ -97,6 +97,7 @@ type Command struct {
 	Task Key `json:"task"`
 }
 
+// String returns a string representation of the command.
 func (c Command) String() string {
-	return fmt.Sprintf("%s (%s)", c.Type, c.Key)
+	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
 }
