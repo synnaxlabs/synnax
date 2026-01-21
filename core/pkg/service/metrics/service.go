@@ -15,6 +15,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -141,23 +142,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s := &Service{cfg: cfg, stopCollector: make(chan struct{})}
-	nameBase := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
-	allMetrics := s.buildMetrics()
+	namePrefix := fmt.Sprintf("sy_node_%s_metrics_", cfg.HostProvider.HostKey())
 	c := &collector{
 		ins:      cfg.Child("collector"),
 		interval: cfg.CollectionInterval,
 		stop:     s.stopCollector,
-		metrics:  make([]metric, len(allMetrics)),
 	}
 	c.idx = channel.Channel{
-		Name:     nameBase + "time",
+		Name:     namePrefix + "time",
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	metricChannels := make([]channel.Channel, len(allMetrics))
+	var metricsChannels []channel.Channel
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		chWriter := cfg.Channel.NewWriter(tx)
-		otgWriter := cfg.Ontology.NewWriter(tx)
 		if err := chWriter.Create(
 			ctx,
 			&c.idx,
@@ -166,11 +164,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		); err != nil {
 			return err
 		}
-		for i, metric := range allMetrics {
-			metric.ch.Name = nameBase + metric.ch.Name
-			metric.ch.LocalIndex = c.idx.LocalKey
-			metricChannels[i] = metric.ch
-		}
+		otgWriter := cfg.Ontology.NewWriter(tx)
 		if err := otgWriter.DefineRelationship(
 			ctx,
 			metricsGroup.OntologyID(),
@@ -179,25 +173,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		); err != nil {
 			return err
 		}
+		metrics := s.createMetrics(namePrefix, c.idx.LocalKey)
+		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
+			return m.ch
+		})
 		if err := chWriter.CreateMany(
 			ctx,
-			&metricChannels,
+			&metricsChannels,
 			channel.RetrieveIfNameExists(),
 			channel.CreateWithoutGroupRelationship(),
 		); err != nil {
 			return err
 		}
-		if err := otgWriter.DefineFromOneToManyRelationships(
-			ctx,
-			metricsGroup.OntologyID(),
-			ontology.RelationshipTypeParentOf,
-			channel.OntologyIDsFromChannels(metricChannels),
-		); err != nil {
-			return err
-		}
 		// delete any existing relationships between the parent Channels group and the
 		// metrics channels
-		for _, ch := range metricChannels {
+		for _, ch := range metricsChannels {
 			if err := otgWriter.DeleteRelationship(
 				ctx,
 				cfg.Channel.Group().OntologyID(),
@@ -207,18 +197,52 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 				return err
 			}
 		}
+		for i, ch := range metricsChannels {
+			metrics[i].ch = ch
+		}
+		c.metrics = metrics
+		if err := otgWriter.DefineFromOneToManyRelationships(
+			ctx,
+			metricsGroup.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			channel.OntologyIDsFromChannels(metricsChannels),
+		); err != nil {
+			return err
+		}
+
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	for i, ch := range metricChannels {
-		c.metrics[i] = metric{ch: ch, collect: allMetrics[i].collect}
+	// Do this in a separate transaction otherwise the Arc analyzer won't parse the
+	// calculated channel expressions.
+	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		calculatedChannels := createCalculatedMetrics(namePrefix)
+		if err := cfg.Channel.NewWriter(tx).CreateMany(
+			ctx,
+			&calculatedChannels,
+			channel.RetrieveIfNameExists(),
+			channel.CreateWithoutGroupRelationship(),
+		); err != nil {
+			return err
+		}
+		if err := cfg.Ontology.NewWriter(tx).DefineFromOneToManyRelationships(
+			ctx,
+			metricsGroup.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			channel.OntologyIDsFromChannels(calculatedChannels),
+		); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, err
 	}
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,
 		framer.WriterConfig{
 			Keys: append(
-				channel.KeysFromChannels(metricChannels),
+				channel.KeysFromChannels(metricsChannels),
 				c.idx.Key(),
 			),
 			Start:                    telem.Now(),
