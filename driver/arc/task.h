@@ -48,8 +48,7 @@ struct TaskConfig : common::BaseTaskConfig {
     const TaskConfig &operator=(const TaskConfig &) = delete;
 
     explicit TaskConfig(xjson::Parser &parser):
-        common::BaseTaskConfig(parser),
-        arc_key(parser.field<std::string>("arc_key")) {
+        common::BaseTaskConfig(parser), arc_key(parser.field<std::string>("arc_key")) {
         const auto mode_str = parser.field<std::string>(
             "execution_mode",
             "EVENT_DRIVEN"
