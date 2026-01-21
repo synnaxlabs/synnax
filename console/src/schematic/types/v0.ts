@@ -21,7 +21,7 @@ import { z } from "zod";
 
 export const VERSION = "0.0.0";
 
-export const labelExtensionPropsZ = z.looseObject({
+export const labelZ = z.looseObject({
   label: z.string().optional(),
   level: Text.levelZ.optional(),
   orientation: location.location.optional(),
@@ -33,7 +33,7 @@ export const labelExtensionPropsZ = z.looseObject({
 export const nodePropsZ = z.looseObject({
   key: Schematic.Symbol.variantZ,
   color: color.crudeZ.optional(),
-  label: labelExtensionPropsZ.optional(),
+  label: labelZ.optional(),
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 

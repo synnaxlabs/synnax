@@ -30,7 +30,6 @@ import { useDispatch, useStore } from "react-redux";
 import { Layout } from "@/layout";
 import {
   type ElementInfo,
-  type NodeElementInfo,
   selectViewport,
   useSelectRequiredEdge,
   useSelectRequiredNodeProps,
