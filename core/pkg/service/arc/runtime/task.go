@@ -28,9 +28,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -41,33 +41,34 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
-// Task implements the godriver.Task interface and manages Arc program execution.
-type Task struct {
-	factoryCfg FactoryConfig
-	ctx        godriver.Context
+// taskImpl implements the driver.Task interface and manages Arc program execution.
+type taskImpl struct {
+	ctx        driver.Context
 	closer     io.Closer
 	scheduler  *scheduler.Scheduler
 	streamer   *streamerSeg
 	writer     *writerSeg
 	state      *state.State
+	factoryCfg FactoryConfig
+	task       task.Task
+	cfg        TaskConfig
 	prog       arc.Arc
 	startTime  telem.TimeStamp
-	key        task.Key
-	cfg        TaskConfig
 	running    bool
 }
 
 func newTask(
-	key task.Key,
+	tsk task.Task,
 	prog arc.Arc,
 	cfg TaskConfig,
-	ctx godriver.Context,
+	ctx driver.Context,
 	factoryCfg FactoryConfig,
-) *Task {
-	return &Task{
-		key:        key,
+) *taskImpl {
+	return &taskImpl{
+		task:       tsk,
 		prog:       prog,
 		cfg:        cfg,
 		ctx:        ctx,
@@ -75,18 +76,18 @@ func newTask(
 	}
 }
 
-func (t *Task) Exec(ctx context.Context, cmd task.Command) error {
+func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		return t.start(ctx)
 	case "stop":
 		return t.stop()
 	default:
-		return nil
+		return errors.Newf("invalid command %s received for arc task", cmd)
 	}
 }
 
-func (t *Task) start(ctx context.Context) error {
+func (t *taskImpl) start(ctx context.Context) error {
 	if t.running {
 		return nil
 	}
@@ -139,12 +140,11 @@ func (t *Task) start(ctx context.Context) error {
 	}
 
 	t.scheduler = scheduler.New(mod.IR, nodes)
-	t.streamer = &streamerSeg{}
-	t.writer = &writerSeg{}
 	t.startTime = telem.Now()
 
 	var streamPipeline confluence.Flow
 	if len(stateCfg.Reads) > 0 {
+		t.streamer = &streamerSeg{}
 		streamPipeline, t.streamer.requests, err = createStreamPipeline(
 			ctx, t, t.factoryCfg.Framer, stateCfg.Reads.Keys(),
 		)
@@ -156,6 +156,7 @@ func (t *Task) start(ctx context.Context) error {
 
 	var writePipeline confluence.Flow
 	if len(stateCfg.Writes) > 0 {
+		t.writer = &writerSeg{}
 		writePipeline, err = createWritePipeline(
 			ctx, t.prog.Name, t, t.factoryCfg.Framer, stateCfg.Writes.Keys(),
 		)
@@ -184,22 +185,22 @@ func (t *Task) start(ctx context.Context) error {
 		t.closer = append(closers, signal.NewGracefulShutdown(sCtx, cancel))
 	}
 	t.running = true
-	t.setStatus(status.VariantSuccess, true, "Arc started")
+	t.setStatus(status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
 
 // processFrame is the core reactive loop: ingests telemetry, schedules nodes, flushes writes.
-func (t *Task) processFrame(ctx context.Context, res framer.StreamerResponse) error {
+func (t *taskImpl) processFrame(ctx context.Context, res framer.StreamerResponse) error {
 	t.state.Ingest(res.Frame.ToStorage())
 	t.scheduler.Next(ctx, telem.Since(t.startTime))
 	fr, changed := t.state.FlushWrites(telem.Frame[uint32]{})
-	if !changed {
+	if !changed || t.writer == nil {
 		return nil
 	}
 	return t.writer.Write(ctx, frame.NewFromStorage(fr))
 }
 
-func (t *Task) stop() error {
+func (t *taskImpl) stop() error {
 	if !t.running {
 		return nil
 	}
@@ -223,27 +224,35 @@ func (t *Task) stop() error {
 		t.setStatus(status.VariantError, false, err.Error())
 		return err
 	}
-	t.setStatus(status.VariantSuccess, false, "Arc stopped")
+	t.setStatus(status.VariantSuccess, false, "Task stopped successfully")
 	return nil
 }
 
-func (t *Task) Stop(context.Context, bool) error {
+func (t *taskImpl) Stop(bool) error {
 	return t.stop()
 }
 
-func (t *Task) Key() task.Key { return t.key }
+func (t *taskImpl) Key() task.Key { return t.task.Key }
 
-func (t *Task) setStatus(variant status.Variant, running bool, message string) {
+func (t *taskImpl) setStatus(variant status.Variant, running bool, message string) {
 	stat := task.Status{
-		Key:     task.OntologyID(t.key).String(),
+		Key:     task.OntologyID(t.task.Key).String(),
 		Variant: variant,
 		Message: message,
+		Time:    telem.Now(),
 		Details: task.StatusDetails{
-			Task:    t.key,
+			Task:    t.task.Key,
 			Running: running,
 		},
 	}
-	_ = t.ctx.SetStatus(stat)
+	if err := t.ctx.SetStatus(stat); err != nil {
+		t.factoryCfg.L.Error(
+			"failed to set status for taskImpl",
+			zap.Uint64("key", uint64(t.task.Key)),
+			zap.String("name", t.task.Name),
+			zap.Error(err),
+		)
+	}
 }
 
 type streamerSeg struct {
@@ -314,7 +323,7 @@ var (
 
 func createStreamPipeline(
 	ctx context.Context,
-	t *Task,
+	t *taskImpl,
 	frameSvc *framer.Service,
 	readChannelKeys []channel.Key,
 ) (confluence.Flow, confluence.Inlet[framer.StreamerRequest], error) {
@@ -339,7 +348,7 @@ func createStreamPipeline(
 func createWritePipeline(
 	ctx context.Context,
 	name string,
-	t *Task,
+	t *taskImpl,
 	frameSvc *framer.Service,
 	writeChannelKeys []channel.Key,
 ) (confluence.Flow, error) {

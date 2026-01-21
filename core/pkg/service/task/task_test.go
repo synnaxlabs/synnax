@@ -12,6 +12,7 @@ package task_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
@@ -91,6 +92,11 @@ var _ = Describe("Task", Ordered, func() {
 			k := task.NewKey(rk, 2)
 			Expect(k.Rack()).To(Equal(rk))
 			Expect(k.LocalKey()).To(Equal(uint32(2)))
+		})
+	})
+	Describe("CommandChannelKey", func() {
+		It("Should return zero when no channel service is configured", func() {
+			Expect(svc.CommandChannelKey()).To(Equal(channel.Key(0)))
 		})
 	})
 	Describe("Key msgpack decoding", func() {

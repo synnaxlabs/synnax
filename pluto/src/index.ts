@@ -23,6 +23,7 @@ export { Device } from "@/device";
 export { Dialog } from "@/dialog";
 export { Direction } from "@/direction";
 export { Divider } from "@/divider";
+export { Errors } from "@/errors";
 export { Flex } from "@/flex";
 export { Flux } from "@/flux";
 export { Form } from "@/form";

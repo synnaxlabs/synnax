@@ -49,7 +49,7 @@ type ServiceConfig struct {
 	Channel *channel.Service
 	// Task is used for deleting tasks associated with arcs when arcs are deleted.
 	//
-	// [OPTIONAL] - If nil, child tasks will not be deleted when arcs are deleted.
+	// [REQUIRED]
 	Task *task.Service
 	// Signals is used for propagating changes to arcs through the cluster.
 	//
@@ -83,6 +83,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "task", c.Task)
 	return v.Error()
 }
 

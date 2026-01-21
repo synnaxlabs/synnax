@@ -28,7 +28,7 @@ export const Editor: Layout.Renderer = ({ layoutKey }) => {
   );
   return (
     <Flex.Box style={{ padding: 0, height: "100%", minHeight: 0 }} y empty>
-      <BaseEditor value={state.text.raw} onChange={onChange} language="arc" />;
+      <BaseEditor value={state.text.raw} onChange={onChange} language="arc" />
       <Controls state={state} />
     </Flex.Box>
   );
