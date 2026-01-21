@@ -24,10 +24,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -68,8 +68,8 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(dist.Close()).To(Succeed())
 	})
 
-	newContext := func() godriver.Context {
-		return godriver.NewContext(ctx, statusSvc)
+	newContext := func() driver.Context {
+		return driver.NewContext(ctx, statusSvc)
 	}
 
 	newFactory := func(g graph.Graph) *runtime.Factory {
@@ -79,17 +79,20 @@ var _ = Describe("Task", Ordered, func() {
 			Status:  statusSvc,
 			GetModule: func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
 				resolver := symbol.CreateResolver(dist.Channel)
-				module := MustSucceed(arc.CompileGraph(ctx, g, arc.WithResolver(resolver)))
+				module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
+				if err != nil {
+					return svcarc.Arc{}, err
+				}
 				return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: module}, nil
 			},
 		}))
 	}
 
-	newTask := func(factory *runtime.Factory) godriver.Task {
+	newTask := func(factory *runtime.Factory) driver.Task {
 		cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
-			Name:   "test-task",
+			Name:   "test-taskImpl",
 			Type:   runtime.TaskType,
 			Config: string(cfgJSON),
 		}
@@ -104,7 +107,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	Describe("Factory.ConfigureTask", func() {
-		It("Should return false for non-arc task types", func() {
+		It("Should return false for non-arc taskImpl types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
@@ -166,10 +169,118 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(handled).To(BeTrue())
 			Expect(t).To(BeNil())
 		})
+
+		It("Should set error status when config JSON is invalid", func() {
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+				Channel:   dist.Channel,
+				Framer:    dist.Framer,
+				Status:    statusSvc,
+				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+			}))
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 2),
+				Name:   "test-invalid-config",
+				Type:   runtime.TaskType,
+				Config: "invalid json",
+			}
+			_, _, err := factory.ConfigureTask(newContext(), svcTask)
+			Expect(err).To(HaveOccurred())
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("error"))
+			Expect(stat.Message).To(ContainSubstring("invalid character"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		It("Should set error status when GetModule fails", func() {
+			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+				Channel: dist.Channel,
+				Framer:  dist.Framer,
+				Status:  statusSvc,
+				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
+					return svcarc.Arc{}, errors.New("module not found")
+				},
+			}))
+			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 3),
+				Name:   "test-module-not-found",
+				Type:   runtime.TaskType,
+				Config: string(cfgJSON),
+			}
+			_, _, err := factory.ConfigureTask(newContext(), svcTask)
+			Expect(err).To(HaveOccurred())
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("error"))
+			Expect(stat.Message).To(ContainSubstring("module not found"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		It("Should set success status when task is configured", func() {
+			ch := &channel.Channel{
+				Name:     "config_status_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 4),
+				Name:   "test-config-success",
+				Type:   runtime.TaskType,
+				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))),
+			}
+			t, handled, err := newFactory(simpleGraph(ch.Key())).ConfigureTask(newContext(), svcTask)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handled).To(BeTrue())
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("success"))
+			Expect(stat.Message).To(Equal("Task configured successfully"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		It("Should auto-start task and set running status when auto_start is true", func() {
+			ch := &channel.Channel{
+				Name:     "auto_start_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			svcTask := task.Task{
+				Key:  task.NewKey(rack.NewKey(1, 1), 5),
+				Name: "test-auto-start",
+				Type: runtime.TaskType,
+				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{
+					ArcKey:    uuid.New(),
+					AutoStart: true,
+				}))),
+			}
+			t, handled, err := newFactory(simpleGraph(ch.Key())).ConfigureTask(newContext(), svcTask)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(handled).To(BeTrue())
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				WhereKeys(task.OntologyID(svcTask.Key).String()).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("success"))
+			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Details.Running).To(BeTrue())
+		})
 	})
 
 	Describe("Task Lifecycle", func() {
-		var arcTask godriver.Task
+		var arcTask driver.Task
 
 		BeforeEach(func() {
 			ch := &channel.Channel{
@@ -183,11 +294,11 @@ var _ = Describe("Task", Ordered, func() {
 
 		AfterEach(func() {
 			if arcTask != nil {
-				Expect(arcTask.Stop(ctx, false)).To(Succeed())
+				Expect(arcTask.Stop(false)).To(Succeed())
 			}
 		})
 
-		It("Should start task with start command", func() {
+		It("Should start taskImpl with start command", func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		})
 
@@ -196,14 +307,14 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		})
 
-		It("Should stop task with stop command", func() {
+		It("Should stop taskImpl with stop command", func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			Expect(arcTask.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
 		})
 
 		It("Should be idempotent on stop", func() {
-			Expect(arcTask.Stop(ctx, false)).To(Succeed())
-			Expect(arcTask.Stop(ctx, false)).To(Succeed())
+			Expect(arcTask.Stop(false)).To(Succeed())
+			Expect(arcTask.Stop(false)).To(Succeed())
 		})
 
 		It("Should support restart after stop", func() {
@@ -212,8 +323,77 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		})
 
-		It("Should handle unknown command types gracefully", func() {
-			Expect(arcTask.Exec(ctx, task.Command{Type: "unknown"})).To(Succeed())
+		It("Should return error for unknown command type", func() {
+			Expect(arcTask.Exec(ctx, task.Command{Type: "unknown"})).
+				Error().To(MatchError(ContainSubstring("invalid command")))
+		})
+
+		It("Should return correct task key", func() {
+			Expect(arcTask.Key()).ToNot(Equal(task.Key(0)))
+		})
+	})
+
+	Describe("Pipeline Creation", func() {
+		It("Should create stream pipeline for read channels", func() {
+			ch := &channel.Channel{
+				Name:     "stream_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			t := newTask(newFactory(simpleGraph(ch.Key())))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			Expect(t.Stop(false)).To(Succeed())
+		})
+
+		It("Should create write pipeline for write channels", func() {
+			indexCh := &channel.Channel{
+				Name:     "write_idx_" + uuid.NewString()[:8],
+				IsIndex:  true,
+				DataType: telem.TimeStampT,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "write_data_" + uuid.NewString()[:8],
+				LocalIndex: indexCh.LocalKey,
+				DataType:   telem.Float32T,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
+
+			// Graph with "write" node that writes to a channel
+			writeGraph := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "const", Type: "constant", Config: map[string]any{"value": 42.0}},
+					{Key: "sink", Type: "write", Config: map[string]any{"channel": dataCh.Key()}},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: graph.Handle{Node: "const", Param: ir.DefaultOutputParam},
+						Target: graph.Handle{Node: "sink", Param: ir.DefaultInputParam},
+					},
+				},
+			}
+			t := newTask(newFactory(writeGraph))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			Expect(t.Stop(false)).To(Succeed())
+		})
+	})
+
+	Describe("ConfigureTask Error Paths", func() {
+		It("Should return error when graph has unknown node type", func() {
+			badNodeGraph := graph.Graph{
+				Nodes: []graph.Node{{Key: "bad", Type: "nonexistent_type", Config: map[string]any{}}},
+			}
+			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 1),
+				Name:   "test-bad-node",
+				Type:   runtime.TaskType,
+				Config: string(cfgJSON),
+			}
+			_, ok, err := newFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)
+			Expect(ok).To(BeTrue())
+			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
 		})
 	})
 
@@ -266,7 +446,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			t := newTask(newFactory(alarmGraph))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			defer func() { Expect(t.Stop(ctx, false)).To(Succeed()) }()
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
 
