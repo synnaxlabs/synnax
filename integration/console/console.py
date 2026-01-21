@@ -148,6 +148,76 @@ class Console:
             target_result.click(timeout=5000)
             return  # Success - exit the retry loop
 
+    def search_palette(self, query: str, retries: int = 3) -> None:
+        """Search for a resource via the command palette (without > prefix)."""
+        for attempt in range(retries):
+            palette_btn = self.page.locator(".console-palette button").first
+            palette_btn.wait_for(state="visible", timeout=5000)
+            palette_btn.click(timeout=5000)
+
+            palette_input = self.page.locator(
+                ".console-palette__input input[role='textbox']"
+            )
+            palette_input.wait_for(state="visible", timeout=5000)
+            palette_input.press("ControlOrMeta+a")
+            palette_input.type(query, timeout=5000)
+
+            try:
+                self.page.locator(
+                    ".console-palette__list .pluto-list__item"
+                ).first.wait_for(state="attached", timeout=10000)
+            except Exception:
+                no_results = self.page.get_by_text("No results found").is_visible()
+                if no_results and attempt < retries - 1:
+                    self.page.keyboard.press("Escape")
+                    sy.sleep(2)
+                    continue
+
+                input_value = palette_input.input_value()
+                palette_open = self.page.locator(
+                    ".console-palette__content"
+                ).is_visible()
+                list_container = self.page.locator(".console-palette__list")
+                list_visible = list_container.is_visible()
+                list_html = ""
+                try:
+                    list_html = list_container.inner_html(timeout=1000)[:1000]
+                except Exception:
+                    list_html = "<failed to get>"
+                raise RuntimeError(
+                    f"Search palette list items not appearing. "
+                    f"Input: '{input_value}'. "
+                    f"Palette open: {palette_open}. "
+                    f"List visible: {list_visible}. "
+                    f"List HTML: {list_html}"
+                )
+
+            target_result = (
+                self.page.locator(".console-palette__list .pluto-list__item")
+                .filter(has_text=query)
+                .first
+            )
+            try:
+                target_result.wait_for(state="visible", timeout=5000)
+            except Exception:
+                input_value = palette_input.input_value()
+                list_items = self.page.locator(
+                    ".console-palette__list .pluto-list__virtualizer > div"
+                ).all()
+                options = []
+                for item in list_items:
+                    try:
+                        options.append(item.inner_text(timeout=1000))
+                    except Exception:
+                        options.append("<failed to get text>")
+                raise RuntimeError(
+                    f"Search palette: Could not find '{query}'. "
+                    f"Input value: '{input_value}'. "
+                    f"Available options: {options}"
+                )
+            target_result.click(timeout=5000)
+            return
+
     @property
     def ESCAPE(self) -> None:
         self.page.keyboard.press("Escape")

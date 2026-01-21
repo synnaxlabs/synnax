@@ -89,9 +89,9 @@ I can successfully:
     - [x] Copy a link to a channel. (channel_operations.py)
     - [x] Hard reload the console. (channel_operations.py)
 - **Search and Command Palette**
-  - [ ] Open a channel plot by its name.
-  - [ ] Open the "Create Channel" modal.
-  - [ ] Open the "Create Calculated Channel" modal.
+  - [x] Open a channel plot by its name. (channel_operations.py)
+  - [x] Open the "Create Channel" modal. (channel_operations.py)
+  - [x] Open the "Create Calculated Channel" modal. (channel_operations.py)
 - **Calculated Channels**
   - [ ] Plot a basic calculated channel.
   - [ ] Plot a nested calculated channel.

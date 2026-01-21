@@ -16,7 +16,7 @@ from console.case import ConsoleCase
 
 
 class ChannelOperations(ConsoleCase):
-    """Test channel operations beyond basic CRUD."""
+    """Test channel lifecycle operations."""
 
     def run(self) -> None:
         """Run all channel operation tests."""
@@ -27,7 +27,7 @@ class ChannelOperations(ConsoleCase):
         # Resources Toolbar
         self.test_open_channel_plot()
 
-        ## Context Menu (in rc.md order)
+        ## Context Menu
         self.test_rename_channel()
         self.test_group_channels()
         self.test_edit_calculated_channel()
@@ -36,6 +36,23 @@ class ChannelOperations(ConsoleCase):
         self.test_delete_channel()
         self.test_copy_link()
         self.test_hard_reload_console()
+
+        # Search and Command Palette
+        self.test_open_channel_plot_by_name()
+        self.test_open_create_channel_modal()
+        self.test_open_create_calculated_channel_modal()
+
+        # Calculated Channels
+        # test_plot_a_basic_calculated_channel()
+        # plot_a_nested_calculated_channel()
+        # test_intentionally_create_a_channel_with_an_erroneous_expression()
+        # test_run_and_plot_channels_from_python_calc_channel_stress_py() # with --rate at 10, 100, 1000 Hz
+
+        # Miscellaneous
+        # test_open_a_channel_plot_from_a_link()
+        # test_rename_a_channel_and_ensure_synchronization_across_ui_elements()
+        # test_set_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
+        # test_remove_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
 
     def test_create_multiple_channels(self) -> None:
         """Test creating multiple channels using the 'Create More' checkbox."""
@@ -444,3 +461,39 @@ class ChannelOperations(ConsoleCase):
 
         # Wait for the channels button to be visible, indicating the console has reloaded
         console.channels.channels_button.wait_for(state="visible", timeout=10000)
+
+    def test_open_channel_plot_by_name(self) -> None:
+        """Test opening a channel plot by searching its name in the command palette."""
+        self.log("Testing open channel plot by name via command palette")
+
+        console = self.console
+        prefix = str(uuid.uuid4())[:6]
+        index_name = f"search_idx_{prefix}"
+        data_name = f"search_data_{prefix}"
+
+        console.channels.create(name=index_name, is_index=True)
+        console.channels.create(
+            name=data_name,
+            data_type=sy.DataType.FLOAT32,
+            index=index_name,
+        )
+
+        console.channels.open_plot_by_search(data_name)
+
+        console.channels.delete([data_name, index_name])
+
+    def test_open_create_channel_modal(self) -> None:
+        """Test opening the Create Channel modal via command palette."""
+        self.log("Testing open Create Channel modal via command palette")
+
+        console = self.console
+        console.channels.open_create_modal()
+        console.channels.close_modal()
+
+    def test_open_create_calculated_channel_modal(self) -> None:
+        """Test opening the Create Calculated Channel modal via command palette."""
+        self.log("Testing open Create Calculated Channel modal via command palette")
+
+        console = self.console
+        console.channels.open_create_calculated_modal()
+        console.channels.close_modal()

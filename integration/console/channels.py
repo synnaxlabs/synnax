@@ -114,9 +114,8 @@ class ChannelClient:
         exists, _ = self.existing_channel(name)
         if exists:
             return False
-        # Open command palette and create channel
-        self.console.command_palette("Create a Channel")
-        # Fill channel name
+
+        self.open_create_modal()
         self.console.fill_input_field("Name", name)
         # Set virtual if needed
         if virtual:
@@ -251,19 +250,16 @@ class ChannelClient:
         if exists:
             return False
 
-        self.console.command_palette("Create a Calculated Channel")
+        self.open_create_calculated_modal()
 
         name_input = self.page.locator("input[placeholder='Name']")
-        name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
 
         editor = self.page.locator(".monaco-editor")
-        editor.wait_for(state="visible", timeout=5000)
         editor.click()
         self.page.locator(".monaco-editor.focused").wait_for(
             state="visible", timeout=2000
         )
-        self.page.wait_for_timeout(50)
         self.page.keyboard.type(expression)
 
         save_btn = self.page.locator("button").filter(has_text="Save").first
@@ -579,3 +575,60 @@ class ChannelClient:
                 channels.append(channel_name)
 
         return channels
+
+    def open_plot_by_search(self, name: ChannelName) -> None:
+        """Open a channel plot by searching its name in the command palette.
+
+        :param name: The name of the channel to search for and open.
+        """
+        self.console.search_palette(name)
+
+        line_plot = self.page.locator(".pluto-line-plot")
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+    def close_modal(self) -> None:
+        """Close any open modal by clicking the close button."""
+        close_button = self.page.locator(
+            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
+        ).first
+        close_button.click(timeout=2000)
+
+        modal = self.page.locator(
+            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+        )
+        modal.wait_for(state="hidden", timeout=2000)
+
+    def open_create_modal(self) -> None:
+        """Open the Create Channel modal via command palette.
+
+        The modal will be visible after this method returns.
+        Use close_modal() to close it.
+        """
+        self.console.command_palette("Create a Channel")
+
+        modal = self.page.locator(
+            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+        )
+        modal.wait_for(state="visible", timeout=5000)
+
+        name_input = self.page.locator("input[placeholder='Name']")
+        name_input.wait_for(state="visible", timeout=2000)
+
+    def open_create_calculated_modal(self) -> None:
+        """Open the Create Calculated Channel modal via command palette.
+
+        The modal will be visible after this method returns.
+        Use close_modal() to close it.
+        """
+        self.console.command_palette("Create a Calculated Channel")
+
+        modal = self.page.locator(
+            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+        )
+        modal.wait_for(state="visible", timeout=5000)
+
+        name_input = self.page.locator("input[placeholder='Name']")
+        name_input.wait_for(state="visible", timeout=2000)
+
+        editor = self.page.locator(".monaco-editor")
+        editor.wait_for(state="visible", timeout=2000)
