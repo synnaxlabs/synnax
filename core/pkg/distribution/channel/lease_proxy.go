@@ -202,14 +202,14 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	oChannels = append(oChannels, batch.Gateway...)
 	*_channels = oChannels
-	return lp.maybeSetResources(ctx, tx, oChannels)
+	return lp.maybeSetResources(ctx, tx, oChannels, opts)
 }
 
 func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
-	opt CreateOptions,
+	opts CreateOptions,
 ) error {
 	if lp.freeCounter == nil {
 		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
@@ -232,7 +232,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 					// If RetrieveIfNameExists is true and user has provided channels to update, we need
 					// to reset those channels to the actual values to ensure the user does not mistakenly
 					// think the update was successful.
-					if opt.RetrieveIfNameExists {
+					if opts.RetrieveIfNameExists {
 						(*channels)[idx] = c
 						return c, nil
 					}
@@ -250,7 +250,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
-	if opt.OverwriteIfNameExistsAndDifferentProperties {
+	if opts.OverwriteIfNameExistsAndDifferentProperties {
 		if err := lp.deleteOverwritten(ctx, tx, channels); err != nil {
 			return err
 		}
@@ -281,7 +281,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		tx,
 		channels,
 		lp.freeCounter,
-		opt.RetrieveIfNameExists,
+		opts.RetrieveIfNameExists,
 	)
 	if err != nil {
 		return err
@@ -347,7 +347,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
-	return lp.maybeSetResources(ctx, tx, toCreate)
+	return lp.maybeSetResources(ctx, tx, toCreate, opts)
 }
 
 func (lp *leaseProxy) validateChannelNames(
@@ -541,6 +541,7 @@ func (lp *leaseProxy) maybeSetResources(
 	ctx context.Context,
 	txn gorp.Tx,
 	channels []Channel,
+	opts CreateOptions,
 ) error {
 	if lp.cfg.Ontology == nil || lp.cfg.Group == nil {
 		return nil
@@ -551,6 +552,9 @@ func (lp *leaseProxy) maybeSetResources(
 	w := lp.cfg.Ontology.NewWriter(txn)
 	if err := w.DefineManyResources(ctx, externalIDs); err != nil {
 		return err
+	}
+	if opts.CreateWithoutGroupRelationship {
+		return nil
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,

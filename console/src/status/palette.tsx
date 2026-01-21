@@ -10,26 +10,27 @@
 import { status } from "@synnaxlabs/client";
 import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { CREATE_LAYOUT } from "@/status/Create";
 import { EXPLORER_LAYOUT } from "@/status/Explorer";
 
-export const CREATE_COMMAND: Palette.Command = {
+const useUpdateVisible = () => Access.useUpdateGranted(status.TYPE_ONTOLOGY_ID);
+const useViewVisible = () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID);
+
+export const CreateCommand = Palette.createSimpleCommand({
   key: "create_status",
   name: "Create a Status",
   icon: <Status.CreateIcon />,
-  onSelect: ({ placeLayout }) => placeLayout(CREATE_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.updateGranted({ id: status.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: CREATE_LAYOUT,
+  useVisible: useUpdateVisible,
+});
 
-export const OPEN_EXPLORER_COMMAND: Palette.Command = {
+export const OpenExplorerCommand = Palette.createSimpleCommand({
   key: "open_status_explorer",
   name: "Open Status Explorer",
   icon: <Icon.Explore />,
-  onSelect: ({ placeLayout }) => placeLayout(EXPLORER_LAYOUT),
-  visible: ({ store, client }) =>
-    Access.viewGranted({ id: status.TYPE_ONTOLOGY_ID, store, client }),
-};
+  layout: EXPLORER_LAYOUT,
+  useVisible: useViewVisible,
+});
 
-export const COMMANDS = [CREATE_COMMAND, OPEN_EXPLORER_COMMAND];
+export const COMMANDS = [CreateCommand, OpenExplorerCommand];

@@ -8,26 +8,36 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 import { AiFillApi } from "react-icons/ai";
 
 import { Cluster } from "@/cluster";
 import { logout } from "@/cluster/services/logout";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 import { Runtime } from "@/runtime";
 
-const CONNECT_COMMAND: Palette.Command = {
+const useConnectVisible = () => Runtime.ENGINE === "tauri";
+
+export const ConnectCommand = Palette.createSimpleCommand({
   key: "connect-cluster",
   name: "Add a Core",
   icon: <AiFillApi />,
-  onSelect: ({ placeLayout }) => placeLayout(Cluster.CONNECT_LAYOUT),
-  visible: () => Runtime.ENGINE === "tauri",
-};
+  layout: Cluster.CONNECT_LAYOUT,
+  useVisible: useConnectVisible,
+});
 
-const LOGOUT_COMMAND: Palette.Command = {
-  key: "logout",
-  name: "Log Out",
-  icon: <Icon.Logout />,
-  onSelect: ({ store }) => logout(store.dispatch),
+export const LogoutCommand: Palette.Command = ({ store, ...listProps }) => {
+  const handleSelect = useCallback(() => logout(store.dispatch), [store]);
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Log Out"
+      icon={<Icon.Logout />}
+      onSelect={handleSelect}
+    />
+  );
 };
+LogoutCommand.key = "logout";
+LogoutCommand.commandName = "Log Out";
 
-export const COMMANDS = [CONNECT_COMMAND, LOGOUT_COMMAND];
+export const COMMANDS = [ConnectCommand, LogoutCommand];

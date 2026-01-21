@@ -11,7 +11,10 @@ from typing import Any, Literal
 
 import synnax as sy
 
+from framework.utils import get_results_path
+
 from .console import Console
+from .context_menu import ContextMenu
 from .page import ConsolePage
 
 Axis = Literal["Y1", "Y2", "X1"]
@@ -48,9 +51,12 @@ class Plot(ConsolePage):
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
 
-        selector = self.page.get_by_text(f"{axis} Select channels")
+        self.page.locator("#data").click(timeout=5000)
+        self.page.wait_for_timeout(300)
 
-        selector.click(timeout=5000)
+        axis_label = self.page.locator("label").filter(has_text=axis)
+        trigger = axis_label.locator("..").locator(".pluto-dialog__trigger")
+        trigger.click(timeout=5000)
 
         search_input = self.page.locator("input[placeholder*='Search']")
         for channel in channels:
@@ -61,7 +67,12 @@ class Plot(ConsolePage):
         self.console.ESCAPE
 
     def add_ranges(
-        self, ranges: list[Literal["30s", "1m", "5m", "15m", "30m"]]
+        self,
+        ranges: list[
+            Literal[
+                "Rolling 30s", "Rolling 1m", "Rolling 5m", "Rolling 15m", "Rolling 30m"
+            ]
+        ],
     ) -> None:
         """Add time ranges to the plot."""
         ranges_label = self.page.locator("label").filter(has_text="Ranges")
@@ -76,18 +87,35 @@ class Plot(ConsolePage):
         self.console.ESCAPE
 
     def download_csv(self) -> str:
-        """Download the plot as a CSV file."""
-        self.console.close_all_notifications()
+        """Download the plot data as a CSV file.
+
+        The file is saved to the tests/results directory with the plot name.
+
+        Returns:
+            The CSV file contents as a string.
+        """
+        self.console.notifications.close_all()
         csv_button = self.page.locator(".pluto-icon--csv").locator("..")
+        csv_button.click()
+
+        self.page.get_by_text("Download data for").wait_for(
+            state="visible", timeout=5000
+        )
+        download_button = self.page.get_by_role("button", name="Download").last
+        self.page.evaluate("delete window.showSaveFilePicker")
+
         with self.page.expect_download() as download_info:
-            csv_button.click()
+            download_button.click()
+
         download = download_info.value
-        with open(download.path(), "r") as file:
-            return file.read()
+        save_path = get_results_path(f"{self.page_name}.csv")
+        download.save_as(save_path)
+        with open(save_path, "r") as f:
+            return f.read()
 
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.page.get_by_text("Axes").click(timeout=5000)
         self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
 
@@ -165,3 +193,193 @@ class Plot(ConsolePage):
 
         selector = f"label:has-text('Label Size') + div button:has-text('{size}')"
         self.page.locator(selector).click(timeout=5000)
+
+    def copy_link(self) -> str:
+        """Copy link to the plot via tab context menu.
+
+        Returns:
+            The copied link from clipboard (empty string if clipboard access fails)
+        """
+        tab = self._get_tab()
+        menu = ContextMenu(self.page)
+        menu.open_on(tab)
+        menu.click_option("Copy Link")
+        self.page.wait_for_timeout(200)
+
+        # Try to get the link from clipboard
+        try:
+            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
+            return link
+        except Exception:
+            # If clipboard access fails, return empty string
+            return ""
+
+    def set_title(self, title: str) -> None:
+        """Set the plot title via the Properties tab.
+
+        Note: Setting the title also updates the tab name.
+
+        Args:
+            title: The new title for the plot
+        """
+        self.console.notifications.close_all()
+        self.page.locator("#properties").click(timeout=5000)
+
+        title_input = (
+            self.page.locator("label:has-text('Title')")
+            .locator("..")
+            .locator("input[role='textbox']")
+        )
+        title_input.fill(title, timeout=5000)
+        self.console.ENTER
+        self.page_name = title
+
+    def set_line_thickness(self, thickness: int) -> None:
+        """Set the stroke width for the first line via the Lines tab.
+
+        Args:
+            thickness: Stroke width (1-10)
+        """
+        self.console.notifications.close_all()
+        self.page.locator("#lines").click(timeout=5000)
+
+        lines_container = self.page.locator(".console-line-plot__toolbar-lines")
+        if lines_container.count() == 0:
+            html = self.page.locator(".console-line-plot-toolbar").inner_html()
+            raise RuntimeError(
+                f"Lines container not found. Toolbar HTML: {html[:1000]}"
+            )
+
+        line_items = lines_container.locator(".pluto-list__item")
+        if line_items.count() == 0:
+            html = lines_container.inner_html()
+            raise RuntimeError(f"No line items. Lines container HTML: {html[:500]}")
+
+        stroke_input = line_items.first.locator("input").nth(1)
+        stroke_input.fill(str(thickness), timeout=5000)
+        self.console.ENTER
+
+    def set_line_label(self, label: str) -> None:
+        """Set the label for the first line via the Lines tab.
+
+        Args:
+            label: New label for the line
+        """
+        self.console.notifications.close_all()
+        self.page.locator("#lines").click(timeout=5000)
+
+        lines_container = self.page.locator(".console-line-plot__toolbar-lines")
+        lines_container.wait_for(state="visible", timeout=5000)
+
+        line_item = lines_container.locator(".pluto-list__item").first
+        line_item.wait_for(state="visible", timeout=5000)
+
+        label_input = line_item.locator("input").first
+        label_input.fill(label, timeout=5000)
+        self.console.ENTER
+
+    def get_line_thickness(self) -> int:
+        """Get the stroke width for the first line from the Lines tab.
+
+        Returns:
+            The current stroke width
+        """
+        self.console.notifications.close_all()
+        self.page.locator("#lines").click(timeout=5000)
+
+        lines_container = self.page.locator(".console-line-plot__toolbar-lines")
+        line_item = lines_container.locator(".pluto-list__item").first
+        stroke_input = line_item.locator("input").nth(1)
+        return int(stroke_input.input_value())
+
+    def get_line_label(self) -> str:
+        """Get the label for the first line from the Lines tab.
+
+        Returns:
+            The current line label
+        """
+        self.console.notifications.close_all()
+        self.page.locator("#lines").click(timeout=5000)
+
+        lines_container = self.page.locator(".console-line-plot__toolbar-lines")
+        line_item = lines_container.locator(".pluto-list__item").first
+        label_input = line_item.locator("input").first
+        return label_input.input_value()
+
+    def drag_channel_to_canvas(self, channel_name: str) -> None:
+        """Drag a channel from the sidebar onto the plot canvas.
+
+        Args:
+            channel_name: Name of the channel to drag
+        """
+        self.console.channels.show_channels()
+
+        channel_item = (
+            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
+        )
+        channel_item.wait_for(state="visible", timeout=5000)
+
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+
+        channel_item.drag_to(self.pane_locator)
+        self.console.channels.hide_channels()
+
+        self.data["Y1"].append(channel_name)
+
+    def drag_channel_to_toolbar(self, channel_name: str, axis: Axis = "Y1") -> None:
+        """Drag a channel from the sidebar onto the toolbar data section.
+
+        Args:
+            channel_name: Name of the channel to drag
+            axis: Target axis (Y1, Y2, or X1)
+        """
+        self.console.channels.show_channels()
+
+        channel_item = (
+            self.page.locator("div[id^='channel:']").filter(has_text=channel_name).first
+        )
+        channel_item.wait_for(state="visible", timeout=5000)
+
+        self.page.locator("#data").click(timeout=5000)
+
+        axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
+        axis_section.wait_for(state="visible", timeout=5000)
+
+        channel_item.drag_to(axis_section)
+        self.console.channels.hide_channels()
+
+        self.data[axis].append(channel_name)
+
+    def create_range_from_selection(self, range_name: str) -> None:
+        """Create a range by selecting a region on the plot and using the context menu.
+
+        Args:
+            range_name: Name for the new range
+        """
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+
+        box = self.pane_locator.bounding_box()
+        if not box:
+            raise RuntimeError("Could not get plot bounding box")
+
+        start_x = box["x"] + box["width"] * 0.25
+        end_x = box["x"] + box["width"] * 0.75
+        center_y = box["y"] + box["height"] / 2
+
+        # Alt+drag to create selection
+        self.page.keyboard.down("Alt")
+        self.page.mouse.move(start_x, center_y)
+        self.page.mouse.down()
+        self.page.mouse.move(end_x, center_y, steps=10)
+        self.page.mouse.up()
+        self.page.keyboard.up("Alt")
+        self.page.mouse.click((start_x + end_x) / 2, center_y, button="right")
+
+        self.page.get_by_text("Create range from selection").click(timeout=5000)
+        self.page.get_by_role("textbox", name="Name").wait_for(
+            state="visible", timeout=5000
+        )
+        self.page.get_by_role("textbox", name="Name").fill(range_name)
+        self.page.get_by_role("button", name="Save to Synnax").click()

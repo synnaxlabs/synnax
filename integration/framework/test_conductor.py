@@ -9,6 +9,7 @@
 
 import argparse
 import ctypes
+import fnmatch
 import glob
 import importlib.util
 import itertools
@@ -93,6 +94,46 @@ COLORS: list[str] = [
     "#180033",  # Dark Purple (270°)
     "#000033",  # Dark Blue (240°)
 ]
+
+
+def parse_target_path(target: str) -> tuple[str, str | None, str | None]:
+    """
+    Parse target path.
+
+    Format: test_file/sequence/case_filter
+
+    Examples:
+        console/general/...        -> ("console", "general", None)
+        console/access/user        -> ("console", "access", "user")
+        console/...                -> ("console", None, None)
+        driver/modbus/...          -> ("driver", "modbus", None)
+
+    Returns:
+        tuple[str, str | None, str | None]: (test_file, sequence_filter, case_filter)
+        - test_file: JSON file name without _tests.json suffix
+        - sequence_filter: None for all sequences, or specific sequence name
+        - case_filter: None for all cases, or substring to match in case path
+    """
+    path = target.lstrip("/")
+    if not path:
+        raise ValueError(f"Target path cannot be empty: {target}")
+
+    parts = path.split("/")
+    test_file = parts[0]
+
+    if not test_file:
+        raise ValueError(f"Test file name cannot be empty: {target}")
+
+    sequence_filter: str | None = None
+    case_filter: str | None = None
+
+    if len(parts) > 1 and parts[1] != "...":
+        sequence_filter = parts[1] if parts[1] else None
+
+    if len(parts) > 2 and parts[2] != "...":
+        case_filter = parts[2] if parts[2] else None
+
+    return test_file, sequence_filter, case_filter
 
 
 class TestConductor:
@@ -306,8 +347,19 @@ class TestConductor:
             if hasattr(handler, "flush"):
                 handler.flush()
 
-    def load_test_sequence(self, sequence: str | list[str] | None = None) -> None:
-        """Load test sequence from JSON configuration file(s) or auto-discover test.json files."""
+    def load_test_sequence(
+        self,
+        sequence: str | list[str] | None = None,
+        sequence_filter: str | None = None,
+        case_filter: str | None = None,
+    ) -> None:
+        """Load test sequence from JSON configuration file(s) or auto-discover test.json files.
+
+        Args:
+            sequence: Path to test sequence JSON file(s) or None for auto-discovery
+            sequence_filter: Optional filter to run only specific sequence by name
+            case_filter: Optional glob pattern to filter test cases
+        """
         self.state = STATE.LOADING
 
         # Determine which files to load
@@ -356,7 +408,7 @@ class TestConductor:
         if not all_sequences:
             raise FileNotFoundError("No valid sequences found")
 
-        self._process_sequences(all_sequences)
+        self._process_sequences(all_sequences, sequence_filter, case_filter)
 
     def _expand_parameters(self, test_def: TestDefinition) -> list[TestDefinition]:
         """
@@ -459,8 +511,19 @@ class TestConductor:
             # Return original definition as fallback
             return [test_def]
 
-    def _process_sequences(self, sequences_array: list[Any]) -> None:
-        """Process a list of sequences and populate test_definitions and sequences."""
+    def _process_sequences(
+        self,
+        sequences_array: list[Any],
+        sequence_filter: str | None = None,
+        case_filter: str | None = None,
+    ) -> None:
+        """Process a list of sequences and populate test_definitions and sequences.
+
+        Args:
+            sequences_array: List of sequence definitions from JSON
+            sequence_filter: Optional filter to run only specific sequence by name
+            case_filter: Optional glob pattern to filter test cases
+        """
         self.test_definitions = []
         self.sequences = []
 
@@ -470,6 +533,9 @@ class TestConductor:
             seq_order = seq_dict.get("sequence_order", "sequential").lower()
             seq_tests = seq_dict.get("tests", [])
             pool_size = seq_dict.get("pool_size", -1)
+
+            if sequence_filter and seq_name != sequence_filter:
+                continue
 
             # Create sequence object
             seq_obj = {
@@ -482,6 +548,11 @@ class TestConductor:
 
             # Load tests for this sequence
             for test in seq_tests:
+                if case_filter:
+                    case_path = test["case"]
+                    if case_filter not in case_path:
+                        continue
+
                 test_def = TestDefinition(
                     case=test["case"],
                     name=test.get("name", None),
@@ -499,20 +570,37 @@ class TestConductor:
                         self.test_definitions.append(expanded_test)
                         seq_obj["tests"].append(expanded_test)
 
-            seq_obj["end_idx"] = len(self.test_definitions)
-            self.sequences.append(seq_obj)
+            # Only add sequence if it has tests
+            if seq_obj["tests"]:
+                seq_obj["end_idx"] = len(self.test_definitions)
+                self.sequences.append(seq_obj)
 
-            # Improved logging to show expansion
-            num_expanded = len(seq_obj["tests"])
-            if num_expanded > len(seq_tests):
-                self.log_message(
-                    f"Loaded sequence '{seq_name}' with {len(seq_tests)} test definitions, "
-                    f"expanded to {num_expanded} tests ({seq_order})"
-                )
-            else:
-                self.log_message(
-                    f"Loaded sequence '{seq_name}' with {len(seq_tests)} tests ({seq_order})"
-                )
+                num_expanded = len(seq_obj["tests"])
+                original_count = len(seq_tests)
+                if case_filter:
+                    self.log_message(
+                        f"Loaded sequence '{seq_name}' with {num_expanded} tests "
+                        f"matching '{case_filter}' ({seq_order})"
+                    )
+                elif num_expanded > original_count:
+                    self.log_message(
+                        f"Loaded sequence '{seq_name}' with {original_count} test definitions, "
+                        f"expanded to {num_expanded} tests ({seq_order})"
+                    )
+                else:
+                    self.log_message(
+                        f"Loaded sequence '{seq_name}' with {original_count} tests ({seq_order})"
+                    )
+
+        if not self.sequences:
+            filter_info = []
+            if sequence_filter:
+                filter_info.append(f"sequence='{sequence_filter}'")
+            if case_filter:
+                filter_info.append(f"case='{case_filter}'")
+            raise ValueError(
+                f"No tests found matching filters: {', '.join(filter_info)}"
+            )
 
         self.log_message(
             f"Total: {len(self.test_definitions)} tests across {len(self.sequences)} sequences"
@@ -1320,7 +1408,23 @@ def monitor_test_execution(conductor: TestConductor) -> None:
 def main() -> None:
     """Main entry point for the test conductor."""
 
-    parser = argparse.ArgumentParser(description="Run test sequences")
+    parser = argparse.ArgumentParser(
+        description="Run test sequences",
+        epilog="""
+Examples:
+  uv run tc -f channel              Run all tests containing 'channel' (like ginkgo --focus)
+  uv run tc console/...             Run all tests in console_tests.json
+  uv run tc console/general/...     Run all tests in 'general' sequence
+  uv run tc console/general/channel Run tests containing 'channel' in 'general' sequence
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "target",
+        nargs="?",
+        default=None,
+        help="Target path (e.g., console/general/...)",
+    )
     parser.add_argument("--name", default="tc", help="Test conductor name")
     parser.add_argument("--server", default="localhost", help="Synnax server address")
     parser.add_argument("--port", type=int, default=9090, help="Synnax server port")
@@ -1328,9 +1432,9 @@ def main() -> None:
     parser.add_argument("--password", default="seldon", help="Synnax password")
     parser.add_argument("--secure", default=False, help="Use secure connection")
     parser.add_argument(
-        "--sequence",
-        "-s",
-        help="Path to test sequence JSON file or comma-separated list of files (optional - will auto-discover *_tests.json if not provided)",
+        "--filter",
+        "-f",
+        help="Filter tests by case path substring across all test files (auto-discovers all *_tests.json)",
     )
     parser.add_argument(
         "--headed",
@@ -1366,31 +1470,20 @@ def main() -> None:
     )
 
     try:
-        # Handle sequence parameter - support both single file and list
+        # Determine test file, sequence filter, and case filter
         sequence_input: str | list[str] | None = None
-        if args.sequence:
-            # Check if it's a comma-separated list
-            if "," in args.sequence:
-                raw_list = [s.strip() for s in args.sequence.split(",")]
-                sequence_input = [
-                    (
-                        s
-                        if s.endswith(".json")
-                        else (
-                            f"{s}.json" if s.endswith("_tests") else f"{s}_tests.json"
-                        )
-                    )
-                    for s in raw_list
-                ]
-            else:
-                if args.sequence.endswith(".json"):
-                    sequence_input = args.sequence
-                elif args.sequence.endswith("_tests"):
-                    sequence_input = f"{args.sequence}.json"
-                else:
-                    sequence_input = f"{args.sequence}_tests.json"
+        sequence_filter: str | None = None
+        case_filter: str | None = None
 
-        conductor.load_test_sequence(sequence_input)
+        if args.target:
+            # Parse Bazel-like target path
+            test_file, sequence_filter, case_filter = parse_target_path(args.target)
+            sequence_input = f"{test_file}_tests.json"
+        elif args.filter:
+            case_filter = args.filter
+            sequence_input = None
+
+        conductor.load_test_sequence(sequence_input, sequence_filter, case_filter)
         results = conductor.run_sequence()
         conductor.wait_for_completion()
 
@@ -1421,7 +1514,7 @@ def main() -> None:
                 )
 
         conductor.log_message(f"Fin.")
-        if conductor.tests:
+        if hasattr(conductor, "tests") and conductor.tests:
             stats = conductor._get_test_statistics()
 
             if stats["total_failed"] > 0:

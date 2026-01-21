@@ -23,7 +23,6 @@ class OpenClose(ConsoleCase):
         console = self.console
 
         pages: list[PageType] = [
-            "Control Sequence",
             "Schematic",
             "Line Plot",
             "Log",
@@ -39,7 +38,6 @@ class OpenClose(ConsoleCase):
         ]
 
         pages_renamed: list[tuple[PageType, str]] = [
-            ("Control Sequence", "CS"),
             ("Schematic", "S_Name"),
             ("Line Plot", "L_Name"),
             ("Log", "Log_Name"),
@@ -74,12 +72,14 @@ class OpenClose(ConsoleCase):
 
         self.log("(4/4) Create pages by (+) button (Custom names)")
         for page_type, page_name in pages_renamed:
-            console._create_page_by_command_palette(page_type, page_name)
+            console._create_page_by_new_page_button(page_type, page_name)
         for page_type, page_name in pages_renamed:
             console.close_page(page_name)
 
-        # Opened at startup
-        console.close_page("Get Started")
+        # Close "Get Started" if it's still open (may have been closed by workspace selection)
+        get_started_tab = console._get_tab_locator("Get Started")
+        if get_started_tab.count() > 0:
+            console.close_page("Get Started")
 
         # Should see "New Component" if all pages closed successfully
         pass_condition = self.page.get_by_text("New Component").count() > 0

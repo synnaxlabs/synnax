@@ -48,8 +48,8 @@ env:
   BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
-  test-go:
-    name: Test Go (${{ matrix.os }})
+  test:
+    name: Test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -79,7 +79,7 @@ jobs:
 
       - name: Check Formatting
         if: matrix.lint
-        run: scripts/check_gofmt.sh arc
+        run: scripts/check_gofmt.sh arc/go
 
       - name: Validate WASM Bindings
         if: matrix.lint
