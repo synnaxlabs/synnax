@@ -23,26 +23,27 @@ export const CreateCommand: Palette.Command = ({
   handleError,
   ...listProps
 }) => {
+  const createArcModal = Arc.Editor.useCreateModal();
   const handleSelect = useCallback(
     () =>
       handleError(async () => {
-        const name = await rename({}, { icon: "Arc", name: "Arc.Create" });
-        if (name == null) return;
-        placeLayout(Arc.Editor.create({ name }));
-      }, "Failed to create arc"),
-    [placeLayout, rename, handleError],
+        const result = await createArcModal({});
+        if (result != null)
+          placeLayout(Arc.Editor.create({ name: result.name, mode: result.mode }));
+      }, "Failed to create Arc"),
+    [placeLayout, handleError, createArcModal],
   );
   return (
     <Palette.CommandListItem
       {...listProps}
-      name="Create an Arc Automation"
+      name="Create an Arc automation"
       icon={<Icon.Arc />}
       onSelect={handleSelect}
     />
   );
 };
 CreateCommand.key = "create_arc";
-CreateCommand.commandName = "Create an Arc Automation";
+CreateCommand.commandName = "Create an Arc automation";
 CreateCommand.useVisible = useUpdateVisible;
 
 export const OpenExplorerCommand = Palette.createSimpleCommand({

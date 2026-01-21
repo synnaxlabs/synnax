@@ -44,9 +44,7 @@ func NewRackService(p Provider) *RackService {
 	}
 }
 
-type (
-	Rack = rack.Rack
-)
+type Rack = rack.Rack
 
 type (
 	RackCreateRequest struct {
