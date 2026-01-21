@@ -383,3 +383,71 @@ class Plot(ConsolePage):
         )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
         self.page.get_by_role("button", name="Save to Synnax").click()
+
+    @classmethod
+    def open_from_channel(
+        cls, client: sy.Synnax, console: Console, channel_name: str
+    ) -> "Plot":
+        """Open a channel's plot by double-clicking it in the sidebar.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            channel_name: The name of the channel to open
+
+        Returns:
+            Plot instance for the opened plot
+        """
+        console.channels.show_channels()
+        item = console.channels._find_channel_item(channel_name)
+        if item is None:
+            raise ValueError(f"Channel {channel_name} not found")
+        item.dblclick()
+
+        line_plot = console.page.locator(cls.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        console.channels.hide_channels()
+
+        console.layout.show_visualization_toolbar()
+        page_name = console.layout.get_visualization_toolbar_title()
+
+        plot = cls.__new__(cls)
+        plot.client = client
+        plot.console = console
+        plot.page = console.page
+        plot.page_name = page_name
+        plot.data = {"Y1": [channel_name], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot
+
+    @classmethod
+    def open_from_search(
+        cls, client: sy.Synnax, console: Console, channel_name: str
+    ) -> "Plot":
+        """Open a channel plot by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            channel_name: The name of the channel to search for and open
+
+        Returns:
+            Plot instance for the opened plot
+        """
+        console.search_palette(channel_name)
+
+        line_plot = console.page.locator(cls.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        console.layout.show_visualization_toolbar()
+        page_name = console.layout.get_visualization_toolbar_title()
+
+        plot = cls.__new__(cls)
+        plot.client = client
+        plot.console = console
+        plot.page = console.page
+        plot.page_name = page_name
+        plot.data = {"Y1": [channel_name], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot

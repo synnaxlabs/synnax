@@ -112,7 +112,7 @@ class ChannelClient:
 
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP
-        exists, _ = self.existing_channel(name)
+        _, exists = self.existing_channel(name)
         if exists:
             return False
 
@@ -176,7 +176,7 @@ class ChannelClient:
                 data_type = DataType.TIMESTAMP
 
             # Check if channel already exists
-            exists, _ = self.existing_channel(name)
+            _, exists = self.existing_channel(name)
             if exists:
                 continue
 
@@ -247,7 +247,7 @@ class ChannelClient:
         :param expression: The calculation expression (e.g., "channel_a * 2").
         :returns: None if successful, error message string if failed.
         """
-        exists, _ = self.existing_channel(name)
+        _, exists = self.existing_channel(name)
         if exists:
             return "Channel already exists"
 
@@ -370,19 +370,6 @@ class ChannelClient:
         self.page.wait_for_load_state("load", timeout=30000)
         self.page.wait_for_load_state("networkidle", timeout=30000)
 
-    def open_plot(self, name: ChannelName) -> None:
-        """Open a channel's plot by double-clicking it in the sidebar.
-
-        :param name: The name of the channel to open.
-        """
-        self.show_channels()
-        item = self._find_channel_item(name)
-        if item is None:
-            raise ValueError(f"Channel {name} not found")
-        item.dblclick()
-        self.page.wait_for_timeout(500)
-        self.hide_channels()
-
     def group(self, names: ChannelNames, group_name: str) -> None:
         """Group multiple channels together via context menu.
 
@@ -467,16 +454,17 @@ class ChannelClient:
         except Exception:
             return ""
 
-    def existing_channel(self, name: ChannelName) -> tuple[bool, list[ChannelName]]:
+    def existing_channel(self, name: ChannelName) -> tuple[ChannelName | None, bool]:
         """
-        Checks if a channel with the given name exists
+        Checks if a channel with the given name exists.
+
         :param name: The name of the channel to check.
-        :returns: A tuple containing a boolean indicating whether the channel exists
-        and a list of all channels.
+        :returns: A tuple containing the channel name if found (None otherwise)
+            and a boolean indicating whether the channel exists.
         """
         all_channels = self.list_all()
         exists = name in all_channels
-        return exists, all_channels
+        return (name if exists else None), exists
 
     def rename(self, names: ChannelNames, new_names: ChannelNames) -> bool:
         """Renames one or more channels via console UI.
@@ -506,10 +494,10 @@ class ChannelClient:
 
     def _rename_single_channel(self, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
-        exists, all_channels = self.existing_channel(old_name)
+        _, exists = self.existing_channel(old_name)
         if not exists:
-            raise ValueError(f"Channel {old_name} does not exist in {all_channels}")
-        new_exists, _ = self.existing_channel(new_name)
+            raise ValueError(f"Channel {old_name} does not exist")
+        _, new_exists = self.existing_channel(new_name)
         if new_exists:
             raise ValueError(f"Channel {new_name} already exists")
 
@@ -546,9 +534,9 @@ class ChannelClient:
 
     def _delete_single_channel(self, name: str) -> None:
         """Deletes a single channel via console UI."""
-        exists, all_channels = self.existing_channel(name)
+        _, exists = self.existing_channel(name)
         if not exists:
-            raise ValueError(f"Channel {name} does not exist in {all_channels}")
+            raise ValueError(f"Channel {name} does not exist")
 
         self._right_click_channel(name)
 
@@ -590,16 +578,6 @@ class ChannelClient:
                 channels.append(channel_name)
 
         return channels
-
-    def open_plot_by_search(self, name: ChannelName) -> None:
-        """Open a channel plot by searching its name in the command palette.
-
-        :param name: The name of the channel to search for and open.
-        """
-        self.console.search_palette(name)
-
-        line_plot = self.page.locator(".pluto-line-plot")
-        line_plot.first.wait_for(state="visible", timeout=5000)
 
     def close_modal(self) -> None:
         """Close any open modal by clicking the close button."""

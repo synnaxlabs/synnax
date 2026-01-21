@@ -76,10 +76,9 @@ class WorkspaceClient:
         """Collapse and re-expand the workspace to refresh the tree contents."""
         self.console.show_resource_toolbar("workspace")
         workspace_item = self.page.locator("div[id^='workspace:']").first
-        try:
-            workspace_item.wait_for(state="visible", timeout=5000)
-        except Exception:
-            return
+        if workspace_item.count() == 0:
+            return  # No workspace exists yet on fresh core run
+        workspace_item.wait_for(state="visible", timeout=5000)
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
             workspace_item.click()

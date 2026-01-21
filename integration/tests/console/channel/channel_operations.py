@@ -173,7 +173,7 @@ class ChannelOperations(ConsoleCase):
         # Verify channels exist in the server
         for ch_config in channels:
             ch_name = ch_config["name"]
-            exists, _ = console.channels.existing_channel(ch_name)
+            _, exists = console.channels.existing_channel(ch_name)
             assert exists, f"Channel {ch_name} should exist"
 
             # Verify data type via client
@@ -196,13 +196,14 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by double-clicking."""
         self.log("Testing open channel plot by double-click")
 
-        self.console.channels.open_plot(self.shared_data)
+        plot = Plot.open_from_channel(self.client, self.console, self.shared_data)
 
         line_plot = self.page.locator(".pluto-line-plot")
         line_plot.first.wait_for(state="visible", timeout=5000)
         assert (
             line_plot.first.is_visible()
         ), "Expected a line plot to be visible after double-clicking channel"
+        plot.close()
 
     def test_rename_channel(self) -> None:
         """Test renaming a channel via context menu."""
@@ -442,11 +443,11 @@ class ChannelOperations(ConsoleCase):
         )
 
         console.channels.delete([data_name])
-        exists, _ = console.channels.existing_channel(data_name)
+        _, exists = console.channels.existing_channel(data_name)
         assert not exists, f"Channel {data_name} should not appear in UI"
 
         console.channels.delete([index_name])
-        exists, _ = console.channels.existing_channel(index_name)
+        _, exists = console.channels.existing_channel(index_name)
         assert not exists, f"Index channel {index_name} should not appear in UI"
 
     def test_copy_link(self) -> None:
@@ -466,8 +467,8 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        self.console.channels.open_plot_by_search(self.shared_data)
-        self.page.keyboard.press("ControlOrMeta+w")
+        plot = Plot.open_from_search(self.client, self.console, self.shared_data)
+        plot.close()
 
     def test_open_create_channel_modal(self) -> None:
         """Test opening the Create Channel modal via command palette."""
