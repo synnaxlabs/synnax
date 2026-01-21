@@ -449,13 +449,18 @@ class ChannelOperations(ConsoleCase):
         self.log("Testing copy channel link")
 
         link = self.console.channels.copy_link(self.shared_data)
-        if link:
-            assert (
-                "channel" in link.lower() or self.shared_data in link
-            ), f"Expected link to contain 'channel' or channel name, got: {link}"
-            self.log(f"Copied link: {link}")
-        else:
-            self.log("Copy link executed (clipboard not accessible for verification)")
+
+        assert link.startswith("synnax://"), f"Link should start with synnax://, got: {link}"
+        parts = link.replace("synnax://", "").split("/")
+        assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
+        assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
+        assert len(parts[1]) == 36, f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
+        assert parts[2] == "channel", f"Third part should be 'channel', got: {parts[2]}"
+
+        channel = self.client.channels.retrieve(self.shared_data)
+        assert parts[3] == str(
+            channel.key
+        ), f"Channel key should be {channel.key}, got: {parts[3]}"
 
     def test_open_channel_plot_by_name(self) -> None:
         """Test opening a channel plot by searching its name in the command palette."""

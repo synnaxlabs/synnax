@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from typing import Any, Literal
 
 import synnax as sy
@@ -14,7 +15,6 @@ import synnax as sy
 from framework.utils import get_results_path
 
 from .console import Console
-from .context_menu import ContextMenu
 from .page import ConsolePage
 
 Axis = Literal["Y1", "Y2", "X1"]
@@ -195,24 +195,41 @@ class Plot(ConsolePage):
         self.page.locator(selector).click(timeout=5000)
 
     def copy_link(self) -> str:
-        """Copy link to the plot via tab context menu.
+        """Copy link to the plot via the toolbar link button.
 
         Returns:
             The copied link from clipboard (empty string if clipboard access fails)
         """
-        tab = self._get_tab()
-        menu = ContextMenu(self.page)
-        menu.open_on(tab)
-        menu.click_option("Copy Link")
-        self.page.wait_for_timeout(200)
+        self.console.layout.show_visualization_toolbar()
+        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button.click(timeout=5000)
 
-        # Try to get the link from clipboard
         try:
             link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
         except Exception:
-            # If clipboard access fails, return empty string
             return ""
+
+    def export_json(self) -> dict[str, Any]:
+        """Export the plot as a JSON file via the toolbar export button.
+
+        The file is saved to the tests/results directory with the plot name.
+
+        Returns:
+            The exported JSON content as a dictionary.
+        """
+        self.console.layout.show_visualization_toolbar()
+        export_button = self.page.locator(".pluto-icon--export").locator("..")
+        self.page.evaluate("delete window.showSaveFilePicker")
+
+        with self.page.expect_download(timeout=5000) as download_info:
+            export_button.click()
+
+        download = download_info.value
+        save_path = get_results_path(f"{self.page_name}.json")
+        download.save_as(save_path)
+        with open(save_path, "r") as f:
+            return json.load(f)
 
     def set_title(self, title: str) -> None:
         """Set the plot title via the Properties tab.
@@ -458,5 +475,89 @@ class Plot(ConsolePage):
         plot.page = console.page
         plot.page_name = page_name
         plot.data = {"Y1": [channel_name], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot
+
+    @classmethod
+    def open_from_toolbar(
+        cls, client: sy.Synnax, console: Console, plot_name: str
+    ) -> "Plot":
+        """Open a plot by double-clicking it in the workspace toolbar.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            plot_name: The name of the plot to open
+
+        Returns:
+            Plot instance for the opened plot
+        """
+        console.workspace.open_page(plot_name)
+
+        line_plot = console.page.locator(cls.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        plot = cls.__new__(cls)
+        plot.client = client
+        plot.console = console
+        plot.page = console.page
+        plot.page_name = plot_name
+        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot
+
+    @classmethod
+    def open_from_drag(
+        cls, client: sy.Synnax, console: Console, plot_name: str
+    ) -> "Plot":
+        """Open a plot by dragging it from the workspace toolbar onto the mosaic.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            plot_name: The name of the plot to drag
+
+        Returns:
+            Plot instance for the opened plot
+        """
+        console.workspace.drag_page_to_mosaic(plot_name)
+
+        line_plot = console.page.locator(cls.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        plot = cls.__new__(cls)
+        plot.client = client
+        plot.console = console
+        plot.page = console.page
+        plot.page_name = plot_name
+        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot
+
+    @classmethod
+    def open_by_name(
+        cls, client: sy.Synnax, console: Console, plot_name: str
+    ) -> "Plot":
+        """Open an existing plot by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            plot_name: The name of the plot to search for and open
+
+        Returns:
+            Plot instance for the opened plot
+        """
+        console.search_palette(plot_name)
+
+        line_plot = console.page.locator(cls.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        plot = cls.__new__(cls)
+        plot.client = client
+        plot.console = console
+        plot.page = console.page
+        plot.page_name = plot_name
+        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
         plot.pane_locator = line_plot.first
         return plot

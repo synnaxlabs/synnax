@@ -193,38 +193,11 @@ I can successfully:
 
 - [x] Create a new line plot from the mosaic. (pages/open_close.py)
 - **Visualization**
-  - [x] Plot a historical range of data. (plot/line_plot.py)
-  - [x] Plot a live range of data. (plot/line_plot.py)
-  - [x] Move channels between axes. (plot/line_plot.py)
-  - [x] Adjust the line thickness. (plot/line_plot.py)
-  - [x] Relabel a line. (plot/line_plot.py)
-  - [x] Set the plot title. (plot/line_plot.py)
-  - [x] Download a range as a CSV. (plot/line_plot.py)
-  - [x] Create a range from line plot selection. (plot/line_plot.py)
   - [ ] Use the measuring tool on the line plot.
-  - [x] Rename a line plot from its tab title. (plot/line_plot.py)
-  - [ ] Export a line plot.
-  - [ ] Copy a link to a line plot.
-  - [ ] Download a line plot as a CSV from the toolbar.
-- **Resources Toolbar**
-  - [ ] Open a plot by selecting it.
-  - [ ] Drag a plot onto the mosaic.
-  - **Context Menu**
-    - [ ] Rename a plot.
-    - [ ] Delete a plot.
-    - [ ] Delete multiple plots.
-    - [ ] Export a plot.
-    - [ ] Copy a link to a plot.
 - **Search and Command Palette**
-  - [ ] Open an existing line plot.
-  - [x] Create a new line plot. (pages/open_close.py)
   - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
 - [ ] Import a line plot.
-- [x] Rename a line plot and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Resources Toolbar
-  - [x] Mosaic Tab
-  - [x] Visualization Toolbar
 
 ### Logs
 
