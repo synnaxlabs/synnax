@@ -64,14 +64,11 @@ type Server struct {
 
 var _ protocol.Server = (*Server)(nil)
 
-// Document represents an open document
 type Document struct {
-	Metadata *DocumentMetadata // Metadata for calculated channels
-	Content  string
-	URI      protocol.DocumentURI
-	// IR with symbol table
-	IR ir.IR
-	// Diagnostics diagnostics
+	Metadata    *DocumentMetadata
+	Content     string
+	URI         protocol.DocumentURI
+	IR          ir.IR
 	Diagnostics diagnostics.Diagnostics
 	Version     int32
 }

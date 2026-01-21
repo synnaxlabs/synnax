@@ -29,22 +29,3 @@ func TokenizeContentWithComments(content string) []antlr.Token {
 	stream.Fill()
 	return stream.GetAllTokens()
 }
-
-func SplitLines(content string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(content); i++ {
-		if content[i] == '\n' {
-			end := i
-			if i > 0 && content[i-1] == '\r' {
-				end--
-			}
-			lines = append(lines, content[start:end])
-			start = i + 1
-		}
-	}
-	if start <= len(content) {
-		lines = append(lines, content[start:])
-	}
-	return lines
-}

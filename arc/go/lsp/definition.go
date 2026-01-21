@@ -20,13 +20,8 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
 	}
-	word := s.getWordAtPosition(doc.Content, params.Position)
-	if word == "" {
-		return nil, nil
-	}
-	scopeAtCursor := FindScopeAtPosition(doc.IR.Symbols, FromProtocol(params.Position))
-	sym, err := scopeAtCursor.Resolve(ctx, word)
-	if err != nil {
+	sym, err := resolveSymbolAtPosition(ctx, doc.IR.Symbols, doc.Content, params.Position)
+	if err != nil || sym == nil {
 		return nil, nil
 	}
 	location := s.symbolToLocation(params.TextDocument.URI, sym)

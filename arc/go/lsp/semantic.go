@@ -84,9 +84,7 @@ type token struct {
 }
 
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	allTokens := lexer.GetAllTokens()
+	allTokens := TokenizeContent(content)
 	var tokens []token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
@@ -108,29 +106,26 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 
 func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
 	antlrType := t.GetTokenType()
-
 	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
 		return classifyIdentifier(ctx, t, docIR.Symbols)
 	}
-
 	return mapLexerTokenType(antlrType)
 }
 
 func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Scope) *uint32 {
-	name := t.GetText()
-	pos := Position{Line: t.GetLine(), Col: t.GetColumn()}
-
-	scope := FindScopeAtPosition(rootScope, pos)
+	var (
+		name  = t.GetText()
+		pos   = Position{Line: t.GetLine(), Col: t.GetColumn()}
+		scope = FindScopeAtPosition(rootScope, pos)
+	)
 	if scope == nil {
 		scope = rootScope
 	}
-
 	sym, err := scope.Resolve(ctx, name)
 	if err != nil || sym == nil {
 		tokenType := uint32(SemanticTokenTypeVariable)
 		return &tokenType
 	}
-
 	return mapSymbolKind(sym.Kind)
 }
 
@@ -223,6 +218,5 @@ func encodeSemanticTokens(tokens []token) []uint32 {
 		prevLine = t.line
 		prevChar = t.startChar
 	}
-
 	return encoded
 }

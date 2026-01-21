@@ -284,12 +284,11 @@ func (s *Server) Completion(
 		return nil, nil
 	}
 
-	lines := strings.Split(doc.Content, "\n")
-	if int(params.Position.Line) >= len(lines) {
+	line, ok := getLine(doc.Content, params.Position.Line)
+	if !ok {
 		return &protocol.CompletionList{}, nil
 	}
 
-	line := lines[params.Position.Line]
 	prefix := ""
 	if int(params.Position.Character) <= len(line) {
 		start := int(params.Position.Character)

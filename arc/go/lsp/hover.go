@@ -49,7 +49,7 @@ func (s *Server) Hover(
 		}
 	}
 
-	word := s.getWordAtPosition(d.Content, params.Position)
+	word := getWordAtPosition(d.Content, params.Position)
 	if word == "" {
 		s.cfg.L.Debug(
 			"hover: no word at position",
@@ -75,30 +75,6 @@ func (s *Server) Hover(
 			Value: contents,
 		},
 	}, nil
-}
-
-func (s *Server) getWordAtPosition(content string, pos protocol.Position) string {
-	lines := strings.Split(content, "\n")
-	if int(pos.Line) >= len(lines) {
-		return ""
-	}
-	line := lines[pos.Line]
-	if int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && isWordChar(line[end]) {
-		end++
-	}
-	return line[start:end]
-}
-
-func isWordChar(c byte) bool {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 var operators = []string{
@@ -326,11 +302,10 @@ var keywordDocs = map[string]string{
 }
 
 func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {
-	lines := strings.Split(content, "\n")
-	if int(pos.Line) >= len(lines) {
+	line, ok := getLine(content, pos.Line)
+	if !ok {
 		return ""
 	}
-	line := lines[pos.Line]
 	col := int(pos.Character)
 	if col >= len(line) {
 		return ""
