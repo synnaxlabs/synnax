@@ -35,7 +35,6 @@ class ChannelOperations(ConsoleCase):
         self.test_clear_alias_under_range()
         self.test_delete_channel()
         self.test_copy_link()
-        self.test_hard_reload_console()
 
         # Search and Command Palette
         self.test_open_channel_plot_by_name()
@@ -53,6 +52,7 @@ class ChannelOperations(ConsoleCase):
         # test_rename_a_channel_and_ensure_synchronization_across_ui_elements()
         # test_set_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
         # test_remove_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
+        self.test_hard_reload_console()
 
     def test_create_multiple_channels(self) -> None:
         """Test creating multiple channels using the 'Create More' checkbox."""

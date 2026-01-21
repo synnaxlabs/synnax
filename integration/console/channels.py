@@ -354,6 +354,7 @@ class ChannelClient:
         reload_option.click(timeout=1000)
 
         self.page.wait_for_load_state("load", timeout=30000)
+        self.page.wait_for_load_state("networkidle", timeout=30000)
 
     def open_plot(self, name: ChannelName) -> None:
         """Open a channel's plot by double-clicking it in the sidebar.
