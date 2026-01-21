@@ -167,6 +167,7 @@ class LabelLifecycle(ConsoleCase):
         updated_color = self.console.ranges.get_label_color_in_toolbar(
             range_name, label_name
         )
+        assert updated_color is not None, "Updated color should not be None"
         self.log(f"  - Updated color: {updated_color}")
 
         assert updated_color != original_color, "Label color should have changed"
