@@ -113,7 +113,6 @@ func isPositionInRange(line, col, startLine, startCol, endLine, endCol int) bool
 	return true
 }
 
-
 func getTokensBeforeCursor(tokens []antlr.Token, pos protocol.Position) []antlr.Token {
 	line := int(pos.Line) + 1
 	col := int(pos.Character)

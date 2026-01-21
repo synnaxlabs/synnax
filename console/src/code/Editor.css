@@ -82,7 +82,7 @@ using the default for now.  */
 /* Main hover container */
 .monaco-editor .monaco-hover {
     font-family: var(--pluto-font-family) !important;
-    background: var(--pluto-gray-l0) !important;
+    background: var(--pluto-gray-l2) !important;
     border: var(--pluto-border-width) solid var(--pluto-gray-l5) !important;
     border-radius: calc(var(--pluto-border-radius) * 2) !important;
     box-shadow: var(--pluto-shadow-v1) !important;
@@ -96,14 +96,14 @@ using the default for now.  */
 
 /* Individual hover rows */
 .monaco-editor .monaco-hover .hover-row {
-    padding: 1rem 1.5rem !important;
+    padding: 0 1.5rem 1.5rem !important;
     border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
     &:last-child {
         border-bottom: none !important;
     }
     &:focus {
         outline: none !important;
-        background: var(--pluto-gray-l1) !important;
+        background: var(--pluto-gray-l2) !important;
     }
     /* Remove padding and border when row contains a diagnostic marker */
     &:has(.marker.hover-contents) {
@@ -143,6 +143,10 @@ using the default for now.  */
     font-family: var(--pluto-font-family) !important;
 }
 
+.monaco-editor .monaco-hover .hover-contents {
+    padding: 0 !important;
+}
+
 .monaco-editor .monaco-hover .code-hover-contents {
     padding: 0 !important;
 }
@@ -163,7 +167,7 @@ using the default for now.  */
 /* Subheadings (type labels like "Function", "Variable") */
 .monaco-editor .monaco-hover h5 {
     font-family: var(--pluto-font-family) !important;
-    font-size: calc(var(--pluto-small-size) * 0.85) !important;
+    font-size: calc(var(--pluto-p-size) * 0.85) !important;
     font-weight: 500 !important;
     color: var(--pluto-gray-l8) !important;
     margin: 0 0 1rem 0 !important;
@@ -193,7 +197,7 @@ using the default for now.  */
 /* Inline code */
 .monaco-editor .monaco-hover code {
     font-family: var(--pluto-code-font-family) !important;
-    font-size: var(--pluto-small-size) !important;
+    font-size: var(--pluto-p-size) !important;
     background: var(--pluto-gray-l2) !important;
     padding: 0.15rem 0.4rem !important;
     border-radius: var(--pluto-border-radius) !important;
@@ -215,13 +219,12 @@ using the default for now.  */
 .monaco-editor .monaco-hover .monaco-tokenized-source code {
     background: transparent !important;
     padding: 0 !important;
-    font-size: calc(var(--pluto-small-size) * 0.95) !important;
+    font-size: calc(var(--pluto-p-size) * 0.95) !important;
     line-height: 1.5 !important;
 }
 
 /* Status bar at bottom */
 .monaco-editor .monaco-hover .hover-row.status-bar {
-    background: var(--pluto-error-z) !important;
     padding: 0 !important;
     border: var(--pluto-border-l5);
 }
@@ -232,9 +235,12 @@ using the default for now.  */
     justify-content: space-between;
     flex-wrap: wrap !important;
     align-items: center !important;
-    font-size: var(--pluto-small-size) !important;
+    margin-top: calc(-1 * var(--pluto-border-width)) !important;
+    font-size: var(--pluto-p-size) !important;
+    border-bottom-right-radius: 1rem !important;
+    border-bottom-left-radius: 1rem !important;
     color: var(--pluto-gray-l9) !important;
-    min-width: 300px !important;
+    min-width: 350px !important;
     & > div {
         padding: 0.5rem;
         white-space: nowrap !important;
@@ -309,7 +315,7 @@ using the default for now.  */
     & .rename-label {
         color: var(--pluto-gray-l8) !important;
         font-family: var(--pluto-font-family) !important;
-        font-size: var(--pluto-small-size) !important;
+        font-size: var(--pluto-p-size) !important;
         padding: 0.25rem 0.5rem !important;
     }
 

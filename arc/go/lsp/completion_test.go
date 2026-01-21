@@ -42,12 +42,7 @@ var _ = Describe("Completion", func() {
 			content := "func test() {\n    i\n}"
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 5},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 1, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(len(completions.Items)).To(BeNumerically(">", 0))
 		})
@@ -58,12 +53,7 @@ var _ = Describe("Completion", func() {
 			content := "// comment here"
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 10},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 0, 10)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).To(BeEmpty())
 		})
@@ -72,12 +62,7 @@ var _ = Describe("Completion", func() {
 			content := "/* multi\nline\ncomment */"
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 2},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 1, 2)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).To(BeEmpty())
 		})
@@ -86,12 +71,7 @@ var _ = Describe("Completion", func() {
 			content := "func foo(x "
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 11},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 0, 11)
 			Expect(completions).ToNot(BeNil())
 			Expect(len(completions.Items)).To(BeNumerically(">", 0))
 
@@ -115,12 +95,7 @@ var _ = Describe("Completion", func() {
 			content := "func foo(x i"
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 12},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 0, 12)
 			Expect(completions).ToNot(BeNil())
 			Expect(len(completions.Items)).To(BeNumerically(">", 0))
 
@@ -133,12 +108,7 @@ var _ = Describe("Completion", func() {
 			content := "x := "
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 5},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundFunc := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -156,12 +126,7 @@ var _ = Describe("Completion", func() {
 			content := "x := "
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 5},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundLen := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -179,12 +144,7 @@ var _ = Describe("Completion", func() {
 			content := "func foo() { "
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 13},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -202,12 +162,7 @@ var _ = Describe("Completion", func() {
 			content := "func foo() { "
 			testutil.OpenDocument(server, ctx, uri, content)
 
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 13},
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundI32 := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -238,12 +193,7 @@ var _ = Describe("Completion", func() {
 
 			// Request completion in the middle of typing "myGlobal" -> "myG|"
 			// Simulating user typing "myG" and requesting completion
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 14}, // after "myG" in "return myGlobal"
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 1, 14) // after "myG" in "return myGlobal"
 			Expect(completions).ToNot(BeNil())
 
 			// Check that myGlobal is in the completion list
@@ -279,12 +229,7 @@ var _ = Describe("Completion", func() {
 			testutil.OpenDocument(server, ctx, uri, content)
 
 			// Request completion at "xyz|"
-			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 14}, // xyz|
-				},
-			}))
+			completions := testutil.Completion(server, ctx, uri, 1, 14) // xyz|
 			Expect(completions).ToNot(BeNil())
 
 			// Check that myGlobal is NOT in the completion list (prefix doesn't match)
