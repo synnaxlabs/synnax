@@ -76,7 +76,10 @@ class WorkspaceClient:
         """Collapse and re-expand the workspace to refresh the tree contents."""
         self.console.show_resource_toolbar("workspace")
         workspace_item = self.page.locator("div[id^='workspace:']").first
-        workspace_item.wait_for(state="visible", timeout=5000)
+        try:
+            workspace_item.wait_for(state="visible", timeout=5000)
+        except Exception:
+            return
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
             workspace_item.click()
@@ -157,6 +160,9 @@ class WorkspaceClient:
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.page.get_by_role("button", name="Create", exact=True).click(timeout=5000)
+        name_input.wait_for(state="hidden", timeout=5000)
+        self.console.show_resource_toolbar("workspace")
+        self.get_item(name).wait_for(state="visible", timeout=5000)
         self.refresh_tree()
         return True
 
