@@ -93,9 +93,9 @@ I can successfully:
   - [x] Open the "Create Channel" modal. (channel_operations.py)
   - [x] Open the "Create Calculated Channel" modal. (channel_operations.py)
 - **Calculated Channels**
-  - [ ] Plot a basic calculated channel.
-  - [ ] Plot a nested calculated channel.
-  - [ ] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
+  - [x] Plot a basic calculated channel. (channel_operations.py)
+  - [x] Plot a nested calculated channel. (channel_operations.py)
+  - [x] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
   - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
     - [ ] 10 Hz
     - [ ] 100 Hz

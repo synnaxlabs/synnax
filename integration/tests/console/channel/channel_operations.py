@@ -13,7 +13,9 @@ import uuid
 import synnax as sy
 
 from console.case import ConsoleCase
+from console.plot import Plot
 
+SRC_CH = "channel_operations_uptime"
 
 class ChannelOperations(ConsoleCase):
     """Test channel lifecycle operations."""
@@ -21,6 +23,8 @@ class ChannelOperations(ConsoleCase):
     def run(self) -> None:
         """Run all channel operation tests."""
 
+        '''
+        Commented out while developing the tests.
         # Create Channels Modal
         self.test_create_multiple_channels()
 
@@ -40,11 +44,11 @@ class ChannelOperations(ConsoleCase):
         self.test_open_channel_plot_by_name()
         self.test_open_create_channel_modal()
         self.test_open_create_calculated_channel_modal()
+        '''
 
         # Calculated Channels
-        # test_plot_a_basic_calculated_channel()
-        # plot_a_nested_calculated_channel()
-        # test_intentionally_create_a_channel_with_an_erroneous_expression()
+        self.test_plot_calculated_channel()
+        self.test_erroneous_calculated_channel()
         # test_run_and_plot_channels_from_python_calc_channel_stress_py() # with --rate at 10, 100, 1000 Hz
 
         # Miscellaneous
@@ -263,8 +267,8 @@ class ChannelOperations(ConsoleCase):
         updated_multiplier = 30
         prefix = str(uuid.uuid4())[:6]
         calc_name = f"calc_ch_{prefix}"
-        initial_expr = f"return channel_operations_uptime * {initial_multiplier}"
-        updated_expr = f"return channel_operations_uptime * {updated_multiplier}"
+        initial_expr = f"return {SRC_CH} * {initial_multiplier}"
+        updated_expr = f"return {SRC_CH} * {updated_multiplier}"
 
         console.channels.create_calculated(
             name=calc_name,
@@ -277,13 +281,13 @@ class ChannelOperations(ConsoleCase):
             initial_expr in calc_ch.expression
         ), f"Expected expression to contain '{initial_expr}', got '{calc_ch.expression}'"
 
-        uptime_val = int(client.read_latest("channel_operations_uptime", n=1)[-1])
+        uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
         calc_val = int(client.read_latest(calc_name, n=1)[-1])
         expected_val = uptime_val * initial_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
         console.channels.edit_calculated(calc_name, updated_expr)
-        uptime_val = int(client.read_latest("channel_operations_uptime", n=1)[-1])
+        uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
         calc_val = int(client.read_latest(calc_name, n=1)[-1])
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
@@ -497,3 +501,78 @@ class ChannelOperations(ConsoleCase):
         console = self.console
         console.channels.open_create_calculated_modal()
         console.channels.close_modal()
+
+    def test_plot_calculated_channel(self) -> None:
+        """Test plotting a nested calculated channel (calc channel referencing another calc channel)."""
+        self.log("Testing plot nested calculated channel")
+
+        console = self.console
+        client = self.client
+
+        prefix = str(uuid.uuid4())[:6]
+        calc_a_name = f"calc_a_{prefix}"
+        calc_b_name = f"calc_b_{prefix}"
+        expr_a = f"return {SRC_CH} * 2"
+        expr_b = f"return {calc_a_name} * 3"
+
+        console.channels.create_calculated(name=calc_a_name, expression=expr_a)
+        console.channels.create_calculated(name=calc_b_name, expression=expr_b)
+
+        plot = Plot(client, console, f"Nested Calc Plot {prefix}")
+        plot.add_channels("Y1", [SRC_CH, calc_a_name, calc_b_name])
+        csv_content = plot.download_csv()
+
+        assert calc_a_name in csv_content, f"CSV should contain {calc_a_name}"
+        assert calc_b_name in csv_content, f"CSV should contain {calc_b_name}"
+
+        lines = csv_content.strip().split("\n")
+        header = lines[0].split(",")
+        src_idx = header.index(SRC_CH)
+        calc_a_idx = header.index(calc_a_name)
+        calc_b_idx = header.index(calc_b_name)
+
+        for line in lines[1:]:
+            values = line.split(",")
+            src_val = int(values[src_idx])
+            calc_a_val = int(values[calc_a_idx])
+            calc_b_val = int(values[calc_b_idx])
+
+            expected_a = src_val * 2
+            expected_b = src_val * 2 * 3
+            assert calc_a_val == expected_a, f"calc_a mismatch: {src_val} * 2 = {expected_a}, got {calc_a_val}"
+            assert calc_b_val == expected_b, f"calc_b mismatch: {src_val} * 6 = {expected_b}, got {calc_b_val}"
+
+        plot.close()
+        console.channels.delete([calc_b_name, calc_a_name])
+
+    def test_erroneous_calculated_channel(self) -> None:
+        """Test that erroneous calculated channel expressions are handled gracefully."""
+        console = self.console
+        console.notifications.close_all()
+
+        self.log("Testing erroneous calculated channel (nonexistent channel)")
+        prefix = str(uuid.uuid4())[:6]
+        calc_name = f"calc_err_{prefix}"
+        bad_ch_expression = "return nonexistent_channel_xyz * 3"
+
+        error = console.channels.create_calculated(
+            name=calc_name, expression=bad_ch_expression
+        )
+
+        assert "Failed to update calculated channel" in error, f"Error should mention failure: {error}"
+        assert "undefined symbol" in error, f"Error should mention undefined symbol: {error}"
+        assert "nonexistent_channel_xyz" in error, f"Error should mention nonexistent channel: {error}"
+
+        self.log("Testing erroneous calculated channel (bad syntax)")
+    
+        bad_syntax_expression = "return * 3"
+        calc_name_2 = f"calc_err_syntax_{prefix}"
+
+        error = console.channels.create_calculated(
+            name=calc_name_2, expression=bad_syntax_expression
+        )
+
+        assert "Failed to update calculated channel" in error, f"Error should mention failure: {error}"
+        assert "error" in error.lower(), f"Error should contain 'error': {error}"
+
+

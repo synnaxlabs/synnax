@@ -239,16 +239,18 @@ class ChannelClient:
         self.hide_channels()
         return created_channels
 
-    def create_calculated(self, *, name: ChannelName, expression: str) -> bool:
+    def create_calculated(
+        self, *, name: ChannelName, expression: str
+    ) -> str | None:
         """Creates a calculated channel via console UI.
 
         :param name: The name for the calculated channel.
         :param expression: The calculation expression (e.g., "channel_a * 2").
-        :returns: True if the channel was created successfully.
+        :returns: None if successful, error message string if failed.
         """
         exists, _ = self.existing_channel(name)
         if exists:
-            return False
+            return "Channel already exists"
 
         self.open_create_calculated_modal()
 
@@ -267,10 +269,20 @@ class ChannelClient:
             save_btn = self.page.locator("button").filter(has_text="Create").first
         save_btn.click()
 
-        name_input.wait_for(state="hidden", timeout=5000)
-
-        self.hide_channels()
-        return True
+        try:
+            name_input.wait_for(state="hidden", timeout=1000)
+            return None
+        except Exception:
+            modal = self.page.locator("div.pluto-dialog__dialog.pluto--modal.pluto--visible")
+            error_container = modal.locator(".pluto--status-error").first.locator("..")
+            if error_container.count() > 0:
+                error_text = error_container.inner_text().strip()
+                self.close_modal()
+                return error_text
+            self.close_modal()
+            return "Unknown error"
+        finally:
+            self.hide_channels()
 
     def edit_calculated(self, name: ChannelName, new_expression: str) -> None:
         """Edit a calculated channel's expression via context menu.
