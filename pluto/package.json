@@ -22,6 +22,7 @@
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/freighter": "workspace:*",
+    "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
     "@tanstack/react-virtual": "3.13.6",
     "@xyflow/react": "^12.10.0",
@@ -36,6 +37,7 @@
     "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-color": "^2.19.3",
+    "react-error-boundary": "^6.0.0",
     "react-icons": "catalog:",
     "zod": "catalog:"
   },

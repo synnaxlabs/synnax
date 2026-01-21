@@ -10,6 +10,7 @@
 package cmd
 
 import (
+	"io"
 	"os"
 	"strings"
 
@@ -30,8 +31,7 @@ var cmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cmd.SilenceUsage = true
 		if viper.GetBool(flagVersion) {
-			version.Print()
-			return nil
+			return version.FPrint(cmd.OutOrStdout())
 		}
 		return cmd.Help()
 	},
@@ -44,8 +44,18 @@ func Execute() {
 	}
 }
 
+// ExecuteWithArgs runs the CLI with the given arguments and writes output to out. This
+// is useful for testing.
+func ExecuteWithArgs(args []string, out io.Writer) error {
+	cmd.SetArgs(args)
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	return cmd.Execute()
+}
+
 func init() {
 	bindFlags(cmd)
+	lo.Must0(viper.BindPFlags(cmd.Flags()))
 	lo.Must0(service.AddCommand(cmd))
 	version.AddCommand(cmd)
 	lo.Must0(start.AddCommand(cmd))

@@ -113,6 +113,225 @@ class ChannelClient:
         self.hide_channels()
         return True
 
+    def create_with_create_more(
+        self,
+        channels: list[dict[str, str | int | bool]],
+    ) -> list[ChannelName]:
+        """Creates multiple channels using the 'Create More' checkbox.
+
+        Each channel dict should contain:
+            - name: The name for the channel (required)
+            - data_type: The data type (optional, default uses index type)
+            - is_index: Boolean for index channel (optional, default False)
+            - index: The key of the index channel (required if not is_index)
+            - virtual: Boolean for virtual channel (optional, default False)
+
+        :param channels: List of channel configuration dicts
+        :returns: List of created channel names
+        """
+        if not channels:
+            return []
+
+        created_channels: list[ChannelName] = []
+
+        for i, ch_config in enumerate(channels):
+            name = str(ch_config["name"])
+            data_type = ch_config.get("data_type", DataType.UNKNOWN)
+            is_index = ch_config.get("is_index", False)
+            index = ch_config.get("index", 0)
+            virtual = ch_config.get("virtual", False)
+            index_str = str(index) if index != 0 else ""
+
+            if is_index and data_type == DataType.UNKNOWN:
+                data_type = DataType.TIMESTAMP
+
+            # Check if channel already exists
+            exists, _ = self.existing_channel(name)
+            if exists:
+                continue
+
+            # Open command palette for first channel or if modal closed
+            if i == 0:
+                self.console.command_palette("Create a Channel")
+                # Wait for modal to appear
+                self.page.wait_for_selector(
+                    "div.pluto-dialog__dialog.pluto--modal.pluto--visible",
+                    timeout=5000,
+                )
+
+            # Fill channel name (use same pattern as create method)
+            name_input = self.page.get_by_role("textbox", name="Name")
+            name_input.fill(name)
+
+            # Set virtual if needed
+            if virtual:
+                self.console.click_checkbox("Virtual")
+
+            # Configure as index or regular channel
+            if is_index:
+                self.console.click_checkbox("Is Index")
+            else:
+                if index == 0:
+                    raise ValueError(
+                        f"Index must be provided for non-index channel: {name}"
+                    )
+
+                # Set data type
+                data_type_str = str(DataType(data_type))
+                self.console.click_btn("Data Type")
+                self.console.select_from_dropdown(data_type_str, "Search Data Types")
+
+                # Set index
+                self.console.click_btn("Index")
+                self.console.select_from_dropdown(index_str, "Search Channels")
+
+            # Check "Create More" for all but the last channel
+            is_last = i == len(channels) - 1
+            create_more_checkbox = (
+                self.page.locator("text=Create More")
+                .locator("..")
+                .locator("input[type='checkbox']")
+                .first
+            )
+
+            if not is_last:
+                # Ensure "Create More" is checked
+                if not create_more_checkbox.is_checked():
+                    create_more_checkbox.click()
+            else:
+                # Ensure "Create More" is unchecked for last channel
+                if create_more_checkbox.is_checked():
+                    create_more_checkbox.click()
+
+            # Click Create
+            self.page.get_by_role("button", name="Create", exact=True).click()
+            self.page.wait_for_timeout(200)  # Wait for channel creation
+
+            created_channels.append(name)
+
+        self.hide_channels()
+        return created_channels
+
+    def open_plot(self, name: ChannelName) -> None:
+        """Open a channel's plot by double-clicking it in the sidebar.
+
+        :param name: The name of the channel to open.
+        """
+        self.show_channels()
+
+        for item in self.channels_list.all():
+            if item.is_visible():
+                channel_name_element = item.locator("p.pluto-text--editable")
+                text = channel_name_element.inner_text().strip()
+                if text == name:
+                    item.dblclick()
+                    self.page.wait_for_timeout(500)  # Wait for plot to open
+                    break
+
+        self.hide_channels()
+
+    def group(self, names: ChannelNames, group_name: str) -> None:
+        """Group multiple channels together via context menu.
+
+        :param names: List of channel names to group.
+        :param group_name: The name for the new group.
+        """
+        import platform
+
+        if len(names) < 2:
+            raise ValueError("At least 2 channels are required to create a group")
+
+        self.show_channels()
+
+        # Find and select all channels
+        modifier = "Meta" if platform.system() == "Darwin" else "Control"
+        first_item = True
+
+        for name in names:
+            for item in self.channels_list.all():
+                if item.is_visible():
+                    channel_name_element = item.locator("p.pluto-text--editable")
+                    text = channel_name_element.inner_text().strip()
+                    if text == name:
+                        if first_item:
+                            item.click()
+                            first_item = False
+                        else:
+                            # Cmd/Ctrl+click to add to selection
+                            self.page.keyboard.down(modifier)
+                            item.click()
+                            self.page.keyboard.up(modifier)
+                        break
+
+        self.page.wait_for_timeout(200)
+
+        # Right-click to open context menu on the last selected item
+        for item in self.channels_list.all():
+            if item.is_visible():
+                channel_name_element = item.locator("p.pluto-text--editable")
+                text = channel_name_element.inner_text().strip()
+                if text == names[-1]:
+                    item.click(button="right")
+                    break
+
+        self.page.wait_for_timeout(200)
+
+        # Click "Group" option - this creates a folder in the toolbar
+        self.page.get_by_text("Group Selection", exact=True).first.click()
+        self.page.wait_for_timeout(500)
+
+        # A folder is created with an inline editable name - look for the input
+        # The folder/group should have an editable text input active
+        editable_input = self.page.locator("input.pluto-text__input--editable").first
+        if editable_input.count() > 0 and editable_input.is_visible():
+            editable_input.fill(group_name)
+            self.page.keyboard.press("Enter")
+        else:
+            # If no input is visible, try to find and click the new folder to rename it
+            self.page.keyboard.type(group_name)
+            self.page.keyboard.press("Enter")
+
+        self.page.wait_for_timeout(300)
+        self.hide_channels()
+
+    def copy_link(self, name: ChannelName) -> str:
+        """Copy link to a channel via context menu.
+
+        :param name: The name of the channel to copy link for.
+        :returns: The copied link (if clipboard access is available).
+        """
+        self.show_channels()
+
+        found = False
+        for item in self.channels_list.all():
+            if item.is_visible():
+                channel_name_element = item.locator("p.pluto-text--editable")
+                text = channel_name_element.inner_text().strip()
+                if text == name:
+                    found = True
+                    item.click(button="right")
+                    self.page.wait_for_timeout(500)
+
+                    # Click on Copy Link in the context menu
+                    self.page.get_by_text("Copy Link").first.click()
+                    self.page.wait_for_timeout(200)
+                    break
+
+        if not found:
+            raise ValueError(f"Channel {name} not found in channel list")
+
+        self.hide_channels()
+
+        # Try to get the link from clipboard
+        # Note: Clipboard access may require permissions in some browsers
+        try:
+            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
+            return link
+        except Exception:
+            # If clipboard access fails, return empty string
+            # The test can verify via notification instead
+            return ""
+
     def existing_channel(self, name: ChannelName) -> tuple[bool, list[ChannelName]]:
         """
         Checks if a channel with the given name exists
@@ -223,7 +442,7 @@ class ChannelClient:
 
                     # Check for notifications and close them if there's an error
                     i = -1
-                    for notification in self.console.check_for_notifications():
+                    for notification in self.console.notifications.check():
                         i += 1
                         message = notification.get("message", "")
                         description = notification.get("description", "")
@@ -231,7 +450,7 @@ class ChannelClient:
                             name in description
                         ):
                             # Close the notification before raising the error
-                            self.console.close_notification(i)
+                            self.console.notifications.close(i)
                             raise RuntimeError(f"{message} {name}, {description}")
                     break
         self.hide_channels()

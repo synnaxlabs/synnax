@@ -2,6 +2,18 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
+      "sequence_name": "workspace",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "console/workspace"
+        },
+        {
+          "case": "console/pages/rename_synchronization"
+        }
+      ]
+    },
+    {
       "sequence_name": "general",
       "sequence_order": "asynchronous",
       "pool_size": 3,
@@ -14,6 +26,27 @@
         },
         {
           "case": "console/pages/open_close"
+        },
+        {
+          "case": "console/channel/channel_operations"
+        },
+        {
+          "case": "console/plot/line_plot"
+        },
+        {
+          "case": "console/label/label_lifecycle"
+        },
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
+        },
+        {
+          "case": "console/rack/rack_lifecycle"
+        },
+        {
+          "case": "console/range/range_lifecycle"
         }
       ]
     },

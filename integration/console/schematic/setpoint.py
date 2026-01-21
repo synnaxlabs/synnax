@@ -52,7 +52,7 @@ class Setpoint(Symbol):
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.click()
 
         # Fill the input and set the value
