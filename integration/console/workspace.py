@@ -261,7 +261,8 @@ class WorkspaceClient:
         self.console.close_nav_drawer()
 
         with open(save_path, "r") as f:
-            return json.load(f)
+            result: dict[str, Any] = json.load(f)
+            return result
 
     def create(self, name: str) -> bool:
         """Create a workspace via command palette.

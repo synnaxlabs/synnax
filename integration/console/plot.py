@@ -229,7 +229,8 @@ class Plot(ConsolePage):
         save_path = get_results_path(f"{self.page_name}.json")
         download.save_as(save_path)
         with open(save_path, "r") as f:
-            return json.load(f)
+            result: dict[str, Any] = json.load(f)
+            return result
 
     def set_title(self, title: str) -> None:
         """Set the plot title via the Properties tab.

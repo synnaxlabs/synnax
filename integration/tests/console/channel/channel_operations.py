@@ -450,11 +450,15 @@ class ChannelOperations(ConsoleCase):
 
         link = self.console.channels.copy_link(self.shared_data)
 
-        assert link.startswith("synnax://"), f"Link should start with synnax://, got: {link}"
+        assert link.startswith(
+            "synnax://"
+        ), f"Link should start with synnax://, got: {link}"
         parts = link.replace("synnax://", "").split("/")
         assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
         assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
-        assert len(parts[1]) == 36, f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
+        assert (
+            len(parts[1]) == 36
+        ), f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
         assert parts[2] == "channel", f"Third part should be 'channel', got: {parts[2]}"
 
         channel = self.client.channels.retrieve(self.shared_data)

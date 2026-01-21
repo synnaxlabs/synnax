@@ -181,13 +181,21 @@ class LinePlot(ConsoleCase):
 
         link = plot.copy_link()
 
-        assert link.startswith("synnax://"), f"Link should start with synnax://, got: {link}"
+        assert link.startswith(
+            "synnax://"
+        ), f"Link should start with synnax://, got: {link}"
         parts = link.replace("synnax://", "").split("/")
         assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
         assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
-        assert len(parts[1]) == 36, f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
-        assert parts[2] == "lineplot", f"Third part should be 'lineplot', got: {parts[2]}"
-        assert len(parts[3]) == 36, f"Plot ID should be 36 chars (UUID), got: {parts[3]}"
+        assert (
+            len(parts[1]) == 36
+        ), f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
+        assert (
+            parts[2] == "lineplot"
+        ), f"Third part should be 'lineplot', got: {parts[2]}"
+        assert (
+            len(parts[3]) == 36
+        ), f"Plot ID should be 36 chars (UUID), got: {parts[3]}"
 
         return link
 
@@ -333,7 +341,9 @@ class LinePlot(ConsoleCase):
 
         link = self.console.workspace.copy_page_link(plot_name)
 
-        assert link == expected_link, f"Context menu link should match: expected {expected_link}, got {link}"
+        assert (
+            link == expected_link
+        ), f"Context menu link should match: expected {expected_link}, got {link}"
 
         self.console.workspace.delete_page(plot_name)
 
