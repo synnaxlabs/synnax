@@ -60,10 +60,14 @@ class ChannelClient:
         if self.channels_pane.is_visible():
             self.channels_button.click(force=True, timeout=2000)
 
-    def _find_channel_item(self, name: ChannelName) -> Locator | None:
+    def _find_channel_item(
+        self, name: ChannelName, retry_with_refresh: bool = True
+    ) -> Locator | None:
         """Find a channel item in the list by name.
 
         :param name: The channel name to find.
+        :param retry_with_refresh: If True and channel not found, refresh the
+            channels pane and try again (handles cases where list is stale).
         :returns: The channel item Locator, or None if not found.
         """
         for item in self.channels_list.all():
@@ -73,6 +77,13 @@ class ChannelClient:
             text = channel_name_element.inner_text().strip()
             if text == name:
                 return item
+
+        if retry_with_refresh:
+            self.hide_channels()
+            self.page.wait_for_timeout(100)
+            self.show_channels()
+            return self._find_channel_item(name, retry_with_refresh=False)
+
         return None
 
     def _right_click_channel(self, name: ChannelName) -> Locator:

@@ -24,6 +24,9 @@
           "case": "console/channel/rename_synchronization"
         },
         {
+          "case": "console/channel/alias_synchronization"
+        },
+        {
           "case": "console/channel/calc_channel_stress",
           "parameters": {
             "rate": [10, 100, 1000]
