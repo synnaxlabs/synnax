@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,16 +33,16 @@ var _ = Describe("Completion", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		server = MustSucceed(lsp.New())
-		server.SetClient(&testutil.MockClient{})
+		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
 
 	Describe("Basic Completion", func() {
 		It("should return built-in completions", func() {
 			content := "func test() {\n    i\n}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 1, 5)
+			completions := Completion(server, ctx, uri, 1, 5)
 			Expect(completions).ToNot(BeNil())
 			Expect(len(completions.Items)).To(BeNumerically(">", 0))
 		})
@@ -51,27 +51,27 @@ var _ = Describe("Completion", func() {
 	Describe("Context-Aware Completion", func() {
 		It("should return empty completions in single-line comment", func() {
 			content := "// comment here"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 0, 10)
+			completions := Completion(server, ctx, uri, 0, 10)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).To(BeEmpty())
 		})
 
 		It("should return empty completions in multi-line comment", func() {
 			content := "/* multi\nline\ncomment */"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 1, 2)
+			completions := Completion(server, ctx, uri, 1, 2)
 			Expect(completions).ToNot(BeNil())
 			Expect(completions.Items).To(BeEmpty())
 		})
 
 		It("should return only types in type annotation position", func() {
 			content := "func foo(x "
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 0, 11)
+			completions := Completion(server, ctx, uri, 0, 11)
 			Expect(completions).ToNot(BeNil())
 			Expect(len(completions.Items)).To(BeNumerically(">", 0))
 
@@ -93,9 +93,9 @@ var _ = Describe("Completion", func() {
 
 		It("should return types matching prefix in type annotation position", func() {
 			content := "func foo(x i"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 0, 12)
+			completions := Completion(server, ctx, uri, 0, 12)
 			Expect(completions).ToNot(BeNil())
 			Expect(len(completions.Items)).To(BeNumerically(">", 0))
 
@@ -106,9 +106,9 @@ var _ = Describe("Completion", func() {
 
 		It("should not show keywords in expression context", func() {
 			content := "x := "
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundFunc := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -124,9 +124,9 @@ var _ = Describe("Completion", func() {
 
 		It("should show functions and values in expression context", func() {
 			content := "x := "
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 0, 5)
+			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundLen := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -142,9 +142,9 @@ var _ = Describe("Completion", func() {
 
 		It("should show keywords at statement start", func() {
 			content := "func foo() { "
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 0, 13)
+			completions := Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -160,9 +160,9 @@ var _ = Describe("Completion", func() {
 
 		It("should not show types at statement start", func() {
 			content := "func foo() { "
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			completions := testutil.Completion(server, ctx, uri, 0, 13)
+			completions := Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
 			_, foundI32 := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
@@ -185,15 +185,15 @@ var _ = Describe("Completion", func() {
 
 			// Create server with GlobalResolver
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
-			server.SetClient(&testutil.MockClient{})
+			server.SetClient(&MockClient{})
 
 			// Use the same pattern as hover test - valid Arc code
 			content := "func test() i32 {\n    return myGlobal\n}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Request completion in the middle of typing "myGlobal" -> "myG|"
 			// Simulating user typing "myG" and requesting completion
-			completions := testutil.Completion(server, ctx, uri, 1, 14) // after "myG" in "return myGlobal"
+			completions := Completion(server, ctx, uri, 1, 14) // after "myG" in "return myGlobal"
 			Expect(completions).ToNot(BeNil())
 
 			// Check that myGlobal is in the completion list
@@ -220,16 +220,14 @@ var _ = Describe("Completion", func() {
 			}
 
 			// Create server with GlobalResolver
-			var err error
-			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
-			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&testutil.MockClient{})
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return xyz\n}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Request completion at "xyz|"
-			completions := testutil.Completion(server, ctx, uri, 1, 14) // xyz|
+			completions := Completion(server, ctx, uri, 1, 14) // xyz|
 			Expect(completions).ToNot(BeNil())
 
 			// Check that myGlobal is NOT in the completion list (prefix doesn't match)

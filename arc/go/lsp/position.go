@@ -10,7 +10,6 @@
 package lsp
 
 import (
-	"context"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -18,13 +17,13 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-type Position struct {
+type position struct {
 	Line int
 	Col  int
 }
 
-func FromProtocol(pos protocol.Position) Position {
-	return Position{Line: int(pos.Line) + 1, Col: int(pos.Character)}
+func fromProtocol(pos protocol.Position) position {
+	return position{Line: int(pos.Line) + 1, Col: int(pos.Character)}
 }
 
 func getLine(content string, line uint32) (string, bool) {
@@ -35,60 +34,11 @@ func getLine(content string, line uint32) (string, bool) {
 	return lines[line], true
 }
 
-func getWordAtPosition(content string, pos protocol.Position) string {
-	line, ok := getLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && isWordChar(line[end]) {
-		end++
-	}
-	return line[start:end]
-}
-
 func isWordChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-func resolveSymbolAtPosition(
-	ctx context.Context,
-	rootScope *symbol.Scope,
-	content string,
-	pos protocol.Position,
-) (*symbol.Scope, error) {
-	word := getWordAtPosition(content, pos)
-	if word == "" {
-		return nil, nil
-	}
-	scope := FindScopeAtPosition(rootScope, FromProtocol(pos))
-	return scope.Resolve(ctx, word)
-}
-
-func getWordRangeAtPosition(content string, pos protocol.Position) *protocol.Range {
-	word := getWordAtPosition(content, pos)
-	if word == "" {
-		return nil
-	}
-	line, ok := getLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return nil
-	}
-	start := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-	return &protocol.Range{
-		Start: protocol.Position{Line: pos.Line, Character: uint32(start)},
-		End:   protocol.Position{Line: pos.Line, Character: uint32(start + len(word))},
-	}
-}
-
-func FindScopeAtPosition(rootScope *symbol.Scope, pos Position) *symbol.Scope {
+func findScopeAtInternalPosition(rootScope *symbol.Scope, pos position) *symbol.Scope {
 	if rootScope == nil {
 		return nil
 	}
@@ -101,6 +51,9 @@ func FindScopeAtPosition(rootScope *symbol.Scope, pos Position) *symbol.Scope {
 }
 
 func findScopeRecursive(scope *symbol.Scope, line, col int, deepest **symbol.Scope) {
+	if scope == nil {
+		return
+	}
 	if scope.AST != nil {
 		start := scope.AST.GetStart()
 		stop := scope.AST.GetStop()

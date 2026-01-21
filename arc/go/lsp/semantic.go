@@ -84,7 +84,7 @@ type token struct {
 }
 
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
-	allTokens := TokenizeContent(content)
+	allTokens := tokenizeContent(content)
 	var tokens []token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
@@ -115,12 +115,9 @@ func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
 func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Scope) *uint32 {
 	var (
 		name  = t.GetText()
-		pos   = Position{Line: t.GetLine(), Col: t.GetColumn()}
-		scope = FindScopeAtPosition(rootScope, pos)
+		pos   = position{Line: t.GetLine(), Col: t.GetColumn()}
+		scope = findScopeAtInternalPosition(rootScope, pos)
 	)
-	if scope == nil {
-		scope = rootScope
-	}
 	sym, err := scope.Resolve(ctx, name)
 	if err != nil || sym == nil {
 		tokenType := uint32(SemanticTokenTypeVariable)

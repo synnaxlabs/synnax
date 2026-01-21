@@ -20,7 +20,8 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
 	}
-	sym, err := resolveSymbolAtPosition(ctx, doc.IR.Symbols, doc.Content, params.Position)
+
+	sym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
 	if err != nil || sym == nil {
 		return nil, nil
 	}
@@ -28,5 +29,5 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if location == nil {
 		return nil, nil
 	}
-	return []protocol.Location{*location}, nil
+	return doc.toDocLocations([]protocol.Location{*location}), nil
 }

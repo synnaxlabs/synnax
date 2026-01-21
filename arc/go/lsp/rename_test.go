@@ -15,9 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
@@ -30,11 +31,8 @@ var _ = Describe("Rename", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		var err error
-		server, err = lsp.New()
-		Expect(err).ToNot(HaveOccurred())
-
-		server.SetClient(&testutil.MockClient{})
+		server = MustSucceed(lsp.New())
+		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
 
@@ -44,7 +42,7 @@ var _ = Describe("Rename", func() {
     x i32 := 42
     y := x + 10
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -63,7 +61,7 @@ var _ = Describe("Rename", func() {
 			content := `func test() {
     return 42
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -85,13 +83,11 @@ var _ = Describe("Rename", func() {
 				},
 			}
 
-			var err error
-			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
-			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&testutil.MockClient{})
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -124,7 +120,7 @@ var _ = Describe("Rename", func() {
     y := x + 10
     z := x * 2
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -148,7 +144,7 @@ var _ = Describe("Rename", func() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in return statement
 			result, err := server.Rename(ctx, &protocol.RenameParams{
@@ -179,7 +175,7 @@ func second() {
     x := 20
     z := x + 2
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Rename x in first function
 			result, err := server.Rename(ctx, &protocol.RenameParams{
@@ -210,7 +206,7 @@ func second() {
     count = count + 1
     return count
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -239,7 +235,7 @@ func second() {
 func main() {
     result := add(1, 2)
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -268,13 +264,11 @@ func main() {
 				},
 			}
 
-			var err error
-			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
-			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&testutil.MockClient{})
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -305,7 +299,7 @@ func main() {
 			content := `func test() {
 
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			result, err := server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{

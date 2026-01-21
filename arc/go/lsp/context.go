@@ -29,7 +29,7 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	if isPositionInComment(content, pos) {
 		return ContextComment
 	}
-	tokens := TokenizeContent(content)
+	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	if len(tokensBeforeCursor) == 0 {
 		return ContextStatementStart
@@ -48,7 +48,7 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 }
 
 func isPositionInComment(content string, pos protocol.Position) bool {
-	allTokens := TokenizeContent(content)
+	allTokens := tokenizeContent(content)
 	line := int(pos.Line) + 1
 	col := int(pos.Character)
 	for _, t := range allTokens {

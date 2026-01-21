@@ -14,11 +14,22 @@ import (
 
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"go.lsp.dev/protocol"
+	"go.uber.org/zap"
 )
 
-// PrepareRename checks if the symbol at the given position can be renamed.
-// Returns the range of the symbol if it can be renamed, nil otherwise.
+func (s *Server) logUnexpectedSymbolError(sym *symbol.Scope, err error) {
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error("unexpected failure resolving symbol", zap.Stringer("symbol", sym), zap.Error(err))
+	}
+}
+
+func isValidSymbol(sym *symbol.Scope, err error) bool {
+	return !errors.Is(err, query.ErrNotFound) && sym != nil && sym.AST != nil
+}
+
 func (s *Server) PrepareRename(
 	ctx context.Context,
 	params *protocol.PrepareRenameParams,
@@ -27,14 +38,14 @@ func (s *Server) PrepareRename(
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
 	}
-	sym, err := resolveSymbolAtPosition(ctx, doc.IR.Symbols, doc.Content, params.Position)
-	if err != nil || sym == nil || sym.AST == nil {
+	sym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
+	if !isValidSymbol(sym, err) {
 		return nil, nil
 	}
-	return getWordRangeAtPosition(doc.Content, params.Position), nil
+	s.logUnexpectedSymbolError(sym, err)
+	return doc.getWordRangeAtPosition(params.Position), nil
 }
 
-// Rename renames all occurrences of the symbol at the given position.
 func (s *Server) Rename(
 	ctx context.Context,
 	params *protocol.RenameParams,
@@ -43,18 +54,18 @@ func (s *Server) Rename(
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
 	}
-	targetSym, err := resolveSymbolAtPosition(ctx, doc.IR.Symbols, doc.Content, params.Position)
-	if err != nil || targetSym == nil || targetSym.AST == nil {
+	targetSym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
+	if !isValidSymbol(targetSym, err) {
 		return nil, nil
 	}
-
+	s.logUnexpectedSymbolError(targetSym, err)
 	locations := s.findAllReferences(ctx, doc, targetSym)
 	if len(locations) == 0 {
 		return nil, nil
 	}
-
-	edits := make([]protocol.TextEdit, 0, len(locations))
-	for _, loc := range locations {
+	docLocations := doc.toDocLocations(locations)
+	edits := make([]protocol.TextEdit, 0, len(docLocations))
+	for _, loc := range docLocations {
 		edits = append(edits, protocol.TextEdit{
 			Range:   loc.Range,
 			NewText: params.NewName,
@@ -75,7 +86,7 @@ func (s *Server) findAllReferences(
 	if doc.IR.Symbols == nil || targetSym == nil || targetSym.AST == nil {
 		return nil
 	}
-	allTokens := TokenizeContent(doc.Content)
+	allTokens := tokenizeContent(doc.Content)
 	var locations []protocol.Location
 	for _, t := range allTokens {
 		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
@@ -85,30 +96,29 @@ func (s *Server) findAllReferences(
 		if tokenText != targetSym.Name {
 			continue
 		}
-		pos := Position{Line: t.GetLine(), Col: t.GetColumn()}
-		scope := FindScopeAtPosition(doc.IR.Symbols, pos)
-		if scope == nil {
-			scope = doc.IR.Symbols
-		}
+		pos := position{Line: t.GetLine(), Col: t.GetColumn()}
+		scope := findScopeAtInternalPosition(doc.IR.Symbols, pos)
 		sym, err := scope.Resolve(ctx, tokenText)
-		if err != nil || sym == nil || sym.AST == nil {
+		if !isValidSymbol(sym, err) {
 			continue
 		}
-		if sym.AST == targetSym.AST {
-			locations = append(locations, protocol.Location{
-				URI: doc.URI,
-				Range: protocol.Range{
-					Start: protocol.Position{
-						Line:      uint32(pos.Line - 1),
-						Character: uint32(pos.Col),
-					},
-					End: protocol.Position{
-						Line:      uint32(pos.Line - 1),
-						Character: uint32(pos.Col + len(tokenText)),
-					},
-				},
-			})
+		s.logUnexpectedSymbolError(sym, err)
+		if sym.AST != targetSym.AST {
+			continue
 		}
+		locations = append(locations, protocol.Location{
+			URI: doc.URI,
+			Range: protocol.Range{
+				Start: protocol.Position{
+					Line:      uint32(pos.Line - 1),
+					Character: uint32(pos.Col),
+				},
+				End: protocol.Position{
+					Line:      uint32(pos.Line - 1),
+					Character: uint32(pos.Col + len(tokenText)),
+				},
+			},
+		})
 	}
 	return locations
 }

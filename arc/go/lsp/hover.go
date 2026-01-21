@@ -36,7 +36,9 @@ func (s *Server) Hover(
 		return nil, nil
 	}
 
-	operator := s.getOperatorAtPosition(d.Content, params.Position)
+	displayContent := d.displayContent()
+
+	operator := s.getOperatorAtPosition(displayContent, params.Position)
 	if operator != "" {
 		contents := s.getOperatorHoverContents(operator)
 		if contents != "" {
@@ -49,7 +51,7 @@ func (s *Server) Hover(
 		}
 	}
 
-	word := getWordAtPosition(d.Content, params.Position)
+	word := d.getWordAtPosition(params.Position)
 	if word == "" {
 		s.cfg.L.Debug(
 			"hover: no word at position",
@@ -61,8 +63,8 @@ func (s *Server) Hover(
 
 	contents := s.getHoverContents(word)
 	if contents == "" && d.IR.Symbols != nil {
-		scopeAtCursor := FindScopeAtPosition(d.IR.Symbols, FromProtocol(params.Position))
-		contents = s.getUserSymbolHover(scopeAtCursor, word, d.Content)
+		scopeAtCursor := d.findScopeAtPosition(params.Position)
+		contents = s.getUserSymbolHover(scopeAtCursor, word, displayContent)
 	}
 
 	if contents == "" {
@@ -343,7 +345,7 @@ func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
 	}
 
 	symLine := start.GetLine()
-	tokens := TokenizeContentWithComments(content)
+	tokens := tokenizeContentWithComments(content)
 	if len(tokens) == 0 {
 		return ""
 	}
