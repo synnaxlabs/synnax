@@ -172,13 +172,14 @@ I can successfully:
 I can successfully:
 
 - **Resources Toolbar**
-  - [ ] See a device's state get updated.
+  - [x] See a device appear in the toolbar. (device/lifecycle.py)
+  - [x] See a device's status indicator. (device/lifecycle.py)
   - **Context Menu**
     - [ ] Group devices.
     - [ ] Configure an unconfigured device.
     - [ ] Change the identifier on a configured device.
-    - [ ] Rename a device.
-    - [ ] Delete a device.
+    - [x] Rename a device. (device/lifecycle.py)
+    - [x] Delete a device. (device/lifecycle.py)
 
 ### Documentation
 
