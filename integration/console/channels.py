@@ -239,9 +239,7 @@ class ChannelClient:
         self.hide_channels()
         return created_channels
 
-    def create_calculated(
-        self, *, name: ChannelName, expression: str
-    ) -> str | None:
+    def create_calculated(self, *, name: ChannelName, expression: str) -> str | None:
         """Creates a calculated channel via console UI.
 
         :param name: The name for the calculated channel.
@@ -273,7 +271,9 @@ class ChannelClient:
             name_input.wait_for(state="hidden", timeout=1000)
             return None
         except Exception:
-            modal = self.page.locator("div.pluto-dialog__dialog.pluto--modal.pluto--visible")
+            modal = self.page.locator(
+                "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+            )
             error_container = modal.locator(".pluto--status-error").first.locator("..")
             if error_container.count() > 0:
                 error_text = error_container.inner_text().strip()

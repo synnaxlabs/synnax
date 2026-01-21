@@ -96,10 +96,10 @@ I can successfully:
   - [x] Plot a basic calculated channel. (channel_operations.py)
   - [x] Plot a nested calculated channel. (channel_operations.py)
   - [x] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
-  - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
-    - [ ] 10 Hz
-    - [ ] 100 Hz
-    - [ ] 1,000 Hz
+  - [x] Run and plot channels from python calc_channel_stress.py setting `--rate` with (calc_channel_stress.py)
+    - [x] 10 Hz
+    - [x] 100 Hz
+    - [x] 1,000 Hz
 - [ ] Open a channel plot from a link.
 - [ ] Rename a channel and ensure the change synchronizes properly across:
   - Resources Toolbar

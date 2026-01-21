@@ -19,6 +19,12 @@
       "tests": [
         {
           "case": "console/channel/channel_operations"
+        },
+        {
+          "case": "console/channel/calc_channel_stress",
+          "parameters": {
+            "rate": [10, 100, 1000]
+          }
         }
       ]
     },

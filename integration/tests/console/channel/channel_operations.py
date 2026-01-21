@@ -17,14 +17,13 @@ from console.plot import Plot
 
 SRC_CH = "channel_operations_uptime"
 
+
 class ChannelOperations(ConsoleCase):
     """Test channel lifecycle operations."""
 
     def run(self) -> None:
         """Run all channel operation tests."""
 
-        '''
-        Commented out while developing the tests.
         # Create Channels Modal
         self.test_create_multiple_channels()
 
@@ -44,12 +43,10 @@ class ChannelOperations(ConsoleCase):
         self.test_open_channel_plot_by_name()
         self.test_open_create_channel_modal()
         self.test_open_create_calculated_channel_modal()
-        '''
 
         # Calculated Channels
         self.test_plot_calculated_channel()
         self.test_erroneous_calculated_channel()
-        # test_run_and_plot_channels_from_python_calc_channel_stress_py() # with --rate at 10, 100, 1000 Hz
 
         # Miscellaneous
         # test_open_a_channel_plot_from_a_link()
@@ -539,8 +536,12 @@ class ChannelOperations(ConsoleCase):
 
             expected_a = src_val * 2
             expected_b = src_val * 2 * 3
-            assert calc_a_val == expected_a, f"calc_a mismatch: {src_val} * 2 = {expected_a}, got {calc_a_val}"
-            assert calc_b_val == expected_b, f"calc_b mismatch: {src_val} * 6 = {expected_b}, got {calc_b_val}"
+            assert (
+                calc_a_val == expected_a
+            ), f"calc_a mismatch: {src_val} * 2 = {expected_a}, got {calc_a_val}"
+            assert (
+                calc_b_val == expected_b
+            ), f"calc_b mismatch: {src_val} * 6 = {expected_b}, got {calc_b_val}"
 
         plot.close()
         console.channels.delete([calc_b_name, calc_a_name])
@@ -559,12 +560,19 @@ class ChannelOperations(ConsoleCase):
             name=calc_name, expression=bad_ch_expression
         )
 
-        assert "Failed to update calculated channel" in error, f"Error should mention failure: {error}"
-        assert "undefined symbol" in error, f"Error should mention undefined symbol: {error}"
-        assert "nonexistent_channel_xyz" in error, f"Error should mention nonexistent channel: {error}"
+        assert error is not None, "Expected error for nonexistent channel"
+        assert (
+            "Failed to update calculated channel" in error
+        ), f"Error should mention failure: {error}"
+        assert (
+            "undefined symbol" in error
+        ), f"Error should mention undefined symbol: {error}"
+        assert (
+            "nonexistent_channel_xyz" in error
+        ), f"Error should mention nonexistent channel: {error}"
 
         self.log("Testing erroneous calculated channel (bad syntax)")
-    
+
         bad_syntax_expression = "return * 3"
         calc_name_2 = f"calc_err_syntax_{prefix}"
 
@@ -572,7 +580,8 @@ class ChannelOperations(ConsoleCase):
             name=calc_name_2, expression=bad_syntax_expression
         )
 
-        assert "Failed to update calculated channel" in error, f"Error should mention failure: {error}"
+        assert error is not None, "Expected error for bad syntax"
+        assert (
+            "Failed to update calculated channel" in error
+        ), f"Error should mention failure: {error}"
         assert "error" in error.lower(), f"Error should contain 'error': {error}"
-
-
