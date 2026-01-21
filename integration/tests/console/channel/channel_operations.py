@@ -69,7 +69,7 @@ class ChannelOperations(ConsoleCase):
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
-        sy.sleep(0.5)
+        sy.sleep(1)
         self.console.channels.create(
             name=self.shared_data,
             data_type=sy.DataType.FLOAT32,

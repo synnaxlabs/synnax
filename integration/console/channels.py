@@ -79,8 +79,8 @@ class ChannelClient:
         """Find a channel and right-click it to open context menu.
 
         :param name: The channel name to right-click.
-        :returns: The channel item Locator.
-        :raises ValueError: If channel not found.
+        :returns: The channel item Locator that was right-clicked.
+        :raises ValueError: If channel not found in the channel list.
         """
         self.show_channels()
         item = self._find_channel_item(name)
