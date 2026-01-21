@@ -143,7 +143,9 @@ var _ = Describe("Type Inference", func() {
 			Entry("temperature conversion", "temp_sensor * 1.8 + 32", types.KindF32),
 			Entry("temperature conversion with parens", "(temp_sensor * 1.8) + 32", types.KindF32),
 			Entry("power with channel", "temp_sensor ^ 2", types.KindF32),
+			Entry("chained power operations", "2 ^ 3 ^ 2", types.KindVariable),
 			Entry("unary negation with channel", "-temp_sensor", types.KindF32),
+			Entry("double unary negation", "--temp_sensor", types.KindF32),
 			Entry("type cast", "f32(42)", types.KindF32),
 		)
 
@@ -156,6 +158,18 @@ var _ = Describe("Type Inference", func() {
 			It("should handle series indexing", func() {
 				t := inferExprType(bCtx, testResolver, "data_series[0]")
 				Expect(t.Kind).To(Equal(types.KindI64))
+			})
+
+			It("should handle function with no return type", func() {
+				testResolver["void_func"] = symbol.Symbol{
+					Name: "void_func",
+					Kind: symbol.KindVariable,
+					Type: types.Function(types.FunctionProperties{
+						Inputs: types.Params{{Name: "x", Type: types.I32()}},
+					}),
+				}
+				t := inferExprType(bCtx, testResolver, "void_func(5)")
+				Expect(t.Kind).To(Equal(types.KindInvalid))
 			})
 		})
 
@@ -176,6 +190,87 @@ var _ = Describe("Type Inference", func() {
 				t := inferExprType(bCtx, testResolver, "data_series - 5")
 				Expect(t.Kind).To(Equal(types.KindSeries))
 				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+
+			It("should handle incompatible series element types", func() {
+				t := inferExprType(bCtx, testResolver, "data_series + float_var")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+		})
+
+		Context("series in multiplicative expressions", func() {
+			It("should infer series type for series * scalar", func() {
+				t := inferExprType(bCtx, testResolver, "data_series * 2")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+
+			It("should handle incompatible series element types", func() {
+				t := inferExprType(bCtx, testResolver, "data_series * float_var")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+				Expect(t.Unwrap().Kind).To(Equal(types.KindI64))
+			})
+
+			It("should handle incompatible scalar types", func() {
+				testResolver["int_var"] = symbol.Symbol{
+					Name: "int_var",
+					Kind: symbol.KindVariable,
+					Type: types.I32(),
+				}
+				t := inferExprType(bCtx, testResolver, "float_var * int_var")
+				Expect(t.Kind).To(Equal(types.KindF32))
+			})
+		})
+
+		Context("numeric literals with units", func() {
+			It("should infer type variable with unit for integer literal", func() {
+				t := inferExprType(bCtx, testResolver, "5psi")
+				Expect(t.Kind).To(Equal(types.KindVariable))
+				Expect(t.Unit.Name).To(Equal("psi"))
+			})
+
+			It("should infer type variable with unit for float literal", func() {
+				t := inferExprType(bCtx, testResolver, "3.5s")
+				Expect(t.Kind).To(Equal(types.KindVariable))
+				Expect(t.Unit.Name).To(Equal("s"))
+			})
+		})
+
+		Context("edge cases", func() {
+			It("should handle division of incompatible types", func() {
+				testResolver["f32_series"] = symbol.Symbol{
+					Name: "f32_series",
+					Kind: symbol.KindVariable,
+					Type: types.Series(types.F32()),
+				}
+				t := inferExprType(bCtx, testResolver, "f32_series / data_series")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+			})
+
+			It("should handle modulo with incompatible series", func() {
+				testResolver["f64_series"] = symbol.Symbol{
+					Name: "f64_series",
+					Kind: symbol.KindVariable,
+					Type: types.Series(types.F64()),
+				}
+				t := inferExprType(bCtx, testResolver, "data_series % f64_series")
+				Expect(t.Kind).To(Equal(types.KindSeries))
+			})
+
+			It("should return invalid type for unresolved identifier", func() {
+				t := inferExprType(bCtx, testResolver, "undefined_var")
+				Expect(t.Kind).To(Equal(types.KindInvalid))
+			})
+
+			It("should return invalid type for identifier with invalid type", func() {
+				testResolver["invalid_var"] = symbol.Symbol{
+					Name: "invalid_var",
+					Kind: symbol.KindVariable,
+					Type: types.Type{},
+				}
+				t := inferExprType(bCtx, testResolver, "invalid_var")
+				Expect(t.Kind).To(Equal(types.KindInvalid))
 			})
 		})
 	})
@@ -259,6 +354,11 @@ var _ = Describe("Type Inference", func() {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			},
+			// Invalid types skip constraint checking
+			Entry("invalid with concrete", types.Type{}, types.I32(), false, ""),
+			Entry("concrete with invalid", types.F32(), types.Type{}, false, ""),
+			Entry("invalid with invalid", types.Type{}, types.Type{}, false, ""),
+
 			// Type variables add constraints, no error
 			Entry("type var with concrete", types.Variable("T", nil), types.I32(), false, ""),
 			Entry("concrete with type var", types.F32(), types.Variable("T", nil), false, ""),
@@ -326,6 +426,14 @@ var _ = Describe("Type Inference", func() {
 			Entry("series i64", "x series i64 := s", types.KindSeries, types.KindI64),
 		)
 
+		It("should parse channel with series element type", func() {
+			typeCtx := parseTypeFromDecl("x chan series f32 := c")
+			t := MustSucceed(atypes.InferFromTypeContext(typeCtx))
+			Expect(t.Kind).To(Equal(types.KindChan))
+			Expect(t.Elem.Kind).To(Equal(types.KindSeries))
+			Expect(t.Elem.Unwrap().Kind).To(Equal(types.KindF32))
+		})
+
 		Context("types with units", func() {
 			It("should parse type with unit suffix", func() {
 				typeCtx := parseTypeFromDecl("p f32 psi := 0")
@@ -350,6 +458,20 @@ var _ = Describe("Type Inference", func() {
 
 			It("should error on unknown unit", func() {
 				typeCtx := parseTypeFromDecl("x f32 unknownunit := 0")
+				Expect(atypes.InferFromTypeContext(typeCtx)).Error().To(
+					MatchError(ContainSubstring("unknown unit")),
+				)
+			})
+
+			It("should error on unknown unit in channel type", func() {
+				typeCtx := parseTypeFromDecl("x chan f32 unknownunit := c")
+				Expect(atypes.InferFromTypeContext(typeCtx)).Error().To(
+					MatchError(ContainSubstring("unknown unit")),
+				)
+			})
+
+			It("should error on unknown unit in series type", func() {
+				typeCtx := parseTypeFromDecl("x series f32 unknownunit := s")
 				Expect(atypes.InferFromTypeContext(typeCtx)).Error().To(
 					MatchError(ContainSubstring("unknown unit")),
 				)

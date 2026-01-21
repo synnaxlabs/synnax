@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/arc/editor/CreateModal";
 export * from "@/arc/editor/Editor";
-export * from "@/arc/editor/TextEditor";
-export { Toolbar } from "@/arc/editor/toolbar";
+export * from "@/arc/editor/Toolbar";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack } from "@synnaxlabs/client";
+import { arc, rack } from "@synnaxlabs/client";
 import {
   Access,
   Icon,
@@ -19,6 +19,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
+import { Arc } from "@/arc";
 import { Menu } from "@/components";
 import { Group } from "@/group";
 import { Sequence } from "@/hardware/task/sequence";
@@ -30,6 +31,10 @@ import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 
 const CreateSequenceIcon = Icon.createComposite(Icon.Control, {
+  topRight: Icon.Add,
+});
+
+const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,
 });
 
@@ -85,6 +90,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     [ids],
   );
   const canEdit = Access.useUpdateGranted(ontologyIDs);
+  const canEditArc = Access.useUpdateGranted(arc.TYPE_ONTOLOGY_ID);
   const canDelete = Access.useDeleteGranted(ontologyIDs);
   const handleDelete = useDelete(props);
   const placeLayout = Layout.usePlacer();
@@ -93,6 +99,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleError = Status.useErrorHandler();
   const group = Group.useCreateFromSelection();
   const copyKeyToClipboard = useCopyKeyToClipboard();
+  const createArcModal = Arc.Editor.useCreateModal();
   const createSequence = () => {
     handleError(async () => {
       const layout = await Sequence.createLayout({
@@ -103,10 +110,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       placeLayout(layout);
     }, "Failed to create control sequence");
   };
+  const createArc = () => {
+    handleError(async () => {
+      const result = await createArcModal({});
+      if (result == null) return;
+      placeLayout(Arc.Editor.create({ name: result.name, mode: result.mode }));
+    }, "Failed to create Arc automation");
+  };
   const onSelect = {
     group: () => group(props),
     rename,
     createSequence,
+    createArc,
     copy: () => copyKeyToClipboard(props),
     delete: handleDelete,
   };
@@ -121,6 +136,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
             <CreateSequenceIcon />
             Create control sequence
           </PMenu.Item>
+          {canEditArc && (
+            <PMenu.Item itemKey="createArc">
+              <CreateArcIcon />
+              Create Arc automation
+            </PMenu.Item>
+          )}
           <PMenu.Divider />
         </>
       )}

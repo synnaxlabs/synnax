@@ -103,3 +103,7 @@ func (r Rack) Validate() error {
 	validate.NotEmptyString(v, "name", r.Name)
 	return v.Error()
 }
+
+func StatusKey(k Key) string {
+	return OntologyID(k).String()
+}

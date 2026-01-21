@@ -400,13 +400,13 @@ jobs:
       - name: Copy Driver to Assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/driver/assets/driver${{ matrix.executable }}
 
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/service/driver/assets/driver.exe
+          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
 
       - name: Set up pnpm
         if: inputs.console
@@ -442,13 +442,13 @@ jobs:
 
       - name: Copy Console to Assets
         if: inputs.console && inputs.core && matrix.os != 'windows-build-bot'
-        run: cp -r console/dist/* core/pkg/service/console/dist/
+        run: cp -r console/dist/* core/pkg/console/dist/
 
       - name: Copy Console to Assets (Windows)
         if: inputs.console && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
+          Copy-Item -Recurse -Force console/dist/* core/pkg/console/dist/
 
       - name: Set up Go
         if: inputs.core
