@@ -180,14 +180,6 @@ I can successfully:
     - [ ] Rename a device.
     - [ ] Delete a device.
 
-### Documentation
-
-I can successfully:
-
-- [ ] Open documentation from the command palette.
-- [ ] Open documentation from the question mark icon.
-- [ ] Close and reopen documentation in the same place as left off.
-
 ### Labels
 
 I can successfully:
