@@ -46,7 +46,7 @@ class LabelClient:
         modal.wait_for(state="visible", timeout=5000)
         self.page.wait_for_timeout(200)  # Allow modal content to render
 
-    def close_modal(self) -> None:
+    def close_edit_modal(self) -> None:
         """Close the Edit Labels modal by clicking the close button."""
         # The close button is inside .pluto-dialog__dialog and has pluto-icon--close
         close_button = self.page.locator(
@@ -175,6 +175,7 @@ class LabelClient:
         # Press Tab to blur and trigger auto-save
         self.page.keyboard.press("Tab")
         self.page.wait_for_timeout(500)  # Wait for save to complete
+        self.close_edit_modal()
 
     def delete(self, name: str) -> None:
         """Delete a label.
@@ -208,12 +209,8 @@ class LabelClient:
             name: The name of the label to update.
             new_color: The new hex color code (e.g., "#FF0000").
         """
-        # Open the modal if not already open
-        modal = self.page.locator(self.MODAL_SELECTOR)
-        if not modal.is_visible():
-            self.open_edit_modal()
+        self.open_edit_modal()
 
-        # Find the label item
         label_item = self.find_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
@@ -234,3 +231,4 @@ class LabelClient:
         # Click outside to close the color picker
         label_item.locator("input").first.click()
         self.page.wait_for_timeout(300)
+        self.close_edit_modal()
