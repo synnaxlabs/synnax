@@ -236,6 +236,7 @@ export const Editor = ({
   const handleMenuSelect = useCallback((key: string) => {
     const editor = editorRef.current;
     if (editor == null) return;
+    editor.focus();
     switch (key) {
       case "cut":
         editor.trigger("contextMenu", "editor.action.clipboardCutAction", null);
@@ -255,14 +256,37 @@ export const Editor = ({
     }
   }, []);
 
-  const menuContent = useCallback(
-    () => (
+  const menuContent = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = editor?.getSelection();
+    const hasSelection =
+      selection != null &&
+      (selection.startLineNumber !== selection.endLineNumber ||
+        selection.startColumn !== selection.endColumn);
+
+    const position = editor?.getPosition();
+    const model = editor?.getModel();
+    const wordAtCursor =
+      position != null && model != null ? model.getWordAtPosition(position) : null;
+    const canRename = wordAtCursor != null;
+
+    return (
       <Menu.Menu level="small" onChange={handleMenuSelect}>
-        <Menu.Item itemKey="cut" trigger={CUT_TRIGGER} triggerIndicator>
+        <Menu.Item
+          itemKey="cut"
+          trigger={CUT_TRIGGER}
+          triggerIndicator
+          disabled={!hasSelection}
+        >
           <Icon.Cut />
           Cut
         </Menu.Item>
-        <Menu.Item itemKey="copy" trigger={COPY_TRIGGER} triggerIndicator>
+        <Menu.Item
+          itemKey="copy"
+          trigger={COPY_TRIGGER}
+          triggerIndicator
+          disabled={!hasSelection}
+        >
           <Icon.Copy />
           Copy
         </Menu.Item>
@@ -271,7 +295,12 @@ export const Editor = ({
           Paste
         </Menu.Item>
         <Menu.Divider />
-        <Menu.Item itemKey="rename" trigger={RENAME_TRIGGER} triggerIndicator>
+        <Menu.Item
+          itemKey="rename"
+          trigger={RENAME_TRIGGER}
+          triggerIndicator
+          disabled={!canRename}
+        >
           <Icon.Rename />
           Rename
         </Menu.Item>
@@ -280,9 +309,8 @@ export const Editor = ({
           Format
         </Menu.Item>
       </Menu.Menu>
-    ),
-    [handleMenuSelect],
-  );
+    );
+  }, [handleMenuSelect]);
 
   return (
     <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>

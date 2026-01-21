@@ -73,20 +73,20 @@ I have verified that code examples for each of the following services run correc
 I can successfully:
 
 - **Create Channel Modal**
-  - [ ] Create a new channel from the command palette.
-  - [ ] Create multiple channels with the "Create More" flag set to true.
+  - [x] Create a new channel from the command palette. (channel_operations.py)
+  - [x] Create multiple channels with the "Create More" flag set to true. (channel_operations.py)
 - **Resources Toolbar**
-  - [ ] Open a channel plot by double-clicking it.
-  - [ ] Drag and drop a channel onto a line plot.
-  - [ ] Drag and drop a channel onto the line plot toolbar.
+  - [x] Open a channel plot by double-clicking it. (channel_operations.py)
+  - [x] Drag and drop a channel onto a line plot. (plot/line_plot.py)
+  - [x] Drag and drop a channel onto the line plot toolbar. (plot/line_plot.py)
   - **Context Menu**
-    - [ ] Rename a channel.
-    - [ ] Group multiple channels.
+    - [x] Rename a channel. (channel_lifecycle.py)
+    - [x] Group multiple channels. (channel_operations.py)
     - [ ] Edit the calculation of a calculated channel.
     - [ ] Set an alias for a channel under a range.
     - [ ] Clear an alias for a channel under a range.
-    - [ ] Delete a channel.
-    - [ ] Copy a link to a channel.
+    - [x] Delete a channel. (channel_lifecycle.py)
+    - [x] Copy a link to a channel. (channel_operations.py)
     - [ ] Hard reload the console.
 - **Search and Command Palette**
   - [ ] Open a channel plot by its name.
@@ -123,49 +123,49 @@ I can successfully:
   - Table Visualization Toolbar
   - Task Configuration Dialog
 
-### Clusters
+### Core
 
 I can successfully:
 
-- **Connect Cluster Modal**
-  - [ ] Connect to a cluster.
+- **Connect core Modal**
+  - [ ] Connect to a core.
 - **Dropdown**
-  - [ ] Add a new cluster.
-  - [ ] Connect to a cluster by selecting it.
-  - [ ] Disconnect from a cluster by selecting it.
-  - [ ] View the default local cluster in the selector.
-  - [ ] View the default demo cluster in the selector.
+  - [ ] Add a new core.
+  - [ ] Connect to a core by selecting it.
+  - [ ] Disconnect from a core by selecting it.
+  - [ ] View the default local core in the selector.
+  - [ ] View the default demo core in the selector.
   - **Context Menu**
-    - [ ] Connect to a cluster.
-    - [ ] Disconnect the active cluster.
-    - [ ] Rename a cluster.
-    - [ ] Remove a cluster.
-    - [ ] Copy a link to a cluster.
+    - [ ] Connect to a core.
+    - [ ] Disconnect the active core.
+    - [ ] Rename a core.
+    - [ ] Remove a core.
+    - [ ] Copy a link to a core.
     - [ ] Hard reload the console.
 - **Search and Command Palette**
-  - [ ] Open the "Connect Cluster" modal.
+  - [ ] Open the "Connect Core" modal.
   - [ ] Open the "Add a Core" command (replaces "Connect a Core").
-  - [ ] Use the "Log Out" command to log out of the active cluster.
-- [ ] Open a cluster from a link.
-- [ ] Receive meaningful feedback when a cluster connection fails.
+  - [ ] Use the "Log Out" command to log out of the active core.
+- [ ] Open a core from a link.
+- [ ] Receive meaningful feedback when a core connection fails.
 
 ### Login Page
 
 I can successfully:
 
 - **Login Screen**
-  - [ ] See the cluster list on the left when multiple clusters are configured.
-  - [ ] Select a cluster from the list and see it highlighted.
-  - [ ] Switch between clusters and see the login form reset (username/password cleared).
-  - [ ] Log in with valid credentials (username: synnax, password: seldon).
+  - [ ] See the core list on the left when multiple cores are configured.
+  - [ ] Select a core from the list and see it highlighted.
+  - [ ] Switch between cores and see the login form reset (username/password cleared).
+  - [x] Log in with valid credentials (username: synnax, password: seldon). (user_login_logout.py)
   - [ ] Receive meaningful error feedback when logging in with invalid credentials.
-  - [ ] Add a new cluster using the "+" button in the cluster list header.
-  - [ ] See connection status indicators for each cluster in the list.
+  - [ ] Add a new core using the "+" button in the core list header.
+  - [ ] See connection status indicators for each core in the list.
 - **User Badge**
   - [ ] See the user avatar and username in the top-right corner after logging in.
   - [ ] Click the user badge to open the logout menu.
-  - [ ] Log out using the logout button in the user badge dropdown.
-  - [ ] See the login screen again after logging out.
+  - [x] Log out using the logout button in the user badge dropdown. (user_logout_badge.py)
+  - [x] See the login screen again after logging out. (user_logout_badge.py)
 
 ### Devices
 
@@ -193,11 +193,11 @@ I can successfully:
 I can successfully:
 
 - **Search and Command Palette**
-  - [ ] Open the "Edit Label" modal.
+  - [x] Open the "Edit Label" modal. (label_lifecycle.py)
 - **Edit Label Modal**
-  - [ ] Add a new label.
-  - [ ] Edit an existing label's name.
-  - [ ] Change the color of an existing label.
+  - [x] Add a new label. (label_lifecycle.py)
+  - [x] Edit an existing label's name. (label_lifecycle.py)
+  - [x] Change the color of an existing label. (label_lifecycle.py)
   - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
   - [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
 
@@ -206,20 +206,20 @@ I can successfully:
 I can successfully:
 
 - [ ] Drag and drop a mosaic leaf into a new window.
-- [ ] Rename a tab by double-clicking its name.
-- [ ] Close layout tabs by clicking the close icon.
+- [x] Rename a tab by double-clicking its name. (mosaic_operations.py)
+- [x] Close layout tabs by clicking the close icon. (pages/open_close.py)
 - **Context Menu**
-  - [ ] Split a mosaic leaf horizontally.
-  - [ ] Split a mosaic leaf vertically.
+  - [x] Split a mosaic leaf horizontally. (mosaic_operations.py)
+  - [x] Split a mosaic leaf vertically. (mosaic_operations.py)
   - [ ] Focus on a leaf.
   - [ ] Rename a mosaic leaf.
   - [ ] Open a leaf in a new window.
   - [ ] Move a mosaic leaf to the main window from a secondary window.
-- [ ] Rename a tab with `Cmd + E`.
-- [ ] Close layout tabs with `Cmd + W`.
+- [x] Rename a tab with `Cmd + E`. (keyboard_shortcuts.py)
+- [x] Close layout tabs with `Cmd + W`. (keyboard_shortcuts.py)
 - [ ] Focus using `Cmd + L`.
 - [ ] Open in a new window with `Cmd + O`.
-- [ ] Create a new mosaic leaf with `Cmd + T`.
+- [x] Create a new mosaic leaf with `Cmd + T`. (keyboard_shortcuts.py)
 - **Search and Command Palette**
   - [ ] Toggle the color theme.
 
@@ -227,18 +227,18 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new line plot from the mosaic.
+- [x] Create a new line plot from the mosaic. (pages/open_close.py)
 - **Visualization**
-  - [ ] Plot a historical range of data.
-  - [ ] Plot a live range of data.
-  - [ ] Move channels between axes.
-  - [ ] Adjust the line thickness.
-  - [ ] Relabel a line.
-  - [ ] Set the plot title.
-  - [ ] Download a range as a CSV.
-  - [ ] Create a range from line plot selection.
+  - [x] Plot a historical range of data. (plot/line_plot.py)
+  - [x] Plot a live range of data. (plot/line_plot.py)
+  - [x] Move channels between axes. (plot/line_plot.py)
+  - [x] Adjust the line thickness. (plot/line_plot.py)
+  - [x] Relabel a line. (plot/line_plot.py)
+  - [x] Set the plot title. (plot/line_plot.py)
+  - [x] Download a range as a CSV. (plot/line_plot.py)
+  - [x] Create a range from line plot selection. (plot/line_plot.py)
   - [ ] Use the measuring tool on the line plot.
-  - [ ] Rename a line plot from its tab title.
+  - [x] Rename a line plot from its tab title. (plot/line_plot.py)
   - [ ] Export a line plot.
   - [ ] Copy a link to a line plot.
   - [ ] Download a line plot as a CSV from the toolbar.
@@ -253,20 +253,20 @@ I can successfully:
     - [ ] Copy a link to a plot.
 - **Search and Command Palette**
   - [ ] Open an existing line plot.
-  - [ ] Create a new line plot.
+  - [x] Create a new line plot. (pages/open_close.py)
   - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
 - [ ] Import a line plot.
-- [ ] Rename a line plot and ensure synchronization across:
-  - Resources Toolbar
-  - Mosaic Tab
-  - Visualization Toolbar
+- [x] Rename a line plot and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Resources Toolbar
+  - [x] Mosaic Tab
+  - [x] Visualization Toolbar
 
 ### Logs
 
 I can successfully:
 
-- [ ] Create a new log from the visualization selector.
+- [x] Create a new log from the visualization selector. (pages/open_close.py)
 - **Visualization**
   - [ ] Rename a log from its mosaic tab title.
   - [ ] Scroll to view historical data.
@@ -286,13 +286,13 @@ I can successfully:
     - [ ] Group logs.
     - [ ] Copy a link to a log.
 - **Search and Command Palette**
-  - [ ] Create a new log.
+  - [x] Create a new log. (pages/open_close.py)
   - [ ] Open an existing log.
 - [ ] Open a log from its link.
-- [ ] Rename a log and ensure synchronization across:
-  - Visualization Toolbar
-  - Resources Toolbar
-  - Mosaic Tab Name
+- [x] Rename a log and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Resources Toolbar
+  - [x] Mosaic Tab
+  - [x] Visualization Toolbar
 
 ### Ontology
 
@@ -309,7 +309,7 @@ I can successfully:
 
 - **Role Management**
   - [ ] View all available roles in the Resources Toolbar.
-  - [ ] Assign a role to a user.
+  - [x] Assign a role to a user. (user_assign_role.py)
   - [ ] Unassign a role from a user.
   - [ ] Cannot delete built-in roles (Owner, Engineer, Operator, Viewer).
 
@@ -318,28 +318,28 @@ I can successfully:
   - [ ] Can create, edit, and delete all resource types.
 
 - **As an Engineer:**
-  - [ ] Can create and edit schematics, line plots, tables, logs, and workspaces.
-  - [ ] Cannot register new users or assign roles.
+  - [x] Can create and edit schematics, line plots, tables, logs, and workspaces. (role_engineer_permissions.py)
+  - [x] Cannot register new users or assign roles. (role_engineer_permissions.py)
 
 - **As an Operator:**
-  - [ ] Can actuate valves on a schematic.
-  - [ ] Cannot create or edit schematics.
+  - [x] Can actuate valves on a schematic. (simple_press_valves.py)
+  - [x] Cannot create or edit schematics. (role_operator_permissions.py)
 
 - **As a Viewer:**
   - [ ] Can view schematics, line plots, tables, logs.
   - [ ] Cannot actuate valves on a schematic.
-  - [ ] Cannot create or edit any resources.
+  - [x] Cannot create or edit any resources. (role_viewer_permissions.py)
 
 ### Racks
 
 I can successfully:
 
 - **Devices Toolbar**
-  - [ ] See a rack's state get updated.
+  - [x] See a rack's state get updated. (rack_lifecycle.py)
   - **Context Menu**
-    - [ ] Rename a rack.
-    - [ ] Delete a rack.
-    - [ ] Copy a rack's key.
+    - [x] Rename a rack. (rack_lifecycle.py)
+    - [x] Delete a rack. (rack_lifecycle.py)
+    - [x] Copy a rack's key. (rack_lifecycle.py)
     - [ ] Create a control sequence from a rack.
 
 ### Ranges
@@ -347,31 +347,31 @@ I can successfully:
 I can successfully:
 
 - **Create Range Modal**
-  - [ ] Create a new local range.
-  - [ ] Create a new persisted range.
-  - [ ] Create a range with a parent range.
-  - [ ] Add labels while creating a range.
-  - [ ] Update the start and end times through changing the stage of a range
+  - [x] Create a new local range. (range/range_lifecycle.py)
+  - [x] Create a new persisted range. (range/range_lifecycle.py)
+  - [x] Create a range with a parent range. (range/range_lifecycle.py)
+  - [x] Add labels while creating a range. (range/range_lifecycle.py)
+  - [x] Update the start and end times through changing the stage of a range (range/range_lifecycle.py)
 - **Range Details**
-  - [ ] Rename a range from the tab name.
-  - [ ] Rename a range.
-  - [ ] Navigate to a parent range from a range
-  - [ ] Copy Python code
-  - [ ] Copy TypeScript code
-  - [ ] Copy a link to the range
-  - [ ] Open and successfully download data as a CSV
-  - [ ] Favorite the range
-  - [ ] Unfavorite the range
-  - [ ] Change start and end times.
-  - [ ] Change start and end times via the stage
-  - [ ] Add labels.
-  - [ ] Remove labels.
+  - [x] Rename a range from the tab name. (range/range_lifecycle.py)
+  - [x] Rename a range. (range/range_lifecycle.py)
+  - [x] Navigate to a parent range from a range (range/range_lifecycle.py)
+  - [x] Copy Python code (range/range_lifecycle.py)
+  - [x] Copy TypeScript code (range/range_lifecycle.py)
+  - [x] Copy a link to the range (range/range_lifecycle.py)
+  - [x] Open and successfully download data as a CSV (range/range_lifecycle.py)
+  - [x] Favorite the range (range/range_lifecycle.py)
+  - [x] Unfavorite the range (range/range_lifecycle.py)
+  - [x] Change start and end times. (range/range_lifecycle.py)
+  - [x] Change start and end times via the stage (range/range_lifecycle.py)
+  - [x] Add labels. (range/range_lifecycle.py)
+  - [x] Remove labels. (range/range_lifecycle.py)
   - **Child Ranges**
-    - [ ] Click and navigate to a child range
-    - [ ] Create child ranges
-    - [ ] Change the stage of a child range
-    - [ ] Favorite a child range
-    - [ ] Unfavorite a child range
+    - [x] Click and navigate to a child range (range/range_lifecycle.py)
+    - [x] Create child ranges (range/range_lifecycle.py)
+    - [x] Change the stage of a child range (range/range_lifecycle.py)
+    - [x] Favorite a child range (range/range_lifecycle.py)
+    - [x] Unfavorite a child range (range/range_lifecycle.py)
     - **Context Menu**
       - [ ] Rename a child range
       - [ ] Create a child range
@@ -394,11 +394,11 @@ I can successfully:
 - **Search and Command Palette**
   - [ ] Open an existing range layout window.
   - [ ] Open the "Create Range" dialog.
-  - [ ] Open the Range Explorer
+  - [x] Open the Range Explorer (range/range_lifecycle.py)
 - **Range Toolbar**
   - [ ] Open the "Create Range" modal from the toolbar.
   - [ ] Open the Range Explorer from the toolbar
-  - [ ] Switch the active range by clicking it.
+  - [x] Switch the active range by clicking it. (range/range_lifecycle.py)
   - **Context Menu**
     - [ ] Open the "Create Range" modal.
     - [ ] Open the range layout tab.
@@ -416,17 +416,17 @@ I can successfully:
   - [ ] Open the range overview dialog by clicking on a range.
   - [ ] Search ranges
   - [ ] Filter ranges by labels
-  - [ ] Favorite and unfavorite ranges and see them added to the range toolbar
+  - [x] Favorite and unfavorite ranges and see them added to the range toolbar (range/range_lifecycle.py)
   - [ ] Change the stage of a range
   - **Context Menu**
-    - [ ] Rename a range
+    - [x] Rename a range (range/range_lifecycle.py)
     - [ ] Create a child range
-    - [ ] Favorite a range
+    - [x] Favorite a range (range/range_lifecycle.py)
     - [ ] Favorite multiple ranges
     - [ ] Unfavorite a range
     - [ ] Unfavorite multiple ranges
     - [ ] Copy the link to a range
-    - [ ] Delete a range
+    - [x] Delete a range (range/range_lifecycle.py)
     - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
 - [ ] Rename a range and ensure synchronization across:
@@ -452,13 +452,13 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new schematic from the mosaic.
+- [x] Create a new schematic from the mosaic. (pages/open_close.py)
 - **Visualization**
   - [ ] Display live data on a value.
-  - [ ] Actuate a valve.
-  - [ ] Select and change the color of multiple elements.
+  - [x] Actuate a valve. (set_output.py, simple_press_valves.py, setpoint_press_user.py)
+  - [x] Select and change the color of multiple elements. (edit_props.py)
   - [ ] View the list of writers in control on the schematic.
-  - [ ] Acquire absolute control over a control sequence.
+  - [x] Acquire absolute control over a control sequence. (setpoint_press_user.py)
   - [ ] Copy a link.
   - [ ] Export a schematic.
 - **Resources Toolbar**
@@ -475,13 +475,13 @@ I can successfully:
     - [ ] Copy multiple schematics.
     - [ ] Copy a link to a schematic.
 - **Search and Command Palette**
-  - [ ] Open an existing schematic.
-  - [ ] Create a new schematic.
+  - [x] Open an existing schematic. (pages/open_close.py)
+  - [x] Create a new schematic. (pages/open_close.py)
   - [ ] Import a schematic from a file.
-- [ ] Rename a schematic and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
+- [x] Rename a schematic and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Mosaic Tab
+  - [x] Resources Toolbar
+  - [x] Visualization Toolbar
 - [ ] Rename a schematic snapshot and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
@@ -519,7 +519,7 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new table from the mosaic.
+- [x] Create a new table from the mosaic. (pages/open_close.py)
 - [ ] Open a table from a link.
 - **Visualization**
   - [ ] Add rows and columns to a table.
@@ -537,12 +537,12 @@ I can successfully:
     - [ ] Copy a link to a table.
 - **Search and Command Palette**
   - [ ] Open an existing table.
-  - [ ] Create a new table.
+  - [x] Create a new table. (pages/open_close.py)
   - [ ] Import a table from a file.
-- [ ] Rename a table and ensure synchronization across:
-  - Mosaic Tab
-  - Resources Toolbar
-  - Visualization Toolbar
+- [x] Rename a table and ensure synchronization across: (pages/rename_synchronization.py)
+  - [x] Resources Toolbar
+  - [x] Mosaic Tab
+  - [x] Visualization Toolbar
 
 ### Tasks
 
@@ -598,8 +598,8 @@ I can successfully:
   - [ ] Delete a user.
   - [ ] Delete multiple users.
 - **Search and Command Palette**
-  - [ ] Register a new user.
-  - [ ] Register a new user with a specific role assigned.
+  - [x] Register a new user. (user_register.py)
+  - [x] Register a new user with a specific role assigned. (user_register.py)
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
 - [ ] Log in as a user with a specific role and verify permission enforcement.
@@ -665,32 +665,32 @@ I can successfully:
 
 I can successfully:
 
-- [ ] Create a new workspace.
+- [x] Create a new workspace. (workspace.py)
 - [ ] Import a workspace by drag and dropping from a directory.
 - **Workspace Selector**
-  - [ ] Create a new workspace.
-  - [ ] Switch workspaces in the selector.
-  - [ ] Clear workspaces from the selector.
+  - [x] Create a new workspace. (workspace.py)
+  - [x] Switch workspaces in the selector. (workspace.py)
+  - [x] Clear workspaces from the selector. (workspace.py)
 - **Resources Toolbar**
-  - [ ] Switch workspaces in the resources view.
+  - [x] Switch workspaces in the resources view. (workspace.py)
   - **Context Menu**
-    - [ ] Rename a workspace.
-    - [ ] Delete a workspace.
+    - [x] Rename a workspace. (workspace.py)
+    - [x] Delete a workspace. (workspace.py)
     - [ ] Export a workspace.
-    - [ ] Create a new line plot in a workspace.
-    - [ ] Create a new log in a workspace.
-    - [ ] Create a new schematic in a workspace.
-    - [ ] Create a new table in a workspace.
+    - [x] Create a new line plot in a workspace. (pages/open_close.py, plot/line_plot.py, layout/mosaic_operations.py, layout/keyboard_shortcuts.py)
+    - [x] Create a new log in a workspace. (pages/open_close.py, pages/snap_to_grid.py)
+    - [x] Create a new schematic in a workspace. (pages/open_close.py, schematic/alignment.py, schematic/edit_props.py)
+    - [x] Create a new table in a workspace. (pages/open_close.py)
     - [ ] Import a line plot.
     - [ ] Import a schematic.
     - [ ] Import a log.
     - [ ] Import a table.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
-  - [ ] Open the "Create Workspace" dialog.
+  - [x] Open the "Create Workspace" dialog. (workspace.py)
   - [ ] Import a workspace.
-  - [ ] Open an existing workspace.
-- [ ] Rename a workspace and ensure synchronization across:
+  - [x] Open an existing workspace. (workspace.py)
+- [x] Rename a workspace and ensure synchronization across: (workspace.py)
   - Resources Toolbar
   - Workspace Selector
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
@@ -775,9 +775,9 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable NI integration when starting the server.
-- [ ] Recognize and connect to an NI device locally.
+- [x] Recognize and connect to an NI device locally. (driver_ni_digital_write.py)
 - [ ] Recognize and connect to NI devices over the network.
-- [ ] Recognize and connect to physical and simulated devices.
+- [x] Recognize and connect to physical and simulated devices. (driver_ni_digital_write.py)
 - [ ] Disconnect a physical device while a task is running without causing faults.
 - [ ] Ignore chassis and view devices connected to it.
 - [ ] Run the Driver without NI-DAQmx and System Configuration libraries installed.
@@ -843,24 +843,24 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
-- [ ] Connect to an unencrypted OPC UA server.
+- [x] Connect to an unencrypted OPC UA server. (opcua_read.py)
 - [ ] Connect to an encrypted OPC UA server.
-- [ ] Create additional channels and move them to existing sampling groups.
+- [x] Create additional channels and move them to existing sampling groups. (opcua_read.py)
 - [ ] Move and rename channels.
 - **Read Task**
   - **Single Sampling**
-    - [ ] Read from multiple channels.
-    - [ ] Autogenerate timestamps on the driver.
+    - [x] Read from multiple channels. (opcua_read.py)
+    - [x] Autogenerate timestamps on the driver. (opcua_read.py)
     - [ ] Read timestamps from the OPC UA server.
   - **Array Sampling**
-    - [ ] Read from multiple channels.
+    - [x] Read from multiple channels. (opcua_read.py)
     - **Test the following array sizes:**
       - [ ] 1
       - [ ] 10
       - [ ] 100
-    - [ ] Autogenerate timestamps on the driver.
+    - [x] Autogenerate timestamps on the driver.
     - [ ] Read timestamps from the OPC UA server.
-    - [ ] Avoid driver crashes when improper array sizes are specified.
+    - [x] Avoid driver crashes when improper array sizes are specified. (opcua/server.py injects improper arrays)
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
   - [ ] Maintain Driver operation during device disconnection or channel removal while a task is running.
@@ -876,12 +876,12 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
-- [ ] Connect to a Modbus TCP server.
-- [ ] Configure connection parameters (IP address, port, unit ID).
+- [x] Connect to a Modbus TCP server. (modbus_read.py)
+- [x] Configure connection parameters (IP address, port, unit ID). (modbus_task.py)
 - **Read Task**
-  - [ ] Read holding registers from a Modbus server.
-  - [ ] Read input registers from a Modbus server.
-  - [ ] Read coils and discrete inputs from a Modbus server.
+  - [x] Read holding registers from a Modbus server. (modbus_task.py)
+  - [x] Read input registers from a Modbus server. (modbus_task.py)
+  - [x] Read coils and discrete inputs from a Modbus server. (modbus_task.py)
   - [ ] Plot live data from Modbus registers.
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.

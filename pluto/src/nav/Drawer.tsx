@@ -13,6 +13,7 @@ import { type box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
+import { Errors } from "@/errors";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
 import { Eraser } from "@/vis/eraser";
@@ -95,7 +96,7 @@ export const Drawer = ({
       initialSize={initialSize}
       {...rest}
     >
-      {content}
+      <Errors.Boundary>{content}</Errors.Boundary>
     </Resize.Single>
   );
 };

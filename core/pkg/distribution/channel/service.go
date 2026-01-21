@@ -132,10 +132,12 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *Service) CountExternalNonVirtual() int {
+// CountExternalNonVirtual returns the number of external non-virtual channels in the
+// service.
+func (s *Service) CountExternalNonVirtual() uint32 {
 	s.proxy.mu.RLock()
 	defer s.proxy.mu.RUnlock()
-	return int(s.proxy.mu.externalNonVirtualSet.Size())
+	return uint32(s.proxy.mu.externalNonVirtualSet.Size())
 }
 
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {

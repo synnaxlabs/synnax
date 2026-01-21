@@ -13,6 +13,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/synnaxlabs/arc/parser"
 	"go.lsp.dev/protocol"
 )
 
@@ -38,70 +39,70 @@ type CompletionInfo struct {
 
 var completions = []CompletionInfo{
 	{
-		Label:    "i8",
+		Label:    parser.LiteralI8,
 		Detail:   "Signed 8-bit integer",
 		Doc:      "Range: -128 to 172",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "u8",
+		Label:    parser.LiteralU8,
 		Detail:   "Unsigned 8-bit integer",
 		Doc:      "Range: 0 to 255",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "i16",
+		Label:    parser.LiteralI16,
 		Detail:   "Signed 16-bit integer",
 		Doc:      "Range: -32768 to 32767",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "u16",
+		Label:    parser.LiteralU16,
 		Detail:   "Unsigned 16-bit integer",
 		Doc:      "Range: 0 to 65535",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "i32",
+		Label:    parser.LiteralI32,
 		Detail:   "Signed 32-bit integer",
 		Doc:      "Range: -2147483648 to 2147483647",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "u32",
+		Label:    parser.LiteralU32,
 		Detail:   "Unsigned 32-bit integer",
 		Doc:      "Range: 0 to 4294967295",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "i64",
+		Label:    parser.LiteralI64,
 		Detail:   "Signed 64-bit integer",
 		Doc:      "Range: -9223372036854775808 to 9223372036854775807",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "u64",
+		Label:    parser.LiteralU64,
 		Detail:   "Unsigned 64-bit integer",
 		Doc:      "Range: 0 to 18446744073709551615",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "f32",
+		Label:    parser.LiteralF32,
 		Detail:   "32-bit float",
 		Doc:      "Single precision floating point",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "f64",
+		Label:    parser.LiteralF64,
 		Detail:   "64-bit float",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
@@ -120,14 +121,14 @@ var completions = []CompletionInfo{
 		Category: CategoryType,
 	},
 	{
-		Label:    "series",
+		Label:    parser.LiteralSERIES,
 		Detail:   "Series type",
 		Doc:      "Homogeneous array of values",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: CategoryType,
 	},
 	{
-		Label:    "chan",
+		Label:    parser.LiteralCHAN,
 		Detail:   "Channel type",
 		Doc:      "Communication channel",
 		Kind:     protocol.CompletionItemKindClass,
@@ -228,7 +229,7 @@ var completions = []CompletionInfo{
 		Category: CategoryUnit | CategoryValue,
 	},
 	{
-		Label:        "func",
+		Label:        parser.LiteralFUNC,
 		Detail:       "func declaration",
 		Doc:          "Declares a function",
 		Insert:       "func ${1:name}($2) $3 {\n\t$0\n}",
@@ -237,7 +238,7 @@ var completions = []CompletionInfo{
 		Category:     CategoryKeyword,
 	},
 	{
-		Label:        "if",
+		Label:        parser.LiteralIF,
 		Detail:       "if statement",
 		Doc:          "Conditional statement",
 		Insert:       "if ${1:condition} {\n\t$0\n}",
@@ -246,7 +247,7 @@ var completions = []CompletionInfo{
 		Category:     CategoryKeyword,
 	},
 	{
-		Label:        "else",
+		Label:        parser.LiteralELSE,
 		Detail:       "else clause",
 		Doc:          "Alternative branch",
 		Insert:       "else {\n\t$0\n}",
@@ -255,7 +256,7 @@ var completions = []CompletionInfo{
 		Category:     CategoryKeyword,
 	},
 	{
-		Label:        "else if",
+		Label:        parser.LiteralELSE + " " + parser.LiteralIF,
 		Detail:       "else-if clause",
 		Doc:          "Alternative conditional branch",
 		Insert:       "else if ${1:condition} {\n\t$0\n}",
@@ -264,7 +265,7 @@ var completions = []CompletionInfo{
 		Category:     CategoryKeyword,
 	},
 	{
-		Label:        "return",
+		Label:        parser.LiteralRETURN,
 		Detail:       "return statement",
 		Doc:          "Returns a value",
 		Insert:       "return $0",
@@ -343,8 +344,7 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation && doc.IR.Symbols != nil {
-		searchPos := pos
-		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
+		scopeAtCursor := FindScopeAtPosition(doc.IR.Symbols, FromProtocol(pos))
 		if scopeAtCursor != nil {
 			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)
 			if err == nil {

@@ -41,7 +41,7 @@ const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusData
 
 export const Controls = ({ state }: ControlsProps) => {
   const name = Layout.useSelectRequiredName(state.key);
-  const { running, onStartStop, taskStatus, taskKey } = useTask(state.key);
+  const { running, onStartStop, taskStatus, taskKey } = useTask(state.key, name);
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   useEffect(() => {

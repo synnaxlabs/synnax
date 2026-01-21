@@ -34,7 +34,7 @@ func (s *Server) PrepareRename(
 		return nil, nil
 	}
 
-	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, params.Position)
+	scopeAtCursor := FindScopeAtPosition(doc.IR.Symbols, FromProtocol(params.Position))
 	sym, err := scopeAtCursor.Resolve(ctx, word)
 	if err != nil || sym == nil {
 		return nil, nil
@@ -65,7 +65,7 @@ func (s *Server) Rename(
 		return nil, nil
 	}
 
-	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, params.Position)
+	scopeAtCursor := FindScopeAtPosition(doc.IR.Symbols, FromProtocol(params.Position))
 	targetSym, err := scopeAtCursor.Resolve(ctx, word)
 	if err != nil || targetSym == nil {
 		return nil, nil
@@ -126,9 +126,8 @@ func (s *Server) findAllReferences(
 		}
 
 		// Find scope at this token's position
-		line := t.GetLine()
-		col := t.GetColumn()
-		scope := findScopeAtLine(doc.IR.Symbols, line, col)
+		pos := Position{Line: t.GetLine(), Col: t.GetColumn()}
+		scope := FindScopeAtPosition(doc.IR.Symbols, pos)
 		if scope == nil {
 			scope = doc.IR.Symbols
 		}
@@ -146,12 +145,12 @@ func (s *Server) findAllReferences(
 				URI: doc.URI,
 				Range: protocol.Range{
 					Start: protocol.Position{
-						Line:      uint32(line - 1),
-						Character: uint32(col),
+						Line:      uint32(pos.Line - 1),
+						Character: uint32(pos.Col),
 					},
 					End: protocol.Position{
-						Line:      uint32(line - 1),
-						Character: uint32(col + len(tokenText)),
+						Line:      uint32(pos.Line - 1),
+						Character: uint32(pos.Col + len(tokenText)),
 					},
 				},
 			})
@@ -172,7 +171,7 @@ func (s *Server) getWordRangeAtPosition(
 	}
 
 	// Find the start of the word
-	lines := splitLines(content)
+	lines := SplitLines(content)
 	if int(pos.Line) >= len(lines) {
 		return nil
 	}
@@ -190,24 +189,4 @@ func (s *Server) getWordRangeAtPosition(
 		Start: protocol.Position{Line: pos.Line, Character: uint32(start)},
 		End:   protocol.Position{Line: pos.Line, Character: uint32(start + len(word))},
 	}
-}
-
-// splitLines splits content into lines, handling both \n and \r\n.
-func splitLines(content string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(content); i++ {
-		if content[i] == '\n' {
-			if i > 0 && content[i-1] == '\r' {
-				lines = append(lines, content[start:i-1])
-			} else {
-				lines = append(lines, content[start:i])
-			}
-			start = i + 1
-		}
-	}
-	if start <= len(content) {
-		lines = append(lines, content[start:])
-	}
-	return lines
 }

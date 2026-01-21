@@ -65,21 +65,21 @@ func (w Writer) Create(
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
-) (err error) {
+) error {
 	for _, key := range keys {
-		if err = w.deleteChildTasks(ctx, key); err != nil {
-			return
+		if err := w.deleteChildTasks(ctx, key); err != nil {
+			return err
 		}
 	}
-	if err = gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
-		return
+	if err := gorp.NewDelete[uuid.UUID, Arc]().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+		return err
 	}
 	for _, key := range keys {
-		if err = w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return
+		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+			return err
 		}
 	}
-	return
+	return nil
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key uuid.UUID) error {

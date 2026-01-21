@@ -19,14 +19,10 @@ export interface UseTaskReturn {
   taskStatus: status.Status;
 }
 
-const NO_TASK_FOR_ARC = status.create({
-  key: "no-task-for-arc",
-  name: "No task for arc",
-  variant: "disabled",
-  message: "No task for arc",
-});
+const notDeployedYet = (name: string) =>
+  status.create({ name, variant: "disabled", message: "Not deployed yet" });
 
-export const useTask = (key: arc.Key): UseTaskReturn => {
+export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
   const tsk = Arc.useRetrieveTask({ arcKey: key });
   const cmd = Task.useCommand();
   const isRunning = tsk.data?.status?.details.running ?? false;
@@ -46,12 +42,12 @@ export const useTask = (key: arc.Key): UseTaskReturn => {
       running: false,
       taskKey: "",
       onStartStop: () => {},
-      taskStatus: NO_TASK_FOR_ARC,
+      taskStatus: notDeployedYet(name),
     };
   return {
     running: isRunning,
     taskKey: tsk.data.key,
     onStartStop: handleStartStop,
-    taskStatus: tsk.data.status ?? NO_TASK_FOR_ARC,
+    taskStatus: tsk.data.status ?? notDeployedYet(name),
   };
 };

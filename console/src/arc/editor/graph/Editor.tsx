@@ -68,7 +68,7 @@ const StageRenderer = ({
   layoutKey,
 }: SymbolRendererProps): ReactElement | null => {
   const props = useSelectNodeProps(layoutKey, symbolKey);
-  const key = props?.key ?? "";
+  const { key = "", ...rest } = props ?? {};
   const handleChange = useCallback(
     (props: object) => {
       if (key == null) return;
@@ -82,13 +82,9 @@ const StageRenderer = ({
     },
     [symbolKey, layoutKey, key, dispatch],
   );
-
   if (props == null) return null;
-
   const C = Base.Stage.REGISTRY[key];
-
   if (C == null) throw new Error(`Symbol ${key} not found`);
-  const { key: _, ...rest } = props;
   return (
     <C.Symbol
       key={key}

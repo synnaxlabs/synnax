@@ -38,7 +38,7 @@ var _ = Describe("Doc", func() {
 		It("Should skip empty blocks in rendering", func() {
 			d := doc.New(
 				doc.Paragraph("First"),
-				doc.NewList(), // empty list renders as ""
+				doc.List(), // empty list renders as ""
 				doc.Paragraph("Second"),
 			)
 			Expect(d.Render()).To(Equal("First\n\nSecond"))
@@ -61,12 +61,12 @@ var _ = Describe("Doc", func() {
 
 	Describe("Title", func() {
 		It("Should render title without kind", func() {
-			t := doc.NewTitle("myFunc")
+			t := doc.Title("myFunc")
 			Expect(t.Render()).To(Equal("#### myFunc"))
 		})
 
 		It("Should render title with kind", func() {
-			t := doc.NewTitleWithKind("i32", "Type")
+			t := doc.TitleWithKind("i32", "Type")
 			Expect(t.Render()).To(Equal("#### i32\n##### Type"))
 		})
 	})
@@ -80,65 +80,55 @@ var _ = Describe("Doc", func() {
 
 	Describe("Code", func() {
 		It("Should render code block with language", func() {
-			c := doc.NewCode("go", "func main() {}")
+			c := doc.Code("go", "func main() {}")
 			Expect(c.Render()).To(Equal("```go\nfunc main() {}\n```"))
 		})
 
 		It("Should render arc code block", func() {
-			c := doc.NewArcCode("func add(a i32, b i32) i32")
+			c := doc.ArcCode("func add(a i32, b i32) i32")
 			Expect(c.Render()).To(Equal("```arc\nfunc add(a i32, b i32) i32\n```"))
 		})
 	})
 
 	Describe("Detail", func() {
 		It("Should render detail without code formatting", func() {
-			d := doc.NewDetail("Range", "-128 to 127", false)
+			d := doc.Detail("Range", "-128 to 127", false)
 			Expect(d.Render()).To(Equal("Range: -128 to 127"))
 		})
 
 		It("Should render detail with code formatting", func() {
-			d := doc.NewDetail("Type", "i32", true)
+			d := doc.Detail("Type", "i32", true)
 			Expect(d.Render()).To(Equal("Type: `i32`"))
-		})
-	})
-
-	Describe("Details", func() {
-		It("Should render multiple details joined by newlines", func() {
-			ds := doc.Details{
-				doc.NewDetail("Type", "i32", true),
-				doc.NewDetail("Range", "-2147483648 to 2147483647", false),
-			}
-			Expect(ds.Render()).To(Equal("Type: `i32`\nRange: -2147483648 to 2147483647"))
 		})
 	})
 
 	Describe("Error", func() {
 		It("Should render error without code", func() {
-			e := doc.NewError("Type mismatch")
+			e := doc.Error("Type mismatch")
 			Expect(e.Render()).To(Equal("**Error**: Type mismatch"))
 		})
 
 		It("Should render error with code", func() {
-			e := doc.NewErrorWithCode("E001", "Type mismatch")
+			e := doc.ErrorWithCode("E001", "Type mismatch")
 			Expect(e.Render()).To(Equal("**Error E001**: Type mismatch"))
 		})
 	})
 
 	Describe("Hint", func() {
 		It("Should render hint with italic label", func() {
-			h := doc.NewHint("Use explicit cast: i32(value)")
+			h := doc.Hint("Use explicit cast: i32(value)")
 			Expect(h.Render()).To(Equal("_Hint_: Use explicit cast: i32(value)"))
 		})
 	})
 
 	Describe("Fix", func() {
 		It("Should render fix without code", func() {
-			f := doc.Fix{Description: "Remove the unused variable"}
+			f := doc.Fix("Remove the unused variable", "")
 			Expect(f.Render()).To(Equal("**Fix**: Remove the unused variable"))
 		})
 
 		It("Should render fix with code example", func() {
-			f := doc.NewFix("Cast the value explicitly", "i32(myFloat)")
+			f := doc.Fix("Cast the value explicitly", "i32(myFloat)")
 			expected := "**Fix**: Cast the value explicitly\n\n```arc\ni32(myFloat)\n```"
 			Expect(f.Render()).To(Equal(expected))
 		})
@@ -146,18 +136,18 @@ var _ = Describe("Doc", func() {
 
 	Describe("List", func() {
 		It("Should render empty list as empty string", func() {
-			l := doc.NewList()
+			l := doc.List()
 			Expect(l.Render()).To(Equal(""))
 		})
 
 		It("Should render unordered list", func() {
-			l := doc.NewList("First item", "Second item", "Third item")
+			l := doc.List("First item", "Second item", "Third item")
 			expected := "- First item\n- Second item\n- Third item"
 			Expect(l.Render()).To(Equal(expected))
 		})
 
 		It("Should render ordered list", func() {
-			l := doc.NewOrderedList("Step one", "Step two", "Step three")
+			l := doc.OrderedList("Step one", "Step two", "Step three")
 			expected := "1. Step one\n2. Step two\n3. Step three"
 			Expect(l.Render()).To(Equal(expected))
 		})
@@ -165,28 +155,28 @@ var _ = Describe("Doc", func() {
 
 	Describe("Bold", func() {
 		It("Should render bold text", func() {
-			b := doc.NewBold("important")
+			b := doc.Bold("important")
 			Expect(b.Render()).To(Equal("**important**"))
 		})
 	})
 
 	Describe("Italic", func() {
 		It("Should render italic text", func() {
-			i := doc.NewItalic("emphasis")
+			i := doc.Italic("emphasis")
 			Expect(i.Render()).To(Equal("_emphasis_"))
 		})
 	})
 
 	Describe("InlineCode", func() {
 		It("Should render inline code", func() {
-			c := doc.NewInlineCode("myVar")
+			c := doc.InlineCode("myVar")
 			Expect(c.Render()).To(Equal("`myVar`"))
 		})
 	})
 
 	Describe("Divider", func() {
 		It("Should render horizontal rule", func() {
-			d := doc.NewDivider()
+			d := doc.Divider()
 			Expect(d.Render()).To(Equal("---"))
 		})
 	})
@@ -194,9 +184,9 @@ var _ = Describe("Doc", func() {
 	Describe("Complex Documents", func() {
 		It("Should render type hover documentation", func() {
 			d := doc.New(
-				doc.NewTitleWithKind("i32", "Type"),
+				doc.TitleWithKind("i32", "Type"),
 				doc.Paragraph("Signed 32-bit integer."),
-				doc.NewDetail("Range", "-2147483648 to 2147483647", false),
+				doc.Detail("Range", "-2147483648 to 2147483647", false),
 			)
 			expected := "#### i32\n##### Type\n\nSigned 32-bit integer.\n\nRange: -2147483648 to 2147483647"
 			Expect(d.Render()).To(Equal(expected))
@@ -204,9 +194,9 @@ var _ = Describe("Doc", func() {
 
 		It("Should render error diagnostic documentation", func() {
 			d := doc.New(
-				doc.NewErrorWithCode("E001", "Type mismatch"),
+				doc.ErrorWithCode("E001", "Type mismatch"),
 				doc.Paragraph("Cannot assign f64 to i32."),
-				doc.NewHint("Use explicit cast: i32(value)"),
+				doc.Hint("Use explicit cast: i32(value)"),
 			)
 			expected := "**Error E001**: Type mismatch\n\nCannot assign f64 to i32.\n\n_Hint_: Use explicit cast: i32(value)"
 			Expect(d.Render()).To(Equal(expected))
@@ -214,9 +204,9 @@ var _ = Describe("Doc", func() {
 
 		It("Should render keyword hover documentation", func() {
 			d := doc.New(
-				doc.NewTitle("func"),
+				doc.Title("func"),
 				doc.Paragraph("Declares a function."),
-				doc.NewArcCode("func name(param type) returnType {\n    // body\n}"),
+				doc.ArcCode("func name(param type) returnType {\n    // body\n}"),
 			)
 			expected := "#### func\n\nDeclares a function.\n\n```arc\nfunc name(param type) returnType {\n    // body\n}\n```"
 			Expect(d.Render()).To(Equal(expected))

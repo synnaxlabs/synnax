@@ -49,7 +49,7 @@ type ServiceConfig struct {
 	Channel *channel.Service
 	// Task is used for deleting tasks associated with arcs when arcs are deleted.
 	//
-	// [OPTIONAL] - If nil, child tasks will not be deleted when arcs are deleted.
+	// [REQUIRED]
 	Task *task.Service
 	// Signals is used for propagating changes to arcs through the cluster.
 	//
@@ -83,6 +83,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "task", c.Task)
 	return v.Error()
 }
 
@@ -160,14 +161,11 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer will
 // execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	w := Writer{
-		tx:  gorp.OverrideTx(s.cfg.DB, tx),
-		otg: s.cfg.Ontology.NewWriter(tx),
+	return Writer{
+		tx:   gorp.OverrideTx(s.cfg.DB, tx),
+		otg:  s.cfg.Ontology.NewWriter(tx),
+		task: s.cfg.Task.NewWriter(tx),
 	}
-	if s.cfg.Task != nil {
-		w.task = s.cfg.Task.NewWriter(tx)
-	}
-	return w
 }
 
 // NewRetrieve opens a new query builder for retrieving arcs from Synnax.
