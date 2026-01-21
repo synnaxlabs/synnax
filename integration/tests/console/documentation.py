@@ -33,7 +33,8 @@ class Documentation(ConsoleCase):
         docs.wait_for_iframe_loaded()
         iframe_url = docs.get_iframe_url()
         assert "docs.synnaxlabs.com" in iframe_url
-        self.log("  - Opened via command palette")
+        assert docs.has_text("Get Started"), "Expected 'Get Started' text in docs"
+        self.log("  - Opened via command palette, content verified")
 
         docs.close()
         sy.sleep(0.3)
@@ -45,7 +46,8 @@ class Documentation(ConsoleCase):
         docs.wait_for_iframe_loaded()
         iframe_url = docs.get_iframe_url()
         assert "docs.synnaxlabs.com" in iframe_url
-        self.log("  - Opened via question mark icon")
+        assert docs.has_text("Console"), "Expected 'Console' text in docs"
+        self.log("  - Opened via question mark icon, content verified")
 
         self.log("(3/3) Close and reopen documentation in same place")
         docs.wait_for_iframe_loaded()

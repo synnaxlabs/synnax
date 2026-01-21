@@ -9,7 +9,7 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import FrameLocator, Locator, Page
 
 if TYPE_CHECKING:
     from .console import Console
@@ -41,10 +41,22 @@ class DocsClient:
     def _get_iframe(self) -> Locator:
         return self.page.locator(".console-docs iframe")
 
+    def get_frame(self) -> FrameLocator:
+        return self.page.frame_locator(".console-docs iframe")
+
     def get_iframe_url(self) -> str:
         iframe = self._get_iframe()
         iframe.wait_for(state="visible", timeout=10000)
         return iframe.get_attribute("src") or ""
+
+    def has_text(self, text: str, timeout: int = 10000) -> bool:
+        try:
+            self.get_frame().get_by_text(text).first.wait_for(
+                state="visible", timeout=timeout
+            )
+            return True
+        except Exception:
+            return False
 
     def wait_for_iframe_loaded(self, timeout: int = 15000) -> None:
         self._get_iframe().wait_for(state="visible", timeout=timeout)
