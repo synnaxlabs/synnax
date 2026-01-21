@@ -10,6 +10,7 @@
 import re
 from typing import TYPE_CHECKING
 
+import synnax as sy
 from playwright.sync_api import Locator, Page
 from synnax.channel.payload import (
     ChannelKey,
@@ -260,6 +261,7 @@ class ChannelClient:
         self.page.locator(".monaco-editor.focused").wait_for(
             state="visible", timeout=2000
         )
+        sy.sleep(0.2)
         self.page.keyboard.type(expression)
 
         save_btn = self.page.locator("button").filter(has_text="Save").first

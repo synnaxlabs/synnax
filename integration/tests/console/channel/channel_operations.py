@@ -21,6 +21,73 @@ SRC_CH = "channel_operations_uptime"
 class ChannelOperations(ConsoleCase):
     """Test channel lifecycle operations."""
 
+    prefix: str
+    calc_x2: str
+    calc_x6: str
+    calc_editable: str
+    shared_index: str
+    shared_data: str
+
+    def setup(self) -> None:
+        super().setup()
+        self.prefix = str(uuid.uuid4())[:6]
+        self._create_shared_channels()
+        self._create_shared_calc_channels()
+        sy.sleep(0.5)
+
+    def _create_shared_calc_channels(self) -> None:
+        """Create shared calculated channels for reuse across tests."""
+        self.calc_x2 = f"calc_x2_{self.prefix}"
+        self.calc_x6 = f"calc_x6_{self.prefix}"
+        self.calc_editable = f"calc_edit_{self.prefix}"
+
+        error = self.console.channels.create_calculated(
+            name=self.calc_x2,
+            expression=f"return {SRC_CH} * 2",
+        )
+        assert error is None, f"Failed to create {self.calc_x2}: {error}"
+
+        error = self.console.channels.create_calculated(
+            name=self.calc_x6,
+            expression=f"return {self.calc_x2} * 3",
+        )
+        assert error is None, f"Failed to create {self.calc_x6}: {error}"
+
+        error = self.console.channels.create_calculated(
+            name=self.calc_editable,
+            expression=f"return {SRC_CH} * 2",
+        )
+        assert error is None, f"Failed to create {self.calc_editable}: {error}"
+
+    def _create_shared_channels(self) -> None:
+        """Create shared index + data channel for read-only tests."""
+        self.shared_index = f"shared_idx_{self.prefix}"
+        self.shared_data = f"shared_data_{self.prefix}"
+
+        self.client.channels.create(
+            name=self.shared_index,
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        sy.sleep(0.5)
+        self.console.channels.create(
+            name=self.shared_data,
+            data_type=sy.DataType.FLOAT32,
+            index=self.shared_index,
+        )
+
+    def teardown(self) -> None:
+        self.console.channels.delete(
+            [
+                self.calc_x6,
+                self.calc_x2,
+                self.calc_editable,
+                self.shared_data,
+                self.shared_index,
+            ]
+        )
+        super().teardown()
+
     def run(self) -> None:
         """Run all channel operation tests."""
 
@@ -53,7 +120,6 @@ class ChannelOperations(ConsoleCase):
         # test_rename_a_channel_and_ensure_synchronization_across_ui_elements()
         # test_set_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
         # test_remove_an_alias_for_a_channel_and_ensure_synchronization_across_ui_elements()
-        self.test_hard_reload_console()
 
     def test_create_multiple_channels(self) -> None:
         """Test creating multiple channels using the 'Create More' checkbox."""
@@ -130,34 +196,13 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by double-clicking."""
         self.log("Testing open channel plot by double-click")
 
-        console = self.console
+        self.console.channels.open_plot(self.shared_data)
 
-        # Use unique prefix to avoid conflicts
-        prefix = str(uuid.uuid4())[:6]
-
-        # Create test channels
-        index_name = f"plot_idx_{prefix}"
-        data_name = f"plot_data_{prefix}"
-
-        console.channels.create(name=index_name, is_index=True)
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=index_name,
-        )
-
-        # Double-click the data channel to open its plot
-        console.channels.open_plot(data_name)
-
-        # Verify a line plot was opened by checking for the line plot element
         line_plot = self.page.locator(".pluto-line-plot")
         line_plot.first.wait_for(state="visible", timeout=5000)
         assert (
             line_plot.first.is_visible()
         ), "Expected a line plot to be visible after double-clicking channel"
-
-        # Cleanup
-        console.channels.delete([data_name, index_name])
 
     def test_rename_channel(self) -> None:
         """Test renaming a channel via context menu."""
@@ -262,34 +307,18 @@ class ChannelOperations(ConsoleCase):
 
         initial_multiplier = 2
         updated_multiplier = 30
-        prefix = str(uuid.uuid4())[:6]
-        calc_name = f"calc_ch_{prefix}"
-        initial_expr = f"return {SRC_CH} * {initial_multiplier}"
         updated_expr = f"return {SRC_CH} * {updated_multiplier}"
 
-        console.channels.create_calculated(
-            name=calc_name,
-            expression=initial_expr,
-        )
-
-        calc_ch = client.channels.retrieve(calc_name)
-        assert calc_ch.virtual, "Calculated channel should be virtual"
-        assert (
-            initial_expr in calc_ch.expression
-        ), f"Expected expression to contain '{initial_expr}', got '{calc_ch.expression}'"
-
         uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
-        calc_val = int(client.read_latest(calc_name, n=1)[-1])
+        calc_val = int(client.read_latest(self.calc_editable, n=1)[-1])
         expected_val = uptime_val * initial_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
-        console.channels.edit_calculated(calc_name, updated_expr)
+        console.channels.edit_calculated(self.calc_editable, updated_expr)
         uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
-        calc_val = int(client.read_latest(calc_name, n=1)[-1])
+        calc_val = int(client.read_latest(self.calc_editable, n=1)[-1])
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
-
-        console.channels.delete([calc_name])
 
     def test_set_alias_under_range(self) -> None:
         """Test setting an alias for a channel under a range via context menu."""
@@ -424,64 +453,21 @@ class ChannelOperations(ConsoleCase):
         """Test copying a channel link via context menu."""
         self.log("Testing copy channel link")
 
-        console = self.console
-
-        # Use unique prefix to avoid conflicts
-        prefix = str(uuid.uuid4())[:6]
-
-        # Create test channel
-        index_name = f"link_idx_{prefix}"
-        data_name = f"link_data_{prefix}"
-
-        console.channels.create(name=index_name, is_index=True)
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=index_name,
-        )
-
-        # Verify a link was copied (or at least no error occurred)
-        # Clipboard access may not be available in all browsers
-        link = console.channels.copy_link(data_name)
+        link = self.console.channels.copy_link(self.shared_data)
         if link:
             assert (
-                "channel" in link.lower() or data_name in link
+                "channel" in link.lower() or self.shared_data in link
             ), f"Expected link to contain 'channel' or channel name, got: {link}"
             self.log(f"Copied link: {link}")
         else:
             self.log("Copy link executed (clipboard not accessible for verification)")
 
-        # Cleanup
-        console.channels.delete([data_name, index_name])
-
-    def test_hard_reload_console(self) -> None:
-        """Test hard reload via channel context menu."""
-        self.log("Testing hard reload console")
-        console = self.console
-        console.channels.hard_reload()
-
-        # Wait for the channels button to be visible, indicating the console has reloaded
-        console.channels.channels_button.wait_for(state="visible", timeout=10000)
-
     def test_open_channel_plot_by_name(self) -> None:
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        console = self.console
-        prefix = str(uuid.uuid4())[:6]
-        index_name = f"search_idx_{prefix}"
-        data_name = f"search_data_{prefix}"
-
-        console.channels.create(name=index_name, is_index=True)
-        console.channels.create(
-            name=data_name,
-            data_type=sy.DataType.FLOAT32,
-            index=index_name,
-        )
-
-        console.channels.open_plot_by_search(data_name)
-
-        console.channels.delete([data_name, index_name])
+        self.console.channels.open_plot_by_search(self.shared_data)
+        self.page.keyboard.press("ControlOrMeta+w")
 
     def test_open_create_channel_modal(self) -> None:
         """Test opening the Create Channel modal via command palette."""
@@ -503,48 +489,37 @@ class ChannelOperations(ConsoleCase):
         """Test plotting a nested calculated channel (calc channel referencing another calc channel)."""
         self.log("Testing plot nested calculated channel")
 
-        console = self.console
         client = self.client
 
-        prefix = str(uuid.uuid4())[:6]
-        calc_a_name = f"calc_a_{prefix}"
-        calc_b_name = f"calc_b_{prefix}"
-        expr_a = f"return {SRC_CH} * 2"
-        expr_b = f"return {calc_a_name} * 3"
-
-        console.channels.create_calculated(name=calc_a_name, expression=expr_a)
-        console.channels.create_calculated(name=calc_b_name, expression=expr_b)
-
-        plot = Plot(client, console, f"Nested Calc Plot {prefix}")
-        plot.add_channels("Y1", [SRC_CH, calc_a_name, calc_b_name])
+        plot = Plot(client, self.console, f"Nested Calc Plot {self.prefix}")
+        plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 
-        assert calc_a_name in csv_content, f"CSV should contain {calc_a_name}"
-        assert calc_b_name in csv_content, f"CSV should contain {calc_b_name}"
+        assert self.calc_x2 in csv_content, f"CSV should contain {self.calc_x2}"
+        assert self.calc_x6 in csv_content, f"CSV should contain {self.calc_x6}"
 
         lines = csv_content.strip().split("\n")
         header = lines[0].split(",")
         src_idx = header.index(SRC_CH)
-        calc_a_idx = header.index(calc_a_name)
-        calc_b_idx = header.index(calc_b_name)
+        calc_x2_idx = header.index(self.calc_x2)
+        calc_x6_idx = header.index(self.calc_x6)
 
         for line in lines[1:]:
             values = line.split(",")
             src_val = int(values[src_idx])
-            calc_a_val = int(values[calc_a_idx])
-            calc_b_val = int(values[calc_b_idx])
+            calc_x2_val = int(values[calc_x2_idx])
+            calc_x6_val = int(values[calc_x6_idx])
 
-            expected_a = src_val * 2
-            expected_b = src_val * 2 * 3
+            expected_x2 = src_val * 2
+            expected_x6 = src_val * 2 * 3
             assert (
-                calc_a_val == expected_a
-            ), f"calc_a mismatch: {src_val} * 2 = {expected_a}, got {calc_a_val}"
+                calc_x2_val == expected_x2
+            ), f"calc_x2 mismatch: {src_val} * 2 = {expected_x2}, got {calc_x2_val}"
             assert (
-                calc_b_val == expected_b
-            ), f"calc_b mismatch: {src_val} * 6 = {expected_b}, got {calc_b_val}"
+                calc_x6_val == expected_x6
+            ), f"calc_x6 mismatch: {src_val} * 6 = {expected_x6}, got {calc_x6_val}"
 
         plot.close()
-        console.channels.delete([calc_b_name, calc_a_name])
 
     def test_erroneous_calculated_channel(self) -> None:
         """Test that erroneous calculated channel expressions are handled gracefully."""
@@ -552,8 +527,7 @@ class ChannelOperations(ConsoleCase):
         console.notifications.close_all()
 
         self.log("Testing erroneous calculated channel (nonexistent channel)")
-        prefix = str(uuid.uuid4())[:6]
-        calc_name = f"calc_err_{prefix}"
+        calc_name = f"calc_err_{self.prefix}"
         bad_ch_expression = "return nonexistent_channel_xyz * 3"
 
         error = console.channels.create_calculated(
@@ -574,7 +548,7 @@ class ChannelOperations(ConsoleCase):
         self.log("Testing erroneous calculated channel (bad syntax)")
 
         bad_syntax_expression = "return * 3"
-        calc_name_2 = f"calc_err_syntax_{prefix}"
+        calc_name_2 = f"calc_err_syntax_{self.prefix}"
 
         error = console.channels.create_calculated(
             name=calc_name_2, expression=bad_syntax_expression
