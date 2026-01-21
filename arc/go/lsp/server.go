@@ -291,21 +291,20 @@ func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
-		endLine := diag.EndLine
-		endColumn := diag.EndColumn
-		if endLine == 0 && endColumn == 0 {
-			endLine = diag.Line
-			endColumn = diag.Column + 1
+		end := diag.End
+		if end.Line == 0 && end.Col == 0 {
+			end.Line = diag.Start.Line
+			end.Col = diag.Start.Col + 1
 		}
 		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column),
+					Line:      uint32(diag.Start.Line - 1),
+					Character: uint32(diag.Start.Col),
 				},
 				End: protocol.Position{
-					Line:      uint32(endLine - 1),
-					Character: uint32(endColumn),
+					Line:      uint32(end.Line - 1),
+					Character: uint32(end.Col),
 				},
 			},
 			Severity: severity(diag.Severity),

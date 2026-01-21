@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 //go:generate antlr4 -Dlanguage=Go -o . -package parser ArcLexer.g4 ArcParser.g4
+//go:generate go run ./gen/tokens/main.go
 
 // Package parser provides parsing functionality for the Arc programming language.
 // It uses ANTLR4-generated parsers to convert Arc source code into abstract syntax trees.
@@ -137,8 +138,7 @@ func (e *errorListener) SyntaxError(
 ) {
 	e.Add(diagnostics.Diagnostic{
 		Severity: diagnostics.SeverityError,
-		Line:     line,
-		Column:   column,
+		Start:    diagnostics.Position{Line: line, Col: column},
 		Message:  msg,
 	})
 }

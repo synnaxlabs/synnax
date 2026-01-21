@@ -12,7 +12,6 @@ package lsp
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -103,9 +102,227 @@ func isWordChar(c byte) bool {
 }
 
 var operators = []string{
-	":=", "$=", "=>", "->",
-	"+=", "-=", "*=", "/=", "%=",
-	"==", "!=", "<=", ">=",
+	parser.LiteralDECLARE, parser.LiteralSTATE_DECLARE, parser.LiteralTRANSITION, parser.LiteralARROW,
+	parser.LiteralPLUS_ASSIGN, parser.LiteralMINUS_ASSIGN, parser.LiteralSTAR_ASSIGN, parser.LiteralSLASH_ASSIGN, parser.LiteralPERCENT_ASSIGN,
+	parser.LiteralEQ, parser.LiteralNEQ, parser.LiteralLEQ, parser.LiteralGEQ,
+}
+
+// operatorDocs contains pre-computed documentation for operators.
+var operatorDocs = map[string]string{
+	parser.LiteralDECLARE: doc.New(
+		doc.TitleWithKind(parser.LiteralDECLARE, "Operator"),
+		doc.Paragraph("Declares and initializes a new local variable."),
+		doc.Divider(),
+		doc.ArcCode("x := 42\nname := \"hello\""),
+		doc.Divider(),
+		doc.Paragraph("The variable type is inferred from the right-hand side expression."),
+	).Render(),
+	parser.LiteralSTATE_DECLARE: doc.New(
+		doc.TitleWithKind(parser.LiteralSTATE_DECLARE, "Operator"),
+		doc.Paragraph("Declares a stateful variable that persists across executions."),
+		doc.Divider(),
+		doc.ArcCode("count $= 0\ncount = count + 1"),
+		doc.Divider(),
+		doc.Paragraph("Stateful variables retain their values between reactive stage executions, making them useful for counters, accumulators, and maintaining state."),
+	).Render(),
+	parser.LiteralTRANSITION: doc.New(
+		doc.TitleWithKind(parser.LiteralTRANSITION, "Operator"),
+		doc.Paragraph("Transitions to another stage in a sequence."),
+		doc.Divider(),
+		doc.ArcCode("sequence main {\n    stage first {\n        if ready => second\n    }\n    stage second {}\n}"),
+		doc.Divider(),
+		doc.Paragraph("When the condition is true, execution transitions to the specified stage on the next cycle."),
+	).Render(),
+	parser.LiteralARROW: doc.New(
+		doc.TitleWithKind(parser.LiteralARROW, "Operator"),
+		doc.Paragraph("Writes a value to a channel."),
+		doc.Divider(),
+		doc.ArcCode("value -> outputChannel"),
+		doc.Divider(),
+		doc.Paragraph("Sends the left-hand value to the channel on the right."),
+	).Render(),
+	parser.LiteralPLUS_ASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralPLUS_ASSIGN, "Operator"),
+		doc.Paragraph("Adds and assigns."),
+		doc.Divider(),
+		doc.ArcCode("x += 5  // equivalent to: x = x + 5"),
+	).Render(),
+	parser.LiteralMINUS_ASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralMINUS_ASSIGN, "Operator"),
+		doc.Paragraph("Subtracts and assigns."),
+		doc.Divider(),
+		doc.ArcCode("x -= 5  // equivalent to: x = x - 5"),
+	).Render(),
+	parser.LiteralSTAR_ASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralSTAR_ASSIGN, "Operator"),
+		doc.Paragraph("Multiplies and assigns."),
+		doc.Divider(),
+		doc.ArcCode("x *= 2  // equivalent to: x = x * 2"),
+	).Render(),
+	parser.LiteralSLASH_ASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralSLASH_ASSIGN, "Operator"),
+		doc.Paragraph("Divides and assigns."),
+		doc.Divider(),
+		doc.ArcCode("x /= 2  // equivalent to: x = x / 2"),
+	).Render(),
+	parser.LiteralPERCENT_ASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralPERCENT_ASSIGN, "Operator"),
+		doc.Paragraph("Computes modulo and assigns."),
+		doc.Divider(),
+		doc.ArcCode("x %= 3  // equivalent to: x = x % 3"),
+	).Render(),
+	parser.LiteralEQ: doc.New(
+		doc.TitleWithKind(parser.LiteralEQ, "Operator"),
+		doc.Paragraph("Tests equality between two values."),
+		doc.Divider(),
+		doc.ArcCode("if x == 10 { ... }"),
+	).Render(),
+	parser.LiteralNEQ: doc.New(
+		doc.TitleWithKind(parser.LiteralNEQ, "Operator"),
+		doc.Paragraph("Tests inequality between two values."),
+		doc.Divider(),
+		doc.ArcCode("if x != 0 { ... }"),
+	).Render(),
+	parser.LiteralLEQ: doc.New(
+		doc.TitleWithKind(parser.LiteralLEQ, "Operator"),
+		doc.Paragraph("Tests if left value is less than or equal to right value."),
+		doc.Divider(),
+		doc.ArcCode("if x <= 100 { ... }"),
+	).Render(),
+	parser.LiteralGEQ: doc.New(
+		doc.TitleWithKind(parser.LiteralGEQ, "Operator"),
+		doc.Paragraph("Tests if left value is greater than or equal to right value."),
+		doc.Divider(),
+		doc.ArcCode("if x >= 0 { ... }"),
+	).Render(),
+}
+
+// keywordDocs contains pre-computed documentation for keywords, types, and built-in functions.
+var keywordDocs = map[string]string{
+	parser.LiteralFUNC: doc.New(
+		doc.TitleWithKind(parser.LiteralFUNC, "Keyword"),
+		doc.Paragraph("Declares a function."),
+		doc.Divider(),
+		doc.ArcCode("func name(param type) returnType {\n    // body\n}"),
+	).Render(),
+	parser.LiteralSTAGE: doc.New(
+		doc.TitleWithKind(parser.LiteralSTAGE, "Keyword"),
+		doc.Paragraph("Declares a stage within a sequence."),
+		doc.Divider(),
+		doc.ArcCode("sequence name {\n    stage stageName {\n        // body\n    }\n}"),
+	).Render(),
+	parser.LiteralSEQUENCE: doc.New(
+		doc.TitleWithKind(parser.LiteralSEQUENCE, "Keyword"),
+		doc.Paragraph("Declares a sequence (state machine)."),
+		doc.Divider(),
+		doc.ArcCode("sequence name {\n    stage first {\n        // initial stage\n    }\n}"),
+	).Render(),
+	parser.LiteralIF: doc.New(
+		doc.TitleWithKind(parser.LiteralIF, "Keyword"),
+		doc.Paragraph("Conditional statement."),
+		doc.Divider(),
+		doc.ArcCode("if condition {\n    // body\n}"),
+	).Render(),
+	parser.LiteralELSE: doc.New(
+		doc.TitleWithKind(parser.LiteralELSE, "Keyword"),
+		doc.Paragraph("Alternative branch for if statement."),
+		doc.Divider(),
+		doc.ArcCode("if condition {\n    // body\n} else {\n    // alternative\n}"),
+	).Render(),
+	parser.LiteralRETURN: doc.New(
+		doc.TitleWithKind(parser.LiteralRETURN, "Keyword"),
+		doc.Paragraph("Returns a value from a function."),
+	).Render(),
+	parser.LiteralNEXT: doc.New(
+		doc.TitleWithKind(parser.LiteralNEXT, "Keyword"),
+		doc.Paragraph("Transitions to a stage unconditionally."),
+		doc.Divider(),
+		doc.ArcCode("stage first {\n    next second\n}"),
+	).Render(),
+	parser.LiteralI8: doc.New(
+		doc.TitleWithKind(parser.LiteralI8, "Type"),
+		doc.Paragraph("Signed 8-bit integer."),
+		doc.Detail("Range", "-128 to 127", false),
+	).Render(),
+	parser.LiteralI16: doc.New(
+		doc.TitleWithKind(parser.LiteralI16, "Type"),
+		doc.Paragraph("Signed 16-bit integer."),
+		doc.Detail("Range", "-32768 to 32767", false),
+	).Render(),
+	parser.LiteralI32: doc.New(
+		doc.TitleWithKind(parser.LiteralI32, "Type"),
+		doc.Paragraph("Signed 32-bit integer."),
+		doc.Detail("Range", "-2147483648 to 2147483647", false),
+	).Render(),
+	parser.LiteralI64: doc.New(
+		doc.TitleWithKind(parser.LiteralI64, "Type"),
+		doc.Paragraph("Signed 64-bit integer."),
+		doc.Detail("Range", "-9223372036854775808 to 9223372036854775807", false),
+	).Render(),
+	parser.LiteralU8: doc.New(
+		doc.TitleWithKind(parser.LiteralU8, "Type"),
+		doc.Paragraph("Unsigned 8-bit integer."),
+		doc.Detail("Range", "0 to 255", false),
+	).Render(),
+	parser.LiteralU16: doc.New(
+		doc.TitleWithKind(parser.LiteralU16, "Type"),
+		doc.Paragraph("Unsigned 16-bit integer."),
+		doc.Detail("Range", "0 to 65535", false),
+	).Render(),
+	parser.LiteralU32: doc.New(
+		doc.TitleWithKind(parser.LiteralU32, "Type"),
+		doc.Paragraph("Unsigned 32-bit integer."),
+		doc.Detail("Range", "0 to 4294967295", false),
+	).Render(),
+	parser.LiteralU64: doc.New(
+		doc.TitleWithKind(parser.LiteralU64, "Type"),
+		doc.Paragraph("Unsigned 64-bit integer."),
+		doc.Detail("Range", "0 to 18446744073709551615", false),
+	).Render(),
+	parser.LiteralF32: doc.New(
+		doc.TitleWithKind(parser.LiteralF32, "Type"),
+		doc.Paragraph("32-bit floating point number (single precision)."),
+	).Render(),
+	parser.LiteralF64: doc.New(
+		doc.TitleWithKind(parser.LiteralF64, "Type"),
+		doc.Paragraph("64-bit floating point number (double precision)."),
+	).Render(),
+	"string": doc.New(
+		doc.TitleWithKind("string", "Type"),
+		doc.Paragraph("Immutable UTF-8 encoded string."),
+	).Render(),
+	"timestamp": doc.New(
+		doc.TitleWithKind("timestamp", "Type"),
+		doc.Paragraph("Point in time represented as nanoseconds since Unix epoch."),
+	).Render(),
+	"timespan": doc.New(
+		doc.TitleWithKind("timespan", "Type"),
+		doc.Paragraph("Duration represented as nanoseconds."),
+	).Render(),
+	parser.LiteralSERIES: doc.New(
+		doc.TitleWithKind(parser.LiteralSERIES, "Type"),
+		doc.Paragraph("Homogeneous array of values."),
+		doc.Divider(),
+		doc.ArcCode("series f64"),
+	).Render(),
+	parser.LiteralCHAN: doc.New(
+		doc.TitleWithKind(parser.LiteralCHAN, "Type"),
+		doc.Paragraph("Bidirectional channel for communication."),
+		doc.Divider(),
+		doc.ArcCode("chan f64"),
+	).Render(),
+	"len": doc.New(
+		doc.TitleWithKind("len", "Function"),
+		doc.Paragraph("Returns the length of a series."),
+		doc.Divider(),
+		doc.ArcCode("length := len(data)"),
+	).Render(),
+	"now": doc.New(
+		doc.TitleWithKind("now", "Function"),
+		doc.Paragraph("Returns the current timestamp."),
+		doc.Divider(),
+		doc.ArcCode("time := now()"),
+	).Render(),
 }
 
 func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {
@@ -134,238 +351,11 @@ func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) st
 }
 
 func (s *Server) getOperatorHoverContents(op string) string {
-	switch op {
-	case ":=":
-		return doc.New(
-			doc.NewTitleWithKind(":=", "Operator"),
-			doc.Paragraph("Declares and initializes a new local variable."),
-			doc.NewDivider(),
-			doc.NewArcCode("x := 42\nname := \"hello\""),
-			doc.NewDivider(),
-			doc.Paragraph("The variable type is inferred from the right-hand side expression."),
-		).Render()
-	case "$=":
-		return doc.New(
-			doc.NewTitleWithKind("$=", "Operator"),
-			doc.Paragraph("Declares a stateful variable that persists across executions."),
-			doc.NewDivider(),
-			doc.NewArcCode("count $= 0\ncount = count + 1"),
-			doc.NewDivider(),
-			doc.Paragraph("Stateful variables retain their values between reactive stage executions, making them useful for counters, accumulators, and maintaining state."),
-		).Render()
-	case "=>":
-		return doc.New(
-			doc.NewTitleWithKind("=>", "Operator"),
-			doc.Paragraph("Transitions to another stage in a sequence."),
-			doc.NewDivider(),
-			doc.NewArcCode("sequence main {\n    stage first {\n        if ready => second\n    }\n    stage second {}\n}"),
-			doc.NewDivider(),
-			doc.Paragraph("When the condition is true, execution transitions to the specified stage on the next cycle."),
-		).Render()
-	case "->":
-		return doc.New(
-			doc.NewTitleWithKind("->", "Operator"),
-			doc.Paragraph("Writes a value to a channel."),
-			doc.NewDivider(),
-			doc.NewArcCode("value -> outputChannel"),
-			doc.NewDivider(),
-			doc.Paragraph("Sends the left-hand value to the channel on the right."),
-		).Render()
-	case "+=":
-		return doc.New(
-			doc.NewTitleWithKind("+=", "Operator"),
-			doc.Paragraph("Adds and assigns."),
-			doc.NewDivider(),
-			doc.NewArcCode("x += 5  // equivalent to: x = x + 5"),
-		).Render()
-	case "-=":
-		return doc.New(
-			doc.NewTitleWithKind("-=", "Operator"),
-			doc.Paragraph("Subtracts and assigns."),
-			doc.NewDivider(),
-			doc.NewArcCode("x -= 5  // equivalent to: x = x - 5"),
-		).Render()
-	case "*=":
-		return doc.New(
-			doc.NewTitleWithKind("*=", "Operator"),
-			doc.Paragraph("Multiplies and assigns."),
-			doc.NewDivider(),
-			doc.NewArcCode("x *= 2  // equivalent to: x = x * 2"),
-		).Render()
-	case "/=":
-		return doc.New(
-			doc.NewTitleWithKind("/=", "Operator"),
-			doc.Paragraph("Divides and assigns."),
-			doc.NewDivider(),
-			doc.NewArcCode("x /= 2  // equivalent to: x = x / 2"),
-		).Render()
-	case "%=":
-		return doc.New(
-			doc.NewTitleWithKind("%=", "Operator"),
-			doc.Paragraph("Computes modulo and assigns."),
-			doc.NewDivider(),
-			doc.NewArcCode("x %= 3  // equivalent to: x = x % 3"),
-		).Render()
-	case "==":
-		return doc.New(
-			doc.NewTitleWithKind("==", "Operator"),
-			doc.Paragraph("Tests equality between two values."),
-			doc.NewDivider(),
-			doc.NewArcCode("if x == 10 { ... }"),
-		).Render()
-	case "!=":
-		return doc.New(
-			doc.NewTitleWithKind("!=", "Operator"),
-			doc.Paragraph("Tests inequality between two values."),
-			doc.NewDivider(),
-			doc.NewArcCode("if x != 0 { ... }"),
-		).Render()
-	case "<=":
-		return doc.New(
-			doc.NewTitleWithKind("<=", "Operator"),
-			doc.Paragraph("Tests if left value is less than or equal to right value."),
-			doc.NewDivider(),
-			doc.NewArcCode("if x <= 100 { ... }"),
-		).Render()
-	case ">=":
-		return doc.New(
-			doc.NewTitleWithKind(">=", "Operator"),
-			doc.Paragraph("Tests if left value is greater than or equal to right value."),
-			doc.NewDivider(),
-			doc.NewArcCode("if x >= 0 { ... }"),
-		).Render()
-	default:
-		return ""
-	}
+	return operatorDocs[op]
 }
 
 func (s *Server) getHoverContents(word string) string {
-	switch word {
-	case "func":
-		return doc.New(
-			doc.NewTitleWithKind("func", "Keyword"),
-			doc.Paragraph("Declares a function."),
-			doc.NewDivider(),
-			doc.NewArcCode("func name(param type) returnType {\n    // body\n}"),
-		).Render()
-	case "stage":
-		return doc.New(
-			doc.NewTitleWithKind("stage", "Keyword"),
-			doc.Paragraph("Declares a stage within a sequence."),
-			doc.NewDivider(),
-			doc.NewArcCode("sequence name {\n    stage stageName {\n        // body\n    }\n}"),
-		).Render()
-	case "sequence":
-		return doc.New(
-			doc.NewTitleWithKind("sequence", "Keyword"),
-			doc.Paragraph("Declares a sequence (state machine)."),
-			doc.NewDivider(),
-			doc.NewArcCode("sequence name {\n    stage first {\n        // initial stage\n    }\n}"),
-		).Render()
-	case "if":
-		return doc.New(
-			doc.NewTitleWithKind("if", "Keyword"),
-			doc.Paragraph("Conditional statement."),
-			doc.NewDivider(),
-			doc.NewArcCode("if condition {\n    // body\n}"),
-		).Render()
-	case "else":
-		return doc.New(
-			doc.NewTitleWithKind("else", "Keyword"),
-			doc.Paragraph("Alternative branch for if statement."),
-			doc.NewDivider(),
-			doc.NewArcCode("if condition {\n    // body\n} else {\n    // alternative\n}"),
-		).Render()
-	case "return":
-		return doc.New(
-			doc.NewTitleWithKind("return", "Keyword"),
-			doc.Paragraph("Returns a value from a function."),
-		).Render()
-	case "next":
-		return doc.New(
-			doc.NewTitleWithKind("next", "Keyword"),
-			doc.Paragraph("Transitions to a stage unconditionally."),
-			doc.NewDivider(),
-			doc.NewArcCode("stage first {\n    next second\n}"),
-		).Render()
-	case "i8", "i16", "i32", "i64":
-		bits := word[1:]
-		return doc.New(
-			doc.NewTitleWithKind(word, "Type"),
-			doc.Paragraph(fmt.Sprintf("Signed %s-bit integer.", bits)),
-			doc.NewDetail("Range", fmt.Sprintf("-%d to %d", 1<<(parseInt(bits)-1), (1<<(parseInt(bits)-1))-1), false),
-		).Render()
-	case "u8", "u16", "u32", "u64":
-		bits := word[1:]
-		return doc.New(
-			doc.NewTitleWithKind(word, "Type"),
-			doc.Paragraph(fmt.Sprintf("Unsigned %s-bit integer.", bits)),
-			doc.NewDetail("Range", fmt.Sprintf("0 to %d", (1<<parseInt(bits))-1), false),
-		).Render()
-	case "f32":
-		return doc.New(
-			doc.NewTitleWithKind("f32", "Type"),
-			doc.Paragraph("32-bit floating point number (single precision)."),
-		).Render()
-	case "f64":
-		return doc.New(
-			doc.NewTitleWithKind("f64", "Type"),
-			doc.Paragraph("64-bit floating point number (double precision)."),
-		).Render()
-	case "string":
-		return doc.New(
-			doc.NewTitleWithKind("string", "Type"),
-			doc.Paragraph("Immutable UTF-8 encoded string."),
-		).Render()
-	case "timestamp":
-		return doc.New(
-			doc.NewTitleWithKind("timestamp", "Type"),
-			doc.Paragraph("Point in time represented as nanoseconds since Unix epoch."),
-		).Render()
-	case "timespan":
-		return doc.New(
-			doc.NewTitleWithKind("timespan", "Type"),
-			doc.Paragraph("Duration represented as nanoseconds."),
-		).Render()
-	case "series":
-		return doc.New(
-			doc.NewTitleWithKind("series", "Type"),
-			doc.Paragraph("Homogeneous array of values."),
-			doc.NewDivider(),
-			doc.NewArcCode("series f64"),
-		).Render()
-	case "chan":
-		return doc.New(
-			doc.NewTitleWithKind("chan", "Type"),
-			doc.Paragraph("Bidirectional channel for communication."),
-			doc.NewDivider(),
-			doc.NewArcCode("chan f64"),
-		).Render()
-	case "len":
-		return doc.New(
-			doc.NewTitleWithKind("len", "Function"),
-			doc.Paragraph("Returns the length of a series."),
-			doc.NewDivider(),
-			doc.NewArcCode("length := len(data)"),
-		).Render()
-	case "now":
-		return doc.New(
-			doc.NewTitleWithKind("now", "Function"),
-			doc.Paragraph("Returns the current timestamp."),
-			doc.NewDivider(),
-			doc.NewArcCode("time := now()"),
-		).Render()
-	default:
-		return ""
-	}
-}
-
-func parseInt(s string) int {
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		return 0
-	}
-	return n
+	return keywordDocs[word]
 }
 
 func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
@@ -487,41 +477,41 @@ func (s *Server) getUserSymbolHover(scope *symbol.Scope, name string, content st
 	var d doc.Doc
 	switch sym.Kind {
 	case symbol.KindFunction:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, formatFunctionKindDescription(sym)))
-		d.Add(doc.NewDivider())
-		d.Add(doc.Code{Language: "arc", Content: formatFunctionSignatureContent(sym)})
+		d = doc.New(doc.TitleWithKind(sym.Name, formatFunctionKindDescription(sym)))
+		d.Add(doc.Divider())
+		d.Add(doc.ArcCode(formatFunctionSignatureContent(sym)))
 	case symbol.KindVariable:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Variable"))
-		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Variable"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindStatefulVariable:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Stateful Variable"))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Stateful Variable"))
 		d.Add(doc.Paragraph("Persists across executions"))
-		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindInput:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Input Parameter"))
-		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Input Parameter"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindOutput:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Output Parameter"))
-		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Output Parameter"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindConfig:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Configuration Parameter"))
-		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Configuration Parameter"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindChannel:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Channel"))
-		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Channel"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindSequence:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Sequence"))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Sequence"))
 		if stages := formatSequenceStagesList(sym); len(stages) > 0 {
 			d.Add(doc.Paragraph("Stages: " + strings.Join(stages, ", ")))
 		}
 	case symbol.KindStage:
-		d = doc.New(doc.NewTitleWithKind(sym.Name, "Stage"))
+		d = doc.New(doc.TitleWithKind(sym.Name, "Stage"))
 	default:
-		d = doc.New(doc.NewTitle(sym.Name))
-		d.Add(doc.NewDetail("Type", sym.Type.String(), true))
+		d = doc.New(doc.Title(sym.Name))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	}
 	if docComment != "" {
-		d.Add(doc.NewDivider())
+		d.Add(doc.Divider())
 		d.Add(doc.Paragraph(docComment))
 	}
 	return d.Render()

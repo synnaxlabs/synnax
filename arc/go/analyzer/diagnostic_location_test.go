@@ -40,16 +40,16 @@ var _ = Describe("Diagnostic Locations", func() {
 		diag := (*ctx.Diagnostics)[0]
 		Expect(diag.Message).To(ContainSubstring(tc.expectedMsg))
 		if tc.expectedLine > 0 {
-			Expect(diag.Line).To(Equal(tc.expectedLine))
+			Expect(diag.Start.Line).To(Equal(tc.expectedLine))
 		}
 		if tc.expectedColumn > 0 {
-			Expect(diag.Column).To(Equal(tc.expectedColumn))
+			Expect(diag.Start.Col).To(Equal(tc.expectedColumn))
 		}
 		if tc.expectedEndLine > 0 {
-			Expect(diag.EndLine).To(Equal(tc.expectedEndLine))
+			Expect(diag.End.Line).To(Equal(tc.expectedEndLine))
 		}
 		if tc.expectedEndColumn > 0 {
-			Expect(diag.EndColumn).To(Equal(tc.expectedEndColumn))
+			Expect(diag.End.Col).To(Equal(tc.expectedEndColumn))
 		}
 		if tc.expectedSev != 0 {
 			Expect(diag.Severity).To(Equal(tc.expectedSev))
@@ -287,11 +287,11 @@ func test() {
 
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined1"))
-			Expect(diag.Line).To(Equal(3))
+			Expect(diag.Start.Line).To(Equal(3))
 
 			diag2 := (*ctx.Diagnostics)[1]
 			Expect(diag2.Message).To(ContainSubstring("undefined symbol: undefined2"))
-			Expect(diag2.Line).To(Equal(4))
+			Expect(diag2.Start.Line).To(Equal(4))
 		})
 	})
 
