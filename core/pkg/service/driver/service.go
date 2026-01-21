@@ -84,7 +84,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg.L.Info("created go driver rack", zap.Stringer("key", d.rack.Key))
 
 	d.startHeartbeat()
-	go d.configureInitialTasks(ctx)
+	d.configureInitialTasks(ctx)
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	d.disconnectObserver = taskObs.OnChange(d.handleTaskChange)
 	if err = d.startCommandStreaming(ctx); err != nil {
