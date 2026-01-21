@@ -29,7 +29,7 @@ type metric struct {
 	ch      channel.Channel
 }
 
-func (svc *Service) buildMetrics(namePrefix string, idxKey channel.LocalKey) []metric {
+func (svc *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []metric {
 	makeChannel := func(name string) channel.Channel {
 		return channel.Channel{
 			Name:       namePrefix + name,
@@ -77,7 +77,7 @@ func (svc *Service) buildMetrics(namePrefix string, idxKey channel.LocalKey) []m
 	return metrics
 }
 
-func buildCalculatedMetrics(namePrefix string) []channel.Channel {
+func createCalculatedMetrics(namePrefix string) []channel.Channel {
 	return []channel.Channel{
 		{
 			Name:       namePrefix + "total_size_gb",

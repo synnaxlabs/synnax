@@ -153,6 +153,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
+	var metricsChannels []channel.Channel
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		chWriter := cfg.Channel.NewWriter(tx)
 		if err := chWriter.Create(
@@ -172,8 +173,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		); err != nil {
 			return err
 		}
-		metrics := s.buildMetrics(namePrefix, c.idx.LocalKey)
-		metricsChannels := lo.Map(metrics, func(m metric, _ int) channel.Channel {
+		metrics := s.createMetrics(namePrefix, c.idx.LocalKey)
+		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
 			return m.ch
 		})
 		if err := chWriter.CreateMany(
@@ -216,7 +217,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	// Do this in a separate transaction otherwise the Arc analyzer won't parse the
 	// calculated channel expressions.
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		calculatedChannels := buildCalculatedMetrics(namePrefix)
+		calculatedChannels := createCalculatedMetrics(namePrefix)
 		if err := cfg.Channel.NewWriter(tx).CreateMany(
 			ctx,
 			&calculatedChannels,
@@ -241,9 +242,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		ctx,
 		framer.WriterConfig{
 			Keys: append(
-				lo.Map(c.metrics, func(m metric, _ int) channel.Key {
-					return m.ch.Key()
-				}),
+				channel.KeysFromChannels(metricsChannels),
 				c.idx.Key(),
 			),
 			Start:                    telem.Now(),
