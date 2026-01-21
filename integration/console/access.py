@@ -164,7 +164,7 @@ class AccessClient:
         :returns: True if the user was created successfully.
         """
         # Clear any existing notifications to avoid false positives
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
 
         # Open command palette and register user
         self.console.command_palette("Register a User")
@@ -193,10 +193,10 @@ class AccessClient:
         sy.sleep(0.5)
 
         # Check for error notifications
-        for notification in self.console.check_for_notifications():
+        for notification in self.console.notifications.check():
             message = notification.get("message", "")
             if "Failed" in message or "Error" in message:
-                self.console.close_notification(0)
+                self.console.notifications.close(0)
                 return False
 
         return True
@@ -358,10 +358,10 @@ class AccessClient:
             sy.sleep(0.3)
 
         # Check for error notifications
-        for notification in self.console.check_for_notifications():
+        for notification in self.console.notifications.check():
             message = notification.get("message", "")
             if "Failed" in message or "Error" in message:
-                self.console.close_notification(0)
+                self.console.notifications.close(0)
                 return False
 
         return True

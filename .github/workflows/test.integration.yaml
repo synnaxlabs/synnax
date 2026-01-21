@@ -71,9 +71,8 @@ on:
         required: false
         default: ""
         type: string
-      SEQUENCE:
-        description:
-          "Test case sequence to run (optional - will auto-discover if empty)"
+      FLAGS:
+        description: "Additional flags to pass to test-conductor (e.g., 'console/...')"
         required: false
         default: ""
         type: string
@@ -120,7 +119,7 @@ jobs:
       REF_RUN_ID:
         ${{ steps.update-outputs.outputs.REF_RUN_ID ||
         steps.set-outputs.outputs.REF_RUN_ID }}
-      SEQUENCE_ARG: ${{ steps.set-outputs.outputs.SEQUENCE_ARG }}
+      FLAGS: ${{ steps.set-outputs.outputs.FLAGS }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -142,15 +141,10 @@ jobs:
         env:
           SKIP_BUILD: ${{ github.event.inputs.SKIP_BUILD || 'false' }}
           REF_RUN_ID: ${{ github.event.inputs.REF_RUN_ID || '' }}
-          SEQUENCE: ${{ github.event.inputs.SEQUENCE || '' }}
+          FLAGS: ${{ github.event.inputs.FLAGS || '' }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          if [ -z "${SEQUENCE}" ]; then
-            echo "SEQUENCE_ARG=" >> $GITHUB_OUTPUT
-          else
-            echo "SEQUENCE_ARG=--sequence ${SEQUENCE}" >> $GITHUB_OUTPUT
-          fi
-
+          echo "FLAGS=${FLAGS}" >> $GITHUB_OUTPUT
           echo "SKIP_BUILD=${SKIP_BUILD}" >> $GITHUB_OUTPUT
           if [ "${SKIP_BUILD}" = "true" ]; then
             if [ -z "${REF_RUN_ID}" ]; then
@@ -258,7 +252,7 @@ jobs:
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
-        run: uv run test-conductor --name tc_win ${{ needs.setup.outputs.SEQUENCE_ARG }}
+        run: uv run test-conductor --name tc_win ${{ needs.setup.outputs.FLAGS }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v6
@@ -323,8 +317,7 @@ jobs:
         id: test-conductor
         timeout-minutes: 20
         working-directory: integration
-        run:
-          uv run test-conductor --name tc_unix ${{ needs.setup.outputs.SEQUENCE_ARG }}
+        run: uv run test-conductor --name tc_unix ${{ needs.setup.outputs.FLAGS }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v6
