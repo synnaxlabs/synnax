@@ -384,6 +384,15 @@ class Plot(ConsolePage):
         self.page.get_by_role("textbox", name="Name").fill(range_name)
         self.page.get_by_role("button", name="Save to Synnax").click()
 
+    def has_channel(self, axis: Axis, channel_name: str) -> bool:
+        """Check if a channel is shown on the specified axis in the toolbar."""
+        self.console.layout.get_tab(self.page_name).click()
+        self.console.layout.show_visualization_toolbar()
+        self.page.locator("#data").click(timeout=5000)
+        axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
+        result = axis_section.get_by_text(channel_name).count() > 0
+        return result
+
     @classmethod
     def open_from_channel(
         cls, client: sy.Synnax, console: Console, channel_name: str
