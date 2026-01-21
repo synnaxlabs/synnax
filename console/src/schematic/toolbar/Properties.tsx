@@ -188,10 +188,8 @@ const MultiElementProperties = ({
     colorGroups[hex].push(e);
   });
 
-  const firstNode = elements.find((e): e is NodeElementInfo => e.type === "node");
-  const firstNodeLabel = firstNode?.props.label as
-    | Schematic.Symbol.LabelExtensionProps
-    | undefined;
+  const firstNode = elements.find((e) => e.type === "node");
+  const firstNodeLabel = firstNode?.props.label;
 
   const store = useStore<RootState>();
 
