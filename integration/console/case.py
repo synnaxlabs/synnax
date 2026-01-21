@@ -11,7 +11,6 @@ import os
 import random
 from typing import cast
 
-import synnax as sy
 from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
 
 from console.console import Console
@@ -84,6 +83,8 @@ class ConsoleCase(TestCase):
         # Initialize Console interface
         self.console = Console(self.page)
         self.page.wait_for_selector("text=Get Started", timeout=5000)
+        self.console.workspace.ensure_selected("TestSpace")
+        self.log("Selected default workspace 'TestSpace'")
 
     def teardown(self) -> None:
         self.browser.close()
