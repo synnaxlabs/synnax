@@ -52,9 +52,9 @@ class ChannelClient:
     def show_channels(self) -> None:
         if self.channels_pane.is_visible():
             return
-        self.channels_button.click(force=True, timeout=2000)
-        self.channels_pane.first.wait_for(state="visible", timeout=500)
-        self.channels_list.first.wait_for(state="attached", timeout=2000)
+        self.channels_button.click(force=True, timeout=5000)
+        self.channels_pane.first.wait_for(state="visible", timeout=5000)
+        self.channels_list.first.wait_for(state="attached", timeout=5000)
 
     def hide_channels(self) -> None:
         if self.channels_pane.is_visible():

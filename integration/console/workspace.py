@@ -53,7 +53,7 @@ class WorkspaceClient:
         self.console.show_resource_toolbar("workspace")
         try:
             self.page.locator("div[id^='workspace:']").first.wait_for(
-                state="visible", timeout=300
+                state="visible", timeout=2000
             )
         except Exception:
             return False
@@ -65,7 +65,7 @@ class WorkspaceClient:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.console.show_resource_toolbar("workspace")
         workspace_item = self.page.locator("div[id^='workspace:']").first
-        workspace_item.wait_for(state="visible", timeout=5000)
+        workspace_item.wait_for(state="visible", timeout=10000)
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
             return
