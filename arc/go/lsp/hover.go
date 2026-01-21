@@ -61,7 +61,7 @@ func (s *Server) Hover(
 
 	contents := s.getHoverContents(word)
 	if contents == "" && d.IR.Symbols != nil {
-		scopeAtCursor := s.findScopeAtPosition(d.IR.Symbols, params.Position)
+		scopeAtCursor := FindScopeAtPosition(d.IR.Symbols, FromProtocol(params.Position))
 		contents = s.getUserSymbolHover(scopeAtCursor, word, d.Content)
 	}
 
@@ -368,7 +368,7 @@ func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
 	}
 
 	symLine := start.GetLine()
-	tokens := tokenizeContentWithComments(content)
+	tokens := TokenizeContentWithComments(content)
 	if len(tokens) == 0 {
 		return ""
 	}
@@ -399,15 +399,6 @@ func (s *Server) extractDocComment(content string, sym *symbol.Scope) string {
 	}
 
 	return cleanDocComment(commentTokens)
-}
-
-func tokenizeContentWithComments(content string) []antlr.Token {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	lexer.RemoveErrorListeners()
-	stream := antlr.NewCommonTokenStream(lexer, antlr.TokenDefaultChannel)
-	stream.Fill()
-	return stream.GetAllTokens()
 }
 
 func hasCodeBetween(tokens []antlr.Token, fromIndex int, targetLine int) bool {
@@ -581,50 +572,6 @@ func formatSequenceStagesList(sym *symbol.Scope) []string {
 		}
 	}
 	return stages
-}
-
-func (s *Server) findScopeAtPosition(
-	rootScope *symbol.Scope,
-	pos protocol.Position,
-) *symbol.Scope {
-	targetLine := int(pos.Line) + 1
-	targetCol := int(pos.Character)
-	deepest := rootScope
-	s.findScopeAtPositionRecursive(rootScope, targetLine, targetCol, &deepest)
-	return deepest
-}
-
-func (s *Server) findScopeAtPositionRecursive(
-	scope *symbol.Scope,
-	line, col int,
-	deepest **symbol.Scope,
-) {
-	if scope.AST != nil {
-		start := scope.AST.GetStart()
-		stop := scope.AST.GetStop()
-		if start != nil && stop != nil {
-			startLine := start.GetLine()
-			startCol := start.GetColumn()
-			stopLine := stop.GetLine()
-			stopCol := stop.GetColumn() + len(stop.GetText())
-			inRange := false
-			if line > startLine && line < stopLine {
-				inRange = true
-			} else if line == startLine && line == stopLine {
-				inRange = col >= startCol && col <= stopCol
-			} else if line == startLine {
-				inRange = col >= startCol
-			} else if line == stopLine {
-				inRange = col <= stopCol
-			}
-			if inRange {
-				*deepest = scope
-			}
-		}
-	}
-	for _, child := range scope.Children {
-		s.findScopeAtPositionRecursive(child, line, col, deepest)
-	}
 }
 
 // symbolToLocation converts a symbol to an LSP Location pointing to its definition

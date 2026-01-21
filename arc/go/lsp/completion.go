@@ -344,8 +344,7 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation && doc.IR.Symbols != nil {
-		searchPos := pos
-		scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
+		scopeAtCursor := FindScopeAtPosition(doc.IR.Symbols, FromProtocol(pos))
 		if scopeAtCursor != nil {
 			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)
 			if err == nil {

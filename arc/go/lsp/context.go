@@ -30,7 +30,7 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 		return ContextComment
 	}
 
-	tokens := tokenizeContent(content)
+	tokens := TokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 
 	if len(tokensBeforeCursor) == 0 {
@@ -59,20 +59,16 @@ func isPositionInComment(content string, pos protocol.Position) bool {
 	lexer := parser.NewArcLexer(input)
 	lexer.RemoveErrorListeners()
 	allTokens := lexer.GetAllTokens()
-
 	line := int(pos.Line) + 1
 	col := int(pos.Character)
-
 	for _, t := range allTokens {
 		tokenType := t.GetTokenType()
 		if tokenType != parser.ArcLexerSINGLE_LINE_COMMENT && tokenType != parser.ArcLexerMULTI_LINE_COMMENT {
 			continue
 		}
-
 		startLine := t.GetLine()
 		startCol := t.GetColumn()
 		text := t.GetText()
-
 		if tokenType == parser.ArcLexerSINGLE_LINE_COMMENT {
 			if line == startLine && col >= startCol {
 				return true
@@ -117,12 +113,6 @@ func isPositionInRange(line, col, startLine, startCol, endLine, endCol int) bool
 	return true
 }
 
-func tokenizeContent(content string) []antlr.Token {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	lexer.RemoveErrorListeners()
-	return lexer.GetAllTokens()
-}
 
 func getTokensBeforeCursor(tokens []antlr.Token, pos protocol.Position) []antlr.Token {
 	line := int(pos.Line) + 1

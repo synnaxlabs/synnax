@@ -49,3 +49,63 @@ func OpenDocument(
 		},
 	})).To(gomega.Succeed())
 }
+
+func Hover(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) *protocol.Hover {
+	result, err := server.Hover(ctx, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return result
+}
+
+func Definition(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) []protocol.Location {
+	result, err := server.Definition(ctx, &protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return result
+}
+
+func Completion(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) *protocol.CompletionList {
+	result, err := server.Completion(ctx, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return result
+}
+
+func SemanticTokens(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+) *protocol.SemanticTokens {
+	result, err := server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	return result
+}

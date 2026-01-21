@@ -118,10 +118,9 @@ func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
 
 func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Scope) *uint32 {
 	name := t.GetText()
-	line := t.GetLine()
-	col := t.GetColumn()
+	pos := Position{Line: t.GetLine(), Col: t.GetColumn()}
 
-	scope := findScopeAtLine(rootScope, line, col)
+	scope := FindScopeAtPosition(rootScope, pos)
 	if scope == nil {
 		scope = rootScope
 	}
@@ -133,48 +132,6 @@ func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Sc
 	}
 
 	return mapSymbolKind(sym.Kind)
-}
-
-func findScopeAtLine(scope *symbol.Scope, line, col int) *symbol.Scope {
-	if scope == nil {
-		return nil
-	}
-
-	var deepest *symbol.Scope
-	findScopeAtLineRecursive(scope, line, col, &deepest)
-	if deepest == nil {
-		return scope
-	}
-	return deepest
-}
-
-func findScopeAtLineRecursive(scope *symbol.Scope, line, col int, deepest **symbol.Scope) {
-	if scope.AST != nil {
-		start := scope.AST.GetStart()
-		stop := scope.AST.GetStop()
-		if start != nil && stop != nil {
-			startLine := start.GetLine()
-			startCol := start.GetColumn()
-			stopLine := stop.GetLine()
-			stopCol := stop.GetColumn() + len(stop.GetText())
-			inRange := false
-			if line > startLine && line < stopLine {
-				inRange = true
-			} else if line == startLine && line == stopLine {
-				inRange = col >= startCol && col <= stopCol
-			} else if line == startLine {
-				inRange = col >= startCol
-			} else if line == stopLine {
-				inRange = col <= stopCol
-			}
-			if inRange {
-				*deepest = scope
-			}
-		}
-	}
-	for _, child := range scope.Children {
-		findScopeAtLineRecursive(child, line, col, deepest)
-	}
 }
 
 func mapSymbolKind(kind symbol.Kind) *uint32 {

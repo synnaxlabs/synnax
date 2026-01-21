@@ -24,8 +24,7 @@ func (s *Server) Definition(ctx context.Context, params *protocol.DefinitionPara
 	if word == "" {
 		return nil, nil
 	}
-	searchPos := params.Position
-	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, searchPos)
+	scopeAtCursor := FindScopeAtPosition(doc.IR.Symbols, FromProtocol(params.Position))
 	sym, err := scopeAtCursor.Resolve(ctx, word)
 	if err != nil {
 		return nil, nil
