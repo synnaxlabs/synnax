@@ -80,14 +80,14 @@ I can successfully:
   - [x] Drag and drop a channel onto a line plot. (plot/line_plot.py)
   - [x] Drag and drop a channel onto the line plot toolbar. (plot/line_plot.py)
   - **Context Menu**
-    - [x] Rename a channel. (channel_lifecycle.py)
+    - [x] Rename a channel. (channel_operations.py)
     - [x] Group multiple channels. (channel_operations.py)
-    - [ ] Edit the calculation of a calculated channel.
-    - [ ] Set an alias for a channel under a range.
-    - [ ] Clear an alias for a channel under a range.
-    - [x] Delete a channel. (channel_lifecycle.py)
+    - [x] Edit the calculation of a calculated channel. (channel_operations.py)
+    - [x] Set an alias for a channel under a range. (channel_operations.py)
+    - [x] Clear an alias for a channel under a range. (channel_operations.py)
+    - [x] Delete a channel. (channel_operations.py)
     - [x] Copy a link to a channel. (channel_operations.py)
-    - [ ] Hard reload the console.
+    - [x] Hard reload the console. (channel_operations.py)
 - **Search and Command Palette**
   - [ ] Open a channel plot by its name.
   - [ ] Open the "Create Channel" modal.

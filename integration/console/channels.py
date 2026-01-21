@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
@@ -52,11 +53,40 @@ class ChannelClient:
             return
         self.channels_button.click(force=True, timeout=2000)
         self.channels_pane.first.wait_for(state="visible", timeout=500)
-        self.page.wait_for_timeout(100)  # Wait for channels to render
+        self.channels_list.first.wait_for(state="attached", timeout=2000)
 
     def hide_channels(self) -> None:
         if self.channels_pane.is_visible():
             self.channels_button.click(force=True, timeout=2000)
+
+    def _find_channel_item(self, name: ChannelName) -> Locator | None:
+        """Find a channel item in the list by name.
+
+        :param name: The channel name to find.
+        :returns: The channel item Locator, or None if not found.
+        """
+        for item in self.channels_list.all():
+            if not item.is_visible():
+                continue
+            channel_name_element = item.locator("p.pluto-text--editable")
+            text = channel_name_element.inner_text().strip()
+            if text == name:
+                return item
+        return None
+
+    def _right_click_channel(self, name: ChannelName) -> Locator:
+        """Find a channel and right-click it to open context menu.
+
+        :param name: The channel name to right-click.
+        :returns: The channel item Locator.
+        :raises ValueError: If channel not found.
+        """
+        self.show_channels()
+        item = self._find_channel_item(name)
+        if item is None:
+            raise ValueError(f"Channel {name} not found")
+        item.click(button="right")
+        return item
 
     def create(
         self,
@@ -203,14 +233,131 @@ class ChannelClient:
                 if create_more_checkbox.is_checked():
                     create_more_checkbox.click()
 
-            # Click Create
             self.page.get_by_role("button", name="Create", exact=True).click()
             self.page.wait_for_timeout(200)  # Wait for channel creation
-
             created_channels.append(name)
 
         self.hide_channels()
         return created_channels
+
+    def create_calculated(self, *, name: ChannelName, expression: str) -> bool:
+        """Creates a calculated channel via console UI.
+
+        :param name: The name for the calculated channel.
+        :param expression: The calculation expression (e.g., "channel_a * 2").
+        :returns: True if the channel was created successfully.
+        """
+        exists, _ = self.existing_channel(name)
+        if exists:
+            return False
+
+        self.console.command_palette("Create a Calculated Channel")
+
+        name_input = self.page.locator("input[placeholder='Name']")
+        name_input.wait_for(state="visible", timeout=5000)
+        name_input.fill(name)
+
+        editor = self.page.locator(".monaco-editor")
+        editor.wait_for(state="visible", timeout=5000)
+        editor.click()
+        self.page.locator(".monaco-editor.focused").wait_for(
+            state="visible", timeout=2000
+        )
+        self.page.wait_for_timeout(50)
+        self.page.keyboard.type(expression)
+
+        save_btn = self.page.locator("button").filter(has_text="Save").first
+        if save_btn.count() == 0:
+            save_btn = self.page.locator("button").filter(has_text="Create").first
+        save_btn.click()
+
+        name_input.wait_for(state="hidden", timeout=5000)
+
+        self.hide_channels()
+        return True
+
+    def edit_calculated(self, name: ChannelName, new_expression: str) -> None:
+        """Edit a calculated channel's expression via context menu.
+
+        :param name: The name of the calculated channel to edit.
+        :param new_expression: The new calculation expression.
+        """
+        self._right_click_channel(name)
+
+        edit_option = self.page.get_by_text("Edit calculation", exact=True).first
+        edit_option.wait_for(state="visible", timeout=5000)
+        edit_option.click(timeout=1000)
+
+        editor = self.page.locator(".monaco-editor")
+        editor.wait_for(state="visible", timeout=5000)
+        editor.click()
+        self.page.locator(".monaco-editor.focused").wait_for(
+            state="visible", timeout=2000
+        )
+        self.page.keyboard.press("ControlOrMeta+a")
+        self.page.wait_for_timeout(50)
+        self.page.keyboard.type(new_expression)
+
+        self.page.locator("button").filter(has_text="Save").first.click()
+        editor.wait_for(state="hidden", timeout=5000)
+
+        self.hide_channels()
+
+    def set_alias(self, name: ChannelName, alias: str) -> None:
+        """Set an alias for a channel under the active range via context menu.
+
+        Note: Requires an active range to be set before calling this method.
+
+        :param name: The name of the channel to set an alias for.
+        :param alias: The alias to set for the channel.
+        """
+        self._right_click_channel(name)
+
+        set_alias_option = self.page.get_by_text(re.compile(r"Set alias under")).first
+        set_alias_option.wait_for(state="visible", timeout=5000)
+        set_alias_option.click(timeout=1000)
+
+        self.page.keyboard.type(alias)
+        self.console.ENTER
+        self.page.locator("input.pluto-text--editable").wait_for(
+            state="hidden", timeout=5000
+        )
+
+        self.hide_channels()
+
+    def clear_alias(self, name: ChannelName) -> None:
+        """Clear an alias for a channel under the active range via context menu.
+
+        Note: Requires an active range to be set before calling this method.
+
+        :param name: The name of the channel to clear the alias for.
+        """
+        self._right_click_channel(name)
+
+        clear_alias_option = self.page.get_by_text(
+            re.compile(r"Remove alias under")
+        ).first
+        clear_alias_option.wait_for(state="visible", timeout=5000)
+        clear_alias_option.click(timeout=1000)
+        clear_alias_option.wait_for(state="hidden", timeout=5000)
+
+        self.hide_channels()
+
+    def hard_reload(self) -> None:
+        """Trigger hard reload from channel context menu.
+
+        Right-clicks any visible channel and selects "Reload Console" option.
+        This will reload the entire console.
+        """
+        self.show_channels()
+        item = self.channels_list.first
+        item.click(button="right")
+
+        reload_option = self.page.get_by_text("Reload Console", exact=True).first
+        reload_option.wait_for(state="visible", timeout=2000)
+        reload_option.click(timeout=1000)
+
+        self.page.wait_for_load_state("load", timeout=30000)
 
     def open_plot(self, name: ChannelName) -> None:
         """Open a channel's plot by double-clicking it in the sidebar.
@@ -218,16 +365,11 @@ class ChannelClient:
         :param name: The name of the channel to open.
         """
         self.show_channels()
-
-        for item in self.channels_list.all():
-            if item.is_visible():
-                channel_name_element = item.locator("p.pluto-text--editable")
-                text = channel_name_element.inner_text().strip()
-                if text == name:
-                    item.dblclick()
-                    self.page.wait_for_timeout(500)  # Wait for plot to open
-                    break
-
+        item = self._find_channel_item(name)
+        if item is None:
+            raise ValueError(f"Channel {name} not found")
+        item.dblclick()
+        self.page.wait_for_timeout(500)
         self.hide_channels()
 
     def group(self, names: ChannelNames, group_name: str) -> None:
@@ -300,36 +442,18 @@ class ChannelClient:
         :param name: The name of the channel to copy link for.
         :returns: The copied link (if clipboard access is available).
         """
-        self.show_channels()
+        self._right_click_channel(name)
+        self.page.wait_for_timeout(500)
 
-        found = False
-        for item in self.channels_list.all():
-            if item.is_visible():
-                channel_name_element = item.locator("p.pluto-text--editable")
-                text = channel_name_element.inner_text().strip()
-                if text == name:
-                    found = True
-                    item.click(button="right")
-                    self.page.wait_for_timeout(500)
-
-                    # Click on Copy Link in the context menu
-                    self.page.get_by_text("Copy Link").first.click()
-                    self.page.wait_for_timeout(200)
-                    break
-
-        if not found:
-            raise ValueError(f"Channel {name} not found in channel list")
+        self.page.get_by_text("Copy Link").first.click()
+        self.page.wait_for_timeout(200)
 
         self.hide_channels()
 
-        # Try to get the link from clipboard
-        # Note: Clipboard access may require permissions in some browsers
         try:
             link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
         except Exception:
-            # If clipboard access fails, return empty string
-            # The test can verify via notification instead
             return ""
 
     def existing_channel(self, name: ChannelName) -> tuple[bool, list[ChannelName]]:
@@ -378,25 +502,18 @@ class ChannelClient:
         if new_exists:
             raise ValueError(f"Channel {new_name} already exists")
 
-        # Find the channel in the list and rename it
-        self.show_channels()
-        for item in self.channels_list.all():
-            if item.is_visible():
-                # Get the channel name from the <p> element inside the channel div
-                channel_name_element = item.locator("p.pluto-text--editable")
-                text = channel_name_element.inner_text().strip()
-                if text == old_name:
-                    # Right click on the channel item to get context menu
-                    item.click(button="right")
-                    rename_option = self.page.get_by_text("Rename", exact=True).first
-                    self.page.wait_for_timeout(200)
-                    rename_option.click(timeout=1000)
+        item = self._right_click_channel(old_name)
 
-                    channel_name_element.click()
-                    channel_name_element.fill(new_name)
-                    self.page.keyboard.press("Enter")
-                    self.page.wait_for_timeout(100)
-                    break
+        rename_option = self.page.get_by_text("Rename", exact=True).first
+        self.page.wait_for_timeout(200)
+        rename_option.click(timeout=1000)
+
+        channel_name_element = item.locator("p.pluto-text--editable")
+        channel_name_element.click()
+        channel_name_element.fill(new_name)
+        self.page.keyboard.press("Enter")
+        self.page.wait_for_timeout(100)
+
         self.hide_channels()
 
     def delete(self, names: ChannelNames) -> None:
@@ -422,37 +539,30 @@ class ChannelClient:
         if not exists:
             raise ValueError(f"Channel {name} does not exist in {all_channels}")
 
-        # Find the channel in the list and delete it
-        for item in self.channels_list.all():
-            if item.is_visible():
-                # Get the channel name from the <p> element inside the channel div
-                channel_name_element = item.locator("p.pluto-text--editable")
-                text = channel_name_element.inner_text().strip()
-                if text == name:
-                    # Right click option
-                    item.click(button="right")
-                    delete_option = self.page.locator("text=Delete").first
-                    delete_option.click()
+        self._right_click_channel(name)
 
-                    # Delete button in Modal
-                    if self.console.check_for_modal():
-                        self.page.get_by_role(
-                            "button", name="Delete", exact=True
-                        ).first.click()
+        delete_option = self.page.get_by_text("Delete", exact=True).first
+        delete_option.wait_for(state="visible", timeout=5000)
+        delete_option.click()
 
-                    # Check for notifications and close them if there's an error
-                    i = -1
-                    for notification in self.console.notifications.check():
-                        i += 1
-                        message = notification.get("message", "")
-                        description = notification.get("description", "")
-                        if (message == "Failed to delete Channel") and (
-                            name in description
-                        ):
-                            # Close the notification before raising the error
-                            self.console.notifications.close(i)
-                            raise RuntimeError(f"{message} {name}, {description}")
-                    break
+        modal = self.page.locator(
+            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+        )
+        try:
+            modal.wait_for(state="visible", timeout=2000)
+            modal_delete_btn = modal.get_by_role("button", name="Delete", exact=True)
+            modal_delete_btn.click()
+            modal.wait_for(state="hidden", timeout=5000)
+        except Exception:
+            pass
+
+        for i, notification in enumerate(self.console.notifications.check()):
+            message = notification.get("message", "")
+            description = notification.get("description", "")
+            if message == "Failed to delete Channel" and name in description:
+                self.console.notifications.close(i)
+                raise RuntimeError(f"{message} {name}, {description}")
+
         self.hide_channels()
 
     def list_all(self) -> list[ChannelName]:
