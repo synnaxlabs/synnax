@@ -1,0 +1,106 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package lsp_test
+
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"go.lsp.dev/protocol"
+)
+
+var _ = Describe("Server Diagnostics", func() {
+	var ctx context.Context
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	Describe("Diagnostic Range", func() {
+		It("Should publish diagnostics with correct end position for undefined symbol", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			diag := client.Diagnostics[0]
+			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined_var"))
+			Expect(diag.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(diag.Range.Start.Character).To(Equal(uint32(6)))
+			Expect(diag.Range.End.Line).To(Equal(uint32(1)))
+			Expect(diag.Range.End.Character).To(Equal(uint32(19)))
+		})
+
+		It("Should publish diagnostics with correct end position for short identifier", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\tx := y\n}")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			diag := client.Diagnostics[0]
+			Expect(diag.Message).To(ContainSubstring("undefined symbol: y"))
+			Expect(diag.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(diag.Range.Start.Character).To(Equal(uint32(6)))
+			Expect(diag.Range.End.Line).To(Equal(uint32(1)))
+			Expect(diag.Range.End.Character).To(Equal(uint32(7)))
+		})
+
+		It("Should publish diagnostics with fallback end position when no stop token", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() i32 {\n\tx := 1\n}")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			diag := client.Diagnostics[0]
+			Expect(diag.Message).To(ContainSubstring("must return"))
+			Expect(diag.Range.End.Line).To(BeNumerically(">=", diag.Range.Start.Line))
+			Expect(diag.Range.End.Character).To(BeNumerically(">=", diag.Range.Start.Character))
+		})
+
+		It("Should handle multiple diagnostics with correct ranges", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\ta := undefined1\n\tb := undefined2\n}")
+
+			Expect(client.Diagnostics).To(HaveLen(2))
+
+			diag1 := client.Diagnostics[0]
+			Expect(diag1.Message).To(ContainSubstring("undefined symbol: undefined1"))
+			Expect(diag1.Range.Start.Line).To(Equal(uint32(1)))
+			Expect(diag1.Range.End.Line).To(Equal(uint32(1)))
+			Expect(diag1.Range.End.Character).To(Equal(uint32(16)))
+
+			diag2 := client.Diagnostics[1]
+			Expect(diag2.Message).To(ContainSubstring("undefined symbol: undefined2"))
+			Expect(diag2.Range.Start.Line).To(Equal(uint32(2)))
+			Expect(diag2.Range.End.Line).To(Equal(uint32(2)))
+			Expect(diag2.Range.End.Character).To(Equal(uint32(16)))
+		})
+
+		It("Should handle block URI diagnostics with correct ranges", func() {
+			server, _, client := SetupTestServerWithClient()
+			blockURI := protocol.DocumentURI("arc://block/test")
+			OpenDocument(server, ctx, blockURI, "x := undefined_var")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			diag := client.Diagnostics[0]
+			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined_var"))
+			Expect(diag.Range.End.Character).To(BeNumerically(">", diag.Range.Start.Character))
+		})
+	})
+
+	Describe("Diagnostic Severity", func() {
+		It("Should set correct severity for errors", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			Expect(client.Diagnostics[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
+		})
+	})
+})

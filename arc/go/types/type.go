@@ -329,6 +329,10 @@ func (t Type) String() string {
 		return "float"
 	case KindFunction:
 		return "function"
+	case KindSequence:
+		return "sequence"
+	case KindStage:
+		return "stage"
 	default:
 		return "invalid"
 	}
