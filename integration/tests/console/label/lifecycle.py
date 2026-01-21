@@ -185,14 +185,11 @@ class LabelLifecycle(ConsoleCase):
         self.console.labels.close_modal()
 
         self.console.ranges.open_explorer()
-        try:
-            for _ in range(5):
-                if not self.console.ranges.exists_in_explorer(range_name):
-                    break
-                self.console.ranges.delete_from_explorer(range_name)
-                self.page.wait_for_timeout(500)
-        except Exception:
-            pass
+        for _ in range(5):
+            if not self.console.ranges.exists_in_explorer(range_name):
+                break
+            self.console.ranges.delete_from_explorer(range_name)
+            self.page.wait_for_timeout(500)
 
     def test_delete_label(self) -> None:
         """Test deleting a label (also cleans up the test label)."""
