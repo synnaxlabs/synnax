@@ -14,35 +14,31 @@ class LabelLifecycle(ConsoleCase):
     """Test the lifecycle of labels."""
 
     def run(self) -> None:
-        """Run all label lifecycle tests."""
         self.test_open_label_modal()
         self.test_create_label()
         self.test_rename_label()
         self.test_change_label_color()
+        self.test_rename_label_syncs_with_range_toolbar()
+        self.test_change_label_color_syncs_with_range_toolbar()
         self.test_delete_label()
 
     def test_open_label_modal(self) -> None:
         """Test opening the Edit Labels modal via command palette."""
         self.log("Testing: Open label modal")
 
-        # Open the Edit Labels modal
         self.console.labels.open_edit_modal()
 
-        # Verify the modal is visible
         modal = self.page.locator(".console-label__edit")
         assert modal.is_visible(), "Edit Labels modal should be visible"
 
-        # Verify the header section is present (contains search and Add button)
         header = self.page.locator(".console-label__edit-header")
         assert header.is_visible(), "Edit header should be visible"
 
-        # Verify the Add Label button is present
         add_button = self.page.locator(".console-label__add-btn")
         assert add_button.count() > 0, "Add Label button should be present"
 
         self.log("Successfully opened Edit Labels modal")
 
-        # Close the modal
         self.console.labels.close_modal()
         self.log("Successfully closed Edit Labels modal")
 
@@ -52,11 +48,9 @@ class LabelLifecycle(ConsoleCase):
 
         label_name = "TestLabel"
 
-        # Open the modal and create a label
         self.console.labels.open_edit_modal()
         self.console.labels.create(name=label_name)
 
-        # Verify the label was created by checking it appears in the list
         label_item = self.page.locator(
             f".console-label__list-item:not(.console--create) input[value='{label_name}']"
         )
@@ -64,7 +58,6 @@ class LabelLifecycle(ConsoleCase):
 
         self.log(f"Successfully created label: {label_name}")
 
-        # Close the modal
         self.console.labels.close_modal()
 
     def test_rename_label(self) -> None:
@@ -74,22 +67,17 @@ class LabelLifecycle(ConsoleCase):
         old_name = "TestLabel"
         new_name = "RenamedLabel"
 
-        # Open the modal
         self.console.labels.open_edit_modal()
 
-        # Verify the label exists before renaming
         labels_before = self.console.labels.list_all()
         assert old_name in labels_before, f"Label '{old_name}' should exist"
 
-        # Rename the label
         self.console.labels.rename(old_name, new_name)
 
-        # Close and reopen to refresh the list and verify
         self.console.labels.close_modal()
         self.page.wait_for_timeout(300)
         self.console.labels.open_edit_modal()
 
-        # Verify the label was renamed by checking the new name input exists
         label_item = self.page.locator(
             f".console-label__list-item:not(.console--create) input[value='{new_name}']"
         )
@@ -97,7 +85,6 @@ class LabelLifecycle(ConsoleCase):
 
         self.log(f"Successfully renamed label from '{old_name}' to '{new_name}'")
 
-        # Close the modal
         self.console.labels.close_modal()
 
     def test_change_label_color(self) -> None:
@@ -107,16 +94,105 @@ class LabelLifecycle(ConsoleCase):
         label_name = "RenamedLabel"
         new_color = "#FF5733"  # Orange color
 
-        # Open the modal
         self.console.labels.open_edit_modal()
 
-        # Change the label color
         self.console.labels.change_color(label_name, new_color)
 
         self.log(f"Successfully changed color of label '{label_name}' to {new_color}")
 
-        # Close the modal
         self.console.labels.close_modal()
+
+    def test_rename_label_syncs_with_range_toolbar(self) -> None:
+        """Test that renaming a label updates the range toolbar."""
+        self.log("Testing: Rename label syncs with range toolbar")
+
+        label_name = "SyncTestLabel"
+        range_name = "LabelSyncRange"
+
+        self.console.labels.open_edit_modal()
+        self.console.labels.create(name=label_name)
+        self.console.labels.close_modal()
+
+        self.console.ranges.create(name=range_name, persisted=True, labels=[label_name])
+        self.console.ranges.open_explorer()
+        self.console.ranges.favorite_from_explorer(range_name)
+        self.page.wait_for_timeout(500)
+        self.console.ranges.show_toolbar()
+        self.page.wait_for_timeout(500)
+
+        assert self.console.ranges.exists_in_toolbar(
+            range_name
+        ), f"Range '{range_name}' should be in toolbar"
+        assert self.console.ranges.label_exists_in_toolbar(range_name, label_name)
+        self.log(f"  - Label '{label_name}' visible in toolbar")
+
+        new_label_name = "RenamedSyncLabel"
+        self.console.labels.open_edit_modal()
+        self.console.labels.rename(label_name, new_label_name)
+        self.console.labels.close_modal()
+        self.page.wait_for_timeout(2000)
+
+        self.console.ranges.show_toolbar()
+        self.page.wait_for_timeout(500)
+        assert self.console.ranges.label_exists_in_toolbar(
+            range_name, new_label_name
+        ), f"Label should be renamed to '{new_label_name}' in toolbar"
+        assert not self.console.ranges.label_exists_in_toolbar(
+            range_name, label_name
+        ), f"Old label name '{label_name}' should not exist"
+
+        self.log(f"  - Label renamed to '{new_label_name}' in toolbar")
+
+    def test_change_label_color_syncs_with_range_toolbar(self) -> None:
+        """Test that changing a label color updates the range toolbar."""
+        self.log("Testing: Change label color syncs with range toolbar")
+
+        label_name = "RenamedSyncLabel"
+        range_name = "LabelSyncRange"
+
+        self.console.ranges.show_toolbar()
+        original_color = self.console.ranges.get_label_color_in_toolbar(
+            range_name, label_name
+        )
+        self.log(f"  - Original color: {original_color}")
+
+        new_color = "#00FF00"
+        self.console.labels.open_edit_modal()
+        self.console.labels.change_color(label_name, new_color)
+        self.console.labels.close_modal()
+        self.page.wait_for_timeout(2000)
+
+        self.console.ranges.show_toolbar()
+        self.page.wait_for_timeout(500)
+        updated_color = self.console.ranges.get_label_color_in_toolbar(
+            range_name, label_name
+        )
+        self.log(f"  - Updated color: {updated_color}")
+
+        assert updated_color != original_color, "Label color should have changed"
+        assert (
+            "0, 255, 0" in updated_color
+        ), f"Expected green color, got: {updated_color}"
+
+        self.log("  - Label color updated in toolbar")
+
+        self._cleanup_sync_test(label_name, range_name)
+
+    def _cleanup_sync_test(self, label_name: str, range_name: str) -> None:
+        """Clean up resources created for sync tests."""
+        self.console.labels.open_edit_modal()
+        self.console.labels.delete(label_name)
+        self.console.labels.close_modal()
+
+        self.console.ranges.open_explorer()
+        try:
+            for _ in range(5):
+                if not self.console.ranges.exists_in_explorer(range_name):
+                    break
+                self.console.ranges.delete_from_explorer(range_name)
+                self.page.wait_for_timeout(500)
+        except Exception:
+            pass
 
     def test_delete_label(self) -> None:
         """Test deleting a label (also cleans up the test label)."""
@@ -124,24 +200,17 @@ class LabelLifecycle(ConsoleCase):
 
         label_name = "RenamedLabel"
 
-        # Open the modal
         self.console.labels.open_edit_modal()
-
-        # Delete the label
         self.console.labels.delete(label_name)
 
-        # Close and reopen to verify deletion
         self.console.labels.close_modal()
         self.page.wait_for_timeout(300)
         self.console.labels.open_edit_modal()
 
-        # Verify the label was deleted
         label_item = self.page.locator(
             f".console-label__list-item:not(.console--create) input[value='{label_name}']"
         )
         assert label_item.count() == 0, f"Label '{label_name}' should be deleted"
 
         self.log(f"Successfully deleted label: {label_name}")
-
-        # Close the modal
         self.console.labels.close_modal()

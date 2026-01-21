@@ -597,3 +597,24 @@ class RangesClient:
         section = self._get_child_ranges_section()
         items = section.locator(".console-range__list-item").filter(has_text=name)
         return items.count() > 0
+
+    def get_label_in_toolbar(self, range_name: str, label_name: str) -> Locator:
+        """Get a label tag within a range item in the toolbar."""
+        range_item = self.get_toolbar_item(range_name)
+        return range_item.locator(".pluto-tag").filter(has_text=label_name).first
+
+    def label_exists_in_toolbar(self, range_name: str, label_name: str) -> bool:
+        """Check if a label exists on a range in the toolbar."""
+        self.show_toolbar()
+        return self.get_label_in_toolbar(range_name, label_name).count() > 0
+
+    def get_label_color_in_toolbar(self, range_name: str, label_name: str) -> str | None:
+        """Get the color of a label's icon in the range toolbar."""
+        self.show_toolbar()
+        label = self.get_label_in_toolbar(range_name, label_name)
+        if label.count() == 0:
+            return None
+        icon = label.locator("svg").first
+        if icon.count() == 0:
+            return None
+        return icon.get_attribute("color")

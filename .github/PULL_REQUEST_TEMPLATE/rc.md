@@ -188,19 +188,6 @@ I can successfully:
 - [ ] Open documentation from the question mark icon.
 - [ ] Close and reopen documentation in the same place as left off.
 
-### Labels
-
-I can successfully:
-
-- **Search and Command Palette**
-  - [x] Open the "Edit Label" modal. (label_lifecycle.py)
-- **Edit Label Modal**
-  - [x] Add a new label. (label_lifecycle.py)
-  - [x] Edit an existing label's name. (label_lifecycle.py)
-  - [x] Change the color of an existing label. (label_lifecycle.py)
-  - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
-
 ### Layout
 
 I can successfully:
