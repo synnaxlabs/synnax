@@ -149,8 +149,16 @@ class ChannelClient:
             self.console.click_btn("Index")
             self.console.select_from_dropdown(index, "Search Channels")
 
-        # Select "Create" button
         self.page.get_by_role("button", name="Create", exact=True).click()
+        modal = self.page.locator(
+            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+        )
+        modal.wait_for(state="hidden", timeout=5000)
+        self.show_channels()
+        for _ in range(20):
+            if self._find_channel_item(name, retry_with_refresh=False) is not None:
+                break
+            self.page.wait_for_timeout(50)
         self.hide_channels()
         return True
 

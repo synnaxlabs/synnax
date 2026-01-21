@@ -174,6 +174,7 @@ class RangesClient:
 
     def favorite_from_explorer(self, name: str) -> None:
         """Add a range to favorites via context menu in the explorer."""
+        self.console.layout.hide_visualization_toolbar()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")

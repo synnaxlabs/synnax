@@ -245,14 +245,20 @@ class Console:
 
     def show_resource_toolbar(self, resource: str) -> None:
         """Show a resource toolbar by clicking its icon in the sidebar."""
+        nav_drawer = self.page.locator(
+            ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+        )
         items = self.page.locator(f"div[id^='{resource}:']")
-        if items.count() > 0 and items.first.is_visible():
+        if nav_drawer.count() > 0 and items.count() > 0 and items.first.is_visible():
             return
 
         button = self.page.locator("button.console-main-nav__item").filter(
             has=self.page.locator(f"svg.pluto-icon--{resource}")
         )
-        button.click(timeout=5000)
+        btn_class = button.first.get_attribute("class") or ""
+        if "selected" not in btn_class:
+            button.click(timeout=5000)
+        nav_drawer.wait_for(state="visible", timeout=5000)
 
     def close_nav_drawer(self) -> None:
         """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
@@ -275,12 +281,17 @@ class Console:
         sy.sleep(0.3)
         target_item = f".pluto-list__item:not(.pluto-tree__item):has-text('{text}')"
 
+        search_input = None
         if placeholder is not None:
             search_input = self.page.locator(f"input[placeholder*='{placeholder}']")
-            if search_input.count() > 0:
-                search_input.wait_for(state="attached", timeout=5000)
+        if search_input is None or search_input.count() == 0:
+            search_input = self.page.locator("input[placeholder*='Search']")
+        if search_input.count() > 0:
+            search_input.wait_for(state="attached", timeout=5000)
+            current_value = search_input.input_value()
+            if current_value != text:
                 search_input.fill(text)
-                sy.sleep(0.1)
+            sy.sleep(0.2)
 
         for attempt in range(10):
             try:
