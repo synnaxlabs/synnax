@@ -56,4 +56,6 @@ class DocsClient:
                 pass
 
     def _wait_for_docs_tab(self) -> None:
-        self.console.layout.get_tab("Documentation").wait_for(state="visible", timeout=10000)
+        self.console.layout.get_tab("Documentation").wait_for(
+            state="visible", timeout=10000
+        )

@@ -63,7 +63,9 @@ class Documentation(ConsoleCase):
         reopened_path = urlparse(reopened_url).path
 
         self.log(f"  - Initial: {initial_path}, Reopened: {reopened_path}")
-        assert initial_path == reopened_path, f"Path not preserved: {initial_path} != {reopened_path}"
+        assert (
+            initial_path == reopened_path
+        ), f"Path not preserved: {initial_path} != {reopened_path}"
         self.log("  - Path preserved correctly")
 
         docs.close()
