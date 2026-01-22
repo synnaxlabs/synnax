@@ -182,7 +182,10 @@ func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcL
 	if err != nil {
 		return err
 	}
-	return arctransport.ServeFreighter(ctx, lspServer, stream)
+	return arctransport.ServeFreighter(ctx, arctransport.Config{
+		Server: lspServer,
+		Stream: stream,
+	})
 }
 
 // compileArc compiles the Arc text to a module containing IR and WASM bytecode.

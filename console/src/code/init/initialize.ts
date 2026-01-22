@@ -64,18 +64,21 @@ export const initializeMonaco = async ({
     };
   }
   initializationState.initialized = true;
-  await Promise.all(extensions.map(async (ext) => await ext()));
-  await import("@codingame/monaco-vscode-theme-defaults-default-extension");
-  const initialize = (await import("@codingame/monaco-vscode-api")).initialize;
-  const getTextMateServiceOverride = (
-    await import("@codingame/monaco-vscode-textmate-service-override")
-  ).default;
-  const getThemeServiceOverride = (
-    await import("@codingame/monaco-vscode-theme-service-override")
-  ).default;
-  const getLanguagesServiceOverride = (
-    await import("@codingame/monaco-vscode-languages-service-override")
-  ).default;
+  const [
+    ,
+    ,
+    { initialize },
+    { default: getTextMateServiceOverride },
+    { default: getThemeServiceOverride },
+    { default: getLanguagesServiceOverride },
+  ] = await Promise.all([
+    Promise.all(extensions.map(async (ext) => await ext())),
+    import("@codingame/monaco-vscode-theme-defaults-default-extension"),
+    import("@codingame/monaco-vscode-api"),
+    import("@codingame/monaco-vscode-textmate-service-override"),
+    import("@codingame/monaco-vscode-theme-service-override"),
+    import("@codingame/monaco-vscode-languages-service-override"),
+  ]);
   await initialize({
     ...getTextMateServiceOverride(),
     ...getThemeServiceOverride(),

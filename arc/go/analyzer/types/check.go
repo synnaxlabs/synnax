@@ -25,26 +25,25 @@ func Check(
 	source antlr.ParserRuleContext,
 	reason string,
 ) error {
-	// Skip constraint if either type is Invalid - we can't constrain types we don't know
 	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
 		return nil
 	}
+
+	if t1.Kind != types.KindVariable && t2.Kind != types.KindVariable {
+		if !types.StructuralMatch(t1, t2) {
+			return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
+		}
+	}
+
 	if t1.Kind == types.KindVariable || t2.Kind == types.KindVariable {
 		cs.AddEquality(t1, t2, source, reason)
 		return nil
 	}
-	if t1.Kind == types.KindChan {
-		if t2.Kind == types.KindChan {
-			return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (channel value types)")
-		}
-		return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
+
+	if t1.Kind == types.KindSeries || t1.Kind == types.KindChan {
+		return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
 	}
-	if t1.Kind == types.KindSeries {
-		if t2.Kind == types.KindSeries {
-			return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (series element types)")
-		}
-		return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
-	}
+
 	if !types.Equal(t1, t2) {
 		return errors.Newf("type mismatch: expected %v, got %v", t1, t2)
 	}

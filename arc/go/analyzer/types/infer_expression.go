@@ -245,6 +245,9 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	if numLit := ctx.AST.NumericLiteral(); numLit != nil {
 		return inferNumericLiteralType(ctx, numLit)
 	}
+	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
+		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
+	}
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		t := types.String()
@@ -255,6 +258,150 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	t := types.I64()
 	ctx.TypeMap[ctx.AST] = t
 	return t
+}
+
+func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) types.Type {
+	exprList := ctx.AST.ExpressionList()
+	if exprList == nil {
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
+		constraint := types.NumericConstraint()
+		elemType := types.Variable(tvName, &constraint)
+		t := types.Series(elemType)
+		ctx.TypeMap[ctx.AST] = t
+		return t
+	}
+
+	exprs := exprList.AllExpression()
+	if len(exprs) == 0 {
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
+		constraint := types.NumericConstraint()
+		elemType := types.Variable(tvName, &constraint)
+		t := types.Series(elemType)
+		ctx.TypeMap[ctx.AST] = t
+		return t
+	}
+
+	firstExpr := exprs[0]
+	elemType := InferFromExpression(context.Child(ctx, firstExpr))
+	allLiterals := parser.IsNumericLiteral(firstExpr)
+
+	for i := 1; i < len(exprs); i++ {
+		nextType := InferFromExpression(context.Child(ctx, exprs[i]))
+		thisIsLiteral := parser.IsNumericLiteral(exprs[i])
+		// Literals can unify across int/float (like Go), but variables cannot
+		if allLiterals && thisIsLiteral {
+			if !literalsCompatible(elemType, nextType) {
+				ctx.Diagnostics.AddError(
+					fmt.Errorf("series element %d has incompatible type %s, expected %s", i+1, nextType, elemType),
+					exprs[i],
+				)
+			}
+		} else {
+			allLiterals = false
+			if !seriesElementCompatible(elemType, nextType) {
+				ctx.Diagnostics.AddError(
+					fmt.Errorf("series element %d has incompatible type %s, expected %s", i+1, nextType, elemType),
+					exprs[i],
+				)
+			}
+		}
+		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {
+			elemType = nextType
+		}
+	}
+
+	t := types.Series(elemType)
+	ctx.TypeMap[ctx.AST] = t
+	return t
+}
+
+// seriesElementCompatible checks if two types are compatible for use in the same series literal.
+func seriesElementCompatible(t1, t2 types.Type) bool {
+	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
+		return false
+	}
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable {
+		if t1.Constraint == nil || t2.Constraint == nil {
+			return true
+		}
+		// Check if constraints are compatible. IntegerConstraint and FloatConstraint
+		// are NOT compatible with each other - mixing inferred int and float variables
+		// should be rejected, just like mixing explicit i32 and f64.
+		return numericConstraintsCompatible(t1.Constraint.Kind, t2.Constraint.Kind)
+	}
+	if t1.Kind == types.KindVariable {
+		return constraintAccepts(t1.Constraint, t2)
+	}
+	if t2.Kind == types.KindVariable {
+		return constraintAccepts(t2.Constraint, t1)
+	}
+	return Compatible(t1, t2)
+}
+
+// literalsCompatible checks if two literal types can coexist in a series (int/float can mix).
+func literalsCompatible(t1, t2 types.Type) bool {
+	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
+		return false
+	}
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable {
+		if t1.Constraint == nil || t2.Constraint == nil {
+			return true
+		}
+		return isNumericConstraint(t1.Constraint.Kind) && isNumericConstraint(t2.Constraint.Kind)
+	}
+	if t1.Kind == types.KindVariable {
+		return constraintAccepts(t1.Constraint, t2)
+	}
+	if t2.Kind == types.KindVariable {
+		return constraintAccepts(t2.Constraint, t1)
+	}
+	return Compatible(t1, t2)
+}
+
+// isNumericConstraint returns true if the kind is a numeric constraint kind.
+func isNumericConstraint(kind types.Kind) bool {
+	return kind == types.KindNumericConstant ||
+		kind == types.KindIntegerConstant ||
+		kind == types.KindFloatConstant
+}
+
+// numericConstraintsCompatible checks if two constraint kinds are compatible for series elements.
+// IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
+// float variables in a series literal, consistent with how explicit i32 and f64 are rejected.
+// NumericConstant is compatible with both since it represents an unconstrained numeric literal.
+func numericConstraintsCompatible(k1, k2 types.Kind) bool {
+	// Same constraint kind is always compatible
+	if k1 == k2 {
+		return true
+	}
+	// NumericConstant is compatible with any numeric constraint
+	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
+		return isNumericConstraint(k1) && isNumericConstraint(k2)
+	}
+	// IntegerConstraint and FloatConstraint are NOT compatible with each other
+	if isNumericConstraint(k1) && isNumericConstraint(k2) {
+		return false
+	}
+	// Non-numeric constraints must match exactly
+	return k1 == k2
+}
+
+func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
+	if constraint == nil {
+		return true
+	}
+	switch constraint.Kind {
+	case types.KindNumericConstant, types.KindIntegerConstant:
+		return concreteType.IsNumeric()
+	case types.KindFloatConstant:
+		return concreteType.IsFloat()
+	default:
+		return types.Equal(*constraint, concreteType)
+	}
 }
 
 func inferNumericLiteralType(

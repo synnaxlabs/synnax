@@ -28,7 +28,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 
 	// Pure literals become constants - no code to compile
-	if expression.IsLiteral(ctx.AST) {
+	if parser.IsLiteral(ctx.AST) {
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})
 		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 			Kind: symbol.KindConstant,
