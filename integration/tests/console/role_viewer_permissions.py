@@ -9,11 +9,10 @@
 
 """Test that Viewer role has read-only permissions."""
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class RoleViewerPermissions(ConsoleCase):
@@ -21,7 +20,7 @@ class RoleViewerPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Viewer role
-        username = f"viewer_{uuid.uuid4().hex[:8]}"
+        username = f"viewer_{get_random_name()}"
         password = "testpassword123"
         first_name = "Viewer"
         last_name = "Test"

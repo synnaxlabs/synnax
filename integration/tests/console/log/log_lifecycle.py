@@ -7,29 +7,27 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.log import Log
-from framework.utils import assert_link_format
+from framework.utils import assert_link_format, get_random_name
 
 
 class LogLifecycle(ConsoleCase):
     """Test log operations including rename from mosaic tab title."""
 
-    prefix: str
+    suffix: str
     idx_name: str
     data_name: str
     virtual_name: str
 
     def setup_channels(self) -> None:
         """Create all test channels."""
-        self.prefix = str(uuid.uuid4())[:6]
-        self.idx_name = f"log_test_idx_{self.prefix}"
-        self.data_name = f"log_test_data_{self.prefix}"
-        self.virtual_name = f"log_virtual_{self.prefix}"
+        self.suffix = get_random_name()
+        self.idx_name = f"log_test_idx_{self.suffix}"
+        self.data_name = f"log_test_data_{self.suffix}"
+        self.virtual_name = f"log_virtual_{self.suffix}"
 
         index_ch = self.client.channels.create(
             name=self.idx_name,
@@ -53,7 +51,7 @@ class LogLifecycle(ConsoleCase):
         """Run all log lifecycle tests."""
         self.setup_channels()
 
-        log = Log(self.client, self.console, f"Log Test {self.prefix}")
+        log = Log(self.client, self.console, f"Log Test {self.suffix}")
 
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
@@ -160,7 +158,7 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing rename log from mosaic tab title")
 
         original_name = log.page_name
-        new_name = f"Renamed Log {self.prefix}"
+        new_name = f"Renamed Log {self.suffix}"
 
         log.rename(new_name)
 
@@ -249,13 +247,13 @@ class LogLifecycle(ConsoleCase):
         """Test renaming a log via context menu in the workspace resources toolbar."""
         self.log("Testing rename log via context menu")
 
-        prefix = str(uuid.uuid4())[:6]
-        log = Log(self.client, self.console, f"Rename Test {prefix}")
+        suffix = get_random_name()
+        log = Log(self.client, self.console, f"Rename Test {suffix}")
         original_name = log.page_name
         log.close()
         assert not log.is_open(), "Log should be closed after close()"
 
-        new_name = f"Renamed Log {prefix}"
+        new_name = f"Renamed Log {suffix}"
         self.console.workspace.rename_page(original_name, new_name)
 
         assert self.console.workspace.page_exists(
@@ -272,8 +270,8 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing delete log via context menu")
         self.console.close_nav_drawer()
 
-        prefix = str(uuid.uuid4())[:6]
-        log = Log(self.client, self.console, f"Delete Test {prefix}")
+        suffix = get_random_name()
+        log = Log(self.client, self.console, f"Delete Test {suffix}")
         log_name = log.page_name
         log.close()
         assert not log.is_open(), "Log should be closed after close()"
@@ -293,11 +291,11 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing delete multiple logs via context menu")
         self.console.close_nav_drawer()
 
-        prefix = str(uuid.uuid4())[:6]
+        suffix = get_random_name()
         log_names = []
 
         for i in range(3):
-            log = Log(self.client, self.console, f"Multi Delete {prefix} {i}")
+            log = Log(self.client, self.console, f"Multi Delete {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
             assert not log.is_open(), f"Log {i} should be closed after close()"
@@ -319,30 +317,30 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing group logs via context menu")
         self.console.close_nav_drawer()
 
-        prefix = str(uuid.uuid4())[:6]
+        suffix = get_random_name()
         log_names = []
 
         for i in range(2):
-            log = Log(self.client, self.console, f"Group Test {prefix} {i}")
+            log = Log(self.client, self.console, f"Group Test {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
             assert not log.is_open(), f"Log {i} should be closed after close()"
 
-        self.console.workspace.group_pages(log_names, f"Log Group {prefix}")
+        self.console.workspace.group_pages(log_names, f"Log Group {suffix}")
 
         assert self.console.workspace.page_exists(
-            f"Log Group {prefix}"
+            f"Log Group {suffix}"
         ), "Group should exist after grouping"
 
-        self.console.workspace.delete_group(f"Log Group {prefix}")
+        self.console.workspace.delete_group(f"Log Group {suffix}")
 
     def test_ctx_export_json(self) -> None:
         """Test exporting a log as JSON via context menu."""
         self.log("Testing export log via context menu")
         self.console.close_nav_drawer()
 
-        prefix = str(uuid.uuid4())[:6]
-        log = Log(self.client, self.console, f"Export Test {prefix}")
+        suffix = get_random_name()
+        log = Log(self.client, self.console, f"Export Test {suffix}")
         log_name = log.page_name
         log.close()
         assert not log.is_open(), "Log should be closed after close()"
@@ -359,8 +357,8 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing copy link via context menu")
         self.console.close_nav_drawer()
 
-        prefix = str(uuid.uuid4())[:6]
-        log = Log(self.client, self.console, f"Copy Link Test {prefix}")
+        suffix = get_random_name()
+        log = Log(self.client, self.console, f"Copy Link Test {suffix}")
         log_name = log.page_name
         expected_link = log.copy_link()
         log.close()

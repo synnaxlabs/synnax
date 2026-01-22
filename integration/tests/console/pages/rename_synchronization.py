@@ -7,10 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
-
 from console.case import ConsoleCase
 from console.console import PageType
+from framework.utils import get_random_name
 
 
 class RenameSynchronization(ConsoleCase):
@@ -27,7 +26,7 @@ class RenameSynchronization(ConsoleCase):
         self.log(f"Testing {page_type} rename synchronization")
         console = self.console
 
-        suffix = str(uuid.uuid4())[:4]
+        suffix = get_random_name()
         original_name = f"test_{page_type.lower().replace(' ', '_')}_{suffix}"
         new_name = f"{page_type}_renamed_{suffix}"
 

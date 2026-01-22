@@ -8,13 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import uuid
 
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.plot import Plot
-from framework.utils import assert_link_format
+from framework.utils import assert_link_format, get_random_name
 
 SRC_CH = "channel_operations_uptime"
 
@@ -22,7 +21,7 @@ SRC_CH = "channel_operations_uptime"
 class ChannelOperations(ConsoleCase):
     """Test channel lifecycle operations."""
 
-    prefix: str
+    suffix: str
     calc_x2: str
     calc_x6: str
     calc_editable: str
@@ -31,16 +30,16 @@ class ChannelOperations(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.prefix = str(uuid.uuid4())[:6]
+        self.suffix = get_random_name()
         self._create_shared_channels()
         self._create_shared_calc_channels()
         sy.sleep(0.5)
 
     def _create_shared_calc_channels(self) -> None:
         """Create shared calculated channels for reuse across tests."""
-        self.calc_x2 = f"calc_x2_{self.prefix}"
-        self.calc_x6 = f"calc_x6_{self.prefix}"
-        self.calc_editable = f"calc_edit_{self.prefix}"
+        self.calc_x2 = f"calc_x2_{self.suffix}"
+        self.calc_x6 = f"calc_x6_{self.suffix}"
+        self.calc_editable = f"calc_edit_{self.suffix}"
 
         error = self.console.channels.create_calculated(
             name=self.calc_x2,
@@ -62,8 +61,8 @@ class ChannelOperations(ConsoleCase):
 
     def _create_shared_channels(self) -> None:
         """Create shared index + data channel for read-only tests."""
-        self.shared_index = f"shared_idx_{self.prefix}"
-        self.shared_data = f"shared_data_{self.prefix}"
+        self.shared_index = f"shared_idx_{self.suffix}"
+        self.shared_data = f"shared_data_{self.suffix}"
 
         self.client.channels.create(
             name=self.shared_index,
@@ -123,8 +122,7 @@ class ChannelOperations(ConsoleCase):
         console = self.console
         client = self.client
 
-        # Use unique prefix to avoid conflicts with previous runs
-        prefix = str(uuid.uuid4())[:6]
+        suffix = get_random_name()
 
         all_data_types = [
             sy.DataType.FLOAT64,
@@ -143,14 +141,14 @@ class ChannelOperations(ConsoleCase):
         sample_size = max(1, len(all_data_types) // 4)
         data_types = random.sample(all_data_types, sample_size)
 
-        index_name = f"multi_idx_{prefix}"
+        index_name = f"multi_idx_{suffix}"
         channels: list[dict[str, str | int | bool]] = [
             {"name": index_name, "is_index": True}
         ]
         for dt in data_types:
             channels.append(
                 {
-                    "name": f"{str(dt)}_ch_{prefix}",
+                    "name": f"{str(dt)}_ch_{suffix}",
                     "data_type": dt,
                     "index": index_name,
                 }
@@ -205,10 +203,10 @@ class ChannelOperations(ConsoleCase):
 
         console = self.console
 
-        prefix = str(uuid.uuid4())[:6]
-        index_name = f"rename_idx_{prefix}"
-        data_name = f"rename_data_{prefix}"
-        new_name = f"renamed_data_{prefix}"
+        suffix = get_random_name()
+        index_name = f"rename_idx_{suffix}"
+        data_name = f"rename_data_{suffix}"
+        new_name = f"renamed_data_{suffix}"
 
         console.channels.create(name=index_name, is_index=True)
         console.channels.create(
@@ -230,14 +228,14 @@ class ChannelOperations(ConsoleCase):
 
         console = self.console
 
-        # Use unique prefix to avoid conflicts
-        prefix = str(uuid.uuid4())[:6]
+        # Use unique suffix to avoid conflicts
+        suffix = get_random_name()
 
         # Create test channels
-        index_name = f"group_idx_{prefix}"
-        ch1_name = f"group_ch1_{prefix}"
-        ch2_name = f"group_ch2_{prefix}"
-        group_name = f"TestGroup_{prefix}"
+        index_name = f"group_idx_{suffix}"
+        ch1_name = f"group_ch1_{suffix}"
+        ch2_name = f"group_ch2_{suffix}"
+        group_name = f"TestGroup_{suffix}"
 
         console.channels.create(name=index_name, is_index=True)
         console.channels.create(
@@ -322,11 +320,11 @@ class ChannelOperations(ConsoleCase):
         console = self.console
         client = self.client
 
-        prefix = str(uuid.uuid4())[:6]
-        range_name = f"alias_range_{prefix}"
-        index_name = f"alias_idx_{prefix}"
-        data_name = f"alias_data_{prefix}"
-        alias_name = f"MyAlias_{prefix}"
+        suffix = get_random_name()
+        range_name = f"alias_range_{suffix}"
+        index_name = f"alias_idx_{suffix}"
+        data_name = f"alias_data_{suffix}"
+        alias_name = f"MyAlias_{suffix}"
 
         console.ranges.create(range_name, persisted=True)
         console.ranges.open_explorer()
@@ -367,11 +365,11 @@ class ChannelOperations(ConsoleCase):
         console = self.console
         client = self.client
 
-        prefix = str(uuid.uuid4())[:6]
-        range_name = f"clear_alias_range_{prefix}"
-        index_name = f"clear_alias_idx_{prefix}"
-        data_name = f"clear_alias_data_{prefix}"
-        alias_name = f"ClearAlias_{prefix}"
+        suffix = get_random_name()
+        range_name = f"clear_alias_range_{suffix}"
+        index_name = f"clear_alias_idx_{suffix}"
+        data_name = f"clear_alias_data_{suffix}"
+        alias_name = f"ClearAlias_{suffix}"
 
         console.ranges.create(range_name, persisted=True)
         console.ranges.open_explorer()
@@ -429,9 +427,9 @@ class ChannelOperations(ConsoleCase):
 
         console = self.console
 
-        prefix = str(uuid.uuid4())[:6]
-        index_name = f"delete_idx_{prefix}"
-        data_name = f"delete_data_{prefix}"
+        suffix = get_random_name()
+        index_name = f"delete_idx_{suffix}"
+        data_name = f"delete_data_{suffix}"
 
         console.channels.create(name=index_name, is_index=True)
         console.channels.create(
@@ -490,7 +488,7 @@ class ChannelOperations(ConsoleCase):
 
         client = self.client
 
-        plot = Plot(client, self.console, f"Nested Calc Plot {self.prefix}")
+        plot = Plot(client, self.console, f"Nested Calc Plot {self.suffix}")
         plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 
@@ -526,7 +524,7 @@ class ChannelOperations(ConsoleCase):
         console.notifications.close_all()
 
         self.log("Testing erroneous calculated channel (nonexistent channel)")
-        calc_name = f"calc_err_{self.prefix}"
+        calc_name = f"calc_err_{self.suffix}"
         bad_ch_expression = "return nonexistent_channel_xyz * 3"
 
         error = console.channels.create_calculated(
@@ -547,7 +545,7 @@ class ChannelOperations(ConsoleCase):
         self.log("Testing erroneous calculated channel (bad syntax)")
 
         bad_syntax_expression = "return * 3"
-        calc_name_2 = f"calc_err_syntax_{self.prefix}"
+        calc_name_2 = f"calc_err_syntax_{self.suffix}"
 
         error = console.channels.create_calculated(
             name=calc_name_2, expression=bad_syntax_expression

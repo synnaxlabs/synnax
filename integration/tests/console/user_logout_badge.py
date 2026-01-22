@@ -9,9 +9,8 @@
 
 """Test logging out via user badge dropdown."""
 
-import uuid
-
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class UserLogoutBadge(ConsoleCase):
@@ -19,7 +18,7 @@ class UserLogoutBadge(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user
-        username = f"testuser_{uuid.uuid4().hex[:8]}"
+        username = f"testuser_{get_random_name()}"
         password = "testpassword123"
         first_name = "BadgeTest"
         last_name = "User"

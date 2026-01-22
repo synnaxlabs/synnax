@@ -9,11 +9,10 @@
 
 """Test that Engineer role has full access except user management."""
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class RoleEngineerPermissions(ConsoleCase):
@@ -21,7 +20,7 @@ class RoleEngineerPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Engineer role
-        username = f"engineer_{uuid.uuid4().hex[:8]}"
+        username = f"engineer_{get_random_name()}"
         password = "testpassword123"
         first_name = "Engineer"
         last_name = "Test"

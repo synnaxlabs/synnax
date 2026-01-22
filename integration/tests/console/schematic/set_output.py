@@ -7,12 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.schematic import Setpoint, Value
+from framework.utils import get_random_name
 from console.schematic.schematic import Schematic
 
 
@@ -25,8 +24,8 @@ class SetOutput(ConsoleCase):
 
         console = self.console
         client = self.client
-        CHANNEL_NAME = f"command_channel_{str(uuid.uuid4())[:4]}"
-        INDEX_NAME = f"idx_channel_{str(uuid.uuid4())[:4]}"
+        CHANNEL_NAME = f"command_channel_{get_random_name()}"
+        INDEX_NAME = f"idx_channel_{get_random_name()}"
         self.log("Creating channels")
 
         index_ch = client.channels.create(

@@ -9,11 +9,10 @@
 
 """Test that Operator role has restricted permissions."""
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class RoleOperatorPermissions(ConsoleCase):
@@ -21,7 +20,7 @@ class RoleOperatorPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Operator role
-        username = f"operator_{uuid.uuid4().hex[:8]}"
+        username = f"operator_{get_random_name()}"
         password = "testpassword123"
         first_name = "Operator"
         last_name = "Test"
