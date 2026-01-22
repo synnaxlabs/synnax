@@ -16,17 +16,17 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 )
 
-type Config struct {
-	IndentWidth   int
-	MaxBlankLines int
+const (
+	indentWidth   = 4
+	maxBlankLines = 2
+)
+
+func SplitLines(content string) []string {
+	content = strings.ReplaceAll(content, "\r\n", "\n")
+	return strings.Split(content, "\n")
 }
 
-var DefaultConfig = Config{
-	IndentWidth:   4,
-	MaxBlankLines: 2,
-}
-
-func Format(content string, cfg Config) string {
+func Format(content string) string {
 	if content == "" {
 		return ""
 	}
@@ -47,20 +47,18 @@ func Format(content string, cfg Config) string {
 		return content
 	}
 
-	p := newPrinter(cfg)
+	p := newPrinter()
 	return p.print(tokens)
 }
 
-func FormatRange(content string, startLine, endLine int, cfg Config) string {
-	lines := strings.Split(content, "\n")
+func FormatRange(content string, startLine, endLine int) string {
+	lines := SplitLines(content)
 	if startLine < 0 || endLine >= len(lines) || startLine > endLine {
 		return content
 	}
-
 	rangeContent := strings.Join(lines[startLine:endLine+1], "\n")
-	formatted := Format(rangeContent, cfg)
+	formatted := Format(rangeContent)
 	formatted = strings.TrimSuffix(formatted, "\n")
-
 	var result strings.Builder
 	for i := 0; i < startLine; i++ {
 		if i > 0 {
