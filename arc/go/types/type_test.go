@@ -161,6 +161,66 @@ var _ = Describe("Types", func() {
 		})
 	})
 
+	Describe("UnwrapChan", func() {
+		DescribeTable("should unwrap channel types to their element type",
+			func(t types.Type, expected types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(expected))
+			},
+			Entry("chan i32 -> i32", types.Chan(types.I32()), types.I32()),
+			Entry("chan f64 -> f64", types.Chan(types.F64()), types.F64()),
+			Entry("chan u8 -> u8", types.Chan(types.U8()), types.U8()),
+			Entry("chan timestamp -> timestamp", types.Chan(types.TimeStamp()), types.TimeStamp()),
+			Entry("chan series i32 -> series i32", types.Chan(types.Series(types.I32())), types.Series(types.I32())),
+		)
+
+		DescribeTable("should leave series types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("series i32", types.Series(types.I32())),
+			Entry("series f64", types.Series(types.F64())),
+			Entry("series timestamp", types.Series(types.TimeStamp())),
+		)
+
+		DescribeTable("should leave primitive types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("i32", types.I32()),
+			Entry("f64", types.F64()),
+			Entry("u8", types.U8()),
+			Entry("timestamp", types.TimeStamp()),
+			Entry("timespan", types.TimeSpan()),
+			Entry("string", types.String()),
+		)
+
+		DescribeTable("should leave other types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("type variable", types.Variable("T", nil)),
+			Entry("constrained type variable", func() types.Type {
+				c := types.NumericConstraint()
+				return types.Variable("N", &c)
+			}()),
+			Entry("function", types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+				Outputs: types.Params{{Name: "result", Type: types.I32()}},
+			})),
+			Entry("sequence", types.Sequence()),
+			Entry("stage", types.Stage()),
+		)
+
+		DescribeTable("should handle edge cases",
+			func(t types.Type, expected types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(expected))
+			},
+			Entry("invalid type", types.Type{}, types.Type{}),
+			Entry("chan with nil Elem", types.Type{Kind: types.KindChan, Elem: nil}, types.Type{Kind: types.KindChan, Elem: nil}),
+			Entry("nested chan", types.Chan(types.Chan(types.I32())), types.Chan(types.I32())),
+		)
+	})
+
 	Describe("Type predicates", func() {
 		Describe("IsNumeric", func() {
 			DescribeTable("Should return true for numeric types",
