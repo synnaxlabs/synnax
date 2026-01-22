@@ -124,7 +124,7 @@ class ChannelClient:
 
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP
-        if self.existing_channel(name):
+        if self.exists(name):
             return False
 
         self.open_create_modal()
@@ -195,7 +195,7 @@ class ChannelClient:
                 data_type = DataType.TIMESTAMP
 
             # Check if channel already exists
-            if self.existing_channel(name):
+            if self.exists(name):
                 continue
 
             # Open command palette for first channel or if modal closed
@@ -265,7 +265,7 @@ class ChannelClient:
         :param expression: The calculation expression (e.g., "channel_a * 2").
         :returns: None if successful, error message string if failed.
         """
-        if self.existing_channel(name):
+        if self.exists(name):
             return "Channel already exists"
 
         self.open_create_calculated_modal()
@@ -471,7 +471,7 @@ class ChannelClient:
         except Exception:
             return ""
 
-    def existing_channel(self, name: ChannelName) -> bool:
+    def exists(self, name: ChannelName) -> bool:
         """
         Checks if a channel with the given name exists.
 
@@ -509,9 +509,9 @@ class ChannelClient:
 
     def _rename_single_channel(self, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
-        if not self.existing_channel(old_name):
+        if not self.exists(old_name):
             raise ValueError(f"Channel {old_name} does not exist")
-        new_exists = self.existing_channel(new_name)
+        new_exists = self.exists(new_name)
         if new_exists:
             raise ValueError(f"Channel {new_name} already exists")
 
@@ -548,7 +548,7 @@ class ChannelClient:
 
     def _delete_single_channel(self, name: str) -> None:
         """Deletes a single channel via console UI."""
-        if not self.existing_channel(name):
+        if not self.exists(name):
             raise ValueError(f"Channel {name} does not exist")
 
         self._right_click_channel(name)
