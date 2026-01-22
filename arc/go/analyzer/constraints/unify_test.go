@@ -415,14 +415,13 @@ var _ = Describe("Type Unification", func() {
 			Entry("string", types.String()),
 		)
 
-		It("should allow float literal in compatible context with any numeric", func() {
+		It("should reject float literal in compatible context with integer type", func() {
 			var (
 				system          = constraints.New()
 				floatConstraint = types.FloatConstraint()
 				tv              = types.Variable("T", &floatConstraint)
 			)
-			Expect(system.AddCompatible(tv, types.I32(), nil, "T ~ i32")).To(Succeed())
-			Expect(system.Unify()).To(Succeed())
+			Expect(system.AddCompatible(tv, types.I32(), nil, "T ~ i32")).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 
 		It("should reject float literal in compatible context with non-numeric", func() {
