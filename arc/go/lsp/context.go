@@ -149,6 +149,9 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	if len(tokens) < 2 {
 		return false
 	}
+	if !isInsideParentheses(tokens) {
+		return false
+	}
 	prevToken := tokens[len(tokens)-2]
 	prevType := prevToken.GetTokenType()
 	if prevType == parser.ArcLexerLPAREN || prevType == parser.ArcLexerCOMMA {
@@ -162,6 +165,19 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 		}
 	}
 	return false
+}
+
+func isInsideParentheses(tokens []antlr.Token) bool {
+	depth := 0
+	for _, t := range tokens {
+		switch t.GetTokenType() {
+		case parser.ArcLexerLPAREN:
+			depth++
+		case parser.ArcLexerRPAREN:
+			depth--
+		}
+	}
+	return depth > 0
 }
 
 func isExpressionContext(lastToken antlr.Token) bool {
@@ -270,7 +286,9 @@ func detectConfigContext(tokens []antlr.Token) CompletionContext {
 	if configBraceIndex >= 2 {
 		prevPrevToken := tokens[configBraceIndex-2]
 		prevPrevType := prevPrevToken.GetTokenType()
-		if prevPrevType == parser.ArcLexerRPAREN {
+		if prevPrevType == parser.ArcLexerRPAREN ||
+			prevPrevType == parser.ArcLexerSTAGE ||
+			prevPrevType == parser.ArcLexerSEQUENCE {
 			return ContextUnknown
 		}
 	}
@@ -317,6 +335,15 @@ func ExtractConfigContext(content string, pos protocol.Position) *ConfigContextI
 	prevToken := tokensBeforeCursor[configBraceIndex-1]
 	if prevToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
 		return nil
+	}
+	if configBraceIndex >= 2 {
+		prevPrevToken := tokensBeforeCursor[configBraceIndex-2]
+		prevPrevType := prevPrevToken.GetTokenType()
+		if prevPrevType == parser.ArcLexerRPAREN ||
+			prevPrevType == parser.ArcLexerSTAGE ||
+			prevPrevType == parser.ArcLexerSEQUENCE {
+			return nil
+		}
 	}
 	info := &ConfigContextInfo{
 		FunctionName:   prevToken.GetText(),

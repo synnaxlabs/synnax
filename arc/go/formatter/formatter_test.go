@@ -463,6 +463,58 @@ func bar() {}`
 		})
 	})
 
+	Describe("Config Values (Function Instantiation)", func() {
+		It("should format short config values inline without spaces around =", func() {
+			input := "wait{duration=2ms}"
+			expected := "wait{duration=2ms}\n"
+			Expect(formatter.Format(input)).To(Equal(expected))
+		})
+
+		It("should format multiple config values inline", func() {
+			input := "wait{duration=2ms,retries=3}"
+			expected := "wait{duration=2ms, retries=3}\n"
+			Expect(formatter.Format(input)).To(Equal(expected))
+		})
+
+		It("should format empty config values inline", func() {
+			input := "wait{}"
+			expected := "wait{}\n"
+			Expect(formatter.Format(input)).To(Equal(expected))
+		})
+
+		It("should handle config values in flow statements", func() {
+			input := "sensor -> filter{threshold=10} -> output"
+			expected := "sensor -> filter{threshold=10} -> output\n"
+			Expect(formatter.Format(input)).To(Equal(expected))
+		})
+
+		It("should keep function declaration config block multi-line", func() {
+			input := "func threshold{limit f64}(value f64)u8{return u8(0)}"
+			expected := "func threshold {\n    limit f64\n} (value f64) u8 {\n    return u8(0)\n}\n"
+			Expect(formatter.Format(input)).To(Equal(expected))
+		})
+
+		It("should be idempotent for config values", func() {
+			input := "wait{duration=2ms, retries=3}"
+			first := formatter.Format(input)
+			second := formatter.Format(first)
+			Expect(second).To(Equal(first))
+		})
+
+		It("should be idempotent for config values in flow", func() {
+			input := "sensor -> filter{threshold=10} -> output"
+			first := formatter.Format(input)
+			second := formatter.Format(first)
+			Expect(second).To(Equal(first))
+		})
+
+		It("should handle nested config values", func() {
+			input := "x := foo{a=1} + bar{b=2}"
+			expected := "x := foo{a=1} + bar{b=2}\n"
+			Expect(formatter.Format(input)).To(Equal(expected))
+		})
+	})
+
 	Describe("Boundary Conditions", func() {
 		It("should handle single character", func() {
 			input := "x"

@@ -16,18 +16,28 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 )
 
+type braceContext int
+
+const (
+	braceContextBlock braceContext = iota
+	braceContextConfigBlock
+	braceContextConfigValues
+)
+
 type printer struct {
-	output            strings.Builder
-	indentLevel       int
-	linePos           int
-	lastTokenType     int
-	prevToken         antlr.Token
-	needsSpace        bool
-	atLineStart       bool
-	prevLine          int
-	lastWasUnaryMinus bool
-	indentCache       []string
-	delimiterStack    []int
+	output             strings.Builder
+	indentLevel        int
+	linePos            int
+	lastTokenType      int
+	prevToken          antlr.Token
+	needsSpace         bool
+	atLineStart        bool
+	prevLine           int
+	lastWasUnaryMinus  bool
+	indentCache        []string
+	delimiterStack     []int
+	braceContextStack  []braceContext
+	inlineConfigValues bool
 }
 
 const maxCachedIndentLevel = 16
@@ -168,10 +178,137 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 	p.prevLine = tokLine
 }
 
+func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext {
+	if p.isFuncConfigBlock(idx, tokens) {
+		return braceContextConfigBlock
+	}
+	if p.isConfigValuesBlock(idx, tokens) {
+		return braceContextConfigValues
+	}
+	return braceContextBlock
+}
+
+func (p *printer) isFuncConfigBlock(idx int, tokens []antlr.Token) bool {
+	if idx < 2 {
+		return false
+	}
+	prevTok := tokens[idx-1]
+	prevPrevTok := tokens[idx-2]
+	return prevTok.GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		prevPrevTok.GetTokenType() == parser.ArcLexerFUNC
+}
+
+func (p *printer) isConfigValuesBlock(idx int, tokens []antlr.Token) bool {
+	if idx < 1 {
+		return false
+	}
+	prevTok := tokens[idx-1]
+	if prevTok.GetTokenType() != parser.ArcLexerIDENTIFIER {
+		return false
+	}
+	if idx >= 2 {
+		prevPrevTok := tokens[idx-2]
+		prevPrevType := prevPrevTok.GetTokenType()
+		if prevPrevType == parser.ArcLexerFUNC ||
+			prevPrevType == parser.ArcLexerSTAGE ||
+			prevPrevType == parser.ArcLexerSEQUENCE {
+			return false
+		}
+	}
+	if p.isEmptyBlock(idx, tokens) {
+		return true
+	}
+	return p.hasAssignInBraceBlock(idx, tokens)
+}
+
+func (p *printer) hasAssignInBraceBlock(idx int, tokens []antlr.Token) bool {
+	braceDepth := 1
+	for i := idx + 1; i < len(tokens); i++ {
+		tokType := tokens[i].GetTokenType()
+		switch tokType {
+		case parser.ArcLexerLBRACE:
+			braceDepth++
+		case parser.ArcLexerRBRACE:
+			braceDepth--
+			if braceDepth == 0 {
+				return false
+			}
+		case parser.ArcLexerASSIGN:
+			if braceDepth == 1 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
+	length := p.calculateConfigValuesLength(idx, tokens)
+	return length <= maxLineLength
+}
+
+func (p *printer) calculateConfigValuesLength(idx int, tokens []antlr.Token) int {
+	length := p.linePos
+	braceDepth := 1
+	length++
+	needsSpace := false
+	for i := idx + 1; i < len(tokens); i++ {
+		tok := tokens[i]
+		tokType := tok.GetTokenType()
+		switch tokType {
+		case parser.ArcLexerLBRACE:
+			braceDepth++
+			length++
+		case parser.ArcLexerRBRACE:
+			braceDepth--
+			length++
+			if braceDepth == 0 {
+				return length
+			}
+		case parser.ArcLexerCOMMA:
+			length += 2
+			needsSpace = false
+		case parser.ArcLexerASSIGN:
+			length++
+			needsSpace = false
+		case parser.ArcLexerWS:
+			continue
+		default:
+			if needsSpace {
+				length++
+			}
+			length += len(tok.GetText())
+			needsSpace = p.isWordToken(tokType)
+		}
+	}
+	return length
+}
+
+func (p *printer) inConfigValuesContext() bool {
+	if len(p.braceContextStack) == 0 {
+		return false
+	}
+	return p.braceContextStack[len(p.braceContextStack)-1] == braceContextConfigValues
+}
+
 func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
-	p.writeSpace()
-	p.emitChar("{")
+	ctx := p.detectBraceContext(idx, tokens)
+	p.braceContextStack = append(p.braceContextStack, ctx)
 	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLBRACE)
+
+	if ctx == braceContextConfigValues {
+		if p.shouldInlineConfigValues(idx, tokens) {
+			p.inlineConfigValues = true
+			p.emitChar("{")
+			return
+		}
+		p.inlineConfigValues = false
+	}
+
+	if ctx != braceContextConfigValues {
+		p.writeSpace()
+	}
+	p.emitChar("{")
 	if p.isEmptyBlock(idx, tokens) {
 		return
 	}
@@ -181,6 +318,14 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 
 func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 	p.popDelimiter()
+	ctx := p.popBraceContext()
+
+	if ctx == braceContextConfigValues && p.inlineConfigValues {
+		p.emitChar("}")
+		p.inlineConfigValues = false
+		return
+	}
+
 	isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
 	if !isEmptyBlock {
 		p.indentLevel--
@@ -193,6 +338,15 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 		p.writeIndent()
 	}
 	p.emitChar("}")
+}
+
+func (p *printer) popBraceContext() braceContext {
+	if len(p.braceContextStack) == 0 {
+		return braceContextBlock
+	}
+	ctx := p.braceContextStack[len(p.braceContextStack)-1]
+	p.braceContextStack = p.braceContextStack[:len(p.braceContextStack)-1]
+	return ctx
 }
 
 func (p *printer) handleOpenParen() {
@@ -307,6 +461,12 @@ func (p *printer) needsSpaceBefore(tok antlr.Token) bool {
 
 	if p.lastWasUnaryMinus {
 		return false
+	}
+
+	if p.inConfigValuesContext() && p.inlineConfigValues {
+		if tokType == parser.ArcLexerASSIGN || prevType == parser.ArcLexerASSIGN {
+			return false
+		}
 	}
 
 	if p.isBinaryOperator(tokType) || p.isBinaryOperator(prevType) {
@@ -452,6 +612,9 @@ func (p *printer) isEmptyBlock(idx int, tokens []antlr.Token) bool {
 
 func (p *printer) shouldBreakAfterComma() bool {
 	if len(p.delimiterStack) == 0 {
+		return false
+	}
+	if p.inConfigValuesContext() && p.inlineConfigValues {
 		return false
 	}
 	return p.delimiterStack[len(p.delimiterStack)-1] == parser.ArcLexerLBRACE

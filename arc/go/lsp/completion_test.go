@@ -289,4 +289,87 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "sensorCh")).To(BeTrue(), "Should suggest 'sensorCh' channel for chan type parameter")
 		})
 	})
+
+	Describe("Stage Body Completion", func() {
+		var globalResolver symbol.MapResolver
+
+		BeforeEach(func() {
+			globalResolver = symbol.MapResolver{
+				"vent_vlv_cmd": symbol.Symbol{
+					Name: "vent_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				"press_vlv_cmd": symbol.Symbol{
+					Name: "press_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   2,
+				},
+				"press_pt": symbol.Symbol{
+					Name: "press_pt",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   3,
+				},
+			}
+		})
+
+		It("should suggest channels inside stage body", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        \n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' channel inside stage")
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue(), "Should suggest 'press_vlv_cmd' channel inside stage")
+			Expect(HasCompletion(completions.Items, "press_pt")).To(BeTrue(), "Should suggest 'press_pt' channel inside stage")
+		})
+
+		It("should suggest channels with prefix filter inside stage body", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        v\n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 9)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeFalse(), "Should NOT suggest 'press_vlv_cmd' not matching prefix 'v'")
+		})
+
+		It("should suggest channels inside stage after flow statement", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        \n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 3, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' channel")
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue(), "Should suggest 'press_vlv_cmd' channel")
+		})
+
+		It("should suggest channels with prefix after flow statement", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        v\n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 3, 9)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
+		})
+	})
 })

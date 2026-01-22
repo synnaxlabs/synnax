@@ -238,6 +238,45 @@ var _ = Describe("Context Detection", func() {
 			ctx := lsp.DetectCompletionContext(content, pos)
 			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamName))
 		})
+
+		It("should not detect config context inside stage body", func() {
+			content := "stage press { "
+			pos := protocol.Position{Line: 0, Character: 14}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamName))
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamValue))
+		})
+
+		It("should not detect config context inside stage body on new line", func() {
+			content := "stage press {\n    "
+			pos := protocol.Position{Line: 1, Character: 4}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamName))
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamValue))
+		})
+
+		It("should not detect config context inside sequence body", func() {
+			content := "sequence main { "
+			pos := protocol.Position{Line: 0, Character: 16}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamName))
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamValue))
+		})
+
+		It("should not detect config context inside nested stage", func() {
+			content := "sequence main {\n    stage press {\n        "
+			pos := protocol.Position{Line: 2, Character: 8}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamName))
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamValue))
+		})
+
+		It("should still detect config context for function inside stage", func() {
+			content := "sequence main {\n    stage press {\n        wait{"
+			pos := protocol.Position{Line: 2, Character: 13}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).To(Equal(lsp.ContextConfigParamName))
+		})
 	})
 
 	Describe("Config Param Value Context", func() {
@@ -287,6 +326,20 @@ var _ = Describe("Context Detection", func() {
 		It("should return nil for non-config context", func() {
 			content := "func foo() { "
 			pos := protocol.Position{Line: 0, Character: 13}
+			info := lsp.ExtractConfigContext(content, pos)
+			Expect(info).To(BeNil())
+		})
+
+		It("should return nil for stage body context", func() {
+			content := "stage press { "
+			pos := protocol.Position{Line: 0, Character: 14}
+			info := lsp.ExtractConfigContext(content, pos)
+			Expect(info).To(BeNil())
+		})
+
+		It("should return nil for sequence body context", func() {
+			content := "sequence main { "
+			pos := protocol.Position{Line: 0, Character: 16}
 			info := lsp.ExtractConfigContext(content, pos)
 			Expect(info).To(BeNil())
 		})
