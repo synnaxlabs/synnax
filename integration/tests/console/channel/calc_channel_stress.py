@@ -188,10 +188,7 @@ class CalcChannelStress(ConsoleCase):
 
     def run(self) -> None:
         """Run calculated channel stress test."""
-        self.test_plot_calc_channels()
 
-    def test_plot_calc_channels(self) -> None:
-        """Test plotting calculated channels from the stress script."""
         self.log(f"Testing plot calculated channels at {self.rate} Hz")
 
         client = self.client
