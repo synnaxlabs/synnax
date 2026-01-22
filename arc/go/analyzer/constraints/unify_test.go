@@ -71,7 +71,7 @@ var _ = Describe("Type Unification", func() {
 		testPromotion := func(constraint, value, expected types.Type) {
 			system := constraints.New()
 			tv := types.Variable("T", &constraint)
-			system.AddCompatible(tv, value, nil, "promotion test")
+			Expect(system.AddCompatible(tv, value, nil, "promotion test")).To(Succeed())
 			Expect(system.Unify()).To(Succeed())
 			Expect(system.Substitutions["T"]).To(Equal(expected))
 		}
@@ -313,17 +313,17 @@ var _ = Describe("Type Unification", func() {
 				)
 				switch order {
 				case 1: // forward
-					s.AddEquality(a, b, nil, "A = B")
-					s.AddEquality(b, c, nil, "B = C")
-					s.AddEquality(c, types.F32(), nil, "C = f32")
+					Expect(s.AddEquality(a, b, nil, "A = B")).To(Succeed())
+					Expect(s.AddEquality(b, c, nil, "B = C")).To(Succeed())
+					Expect(s.AddEquality(c, types.F32(), nil, "C = f32")).To(Succeed())
 				case 2: // reverse
-					s.AddEquality(c, types.F32(), nil, "C = f32")
-					s.AddEquality(b, c, nil, "B = C")
-					s.AddEquality(a, b, nil, "A = B")
+					Expect(s.AddEquality(c, types.F32(), nil, "C = f32")).To(Succeed())
+					Expect(s.AddEquality(b, c, nil, "B = C")).To(Succeed())
+					Expect(s.AddEquality(a, b, nil, "A = B")).To(Succeed())
 				case 3: // middle-out
-					s.AddEquality(b, c, nil, "B = C")
-					s.AddEquality(c, types.F32(), nil, "C = f32")
-					s.AddEquality(a, b, nil, "A = B")
+					Expect(s.AddEquality(b, c, nil, "B = C")).To(Succeed())
+					Expect(s.AddEquality(c, types.F32(), nil, "C = f32")).To(Succeed())
+					Expect(s.AddEquality(a, b, nil, "A = B")).To(Succeed())
 				}
 				return a
 			}
