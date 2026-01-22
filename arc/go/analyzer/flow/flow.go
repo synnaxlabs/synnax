@@ -23,6 +23,23 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
+	name := ctx.AST.IDENTIFIER().GetText()
+	funcType := resolveFunc(ctx, name)
+	if funcType == nil {
+		return
+	}
+	validateFuncConfig(ctx, name, funcType.Type, ctx.AST.ConfigValues(), ctx.AST)
+	for _, input := range funcType.Type.Inputs {
+		if input.Value == nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"standalone function '%s' has required input '%s' with no source; "+
+					"use in a flow statement or provide a default value",
+				name, input.Name))
+		}
+	}
+}
+
 // Analyze validates a flow statement's node chain and routing tables.
 func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
 	nodes := ctx.AST.AllFlowNode()
@@ -49,7 +66,7 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		analyzeExpression(context.Child(ctx, expr))
+		AnalyzeSingleExpression(context.Child(ctx, expr))
 		return
 	}
 	// NEXT is always valid - it will be resolved during sequence analysis.
@@ -163,6 +180,14 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"func '%s' has named outputs and requires a routing table",
 					prevFuncName,
+				))
+				return
+			} else {
+				// Void function (no outputs) cannot feed into a function expecting input
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+					"func '%s' has no return value but '%s' expects an input parameter",
+					prevFuncName,
+					name,
 				))
 				return
 			}
@@ -612,6 +637,6 @@ func analyzeRoutingTargetWithParam(
 			}
 		}
 	} else if expr := ctx.AST.Expression(); expr != nil {
-		analyzeExpression(context.Child(ctx, expr))
+		AnalyzeSingleExpression(context.Child(ctx, expr))
 	}
 }

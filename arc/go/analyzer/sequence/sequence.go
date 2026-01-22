@@ -105,5 +105,18 @@ func analyzeStage(
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			flow.Analyze(context.Child(ctx, flowStmt))
 		}
+		if single := item.SingleInvocation(); single != nil {
+			analyzeSingleInvocation(context.Child(ctx, single))
+		}
+	}
+}
+
+func analyzeSingleInvocation(ctx context.Context[parser.ISingleInvocationContext]) {
+	if fn := ctx.AST.Function(); fn != nil {
+		flow.AnalyzeSingleFunction(context.Child(ctx, fn))
+		return
+	}
+	if expr := ctx.AST.Expression(); expr != nil {
+		flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 	}
 }

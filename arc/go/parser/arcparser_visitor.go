@@ -1,4 +1,4 @@
-// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
 import "github.com/antlr4-go/antlr/v4"
@@ -48,6 +48,9 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#stageItem.
 	VisitStageItem(ctx *StageItemContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#singleInvocation.
+	VisitSingleInvocation(ctx *SingleInvocationContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#flowStatement.
 	VisitFlowStatement(ctx *FlowStatementContext) interface{}
