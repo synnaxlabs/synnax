@@ -173,7 +173,7 @@ class LayoutClient:
         try:
             bottom_drawer.wait_for(state="hidden", timeout=2000)
         except Exception:
-            # Fallback: click tab area for focus, then press V
+            self.console.close_nav_drawer()
             self.page.locator(".pluto-tabs-selector__btn").first.click()
             self.page.keyboard.press("V")
             bottom_drawer.wait_for(state="hidden", timeout=5000)

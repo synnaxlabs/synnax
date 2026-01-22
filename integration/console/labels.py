@@ -173,7 +173,7 @@ class LabelClient:
     def _open_edit_modal(self) -> None:
         self.console.command_palette("Edit Labels")
         modal = self.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="visible")
+        modal.wait_for(state="visible", timeout=5000)
 
     def _close_edit_modal(self) -> None:
         close_button = self.page.locator(
@@ -181,7 +181,7 @@ class LabelClient:
         ).first
         close_button.click()
         modal = self.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="hidden")
+        modal.wait_for(state="hidden", timeout=5000)
 
     def _find_label_item(self, name: str) -> Locator | None:
         for item in self._find_label_items():
