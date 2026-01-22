@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Symbol Suggestions", func() {
@@ -40,9 +41,9 @@ var _ = Describe("Symbol Suggestions", func() {
 	Describe("SuggestSimilar", func() {
 		It("should suggest similar symbol names", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "humidity", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "humidity", Kind: symbol.KindVariable}))
 
 			suggestions := root.SuggestSimilar(bCtx, "temperatur", 2, 3)
 			Expect(suggestions).To(ContainElement("temperature"))

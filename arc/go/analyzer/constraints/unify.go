@@ -353,34 +353,6 @@ func promoteNumericTypes(t1, t2 types.Type) types.Type {
 	return types.U32()
 }
 
-// isNumericConstraint returns true if the kind is a numeric constraint kind.
-func isNumericConstraint(kind types.Kind) bool {
-	return kind == types.KindNumericConstant ||
-		kind == types.KindIntegerConstant ||
-		kind == types.KindFloatConstant ||
-		kind == types.KindExactIntegerFloatConstant
-}
-
-// numericConstraintsCompatible checks if two constraint kinds are compatible.
-// IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
-// float variables in operations, consistent with how explicit i32 and f64 are rejected.
-// NumericConstant and ExactIntegerFloatConstant are compatible with both since they can adapt.
-func numericConstraintsCompatible(k1, k2 types.Kind) bool {
-	if k1 == k2 {
-		return true
-	}
-	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
-		return isNumericConstraint(k1) && isNumericConstraint(k2)
-	}
-	if k1 == types.KindExactIntegerFloatConstant || k2 == types.KindExactIntegerFloatConstant {
-		return isNumericConstraint(k1) && isNumericConstraint(k2)
-	}
-	if isNumericConstraint(k1) && isNumericConstraint(k2) {
-		return false
-	}
-	return k1 == k2
-}
-
 // String formats the constraint system for debugging with type variables,
 // constraints, and substitutions.
 func (s *System) String() string {
