@@ -11,12 +11,12 @@ package types
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 )
@@ -431,7 +431,7 @@ func inferNumericLiteralType(
 	if isFloat {
 		floatText := floatLit.GetText()
 		floatValue, err := strconv.ParseFloat(floatText, 64)
-		if err == nil && isExactInteger(floatValue) {
+		if err == nil && literal.IsExactInteger(floatValue) {
 			constraint = types.ExactIntegerFloatConstraint()
 		} else {
 			constraint = types.FloatConstraint()
@@ -453,16 +453,6 @@ func inferNumericLiteralType(
 	_ = ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
-}
-
-// isExactInteger checks if a float64 value represents an exact integer.
-// Uses a relative epsilon to handle floating-point precision issues.
-func isExactInteger(value float64) bool {
-	rounded := math.Round(value)
-	if rounded == 0 {
-		return math.Abs(value) < 1e-9
-	}
-	return math.Abs(value-rounded)/math.Abs(rounded) < 1e-9
 }
 
 // resolveLiteralConstraint converts a type variable with a literal constraint to a concrete type.
