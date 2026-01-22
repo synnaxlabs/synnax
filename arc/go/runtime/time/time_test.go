@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -72,8 +73,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func() {
@@ -235,8 +235,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should not fire before duration elapses", func() {

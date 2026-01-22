@@ -14,20 +14,26 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Server Diagnostics", func() {
-	var ctx context.Context
+	var (
+		ctx    context.Context
+		server *lsp.Server
+		uri    protocol.DocumentURI
+		client *MockClient
+	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
+		server, uri, client = SetupTestServerWithClient()
 	})
 
 	Describe("Diagnostic Range", func() {
 		It("Should publish diagnostics with correct end position for undefined symbol", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
@@ -40,7 +46,6 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should publish diagnostics with correct end position for short identifier", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func test() {\n\tx := y\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
@@ -53,7 +58,6 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should publish diagnostics with fallback end position when no stop token", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func test() i32 {\n\tx := 1\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
@@ -64,7 +68,6 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should handle multiple diagnostics with correct ranges", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func test() {\n\ta := undefined1\n\tb := undefined2\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(2))
@@ -83,7 +86,6 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should handle block URI diagnostics with correct ranges", func() {
-			server, _, client := SetupTestServerWithClient()
 			blockURI := protocol.DocumentURI("arc://block/test")
 			OpenDocument(server, ctx, blockURI, "x := undefined_var")
 
@@ -96,7 +98,6 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Severity", func() {
 		It("Should set correct severity for errors", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
@@ -106,7 +107,6 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Error Codes", func() {
 		It("Should include error code for function argument count mismatch", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
@@ -114,7 +114,6 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should include error code for function argument type mismatch", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func process(x i32) i32 { return x }\nfunc test() { z := process(\"hello\") }")
 
 			Expect(client.Diagnostics).To(HaveLen(1))
@@ -124,7 +123,6 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Related Information", func() {
 		It("Should include function signature in related information for argument errors", func() {
-			server, uri, client := SetupTestServerWithClient()
 			OpenDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
 
 			Expect(client.Diagnostics).To(HaveLen(1))

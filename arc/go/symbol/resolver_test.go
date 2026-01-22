@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("MapResolver", func() {
@@ -24,8 +25,7 @@ var _ = Describe("MapResolver", func() {
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			sym, err := resolver.Resolve(bCtx, "pi")
-			Expect(err).ToNot(HaveOccurred())
+			sym := MustSucceed(resolver.Resolve(bCtx, "pi"))
 			Expect(sym.Name).To(Equal("pi"))
 			Expect(sym.Kind).To(Equal(symbol.KindConfig))
 			Expect(sym.Type).To(Equal(types.F64()))
@@ -44,7 +44,7 @@ var _ = Describe("MapResolver", func() {
 		})
 	})
 
-	Describe("ResolvePrefix", func() {
+	Describe("Search", func() {
 		It("Should resolve all symbols matching prefix", func() {
 			resolver := symbol.MapResolver{
 				"pi":      symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
@@ -52,21 +52,19 @@ var _ = Describe("MapResolver", func() {
 				"counter": symbol.Symbol{Name: "counter", Kind: symbol.KindVariable, Type: types.I32()},
 				"max":     symbol.Symbol{Name: "max", Kind: symbol.KindFunction, Type: types.F64()},
 			}
-			symbols, err := resolver.ResolvePrefix(bCtx, "count")
-			Expect(err).ToNot(HaveOccurred())
+			symbols := MustSucceed(resolver.Search(bCtx, "count"))
 			Expect(symbols).To(HaveLen(2))
 
 			names := []string{symbols[0].Name, symbols[1].Name}
 			Expect(names).To(ContainElements("count", "counter"))
 		})
 
-		It("Should return empty slice for non-matching prefix", func() {
+		It("Should return empty slice for non-matching search", func() {
 			resolver := symbol.MapResolver{
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			symbols, err := resolver.ResolvePrefix(bCtx, "xyz")
-			Expect(err).ToNot(HaveOccurred())
+			symbols := MustSucceed(resolver.Search(bCtx, "completely_different_name"))
 			Expect(symbols).To(BeEmpty())
 		})
 
@@ -75,15 +73,13 @@ var _ = Describe("MapResolver", func() {
 				"pi":    symbol.Symbol{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
 				"count": symbol.Symbol{Name: "count", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			symbols, err := resolver.ResolvePrefix(bCtx, "")
-			Expect(err).ToNot(HaveOccurred())
+			symbols := MustSucceed(resolver.Search(bCtx, ""))
 			Expect(symbols).To(HaveLen(2))
 		})
 
 		It("Should work with empty resolver", func() {
 			resolver := symbol.MapResolver{}
-			symbols, err := resolver.ResolvePrefix(bCtx, "anything")
-			Expect(err).ToNot(HaveOccurred())
+			symbols := MustSucceed(resolver.Search(bCtx, "anything"))
 			Expect(symbols).To(BeEmpty())
 		})
 	})
@@ -99,8 +95,7 @@ var _ = Describe("CompoundResolver", func() {
 				"bar": symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
-			sym, err := compound.Resolve(bCtx, "bar")
-			Expect(err).ToNot(HaveOccurred())
+			sym := MustSucceed(compound.Resolve(bCtx, "bar"))
 			Expect(sym.Name).To(Equal("bar"))
 			Expect(sym.Type).To(Equal(types.String()))
 		})
@@ -112,8 +107,7 @@ var _ = Describe("CompoundResolver", func() {
 				"foo": symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.String()},
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
-			sym, err := compound.Resolve(bCtx, "foo")
-			Expect(err).ToNot(HaveOccurred())
+			sym := MustSucceed(compound.Resolve(bCtx, "foo"))
 			Expect(sym.Type).To(Equal(types.I32()))
 		})
 		It("Should return error when no resolver matches", func() {
@@ -126,7 +120,7 @@ var _ = Describe("CompoundResolver", func() {
 		})
 	})
 
-	Describe("ResolvePrefix", func() {
+	Describe("Search", func() {
 		It("Should resolve from all sub-resolvers", func() {
 			resolver1 := symbol.MapResolver{
 				"foo":    symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()},
@@ -137,8 +131,7 @@ var _ = Describe("CompoundResolver", func() {
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
 
-			symbols, err := compound.ResolvePrefix(bCtx, "foo")
-			Expect(err).ToNot(HaveOccurred())
+			symbols := MustSucceed(compound.Search(bCtx, "foo"))
 			Expect(symbols).To(HaveLen(3))
 
 			names := []string{symbols[0].Name, symbols[1].Name, symbols[2].Name}
@@ -154,8 +147,7 @@ var _ = Describe("CompoundResolver", func() {
 			}
 			compound := symbol.CompoundResolver{resolver1, resolver2}
 
-			symbols, err := compound.ResolvePrefix(bCtx, "foo")
-			Expect(err).ToNot(HaveOccurred())
+			symbols := MustSucceed(compound.Search(bCtx, "foo"))
 			Expect(symbols).To(HaveLen(1))
 			Expect(symbols[0].Type).To(Equal(types.I32())) // First resolver wins
 		})
@@ -166,8 +158,7 @@ var _ = Describe("CompoundResolver", func() {
 			}
 			compound := symbol.CompoundResolver{resolver1}
 
-			symbols, err := compound.ResolvePrefix(bCtx, "xyz")
-			Expect(err).ToNot(HaveOccurred())
+			symbols := MustSucceed(compound.Search(bCtx, "completely_different_name"))
 			Expect(symbols).To(BeEmpty())
 		})
 	})

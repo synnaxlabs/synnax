@@ -820,8 +820,7 @@ func broken() {
 	Describe("Wrapper Functions", func() {
 		Context("ParseExpression", func() {
 			It("Should parse valid expression and return nil error", func() {
-				expr, err := parser.ParseExpression("2 + 3")
-				Expect(err).To(BeNil())
+				expr := MustSucceed(parser.ParseExpression("2 + 3"))
 				Expect(expr).NotTo(BeNil())
 			})
 
@@ -838,8 +837,7 @@ func broken() {
 
 		Context("ParseStatement", func() {
 			It("Should parse valid statement and return nil error", func() {
-				stmt, err := parser.ParseStatement("x := 42")
-				Expect(err).To(BeNil())
+				stmt := MustSucceed(parser.ParseStatement("x := 42"))
 				Expect(stmt).NotTo(BeNil())
 			})
 
@@ -889,11 +887,10 @@ func broken() {
 			})
 
 			It("Should handle program with multiple top-level items", func() {
-				prog, err := parser.Parse(`
+				prog := MustSucceed(parser.Parse(`
 func test1() { x := 1 }
 func test2() { y := 2 }
-sensor -> controller{}`)
-				Expect(err).To(BeNil())
+sensor -> controller{}`))
 				Expect(prog).NotTo(BeNil())
 				Expect(prog.AllTopLevelItem()).To(HaveLen(3))
 			})

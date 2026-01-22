@@ -1299,6 +1299,15 @@ var _ = Describe("Statement", func() {
 					a := 10
 					x := [5, a * 2]
 				}`),
+				// Inferred type variables with literals - int/float literals can coerce
+				Entry("inferred int variable and float literal", `{
+					a := 5
+					x := [a, 12.0]
+				}`),
+				Entry("inferred float variable and int literal", `{
+					a := 12.0
+					x := [a, 5]
+				}`),
 			)
 		})
 
@@ -1570,14 +1579,6 @@ var _ = Describe("Statement", func() {
 					a := 12.0
 					b := 5
 					x := [a, b]
-				}`),
-				Entry("inferred int variable and float literal", `{
-					a := 5
-					x := [a, 12.0]
-				}`),
-				Entry("inferred float variable and int literal", `{
-					a := 12.0
-					x := [a, 5]
 				}`),
 			)
 		})
