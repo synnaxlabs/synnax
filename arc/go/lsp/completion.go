@@ -415,14 +415,14 @@ func (s *Server) resolveFunctionType(
 	doc *Document,
 	name string,
 ) (types.Type, bool) {
-	if s.cfg.GlobalResolver != nil {
-		sym, err := s.cfg.GlobalResolver.Resolve(ctx, name)
+	if doc.IR.Symbols != nil {
+		sym, err := doc.IR.Symbols.Resolve(ctx, name)
 		if err == nil && sym.Type.Kind == types.KindFunction {
 			return sym.Type, true
 		}
 	}
-	if doc.IR.Symbols != nil {
-		sym, err := doc.IR.Symbols.Resolve(ctx, name)
+	if s.cfg.GlobalResolver != nil {
+		sym, err := s.cfg.GlobalResolver.Resolve(ctx, name)
 		if err == nil && sym.Type.Kind == types.KindFunction {
 			return sym.Type, true
 		}
