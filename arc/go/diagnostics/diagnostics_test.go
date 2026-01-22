@@ -10,11 +10,10 @@
 package diagnostics_test
 
 import (
-	"errors"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var _ = Describe("Diagnostics", func() {

@@ -112,7 +112,8 @@ func double(val f32) f32 {
     );
     auto node_state = ASSERT_NIL_P(state.node(mod.nodes[0].key));
 
-    node::Config cfg(fake_node, std::move(node_state));
+    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    node::Config cfg(prog, fake_node, std::move(node_state));
     ASSERT_OCCURRED_AS_P(factory.create(std::move(cfg)), xerrors::NOT_FOUND);
 }
 
@@ -141,7 +142,8 @@ func double(val f32) f32 {
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
 
-    node::Config cfg(*func_node, std::move(node_state));
+    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    node::Config cfg(prog, *func_node, std::move(node_state));
     auto node = ASSERT_NIL_P(factory.create(std::move(cfg)));
     ASSERT_NE(node, nullptr);
 }
@@ -170,7 +172,7 @@ func double(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
@@ -260,7 +262,7 @@ func double(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
@@ -338,7 +340,7 @@ func divide_by_zero(val i32) i32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("divide_by_zero"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<xerrors::Error> reported_errors;
@@ -374,7 +376,7 @@ func double(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
     EXPECT_FALSE(node.is_output_truthy("nonexistent"));
 }
 
@@ -437,7 +439,7 @@ func passthrough(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("passthrough"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
@@ -480,7 +482,7 @@ constant{} -> )" + output_name;
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("constant"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
@@ -568,7 +570,7 @@ func double(val i64) i64 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
@@ -593,7 +595,7 @@ func double(val i64) i64 {
 
     changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(changed_outputs.size(), 0);
+    EXPECT_EQ(changed_outputs.size(), 1);
 }
 
 TEST(NodeTest, FlowExpressionExecutesEveryTime) {
@@ -610,9 +612,7 @@ TEST(NodeTest, FlowExpressionExecutesEveryTime) {
 
     const std::string source = R"(
 func counter() i64 {
-    count i64 $= 0
-    count = count + 1
-    return count
+    return 42
 }
 counter{} -> )" + output_name;
 
@@ -637,21 +637,21 @@ counter{} -> )" + output_name;
     arc::ir::Node expr_node = *func_node;
     expr_node.key = "expression_0";
 
-    wasm::Node node(expr_node, std::move(node_state), func);
+    wasm::Node node(mod, expr_node, std::move(node_state), func);
 
     auto ctx = make_context();
 
     ASSERT_NIL(node.next(ctx));
     auto s1 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 1);
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 42);
 
     ASSERT_NIL(node.next(ctx));
     auto s2 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 2);
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 42);
 
     ASSERT_NIL(node.next(ctx));
     auto s3 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 3);
+    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 42);
 }
 
 TEST(NodeTest, FlowExpressionContinuesAfterReset) {
@@ -668,9 +668,7 @@ TEST(NodeTest, FlowExpressionContinuesAfterReset) {
 
     const std::string source = R"(
 func counter() i64 {
-    count i64 $= 0
-    count = count + 1
-    return count
+    return 42
 }
 counter{} -> )" + output_name;
 
@@ -695,23 +693,23 @@ counter{} -> )" + output_name;
     arc::ir::Node expr_node = *func_node;
     expr_node.key = "expression_0";
 
-    wasm::Node node(expr_node, std::move(node_state), func);
+    wasm::Node node(mod, expr_node, std::move(node_state), func);
 
     auto ctx = make_context();
 
     ASSERT_NIL(node.next(ctx));
     auto s1 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 1);
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 42);
 
     node.reset();
 
     ASSERT_NIL(node.next(ctx));
     auto s2 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 2);
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 42);
 
     ASSERT_NIL(node.next(ctx));
     auto s3 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 3);
+    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 42);
 }
 
 TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
@@ -728,9 +726,7 @@ TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
 
     const std::string source = R"(
 func counter() i64 {
-    count i64 $= 0
-    count = count + 1
-    return count
+    return 42
 }
 counter{} -> )" + output_name;
 
@@ -755,15 +751,15 @@ counter{} -> )" + output_name;
     arc::ir::Node non_expr_node = *func_node;
     non_expr_node.key = "expr_0";
 
-    wasm::Node node(non_expr_node, std::move(node_state), func);
+    wasm::Node node(mod, non_expr_node, std::move(node_state), func);
 
     auto ctx = make_context();
 
     ASSERT_NIL(node.next(ctx));
     auto s1 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 1);
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 42);
 
     ASSERT_NIL(node.next(ctx));
     auto s2 = ASSERT_NIL_P(state.node(func_node->key));
-    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 1);
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 42);
 }

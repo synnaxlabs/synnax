@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 from typing import Any, Literal
 
 import synnax as sy
@@ -14,7 +15,6 @@ import synnax as sy
 from framework.utils import get_results_path
 
 from .console import Console
-from .context_menu import ContextMenu
 from .page import ConsolePage
 
 Axis = Literal["Y1", "Y2", "X1"]
@@ -104,7 +104,7 @@ class Plot(ConsolePage):
         download_button = self.page.get_by_role("button", name="Download").last
         self.page.evaluate("delete window.showSaveFilePicker")
 
-        with self.page.expect_download() as download_info:
+        with self.page.expect_download(timeout=5000) as download_info:
             download_button.click()
 
         download = download_info.value
@@ -195,24 +195,42 @@ class Plot(ConsolePage):
         self.page.locator(selector).click(timeout=5000)
 
     def copy_link(self) -> str:
-        """Copy link to the plot via tab context menu.
+        """Copy link to the plot via the toolbar link button.
 
         Returns:
             The copied link from clipboard (empty string if clipboard access fails)
         """
-        tab = self._get_tab()
-        menu = ContextMenu(self.page)
-        menu.open_on(tab)
-        menu.click_option("Copy Link")
-        self.page.wait_for_timeout(200)
+        self.console.layout.show_visualization_toolbar()
+        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button.click(timeout=5000)
 
-        # Try to get the link from clipboard
         try:
             link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
         except Exception:
-            # If clipboard access fails, return empty string
             return ""
+
+    def export_json(self) -> dict[str, Any]:
+        """Export the plot as a JSON file via the toolbar export button.
+
+        The file is saved to the tests/results directory with the plot name.
+
+        Returns:
+            The exported JSON content as a dictionary.
+        """
+        self.console.layout.show_visualization_toolbar()
+        export_button = self.page.locator(".pluto-icon--export").locator("..")
+        self.page.evaluate("delete window.showSaveFilePicker")
+
+        with self.page.expect_download(timeout=5000) as download_info:
+            export_button.click()
+
+        download = download_info.value
+        save_path = get_results_path(f"{self.page_name}.json")
+        download.save_as(save_path)
+        with open(save_path, "r") as f:
+            result: dict[str, Any] = json.load(f)
+            return result
 
     def set_title(self, title: str) -> None:
         """Set the plot title via the Properties tab.
@@ -383,3 +401,12 @@ class Plot(ConsolePage):
         )
         self.page.get_by_role("textbox", name="Name").fill(range_name)
         self.page.get_by_role("button", name="Save to Synnax").click()
+
+    def has_channel(self, axis: Axis, channel_name: str) -> bool:
+        """Check if a channel is shown on the specified axis in the toolbar."""
+        self.console.layout.get_tab(self.page_name).click()
+        self.console.layout.show_visualization_toolbar()
+        self.page.locator("#data").click(timeout=5000)
+        axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
+        result = axis_section.get_by_text(channel_name).count() > 0
+        return result

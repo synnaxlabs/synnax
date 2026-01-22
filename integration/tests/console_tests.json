@@ -14,6 +14,27 @@
       ]
     },
     {
+      "sequence_name": "channel",
+      "sequence_order": "sequential",
+      "tests": [
+        {
+          "case": "console/channel/channel_operations"
+        },
+        {
+          "case": "console/channel/rename_synchronization"
+        },
+        {
+          "case": "console/channel/alias_synchronization"
+        },
+        {
+          "case": "console/channel/calc_channel_stress",
+          "parameters": {
+            "rate": [10, 100, 1000]
+          }
+        }
+      ]
+    },
+    {
       "sequence_name": "general",
       "sequence_order": "asynchronous",
       "pool_size": 3,
@@ -26,9 +47,6 @@
         },
         {
           "case": "console/pages/open_close"
-        },
-        {
-          "case": "console/channel/channel_operations"
         },
         {
           "case": "console/plot/line_plot"

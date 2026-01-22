@@ -354,42 +354,31 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation {
-		seen := make(map[string]bool)
-		addSymbolCompletion := func(name string, t types.Type) {
-			if seen[name] {
-				return
-			}
-			seen[name] = true
-			var (
-				kind   protocol.CompletionItemKind
-				detail string
-			)
-			if typeStr := t.String(); typeStr != "" {
-				if strings.Contains(typeStr, "->") {
-					kind = protocol.CompletionItemKindFunction
-				} else {
-					kind = protocol.CompletionItemKindVariable
-				}
-				detail = typeStr
-			} else {
-				kind = protocol.CompletionItemKindVariable
-			}
-			items = append(items, protocol.CompletionItem{
-				Label:  name,
-				Kind:   kind,
-				Detail: detail,
-			})
-		}
-
-		if doc.IR.Symbols != nil {
-			scopeAtCursor := doc.findScopeAtPosition(pos)
-			if scopeAtCursor != nil {
-				scopes, err := scopeAtCursor.Search(ctx, prefix)
-				if err == nil {
-					for _, scope := range scopes {
-						addSymbolCompletion(scope.Name, scope.Type)
+	if completionCtx != ContextTypeAnnotation && doc.IR.Symbols != nil {
+		scopeAtCursor := doc.findScopeAtPosition(pos)
+		if scopeAtCursor != nil {
+			scopes, err := scopeAtCursor.Search(ctx, prefix)
+			if err == nil {
+				for _, scope := range scopes {
+					var (
+						kind   protocol.CompletionItemKind
+						detail string
+					)
+					if typeStr := scope.Type.String(); typeStr != "" {
+						if strings.Contains(typeStr, "->") {
+							kind = protocol.CompletionItemKindFunction
+						} else {
+							kind = protocol.CompletionItemKindVariable
+						}
+						detail = typeStr
+					} else {
+						kind = protocol.CompletionItemKindVariable
 					}
+					items = append(items, protocol.CompletionItem{
+						Label:  scope.Name,
+						Kind:   kind,
+						Detail: detail,
+					})
 				}
 			}
 		} else if s.cfg.GlobalResolver != nil {

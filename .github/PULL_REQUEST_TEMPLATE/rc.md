@@ -73,51 +73,15 @@ I have verified that code examples for each of the following services run correc
 I can successfully:
 
 - **Create Channel Modal**
-  - [x] Create a new channel from the command palette. (channel_operations.py)
-  - [x] Create multiple channels with the "Create More" flag set to true. (channel_operations.py)
-- **Resources Toolbar**
-  - [x] Open a channel plot by double-clicking it. (channel_operations.py)
-  - [x] Drag and drop a channel onto a line plot. (plot/line_plot.py)
-  - [x] Drag and drop a channel onto the line plot toolbar. (plot/line_plot.py)
-  - **Context Menu**
-    - [x] Rename a channel. (channel_lifecycle.py)
-    - [x] Group multiple channels. (channel_operations.py)
-    - [ ] Edit the calculation of a calculated channel.
-    - [ ] Set an alias for a channel under a range.
-    - [ ] Clear an alias for a channel under a range.
-    - [x] Delete a channel. (channel_lifecycle.py)
-    - [x] Copy a link to a channel. (channel_operations.py)
-    - [ ] Hard reload the console.
-- **Search and Command Palette**
-  - [ ] Open a channel plot by its name.
-  - [ ] Open the "Create Channel" modal.
-  - [ ] Open the "Create Calculated Channel" modal.
-- **Calculated Channels**
-  - [ ] Plot a basic calculated channel.
-  - [ ] Plot a nested calculated channel.
-  - [ ] Intentionally create a channel with an erroneous expression, plot it and make sure the Console and Core remain stable and the error is logged to the Core and the Console.
-  - [ ] Run and plot channels from python calc_channel_stress.py setting `--rate` with
-    - [ ] 10 Hz
-    - [ ] 100 Hz
-    - [ ] 1,000 Hz
 - [ ] Open a channel plot from a link.
 - [ ] Rename a channel and ensure the change synchronizes properly across:
-  - Resources Toolbar
-  - Line Plot Visualization Toolbar
-  - Log Visualization Toolbar
-  - Schematic Visualization Toolbar
-  - Table Visualization Toolbar
   - Task Configuration Dialog
 - [ ] Set an alias for a channel and ensure the change synchronizes properly across:
-  - Resources Toolbar
-  - Line Plot Visualization Toolbar
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
   - Table Visualization Toolbar
   - Task Configuration Dialog
 - [ ] Remove an alias for a channel and ensure the change synchronizes properly across:
-  - Resources Toolbar
-  - Line Plot Visualization Toolbar
   - Log Visualization Toolbar
   - Schematic Visualization Toolbar
   - Table Visualization Toolbar
@@ -180,19 +144,6 @@ I can successfully:
     - [ ] Rename a device.
     - [ ] Delete a device.
 
-### Labels
-
-I can successfully:
-
-- **Search and Command Palette**
-  - [x] Open the "Edit Label" modal. (label_lifecycle.py)
-- **Edit Label Modal**
-  - [x] Add a new label. (label_lifecycle.py)
-  - [x] Edit an existing label's name. (label_lifecycle.py)
-  - [x] Change the color of an existing label. (label_lifecycle.py)
-  - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
-
 ### Layout
 
 I can successfully:
@@ -221,38 +172,11 @@ I can successfully:
 
 - [x] Create a new line plot from the mosaic. (pages/open_close.py)
 - **Visualization**
-  - [x] Plot a historical range of data. (plot/line_plot.py)
-  - [x] Plot a live range of data. (plot/line_plot.py)
-  - [x] Move channels between axes. (plot/line_plot.py)
-  - [x] Adjust the line thickness. (plot/line_plot.py)
-  - [x] Relabel a line. (plot/line_plot.py)
-  - [x] Set the plot title. (plot/line_plot.py)
-  - [x] Download a range as a CSV. (plot/line_plot.py)
-  - [x] Create a range from line plot selection. (plot/line_plot.py)
   - [ ] Use the measuring tool on the line plot.
-  - [x] Rename a line plot from its tab title. (plot/line_plot.py)
-  - [ ] Export a line plot.
-  - [ ] Copy a link to a line plot.
-  - [ ] Download a line plot as a CSV from the toolbar.
-- **Resources Toolbar**
-  - [ ] Open a plot by selecting it.
-  - [ ] Drag a plot onto the mosaic.
-  - **Context Menu**
-    - [ ] Rename a plot.
-    - [ ] Delete a plot.
-    - [ ] Delete multiple plots.
-    - [ ] Export a plot.
-    - [ ] Copy a link to a plot.
 - **Search and Command Palette**
-  - [ ] Open an existing line plot.
-  - [x] Create a new line plot. (pages/open_close.py)
   - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
 - [ ] Import a line plot.
-- [x] Rename a line plot and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Resources Toolbar
-  - [x] Mosaic Tab
-  - [x] Visualization Toolbar
 
 ### Logs
 

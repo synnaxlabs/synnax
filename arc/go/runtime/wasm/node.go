@@ -19,12 +19,12 @@ import (
 
 type nodeImpl struct {
 	*state.Node
-	ir           ir.Node
-	wasm         *Function
-	inputs       []uint64
-	offsets      []int
-	initialized  bool
-	isExpression bool
+	ir          ir.Node
+	wasm        *Function
+	inputs      []uint64
+	offsets     []int
+	initialized bool
+	isEntryNode bool
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -36,7 +36,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 	}()
 
-	if !n.isExpression {
+	if n.isEntryNode {
 		if n.initialized {
 			return
 		}
