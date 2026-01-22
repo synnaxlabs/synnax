@@ -19,6 +19,7 @@ from framework.utils import get_results_path
 
 if TYPE_CHECKING:
     from .console import Console
+    from .plot import Plot
 
 
 class WorkspaceClient:
@@ -365,3 +366,66 @@ class WorkspaceClient:
         self.create(name)
         self.select(name)
         self.console.close_nav_drawer()
+
+    def _create_plot_instance(self, client: sy.Synnax, page_name: str) -> "Plot":
+        """Create a Plot instance after a line plot becomes visible.
+
+        Args:
+            client: Synnax client instance.
+            page_name: The name of the plot page.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        from .plot import Plot
+
+        line_plot = self.page.locator(Plot.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        plot = Plot.__new__(Plot)
+        plot.client = client
+        plot.console = self.console
+        plot.page = self.page
+        plot.page_name = page_name
+        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot
+
+    def open_plot(self, client: sy.Synnax, name: str) -> "Plot":
+        """Open a plot by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the plot to open.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        self.open_page(name)
+        return self._create_plot_instance(client, name)
+
+    def drag_plot_to_mosaic(self, client: sy.Synnax, name: str) -> "Plot":
+        """Drag a plot from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the plot to drag.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        self.drag_page_to_mosaic(name)
+        return self._create_plot_instance(client, name)
+
+    def open_plot_from_search(self, client: sy.Synnax, name: str) -> "Plot":
+        """Open a plot by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the plot to search for and open.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        self.console.search_palette(name)
+        return self._create_plot_instance(client, name)
