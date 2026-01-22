@@ -357,7 +357,7 @@ func (s *Server) getCompletionItems(
 	if completionCtx != ContextTypeAnnotation && doc.IR.Symbols != nil {
 		scopeAtCursor := doc.findScopeAtPosition(pos)
 		if scopeAtCursor != nil {
-			scopes, err := scopeAtCursor.ResolvePrefix(ctx, prefix)
+			scopes, err := scopeAtCursor.Search(ctx, prefix)
 			if err == nil {
 				for _, scope := range scopes {
 					var (

@@ -531,12 +531,11 @@ var _ = Describe("Type Unification", func() {
 	})
 
 	Describe("UnificationError", func() {
-		It("Should implement error interface with correct message", func() {
+		It("Should return correct error message", func() {
 			err := &constraints.UnificationError{
 				Message: "type mismatch: i32 is not compatible with f64",
 			}
-			var e error = err
-			Expect(e.Error()).To(Equal("type mismatch: i32 is not compatible with f64"))
+			Expect(err.Error()).To(Equal("type mismatch: i32 is not compatible with f64"))
 		})
 
 		It("Should preserve constraint context", func() {

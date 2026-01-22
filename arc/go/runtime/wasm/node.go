@@ -19,11 +19,12 @@ import (
 
 type nodeImpl struct {
 	*state.Node
-	ir          ir.Node
-	wasm        *Function
-	inputs      []uint64
-	offsets     []int
-	initialized bool
+	ir           ir.Node
+	wasm         *Function
+	inputs       []uint64
+	offsets      []int
+	initialized  bool
+	isExpression bool
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -35,9 +36,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 	}()
 
-	// For nodes with no inputs (stratum 0), only execute once per stage entry.
-	// The initialized flag is reset when the stage is re-entered via Reset().
-	if len(n.ir.Inputs) == 0 {
+	if !n.isExpression {
 		if n.initialized {
 			return
 		}

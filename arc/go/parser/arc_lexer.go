@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser
 

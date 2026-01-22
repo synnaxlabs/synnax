@@ -146,8 +146,7 @@ var _ = Describe("Scope", func() {
 			rootScope.OnResolve = func(_ context.Context, s *symbol.Scope) error {
 				return errors.New("resolve failed")
 			}
-			_, err := rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()})
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()}))
 		})
 		It("Should allow symbols with empty names", func() {
 			rootScope := symbol.CreateRootScope(nil)
@@ -355,7 +354,7 @@ var _ = Describe("Scope", func() {
 		})
 	})
 
-	Describe("ResolvePrefix", func() {
+	Describe("Search", func() {
 		It("Should resolve symbols from children", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			fooScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -364,7 +363,7 @@ var _ = Describe("Scope", func() {
 			Expect(foobarScope).ToNot(BeNil())
 			barScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.F32()}))
 			Expect(barScope).ToNot(BeNil())
-			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, "foo"))
+			scopes := MustSucceed(rootScope.Search(bCtx, "foo"))
 			Expect(scopes).To(HaveLen(2))
 			names := []string{scopes[0].Name, scopes[1].Name}
 			Expect(names).To(ContainElements("foo", "foobar"))
@@ -375,7 +374,7 @@ var _ = Describe("Scope", func() {
 				"print": symbol.Symbol{Name: "print", Kind: symbol.KindFunction},
 			}
 			rootScope := symbol.CreateRootScope(globalResolver)
-			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, "p"))
+			scopes := MustSucceed(rootScope.Search(bCtx, "p"))
 			Expect(scopes).To(HaveLen(2))
 			names := []string{scopes[0].Name, scopes[1].Name}
 			Expect(names).To(ContainElements("pi", "print"))
@@ -387,7 +386,7 @@ var _ = Describe("Scope", func() {
 			globalTwoScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "globalTwo", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(globalTwoScope).ToNot(BeNil())
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
-			scopes := MustSucceed(funcScope.ResolvePrefix(bCtx, "global"))
+			scopes := MustSucceed(funcScope.Search(bCtx, "global"))
 			Expect(scopes).To(HaveLen(2))
 			names := []string{scopes[0].Name, scopes[1].Name}
 			Expect(names).To(ContainElements("global", "globalTwo"))
@@ -402,7 +401,7 @@ var _ = Describe("Scope", func() {
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
 			funcX := MustSucceed(funcScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I64()}))
 			Expect(funcX).ToNot(BeNil())
-			scopes := MustSucceed(funcScope.ResolvePrefix(bCtx, "x"))
+			scopes := MustSucceed(funcScope.Search(bCtx, "x"))
 			Expect(scopes).To(HaveLen(1))
 			Expect(scopes[0].Type).To(Equal(types.I64()))
 		})
@@ -410,7 +409,7 @@ var _ = Describe("Scope", func() {
 			rootScope := symbol.CreateRootScope(nil)
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scope).ToNot(BeNil())
-			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, "xyz"))
+			scopes := MustSucceed(rootScope.Search(bCtx, "xyz"))
 			Expect(scopes).To(BeEmpty())
 		})
 		It("Should return all symbols for empty prefix", func() {
@@ -419,7 +418,7 @@ var _ = Describe("Scope", func() {
 			Expect(fooScope).ToNot(BeNil())
 			barScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "bar", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(barScope).ToNot(BeNil())
-			scopes := MustSucceed(rootScope.ResolvePrefix(bCtx, ""))
+			scopes := MustSucceed(rootScope.Search(bCtx, ""))
 			Expect(scopes).To(HaveLen(2))
 		})
 	})
