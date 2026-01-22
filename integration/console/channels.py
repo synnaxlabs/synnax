@@ -392,15 +392,12 @@ class ChannelClient:
         :param names: List of channel names to group.
         :param group_name: The name for the new group.
         """
-        import platform
-
         if len(names) < 2:
             raise ValueError("At least 2 channels are required to create a group")
 
         self.show_channels()
 
         # Find and select all channels
-        modifier = "Meta" if platform.system() == "Darwin" else "Control"
         first_item = True
 
         for name in names:
@@ -413,10 +410,7 @@ class ChannelClient:
                             item.click()
                             first_item = False
                         else:
-                            # Cmd/Ctrl+click to add to selection
-                            self.page.keyboard.down(modifier)
-                            item.click()
-                            self.page.keyboard.up(modifier)
+                            item.click(modifiers=["ControlOrMeta"])
                         break
 
         self.page.wait_for_timeout(200)

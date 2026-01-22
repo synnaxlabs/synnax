@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import json
-import platform
 import random
 from typing import TYPE_CHECKING, Any
 
@@ -212,8 +211,6 @@ class WorkspaceClient:
 
         self.expand_active()
 
-        modifier = "Meta" if platform.system() == "Darwin" else "Control"
-
         first_item = self.get_page(names[0])
         first_item.wait_for(state="visible", timeout=5000)
         first_item.click()
@@ -221,9 +218,7 @@ class WorkspaceClient:
         for name in names[1:]:
             page_item = self.get_page(name)
             page_item.wait_for(state="visible", timeout=5000)
-            self.page.keyboard.down(modifier)
-            page_item.click()
-            self.page.keyboard.up(modifier)
+            page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = self.get_page(names[-1])
         last_item.click(button="right")
@@ -269,8 +264,6 @@ class WorkspaceClient:
 
         self.expand_active()
 
-        modifier = "Meta" if platform.system() == "Darwin" else "Control"
-
         first_item = self.get_page(names[0])
         first_item.wait_for(state="visible", timeout=5000)
         first_item.click()
@@ -278,9 +271,7 @@ class WorkspaceClient:
         for name in names[1:]:
             page_item = self.get_page(name)
             page_item.wait_for(state="visible", timeout=5000)
-            self.page.keyboard.down(modifier)
-            page_item.click()
-            self.page.keyboard.up(modifier)
+            page_item.click(modifiers=["ControlOrMeta"])
 
         last_item = self.get_page(names[-1])
         last_item.click(button="right")

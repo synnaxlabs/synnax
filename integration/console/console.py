@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import platform
 import random
 import re
 from collections.abc import Generator
@@ -234,15 +233,15 @@ class Console:
     def DELETE(self) -> None:
         self.page.keyboard.press("Delete")
 
-    @property
-    def SELECT_ALL(self) -> None:
+    def select_all(self) -> None:
+        """Select all text in the focused element."""
         # Pressing too quickly can cause the arcs toolbar to open and block.
         sy.sleep(0.1)
         self.page.keyboard.press("ControlOrMeta+a")
 
     def select_all_and_type(self, text: str) -> None:
         """Select all text in the focused element and type new text."""
-        self.SELECT_ALL
+        self.select_all()
         sy.sleep(0.1)
         self.page.keyboard.type(text)
 
@@ -566,19 +565,12 @@ class Console:
             timeout: Maximum time in milliseconds to wait for actionability.
             sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
         """
-
-        modifier = "Meta" if platform.system() == "Darwin" else "Control"
-
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
-            self.page.keyboard.down(modifier)
-            element.click(timeout=timeout)
-            self.page.keyboard.up(modifier)
+            element.click(timeout=timeout, modifiers=["ControlOrMeta"])
         else:
             with self.bring_to_front(selector) as el:
-                self.page.keyboard.down(modifier)
-                el.click(timeout=timeout)
-                self.page.keyboard.up(modifier)
+                el.click(timeout=timeout, modifiers=["ControlOrMeta"])
 
         sy.sleep(sleep / 1000)
 
