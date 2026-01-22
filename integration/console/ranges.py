@@ -156,8 +156,9 @@ class RangesClient:
         name_input.fill(new_name)
         save_btn = self.page.get_by_role("button", name="Save", exact=True)
         save_btn.click(timeout=5000)
-        save_btn.wait_for(state="hidden", timeout=5000)
-        self.page.wait_for_load_state("networkidle", timeout=5000)
+        # adding an a manual wait because range renaming does not yet have an optimistic
+        # update
+        self.page.wait_for_timeout(400)
 
     def delete_from_explorer(self, name: str) -> None:
         """Delete a range via context menu in the explorer."""

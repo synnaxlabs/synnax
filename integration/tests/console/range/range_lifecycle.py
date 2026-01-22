@@ -372,7 +372,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.rename_from_explorer(self.range_name, new_name)
         assert self.console.ranges.exists_in_explorer(
             new_name
-        ), "Range should exist with new name"
+        ), f"Range should exist with name {new_name}"
         self.range_name = new_name
 
     def test_delete_range(self) -> None:
