@@ -64,12 +64,20 @@ class RangesClient:
         """Check if a range exists in the toolbar (is favorited)."""
         self.show_toolbar()
         items = self.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
-        return items.count() > 0
+        try:
+            items.first.wait_for(state="visible", timeout=5000)
+            return True
+        except Exception:
+            return False
 
     def exists_in_explorer(self, name: str) -> bool:
         """Check if a range exists in the explorer."""
         items = self.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
-        return items.count() > 0
+        try:
+            items.first.wait_for(state="visible", timeout=5000)
+            return True
+        except Exception:
+            return False
 
     def create(
         self,
@@ -175,6 +183,7 @@ class RangesClient:
 
     def favorite_from_explorer(self, name: str) -> None:
         """Add a range to favorites via context menu in the explorer."""
+        self.console.layout.hide_visualization_toolbar()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
