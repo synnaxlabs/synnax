@@ -454,7 +454,8 @@ TEST(NodeTest, NoInputNodeExecutesOncePerStageEntry) {
 
     auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
-    auto output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -521,14 +522,16 @@ TEST(NodeTest, NodeWithInputsExecutesNormally) {
 
     auto input_ch = synnax::Channel(input_name, telem::INT64_T, input_idx.key, false);
     ASSERT_NIL(client.channels.create(input_ch));
-    auto output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
 func double(val i64) i64 {
     return val * 2
 }
-)" + input_name + " -> double{} -> " + output_name;
+)" + input_name + " -> double{} -> " +
+                               output_name;
 
     auto mod = compile_arc(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));

@@ -40,8 +40,7 @@ public:
         // For nodes with no inputs (stratum 0), only execute once per stage entry.
         // The initialized flag is reset when the stage is re-entered via reset().
         if (this->ir.inputs.empty()) {
-            if (this->initialized)
-                return xerrors::NIL;
+            if (this->initialized) return xerrors::NIL;
             this->initialized = true;
         }
 
@@ -115,9 +114,7 @@ public:
         return xerrors::NIL;
     }
 
-    void reset() override {
-        this->initialized = false;
-    }
+    void reset() override { this->initialized = false; }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
         return state.is_output_truthy(param_name);
