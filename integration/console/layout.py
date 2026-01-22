@@ -14,6 +14,8 @@ from typing import TYPE_CHECKING
 import synnax as sy
 from playwright.sync_api import Locator, Page
 
+from .context_menu import ContextMenu
+
 if TYPE_CHECKING:
     from .console import Console
 
@@ -66,8 +68,7 @@ class LayoutClient:
         if modality == "button":
             tab.get_by_label("pluto-tabs__close").click()
         else:
-            tab.locator("p").click(button="right")
-            self.page.get_by_text("Close").first.click()
+            ContextMenu(self.page).open_on(tab.locator("p")).click_option("Close")
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
@@ -96,12 +97,7 @@ class LayoutClient:
         if modality == "dblclick":
             tab.locator("p").first.dblclick()
         else:
-            tab.locator("p").click(button="right")
-            context_menu = self.page.locator(".pluto-menu-context")
-            context_menu.wait_for(state="visible", timeout=2000)
-            rename_option = context_menu.get_by_text("Rename").first
-            rename_option.wait_for(state="visible", timeout=2000)
-            rename_option.click()
+            ContextMenu(self.page).open_on(tab.locator("p")).click_option("Rename")
 
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
@@ -127,8 +123,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        tab.click(button="right")
-        self.page.get_by_text("Split Horizontally").first.click()
+        ContextMenu(self.page).open_on(tab).click_option("Split Horizontally")
 
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
@@ -137,8 +132,7 @@ class LayoutClient:
             tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
-        tab.click(button="right")
-        self.page.get_by_text("Split Vertically").first.click()
+        ContextMenu(self.page).open_on(tab).click_option("Split Vertically")
 
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
@@ -147,8 +141,7 @@ class LayoutClient:
             tab_name: Name of the tab to focus
         """
         tab = self.get_tab(tab_name)
-        tab.click(button="right")
-        self.page.get_by_text("Focus").first.click()
+        ContextMenu(self.page).open_on(tab).click_option("Focus")
 
     def show_visualization_toolbar(self) -> None:
         """Show the visualization toolbar by pressing V."""

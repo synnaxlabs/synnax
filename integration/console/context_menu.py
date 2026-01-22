@@ -20,7 +20,7 @@ class ContextMenu:
             page: Playwright Page instance
         """
         self.page = page
-        self._menu_selector = ".pluto-menu"
+        self._menu_selector = ".pluto-menu-context"
 
     def open_on(self, element: Locator) -> "ContextMenu":
         """Open context menu by right-clicking on an element.

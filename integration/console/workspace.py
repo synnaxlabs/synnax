@@ -17,6 +17,8 @@ from playwright.sync_api import Locator, Page
 
 from framework.utils import get_results_path
 
+from .context_menu import ContextMenu
+
 if TYPE_CHECKING:
     from .console import Console
     from .log import Log
@@ -154,8 +156,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(old_name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-        self.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(page_item).click_option("Rename")
         self.console.select_all_and_type(new_name)
         self.console.ENTER
         self.refresh_tree()
@@ -169,8 +170,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(page_item).click_option("Delete")
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
@@ -190,15 +190,11 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-        menu = self.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
-        delete_item = menu.get_by_text("Delete", exact=True)
-        ungroup_item = menu.get_by_text("Ungroup", exact=True)
-        if delete_item.count() > 0:
-            delete_item.click(timeout=5000)
+        menu = ContextMenu(self.page).open_on(page_item)
+        if menu.has_option("Delete"):
+            menu.click_option("Delete")
         else:
-            ungroup_item.click(timeout=5000)
+            menu.click_option("Ungroup")
         self.console.close_nav_drawer()
 
     def delete_pages(self, names: list[str]) -> None:
@@ -226,9 +222,7 @@ class WorkspaceClient:
             self.page.keyboard.up(modifier)
 
         last_item = self.get_page(names[-1])
-        last_item.click(button="right")
-
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(last_item).click_option("Delete")
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
@@ -247,10 +241,7 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
-        menu = self.page.locator(".pluto-menu-context")
-        menu.wait_for(state="visible", timeout=2000)
-        menu.get_by_text("Copy link", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(page_item).click_option("Copy link")
         self.console.close_nav_drawer()
 
         try:
@@ -285,9 +276,7 @@ class WorkspaceClient:
             self.page.keyboard.up(modifier)
 
         last_item = self.get_page(names[-1])
-        last_item.click(button="right")
-
-        self.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(last_item).click_option("Group Selection")
         self.console.select_all_and_type(group_name)
         self.console.ENTER
         self.refresh_tree()
@@ -306,11 +295,10 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        page_item.click(button="right")
         self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
-            self.page.get_by_text("Export", exact=True).first.click(timeout=5000)
+            ContextMenu(self.page).open_on(page_item).click_option("Export")
 
         download = download_info.value
         save_path = get_results_path(f"{name}_export.json")
@@ -385,8 +373,7 @@ class WorkspaceClient:
         self.console.show_resource_toolbar("workspace")
         workspace = self.get_item(old_name)
         workspace.wait_for(state="visible", timeout=5000)
-        workspace.click(button="right")
-        self.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(workspace).click_option("Rename")
         self.console.select_all_and_type(new_name)
         self.console.ENTER
         self.refresh_tree()
@@ -401,9 +388,7 @@ class WorkspaceClient:
 
         workspace = self.get_item(name)
         workspace.wait_for(state="visible", timeout=5000)
-        workspace.click(button="right", timeout=5000)
-
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(workspace).click_option("Delete")
 
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)

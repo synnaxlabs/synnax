@@ -13,6 +13,8 @@ from playwright.sync_api import Locator, Page
 
 from framework.utils import get_results_path
 
+from .context_menu import ContextMenu
+
 if TYPE_CHECKING:
     from .console import Console
 
@@ -157,8 +159,7 @@ class RangesClient:
         """Rename a range via modal dialog from the explorer."""
         item = self.get_explorer_item(old_name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
-        self.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(item).click_option("Rename")
         name_input = self.page.locator("input[placeholder='Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(new_name)
@@ -171,8 +172,7 @@ class RangesClient:
         """Delete a range via context menu in the explorer."""
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        ContextMenu(self.page).open_on(item).click_option("Delete")
 
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
@@ -185,26 +185,18 @@ class RangesClient:
         self.console.layout.hide_visualization_toolbar()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
-        add_btn = self.page.get_by_text("Add to favorites", exact=True)
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
-        add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
-        if remove_btn.is_visible():
-            self.page.keyboard.press("Escape")
+        menu = ContextMenu(self.page).open_on(item)
+        if menu.has_option("Remove from favorites"):
+            menu.close()
             return
-        add_btn.click(timeout=5000)
-        add_btn.wait_for(state="hidden", timeout=2000)
+        menu.click_option("Add to favorites")
 
     def unfavorite_from_toolbar(self, name: str) -> None:
         """Remove a range from favorites via context menu in the toolbar."""
         self.show_toolbar()
         item = self.get_toolbar_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
-        remove_btn.wait_for(state="visible", timeout=5000)
-        remove_btn.click()
-        remove_btn.wait_for(state="hidden", timeout=2000)
+        ContextMenu(self.page).open_on(item).click_option("Remove from favorites")
 
     def open_overview_from_explorer(self, name: str) -> None:
         """Open the range overview/details page from explorer."""
@@ -568,17 +560,11 @@ class RangesClient:
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
-        add_btn = self.page.get_by_text("Add to favorites", exact=True)
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
-        add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
-        if remove_btn.is_visible():
-            remove_btn.click()
-            remove_btn.wait_for(state="hidden", timeout=2000)
-            item.click(button="right")
-            add_btn.wait_for(state="visible", timeout=2000)
-        add_btn.click()
-        add_btn.wait_for(state="hidden", timeout=2000)
+        menu = ContextMenu(self.page).open_on(item)
+        if menu.has_option("Remove from favorites"):
+            menu.click_option("Remove from favorites")
+            menu = ContextMenu(self.page).open_on(item)
+        menu.click_option("Add to favorites")
 
     def unfavorite_child_range(self, name: str) -> None:
         """Unfavorite a child range from the Child Ranges section via context menu.
@@ -588,11 +574,7 @@ class RangesClient:
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
-        remove_btn.wait_for(state="visible", timeout=2000)
-        remove_btn.click()
-        remove_btn.wait_for(state="hidden", timeout=2000)
+        ContextMenu(self.page).open_on(item).click_option("Remove from favorites")
 
     def child_range_exists(self, name: str) -> bool:
         """Check if a child range exists in the Child Ranges section.

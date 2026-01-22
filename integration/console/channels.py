@@ -23,6 +23,8 @@ from synnax.telem import (
     DataType,
 )
 
+from .context_menu import ContextMenu
+
 if TYPE_CHECKING:
     from .console import Console
     from .plot import Plot
@@ -98,7 +100,7 @@ class ChannelClient:
         item = self._find_channel_item(name)
         if item is None:
             raise ValueError(f"Channel {name} not found")
-        item.click(button="right")
+        ContextMenu(self.page).open_on(item)
         return item
 
     def create(
@@ -377,11 +379,7 @@ class ChannelClient:
         """
         self.show_channels()
         item = self.channels_list.first
-        item.click(button="right")
-
-        reload_option = self.page.get_by_text("Reload Console", exact=True).first
-        reload_option.wait_for(state="visible", timeout=2000)
-        reload_option.click(timeout=1000)
+        ContextMenu(self.page).open_on(item).click_option("Reload Console")
 
         self.page.wait_for_load_state("load", timeout=30000)
         self.page.wait_for_load_state("networkidle", timeout=30000)
@@ -427,13 +425,8 @@ class ChannelClient:
                 channel_name_element = item.locator("p.pluto-text--editable")
                 text = channel_name_element.inner_text().strip()
                 if text == names[-1]:
-                    item.click(button="right")
+                    ContextMenu(self.page).open_on(item).click_option("Group Selection")
                     break
-
-        self.page.wait_for_timeout(200)
-
-        # Click "Group" option - this creates a folder in the toolbar
-        self.page.get_by_text("Group Selection", exact=True).first.click()
         self.page.wait_for_timeout(500)
 
         # A folder is created with an inline editable name - look for the input

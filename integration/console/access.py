@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 import synnax as sy
 from playwright.sync_api import Locator, Page
 
+from .context_menu import ContextMenu
 from .tree import Tree
 
 if TYPE_CHECKING:
@@ -224,16 +225,12 @@ class AccessClient:
             raise ValueError(f"User '{username}' not found in users panel")
 
         # Right-click to open context menu
-        user_item.click(button="right")
-        sy.sleep(0.2)
-
-        # Click "Assign to role" option
-        assign_option = self.page.get_by_text("Assign to role", exact=True).first
-        if assign_option.count() == 0:
-            self.console.ESCAPE
+        menu = ContextMenu(self.page).open_on(user_item)
+        if not menu.has_option("Assign to role"):
+            menu.close()
             raise ValueError("'Assign to role' option not available for this user")
 
-        assign_option.click(timeout=1000)
+        menu.click_option("Assign to role")
         sy.sleep(0.3)
 
         # Modal should now be open - select role
@@ -294,22 +291,19 @@ class AccessClient:
             raise ValueError(f"Role '{old_name}' not found")
 
         # Right-click to open context menu
-        role_item.click(button="right")
-        sy.sleep(0.2)
-
-        # Click Rename option
-        rename_option = self.page.get_by_text("Rename", exact=True).first
-        if rename_option.count() == 0:
-            self.console.ESCAPE
+        menu = ContextMenu(self.page).open_on(role_item)
+        if not menu.has_option("Rename"):
+            menu.close()
             raise ValueError("Rename option not available (role may be internal)")
 
         # Check if disabled
+        rename_option = self.page.get_by_text("Rename", exact=True).first
         rename_class = rename_option.get_attribute("class") or ""
         if "disabled" in rename_class.lower():
-            self.console.ESCAPE
+            menu.close()
             raise ValueError("Rename option is disabled (role may be internal)")
 
-        rename_option.click(timeout=1000)
+        menu.click_option("Rename")
         sy.sleep(0.2)
 
         # Find the editable text element and fill new name
@@ -334,22 +328,19 @@ class AccessClient:
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        role_item.click(button="right")
-        sy.sleep(0.2)
-
-        # Click Delete option
-        delete_option = self.page.get_by_text("Delete", exact=True).first
-        if delete_option.count() == 0:
-            self.console.ESCAPE
+        menu = ContextMenu(self.page).open_on(role_item)
+        if not menu.has_option("Delete"):
+            menu.close()
             raise ValueError("Delete option not available (role may be internal)")
 
         # Check if disabled
+        delete_option = self.page.get_by_text("Delete", exact=True).first
         delete_class = delete_option.get_attribute("class") or ""
         if "disabled" in delete_class.lower():
-            self.console.ESCAPE
+            menu.close()
             raise ValueError("Delete option is disabled (role may be internal)")
 
-        delete_option.click()
+        menu.click_option("Delete")
         sy.sleep(0.2)
 
         # Confirm deletion in modal if present
@@ -377,26 +368,24 @@ class AccessClient:
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        role_item.click(button="right")
-        sy.sleep(0.2)
+        menu = ContextMenu(self.page).open_on(role_item)
 
         # Check if Rename and Delete are available and not disabled
-        rename_option = self.page.get_by_text("Rename", exact=True).first
-        delete_option = self.page.get_by_text("Delete", exact=True).first
-
-        rename_available = rename_option.count() > 0
-        delete_available = delete_option.count() > 0
+        rename_available = menu.has_option("Rename")
+        delete_available = menu.has_option("Delete")
 
         if rename_available:
+            rename_option = self.page.get_by_text("Rename", exact=True).first
             rename_class = rename_option.get_attribute("class") or ""
             rename_available = "disabled" not in rename_class.lower()
 
         if delete_available:
+            delete_option = self.page.get_by_text("Delete", exact=True).first
             delete_class = delete_option.get_attribute("class") or ""
             delete_available = "disabled" not in delete_class.lower()
 
         # Close context menu
-        self.console.ESCAPE
+        menu.close()
         sy.sleep(0.1)
 
         return rename_available and delete_available
