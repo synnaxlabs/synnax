@@ -596,7 +596,6 @@ func double(val i64) i64 {
     EXPECT_EQ(changed_outputs.size(), 0);
 }
 
-/// @brief Flow expression nodes (key starts with "expression_") execute every tick.
 TEST(NodeTest, FlowExpressionExecutesEveryTime) {
     const auto client = new_test_client();
 
@@ -611,7 +610,9 @@ TEST(NodeTest, FlowExpressionExecutesEveryTime) {
 
     const std::string source = R"(
 func counter() i64 {
-    return 42
+    count i64 $= 0
+    count = count + 1
+    return count
 }
 counter{} -> )" + output_name;
 
@@ -639,19 +640,130 @@ counter{} -> )" + output_name;
     wasm::Node node(expr_node, std::move(node_state), func);
 
     auto ctx = make_context();
-    std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
-    };
 
     ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(changed_outputs.size(), 1);
+    auto s1 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 1);
 
-    changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(changed_outputs.size(), 1);
+    auto s2 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 2);
 
-    changed_outputs.clear();
     ASSERT_NIL(node.next(ctx));
-    EXPECT_EQ(changed_outputs.size(), 1);
+    auto s3 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 3);
+}
+
+TEST(NodeTest, FlowExpressionContinuesAfterReset) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func counter() i64 {
+    count i64 $= 0
+    count = count + 1
+    return count
+}
+counter{} -> )" + output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "counter");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT64_T, output_idx.key}
+            }
+        }
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    arc::ir::Node expr_node = *func_node;
+    expr_node.key = "expression_0";
+
+    wasm::Node node(expr_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+
+    ASSERT_NIL(node.next(ctx));
+    auto s1 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 1);
+
+    node.reset();
+
+    ASSERT_NIL(node.next(ctx));
+    auto s2 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 2);
+
+    ASSERT_NIL(node.next(ctx));
+    auto s3 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 3);
+}
+
+TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func counter() i64 {
+    count i64 $= 0
+    count = count + 1
+    return count
+}
+counter{} -> )" + output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "counter");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT64_T, output_idx.key}
+            }
+        }
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    arc::ir::Node non_expr_node = *func_node;
+    non_expr_node.key = "expr_0";
+
+    wasm::Node node(non_expr_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+
+    ASSERT_NIL(node.next(ctx));
+    auto s1 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 1);
+
+    ASSERT_NIL(node.next(ctx));
+    auto s2 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 1);
 }

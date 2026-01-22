@@ -825,5 +825,48 @@ var _ = Describe("WASM", func() {
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
 		})
+
+		It("Should continue executing after reset for expression nodes", func() {
+			g := singleFunctionGraph("expression_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Reset()
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
+		})
+
+		It("Should not treat non-expression nodes as expressions", func() {
+			g := singleFunctionGraph("expr_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expr_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
+		})
 	})
 })
