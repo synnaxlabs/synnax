@@ -133,24 +133,15 @@ class LabelClient:
         Returns:
             List of label names.
         """
-        ### TODO: Implement this function
         self._open_edit_modal()
-
         labels: list[str] = []
-        # Get all label items (excluding the create form)
-        label_items = self.page.locator(
-            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
-        ).all()
-
-        for item in label_items:
+        for item in self._find_label_items():
             if item.is_visible():
-                # Get the label name from the input field
                 name_input = item.locator("input").first
                 if name_input.count() > 0:
                     name = name_input.input_value()
                     if name:
                         labels.append(name)
-
         self._close_edit_modal()
         return labels
 
@@ -167,18 +158,13 @@ class LabelClient:
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
 
-        # Click the color swatch to open the picker
         color_swatch = label_item.locator(".pluto-color-swatch").first
-        color_swatch.click(timeout=2000)
+        color_swatch.click()
 
-        # The SketchPicker has a hex input - find and fill it
-        # The input is in the color picker container
         hex_input = self.page.locator(".sketch-picker input").first
         hex_input.click()
         hex_input.fill(new_color.lstrip("#"))
         self.page.keyboard.press("Enter")
-        ## TODO: remove this wait
-        self.page.wait_for_timeout(200)
         self.page.keyboard.press("Escape")
         self._close_edit_modal()
 
@@ -188,7 +174,6 @@ class LabelClient:
         modal.wait_for(state="visible")
 
     def _close_edit_modal(self) -> None:
-        """Close the Edit Labels Modal by clicking the close button."""
         close_button = self.page.locator(
             ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
         ).first
@@ -197,19 +182,7 @@ class LabelClient:
         modal.wait_for(state="hidden")
 
     def _find_label_item(self, name: str) -> Locator | None:
-        """Find a label item by name.
-
-        Args:
-            name: The name of the label to find.
-
-        Returns:
-            The Locator for the label item, or None if not found.
-        """
-        label_items = self.page.locator(
-            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
-        ).all()
-
-        for item in label_items:
+        for item in self._find_label_items():
             if item.is_visible():
                 name_input = item.locator("input").first
                 if name_input.count() > 0:
@@ -217,3 +190,6 @@ class LabelClient:
                     if current_name == name:
                         return item
         return None
+
+    def _find_label_items(self) -> list[Locator]:
+        return self.page.locator(f"{_LABEL_ITEM_SELECTOR}:not(.console--create)").all()
