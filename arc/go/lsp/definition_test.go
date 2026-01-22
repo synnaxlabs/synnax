@@ -15,9 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
@@ -30,11 +31,8 @@ var _ = Describe("Definition", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		var err error
-		server, err = lsp.New()
-		Expect(err).ToNot(HaveOccurred())
-
-		server.SetClient(&testutil.MockClient{})
+		server = MustSucceed(lsp.New())
+		server.SetClient(&MockClient{})
 		uri = "file:///test.arc"
 	})
 
@@ -47,17 +45,11 @@ var _ = Describe("Definition", func() {
 func main() {
     result := add(1, 2)
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'add' in the function call
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 5, Character: 15}, // add|(1, 2)
-				},
-			})
+			locations := Definition(server, ctx, uri, 5, 15) // add|(1, 2)
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0))) // Line 0: func add
@@ -68,17 +60,11 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'multiply' in the declaration itself
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 7}, // func m|ultiply
-				},
-			})
+			locations := Definition(server, ctx, uri, 0, 7) // func m|ultiply
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
@@ -94,17 +80,11 @@ func main() {
     }
     return max_val
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'max' in the declaration
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 6}, // func m|ax
-				},
-			})
+			locations := Definition(server, ctx, uri, 0, 6) // func m|ax
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
@@ -117,17 +97,11 @@ func main() {
     x i32 := 42
     y := x + 10
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the expression
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 2, Character: 9}, // x| + 10
-				},
-			})
+			locations := Definition(server, ctx, uri, 2, 9) // x| + 10
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1))) // Line 1: x i32 := 42
@@ -139,17 +113,11 @@ func main() {
     count = count + 1
     return count
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'count' in the assignment
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 2, Character: 5}, // count| = count + 1
-				},
-			})
+			locations := Definition(server, ctx, uri, 2, 5) // count| = count + 1
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1))) // Line 1: count u32 $= 0
@@ -161,17 +129,11 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the return statement
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 11}, // x| * y
-				},
-			})
+			locations := Definition(server, ctx, uri, 1, 11) // x| * y
 
-			Expect(err).ToNot(HaveOccurred())
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0))) // Line 0: func multiply(x f64, y f64)
@@ -183,18 +145,10 @@ func main() {
 			content := `func test() {
     return 42
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			// Click on 'return' keyword
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 5}, // ret|urn
-				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
-			// Keywords don't have definitions, so should return nil
+			// Click on 'return' keyword - keywords don't have definitions
+			locations := Definition(server, ctx, uri, 1, 5) // ret|urn
 			Expect(locations).To(BeNil())
 		})
 
@@ -202,30 +156,15 @@ func main() {
 			content := `func test() {
     x := undefined_symbol
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			// Click on 'undefined_symbol'
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 13}, // undefined_symbol|
-				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
-			// Undefined symbols should return nil
+			// Click on 'undefined_symbol' - undefined symbols should return nil
+			locations := Definition(server, ctx, uri, 1, 13) // undefined_symbol|
 			Expect(locations).To(BeNil())
 		})
 
 		It("should return nil when document not found", func() {
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
-					Position:     protocol.Position{Line: 0, Character: 0},
-				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			locations := Definition(server, ctx, "file:///nonexistent.arc", 0, 0)
 			Expect(locations).To(BeNil())
 		})
 
@@ -233,17 +172,10 @@ func main() {
 			content := `func test() {
 
 }`
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			// Click on empty line
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 0}, // Empty line
-				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			locations := Definition(server, ctx, uri, 1, 0) // Empty line
 			Expect(locations).To(BeNil())
 		})
 	})
@@ -260,24 +192,14 @@ func main() {
 			}
 
 			// Create server with GlobalResolver
-			var err error
-			server, err = lsp.New(lsp.Config{GlobalResolver: globalResolver})
-			Expect(err).ToNot(HaveOccurred())
-			server.SetClient(&testutil.MockClient{})
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			// Try to jump to definition of myGlobal
-			locations, err := server.Definition(ctx, &protocol.DefinitionParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 1, Character: 12}, // myGl|obal
-				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
-			// GlobalResolver symbols have no AST, so should return nil
+			// Try to jump to definition of myGlobal - GlobalResolver symbols have no AST
+			locations := Definition(server, ctx, uri, 1, 12) // myGl|obal
 			Expect(locations).To(BeNil())
 		})
 	})

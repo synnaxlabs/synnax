@@ -87,12 +87,18 @@ func (r *Runtime) ClearTemporarySeries() {
 	r.seriesHandleCounter = 1
 }
 
+// GetString returns the string value for a handle (used for testing).
+func (r *Runtime) GetString(handle uint32) string {
+	if str, ok := r.strings[handle]; ok {
+		return str
+	}
+	return ""
+}
+
 // stateKey combines funcID and varID into a single key for state storage.
 func stateKey(funcID uint32, varID uint32) uint64 {
 	return (uint64(funcID) << 32) | uint64(varID)
 }
-
-// ===== Channel Operations =====
 
 // ChannelReadU8 reads the latest value from a channel.
 func (r *Runtime) ChannelReadU8(ctx context.Context, channelID uint32) uint8 {
@@ -294,8 +300,6 @@ func (r *Runtime) ChannelWriteF64(ctx context.Context, channelID uint32, value f
 	r.state.WriteChannelValue(channelID, series)
 }
 
-// ===== State Operations =====
-
 // StateLoadU8 loads a stateful variable's value, or initializes it if it doesn't exist.
 func (r *Runtime) StateLoadU8(ctx context.Context, funcID uint32, varID uint32, initValue uint8) uint8 {
 	key := stateKey(funcID, varID)
@@ -466,8 +470,6 @@ func (r *Runtime) StateStoreF64(ctx context.Context, funcID uint32, varID uint32
 	r.stateF64[key] = value
 }
 
-// ===== Generic Operations =====
-
 // Now returns the current timestamp.
 func (r *Runtime) Now(ctx context.Context) uint64 {
 	return uint64(telem.Now())
@@ -482,8 +484,6 @@ func (r *Runtime) Panic(ctx context.Context, ptr uint32, length uint32) {
 	}
 	panic("arc panic: " + string(msg))
 }
-
-// ===== Math Operations =====
 
 // MathPowF32 computes base^exponent for f32.
 func (r *Runtime) MathPowF32(ctx context.Context, base float32, exponent float32) float32 {
@@ -535,8 +535,6 @@ func (r *Runtime) MathPowI64(ctx context.Context, base int64, exponent int64) in
 	return xmath.IntPow(base, int(exponent))
 }
 
-// ===== String Operations =====
-
 // StringFromLiteral creates a string from WASM memory and returns a handle.
 func (r *Runtime) StringFromLiteral(ctx context.Context, ptr uint32, length uint32) uint32 {
 	// Read string data from WASM memory
@@ -578,20 +576,20 @@ func (r *Runtime) StringEqual(ctx context.Context, handle1 uint32, handle2 uint3
 func (r *Runtime) StringConcat(ctx context.Context, handle1 uint32, handle2 uint32) uint32 {
 	str1, ok1 := r.strings[handle1]
 	str2, ok2 := r.strings[handle2]
+
 	if !ok1 || !ok2 {
-		return 0
+		return 0 // Return null handle if either string doesn't exist
 	}
+
+	// Concatenate strings
 	result := str1 + str2
+
+	// Generate new handle and store
 	handle := r.stringHandleCounter
 	r.stringHandleCounter++
 	r.strings[handle] = result
-	return handle
-}
 
-// GetString retrieves the string value for a given handle.
-// This is primarily useful for testing and debugging.
-func (r *Runtime) GetString(handle uint32) string {
-	return r.strings[handle]
+	return handle
 }
 
 // ChannelReadStr reads the latest string from a channel and returns a handle.
@@ -667,8 +665,6 @@ func (r *Runtime) StateStoreStr(ctx context.Context, funcID uint32, varID uint32
 	key := stateKey(funcID, varID)
 	r.stateString[key] = str
 }
-
-// ===== Series Operations =====
 
 // SeriesCreateEmptyU8 creates an empty series of the given length.
 func (r *Runtime) SeriesCreateEmptyU8(ctx context.Context, length uint32) uint32 {
@@ -793,6 +789,53 @@ func (r *Runtime) SeriesElementRDivU8(ctx context.Context, scalar uint8, handle 
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseDivideScalarU8(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRAddU8 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU8(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulU8 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU8(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModU8 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU8(ctx context.Context, scalar uint8, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -1233,6 +1276,53 @@ func (r *Runtime) SeriesElementRDivU16(ctx context.Context, scalar uint16, handl
 	return newHandle
 }
 
+// SeriesElementRAddU16 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU16(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulU16 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU16(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModU16 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU16(ctx context.Context, scalar uint16, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU16(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
 // SeriesSeriesAddU16 adds two series element-wise.
 func (r *Runtime) SeriesSeriesAddU16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
 	s1, ok1 := r.series[h1]
@@ -1661,6 +1751,53 @@ func (r *Runtime) SeriesElementRDivU32(ctx context.Context, scalar uint32, handl
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseDivideScalarU32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRAddU32 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulU32 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModU32 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU32(ctx context.Context, scalar uint32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2101,6 +2238,53 @@ func (r *Runtime) SeriesElementRDivU64(ctx context.Context, scalar uint64, handl
 	return newHandle
 }
 
+// SeriesElementRAddU64 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarU64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulU64 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarU64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModU64 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModU64(ctx context.Context, scalar uint64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarU64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
 // SeriesSeriesAddU64 adds two series element-wise.
 func (r *Runtime) SeriesSeriesAddU64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
 	s1, ok1 := r.series[h1]
@@ -2529,6 +2713,53 @@ func (r *Runtime) SeriesElementRDivI8(ctx context.Context, scalar int8, handle u
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseDivideScalarI8(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRAddI8 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI8(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulI8 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI8(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModI8 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI8(ctx context.Context, scalar int8, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI8(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -2969,6 +3200,53 @@ func (r *Runtime) SeriesElementRDivI16(ctx context.Context, scalar int16, handle
 	return newHandle
 }
 
+// SeriesElementRAddI16 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI16(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulI16 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI16(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModI16 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI16(ctx context.Context, scalar int16, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI16(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
 // SeriesSeriesAddI16 adds two series element-wise.
 func (r *Runtime) SeriesSeriesAddI16(ctx context.Context, h1 uint32, h2 uint32) uint32 {
 	s1, ok1 := r.series[h1]
@@ -3397,6 +3675,53 @@ func (r *Runtime) SeriesElementRDivI32(ctx context.Context, scalar int32, handle
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseDivideScalarI32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRAddI32 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulI32 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModI32 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI32(ctx context.Context, scalar int32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI32(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result
@@ -3837,6 +4162,53 @@ func (r *Runtime) SeriesElementRDivI64(ctx context.Context, scalar int64, handle
 	return newHandle
 }
 
+// SeriesElementRAddI64 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarI64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulI64 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarI64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModI64 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModI64(ctx context.Context, scalar int64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarI64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
 // SeriesSeriesAddI64 adds two series element-wise.
 func (r *Runtime) SeriesSeriesAddI64(ctx context.Context, h1 uint32, h2 uint32) uint32 {
 	s1, ok1 := r.series[h1]
@@ -4271,6 +4643,53 @@ func (r *Runtime) SeriesElementRDivF32(ctx context.Context, scalar float32, hand
 	return newHandle
 }
 
+// SeriesElementRAddF32 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulF32 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModF32 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModF32(ctx context.Context, scalar float32, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarF32(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
 // SeriesSeriesAddF32 adds two series element-wise.
 func (r *Runtime) SeriesSeriesAddF32(ctx context.Context, h1 uint32, h2 uint32) uint32 {
 	s1, ok1 := r.series[h1]
@@ -4699,6 +5118,53 @@ func (r *Runtime) SeriesElementRDivF64(ctx context.Context, scalar float64, hand
 	}
 	result := telem.Series{DataType: s.DataType}
 	op.ReverseDivideScalarF64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRAddF64 computes scalar + series (reverse add).
+// Since addition is commutative, this is equivalent to series + scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar + series'.
+func (r *Runtime) SeriesElementRAddF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.AddScalarF64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRMulF64 computes scalar * series (reverse multiply).
+// Since multiplication is commutative, this is equivalent to series * scalar.
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar * series'.
+func (r *Runtime) SeriesElementRMulF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.MultiplyScalarF64(s, scalar, &result)
+	newHandle := r.seriesHandleCounter
+	r.seriesHandleCounter++
+	r.series[newHandle] = result
+	return newHandle
+}
+
+// SeriesElementRModF64 computes scalar % series (reverse modulo).
+// Note: signature is (scalar, handle) to match WASM stack order for 'scalar % series'.
+func (r *Runtime) SeriesElementRModF64(ctx context.Context, scalar float64, handle uint32) uint32 {
+	s, ok := r.series[handle]
+	if !ok {
+		return 0
+	}
+	result := telem.Series{DataType: s.DataType}
+	op.ReverseModuloScalarF64(s, scalar, &result)
 	newHandle := r.seriesHandleCounter
 	r.seriesHandleCounter++
 	r.series[newHandle] = result

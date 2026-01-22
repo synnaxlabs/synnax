@@ -32,12 +32,14 @@ func TestExpression(t *testing.T) {
 func expectSuccess(code string, resolver symbol.Resolver) {
 	ast := MustSucceed(parser.Parse(code))
 	ctx := acontext.CreateRoot(bCtx, ast, resolver)
-	Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+	analyzer.AnalyzeProgram(ctx)
+	Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 }
 
 func expectFailure(code string, resolver symbol.Resolver, expectedMsg string) {
 	ast := MustSucceed(parser.Parse(code))
 	ctx := acontext.CreateRoot(bCtx, ast, resolver)
-	Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+	analyzer.AnalyzeProgram(ctx)
+	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expectedMsg))
 }

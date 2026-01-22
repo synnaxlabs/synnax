@@ -10,7 +10,9 @@
 import multiprocessing
 import os
 import platform
+import random
 import re
+import string
 import subprocess
 import sys
 from typing import Any
@@ -87,6 +89,11 @@ def validate_and_sanitize_name(name: str) -> str:
         raise ValueError("Name cannot consist only of hyphens and underscores")
 
     return sanitized
+
+
+def get_random_name() -> str:
+    """Get a random name, which is a random 12-character string"""
+    return "".join(random.choices(string.ascii_letters + string.digits, k=12))
 
 
 def get_machine_info() -> str:
@@ -167,6 +174,12 @@ def get_machine_info() -> str:
 
     else:
         return system
+
+
+def rgb_to_hex(rgb_str: str) -> str:
+    vals = re.findall(r"[\d.]+", rgb_str)
+    r, g, b = [int(float(x)) for x in vals[:3]]
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 
 def get_memory_info() -> str:

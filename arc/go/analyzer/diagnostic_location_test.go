@@ -21,26 +21,35 @@ import (
 
 var _ = Describe("Diagnostic Locations", func() {
 	type diagnosticCase struct {
-		source         string
-		expectedMsg    string
-		expectedLine   int
-		expectedColumn int // -1 means don't check
-		expectedSev    diagnostics.Severity
+		source            string
+		expectedMsg       string
+		expectedLine      int
+		expectedColumn    int
+		expectedEndLine   int
+		expectedEndColumn int
+		expectedSev       diagnostics.Severity
 	}
 
 	runDiagnosticTest := func(tc diagnosticCase) {
 		prog := MustSucceed(parser.Parse(tc.source))
 		ctx := context.CreateRoot(bCtx, prog, nil)
-		Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(*ctx.Diagnostics).To(HaveLen(1))
 
 		diag := (*ctx.Diagnostics)[0]
 		Expect(diag.Message).To(ContainSubstring(tc.expectedMsg))
-		if tc.expectedLine >= 0 {
-			Expect(diag.Line).To(Equal(tc.expectedLine))
+		if tc.expectedLine > 0 {
+			Expect(diag.Start.Line).To(Equal(tc.expectedLine))
 		}
-		if tc.expectedColumn >= 0 {
-			Expect(diag.Column).To(Equal(tc.expectedColumn))
+		if tc.expectedColumn > 0 {
+			Expect(diag.Start.Col).To(Equal(tc.expectedColumn))
+		}
+		if tc.expectedEndLine > 0 {
+			Expect(diag.End.Line).To(Equal(tc.expectedEndLine))
+		}
+		if tc.expectedEndColumn > 0 {
+			Expect(diag.End.Col).To(Equal(tc.expectedEndColumn))
 		}
 		if tc.expectedSev != 0 {
 			Expect(diag.Severity).To(Equal(tc.expectedSev))
@@ -265,19 +274,58 @@ func test() {
 	)
 
 	Describe("Error Recovery", func() {
-		It("Should report first error with correct location", func() {
+		It("Should report all independent errors with correct locations", func() {
 			prog := MustSucceed(parser.Parse(`
 func test() {
 	a := undefined1
 	b := undefined2
 }`))
 			ctx := context.CreateRoot(bCtx, prog, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(HaveLen(2))
 
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined1"))
-			Expect(diag.Line).To(Equal(3))
+			Expect(diag.Start.Line).To(Equal(3))
+
+			diag2 := (*ctx.Diagnostics)[1]
+			Expect(diag2.Message).To(ContainSubstring("undefined symbol: undefined2"))
+			Expect(diag2.Start.Line).To(Equal(4))
 		})
 	})
+
+	DescribeTable("Diagnostic End Range",
+		runDiagnosticTest,
+		Entry("undefined variable should span the identifier",
+			diagnosticCase{
+				source:            "func test() {\n\tx := undefined_var\n}",
+				expectedMsg:       "undefined symbol: undefined_var",
+				expectedLine:      2,
+				expectedColumn:    6,
+				expectedEndLine:   2,
+				expectedEndColumn: 19,
+				expectedSev:       diagnostics.SeverityError,
+			}),
+		Entry("short identifier should have correct end column",
+			diagnosticCase{
+				source:            "func test() {\n\tx := y\n}",
+				expectedMsg:       "undefined symbol: y",
+				expectedLine:      2,
+				expectedColumn:    6,
+				expectedEndLine:   2,
+				expectedEndColumn: 7,
+				expectedSev:       diagnostics.SeverityError,
+			}),
+		Entry("multiline expression should span correctly",
+			diagnosticCase{
+				source:            "func test() {\n\tx := undefined_symbol +\n\t\t1\n}",
+				expectedMsg:       "undefined symbol: undefined_symbol",
+				expectedLine:      2,
+				expectedColumn:    6,
+				expectedEndLine:   2,
+				expectedEndColumn: 22,
+				expectedSev:       diagnostics.SeverityError,
+			}),
+	)
 })
