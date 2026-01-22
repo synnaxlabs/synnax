@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
 
-from framework.utils import get_results_path
+from framework.utils import get_results_path, rgb_to_hex
 
 if TYPE_CHECKING:
     from .console import Console
@@ -39,7 +39,7 @@ class RangesClient:
         if toolbar_header.is_visible():
             return
         self.page.keyboard.press("r")
-        toolbar_header.wait_for(state="visible", timeout=5000)
+        toolbar_header.wait_for(state="visible")
 
     def hide_toolbar(self) -> None:
         """Hide the ranges toolbar."""
@@ -156,8 +156,9 @@ class RangesClient:
         name_input.fill(new_name)
         save_btn = self.page.get_by_role("button", name="Save", exact=True)
         save_btn.click(timeout=5000)
-        save_btn.wait_for(state="hidden", timeout=5000)
-        self.page.wait_for_load_state("networkidle", timeout=5000)
+        # adding an a manual wait because range renaming does not yet have an optimistic
+        # update
+        self.page.wait_for_timeout(400)
 
     def delete_from_explorer(self, name: str) -> None:
         """Delete a range via context menu in the explorer."""
@@ -597,3 +598,29 @@ class RangesClient:
         section = self._get_child_ranges_section()
         items = section.locator(".console-range__list-item").filter(has_text=name)
         return items.count() > 0
+
+    def get_label_in_toolbar(self, range_name: str, label_name: str) -> Locator:
+        """Get a label tag within a range item in the toolbar."""
+        range_item = self.get_toolbar_item(range_name)
+        return range_item.locator(".pluto-tag").filter(has_text=label_name).first
+
+    def label_exists_in_toolbar(self, range_name: str, label_name: str) -> bool:
+        """Check if a label exists on a range in the toolbar."""
+        self.show_toolbar()
+        return self.get_label_in_toolbar(range_name, label_name).count() > 0
+
+    def get_label_color_in_toolbar(
+        self, range_name: str, label_name: str
+    ) -> str | None:
+        """Get the color of a label's icon in the range toolbar."""
+        self.show_toolbar()
+        label = self.get_label_in_toolbar(range_name, label_name)
+        if label.count() == 0:
+            return None
+        icon = label.locator("svg").first
+        if icon.count() == 0:
+            return None
+        color = icon.get_attribute("color")
+        if color is None:
+            return None
+        return rgb_to_hex(color)
