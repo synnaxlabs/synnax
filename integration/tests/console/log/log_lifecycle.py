@@ -71,6 +71,9 @@ class LogLifecycle(ConsoleCase):
         self.test_open_log_from_resources(log_name, log_link)
         self.test_drag_log_onto_mosaic(log_name, log_link)
 
+        # Search and Command Palette
+        self.test_open_log_from_search(log_name, log_link)
+
         # Resources Toolbar > Context Menu
         self.test_ctx_rename_log()
         self.test_ctx_copy_link()
@@ -218,6 +221,23 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing drag log onto mosaic")
 
         log = self.console.workspace.drag_log_to_mosaic(self.client, log_name)
+
+        assert log.pane_locator is not None, "Log pane should be visible"
+        assert log.pane_locator.is_visible(), "Log pane should be visible"
+
+        opened_link = log.copy_link()
+        assert (
+            opened_link == expected_link
+        ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
+
+        log.close()
+        assert not log.is_open(), "Log should be closed after close()"
+
+    def test_open_log_from_search(self, log_name: str, expected_link: str) -> None:
+        """Test opening a log by searching its name in the command palette."""
+        self.log("Testing open log from search palette")
+
+        log = self.console.workspace.open_log_from_search(self.client, log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"

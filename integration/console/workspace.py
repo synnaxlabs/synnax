@@ -532,3 +532,16 @@ class WorkspaceClient:
         """
         self.drag_page_to_mosaic(name)
         return self._create_log_instance(client, name)
+
+    def open_log_from_search(self, client: sy.Synnax, name: str) -> "Log":
+        """Open a log by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the log to search for and open.
+
+        Returns:
+            Log instance for the opened log.
+        """
+        self.console.search_palette(name)
+        return self._create_log_instance(client, name)
