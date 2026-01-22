@@ -95,7 +95,9 @@ def validate_and_sanitize_name(name: str) -> str:
 LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
 
 
-def assert_link_format(link: str, resource_type: str, resource_id: str | None = None):
+def assert_link_format(
+    link: str, resource_type: str, resource_id: str | None = None
+) -> None:
     """Assert that a synnax:// link matches the expected format.
 
     :param link: The link to validate.
@@ -127,6 +129,8 @@ def assert_link_format(link: str, resource_type: str, resource_id: str | None = 
             raise AssertionError(
                 f"Resource ID should be a valid UUID, got: {actual_id}"
             )
+
+
 def get_random_name() -> str:
     """Get a random name, which is a random 12-character string"""
     return "".join(random.choices(string.ascii_letters + string.digits, k=12))

@@ -75,21 +75,6 @@ class WorkspaceClient:
             return
         workspace_item.click()
 
-    # SY-3576
-    def refresh_tree(self) -> None:
-        """Collapse and re-expand the workspace to refresh the tree contents."""
-        self.console.show_resource_toolbar("workspace")
-        workspace_item = self.page.locator("div[id^='workspace:']").first
-        if workspace_item.count() == 0:
-            return  # No workspace exists yet on fresh core run
-        workspace_item.wait_for(state="visible", timeout=5000)
-        caret = workspace_item.locator(".pluto--location-bottom")
-        if caret.count() > 0:
-            workspace_item.click()
-            sy.sleep(0.1)
-        workspace_item.click()
-        sy.sleep(0.1)
-
     def get_page(self, name: str) -> Locator:
         """Get a page item locator from the workspace resources toolbar.
 
@@ -157,7 +142,7 @@ class WorkspaceClient:
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
         self.console.ENTER
-        self.refresh_tree()
+        self.console.close_nav_drawer()
 
     def delete_page(self, name: str) -> None:
         """Delete a page via context menu in the workspace resources toolbar.
@@ -173,7 +158,6 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
-        self.refresh_tree()
         self.console.close_nav_drawer()
 
     def delete_group(self, name: str) -> None:
@@ -227,7 +211,6 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
-        self.refresh_tree()
         self.console.close_nav_drawer()
 
     def copy_page_link(self, name: str) -> str:
@@ -279,7 +262,7 @@ class WorkspaceClient:
         self.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
         self.console.select_all_and_type(group_name)
         self.console.ENTER
-        self.refresh_tree()
+        self.console.close_nav_drawer()
 
     def export_page(self, name: str) -> dict[str, Any]:
         """Export a page via context menu.
@@ -341,7 +324,7 @@ class WorkspaceClient:
         name_input.wait_for(state="hidden", timeout=5000)
         self.console.show_resource_toolbar("workspace")
         self.get_item(name).wait_for(state="visible", timeout=5000)
-        self.refresh_tree()
+        self.console.close_nav_drawer()
         return True
 
     def select(self, name: str) -> None:
@@ -378,7 +361,7 @@ class WorkspaceClient:
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
         self.console.ENTER
-        self.refresh_tree()
+        self.console.close_nav_drawer()
 
     def delete(self, name: str) -> None:
         """Delete a workspace via context menu.
@@ -397,8 +380,6 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
-        self.refresh_tree()
-
         self.console.close_nav_drawer()
 
     def ensure_selected(self, name: str) -> None:

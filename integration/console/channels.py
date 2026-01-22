@@ -494,7 +494,9 @@ class ChannelClient:
             for old_name, new_name in zip(
                 normalized_names.channels, normalized_new_names.channels
             ):
-                self._rename_single_channel(old_name=str(old_name), new_name=str(new_name))
+                self._rename_single_channel(
+                    old_name=str(old_name), new_name=str(new_name)
+                )
 
             return True
         except Exception:

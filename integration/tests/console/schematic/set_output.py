@@ -11,8 +11,8 @@ import synnax as sy
 
 from console.case import ConsoleCase
 from console.schematic import Setpoint, Value
-from framework.utils import get_random_name
 from console.schematic.schematic import Schematic
+from framework.utils import get_random_name
 
 
 class SetOutput(ConsoleCase):

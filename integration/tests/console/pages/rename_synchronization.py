@@ -32,7 +32,6 @@ class RenameSynchronization(ConsoleCase):
 
         self.log(f"1. Creating {page_type}: {original_name}")
         console.create_page(page_type, original_name)
-        console.workspace.refresh_tree()
 
         self.log(f"2. Verifying page exists in Resources Toolbar")
         assert console.workspace.page_exists(

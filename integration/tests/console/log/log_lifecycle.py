@@ -326,7 +326,9 @@ class LogLifecycle(ConsoleCase):
             log.close()
             assert not log.is_open(), f"Log {i} should be closed after close()"
 
-        self.console.workspace.group_pages(names=log_names, group_name=f"Log Group {suffix}")
+        self.console.workspace.group_pages(
+            names=log_names, group_name=f"Log Group {suffix}"
+        )
 
         assert self.console.workspace.page_exists(
             f"Log Group {suffix}"

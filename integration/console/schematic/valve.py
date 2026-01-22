@@ -91,7 +91,9 @@ class Valve(Symbol):
             applied_properties["state_channel"] = state_channel
 
         if command_channel is not None:
-            self.set_channel(input_field="Command Channel", channel_name=command_channel)
+            self.set_channel(
+                input_field="Command Channel", channel_name=command_channel
+            )
             applied_properties["command_channel"] = command_channel
 
         if show_control_chip is not None:
