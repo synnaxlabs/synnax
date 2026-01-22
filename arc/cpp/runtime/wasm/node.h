@@ -27,6 +27,7 @@ class Node : public node::Node {
     Module::Function func;
     std::vector<telem::SampleValue> inputs;
     std::vector<int> offsets;
+    bool initialized = false;
 
 public:
     Node(const ir::Node &node, state::Node &&state, const Module::Function &func):
@@ -36,6 +37,14 @@ public:
     }
 
     xerrors::Error next(node::Context &ctx) override {
+        // For nodes with no inputs (stratum 0), only execute once per stage entry.
+        // The initialized flag is reset when the stage is re-entered via reset().
+        if (this->ir.inputs.empty()) {
+            if (this->initialized)
+                return xerrors::NIL;
+            this->initialized = true;
+        }
+
         if (!state.refresh_inputs()) return xerrors::NIL;
 
         int64_t max_length = 0;
@@ -104,6 +113,10 @@ public:
         }
 
         return xerrors::NIL;
+    }
+
+    void reset() override {
+        this->initialized = false;
     }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {

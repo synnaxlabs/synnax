@@ -20,10 +20,10 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
-// analyzeExpression converts an inline expression into a synthetic function that
+// AnalyzeSingleExpression converts an inline expression into a synthetic function that
 // can be used as a node in a flow graph. Pure literals are registered as KindConstant
 // symbols and don't require code compilation.
-func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) {
+func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})

@@ -741,21 +741,48 @@ func analyzeStage(
 	}
 
 	for _, item := range stageBody.AllStageItem() {
-		flowStmt := item.FlowStatement()
-		if flowStmt == nil {
-			continue
-		}
-		itemNodes, itemEdges, ok := analyzeFlow(acontext.Child(ctx, flowStmt), kg)
-		if !ok {
-			return ir.Stage{}, nil, nil, false
-		}
-		nodes = append(nodes, itemNodes...)
-		edges = append(edges, itemEdges...)
+		if flowStmt := item.FlowStatement(); flowStmt != nil {
+			itemNodes, itemEdges, ok := analyzeFlow(acontext.Child(ctx, flowStmt), kg)
+			if !ok {
+				return ir.Stage{}, nil, nil, false
+			}
+			nodes = append(nodes, itemNodes...)
+			edges = append(edges, itemEdges...)
 
-		for _, n := range itemNodes {
-			stage.Nodes = append(stage.Nodes, n.Key)
+			for _, n := range itemNodes {
+				stage.Nodes = append(stage.Nodes, n.Key)
+			}
+		}
+		if single := item.SingleInvocation(); single != nil {
+			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg)
+			if !ok {
+				return ir.Stage{}, nil, nil, false
+			}
+			nodes = append(nodes, node)
+			stage.Nodes = append(stage.Nodes, node.Key)
 		}
 	}
 
 	return stage, nodes, edges, true
+}
+
+func analyzeSingleInvocation(
+	ctx acontext.Context[parser.ISingleInvocationContext],
+	kg *keyGenerator,
+) (ir.Node, bool) {
+	if fn := ctx.AST.Function(); fn != nil {
+		result, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
+		if !ok {
+			return ir.Node{}, false
+		}
+		return result.node, true
+	}
+	if expr := ctx.AST.Expression(); expr != nil {
+		result, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
+		if !ok {
+			return ir.Node{}, false
+		}
+		return result.node, true
+	}
+	return ir.Node{}, false
 }

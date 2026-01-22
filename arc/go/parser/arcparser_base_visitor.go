@@ -1,4 +1,4 @@
-// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
 import "github.com/antlr4-go/antlr/v4"
@@ -60,6 +60,10 @@ func (v *BaseArcParserVisitor) VisitStageBody(ctx *StageBodyContext) interface{}
 }
 
 func (v *BaseArcParserVisitor) VisitStageItem(ctx *StageItemContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitSingleInvocation(ctx *SingleInvocationContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

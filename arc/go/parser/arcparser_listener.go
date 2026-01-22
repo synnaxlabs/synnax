@@ -1,4 +1,4 @@
-// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
 import "github.com/antlr4-go/antlr/v4"
@@ -48,6 +48,9 @@ type ArcParserListener interface {
 
 	// EnterStageItem is called when entering the stageItem production.
 	EnterStageItem(c *StageItemContext)
+
+	// EnterSingleInvocation is called when entering the singleInvocation production.
+	EnterSingleInvocation(c *SingleInvocationContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
@@ -240,6 +243,9 @@ type ArcParserListener interface {
 
 	// ExitStageItem is called when exiting the stageItem production.
 	ExitStageItem(c *StageItemContext)
+
+	// ExitSingleInvocation is called when exiting the singleInvocation production.
+	ExitSingleInvocation(c *SingleInvocationContext)
 
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
