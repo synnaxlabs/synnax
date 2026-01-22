@@ -19,6 +19,7 @@ from framework.utils import get_results_path
 
 if TYPE_CHECKING:
     from .console import Console
+    from .log import Log
     from .plot import Plot
 
 

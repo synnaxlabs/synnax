@@ -666,4 +666,6 @@ class Console:
         remaining = self._find_tab_to_close(except_tabs)
         if remaining is not None:
             name = remaining.inner_text(timeout=1000).strip()
-            raise RuntimeError(f"Failed to close all tabs after {max_iterations} iterations. Remaining: '{name}'")
+            raise RuntimeError(
+                f"Failed to close all tabs after {max_iterations} iterations. Remaining: '{name}'"
+            )

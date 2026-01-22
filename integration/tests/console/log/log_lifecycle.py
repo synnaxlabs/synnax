@@ -116,8 +116,12 @@ class LogLifecycle(ConsoleCase):
 
         self.console.reload()
 
-        assert log.is_streaming(), "Log should still be streaming after reload (persisted)"
-        assert not log.is_waiting_for_data(), "Log should NOT be waiting for data after reload"
+        assert (
+            log.is_streaming()
+        ), "Log should still be streaming after reload (persisted)"
+        assert (
+            not log.is_waiting_for_data()
+        ), "Log should NOT be waiting for data after reload"
 
     def test_virtual_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a virtual (non-persisted) channel."""
@@ -166,11 +170,15 @@ class LogLifecycle(ConsoleCase):
 
         link = log.copy_link()
 
-        assert link.startswith("synnax://"), f"Link should start with synnax://, got: {link}"
+        assert link.startswith(
+            "synnax://"
+        ), f"Link should start with synnax://, got: {link}"
         parts = link.replace("synnax://", "").split("/")
         assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
         assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
-        assert len(parts[1]) == 36, f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
+        assert (
+            len(parts[1]) == 36
+        ), f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
         assert parts[2] == "log", f"Third part should be 'log', got: {parts[2]}"
         assert len(parts[3]) == 36, f"Log ID should be 36 chars (UUID), got: {parts[3]}"
 
@@ -184,7 +192,9 @@ class LogLifecycle(ConsoleCase):
         assert log.is_scrolling_paused(), "Log should be paused after pause_scrolling()"
 
         log.resume_scrolling()
-        assert not log.is_scrolling_paused(), "Log should not be paused after resume_scrolling()"
+        assert (
+            not log.is_scrolling_paused()
+        ), "Log should not be paused after resume_scrolling()"
 
     def test_open_log_from_resources(self, log_name: str, expected_link: str) -> None:
         """Test opening a log by double-clicking it in the workspace resources toolbar."""
@@ -196,7 +206,9 @@ class LogLifecycle(ConsoleCase):
         assert log.pane_locator.is_visible(), "Log pane should be visible"
 
         opened_link = log.copy_link()
-        assert opened_link == expected_link, f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        assert (
+            opened_link == expected_link
+        ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
         assert not log.is_open(), "Log should be closed after close()"
@@ -211,7 +223,9 @@ class LogLifecycle(ConsoleCase):
         assert log.pane_locator.is_visible(), "Log pane should be visible"
 
         opened_link = log.copy_link()
-        assert opened_link == expected_link, f"Opened log link should match: expected {expected_link}, got {opened_link}"
+        assert (
+            opened_link == expected_link
+        ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
         assert not log.is_open(), "Log should be closed after close()"

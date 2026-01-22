@@ -9,9 +9,9 @@
 
 import random
 import re
-import synnax as sy
 from typing import TYPE_CHECKING
 
+import synnax as sy
 from playwright.sync_api import Locator, Page
 
 if TYPE_CHECKING:
@@ -109,7 +109,9 @@ class LayoutClient:
             editable_text.wait_for(state="visible", timeout=3000)
         except Exception:
             # Fallback to more general selector
-            editable_text = tab.locator(".pluto-text--editable[contenteditable='true']").first
+            editable_text = tab.locator(
+                ".pluto-text--editable[contenteditable='true']"
+            ).first
             editable_text.wait_for(state="visible", timeout=2000)
 
         self.console.select_all_and_type(new_name)

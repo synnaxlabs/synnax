@@ -96,7 +96,7 @@ class ConsoleCase(TestCase):
         self.console.workspace.ensure_selected("TestSpace")
         self.log("Selected default workspace 'TestSpace'")
 
-        # Prevent state pollution 
+        # Prevent state pollution
         # Selecting workspace restores tabs
         self.console.close_all_tabs()
 
