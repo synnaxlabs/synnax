@@ -168,9 +168,7 @@ class ChannelOperations(ConsoleCase):
         # Verify channels exist in the server
         for ch_config in channels:
             ch_name = ch_config["name"]
-            assert console.channels.existing_channel(
-                ch_name
-            ), f"Channel {ch_name} should exist"
+            assert console.channels.exists(ch_name), f"Channel {ch_name} should exist"
 
             # Verify data type via client
             ch = client.channels.retrieve(ch_name)
@@ -443,12 +441,12 @@ class ChannelOperations(ConsoleCase):
         )
 
         console.channels.delete([data_name])
-        assert not console.channels.existing_channel(
+        assert not console.channels.exists(
             data_name
         ), f"Channel {data_name} should not appear in UI"
 
         console.channels.delete([index_name])
-        assert not console.channels.existing_channel(
+        assert not console.channels.exists(
             index_name
         ), f"Index channel {index_name} should not appear in UI"
 
