@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
@@ -304,10 +303,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 
 			Expect(completions).ToNot(BeNil())
 
-			_, found := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "pressure"
-			})
-			Expect(found).To(BeTrue(), "Expected to find 'pressure' after content change")
+			Expect(HasCompletion(completions.Items, "pressure")).To(BeTrue(), "Expected to find 'pressure' after content change")
 		})
 	})
 
@@ -453,10 +449,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			}))
 			Expect(completions).ToNot(BeNil())
 
-			labels := lo.Map(completions.Items, func(item protocol.CompletionItem, _ int) string {
-				return item.Label
-			})
-			Expect(labels).To(ContainElement("sensor"))
+			Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue())
 		})
 
 		It("Should provide completion for both local and GlobalResolver symbols in multi-statement block", func() {
@@ -479,11 +472,8 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			}))
 			Expect(completions).ToNot(BeNil())
 
-			labels := lo.Map(completions.Items, func(item protocol.CompletionItem, _ int) string {
-				return item.Label
-			})
-			Expect(labels).To(ContainElement("myVar"))
-			Expect(labels).To(ContainElement("myOther"))
+			Expect(HasCompletion(completions.Items, "myVar")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "myOther")).To(BeTrue())
 		})
 	})
 })

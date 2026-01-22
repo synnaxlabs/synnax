@@ -101,3 +101,17 @@ func SemanticTokens(
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}))
 }
+
+func FindCompletion(items []protocol.CompletionItem, label string) (protocol.CompletionItem, bool) {
+	for _, item := range items {
+		if item.Label == label {
+			return item, true
+		}
+	}
+	return protocol.CompletionItem{}, false
+}
+
+func HasCompletion(items []protocol.CompletionItem, label string) bool {
+	_, found := FindCompletion(items, label)
+	return found
+}

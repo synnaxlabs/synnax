@@ -80,7 +80,7 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 			HoverProvider: true,
 			CompletionProvider: &protocol.CompletionOptions{
-				TriggerCharacters: []string{".", ":", "<", "-", ">"},
+				TriggerCharacters: []string{".", ":", "<", "-", ">", "{", "=", ","},
 			},
 			DefinitionProvider:              true,
 			DocumentSymbolProvider:          true,

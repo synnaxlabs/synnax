@@ -194,4 +194,101 @@ var _ = Describe("Context Detection", func() {
 			Expect(ctx).To(Equal(lsp.ContextUnknown))
 		})
 	})
+
+	Describe("Config Param Name Context", func() {
+		It("should detect config param name in empty braces", func() {
+			content := "myFunc{"
+			pos := protocol.Position{Line: 0, Character: 7}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).To(Equal(lsp.ContextConfigParamName))
+		})
+
+		It("should detect config param name after comma", func() {
+			content := "myFunc{a=1, "
+			pos := protocol.Position{Line: 0, Character: 12}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).To(Equal(lsp.ContextConfigParamName))
+		})
+
+		It("should detect config param name when typing", func() {
+			content := "myFunc{thr"
+			pos := protocol.Position{Line: 0, Character: 10}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).To(Equal(lsp.ContextConfigParamName))
+		})
+
+		It("should detect config param name after comma with partial name", func() {
+			content := "myFunc{a=1, b"
+			pos := protocol.Position{Line: 0, Character: 13}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).To(Equal(lsp.ContextConfigParamName))
+		})
+
+		It("should not detect config context in function body braces", func() {
+			content := "func foo() { "
+			pos := protocol.Position{Line: 0, Character: 13}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamName))
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamValue))
+		})
+
+		It("should not detect config context after function call", func() {
+			content := "foo() { "
+			pos := protocol.Position{Line: 0, Character: 8}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).ToNot(Equal(lsp.ContextConfigParamName))
+		})
+	})
+
+	Describe("Config Param Value Context", func() {
+		It("should detect config param value after equals", func() {
+			content := "myFunc{threshold="
+			pos := protocol.Position{Line: 0, Character: 17}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).To(Equal(lsp.ContextConfigParamValue))
+		})
+
+		It("should detect config param value with multiple params", func() {
+			content := "myFunc{a=1, b="
+			pos := protocol.Position{Line: 0, Character: 14}
+			ctx := lsp.DetectCompletionContext(content, pos)
+			Expect(ctx).To(Equal(lsp.ContextConfigParamValue))
+		})
+	})
+
+	Describe("ExtractConfigContext", func() {
+		It("should extract function name from config block", func() {
+			content := "myFunc{"
+			pos := protocol.Position{Line: 0, Character: 7}
+			info := lsp.ExtractConfigContext(content, pos)
+			Expect(info).ToNot(BeNil())
+			Expect(info.FunctionName).To(Equal("myFunc"))
+			Expect(info.ExistingParams).To(BeEmpty())
+		})
+
+		It("should extract existing params from config block", func() {
+			content := "myFunc{a=1, b=2, "
+			pos := protocol.Position{Line: 0, Character: 17}
+			info := lsp.ExtractConfigContext(content, pos)
+			Expect(info).ToNot(BeNil())
+			Expect(info.FunctionName).To(Equal("myFunc"))
+			Expect(info.ExistingParams).To(ConsistOf("a", "b"))
+		})
+
+		It("should extract current param name in value context", func() {
+			content := "myFunc{threshold="
+			pos := protocol.Position{Line: 0, Character: 17}
+			info := lsp.ExtractConfigContext(content, pos)
+			Expect(info).ToNot(BeNil())
+			Expect(info.FunctionName).To(Equal("myFunc"))
+			Expect(info.CurrentParamName).To(Equal("threshold"))
+		})
+
+		It("should return nil for non-config context", func() {
+			content := "func foo() { "
+			pos := protocol.Position{Line: 0, Character: 13}
+			info := lsp.ExtractConfigContext(content, pos)
+			Expect(info).To(BeNil())
+		})
+	})
 })

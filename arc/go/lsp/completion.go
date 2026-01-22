@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/types"
 	"go.lsp.dev/protocol"
 )
 
@@ -320,6 +321,16 @@ func (s *Server) getCompletionItems(
 		return []protocol.CompletionItem{}
 	}
 
+	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
+		configInfo := ExtractConfigContext(doc.displayContent(), pos)
+		if configInfo != nil {
+			if completionCtx == ContextConfigParamName {
+				return s.getConfigParamCompletions(ctx, doc, prefix, configInfo)
+			}
+			return s.getConfigValueCompletions(ctx, doc, prefix, configInfo)
+		}
+	}
+
 	allowed := getAllowedCategories(completionCtx)
 	items := make([]protocol.CompletionItem, 0, len(completions))
 
@@ -386,4 +397,130 @@ func getAllowedCategories(ctx CompletionContext) completionCategory {
 	default:
 		return categoryType | categoryKeyword | categoryFunction | categoryUnit | categoryValue
 	}
+}
+
+func (s *Server) resolveFunctionType(
+	ctx context.Context,
+	doc *Document,
+	name string,
+) (types.Type, bool) {
+	if s.cfg.GlobalResolver != nil {
+		sym, err := s.cfg.GlobalResolver.Resolve(ctx, name)
+		if err == nil && sym.Type.Kind == types.KindFunction {
+			return sym.Type, true
+		}
+	}
+	if doc.IR.Symbols != nil {
+		sym, err := doc.IR.Symbols.Resolve(ctx, name)
+		if err == nil && sym.Type.Kind == types.KindFunction {
+			return sym.Type, true
+		}
+	}
+	return types.Type{}, false
+}
+
+func (s *Server) collectSymbols(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	filter func(types.Type) bool,
+) []protocol.CompletionItem {
+	seen := make(map[string]bool)
+	var items []protocol.CompletionItem
+	addItem := func(name string, t types.Type) {
+		if seen[name] || !filter(t) {
+			return
+		}
+		seen[name] = true
+		items = append(items, protocol.CompletionItem{
+			Label:  name,
+			Kind:   protocol.CompletionItemKindVariable,
+			Detail: t.String(),
+		})
+	}
+	if s.cfg.GlobalResolver != nil {
+		symbols, err := s.cfg.GlobalResolver.ResolvePrefix(ctx, prefix)
+		if err == nil {
+			for _, sym := range symbols {
+				addItem(sym.Name, sym.Type)
+			}
+		}
+	}
+	if doc.IR.Symbols != nil {
+		scopes, err := doc.IR.Symbols.ResolvePrefix(ctx, prefix)
+		if err == nil {
+			for _, scope := range scopes {
+				addItem(scope.Name, scope.Type)
+			}
+		}
+	}
+	return items
+}
+
+func (s *Server) getConfigParamCompletions(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	configInfo *ConfigContextInfo,
+) []protocol.CompletionItem {
+	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.FunctionName)
+	if !ok {
+		return []protocol.CompletionItem{}
+	}
+	existingSet := make(map[string]bool)
+	for _, param := range configInfo.ExistingParams {
+		existingSet[param] = true
+	}
+	var items []protocol.CompletionItem
+	for _, param := range fnType.Config {
+		if existingSet[param.Name] || !strings.HasPrefix(param.Name, prefix) {
+			continue
+		}
+		items = append(items, protocol.CompletionItem{
+			Label:            param.Name,
+			Kind:             protocol.CompletionItemKindProperty,
+			Detail:           param.Type.String(),
+			InsertText:       param.Name + "=",
+			InsertTextFormat: protocol.InsertTextFormatPlainText,
+		})
+	}
+	return items
+}
+
+func (s *Server) getConfigValueCompletions(
+	ctx context.Context,
+	doc *Document,
+	prefix string,
+	configInfo *ConfigContextInfo,
+) []protocol.CompletionItem {
+	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.FunctionName)
+	if !ok {
+		return []protocol.CompletionItem{}
+	}
+	param, found := fnType.Config.Get(configInfo.CurrentParamName)
+	if !found {
+		return []protocol.CompletionItem{}
+	}
+	var items []protocol.CompletionItem
+	if param.Type.Kind == types.KindChan {
+		items = s.collectSymbols(ctx, doc, prefix, func(t types.Type) bool {
+			return t.Kind == types.KindChan
+		})
+	} else if param.Type.IsNumeric() {
+		for _, c := range completions {
+			if (c.Category&categoryUnit) == 0 || !strings.HasPrefix(c.Label, prefix) {
+				continue
+			}
+			items = append(items, protocol.CompletionItem{
+				Label:  c.Label,
+				Kind:   c.Kind,
+				Detail: c.Detail,
+			})
+		}
+	}
+	nonChanSymbols := s.collectSymbols(ctx, doc, prefix, func(t types.Type) bool {
+		return t.Kind != types.KindChan
+	})
+	items = append(items, nonChanSymbols...)
+	return items
 }
