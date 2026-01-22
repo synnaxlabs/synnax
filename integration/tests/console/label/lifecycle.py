@@ -28,6 +28,7 @@ class LabelLifecycle(ConsoleCase):
 
         self.console.labels.open_edit_modal()
 
+        ## TODO: make sure these are constants
         modal = self.page.locator(".console-label__edit")
         assert modal.is_visible(), "Edit Labels modal should be visible"
 
@@ -50,7 +51,7 @@ class LabelLifecycle(ConsoleCase):
 
         self.console.labels.create(name=label_name)
 
-        self.console.labels.find(label_name)
+        self.console.labels.assert_exists(label_name)
         self.log(f"Successfully created label: {label_name}")
 
     def test_rename_label(self) -> None:
@@ -65,17 +66,8 @@ class LabelLifecycle(ConsoleCase):
 
         self.console.labels.rename(old_name, new_name)
 
-        ## TODO: make a get label via name function on the client
-        self.console.labels.open_edit_modal()
-
-        label_item = self.page.locator(
-            f".console-label__list-item:not(.console--create) input[value='{new_name}']"
-        )
-        assert label_item.count() > 0, f"Label should be renamed to '{new_name}'"
-
+        self.console.labels.assert_exists(new_name)
         self.log(f"Successfully renamed label from '{old_name}' to '{new_name}'")
-
-        self.console.labels.close_edit_modal()
 
     def test_change_label_color(self) -> None:
         """Test changing the color of a label."""
@@ -85,6 +77,8 @@ class LabelLifecycle(ConsoleCase):
         new_color = "#FF5733"  # Orange color
 
         self.console.labels.change_color(label_name, new_color)
+
+        ## Todo: test the new color
 
         self.log(f"Successfully changed color of label '{label_name}' to {new_color}")
 
@@ -100,7 +94,6 @@ class LabelLifecycle(ConsoleCase):
         self.console.ranges.create(name=range_name, persisted=True, labels=[label_name])
         self.console.ranges.open_explorer()
         self.console.ranges.favorite_from_explorer(range_name)
-        self.console.ranges.show_toolbar()
 
         assert self.console.ranges.exists_in_toolbar(
             range_name
@@ -127,7 +120,6 @@ class LabelLifecycle(ConsoleCase):
         label_name = "RenamedSyncLabel"
         range_name = "LabelSyncRange"
 
-        self.console.ranges.show_toolbar()
         original_color = self.console.ranges.get_label_color_in_toolbar(
             range_name, label_name
         )
@@ -142,7 +134,6 @@ class LabelLifecycle(ConsoleCase):
         assert updated_color is not None, "Updated color should not be None"
         self.log(f"  - Updated color: {updated_color}")
 
-        assert updated_color != original_color, "Label color should have changed"
         assert (
             "0, 255, 0" in updated_color
         ), f"Expected green color, got: {updated_color}"

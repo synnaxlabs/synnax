@@ -112,8 +112,8 @@ class LabelClient:
 
         return labels
 
-    def find(self, name: str) -> None:
-        """Find a label by name. Throws an error if the label is not found.
+    def assert_exists(self, name: str) -> None:
+        """Assert a label exists by name. Throws an error if the label is not found.
 
         Args:
             name: The name of the label to find.
