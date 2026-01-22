@@ -10,8 +10,11 @@
 package text_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
@@ -1120,7 +1123,7 @@ var _ = Describe("Text", func() {
 			},
 			Entry("error when adding incompatible dimensions",
 				`func bad() f64 { return 5psi + 3s }`,
-				false, "incompatible: dimensions",
+				false, "incompatible dimensions:",
 			),
 			Entry("allow adding same dimensions",
 				`func good() f64 { return 100psi + 50psi }`,
@@ -1131,6 +1134,78 @@ var _ = Describe("Text", func() {
 				true, "",
 			),
 		)
+	})
+
+	Describe("Single Invocations in Stages", func() {
+		It("Should compile standalone function invocation to IR node", func() {
+			source := `
+			func setup() {
+			}
+
+			sequence main {
+				stage start {
+					setup{},
+				}
+			}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			setupNode := findNodeByType(inter.Nodes, "setup")
+			Expect(setupNode.Inputs).To(BeEmpty())
+
+			seq := MustBeOk(inter.Sequences.Find("main"))
+			Expect(seq.Stages[0].Nodes).To(ContainElement(setupNode.Key))
+		})
+
+		It("Should compile standalone expression to IR node", func() {
+			source := `
+			sequence main {
+				stage start {
+					1 + 2,
+				}
+			}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			exprNodes := lo.Filter(inter.Nodes, func(n ir.Node, _ int) bool {
+				return strings.HasPrefix(n.Type, "expression_")
+			})
+			Expect(exprNodes).To(HaveLen(1))
+			exprNode := exprNodes[0]
+			Expect(exprNode.Outputs).To(HaveLen(1))
+			Expect(exprNode.Outputs[0].Type.Kind).To(Equal(types.KindI64))
+
+			seq := MustBeOk(inter.Sequences.Find("main"))
+			Expect(seq.Stages[0].Nodes).To(ContainElement(exprNode.Key))
+		})
+
+		It("Should place single invocation nodes in stratum 0", func() {
+			source := `
+			func initialize() u8 {
+				return 1
+			}
+
+			sequence main {
+				stage start {
+					initialize{},
+				}
+			}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			initNode := findNodeByType(inter.Nodes, "initialize")
+			Expect(initNode.Inputs).To(BeEmpty())
+
+			seq := MustBeOk(inter.Sequences.Find("main"))
+			Expect(seq.Stages[0].Strata).To(HaveLen(1))
+			Expect(seq.Stages[0].Strata[0]).To(ContainElement(initNode.Key))
+		})
 	})
 
 	Describe("Compile", func() {
@@ -1149,8 +1224,7 @@ var _ = Describe("Text", func() {
 			ir, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-			module, err := text.Compile(ctx, ir)
-			Expect(err).ToNot(HaveOccurred())
+			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
 	})

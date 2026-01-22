@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -222,10 +221,7 @@ func stratifySubgraph(
 		if iterations > maxIterations {
 			// Cycle detected - find and report it
 			cycle := findCycle(nodes, edges)
-			diag.AddError(
-				errors.Newf("cycle detected in dataflow graph: %v", cycle),
-				nil,
-			)
+			diag.Add(diagnostics.Errorf(nil, "cycle detected in dataflow graph: %v", cycle))
 			return ir.Strata{}, diag
 		}
 

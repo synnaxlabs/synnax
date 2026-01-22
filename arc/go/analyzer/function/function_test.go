@@ -296,7 +296,7 @@ var _ = Describe("Function Analyzer", func() {
 						p := kp * error
 						last_measurement_time $= measurement_time
 						dt := measurement_time - last_measurement_time
-						integral $= 0
+						integral f32 $= 0
 						integral = integral + error * f32(dt)
 						i := ki * integral
 						last_error $= error
@@ -325,12 +325,12 @@ var _ = Describe("Function Analyzer", func() {
 			func(src string, msgMatcher OmegaMatcher) {
 				analyzeExpectError(src, nil, msgMatcher)
 			},
-			Entry("float literal on integer return",
-				`func dog() i32 { return 1.0 }`,
-				ContainSubstring("does not satisfy float constraint")),
+			Entry("non-exact-integer float literal on integer return",
+				`func dog() i32 { return 1.5 }`,
+				ContainSubstring("is not compatible with")),
 			Entry("return value in void function",
 				`func dog() { return 5 }`,
-				ContainSubstring("unexpected return value in function/func with void return type")),
+				ContainSubstring("cannot return a value from a function with no return type")),
 			Entry("missing return in function with return type",
 				`func dog() f64 {}`,
 				Equal("function 'dog' must return a value of type f64 on all paths")),

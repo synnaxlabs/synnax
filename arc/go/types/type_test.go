@@ -693,19 +693,19 @@ var _ = Describe("Types", func() {
 			func(t types.Type, expected string) {
 				Expect(t.String()).To(Equal(expected))
 			},
-			Entry("unconstrained", types.Variable("T", nil), "T"),
+			Entry("unconstrained", types.Variable("T", nil), "unknown"),
 			Entry("numeric constraint", func() types.Type {
 				c := types.NumericConstraint()
 				return types.Variable("N", &c)
-			}(), "N:numeric"),
+			}(), "numeric"),
 			Entry("integer constraint", func() types.Type {
 				c := types.IntegerConstraint()
 				return types.Variable("I", &c)
-			}(), "I:integer"),
+			}(), "integer"),
 			Entry("float constraint", func() types.Type {
 				c := types.FloatConstraint()
 				return types.Variable("F", &c)
-			}(), "F:float"),
+			}(), "float"),
 			Entry("numeric constraint kind", types.NumericConstraint(), "numeric"),
 			Entry("integer constraint kind", types.IntegerConstraint(), "integer"),
 			Entry("float constraint kind", types.FloatConstraint(), "float"),

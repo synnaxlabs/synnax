@@ -294,16 +294,15 @@ var _ = Describe("WASM", func() {
 
 			n := h.CreateNode(ctx, "counter")
 
-			// First call - should return 1
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(1)))
 
-			// Second call - should return 2
+			n.Reset()
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(2)))
 
-			// Third call - should return 3
+			n.Reset()
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
 		})
@@ -742,5 +741,134 @@ var _ = Describe("WASM", func() {
 				return len(a + b)
 			}`, builtin.SymbolResolver, int32(11)),
 		)
+	})
+
+	Describe("No-Input Node Initialization", func() {
+		It("Should execute only once per stage entry for nodes with no inputs", func() {
+			// Create a stateful counter function with no inputs
+			g := singleFunctionGraph("init_counter", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "init_counter")
+
+			// First call - should execute and return 1
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(1)))
+
+			// Second call - should NOT execute again (initialized flag)
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			// No output should be marked as changed since we didn't execute
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+
+			// Reset the node (simulating stage re-entry)
+			n.Reset()
+
+			// Third call - should execute again after reset
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			// Counter persists so it should be 2 now
+			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
+		})
+
+		It("Should execute every time for non-entry nodes with inputs", func() {
+			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "add")
+
+			h.SetInput("lhs", 0, telem.NewSeriesV[int64](1), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("rhs", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
+
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(3)))
+
+			h.SetInput("lhs", 0, telem.NewSeriesV[int64](10), telem.NewSeriesSecondsTSV(2))
+			h.SetInput("rhs", 0, telem.NewSeriesV[int64](20), telem.NewSeriesSecondsTSV(2))
+
+			// Nodes with incoming edges should execute every time they have new input
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(30)))
+		})
+	})
+
+	Describe("Flow Expression Execution", func() {
+		It("Should execute every time for flow expression nodes", func() {
+			g := singleFunctionGraph("expression_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
+		})
+
+		It("Should continue executing after reset for expression nodes", func() {
+			g := singleFunctionGraph("expression_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Reset()
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
+		})
+
+		It("Should not treat non-expression nodes as expressions", func() {
+			g := singleFunctionGraph("expr_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expr_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
+		})
 	})
 })
