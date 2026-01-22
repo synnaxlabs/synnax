@@ -114,48 +114,8 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	return types.Type{}
 }
 
-func getPrimaryExpression(expr parser.IExpressionContext) parser.IPrimaryExpressionContext {
-	if expr == nil {
-		return nil
-	}
-	logicalOr := expr.LogicalOrExpression()
-	if logicalOr == nil || len(logicalOr.AllLogicalAndExpression()) != 1 {
-		return nil
-	}
-	ands := logicalOr.AllLogicalAndExpression()[0]
-	if len(ands.AllEqualityExpression()) != 1 {
-		return nil
-	}
-	eq := ands.AllEqualityExpression()[0]
-	if len(eq.AllRelationalExpression()) != 1 {
-		return nil
-	}
-	rel := eq.AllRelationalExpression()[0]
-	if len(rel.AllAdditiveExpression()) != 1 {
-		return nil
-	}
-	add := rel.AllAdditiveExpression()[0]
-	if len(add.AllMultiplicativeExpression()) != 1 {
-		return nil
-	}
-	mult := add.AllMultiplicativeExpression()[0]
-	if len(mult.AllPowerExpression()) != 1 {
-		return nil
-	}
-	pow := mult.AllPowerExpression()[0]
-	unary := pow.UnaryExpression()
-	if unary == nil {
-		return nil
-	}
-	postfix := unary.PostfixExpression()
-	if postfix == nil {
-		return nil
-	}
-	return postfix.PrimaryExpression()
-}
-
 func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
-	primary := getPrimaryExpression(ctx.AST)
+	primary := parser.GetPrimaryExpression(ctx.AST)
 	return primary != nil && primary.Literal() != nil
 }
 
@@ -209,7 +169,7 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 }
 
 func isChannelIdentifier(ctx context.Context[parser.IExpressionContext]) bool {
-	primary := getPrimaryExpression(ctx.AST)
+	primary := parser.GetPrimaryExpression(ctx.AST)
 	if primary == nil || primary.IDENTIFIER() == nil {
 		return false
 	}
@@ -221,7 +181,7 @@ func isChannelIdentifier(ctx context.Context[parser.IExpressionContext]) bool {
 }
 
 func getChannelType(ctx context.Context[parser.IExpressionContext]) types.Type {
-	primary := getPrimaryExpression(ctx.AST)
+	primary := parser.GetPrimaryExpression(ctx.AST)
 	if primary == nil || primary.IDENTIFIER() == nil {
 		return types.Type{}
 	}
@@ -310,7 +270,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	returnExpr := ctx.AST.Expression()
 	if returnExpr != nil {
 		expression.Analyze(context.Child(ctx, returnExpr))
-		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType))
+		actualReturnType := atypes.InferFromExpression(context.Child(ctx, returnExpr).WithTypeHint(expectedReturnType)).UnwrapChan()
 
 		// Check for void function first - this error applies even in type inference mode
 		if !expectedReturnType.IsValid() && !ctx.InTypeInferenceMode {
@@ -734,6 +694,15 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		units.CheckAssignmentScaleSafety(ctx, exprType, varType, nil)
 	}
 
+	// Check structural compatibility (series/channel structure must match)
+	if !types.StructuralMatch(varType, exprType) {
+		ctx.Diagnostics.AddError(
+			errors.Newf("type mismatch: cannot assign %s to variable of type %s", exprType, varType),
+			ctx.AST,
+		)
+		return
+	}
+
 	// If either type is a type variable, add a constraint instead of checking directly
 	if exprType.Kind == types.KindVariable || varType.Kind == types.KindVariable {
 		if err := atypes.Check(ctx.Constraints, varType, exprType, ctx.AST, "assignment type compatibility"); err != nil {
@@ -741,7 +710,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		}
 		return
 	}
-	if atypes.Compatible(varType, exprType) {
+	if atypes.AssignmentCompatible(varType, exprType) {
 		return
 	}
 	ctx.Diagnostics.AddError(

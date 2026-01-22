@@ -18,6 +18,10 @@ import (
 
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 )
@@ -26,12 +30,27 @@ type JSONRPCMessage struct {
 	Content string `json:"content" msgpack:"content"`
 }
 
+func (m *JSONRPCMessage) UnmarshalJSON(data []byte) error {
+	type Alias JSONRPCMessage
+	aux := &struct{ *Alias }{Alias: (*Alias)(m)}
+	if err := json.Unmarshal(data, aux); err == nil {
+		return nil
+	}
+	m.Content = string(data)
+	return nil
+}
+
+const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
+
+var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
+
 type streamAdapter struct {
-	stream      freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
-	buffer      []byte
-	writeBuffer []byte
-	mu          sync.Mutex
-	closed      bool
+	stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
+	buffer           []byte
+	writeBuffer      []byte
+	mu               sync.Mutex
+	closed           bool
+	maxContentLength int
 }
 
 func (s *streamAdapter) Read(p []byte) (n int, err error) {
@@ -74,7 +93,10 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 			contentLength = -1
 			data          = s.writeBuffer
 		)
-		for i := 0; i < len(data)-16; i++ {
+		if len(data) < 16 {
+			break
+		}
+		for i := 0; i <= len(data)-16; i++ {
 			if data[i] == 'C' && string(data[i:i+15]) == "Content-Length:" {
 				j := i + 15
 				for j < len(data) && (data[j] == ' ' || data[j] == '\t') {
@@ -105,6 +127,9 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 		if headerEnd == -1 || contentLength == -1 || len(data) < headerEnd+contentLength {
 			break
 		}
+		if contentLength < 0 || contentLength > s.maxContentLength {
+			return 0, ErrContentLengthExceeded
+		}
 		jsonContent := data[headerEnd : headerEnd+contentLength]
 		msg := JSONRPCMessage{Content: string(jsonContent)}
 		if err := s.stream.Send(msg); err != nil {
@@ -122,28 +147,48 @@ func (s *streamAdapter) Close() error {
 	return nil
 }
 
-func ServeFreighter(
-	ctx context.Context,
-	server *lsp.Server,
-	stream freighter.ServerStream[JSONRPCMessage, JSONRPCMessage],
-) error {
-	var (
-		adapter = &streamAdapter{stream: stream}
-		conn    = jsonrpc2.NewConn(jsonrpc2.NewStream(adapter))
-		client  = protocol.ClientDispatcher(conn, server.Logger())
-	)
-	server.SetClient(client)
-	conn.Go(ctx, protocol.ServerHandler(server, nil))
-	<-conn.Done()
-	return conn.Err()
+type Config struct {
+	Server           *lsp.Server
+	Stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
+	MaxContentLength int
 }
 
-func (m *JSONRPCMessage) UnmarshalJSON(data []byte) error {
-	type Alias JSONRPCMessage
-	aux := &struct{ *Alias }{Alias: (*Alias)(m)}
-	if err := json.Unmarshal(data, aux); err == nil {
-		return nil
+var _ config.Config[Config] = (*Config)(nil)
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("arc.lsp.transport.freighter")
+	validate.NotNil(v, "server", c.Server)
+	validate.NotNil(v, "stream", c.Stream)
+	validate.Positive(v, "max_content_length", c.MaxContentLength)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.Stream = override.Nil(c.Stream, other.Stream)
+	c.Server = override.Nil(c.Server, other.Server)
+	c.MaxContentLength = override.Numeric(c.MaxContentLength, other.MaxContentLength)
+	return c
+}
+
+var DefaultConfig = Config{MaxContentLength: DefaultMaxContentLength}
+
+func ServeFreighter(
+	ctx context.Context,
+	cfgs ...Config,
+) error {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return err
 	}
-	m.Content = string(data)
-	return nil
+	var (
+		adapter = &streamAdapter{stream: cfg.Stream, maxContentLength: cfg.MaxContentLength}
+		conn    = jsonrpc2.NewConn(jsonrpc2.NewStream(adapter))
+		client  = protocol.ClientDispatcher(conn, cfg.Server.Logger())
+	)
+	cfg.Server.SetClient(client)
+	conn.Go(ctx, protocol.ServerHandler(cfg.Server, nil))
+	<-conn.Done()
+	return conn.Err()
 }

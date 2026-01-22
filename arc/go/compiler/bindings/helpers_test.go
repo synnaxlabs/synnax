@@ -13,386 +13,314 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler/bindings"
+	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// Production-grade ImportIndex created via SetupImports
+var idx *bindings.ImportIndex
+
+func init() {
+	m := wasm.NewModule()
+	idx = bindings.SetupImports(m)
+}
+
 var _ = Describe("ImportIndex Helpers", func() {
-	var idx *bindings.ImportIndex
-
-	BeforeEach(func() {
-		idx = bindings.NewImportIndex()
-		// Populate with test data
-		idx.ChannelRead["i64"] = 1
-		idx.ChannelRead["f64"] = 2
-		idx.ChannelWrite["i64"] = 3
-		idx.ChannelWrite["f64"] = 4
-		idx.SeriesCreateEmpty["i64"] = 6
-		idx.SeriesIndex["i64"] = 7
-		idx.StateLoad["i64"] = 8
-		idx.StateStore["i64"] = 9
-
-		// Series arithmetic
-		idx.SeriesElementAdd["i64"] = 10
-		idx.SeriesElementSub["i64"] = 11
-		idx.SeriesElementMul["i64"] = 12
-		idx.SeriesElementDiv["i64"] = 13
-		idx.SeriesSeriesAdd["i64"] = 14
-		idx.SeriesSeriesSub["i64"] = 15
-		idx.SeriesSeriesMul["i64"] = 16
-		idx.SeriesSeriesDiv["i64"] = 17
-
-		// Series comparison
-		idx.SeriesCompareGT["i64"] = 20
-		idx.SeriesCompareLT["i64"] = 21
-		idx.SeriesCompareGE["i64"] = 22
-		idx.SeriesCompareLE["i64"] = 23
-		idx.SeriesCompareEQ["i64"] = 24
-		idx.SeriesCompareNE["i64"] = 25
-
-		// Series set element
-		idx.SeriesSetElement["i64"] = 30
-
-		// Series reverse arithmetic
-		idx.SeriesElementRSub["i64"] = 31
-		idx.SeriesElementRDiv["i64"] = 32
-
-		// Series scalar comparison
-		idx.SeriesCompareGTScalar["i64"] = 40
-		idx.SeriesCompareLTScalar["i64"] = 41
-		idx.SeriesCompareGEScalar["i64"] = 42
-		idx.SeriesCompareLEScalar["i64"] = 43
-		idx.SeriesCompareEQScalar["i64"] = 44
-		idx.SeriesCompareNEScalar["i64"] = 45
-
-		// State load/store series
-		idx.StateLoadSeries["i64"] = 50
-		idx.StateStoreSeries["i64"] = 51
-
-		// Series negate
-		idx.SeriesNegate["i64"] = 60
-
-		// Series modulo
-		idx.SeriesElementMod["i64"] = 70
-		idx.SeriesSeriesMod["i64"] = 71
-	})
-
 	Describe("GetChannelRead", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetChannelRead(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(1)))
+		// Note: In actual usage, callers pass the unwrapped element type,
+		// not the channel type itself (see variable.go:400, identifier.go:94)
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetChannelRead(typ))
+			}
 		})
 
-		It("Should return import index for float type", func() {
-			funcIdx := MustSucceed(idx.GetChannelRead(types.F64()))
-			Expect(funcIdx).To(Equal(uint32(2)))
+		It("Should return import index for string type", func() {
+			MustSucceed(idx.GetChannelRead(types.String()))
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetChannelRead(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no channel read function")))
-			Expect(err).To(MatchError(ContainSubstring("u8")))
+		It("Should return error for series type", func() {
+			// Series types don't have channel read functions
+			Expect(idx.GetChannelRead(types.Series(types.I64()))).Error().To(
+				MatchError(ContainSubstring("no channel read function")),
+			)
 		})
 	})
 
 	Describe("GetChannelWrite", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetChannelWrite(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(3)))
+		// Note: In actual usage, callers pass the unwrapped element type,
+		// not the channel type itself (see variable.go:400)
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetChannelWrite(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetChannelWrite(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no channel write function")))
+		It("Should return import index for string type", func() {
+			MustSucceed(idx.GetChannelWrite(types.String()))
+		})
+
+		It("Should return error for series type", func() {
+			Expect(idx.GetChannelWrite(types.Series(types.I64()))).Error().To(
+				MatchError(ContainSubstring("no channel write function")),
+			)
 		})
 	})
 
 	Describe("GetSeriesCreateEmpty", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetSeriesCreateEmpty(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(6)))
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetSeriesCreateEmpty(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetSeriesCreateEmpty(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series create function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetSeriesCreateEmpty(types.String())).Error().To(
+				MatchError(ContainSubstring("no series create function")),
+			)
 		})
 	})
 
 	Describe("GetSeriesIndex", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetSeriesIndex(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(7)))
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetSeriesIndex(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetSeriesIndex(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series index function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetSeriesIndex(types.String())).Error().To(
+				MatchError(ContainSubstring("no series index function")),
+			)
 		})
 	})
 
 	Describe("GetStateLoad", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetStateLoad(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(8)))
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetStateLoad(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetStateLoad(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no state load function")))
+		It("Should return import index for string type", func() {
+			MustSucceed(idx.GetStateLoad(types.String()))
 		})
 	})
 
 	Describe("GetStateStore", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetStateStore(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(9)))
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetStateStore(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetStateStore(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no state store function")))
+		It("Should return import index for string type", func() {
+			MustSucceed(idx.GetStateStore(types.String()))
 		})
 	})
 
 	Describe("GetSeriesArithmetic", func() {
+		arithmeticOps := []string{"+", "-", "*", "/", "%"}
+
 		Context("Scalar operations (isScalar = true)", func() {
-			It("Should return correct index for addition", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("+", types.I64(), true))
-				Expect(funcIdx).To(Equal(uint32(10)))
+			It("Should return import index for all numeric types and operators", func() {
+				for _, typ := range types.Numerics {
+					for _, op := range arithmeticOps {
+						MustSucceed(idx.GetSeriesArithmetic(op, typ, true))
+					}
+				}
 			})
 
-			It("Should return correct index for subtraction", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("-", types.I64(), true))
-				Expect(funcIdx).To(Equal(uint32(11)))
+			It("Should return error for string type", func() {
+				Expect(idx.GetSeriesArithmetic("+", types.String(), true)).Error().To(
+					MatchError(ContainSubstring("no series + function")),
+				)
 			})
 
-			It("Should return correct index for multiplication", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("*", types.I64(), true))
-				Expect(funcIdx).To(Equal(uint32(12)))
-			})
-
-			It("Should return correct index for division", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("/", types.I64(), true))
-				Expect(funcIdx).To(Equal(uint32(13)))
-			})
-
-			It("Should return error for unsupported type", func() {
-				_, err := idx.GetSeriesArithmetic("+", types.U8(), true)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("no series + function")))
+			It("Should return error for unknown operator", func() {
+				Expect(idx.GetSeriesArithmetic("^", types.I64(), true)).Error().To(
+					MatchError(ContainSubstring("unknown arithmetic operator")),
+				)
 			})
 		})
 
 		Context("Series-to-series operations (isScalar = false)", func() {
-			It("Should return correct index for addition", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("+", types.I64(), false))
-				Expect(funcIdx).To(Equal(uint32(14)))
+			It("Should return import index for all numeric types and operators", func() {
+				for _, typ := range types.Numerics {
+					for _, op := range arithmeticOps {
+						MustSucceed(idx.GetSeriesArithmetic(op, typ, false))
+					}
+				}
 			})
 
-			It("Should return correct index for subtraction", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("-", types.I64(), false))
-				Expect(funcIdx).To(Equal(uint32(15)))
+			It("Should return error for string type", func() {
+				Expect(idx.GetSeriesArithmetic("+", types.String(), false)).Error().To(
+					MatchError(ContainSubstring("no series + function")),
+				)
 			})
-
-			It("Should return correct index for multiplication", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("*", types.I64(), false))
-				Expect(funcIdx).To(Equal(uint32(16)))
-			})
-
-			It("Should return correct index for division", func() {
-				funcIdx := MustSucceed(idx.GetSeriesArithmetic("/", types.I64(), false))
-				Expect(funcIdx).To(Equal(uint32(17)))
-			})
-
 		})
 	})
 
 	Describe("GetSeriesComparison", func() {
-		It("Should return correct index for greater-than", func() {
-			funcIdx := MustSucceed(idx.GetSeriesComparison(">", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(20)))
-		})
+		comparisonOps := []string{">", "<", ">=", "<=", "==", "!="}
 
-		It("Should return correct index for less-than", func() {
-			funcIdx := MustSucceed(idx.GetSeriesComparison("<", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(21)))
-		})
-
-		It("Should return correct index for greater-than-or-equal", func() {
-			funcIdx := MustSucceed(idx.GetSeriesComparison(">=", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(22)))
-		})
-
-		It("Should return correct index for less-than-or-equal", func() {
-			funcIdx := MustSucceed(idx.GetSeriesComparison("<=", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(23)))
-		})
-
-		It("Should return correct index for equals", func() {
-			funcIdx := MustSucceed(idx.GetSeriesComparison("==", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(24)))
-		})
-
-		It("Should return correct index for not-equals", func() {
-			funcIdx := MustSucceed(idx.GetSeriesComparison("!=", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(25)))
+		It("Should return import index for all numeric types and operators", func() {
+			for _, typ := range types.Numerics {
+				for _, op := range comparisonOps {
+					MustSucceed(idx.GetSeriesComparison(op, typ))
+				}
+			}
 		})
 
 		It("Should return error for unknown operator", func() {
-			_, err := idx.GetSeriesComparison("===", types.I64())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("unknown comparison operator")))
+			Expect(idx.GetSeriesComparison("===", types.I64())).Error().To(
+				MatchError(ContainSubstring("unknown comparison operator")),
+			)
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetSeriesComparison(">", types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series comparison > function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetSeriesComparison(">", types.String())).Error().To(
+				MatchError(ContainSubstring("no series comparison > function")),
+			)
 		})
 	})
 
 	Describe("GetSeriesSetElement", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetSeriesSetElement(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(30)))
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetSeriesSetElement(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetSeriesSetElement(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series set element function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetSeriesSetElement(types.String())).Error().To(
+				MatchError(ContainSubstring("no series set element function")),
+			)
 		})
 	})
 
 	Describe("GetSeriesReverseArithmetic", func() {
-		It("Should return correct index for reverse subtraction", func() {
-			funcIdx := MustSucceed(idx.GetSeriesReverseArithmetic("-", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(31)))
-		})
+		reverseOps := []string{"+", "-", "*", "/", "%"}
 
-		It("Should return correct index for reverse division", func() {
-			funcIdx := MustSucceed(idx.GetSeriesReverseArithmetic("/", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(32)))
+		It("Should return import index for all numeric types and operators", func() {
+			for _, typ := range types.Numerics {
+				for _, op := range reverseOps {
+					MustSucceed(idx.GetSeriesReverseArithmetic(op, typ))
+				}
+			}
 		})
 
 		It("Should return error for unsupported operator", func() {
-			_, err := idx.GetSeriesReverseArithmetic("+", types.I64())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("reverse arithmetic only supported for - and /")))
+			Expect(idx.GetSeriesReverseArithmetic("^", types.I64())).Error().To(
+				MatchError(ContainSubstring("reverse arithmetic not supported for: ^")),
+			)
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetSeriesReverseArithmetic("-", types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series reverse - function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetSeriesReverseArithmetic("-", types.String())).Error().To(
+				MatchError(ContainSubstring("no series reverse - function")),
+			)
 		})
 	})
 
 	Describe("GetSeriesScalarComparison", func() {
-		It("Should return correct index for greater-than", func() {
-			funcIdx := MustSucceed(idx.GetSeriesScalarComparison(">", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(40)))
-		})
+		comparisonOps := []string{">", "<", ">=", "<=", "==", "!="}
 
-		It("Should return correct index for less-than", func() {
-			funcIdx := MustSucceed(idx.GetSeriesScalarComparison("<", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(41)))
-		})
-
-		It("Should return correct index for greater-than-or-equal", func() {
-			funcIdx := MustSucceed(idx.GetSeriesScalarComparison(">=", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(42)))
-		})
-
-		It("Should return correct index for less-than-or-equal", func() {
-			funcIdx := MustSucceed(idx.GetSeriesScalarComparison("<=", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(43)))
-		})
-
-		It("Should return correct index for equals", func() {
-			funcIdx := MustSucceed(idx.GetSeriesScalarComparison("==", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(44)))
-		})
-
-		It("Should return correct index for not-equals", func() {
-			funcIdx := MustSucceed(idx.GetSeriesScalarComparison("!=", types.I64()))
-			Expect(funcIdx).To(Equal(uint32(45)))
+		It("Should return import index for all numeric types and operators", func() {
+			for _, typ := range types.Numerics {
+				for _, op := range comparisonOps {
+					MustSucceed(idx.GetSeriesScalarComparison(op, typ))
+				}
+			}
 		})
 
 		It("Should return error for unknown operator", func() {
-			_, err := idx.GetSeriesScalarComparison("===", types.I64())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("unknown comparison operator")))
+			Expect(idx.GetSeriesScalarComparison("===", types.I64())).Error().To(
+				MatchError(ContainSubstring("unknown comparison operator")),
+			)
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetSeriesScalarComparison(">", types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series scalar comparison > function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetSeriesScalarComparison(">", types.String())).Error().To(
+				MatchError(ContainSubstring("no series scalar comparison > function")),
+			)
 		})
 	})
 
 	Describe("GetStateLoadSeries", func() {
-		It("Should return import index for valid element type", func() {
-			funcIdx := MustSucceed(idx.GetStateLoadSeries(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(50)))
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetStateLoadSeries(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetStateLoadSeries(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series state load function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetStateLoadSeries(types.String())).Error().To(
+				MatchError(ContainSubstring("no series state load function")),
+			)
 		})
 	})
 
 	Describe("GetStateStoreSeries", func() {
-		It("Should return import index for valid element type", func() {
-			funcIdx := MustSucceed(idx.GetStateStoreSeries(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(51)))
+		It("Should return import index for all numeric types", func() {
+			for _, typ := range types.Numerics {
+				MustSucceed(idx.GetStateStoreSeries(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetStateStoreSeries(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series state store function")))
+		It("Should return error for string type", func() {
+			Expect(idx.GetStateStoreSeries(types.String())).Error().To(
+				MatchError(ContainSubstring("no series state store function")),
+			)
 		})
 	})
 
 	Describe("GetSeriesNegate", func() {
-		It("Should return import index for valid type", func() {
-			funcIdx := MustSucceed(idx.GetSeriesNegate(types.I64()))
-			Expect(funcIdx).To(Equal(uint32(60)))
+		It("Should return import index for signed integer types", func() {
+			for _, typ := range types.SignedIntegers {
+				MustSucceed(idx.GetSeriesNegate(typ))
+			}
 		})
 
-		It("Should return error for unsupported type", func() {
-			_, err := idx.GetSeriesNegate(types.U8())
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("no series negate function")))
+		It("Should return import index for float types", func() {
+			for _, typ := range types.Floats {
+				MustSucceed(idx.GetSeriesNegate(typ))
+			}
+		})
+
+		It("Should return error for unsigned integer types", func() {
+			for _, typ := range types.UnsignedIntegers {
+				Expect(idx.GetSeriesNegate(typ)).Error().To(
+					MatchError(ContainSubstring("no series negate function")),
+				)
+			}
+		})
+
+		It("Should return error for string type", func() {
+			Expect(idx.GetSeriesNegate(types.String())).Error().To(
+				MatchError(ContainSubstring("no series negate function")),
+			)
 		})
 	})
 
-	Describe("GetSeriesArithmetic modulo", func() {
-		It("Should return correct index for modulo with scalar", func() {
-			funcIdx := MustSucceed(idx.GetSeriesArithmetic("%", types.I64(), true))
-			Expect(funcIdx).To(Equal(uint32(70)))
+	Describe("Index uniqueness", func() {
+		It("Should return different indices for different operations", func() {
+			addIdx := MustSucceed(idx.GetSeriesArithmetic("+", types.I64(), true))
+			subIdx := MustSucceed(idx.GetSeriesArithmetic("-", types.I64(), true))
+			Expect(addIdx).NotTo(Equal(subIdx))
 		})
 
-		It("Should return correct index for modulo with series", func() {
-			funcIdx := MustSucceed(idx.GetSeriesArithmetic("%", types.I64(), false))
-			Expect(funcIdx).To(Equal(uint32(71)))
+		It("Should return different indices for scalar vs series operations", func() {
+			scalarIdx := MustSucceed(idx.GetSeriesArithmetic("+", types.I64(), true))
+			seriesIdx := MustSucceed(idx.GetSeriesArithmetic("+", types.I64(), false))
+			Expect(scalarIdx).NotTo(Equal(seriesIdx))
 		})
 
-		It("Should return error for unknown operator", func() {
-			_, err := idx.GetSeriesArithmetic("^", types.I64(), true)
-			Expect(err).NotTo(BeNil())
-			Expect(err).To(MatchError(ContainSubstring("unknown arithmetic operator")))
+		It("Should return different indices for different types", func() {
+			i64Idx := MustSucceed(idx.GetSeriesArithmetic("+", types.I64(), true))
+			f64Idx := MustSucceed(idx.GetSeriesArithmetic("+", types.F64(), true))
+			Expect(i64Idx).NotTo(Equal(f64Idx))
 		})
 	})
 })

@@ -91,6 +91,8 @@ import {
   MdCalendarToday,
   MdComment,
   MdCommit,
+  MdContentCut,
+  MdContentPaste,
   MdDarkMode,
   MdDataArray,
   MdDataObject,
@@ -237,6 +239,8 @@ export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
 export const Add = wrapSVGIcon(HiOutlinePlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
+export const Cut = wrapSVGIcon(MdContentCut, "cut");
+export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Close = wrapSVGIcon(AiOutlineClose, "close");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
@@ -484,6 +488,8 @@ const icons = {
   Add,
   Subtract,
   Copy,
+  Cut,
+  Paste,
   Close,
   Info,
   Warning,
