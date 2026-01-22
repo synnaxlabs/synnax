@@ -71,36 +71,31 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	var (
-		numericValue float64
-		isInt        bool
-	)
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
-		v, err := strconv.ParseInt(intLit.GetText(), 10, 64)
+		intValue, err := strconv.ParseInt(intLit.GetText(), 10, 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid integer literal: %s", intLit.GetText())
 		}
-		numericValue = float64(v)
-		isInt = true
-	} else if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
-		v, err := strconv.ParseFloat(floatLit.GetText(), 64)
+		if unitID := numLit.IDENTIFIER(); unitID != nil {
+			// Unit conversions require float64 math for scale factors
+			return parseNumericWithUnit(float64(intValue), true, unitID.GetText(), targetType)
+		}
+		// No unit suffix: preserve int64 precision
+		return parseIntegerLiteral(intValue, targetType)
+	}
+
+	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
+		floatValue, err := strconv.ParseFloat(floatLit.GetText(), 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid float literal: %s", floatLit.GetText())
 		}
-		numericValue = v
-		isInt = false
-	} else {
-		return ParsedValue{}, errors.New("unknown numeric literal")
+		if unitID := numLit.IDENTIFIER(); unitID != nil {
+			return parseNumericWithUnit(floatValue, false, unitID.GetText(), targetType)
+		}
+		return parseFloatLiteral(floatValue, targetType)
 	}
 
-	if unitID := numLit.IDENTIFIER(); unitID != nil {
-		return parseNumericWithUnit(numericValue, isInt, unitID.GetText(), targetType)
-	}
-
-	if isInt {
-		return parseIntegerLiteral(numericValue, targetType)
-	}
-	return parseFloatLiteral(numericValue, targetType)
+	return ParsedValue{}, errors.New("unknown numeric literal")
 }
 
 // parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms", "5km").
@@ -147,9 +142,8 @@ func parseNumericWithUnit(
 }
 
 // parseIntegerLiteral converts an integer value to the target type.
-func parseIntegerLiteral(value float64, targetType types.Type) (ParsedValue, error) {
-	intValue := int64(value)
-
+// It takes int64 directly to preserve full precision for large integer literals.
+func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, error) {
 	// If no target type specified, default to i64
 	if !targetType.IsValid() {
 		return ParsedValue{Value: intValue, Type: types.I64()}, nil
