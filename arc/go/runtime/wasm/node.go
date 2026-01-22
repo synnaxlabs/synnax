@@ -19,10 +19,11 @@ import (
 
 type nodeImpl struct {
 	*state.Node
-	ir      ir.Node
-	wasm    *Function
-	inputs  []uint64
-	offsets []int
+	ir          ir.Node
+	wasm        *Function
+	inputs      []uint64
+	offsets     []int
+	initialized bool
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -33,6 +34,15 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			ctx.ReportError(errors.Newf("WASM trap in node %s: %v", n.ir.Key, r))
 		}
 	}()
+
+	// For nodes with no inputs (stratum 0), only execute once per stage entry.
+	// The initialized flag is reset when the stage is re-entered via Reset().
+	if len(n.ir.Inputs) == 0 {
+		if n.initialized {
+			return
+		}
+		n.initialized = true
+	}
 
 	if !n.RefreshInputs() {
 		return
@@ -122,6 +132,11 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			ctx.MarkChanged(n.ir.Outputs[j].Name)
 		}
 	}
+}
+
+func (n *nodeImpl) Reset() {
+	n.Node.Reset()
+	n.initialized = false
 }
 
 func setValueAt(s telem.Series, i int, v uint64) {

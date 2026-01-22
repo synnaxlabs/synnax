@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/arc/lsp/testutil"
+	. "github.com/synnaxlabs/arc/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
@@ -29,13 +29,13 @@ var _ = Describe("Formatting", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		server, uri = testutil.SetupTestServer()
+		server, uri = SetupTestServer()
 	})
 
 	Describe("Full Document Formatting", func() {
 		It("should format a simple function", func() {
 			content := "func add(x i32,y i32)i32{return x+y}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -50,28 +50,24 @@ var _ = Describe("Formatting", func() {
 
 		It("should return nil for already-formatted code", func() {
 			content := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
-			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
+			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Options:      protocol.FormattingOptions{},
-			}))
-
-			Expect(edits).To(BeNil())
+			})).To(BeNil())
 		})
 
 		It("should return nil for closed document", func() {
-			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
+			Expect(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
 				Options:      protocol.FormattingOptions{},
-			}))
-
-			Expect(edits).To(BeNil())
+			})).To(BeNil())
 		})
 
 		It("should format binary operators with spaces", func() {
 			content := "x:=a+b*c"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -84,7 +80,7 @@ var _ = Describe("Formatting", func() {
 
 		It("should respect tab size option", func() {
 			content := "func test(){x:=1}"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -99,7 +95,7 @@ var _ = Describe("Formatting", func() {
 
 		It("should preserve unit literals without space", func() {
 			content := "delay:=100ms"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.Formatting(ctx, &protocol.DocumentFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -115,7 +111,7 @@ var _ = Describe("Formatting", func() {
 	Describe("Range Formatting", func() {
 		It("should format a specific range", func() {
 			content := "x:=1\ny:=2\nz:=3"
-			testutil.OpenDocument(server, ctx, uri, content)
+			OpenDocument(server, ctx, uri, content)
 
 			edits := MustSucceed(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -127,19 +123,18 @@ var _ = Describe("Formatting", func() {
 			}))
 
 			Expect(edits).ToNot(BeNil())
+			Expect(edits[0].NewText).To(ContainSubstring("x := 1"))
 		})
 
 		It("should return nil for closed document", func() {
-			edits := MustSucceed(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
+			Expect(server.RangeFormatting(ctx, &protocol.DocumentRangeFormattingParams{
 				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
 				Range: protocol.Range{
 					Start: protocol.Position{Line: 0, Character: 0},
 					End:   protocol.Position{Line: 0, Character: 10},
 				},
 				Options: protocol.FormattingOptions{},
-			}))
-
-			Expect(edits).To(BeNil())
+			})).To(BeNil())
 		})
 	})
 })

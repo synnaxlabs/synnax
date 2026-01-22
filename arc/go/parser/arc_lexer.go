@@ -1,4 +1,4 @@
-// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcLexer.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser
 

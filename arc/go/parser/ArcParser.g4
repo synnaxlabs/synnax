@@ -77,6 +77,12 @@ stageBody
 
 stageItem
     : flowStatement
+    | singleInvocation
+    ;
+
+singleInvocation
+    : function
+    | expression
     ;
 
 // =============================================================================

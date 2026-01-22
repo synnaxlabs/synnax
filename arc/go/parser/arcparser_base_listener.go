@@ -1,4 +1,4 @@
-// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
 import "github.com/antlr4-go/antlr/v4"
@@ -103,6 +103,12 @@ func (s *BaseArcParserListener) EnterStageItem(ctx *StageItemContext) {}
 
 // ExitStageItem is called when production stageItem is exited.
 func (s *BaseArcParserListener) ExitStageItem(ctx *StageItemContext) {}
+
+// EnterSingleInvocation is called when production singleInvocation is entered.
+func (s *BaseArcParserListener) EnterSingleInvocation(ctx *SingleInvocationContext) {}
+
+// ExitSingleInvocation is called when production singleInvocation is exited.
+func (s *BaseArcParserListener) ExitSingleInvocation(ctx *SingleInvocationContext) {}
 
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}
