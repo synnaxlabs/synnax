@@ -27,6 +27,7 @@ const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const PASTE_TRIGGER: Triggers.Trigger = ["Control", "V"];
 const RENAME_TRIGGER: Triggers.Trigger = ["F2"];
+const FORMAT_TRIGGER: Triggers.Trigger = ["Shift", "Alt", "F"];
 
 const ZERO_OPTIONS: Monaco.editor.IEditorConstructionOptions = {
   automaticLayout: true,
@@ -215,6 +216,14 @@ export interface EditorProps
   isBlock?: boolean;
 }
 
+const MENU_EDITOR_ACTIONS: Record<string, string> = {
+  cut: "editor.action.clipboardCutAction",
+  copy: "editor.action.clipboardCopyAction",
+  paste: "editor.action.clipboardPasteAction",
+  rename: "editor.action.rename",
+  format: "editor.action.formatDocument",
+};
+
 export const Editor = ({
   value,
   onChange,
@@ -236,20 +245,8 @@ export const Editor = ({
     const editor = editorRef.current;
     if (editor == null) return;
     editor.focus();
-    switch (key) {
-      case "cut":
-        editor.trigger("contextMenu", "editor.action.clipboardCutAction", null);
-        break;
-      case "copy":
-        editor.trigger("contextMenu", "editor.action.clipboardCopyAction", null);
-        break;
-      case "paste":
-        editor.trigger("contextMenu", "editor.action.clipboardPasteAction", null);
-        break;
-      case "rename":
-        editor.trigger("contextMenu", "editor.action.rename", null);
-        break;
-    }
+    const action = MENU_EDITOR_ACTIONS[key];
+    editor.trigger("contextMenu", action, null);
   }, []);
 
   const menuContent = useCallback(() => {
@@ -299,6 +296,10 @@ export const Editor = ({
         >
           <Icon.Rename />
           Rename
+        </Menu.Item>
+        <Menu.Item itemKey="format" trigger={FORMAT_TRIGGER} triggerIndicator>
+          <Icon.TextAlign.Left />
+          Format
         </Menu.Item>
       </Menu.Menu>
     );

@@ -10,9 +10,8 @@
 package lsp
 
 import (
-	"strings"
-
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/symbol"
 	"go.lsp.dev/protocol"
 )
@@ -27,7 +26,7 @@ func fromProtocol(pos protocol.Position) position {
 }
 
 func getLine(content string, line uint32) (string, bool) {
-	lines := strings.Split(content, "\n")
+	lines := formatter.SplitLines(content)
 	if int(line) >= len(lines) {
 		return "", false
 	}
