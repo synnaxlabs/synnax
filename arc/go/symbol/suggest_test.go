@@ -104,20 +104,19 @@ var _ = Describe("Symbol Suggestions", func() {
 			root := symbol.CreateRootScope(nil)
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
 
-			_, err := root.Resolve(bCtx, "temperatur")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("undefined symbol: temperatur"))
-			Expect(err.Error()).To(ContainSubstring("did you mean: temperature?"))
+			Expect(root.Resolve(bCtx, "temperatur")).
+				Error().To(MatchError(And(
+				ContainSubstring("undefined symbol: temperatur"),
+				ContainSubstring("did you mean: temperature?"),
+			)))
 		})
 
 		It("should not include suggestions when none are close enough", func() {
 			root := symbol.CreateRootScope(nil)
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
 
-			_, err := root.Resolve(bCtx, "unknownSymbol")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("undefined symbol: unknownSymbol"))
-			Expect(err.Error()).NotTo(ContainSubstring("did you mean"))
+			Expect(root.Resolve(bCtx, "unknownSymbol")).
+				Error().To(MatchError("undefined symbol: unknownSymbol"))
 		})
 	})
 })

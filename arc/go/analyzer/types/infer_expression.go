@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"go.uber.org/zap"
 )
 
 // InferFromExpression determines the type of an Arc expression through recursive descent.
@@ -455,8 +456,13 @@ func inferNumericLiteralType(
 		}
 	}
 
-	if err := ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable"); err != nil {
-		panic(fmt.Sprintf("unexpected error registering type variable with itself: %v", err))
+	if err := ctx.Constraints.AddEquality(
+		tv,
+		tv,
+		ctx.AST,
+		"literal type variable",
+	); err != nil {
+		zap.S().DPanicf("unexpected error registering type variable with itself: %v", err)
 	}
 	ctx.TypeMap[ctx.AST] = tv
 	return tv

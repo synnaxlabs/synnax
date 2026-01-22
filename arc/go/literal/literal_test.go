@@ -216,16 +216,14 @@ var _ = Describe("Literal Parser", func() {
 		Context("Go-like constant semantics (error on fractional)", func() {
 			It("Should error when converting non-exact value to i32", func() {
 				lit := getLiteral("1psi") // 1 psi = 6894.76 Pa (fractional)
-				_, err := literal.Parse(lit, types.I32())
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("fractional part"))
+				Expect(literal.Parse(lit, types.I32())).
+					Error().To(MatchError(ContainSubstring("fractional part")))
 			})
 
 			It("Should error when converting non-exact value to i64", func() {
 				lit := getLiteral("100.5kg")
-				_, err := literal.Parse(lit, types.I64())
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("fractional part"))
+				Expect(literal.Parse(lit, types.I64())).
+					Error().To(MatchError(ContainSubstring("fractional part")))
 			})
 
 			It("Should succeed when converting exact float literal to i32", func() {
@@ -238,16 +236,14 @@ var _ = Describe("Literal Parser", func() {
 		Context("Error cases", func() {
 			It("Should return error for unknown units", func() {
 				lit := getLiteral("5foobar")
-				_, err := literal.Parse(lit, types.Type{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("unknown unit"))
+				Expect(literal.Parse(lit, types.Type{})).
+					Error().To(MatchError(ContainSubstring("unknown unit")))
 			})
 
 			It("Should return error for range overflow", func() {
 				lit := getLiteral("300psi")
-				_, err := literal.Parse(lit, types.I8())
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("out of range"))
+				Expect(literal.Parse(lit, types.I8())).
+					Error().To(MatchError(ContainSubstring("out of range")))
 			})
 		})
 	})
@@ -318,9 +314,8 @@ var _ = Describe("Literal Parser", func() {
 
 		It("Should return error when assigning string to non-string type", func() {
 			lit := getLiteral(`"hello"`)
-			_, err := literal.Parse(lit, types.I32())
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot assign string to"))
+			Expect(literal.Parse(lit, types.I32())).
+				Error().To(MatchError(ContainSubstring("cannot assign string to")))
 		})
 
 		It("Should return error for malformed string literal (missing closing quote)", func() {
@@ -333,9 +328,8 @@ var _ = Describe("Literal Parser", func() {
 	Describe("Series literals", func() {
 		It("Should return error for series literals (not supported for default values)", func() {
 			lit := getLiteral("[1, 2, 3]")
-			_, err := literal.Parse(lit, types.Series(types.I64()))
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("series literals not supported for default values"))
+			Expect(literal.Parse(lit, types.Series(types.I64()))).
+				Error().To(MatchError(ContainSubstring("series literals not supported for default values")))
 		})
 	})
 
