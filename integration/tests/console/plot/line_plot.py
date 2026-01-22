@@ -14,6 +14,7 @@ import synnax as sy
 
 from console.case import ConsoleCase
 from console.plot import Plot
+from framework.utils import assert_link_format
 
 
 class LinePlot(ConsoleCase):
@@ -181,21 +182,7 @@ class LinePlot(ConsoleCase):
 
         link = plot.copy_link()
 
-        assert link.startswith(
-            "synnax://"
-        ), f"Link should start with synnax://, got: {link}"
-        parts = link.replace("synnax://", "").split("/")
-        assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
-        assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
-        assert (
-            len(parts[1]) == 36
-        ), f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
-        assert (
-            parts[2] == "lineplot"
-        ), f"Third part should be 'lineplot', got: {parts[2]}"
-        assert (
-            len(parts[3]) == 36
-        ), f"Plot ID should be 36 chars (UUID), got: {parts[3]}"
+        assert_link_format(link, "lineplot")
 
         return link
 

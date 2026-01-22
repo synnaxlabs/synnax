@@ -10,9 +10,12 @@
 import multiprocessing
 import os
 import platform
+import random
 import re
+import string
 import subprocess
 import sys
+import uuid
 from typing import Any
 
 # Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
@@ -87,6 +90,43 @@ def validate_and_sanitize_name(name: str) -> str:
         raise ValueError("Name cannot consist only of hyphens and underscores")
 
     return sanitized
+
+
+LINK_PATTERN = re.compile(r"^synnax://cluster/([^/]+)/([^/]+)/([^/]+)$")
+
+
+def assert_link_format(link: str, resource_type: str, resource_id: str | None = None):
+    """Assert that a synnax:// link matches the expected format.
+
+    :param link: The link to validate.
+    :param resource_type: The resource type (e.g., "lineplot", "log", "channel").
+    :param resource_id: Optional specific resource ID to match. If None, validates as UUID.
+    """
+    match = LINK_PATTERN.match(link)
+    assert match, f"Link should match synnax://cluster/<uuid>/<type>/<id>, got: {link}"
+
+    cluster_id, actual_type, actual_id = match.groups()
+
+    try:
+        uuid.UUID(cluster_id)
+    except ValueError:
+        raise AssertionError(f"Cluster ID should be a valid UUID, got: {cluster_id}")
+
+    assert (
+        actual_type == resource_type
+    ), f"Resource type should be '{resource_type}', got: {actual_type}"
+
+    if resource_id is not None:
+        assert (
+            actual_id == resource_id
+        ), f"Resource ID should be '{resource_id}', got: {actual_id}"
+    else:
+        try:
+            uuid.UUID(actual_id)
+        except ValueError:
+            raise AssertionError(
+                f"Resource ID should be a valid UUID, got: {actual_id}"
+            )
 
 
 def get_machine_info() -> str:

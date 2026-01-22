@@ -13,6 +13,7 @@ import synnax as sy
 
 from console.case import ConsoleCase
 from console.log import Log
+from framework.utils import assert_link_format
 
 
 class LogLifecycle(ConsoleCase):
@@ -177,17 +178,7 @@ class LogLifecycle(ConsoleCase):
 
         link = log.copy_link()
 
-        assert link.startswith(
-            "synnax://"
-        ), f"Link should start with synnax://, got: {link}"
-        parts = link.replace("synnax://", "").split("/")
-        assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
-        assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
-        assert (
-            len(parts[1]) == 36
-        ), f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
-        assert parts[2] == "log", f"Third part should be 'log', got: {parts[2]}"
-        assert len(parts[3]) == 36, f"Log ID should be 36 chars (UUID), got: {parts[3]}"
+        assert_link_format(link, "log")
 
     def test_pause_resume_scrolling(self, log: Log) -> None:
         """Test pausing and resuming log scrolling."""

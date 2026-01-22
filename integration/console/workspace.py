@@ -253,11 +253,9 @@ class WorkspaceClient:
         menu.get_by_text("Copy link", exact=True).click(timeout=5000)
         self.console.close_nav_drawer()
 
-        try:
-            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
-            return link
-        except Exception:
-            return ""
+        link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
+
+        return link
 
     def group_pages(self, names: list[str], group_name: str) -> None:
         """Group multiple pages into a folder via multi-select and context menu.
