@@ -33,7 +33,7 @@ class LabelClient:
         self.console = console
 
     def open_edit_modal(self) -> None:
-        """Open the Edit Labels modal via command palette.
+        """Open the Edit Labels Modal via the Command Palette.
 
         Raises:
             RuntimeError: If the modal fails to open.
@@ -41,10 +41,9 @@ class LabelClient:
         self.console.command_palette("Edit Labels")
         modal = self.page.locator(_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
-        self.page.wait_for_timeout(200)
 
     def close_edit_modal(self) -> None:
-        """Close the Edit Labels modal by clicking the close button."""
+        """Close the Edit Labels Modal by clicking the close button."""
         close_button = self.page.locator(
             ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
         ).first
@@ -57,8 +56,7 @@ class LabelClient:
 
         Args:
             name: The name for the new label.
-            color: Optional hex color code (e.g., "#FF0000"). If not provided,
-                   uses the default color.
+            color: Optional hex color code (e.g., "#FF0000") to set for the new label.
         """
 
         self.open_edit_modal()
@@ -69,7 +67,7 @@ class LabelClient:
         create_form = self.page.locator(f"{_LABEL_ITEM_SELECTOR}.console--create").first
 
         # If color is provided, click the color swatch to open picker
-        if color:
+        if color is not None:
             color_swatch = create_form.locator(".pluto-color-swatch").first
             color_swatch.click(timeout=1000)
             self.page.wait_for_timeout(100)
@@ -178,21 +176,15 @@ class LabelClient:
         Args:
             name: The name of the label to delete.
         """
-        # Open the modal if not already open
-        modal = self.page.locator(_MODAL_SELECTOR)
-        if not modal.is_visible():
-            self.open_edit_modal()
+        self.open_edit_modal()
 
-        # Find the label item
         label_item = self._find_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
 
-        # Hover over the item to show the delete button
         label_item.hover()
         self.page.wait_for_timeout(100)
 
-        # Click the delete button (has pluto-icon--delete)
         delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
         delete_button.click(timeout=2000)
         self.close_edit_modal()
@@ -214,7 +206,6 @@ class LabelClient:
         # Click the color swatch to open the picker
         color_swatch = label_item.locator(".pluto-color-swatch").first
         color_swatch.click(timeout=2000)
-        self.page.wait_for_timeout(200)
 
         # The SketchPicker has a hex input - find and fill it
         # The input is in the color picker container
