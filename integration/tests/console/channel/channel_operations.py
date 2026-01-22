@@ -167,8 +167,9 @@ class ChannelOperations(ConsoleCase):
         # Verify channels exist in the server
         for ch_config in channels:
             ch_name = ch_config["name"]
-            _, exists = console.channels.existing_channel(ch_name)
-            assert exists, f"Channel {ch_name} should exist"
+            assert console.channels.existing_channel(
+                ch_name
+            ), f"Channel {ch_name} should exist"
 
             # Verify data type via client
             ch = client.channels.retrieve(ch_name)
@@ -190,7 +191,7 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by double-clicking."""
         self.log("Testing open channel plot by double-click")
 
-        plot = Plot.open_from_channel(self.client, self.console, self.shared_data)
+        plot = self.console.channels.open_plot_from_click(self.client, self.shared_data)
 
         line_plot = self.page.locator(".pluto-line-plot")
         line_plot.first.wait_for(state="visible", timeout=5000)
@@ -412,8 +413,12 @@ class ChannelOperations(ConsoleCase):
         try:
             rng[alias_name]
             assert False, f"Alias '{alias_name}' should not resolve after clearing"
-        except (KeyError, sy.QueryError):
+        except sy.QueryError:
             pass
+        except Exception as e:
+            raise AssertionError(
+                f"Expected QueryError when accessing cleared alias, got {type(e).__name__}: {e}"
+            )
 
         console.channels.delete([data_name, index_name])
         console.ranges.open_explorer()
@@ -437,12 +442,14 @@ class ChannelOperations(ConsoleCase):
         )
 
         console.channels.delete([data_name])
-        _, exists = console.channels.existing_channel(data_name)
-        assert not exists, f"Channel {data_name} should not appear in UI"
+        assert not console.channels.existing_channel(
+            data_name
+        ), f"Channel {data_name} should not appear in UI"
 
         console.channels.delete([index_name])
-        _, exists = console.channels.existing_channel(index_name)
-        assert not exists, f"Index channel {index_name} should not appear in UI"
+        assert not console.channels.existing_channel(
+            index_name
+        ), f"Index channel {index_name} should not appear in UI"
 
     def test_copy_link(self) -> None:
         """Test copying a channel link via context menu."""
@@ -461,7 +468,9 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        plot = Plot.open_from_search(self.client, self.console, self.shared_data)
+        plot = self.console.channels.open_plot_from_search(
+            self.client, self.shared_data
+        )
         plot.close()
 
     def test_open_create_channel_modal(self) -> None:

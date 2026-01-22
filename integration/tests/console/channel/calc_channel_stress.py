@@ -197,7 +197,7 @@ class CalcChannelStress(ConsoleCase):
         client = self.client
         console = self.console
 
-        sy.sleep(0.5)
+        sy.sleep(1)
 
         plot = Plot(client, console, f"Calc Stress {self.rate}Hz")
         plot.add_channels("Y1", CALC_CHANNELS)

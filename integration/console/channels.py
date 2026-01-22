@@ -25,6 +25,7 @@ from synnax.telem import (
 
 if TYPE_CHECKING:
     from .console import Console
+    from .plot import Plot
 
 
 class ChannelClient:
@@ -123,8 +124,7 @@ class ChannelClient:
 
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP
-        _, exists = self.existing_channel(name)
-        if exists:
+        if self.existing_channel(name):
             return False
 
         self.open_create_modal()
@@ -195,8 +195,7 @@ class ChannelClient:
                 data_type = DataType.TIMESTAMP
 
             # Check if channel already exists
-            _, exists = self.existing_channel(name)
-            if exists:
+            if self.existing_channel(name):
                 continue
 
             # Open command palette for first channel or if modal closed
@@ -266,8 +265,7 @@ class ChannelClient:
         :param expression: The calculation expression (e.g., "channel_a * 2").
         :returns: None if successful, error message string if failed.
         """
-        _, exists = self.existing_channel(name)
-        if exists:
+        if self.existing_channel(name):
             return "Channel already exists"
 
         self.open_create_calculated_modal()
@@ -473,17 +471,15 @@ class ChannelClient:
         except Exception:
             return ""
 
-    def existing_channel(self, name: ChannelName) -> tuple[ChannelName | None, bool]:
+    def existing_channel(self, name: ChannelName) -> bool:
         """
         Checks if a channel with the given name exists.
 
         :param name: The name of the channel to check.
-        :returns: A tuple containing the channel name if found (None otherwise)
-            and a boolean indicating whether the channel exists.
+        :returns: True if the channel exists, False otherwise.
         """
         all_channels = self.list_all()
-        exists = name in all_channels
-        return (name if exists else None), exists
+        return name in all_channels
 
     def rename(self, names: ChannelNames, new_names: ChannelNames) -> bool:
         """Renames one or more channels via console UI.
@@ -513,10 +509,9 @@ class ChannelClient:
 
     def _rename_single_channel(self, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
-        _, exists = self.existing_channel(old_name)
-        if not exists:
+        if not self.existing_channel(old_name):
             raise ValueError(f"Channel {old_name} does not exist")
-        _, new_exists = self.existing_channel(new_name)
+        new_exists = self.existing_channel(new_name)
         if new_exists:
             raise ValueError(f"Channel {new_name} already exists")
 
@@ -553,8 +548,7 @@ class ChannelClient:
 
     def _delete_single_channel(self, name: str) -> None:
         """Deletes a single channel via console UI."""
-        _, exists = self.existing_channel(name)
-        if not exists:
+        if not self.existing_channel(name):
             raise ValueError(f"Channel {name} does not exist")
 
         self._right_click_channel(name)
@@ -566,13 +560,11 @@ class ChannelClient:
         modal = self.page.locator(
             "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
         )
-        try:
-            modal.wait_for(state="visible", timeout=2000)
-            modal_delete_btn = modal.get_by_role("button", name="Delete", exact=True)
-            modal_delete_btn.click()
-            modal.wait_for(state="hidden", timeout=5000)
-        except Exception:
-            pass
+
+        modal.wait_for(state="visible", timeout=2000)
+        modal_delete_btn = modal.get_by_role("button", name="Delete", exact=True)
+        modal_delete_btn.click()
+        modal.wait_for(state="hidden", timeout=5000)
 
         for i, notification in enumerate(self.console.notifications.check()):
             message = notification.get("message", "")
@@ -644,3 +636,53 @@ class ChannelClient:
 
         editor = self.page.locator(".monaco-editor")
         editor.wait_for(state="visible", timeout=2000)
+
+    def _create_plot_instance(self, client: sy.Synnax, channel_name: str) -> "Plot":
+        """Create a Plot instance after a line plot becomes visible.
+
+        :param client: Synnax client instance.
+        :param channel_name: The name of the channel displayed in the plot.
+        :returns: Plot instance for the opened plot.
+        """
+        from .plot import Plot
+
+        line_plot = self.page.locator(Plot.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        self.console.layout.show_visualization_toolbar()
+        page_name = self.console.layout.get_visualization_toolbar_title()
+
+        plot = Plot.__new__(Plot)
+        plot.client = client
+        plot.console = self.console
+        plot.page = self.page
+        plot.page_name = page_name
+        plot.data = {"Y1": [channel_name], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot
+
+    def open_plot_from_click(self, client: sy.Synnax, channel_name: str) -> "Plot":
+        """Open a channel's plot by double-clicking it in the sidebar.
+
+        :param client: Synnax client instance.
+        :param channel_name: The name of the channel to open.
+        :returns: Plot instance for the opened plot.
+        """
+        self.show_channels()
+        item = self._find_channel_item(channel_name)
+        if item is None:
+            raise ValueError(f"Channel {channel_name} not found")
+        item.dblclick()
+        plot = self._create_plot_instance(client, channel_name)
+        self.hide_channels()
+        return plot
+
+    def open_plot_from_search(self, client: sy.Synnax, channel_name: str) -> "Plot":
+        """Open a channel plot by searching its name in the command palette.
+
+        :param client: Synnax client instance.
+        :param channel_name: The name of the channel to search for and open.
+        :returns: Plot instance for the opened plot.
+        """
+        self.console.search_palette(channel_name)
+        return self._create_plot_instance(client, channel_name)
