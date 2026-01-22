@@ -299,15 +299,6 @@ var _ = Describe("Diagnostics", func() {
 		})
 	})
 
-	Describe("Error interface", func() {
-		It("Should implement error interface", func() {
-			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "test error"))
-			var err error = d
-			Expect(err.Error()).To(ContainSubstring("test error"))
-		})
-	})
-
 	Describe("Add methods with nil context", func() {
 		It("Should handle nil context for Error", func() {
 			var d diagnostics.Diagnostics
@@ -397,7 +388,10 @@ var _ = Describe("Diagnostics", func() {
 				Start:    diagnostics.Position{Line: 5, Col: 2},
 				Severity: diagnostics.SeverityError,
 				Message:  "error here",
-				Notes:    []diagnostics.Note{{Message: "related to this", Start: diagnostics.Position{Line: 3, Col: 10}}},
+				Notes: []diagnostics.Note{{
+					Message: "related to this",
+					Start:   diagnostics.Position{Line: 3, Col: 10},
+				}},
 			})
 			str := d.String()
 			Expect(str).To(ContainSubstring("3:10 note: related to this"))

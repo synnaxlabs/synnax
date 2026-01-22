@@ -56,7 +56,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	return channelToSymbol(ch), nil
 }
 
-func (r *channelResolver) ResolvePrefix(ctx context.Context, name string) ([]arc.Symbol, error) {
+func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol, error) {
 	var results []channel.Channel
 	if err := r.NewRetrieve().
 		WhereInternal(false).

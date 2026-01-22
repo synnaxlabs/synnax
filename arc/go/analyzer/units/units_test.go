@@ -118,9 +118,11 @@ var _ = Describe("Analysis", func() {
 		DescribeTable("invalid power operations",
 			func(baseUnit, expUnit string, isLiteral bool, expectedErr error, msgSubstring string) {
 				base, exp := makeType(baseUnit), makeType(expUnit)
-				err := units.ValidatePowerOp(base, exp, isLiteral)
-				Expect(err).To(MatchError(expectedErr))
-				Expect(err.Error()).To(ContainSubstring(msgSubstring))
+				Expect(units.ValidatePowerOp(base, exp, isLiteral)).
+					Error().To(SatisfyAll(
+					MatchError(expectedErr),
+					MatchError(ContainSubstring(msgSubstring)),
+				))
 			},
 			Entry("dimensioned exponent",
 				"m", "s", false,
@@ -156,9 +158,11 @@ var _ = Describe("Analysis", func() {
 
 		DescribeTable("invalid conversions",
 			func(from, to *types.Unit, expectedErr error, msgSubstring string) {
-				_, err := units.ScaleFactor(from, to)
-				Expect(err).To(MatchError(expectedErr))
-				Expect(err.Error()).To(ContainSubstring(msgSubstring))
+				Expect(units.ScaleFactor(from, to)).
+					Error().To(SatisfyAll(
+					MatchError(expectedErr),
+					MatchError(ContainSubstring(msgSubstring)),
+				))
 			},
 			Entry("incompatible dimensions",
 				MustBeOk(units.Resolve("psi")), MustBeOk(units.Resolve("s")),

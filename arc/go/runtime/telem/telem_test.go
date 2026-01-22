@@ -467,22 +467,20 @@ var _ = Describe("Telem", func() {
 					},
 				})
 				factory := rtelem.NewTelemFactory()
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
 						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
 					},
 					State: s.Node("read"),
-				})
-				Expect(err).ToNot(HaveOccurred())
-				sink, err := factory.Create(ctx, rnode.Config{
+				}))
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
 						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(3)}},
 					},
 					State: s.Node("write"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				ingestFr := telem.Frame[uint32]{}
 				ingestFr = ingestFr.Append(1, telem.NewSeriesV[int32](42, 99))
 				ingestFr = ingestFr.Append(2, telem.NewSeriesSecondsTSV(10, 20))

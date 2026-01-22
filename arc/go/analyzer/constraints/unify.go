@@ -53,6 +53,8 @@ func (e *UnificationError) Error() string { return e.Message }
 // GetHint implements diagnostics.HintProvider.
 func (e *UnificationError) GetHint() string { return e.Hint }
 
+var _ error = (*UnificationError)(nil)
+
 const maxUnificationIterations = 100
 
 // Unify solves all accumulated constraints by computing type variable substitutions.

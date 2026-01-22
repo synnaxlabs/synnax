@@ -28,18 +28,20 @@ class Node : public node::Node {
     std::vector<telem::SampleValue> inputs;
     std::vector<int> offsets;
     bool initialized = false;
+    bool is_expression = false;
 
 public:
     Node(const ir::Node &node, state::Node &&state, const Module::Function &func):
-        ir(node), state(std::move(state)), func(func) {
+        ir(node),
+        state(std::move(state)),
+        func(func),
+        is_expression(node.key.rfind("expression_", 0) == 0) {
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
     }
 
     xerrors::Error next(node::Context &ctx) override {
-        // For nodes with no inputs (stratum 0), only execute once per stage entry.
-        // The initialized flag is reset when the stage is re-entered via reset().
-        if (this->ir.inputs.empty()) {
+        if (!this->is_expression) {
             if (this->initialized) return xerrors::NIL;
             this->initialized = true;
         }
