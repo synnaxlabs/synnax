@@ -10,8 +10,6 @@
 package lsp
 
 import (
-	"strings"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/symbol"
