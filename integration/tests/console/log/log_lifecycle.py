@@ -75,9 +75,9 @@ class LogLifecycle(ConsoleCase):
         self.test_ctx_rename_log()
         self.test_ctx_copy_link()
         self.test_ctx_export_json()
-        #self.test_ctx_group_logs()
-        #self.test_ctx_delete_multiple_logs()
-        #self.test_ctx_delete_log() # Delete this log! 
+        self.test_ctx_group_logs()
+        self.test_ctx_delete_multiple_logs()
+        self.test_ctx_delete_log()
 
     def test_no_channel_configured(self, log: Log) -> None:
         """Test that log shows 'No channel configured' when no channel is set."""
@@ -305,7 +305,7 @@ class LogLifecycle(ConsoleCase):
             f"Log Group {prefix}"
         ), "Group should exist after grouping"
 
-        self.console.workspace.delete_page(f"Log Group {prefix}")
+        self.console.workspace.delete_group(f"Log Group {prefix}")
 
     def test_ctx_export_json(self) -> None:
         """Test exporting a log as JSON via context menu."""

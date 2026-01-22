@@ -176,6 +176,30 @@ class WorkspaceClient:
         self.refresh_tree()
         self.console.close_nav_drawer()
 
+    def delete_group(self, name: str) -> None:
+        """Delete a group via context menu.
+
+        Groups are deleted immediately without a confirmation dialog (unlike pages).
+        The context menu shows "Delete" for collapsed groups and "Ungroup" for expanded
+        groups with visible children.
+
+        Args:
+            name: Name of the group to delete
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+        menu = self.page.locator(".pluto-menu-context")
+        menu.wait_for(state="visible", timeout=2000)
+        delete_item = menu.get_by_text("Delete", exact=True)
+        ungroup_item = menu.get_by_text("Ungroup", exact=True)
+        if delete_item.count() > 0:
+            delete_item.click(timeout=5000)
+        else:
+            ungroup_item.click(timeout=5000)
+        self.console.close_nav_drawer()
+
     def delete_pages(self, names: list[str]) -> None:
         """Delete multiple pages via multi-select and context menu.
 
