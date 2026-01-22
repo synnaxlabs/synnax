@@ -44,3 +44,14 @@ class Log(ConsolePage):
     def set_channel(self, channel_name: str) -> None:
         self.console.click_btn("Channel")
         self.console.select_from_dropdown(channel_name, "Select a Channel")
+
+    def has_channel(self, channel_name: str) -> bool:
+        """Check if a channel is shown in the Log toolbar."""
+        self.console.layout.get_tab(self.page_name).click()
+        self.console.layout.show_visualization_toolbar()
+        channel_btn = (
+            self.page.locator("text=Channel").locator("..").locator("button").first
+        )
+        channel_text = channel_btn.inner_text().strip()
+        result = channel_name in channel_text
+        return result

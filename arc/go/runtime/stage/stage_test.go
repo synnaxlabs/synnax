@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -74,8 +75,7 @@ var _ = Describe("Stage", func() {
 				Node:  ir.Node{Key: "stage_entry_1", Type: "stage_entry"},
 				State: s.Node("stage_entry_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 
@@ -131,8 +131,7 @@ var _ = Describe("Stage", func() {
 				Node:  ir.Node{Key: "test_seq_test_stage_entry", Type: "stage_entry"},
 				State: s.Node("test_seq_test_stage_entry"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 
 			// Set source output to activation signal (1)
 			sourceNode := s.Node("source")
@@ -158,8 +157,7 @@ var _ = Describe("Stage", func() {
 				Node:  ir.Node{Key: "test_seq_test_stage_entry", Type: "stage_entry"},
 				State: s.Node("test_seq_test_stage_entry"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 
 			// Set source output to non-activation signal (0)
 			sourceNode := s.Node("source")
@@ -185,8 +183,7 @@ var _ = Describe("Stage", func() {
 				Node:  ir.Node{Key: "test_seq_test_stage_entry", Type: "stage_entry"},
 				State: s.Node("test_seq_test_stage_entry"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			nodeCtx := node.Context{
 				Context:       ctx,
 				MarkChanged:   func(string) {},

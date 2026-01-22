@@ -113,6 +113,12 @@ func (s *BaseArcParserListener) EnterStageItem(ctx *StageItemContext) {}
 // ExitStageItem is called when production stageItem is exited.
 func (s *BaseArcParserListener) ExitStageItem(ctx *StageItemContext) {}
 
+// EnterSingleInvocation is called when production singleInvocation is entered.
+func (s *BaseArcParserListener) EnterSingleInvocation(ctx *SingleInvocationContext) {}
+
+// ExitSingleInvocation is called when production singleInvocation is exited.
+func (s *BaseArcParserListener) ExitSingleInvocation(ctx *SingleInvocationContext) {}
+
 // EnterFlowStatement is called when production flowStatement is entered.
 func (s *BaseArcParserListener) EnterFlowStatement(ctx *FlowStatementContext) {}
 
@@ -256,12 +262,6 @@ func (s *BaseArcParserListener) EnterReturnStatement(ctx *ReturnStatementContext
 
 // ExitReturnStatement is called when production returnStatement is exited.
 func (s *BaseArcParserListener) ExitReturnStatement(ctx *ReturnStatementContext) {}
-
-// EnterFunctionCall is called when production functionCall is entered.
-func (s *BaseArcParserListener) EnterFunctionCall(ctx *FunctionCallContext) {}
-
-// ExitFunctionCall is called when production functionCall is exited.
-func (s *BaseArcParserListener) ExitFunctionCall(ctx *FunctionCallContext) {}
 
 // EnterType is called when production type is entered.
 func (s *BaseArcParserListener) EnterType(ctx *TypeContext) {}

@@ -16,12 +16,29 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 )
+
+func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
+	name := ctx.AST.IDENTIFIER().GetText()
+	funcType := resolveFunc(ctx, name)
+	if funcType == nil {
+		return
+	}
+	validateFuncConfig(ctx, name, funcType.Type, ctx.AST.ConfigValues(), ctx.AST)
+	for _, input := range funcType.Type.Inputs {
+		if input.Value == nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"standalone function '%s' has required input '%s' with no source; "+
+					"use in a flow statement or provide a default value",
+				name, input.Name))
+		}
+	}
+}
 
 // Analyze validates a flow statement's node chain and routing tables.
 func Analyze(ctx context.Context[parser.IFlowStatementContext]) {
@@ -49,7 +66,7 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		analyzeExpression(context.Child(ctx, expr))
+		AnalyzeSingleExpression(context.Child(ctx, expr))
 		return
 	}
 	// NEXT is always valid - it will be resolved during sequence analysis.
@@ -78,24 +95,21 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		idName := prevIDNode.IDENTIFIER().GetText()
 		idSym, err := ctx.Scope.Resolve(ctx, idName)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, prevIDNode)
+			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return
 		}
 		// When used as a source, identifier must be a channel
 		if idSym.Kind != symbol.KindChannel {
-			ctx.Diagnostics.AddError(
-				errors.Newf("%s is not a channel", idName),
-				prevIDNode,
-			)
+			ctx.Diagnostics.Add(diagnostics.Errorf(prevIDNode, "%s is not a channel", idName))
 			return
 		}
 		if len(funcType.Type.Inputs) > 0 {
 			param := funcType.Type.Inputs[0]
 			if idSym.Type.Kind != types.KindChan {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"%s is not a valid channel",
 					idName,
-				), ctx.AST)
+				))
 				return
 			}
 			chanValueType := idSym.Type.Unwrap()
@@ -106,13 +120,13 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 				ctx.AST,
 				"channel to func parameter connection",
 			); err != nil {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"channel %s value type %s does not match func %s parameter type %s",
 					idName,
 					chanValueType,
 					name,
 					param,
-				), ctx.AST)
+				))
 				return
 			}
 		}
@@ -127,12 +141,12 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 				ctx.AST,
 				"expression to func parameter connection",
 			); err != nil {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"expression type %s does not match func %s parameter type %s",
 					exprType,
 					name,
 					param.Type,
-				), ctx.AST)
+				))
 				return
 			}
 		}
@@ -154,10 +168,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		}
 
 		if !hasRoutingTableBetween && len(funcType.Type.Inputs) > 1 {
-			ctx.Diagnostics.AddError(
-				errors.Newf("%s has more than one parameter", name),
-				ctx.AST,
-			)
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s has more than one parameter", name))
 			return
 		}
 		if !hasRoutingTableBetween && len(funcType.Type.Inputs) > 0 {
@@ -166,32 +177,44 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			if outputType, ok := prevFuncType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				prevOutputType = outputType.Type
 			} else if len(prevFuncType.Type.Outputs) > 0 {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"func '%s' has named outputs and requires a routing table",
 					prevFuncName,
-				), ctx.AST)
+				))
+				return
+			} else {
+				// Void function (no outputs) cannot feed into a function expecting input
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+					"func '%s' has no return value but '%s' expects an input parameter",
+					prevFuncName,
+					name,
+				))
 				return
 			}
 			if err := atypes.Check(ctx.Constraints, prevOutputType, t, ctx.AST,
 				"flow connection between fns"); err != nil {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"return type %s of %s is not equal to argument type %s of %s",
 					prevOutputType,
 					prevFuncName,
 					t,
 					name,
-				), ctx.AST)
+				))
 				return
 			}
 		}
 	}
 }
 
-func analyzeIdentifier(ctx context.Context[parser.IIdentifierContext], prevNode parser.IFlowNodeContext, isLastNode bool) {
+func analyzeIdentifier(
+	ctx context.Context[parser.IIdentifierContext],
+	prevNode parser.IFlowNodeContext,
+	isLastNode bool,
+) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
 
@@ -208,10 +231,10 @@ func analyzeIdentifier(ctx context.Context[parser.IIdentifierContext], prevNode 
 				ctx.AST,
 				"expression to channel sink",
 			); err != nil {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"expression type %s does not match channel %s value type %s",
 					exprType, name, chanValueType,
-				), ctx.AST)
+				))
 				return
 			}
 		}
@@ -224,11 +247,11 @@ func resolveFunc[T antlr.ParserRuleContext](
 ) *symbol.Scope {
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nil
 	}
 	if sym.Kind != symbol.KindFunction {
-		ctx.Diagnostics.AddError(errors.Newf("%s is not a function", name), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a function", name))
 		return nil
 	}
 	return sym
@@ -252,10 +275,12 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 			configParams[key] = true
 			expectedType, exists := fnType.Config.Get(key)
 			if !exists {
-				ctx.Diagnostics.AddError(
-					errors.Newf("unknown config parameter '%s' for func '%s'", key, fnName),
+				ctx.Diagnostics.Add(diagnostics.Errorf(
 					configVal,
-				)
+					"unknown config parameter '%s' for func '%s'",
+					key,
+					fnName,
+				))
 				continue
 			}
 			if expr := configVal.Expression(); expr != nil {
@@ -264,48 +289,53 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 				exprType := atypes.InferFromExpression(childCtx)
 				if err := atypes.Check(ctx.Constraints, expectedType.Type, exprType, configVal,
 					"config parameter '"+key+"' for func '"+fnName+"'"); err != nil {
-					ctx.Diagnostics.AddError(
-						errors.Newf(
-							"type mismatch: config parameter '%s' expects %s but got %s",
-							key,
-							expectedType.Type,
-							exprType,
-						),
+					ctx.Diagnostics.Add(diagnostics.Errorf(
 						configVal,
-					)
+						"type mismatch: config parameter '%s' expects %s but got %s",
+						key,
+						expectedType.Type,
+						exprType,
+					))
 				}
 			}
 		}
 	} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
-		ctx.Diagnostics.AddError(
-			errors.Newf("anonymous configuration values are not supported"),
+		ctx.Diagnostics.Add(diagnostics.Errorf(
 			anonVals,
-		)
+			"anonymous configuration values are not supported",
+		))
 		return
 	}
 
 	for _, param := range fnType.Config {
 		if !configParams[param.Name] {
-			ctx.Diagnostics.AddError(
-				errors.Newf("missing required config parameter '%s' for func '%s'", param.Name, fnName),
+			ctx.Diagnostics.Add(diagnostics.Errorf(
 				configNode,
-			)
+				"missing required config parameter '%s' for func '%s'",
+				param.Name,
+				fnName,
+			))
 		}
 	}
 }
 
 func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
-	// Find the parent flow statement
 	flowStmt, ok := ctx.AST.GetParent().(parser.IFlowStatementContext)
 	if !ok {
-		ctx.Diagnostics.AddError(errors.New("routing table must be part of a flow statement"), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"routing table must be part of a flow statement",
+		))
 		return
 	}
 
 	tables := flowStmt.AllRoutingTable()
 
 	if len(tables) != 1 || tables[0] != ctx.AST {
-		ctx.Diagnostics.AddError(errors.New("unexpected routing table configuration"), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"unexpected routing table configuration",
+		))
 		return
 	}
 
@@ -331,7 +361,10 @@ func analyzeRoutingTable(ctx context.Context[parser.IRoutingTableContext]) {
 	} else if len(nodesBefore) > 0 {
 		analyzeOutputRoutingTable(ctx, nodesBefore, nodesAfter)
 	} else {
-		ctx.Diagnostics.AddError(errors.New("routing table must have associated flow nodes"), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"routing table must have associated flow nodes",
+		))
 	}
 }
 
@@ -349,7 +382,10 @@ func analyzeOutputRoutingTable(
 	}
 
 	if PrevFunc == nil {
-		ctx.Diagnostics.AddError(errors.New("output routing table must follow a func invocation"), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"output routing table must follow a func invocation",
+		))
 		return
 	}
 
@@ -362,10 +398,11 @@ func analyzeOutputRoutingTable(
 	_, hasDefaultOutput := fnType.Type.Outputs.Get(ir.DefaultOutputParam)
 	hasNamedOutputs := len(fnType.Type.Outputs) > 1 || (len(fnType.Type.Outputs) == 1 && !hasDefaultOutput)
 	if !hasNamedOutputs {
-		ctx.Diagnostics.AddError(
-			errors.Newf("func '%s' does not have named outputs, cannot use routing table", fnName),
+		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
-		)
+			"func '%s' does not have named outputs, cannot use routing table",
+			fnName,
+		))
 		return
 	}
 
@@ -391,10 +428,12 @@ func analyzeOutputRoutingTable(
 
 		outputType, exists := fnType.Type.Outputs.Get(outputName)
 		if !exists {
-			ctx.Diagnostics.AddError(
-				errors.Newf("func '%s' does not have output '%s'", fnName, outputName),
+			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
-			)
+				"func '%s' does not have output '%s'",
+				fnName,
+				outputName,
+			))
 			continue
 		}
 
@@ -403,22 +442,20 @@ func analyzeOutputRoutingTable(
 			targetParamName = entry.IDENTIFIER(1).GetText()
 
 			if nextFunc == nil {
-				ctx.Diagnostics.AddError(
-					errors.New("parameter mapping requires a func after the routing table"),
+				ctx.Diagnostics.Add(diagnostics.Errorf(
 					entry,
-				)
+					"parameter mapping requires a func after the routing table",
+				))
 				continue
 			}
 
 			if _, exists := nextFuncType.Inputs.Get(targetParamName); !exists {
-				ctx.Diagnostics.AddError(
-					errors.Newf(
-						"func '%s' does not have parameter '%s'",
-						nextFunc.IDENTIFIER().GetText(),
-						targetParamName,
-					),
+				ctx.Diagnostics.Add(diagnostics.Errorf(
 					entry,
-				)
+					"func '%s' does not have parameter '%s'",
+					nextFunc.IDENTIFIER().GetText(),
+					targetParamName,
+				))
 				continue
 			}
 		}
@@ -431,7 +468,12 @@ func analyzeOutputRoutingTable(
 			if isLastNode && targetParamName != "" {
 				targetParam = &targetParamName
 			}
-			analyzeRoutingTargetWithParam(context.Child(ctx, flowNode), outputType.Type, nextFuncType, targetParam)
+			analyzeRoutingTargetWithParam(
+				context.Child(ctx, flowNode),
+				outputType.Type,
+				nextFuncType,
+				targetParam,
+			)
 		}
 	}
 }
@@ -449,7 +491,7 @@ func analyzeInputRoutingTable(
 	}
 
 	if nextFunc == nil {
-		ctx.Diagnostics.AddError(errors.New("input routing table must precede a func invocation"), ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "input routing table must precede a func invocation"))
 		return
 	}
 
@@ -462,16 +504,16 @@ func analyzeInputRoutingTable(
 	for _, entry := range ctx.AST.AllRoutingEntry() {
 		flowNodes := entry.AllFlowNode()
 		if len(flowNodes) == 0 {
-			ctx.Diagnostics.AddError(errors.New("routing entry must have at least one target"), entry)
+			ctx.Diagnostics.Add(diagnostics.Errorf(entry, "routing entry must have at least one target"))
 			continue
 		}
 
 		lastNode := flowNodes[len(flowNodes)-1]
 		if lastNode.Identifier() == nil {
-			ctx.Diagnostics.AddError(
-				errors.New("last element in input routing entry must be a parameter name (identifier)"),
+			ctx.Diagnostics.Add(diagnostics.Errorf(
 				lastNode,
-			)
+				"last element in input routing entry must be a parameter name (identifier)",
+			))
 			continue
 		}
 
@@ -479,10 +521,12 @@ func analyzeInputRoutingTable(
 
 		paramType, exists := fnType.Type.Inputs.Get(paramName)
 		if !exists {
-			ctx.Diagnostics.AddError(
-				errors.Newf("func '%s' does not have parameter '%s'", fnName, paramName),
+			ctx.Diagnostics.Add(diagnostics.Errorf(
 				lastNode,
-			)
+				"func '%s' does not have parameter '%s'",
+				fnName,
+				paramName,
+			))
 			continue
 		}
 
@@ -524,23 +568,23 @@ func analyzeRoutingTargetWithParam(
 			if outType, ok := fnType.Type.Outputs.Get(ir.DefaultOutputParam); ok {
 				outputType = outType.Type
 			} else if len(fnType.Type.Outputs) > 0 {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"func '%s' has named outputs and requires explicit output selection",
 					fnName,
-				), ctx.AST)
+				))
 				return
 			}
 
 			if param, exists := nextFuncType.Inputs.Get(*targetParam); exists {
 				if err := atypes.Check(ctx.Constraints, outputType, param.Type, ctx.AST,
 					"routing table parameter mapping"); err != nil {
-					ctx.Diagnostics.AddError(errors.Newf(
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 						"type mismatch: func %s output type %s does not match target parameter %s type %s",
 						fnName,
 						outputType,
 						*targetParam,
 						param,
-					), ctx.AST)
+					))
 					return
 				}
 			}
@@ -549,12 +593,12 @@ func analyzeRoutingTargetWithParam(
 				param := fnType.Type.Inputs[0]
 				if err := atypes.Check(ctx.Constraints, sourceType, param.Type, ctx.AST,
 					"routing table output to func parameter"); err != nil {
-					ctx.Diagnostics.AddError(errors.Newf(
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 						"type mismatch: output type %s does not match func %s parameter type %s",
 						sourceType,
 						fnName,
 						param.Type,
-					), ctx.AST)
+					))
 					return
 				}
 			}
@@ -563,16 +607,13 @@ func analyzeRoutingTargetWithParam(
 		idName := idNode.IDENTIFIER().GetText()
 		idSym, err := ctx.Scope.Resolve(ctx, idName)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
 		}
 
 		// Allow both channels and sequences as routing targets
 		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence {
-			ctx.Diagnostics.AddError(
-				errors.Newf("%s is not a channel or sequence", idName),
-				ctx.AST,
-			)
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a channel or sequence", idName))
 			return
 		}
 
@@ -586,16 +627,16 @@ func analyzeRoutingTargetWithParam(
 				ctx.AST,
 				"routing table output to channel",
 			); err != nil {
-				ctx.Diagnostics.AddError(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"type mismatch: output type %s does not match channel %s value type %s",
 					sourceType,
 					idName,
 					valueType,
-				), ctx.AST)
+				))
 				return
 			}
 		}
 	} else if expr := ctx.AST.Expression(); expr != nil {
-		analyzeExpression(context.Child(ctx, expr))
+		AnalyzeSingleExpression(context.Child(ctx, expr))
 	}
 }

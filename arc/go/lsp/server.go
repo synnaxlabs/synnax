@@ -289,7 +289,8 @@ func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagn
 			end.Line = diag.Start.Line
 			end.Col = diag.Start.Col + 1
 		}
-		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
+
+		pDiag := protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
 					Line:      uint32(diag.Start.Line - 1),
@@ -303,7 +304,39 @@ func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagn
 			Severity: severity(diag.Severity),
 			Source:   "arc",
 			Message:  diag.Message,
-		})
+		}
+
+		if diag.Code != "" {
+			pDiag.Code = string(diag.Code)
+		}
+
+		if len(diag.Notes) > 0 {
+			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
+			for _, note := range diag.Notes {
+				loc := protocol.Location{
+					Range: protocol.Range{
+						Start: protocol.Position{
+							Line:      uint32(note.Start.Line - 1),
+							Character: uint32(note.Start.Col),
+						},
+						End: protocol.Position{
+							Line:      uint32(note.Start.Line - 1),
+							Character: uint32(note.Start.Col + 1),
+						},
+					},
+				}
+				if note.Start.Line == 0 {
+					loc.Range = pDiag.Range
+				}
+				related = append(related, protocol.DiagnosticRelatedInformation{
+					Location: loc,
+					Message:  note.Message,
+				})
+			}
+			pDiag.RelatedInformation = related
+		}
+
+		oDiagnostics = append(oDiagnostics, pDiag)
 	}
 	return oDiagnostics
 }

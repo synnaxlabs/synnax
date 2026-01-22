@@ -87,6 +87,14 @@ using the default for now.  */
     border-radius: calc(var(--pluto-border-radius) * 2) !important;
     box-shadow: var(--pluto-shadow-v1) !important;
     overflow: hidden !important;
+    height: auto !important;
+}
+
+/* Override Monaco's fixed height on all nested containers */
+.monaco-editor .monaco-hover,
+.monaco-editor .monaco-hover .monaco-scrollable-element,
+.monaco-editor .monaco-hover .monaco-hover-content {
+    height: auto !important;
 }
 
 /* Hover content wrapper */
@@ -114,27 +122,59 @@ using the default for now.  */
 
 /* Diagnostic/marker rows (errors, warnings) */
 .monaco-editor .monaco-hover .marker.hover-contents {
-    display: flex !important;
-    align-items: center !important;
+    display: block !important;
     width: calc(100% - 1px) !important;
-    gap: 1rem !important;
+    max-width: 450px !important;
     padding: 1.5rem 2rem !important;
     background: var(--pluto-error-z-10) !important;
-    border: 1px solid var(--pluto-error-z) !important;
+    border: 1px solid var(--pluto-error-z-70) !important;
     border-radius: 1rem !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
     font-family: var(--pluto-font-family) !important;
-    justify-content: center !important;
+
+    /* Main error message */
     & > span:first-child {
         color: var(--pluto-gray-l10) !important;
         font-size: var(--pluto-p-size) !important;
-        line-height: 1.5 !important;
-        white-space: pre-wrap !important;
-        flex: 1 !important;
+        display: inline !important;
+        margin-right: 1rem !important;
     }
-    & > span:last-child {
-        display: none !important;
+
+    /* Error code (e.g., arc) - inline after message */
+    & > span:nth-child(2) {
+        display: inline-block !important;
+        padding: 0.25rem 0.75rem !important;
+        border: var(--pluto-border);
+        font-size: var(--pluto-small-size) !important;
+        color: var(--pluto-gray-l10) !important;
+        background: var(--pluto-gray-l0) !important;
+        border-radius: var(--pluto-border-radius) !important;
+        white-space: nowrap !important;
+        vertical-align: middle !important;
+    }
+
+    /* Related information container */
+    & > div {
+        display: block !important;
+        width: 100% !important;
+        margin-top: 0.75rem !important;
+        padding-top: 0.75rem !important;
+        border-top: 1px solid var(--pluto-error-z-30) !important;
+
+        /* Hide the location link (e.g., "(2, 25): ") */
+        & > a {
+            display: none !important;
+        }
+
+        /* Signature/note text */
+        & > span {
+            display: block !important;
+            font-family: var(--pluto-code-font-family) !important;
+            font-size: calc(var(--pluto-p-size) * 0.9) !important;
+            color: var(--pluto-gray-l9) !important;
+            line-height: 1.4 !important;
+        }
     }
 }
 
@@ -276,8 +316,7 @@ using the default for now.  */
     min-width: 25rem;
 }
 
-/* ===== Monaco Rename Widget - Pluto Styled ===== */
-
+/* Rename Widget */
 .monaco-editor.rename-box {
     background: var(--pluto-gray-l2) !important;
     border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;

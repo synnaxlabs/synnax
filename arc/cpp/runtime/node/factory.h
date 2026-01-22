@@ -20,11 +20,12 @@
 
 namespace arc::runtime::node {
 struct Config {
+    const ir::IR &prog;
     ir::Node node;
     state::Node state;
 
-    Config(ir::Node node, state::Node &&state):
-        node(std::move(node)), state(std::move(state)) {}
+    Config(const ir::IR &prog, ir::Node node, state::Node &&state):
+        prog(prog), node(std::move(node)), state(std::move(state)) {}
 
     Config(Config &&) = default;
     Config &operator=(Config &&) = delete;
