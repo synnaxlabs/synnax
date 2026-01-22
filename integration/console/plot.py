@@ -45,11 +45,20 @@ class Plot(ConsolePage):
         plot_pane = console.page.locator(cls.pluto_label)
         plot_pane.first.wait_for(state="visible", timeout=5000)
 
+        tabs = console.page.locator(".pluto-tabs-selector div").filter(
+            has=console.page.locator("[aria-label='pluto-tabs__close']")
+        )
+        tab_count = tabs.count()
+        actual_tab_name = "Line Plot"
+        if tab_count > 0:
+            last_tab = tabs.nth(tab_count - 1)
+            actual_tab_name = last_tab.inner_text().strip()
+
         plot = cls.__new__(cls)
         plot.client = client
         plot.console = console
         plot.page = console.page
-        plot.page_name = name
+        plot.page_name = actual_tab_name
         plot.pane_locator = plot_pane.first
         plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
         return plot

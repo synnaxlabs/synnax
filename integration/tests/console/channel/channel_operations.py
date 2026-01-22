@@ -33,7 +33,7 @@ class ChannelOperations(ConsoleCase):
         self.suffix = get_random_name()
         self._create_shared_channels()
         self._create_shared_calc_channels()
-        sy.sleep(0.5)
+        sy.sleep(1.0)
 
     def _create_shared_calc_channels(self) -> None:
         """Create shared calculated channels for reuse across tests."""
@@ -302,14 +302,17 @@ class ChannelOperations(ConsoleCase):
         updated_multiplier = 30
         updated_expr = f"return {SRC_CH} * {updated_multiplier}"
 
-        uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
-        calc_val = int(client.read_latest(self.calc_editable, n=1)[-1])
+        frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
+        uptime_val = int(frame[SRC_CH][-1])
+        calc_val = int(frame[self.calc_editable][-1])
         expected_val = uptime_val * initial_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
         console.channels.edit_calculated(self.calc_editable, updated_expr)
-        uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
-        calc_val = int(client.read_latest(self.calc_editable, n=1)[-1])
+        sy.sleep(0.2)
+        frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
+        uptime_val = int(frame[SRC_CH][-1])
+        calc_val = int(frame[self.calc_editable][-1])
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 

@@ -66,7 +66,10 @@ class ConsolePage:
         Ignore unsaved changes.
         """
         tab = self._get_tab()
-        tab.get_by_label("pluto-tabs__close").click()
+        tab.wait_for(state="visible", timeout=5000)
+        close_button = tab.get_by_label("pluto-tabs__close")
+        close_button.wait_for(state="visible", timeout=5000)
+        close_button.click()
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
