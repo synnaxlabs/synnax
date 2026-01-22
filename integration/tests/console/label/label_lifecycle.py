@@ -122,7 +122,6 @@ class LabelLifecycle(ConsoleCase):
         self.log(f"Label {label_name} visible in toolbar for range {range_name}")
 
         self.console.labels.delete(label_name)
-        self.page.wait_for_timeout(1000)
         assert not self.console.ranges.label_exists_in_toolbar(
             range_name, label_name
         ), f"Label {label_name} should not be visible in toolbar for range {range_name}"
