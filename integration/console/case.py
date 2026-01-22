@@ -90,11 +90,15 @@ class ConsoleCase(TestCase):
 
         self.page.wait_for_load_state("networkidle")
 
-        # Initialize Console interface
+        # Initialize Console interface & Workspace
         self.console = Console(self.page)
         self.page.wait_for_selector("text=Get Started", timeout=5000)
         self.console.workspace.ensure_selected("TestSpace")
         self.log("Selected default workspace 'TestSpace'")
+
+        # Prevent state pollution 
+        # Selecting workspace restores tabs
+        self.console.close_all_tabs()
 
     def teardown(self) -> None:
         self.context.close()

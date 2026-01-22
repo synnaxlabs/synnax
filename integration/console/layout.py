@@ -9,6 +9,7 @@
 
 import random
 import re
+import synnax as sy
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
@@ -82,19 +83,39 @@ class LayoutClient:
             old_name: Current name of the tab
             new_name: New name for the tab
         """
+
         self.console.close_nav_drawer()
         tab = self.get_tab(old_name)
         tab.wait_for(state="visible", timeout=5000)
 
         modality = random.choice(["dblclick", "context_menu"])
+
+        # Ensure focus
+        tab.click()
+
         if modality == "dblclick":
             tab.locator("p").first.dblclick()
         else:
             tab.locator("p").click(button="right")
-            self.page.get_by_text("Rename").first.click()
+            context_menu = self.page.locator(".pluto-menu-context")
+            context_menu.wait_for(state="visible", timeout=2000)
+            rename_option = context_menu.get_by_text("Rename").first
+            rename_option.wait_for(state="visible", timeout=2000)
+            rename_option.click()
+
+        # The tab name uses Text.Editable which becomes contentEditable (not an input)
+        editable_text = tab.locator("p[contenteditable='true']").first
+        try:
+            editable_text.wait_for(state="visible", timeout=3000)
+        except Exception:
+            # Fallback to more general selector
+            editable_text = tab.locator(".pluto-text--editable[contenteditable='true']").first
+            editable_text.wait_for(state="visible", timeout=2000)
+
         self.console.select_all_and_type(new_name)
         self.console.ENTER
-        self.page.wait_for_timeout(200)
+
+        sy.sleep(0.3)
         self.get_tab(new_name).wait_for(state="visible", timeout=10000)
 
     def split_horizontal(self, tab_name: str) -> None:
@@ -137,13 +158,21 @@ class LayoutClient:
         bottom_drawer.wait_for(state="visible", timeout=5000)
 
     def hide_visualization_toolbar(self) -> None:
-        """Hide the visualization toolbar by pressing V."""
+        """Hide the visualization toolbar by pressing Escape then V."""
         bottom_drawer = self.page.locator(
             ".console-nav__drawer.pluto--location-bottom.pluto--visible"
         )
-        if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
-            # Click on mosaic area to ensure focus before toggling
-            self.page.locator(".console-mosaic").first.click()
+        if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
+            return
+
+        self.page.keyboard.press("Escape")
+        self.page.keyboard.press("V")
+
+        try:
+            bottom_drawer.wait_for(state="hidden", timeout=2000)
+        except Exception:
+            # Fallback: click tab area for focus, then press V
+            self.page.locator(".pluto-tabs-selector__btn").first.click()
             self.page.keyboard.press("V")
             bottom_drawer.wait_for(state="hidden", timeout=5000)
 

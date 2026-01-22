@@ -261,7 +261,10 @@ class Console:
             ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
         )
         items = self.page.locator(f"div[id^='{resource}:']")
-        if nav_drawer.count() > 0 and items.count() > 0 and items.first.is_visible():
+        drawer_count = nav_drawer.count()
+        items_count = items.count()
+        items_visible = items.first.is_visible() if items_count > 0 else False
+        if drawer_count > 0 and items_count > 0 and items_visible:
             return
 
         button = self.page.locator("button.console-main-nav__item").filter(
@@ -287,8 +290,32 @@ class Console:
         drawer_class = nav_drawer.first.get_attribute("class") or ""
         is_expanded = "pluto--expanded" in drawer_class
         if is_expanded:
+            # First click: collapse from expanded to anchored
             active_nav_btn.click()
-        active_nav_btn.click()
+
+            try:
+                self.page.locator(
+                    ".console-nav__drawer.pluto--visible.pluto--expanded:not(.pluto--location-bottom)"
+                ).wait_for(state="hidden", timeout=000)
+            except Exception:
+                # Retry
+                active_nav_btn.click()
+                sy.sleep(0.2)
+
+            anchored_drawer = self.page.locator(
+                ".console-nav__drawer.pluto--visible:not(.pluto--expanded):not(.pluto--location-bottom)"
+            )
+            if anchored_drawer.count() > 0 and anchored_drawer.first.is_visible():
+                # Re-find the selected button to close anchored drawer
+                selected_btn = self.page.locator(
+                    "button.console-main-nav__item.pluto--selected"
+                ).first
+                if selected_btn.count() > 0:
+                    selected_btn.click()
+        else:
+            # Drawer is anchored (not expanded), single click closes it
+            active_nav_btn.click()
+
         nav_drawer.wait_for(state="hidden", timeout=5000)
 
     def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
@@ -594,3 +621,49 @@ class Console:
         self.page.reload()
         self.page.wait_for_load_state("load", timeout=30000)
         self.page.wait_for_load_state("networkidle", timeout=30000)
+
+    def _dismiss_unsaved_changes_dialog(self) -> None:
+        """Dismiss the 'Lose Unsaved Changes' dialog if present."""
+        if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
+            self.page.get_by_role("button", name="Confirm").click()
+
+    def _find_tab_to_close(self, except_tabs: list[str]) -> Locator | None:
+        """Find the first tab that should be closed.
+
+        Skips tabs that become stale during iteration (can happen if DOM updates).
+        """
+        for tab in self.page.locator(".pluto-tabs-selector__btn").all():
+            try:
+                name = tab.inner_text(timeout=1000).strip()
+            except TimeoutError:
+                continue  # Tab became stale, skip it
+            if name not in except_tabs:
+                return tab
+        return None
+
+    def close_all_tabs(self, except_tabs: list[str] | None = None) -> None:
+        """Close all tabs except specified ones.
+
+        Args:
+            except_tabs: Tab names to keep open. Defaults to ["Get Started"].
+
+        Raises:
+            RuntimeError: If tabs remain open after max iterations.
+        """
+        if except_tabs is None:
+            except_tabs = ["Get Started"]
+
+        self.close_nav_drawer()
+
+        max_iterations = 4
+        for _ in range(max_iterations):
+            tab = self._find_tab_to_close(except_tabs)
+            if tab is None:
+                return
+            tab.get_by_label("pluto-tabs__close").click()
+            self._dismiss_unsaved_changes_dialog()
+
+        remaining = self._find_tab_to_close(except_tabs)
+        if remaining is not None:
+            name = remaining.inner_text(timeout=1000).strip()
+            raise RuntimeError(f"Failed to close all tabs after {max_iterations} iterations. Remaining: '{name}'")

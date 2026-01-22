@@ -62,9 +62,8 @@ class WorkspaceClient:
             )
         except Exception:
             return False
-        return (
-            self.page.locator("div[id^='workspace:']").filter(has_text=name).count() > 0
-        )
+        count = self.page.locator("div[id^='workspace:']").filter(has_text=name).count()
+        return count > 0
 
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
@@ -396,7 +395,6 @@ class WorkspaceClient:
         """
         self.create(name)
         self.select(name)
-        self.console.close_nav_drawer()
 
     def _create_plot_instance(self, client: sy.Synnax, page_name: str) -> "Plot":
         """Create a Plot instance after a line plot becomes visible.
