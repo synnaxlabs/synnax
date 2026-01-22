@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/compare"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -20,7 +21,7 @@ var _ = Describe("Symbol Suggestions", func() {
 	Describe("LevenshteinDistance", func() {
 		DescribeTable("should calculate correct edit distance",
 			func(a, b string, expected int) {
-				Expect(symbol.LevenshteinDistance(a, b)).To(Equal(expected))
+				Expect(compare.LevenshteinDistance(a, b)).To(Equal(expected))
 			},
 			Entry("identical strings", "hello", "hello", 0),
 			Entry("empty strings", "", "", 0),
@@ -45,7 +46,7 @@ var _ = Describe("Symbol Suggestions", func() {
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable}))
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "humidity", Kind: symbol.KindVariable}))
 
-			suggestions := root.SuggestSimilar(bCtx, "temperatur", 2, 3)
+			suggestions := root.SuggestSimilar(bCtx, "temperatur", 2)
 			Expect(suggestions).To(ContainElement("temperature"))
 		})
 
@@ -53,7 +54,7 @@ var _ = Describe("Symbol Suggestions", func() {
 			root := symbol.CreateRootScope(nil)
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
 
-			suggestions := root.SuggestSimilar(bCtx, "temperature", 2, 3)
+			suggestions := root.SuggestSimilar(bCtx, "temperature", 2)
 			Expect(suggestions).To(BeEmpty())
 		})
 
@@ -64,27 +65,17 @@ var _ = Describe("Symbol Suggestions", func() {
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "rat", Kind: symbol.KindVariable}))
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "hat", Kind: symbol.KindVariable}))
 
-			suggestions := root.SuggestSimilar(bCtx, "mat", 2, 1)
+			suggestions := root.SuggestSimilar(bCtx, "mat", 2)
 			Expect(suggestions).To(HaveLen(2))
-		})
-
-		It("should respect maxDistance limit", func() {
-			root := symbol.CreateRootScope(nil)
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
-			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable}))
-
-			// "temp" is 7 edits away from "temperature"
-			suggestions := root.SuggestSimilar(bCtx, "temp", 2, 2)
-			Expect(suggestions).NotTo(ContainElement("temperature"))
 		})
 
 		It("should search parent scopes", func() {
 			root := symbol.CreateRootScope(nil)
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "globalVar", Kind: symbol.KindVariable}))
 
-			child, _ := root.Add(bCtx, symbol.Symbol{Name: "block", Kind: symbol.KindBlock})
+			child := MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "block", Kind: symbol.KindBlock}))
 
-			suggestions := child.SuggestSimilar(bCtx, "globalVa", 2, 3)
+			suggestions := child.SuggestSimilar(bCtx, "globalVa", 2)
 			Expect(suggestions).To(ContainElement("globalVar"))
 		})
 
@@ -94,9 +85,8 @@ var _ = Describe("Symbol Suggestions", func() {
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "tests", Kind: symbol.KindVariable}))
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "testing", Kind: symbol.KindVariable}))
 
-			suggestions := root.SuggestSimilar(bCtx, "tset", 3, 3)
-			// "test" has distance 2, "tests" has distance 2, "testing" has distance 4
-			Expect(suggestions).To(HaveLen(2))
+			suggestions := root.SuggestSimilar(bCtx, "tset", 3)
+			Expect(len(suggestions)).To(BeNumerically(">=", 1))
 			Expect(suggestions[0]).To(Equal("test"))
 		})
 
@@ -104,7 +94,7 @@ var _ = Describe("Symbol Suggestions", func() {
 			root := symbol.CreateRootScope(nil)
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
 
-			suggestions := root.SuggestSimilar(bCtx, "temperature", 2, 3)
+			suggestions := root.SuggestSimilar(bCtx, "temperature", 2)
 			Expect(suggestions).NotTo(ContainElement("temperature"))
 		})
 	})

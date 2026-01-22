@@ -1149,8 +1149,7 @@ var _ = Describe("Text", func() {
 			ir, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-			module, err := text.Compile(ctx, ir)
-			Expect(err).ToNot(HaveOccurred())
+			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
 	})

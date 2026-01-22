@@ -455,8 +455,9 @@ func inferNumericLiteralType(
 		}
 	}
 
-	// Registering a type variable with itself - cannot fail
-	_ = ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
+	if err := ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable"); err != nil {
+		panic(fmt.Sprintf("unexpected error registering type variable with itself: %v", err))
+	}
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
 }

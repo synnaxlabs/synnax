@@ -29,8 +29,7 @@ var _ = Describe("Check", func() {
 		DescribeTable("should return nil without checking",
 			func(t1, t2 types.Type) {
 				ast := testutil.NewMockAST(1)
-				err := atypes.Check(cs, t1, t2, ast, "test")
-				Expect(err).ToNot(HaveOccurred())
+				Expect(atypes.Check(cs, t1, t2, ast, "test")).To(Succeed())
 				Expect(cs.Constraints).To(BeEmpty())
 			},
 			Entry("invalid with concrete", types.Type{}, types.I32()),
