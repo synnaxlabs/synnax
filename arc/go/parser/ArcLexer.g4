@@ -125,10 +125,10 @@ IDENTIFIER  : [a-zA-Z_] [a-zA-Z0-9_]*;
 // =============================================================================
 
 // Single-line comment
-SINGLE_LINE_COMMENT: '//' ~[\r\n]* -> skip;
+SINGLE_LINE_COMMENT: '//' ~[\r\n]* -> channel(HIDDEN);
 
 // Multi-line comment
-MULTI_LINE_COMMENT: '/*' .*? '*/' -> skip;
+MULTI_LINE_COMMENT: '/*' .*? '*/' -> channel(HIDDEN);
 
 // Whitespace - on hidden channel to preserve position info for adjacency checks
 WS          : [ \t\r\n]+ -> channel(HIDDEN);

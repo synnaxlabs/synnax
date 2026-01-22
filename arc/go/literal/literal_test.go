@@ -22,17 +22,7 @@ import (
 // Helper to extract literal from expression text
 func getLiteral(text string) parser.ILiteralContext {
 	expr := MustSucceed(parser.ParseExpression(text))
-	logicalOr := expr.LogicalOrExpression()
-	logicalAnd := logicalOr.AllLogicalAndExpression()[0]
-	equality := logicalAnd.AllEqualityExpression()[0]
-	relational := equality.AllRelationalExpression()[0]
-	additive := relational.AllAdditiveExpression()[0]
-	multiplicative := additive.AllMultiplicativeExpression()[0]
-	power := multiplicative.AllPowerExpression()[0]
-	unary := power.UnaryExpression()
-	postfix := unary.PostfixExpression()
-	primary := postfix.PrimaryExpression()
-	return primary.Literal()
+	return parser.GetLiteral(expr)
 }
 
 // Helper to parse a numeric literal from text
