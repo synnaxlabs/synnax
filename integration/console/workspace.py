@@ -257,7 +257,7 @@ class WorkspaceClient:
 
         return link
 
-    def group_pages(self, names: list[str], group_name: str) -> None:
+    def group_pages(self, *, names: list[str], group_name: str) -> None:
         """Group multiple pages into a folder via multi-select and context menu.
 
         Args:
@@ -373,7 +373,7 @@ class WorkspaceClient:
         )
         self.console.close_nav_drawer()
 
-    def rename(self, old_name: str, new_name: str) -> None:
+    def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a workspace via context menu.
 
         Args:

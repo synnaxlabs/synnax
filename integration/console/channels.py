@@ -329,7 +329,7 @@ class ChannelClient:
 
         self.hide_channels()
 
-    def set_alias(self, name: ChannelName, alias: str) -> None:
+    def set_alias(self, *, name: ChannelName, alias: str) -> None:
         """Set an alias for a channel under the active range via context menu.
 
         Note: Requires an active range to be set before calling this method.
@@ -386,7 +386,7 @@ class ChannelClient:
         self.page.wait_for_load_state("load", timeout=30000)
         self.page.wait_for_load_state("networkidle", timeout=30000)
 
-    def group(self, names: ChannelNames, group_name: str) -> None:
+    def group(self, *, names: ChannelNames, group_name: str) -> None:
         """Group multiple channels together via context menu.
 
         :param names: List of channel names to group.
@@ -480,7 +480,7 @@ class ChannelClient:
         all_channels = self.list_all()
         return name in all_channels
 
-    def rename(self, names: ChannelNames, new_names: ChannelNames) -> bool:
+    def rename(self, *, names: ChannelNames, new_names: ChannelNames) -> bool:
         """Renames one or more channels via console UI.
 
         :param names: The name(s) of the channel(s) to rename.
@@ -500,13 +500,13 @@ class ChannelClient:
             for old_name, new_name in zip(
                 normalized_names.channels, normalized_new_names.channels
             ):
-                self._rename_single_channel(str(old_name), str(new_name))
+                self._rename_single_channel(old_name=str(old_name), new_name=str(new_name))
 
             return True
         except Exception:
             return False
 
-    def _rename_single_channel(self, old_name: str, new_name: str) -> None:
+    def _rename_single_channel(self, *, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
         if not self.exists(old_name):
             raise ValueError(f"Channel {old_name} does not exist")

@@ -73,7 +73,7 @@ class RackClient:
         self.page.mouse.move(0, 0)
         return {"variant": variant, "message": message}
 
-    def rename(self, old_name: str, new_name: str) -> None:
+    def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a rack via context menu."""
         self._show_devices_panel()
         rack_item = self.get_item(old_name)

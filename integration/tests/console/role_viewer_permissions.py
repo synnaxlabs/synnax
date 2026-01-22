@@ -40,7 +40,7 @@ class RoleViewerPermissions(ConsoleCase):
         # Log out and log in as the viewer
         self.log("Logging out and logging in as viewer...")
         self.console.access.logout()
-        self.console.access.login(username, password)
+        self.console.access.login(username=username, password=password)
 
         # Verify logged in as viewer
         user_badge = self.page.get_by_text(first_name, exact=True)

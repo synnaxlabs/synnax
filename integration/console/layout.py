@@ -72,7 +72,7 @@ class LayoutClient:
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
 
-    def rename_tab(self, old_name: str, new_name: str) -> None:
+    def rename_tab(self, *, old_name: str, new_name: str) -> None:
         """Rename a tab using a randomly selected modality.
 
         Randomly chooses between:

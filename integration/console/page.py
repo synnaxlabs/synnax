@@ -83,7 +83,7 @@ class ConsolePage:
         Args:
             new_name: The new name for the page
         """
-        self.console.layout.rename_tab(self.page_name, new_name)
+        self.console.layout.rename_tab(old_name=self.page_name, new_name=new_name)
         self.page_name = new_name
 
     def _dblclick_canvas(self) -> None:

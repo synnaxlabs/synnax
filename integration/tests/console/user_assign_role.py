@@ -44,7 +44,7 @@ class UserAssignRole(ConsoleCase):
 
         # Change user's role via context menu
         self.log(f"Changing {username} role from {initial_role} to {new_role}")
-        self.console.access.assign_role_to_user(username, new_role)
+        self.console.access.assign_role_to_user(username=username, role_name=new_role)
 
         # Expand new role and verify user moved
         self.console.access.expand_role(new_role)

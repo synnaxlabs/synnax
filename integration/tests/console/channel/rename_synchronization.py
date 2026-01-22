@@ -81,7 +81,7 @@ class RenameSynchronization(ConsoleCase):
         table.set_cell_channel(self.data_name)
 
         self.log("Renaming channel")
-        console.channels.rename(self.data_name, self.new_name)
+        console.channels.rename(names=self.data_name, new_names=self.new_name)
 
         self.log("Verifying sync in Resources Toolbar")
         console.channels.show_channels()

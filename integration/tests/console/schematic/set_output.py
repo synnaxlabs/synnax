@@ -47,12 +47,12 @@ class SetOutput(ConsoleCase):
         setpoint_symbol = schematic.create_symbol(
             Setpoint(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
-        setpoint_symbol.move(-200, 0)
+        setpoint_symbol.move(delta_x=-200, delta_y=0)
 
         value_symbol = schematic.create_symbol(
             Value(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
-        value_symbol.move(200, 0)
+        value_symbol.move(delta_x=200, delta_y=0)
 
         schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")
 

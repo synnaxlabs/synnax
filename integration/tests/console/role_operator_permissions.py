@@ -40,7 +40,7 @@ class RoleOperatorPermissions(ConsoleCase):
         # Log out and log in as the operator
         self.log("Logging out and logging in as operator...")
         self.console.access.logout()
-        self.console.access.login(username, password)
+        self.console.access.login(username=username, password=password)
 
         # Verify logged in as operator
         user_badge = self.page.get_by_text(first_name, exact=True)

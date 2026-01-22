@@ -39,7 +39,7 @@ class Workspace(ConsoleCase):
         """Test renaming a workspace via context menu and verify synchronization."""
         self.log("Testing rename workspace with synchronization")
         self.console.workspace.select("WorkspaceA")
-        self.console.workspace.rename("WorkspaceA", "RenamedWorkspace")
+        self.console.workspace.rename(old_name="WorkspaceA", new_name="RenamedWorkspace")
 
         assert self.console.workspace.exists(
             "RenamedWorkspace"
@@ -53,7 +53,7 @@ class Workspace(ConsoleCase):
             workspace_selector.is_visible()
         ), "Workspace Selector should show renamed workspace"
 
-        self.console.workspace.rename("RenamedWorkspace", "WorkspaceA")
+        self.console.workspace.rename(old_name="RenamedWorkspace", new_name="WorkspaceA")
         self.console.close_nav_drawer()
 
     def test_clear_workspace_from_selector(self) -> None:

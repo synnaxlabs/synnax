@@ -43,7 +43,7 @@ class UserLogoutBadge(ConsoleCase):
 
         # Log back in as the new user
         self.log(f"Logging in as {username}...")
-        self.console.access.login(username, password)
+        self.console.access.login(username=username, password=password)
 
         # Verify we're logged in by checking for the first name in the user badge
         user_badge = self.page.get_by_text(first_name, exact=True)

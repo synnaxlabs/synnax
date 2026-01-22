@@ -418,7 +418,7 @@ class Console:
         page_id = page_tab.inner_text().strip()
 
         if page_name is not None and not modal_was_open:
-            self.layout.rename_tab(tab_name, page_name)
+            self.layout.rename_tab(old_name=tab_name, new_name=page_name)
             page_id = page_name
             page_tab = self._get_tab_locator(page_name)
 
@@ -655,17 +655,15 @@ class Console:
 
         self.close_nav_drawer()
 
-        max_iterations = 4
-        for _ in range(max_iterations):
+        tabs_to_close = [
+            tab
+            for tab in self.page.locator(".pluto-tabs-selector__btn").all()
+            if tab.inner_text(timeout=1000).strip() not in except_tabs
+        ]
+
+        for _ in range(len(tabs_to_close)):
             tab = self._find_tab_to_close(except_tabs)
             if tab is None:
                 return
             tab.get_by_label("pluto-tabs__close").click()
             self._dismiss_unsaved_changes_dialog()
-
-        remaining = self._find_tab_to_close(except_tabs)
-        if remaining is not None:
-            name = remaining.inner_text(timeout=1000).strip()
-            raise RuntimeError(
-                f"Failed to close all tabs after {max_iterations} iterations. Remaining: '{name}'"
-            )

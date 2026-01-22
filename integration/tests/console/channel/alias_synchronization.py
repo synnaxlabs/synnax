@@ -75,7 +75,7 @@ class AliasSynchronization(ConsoleCase):
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting alias for channel")
-        console.channels.set_alias(self.data_name, self.alias_name)
+        console.channels.set_alias(name=self.data_name, alias=self.alias_name)
 
         self.log("Verifying sync in Resources Toolbar")
         console.channels.show_channels()

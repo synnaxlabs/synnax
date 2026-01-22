@@ -215,7 +215,7 @@ class ChannelOperations(ConsoleCase):
             index=index_name,
         )
 
-        console.channels.rename(data_name, new_name)
+        console.channels.rename(names=data_name, new_names=new_name)
 
         ch = self.client.channels.retrieve(new_name)
         assert ch.name == new_name, f"Expected channel name {new_name}, got {ch.name}"
@@ -250,7 +250,7 @@ class ChannelOperations(ConsoleCase):
         )
 
         # Group the two data channels
-        console.channels.group([ch1_name, ch2_name], group_name)
+        console.channels.group(names=[ch1_name, ch2_name], group_name=group_name)
 
         # Verify the group exists by looking for it in the channel list
         console.channels.show_channels()
@@ -339,7 +339,7 @@ class ChannelOperations(ConsoleCase):
             index=index_name,
         )
 
-        console.channels.set_alias(data_name, alias_name)
+        console.channels.set_alias(name=data_name, alias=alias_name)
 
         console.channels.show_channels()
         alias_visible = self.page.get_by_text(alias_name).count() > 0
@@ -384,7 +384,7 @@ class ChannelOperations(ConsoleCase):
             index=index_name,
         )
 
-        console.channels.set_alias(data_name, alias_name)
+        console.channels.set_alias(name=data_name, alias=alias_name)
 
         console.channels.show_channels()
         alias_visible = self.page.get_by_text(alias_name).count() > 0

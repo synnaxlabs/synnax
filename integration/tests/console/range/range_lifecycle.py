@@ -281,7 +281,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.wait_for_overview(self.labeled_range_name)
 
         new_name = f"RenamedTab_{self.rand_suffix}"
-        self.console.layout.rename_tab(self.labeled_range_name, new_name)
+        self.console.layout.rename_tab(old_name=self.labeled_range_name, new_name=new_name)
 
         rng = self.client.ranges.retrieve(name=new_name)
         assert rng.name == new_name, f"Range should be renamed to '{new_name}'"

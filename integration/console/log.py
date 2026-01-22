@@ -117,7 +117,7 @@ class Log(ConsolePage):
         except Exception as e:
             if "Timeout" in type(e).__name__:
                 return False
-            raise
+            raise RuntimeError from e
 
     def is_scrolling_paused(self) -> bool:
         """Check if log scrolling is paused."""
