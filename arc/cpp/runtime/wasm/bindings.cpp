@@ -325,6 +325,27 @@ std::string Bindings::string_get(const uint32_t handle) const {
         auto result = value / *s;                                                      \
         return this->state->series_store(std::move(result));                           \
     }                                                                                  \
+    uint32_t Bindings::series_element_radd_##suffix(cpptype value, uint32_t handle) {  \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value + *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
+    }                                                                                  \
+    uint32_t Bindings::series_element_rmul_##suffix(cpptype value, uint32_t handle) {  \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value * *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
+    }                                                                                  \
+    uint32_t Bindings::series_element_rmod_##suffix(cpptype value, uint32_t handle) {  \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value % *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
+    }                                                                                  \
     uint32_t Bindings::series_element_mod_##suffix(uint32_t handle, cpptype value) {   \
         if (this->state == nullptr) return 0;                                          \
         auto *s = this->state->series_get(handle);                                     \
@@ -619,6 +640,24 @@ create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
             wrap(runtime.get(), &Bindings::series_element_rdiv_##suffix)               \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::series_element_radd_##suffix)               \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::series_element_rmul_##suffix)               \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::series_element_rmod_##suffix)               \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \

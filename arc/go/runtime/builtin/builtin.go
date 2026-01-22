@@ -34,7 +34,8 @@ var (
 		Name: lenSymbolName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Series(types.Variable("T", nil))}},
+			// Accept any type - compiler validates that it's series or string
+			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 		}),
 	}

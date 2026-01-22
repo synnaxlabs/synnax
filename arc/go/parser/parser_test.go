@@ -174,7 +174,7 @@ var _ = Describe("Parser", func() {
 		Context("Type Casting", func() {
 			It("Should parse type casts", func() {
 				expr := mustParseExpression("f32(42)")
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.TypeCast()).NotTo(BeNil())
 				cast := primary.TypeCast()
 				Expect(cast.Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
@@ -383,11 +383,11 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			Expect(exprs).To(HaveLen(2))
 
 			// First expression should be ox_pt_1
-			expr1 := getPrimaryExpression(exprs[0])
+			expr1 := parser.GetPrimaryExpression(exprs[0])
 			Expect(expr1.IDENTIFIER().GetText()).To(Equal("ox_pt_1"))
 
 			// Second expression should be ox_pt_2
-			expr2 := getPrimaryExpression(exprs[1])
+			expr2 := parser.GetPrimaryExpression(exprs[1])
 			Expect(expr2.IDENTIFIER().GetText()).To(Equal("ox_pt_2"))
 		})
 
@@ -744,14 +744,14 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				expr := mustParseExpression("((((((1)))))))")
 
 				// Navigate through all the parentheses
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.LPAREN()).NotTo(BeNil())
 				Expect(primary.RPAREN()).NotTo(BeNil())
 
-				inner1 := getPrimaryExpression(primary.Expression())
+				inner1 := parser.GetPrimaryExpression(primary.Expression())
 				Expect(inner1.LPAREN()).NotTo(BeNil())
 
-				inner2 := getPrimaryExpression(inner1.Expression())
+				inner2 := parser.GetPrimaryExpression(inner1.Expression())
 				Expect(inner2.LPAREN()).NotTo(BeNil())
 			})
 		})
@@ -918,13 +918,13 @@ sensor -> controller{}`)
 		Context("Unicode identifiers", func() {
 			It("Should handle ASCII identifiers", func() {
 				expr := mustParseExpression("sensor_1")
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.IDENTIFIER().GetText()).To(Equal("sensor_1"))
 			})
 
 			It("Should handle identifiers with underscores", func() {
 				expr := mustParseExpression("temp_sensor_value")
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.IDENTIFIER().GetText()).To(Equal("temp_sensor_value"))
 			})
 		})
@@ -1445,12 +1445,8 @@ func mustParseExpression(expr string) parser.IExpressionContext {
 
 // AST Navigation Helpers - traverse the parse tree to access specific nodes
 func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
-	primary := getPrimaryExpression(expr)
+	primary := parser.GetPrimaryExpression(expr)
 	return primary.Literal()
-}
-
-func getPrimaryExpression(expr parser.IExpressionContext) parser.IPrimaryExpressionContext {
-	return getPostfixExpression(expr).PrimaryExpression()
 }
 
 func getPostfixExpression(expr parser.IExpressionContext) parser.IPostfixExpressionContext {

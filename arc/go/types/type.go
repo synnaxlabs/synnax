@@ -523,6 +523,24 @@ func (t Type) Unwrap() Type {
 	return t
 }
 
+// UnwrapChan returns the effective value type when a type is used as a value.
+// Channels are implicitly read: chan<T> -> T
+// Series stay as series: series<T> -> series<T>
+// This should be used when inferring expression types at use sites.
+func (t Type) UnwrapChan() Type {
+	if t.Kind == KindChan && t.Elem != nil {
+		return *t.Elem
+	}
+	return t
+}
+
+// StructuralMatch returns true if both types have the same wrapper structure.
+// Series matches series, channel matches channel, scalar matches scalar.
+func StructuralMatch(t1, t2 Type) bool {
+	return (t1.Kind == KindSeries) == (t2.Kind == KindSeries) &&
+		(t1.Kind == KindChan) == (t2.Kind == KindChan)
+}
+
 // IsValid returns true if the type is not invalid or uninitialized.
 func (t *Type) IsValid() bool { return t.Kind != KindInvalid }
 

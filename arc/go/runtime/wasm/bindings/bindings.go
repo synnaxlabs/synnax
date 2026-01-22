@@ -97,6 +97,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModU8 = runtime.SeriesElementModU8
 	b.SeriesElementRSubU8 = runtime.SeriesElementRSubU8
 	b.SeriesElementRDivU8 = runtime.SeriesElementRDivU8
+	b.SeriesElementRAddU8 = runtime.SeriesElementRAddU8
+	b.SeriesElementRMulU8 = runtime.SeriesElementRMulU8
+	b.SeriesElementRModU8 = runtime.SeriesElementRModU8
 	b.SeriesSeriesAddU8 = runtime.SeriesSeriesAddU8
 	b.SeriesSeriesSubU8 = runtime.SeriesSeriesSubU8
 	b.SeriesSeriesMulU8 = runtime.SeriesSeriesMulU8
@@ -128,6 +131,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModU16 = runtime.SeriesElementModU16
 	b.SeriesElementRSubU16 = runtime.SeriesElementRSubU16
 	b.SeriesElementRDivU16 = runtime.SeriesElementRDivU16
+	b.SeriesElementRAddU16 = runtime.SeriesElementRAddU16
+	b.SeriesElementRMulU16 = runtime.SeriesElementRMulU16
+	b.SeriesElementRModU16 = runtime.SeriesElementRModU16
 	b.SeriesSeriesAddU16 = runtime.SeriesSeriesAddU16
 	b.SeriesSeriesSubU16 = runtime.SeriesSeriesSubU16
 	b.SeriesSeriesMulU16 = runtime.SeriesSeriesMulU16
@@ -159,6 +165,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModU32 = runtime.SeriesElementModU32
 	b.SeriesElementRSubU32 = runtime.SeriesElementRSubU32
 	b.SeriesElementRDivU32 = runtime.SeriesElementRDivU32
+	b.SeriesElementRAddU32 = runtime.SeriesElementRAddU32
+	b.SeriesElementRMulU32 = runtime.SeriesElementRMulU32
+	b.SeriesElementRModU32 = runtime.SeriesElementRModU32
 	b.SeriesSeriesAddU32 = runtime.SeriesSeriesAddU32
 	b.SeriesSeriesSubU32 = runtime.SeriesSeriesSubU32
 	b.SeriesSeriesMulU32 = runtime.SeriesSeriesMulU32
@@ -190,6 +199,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModU64 = runtime.SeriesElementModU64
 	b.SeriesElementRSubU64 = runtime.SeriesElementRSubU64
 	b.SeriesElementRDivU64 = runtime.SeriesElementRDivU64
+	b.SeriesElementRAddU64 = runtime.SeriesElementRAddU64
+	b.SeriesElementRMulU64 = runtime.SeriesElementRMulU64
+	b.SeriesElementRModU64 = runtime.SeriesElementRModU64
 	b.SeriesSeriesAddU64 = runtime.SeriesSeriesAddU64
 	b.SeriesSeriesSubU64 = runtime.SeriesSeriesSubU64
 	b.SeriesSeriesMulU64 = runtime.SeriesSeriesMulU64
@@ -221,6 +233,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModI8 = runtime.SeriesElementModI8
 	b.SeriesElementRSubI8 = runtime.SeriesElementRSubI8
 	b.SeriesElementRDivI8 = runtime.SeriesElementRDivI8
+	b.SeriesElementRAddI8 = runtime.SeriesElementRAddI8
+	b.SeriesElementRMulI8 = runtime.SeriesElementRMulI8
+	b.SeriesElementRModI8 = runtime.SeriesElementRModI8
 	b.SeriesSeriesAddI8 = runtime.SeriesSeriesAddI8
 	b.SeriesSeriesSubI8 = runtime.SeriesSeriesSubI8
 	b.SeriesSeriesMulI8 = runtime.SeriesSeriesMulI8
@@ -252,6 +267,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModI16 = runtime.SeriesElementModI16
 	b.SeriesElementRSubI16 = runtime.SeriesElementRSubI16
 	b.SeriesElementRDivI16 = runtime.SeriesElementRDivI16
+	b.SeriesElementRAddI16 = runtime.SeriesElementRAddI16
+	b.SeriesElementRMulI16 = runtime.SeriesElementRMulI16
+	b.SeriesElementRModI16 = runtime.SeriesElementRModI16
 	b.SeriesSeriesAddI16 = runtime.SeriesSeriesAddI16
 	b.SeriesSeriesSubI16 = runtime.SeriesSeriesSubI16
 	b.SeriesSeriesMulI16 = runtime.SeriesSeriesMulI16
@@ -283,6 +301,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModI32 = runtime.SeriesElementModI32
 	b.SeriesElementRSubI32 = runtime.SeriesElementRSubI32
 	b.SeriesElementRDivI32 = runtime.SeriesElementRDivI32
+	b.SeriesElementRAddI32 = runtime.SeriesElementRAddI32
+	b.SeriesElementRMulI32 = runtime.SeriesElementRMulI32
+	b.SeriesElementRModI32 = runtime.SeriesElementRModI32
 	b.SeriesSeriesAddI32 = runtime.SeriesSeriesAddI32
 	b.SeriesSeriesSubI32 = runtime.SeriesSeriesSubI32
 	b.SeriesSeriesMulI32 = runtime.SeriesSeriesMulI32
@@ -314,6 +335,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModI64 = runtime.SeriesElementModI64
 	b.SeriesElementRSubI64 = runtime.SeriesElementRSubI64
 	b.SeriesElementRDivI64 = runtime.SeriesElementRDivI64
+	b.SeriesElementRAddI64 = runtime.SeriesElementRAddI64
+	b.SeriesElementRMulI64 = runtime.SeriesElementRMulI64
+	b.SeriesElementRModI64 = runtime.SeriesElementRModI64
 	b.SeriesSeriesAddI64 = runtime.SeriesSeriesAddI64
 	b.SeriesSeriesSubI64 = runtime.SeriesSeriesSubI64
 	b.SeriesSeriesMulI64 = runtime.SeriesSeriesMulI64
@@ -345,6 +369,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModF32 = runtime.SeriesElementModF32
 	b.SeriesElementRSubF32 = runtime.SeriesElementRSubF32
 	b.SeriesElementRDivF32 = runtime.SeriesElementRDivF32
+	b.SeriesElementRAddF32 = runtime.SeriesElementRAddF32
+	b.SeriesElementRMulF32 = runtime.SeriesElementRMulF32
+	b.SeriesElementRModF32 = runtime.SeriesElementRModF32
 	b.SeriesSeriesAddF32 = runtime.SeriesSeriesAddF32
 	b.SeriesSeriesSubF32 = runtime.SeriesSeriesSubF32
 	b.SeriesSeriesMulF32 = runtime.SeriesSeriesMulF32
@@ -376,6 +403,9 @@ func BindRuntime(runtime *Runtime, b *compilerbindings.Bindings) {
 	b.SeriesElementModF64 = runtime.SeriesElementModF64
 	b.SeriesElementRSubF64 = runtime.SeriesElementRSubF64
 	b.SeriesElementRDivF64 = runtime.SeriesElementRDivF64
+	b.SeriesElementRAddF64 = runtime.SeriesElementRAddF64
+	b.SeriesElementRMulF64 = runtime.SeriesElementRMulF64
+	b.SeriesElementRModF64 = runtime.SeriesElementRModF64
 	b.SeriesSeriesAddF64 = runtime.SeriesSeriesAddF64
 	b.SeriesSeriesSubF64 = runtime.SeriesSeriesSubF64
 	b.SeriesSeriesMulF64 = runtime.SeriesSeriesMulF64

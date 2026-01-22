@@ -17,7 +17,6 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
@@ -251,7 +250,7 @@ func analyzeExpression(
 
 	if sym.Kind == symbol.KindConstant {
 		outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-		literalCtx := expression.GetLiteral(ctx.AST)
+		literalCtx := parser.GetLiteral(ctx.AST)
 		parsedValue, err := literal.Parse(literalCtx, outputType)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, ctx.AST)
@@ -513,7 +512,7 @@ func extractConfigValues(
 
 	parseConfigExpr := func(expr parser.IExpressionContext, paramType types.Type, paramName string) (any, bool) {
 		if paramType.Kind == types.KindChan {
-			channelName := getExpressionText(expr)
+			channelName := parser.GetExpressionText(expr)
 			sym, err := ctx.Scope.Resolve(ctx, channelName)
 			if err != nil {
 				ctx.Diagnostics.AddError(err, expr)
@@ -524,7 +523,7 @@ func extractConfigValues(
 			return channelKey, true
 		}
 
-		if !expression.IsLiteral(expr) {
+		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.AddError(
 				fmt.Errorf("config value for '%s' must be a literal", paramName),
 				expr,
@@ -532,7 +531,7 @@ func extractConfigValues(
 			return nil, false
 		}
 
-		literalCtx := expression.GetLiteral(expr)
+		literalCtx := parser.GetLiteral(expr)
 		parsedValue, err := literal.Parse(literalCtx, paramType)
 		if err != nil {
 			ctx.Diagnostics.AddError(err, expr)
@@ -636,21 +635,6 @@ func analyzeOutputRoutingTable(
 	}
 
 	return nodes, edges, true
-}
-
-func getExpressionText(expr parser.IExpressionContext) string {
-	if expr == nil {
-		return ""
-	}
-	start := expr.GetStart()
-	stop := expr.GetStop()
-	if start != nil && stop != nil {
-		stream := start.GetTokenSource().GetInputStream()
-		if stream != nil {
-			return stream.GetText(start.GetStart(), stop.GetStop())
-		}
-	}
-	return expr.GetText()
 }
 
 func analyzeSequence(
