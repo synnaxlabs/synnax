@@ -205,8 +205,8 @@ ratio /= 4           // ratio = ratio / 4
 remainder %= 3       // remainder = remainder % 3
 ```
 
-**Rules**: Variables are function-scoped. No shadowing of global names. Declaration
-once per scope. Type inference from initial value.
+**Rules**: Variables are function-scoped. No shadowing of global names. Declaration once
+per scope. Type inference from initial value.
 
 ## Operators
 
@@ -287,7 +287,8 @@ NamedOutput ::= Identifier Type
 ### Configuration Parameters
 
 Functions can have a **config block** containing parameters set at instantiation time
-(compile-time constants). Config parameters are enclosed in `{}` after the function name:
+(compile-time constants). Config parameters are enclosed in `{}` after the function
+name:
 
 ```arc
 func controller{
@@ -346,8 +347,8 @@ In flow statements, instantiate functions as nodes using config block syntax:
 sensor -> controller{setpoint=100.0, sensor=temp, actuator=valve}
 ```
 
-Input parameters are automatically wired from the incoming flow. Multiple inputs
-require routing tables (see Flow Layer).
+Input parameters are automatically wired from the incoming flow. Multiple inputs require
+routing tables (see Flow Layer).
 
 ### Multi-Output Functions
 
@@ -707,8 +708,8 @@ Example imports:
 "env"."now": [] -> [i64]
 ```
 
-**Type mapping**: `i8`-`i32`, `u8`-`u32` → WASM `i32`; `i64`, `u64` → WASM `i64`;
-`f32` → WASM `f32`; `f64` → WASM `f64`.
+**Type mapping**: `i8`-`i32`, `u8`-`u32` → WASM `i32`; `i64`, `u64` → WASM `i64`; `f32`
+→ WASM `f32`; `f64` → WASM `f64`.
 
 ### Stratified Execution
 
