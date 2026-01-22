@@ -162,43 +162,17 @@ var _ = Describe("Formatter", func() {
 		})
 	})
 
-	Describe("Spaces After Binary Operators", func() {
-		It("should add space after := before paren", func() {
-			input := "x:=(1+2)"
-			expected := "x := (1 + 2)\n"
+	DescribeTable("Spaces After Binary Operators",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should add space after $= before paren", func() {
-			input := "x$=(a)"
-			expected := "x $= (a)\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should add space after = before paren", func() {
-			input := "x=(1)"
-			expected := "x = (1)\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should add space after := before identifier", func() {
-			input := "x:=y"
-			expected := "x := y\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should add space after + before paren", func() {
-			input := "x:=a+(b)"
-			expected := "x := a + (b)\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should add space after + before bracket", func() {
-			input := "x:=a+[1]"
-			expected := "x := a + [1]\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
+		},
+		Entry("should add space after := before paren", "x:=(1+2)", "x := (1 + 2)\n"),
+		Entry("should add space after $= before paren", "x$=(a)", "x $= (a)\n"),
+		Entry("should add space after = before paren", "x=(1)", "x = (1)\n"),
+		Entry("should add space after := before identifier", "x:=y", "x := y\n"),
+		Entry("should add space after + before paren", "x:=a+(b)", "x := a + (b)\n"),
+		Entry("should add space after + before bracket", "x:=a+[1]", "x := a + [1]\n"),
+	)
 
 	Describe("Idempotency", func() {
 		It("should be idempotent", func() {
