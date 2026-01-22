@@ -44,8 +44,7 @@ public:
         // Entry nodes have no incoming edges and are not expression nodes.
         // They should only execute once per stage entry.
         is_entry_node(
-            node.key.rfind("expression_", 0) != 0 &&
-            prog.edges_into(node.key).empty()
+            node.key.rfind("expression_", 0) != 0 && prog.edges_into(node.key).empty()
         ) {
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
