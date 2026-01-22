@@ -96,6 +96,29 @@ class Log(ConsolePage):
         live_button = self.pane_locator.locator("button.pluto-log__live")
         return live_button.count() > 0
 
+    def wait_until_streaming(self, timeout_ms: int = 5000) -> bool:
+        """Wait until the log starts streaming data.
+
+        Args:
+            timeout_ms: Maximum time to wait in milliseconds.
+
+        Returns:
+            True if streaming started, False if timeout reached.
+
+        Raises:
+            Exception: Re-raises any non-timeout exceptions.
+        """
+        live_button = self.page.locator(
+            f"{self.pluto_label} button.pluto-log__live"
+        ).first
+        try:
+            live_button.wait_for(state="visible", timeout=timeout_ms)
+            return True
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return False
+            raise
+
     def is_scrolling_paused(self) -> bool:
         """Check if log scrolling is paused."""
         if not self.pane_locator:
