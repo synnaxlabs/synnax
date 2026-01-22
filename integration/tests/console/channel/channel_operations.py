@@ -461,9 +461,7 @@ class ChannelOperations(ConsoleCase):
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        plot = self.console.channels.open_plot_from_search(
-            self.client, self.shared_data
-        )
+        plot = Plot.open_from_search(self.client, self.console, self.shared_data)
         plot.close()
 
     def test_open_create_channel_modal(self) -> None:

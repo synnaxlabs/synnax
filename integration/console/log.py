@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import synnax as sy
 from synnax.channel.payload import ChannelName
 
@@ -19,6 +21,31 @@ class Log(ConsolePage):
 
     page_type: str = "Log"
     pluto_label: str = ".pluto-log"
+
+    @classmethod
+    def open_from_search(cls, client: sy.Synnax, console: Console, name: str) -> Log:
+        """Open an existing log by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance.
+            console: Console instance.
+            name: Name of the log to search for and open.
+
+        Returns:
+            Log instance for the opened log.
+        """
+        console.search_palette(name)
+
+        log_pane = console.page.locator(cls.pluto_label)
+        log_pane.first.wait_for(state="visible", timeout=5000)
+
+        log = cls.__new__(cls)
+        log.client = client
+        log.console = console
+        log.page = console.page
+        log.page_name = name
+        log.pane_locator = log_pane.first
+        return log
 
     def __init__(
         self,

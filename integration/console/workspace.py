@@ -460,19 +460,6 @@ class WorkspaceClient:
         self.drag_page_to_mosaic(name)
         return self._create_plot_instance(client, name)
 
-    def open_plot_from_search(self, client: sy.Synnax, name: str) -> "Plot":
-        """Open a plot by searching its name in the command palette.
-
-        Args:
-            client: Synnax client instance.
-            name: Name of the plot to search for and open.
-
-        Returns:
-            Plot instance for the opened plot.
-        """
-        self.console.search_palette(name)
-        return self._create_plot_instance(client, name)
-
     def _create_log_instance(self, client: sy.Synnax, page_name: str) -> "Log":
         """Create a Log instance after a log becomes visible.
 
@@ -520,17 +507,4 @@ class WorkspaceClient:
             Log instance for the opened log.
         """
         self.drag_page_to_mosaic(name)
-        return self._create_log_instance(client, name)
-
-    def open_log_from_search(self, client: sy.Synnax, name: str) -> "Log":
-        """Open a log by searching its name in the command palette.
-
-        Args:
-            client: Synnax client instance.
-            name: Name of the log to search for and open.
-
-        Returns:
-            Log instance for the opened log.
-        """
-        self.console.search_palette(name)
         return self._create_log_instance(client, name)

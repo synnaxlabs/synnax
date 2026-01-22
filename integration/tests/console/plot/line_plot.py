@@ -337,7 +337,7 @@ class LinePlot(ConsoleCase):
         """Test opening an existing plot by searching its name in the command palette."""
         self.log("Testing open plot by name via command palette")
 
-        plot = self.console.workspace.open_plot_from_search(self.client, plot_name)
+        plot = Plot.open_from_search(self.client, self.console, plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"

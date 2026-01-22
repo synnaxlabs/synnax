@@ -669,13 +669,3 @@ class ChannelClient:
         plot = self._create_plot_instance(client, channel_name)
         self.hide_channels()
         return plot
-
-    def open_plot_from_search(self, client: sy.Synnax, channel_name: str) -> "Plot":
-        """Open a channel plot by searching its name in the command palette.
-
-        :param client: Synnax client instance.
-        :param channel_name: The name of the channel to search for and open.
-        :returns: Plot instance for the opened plot.
-        """
-        self.console.search_palette(channel_name)
-        return self._create_plot_instance(client, channel_name)

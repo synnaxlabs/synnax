@@ -230,7 +230,7 @@ class LogLifecycle(ConsoleCase):
         """Test opening a log by searching its name in the command palette."""
         self.log("Testing open log from search palette")
 
-        log = self.console.workspace.open_log_from_search(self.client, log_name)
+        log = Log.open_from_search(self.client, self.console, log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
