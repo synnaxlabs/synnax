@@ -16,7 +16,9 @@ import (
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
-var _ = math.Mod // Ensure math is used
+// Blank identifier ensures math import is used even when no float types are generated,
+// since only float modulo operations use math.Mod.
+var _ = math.Mod
 
 func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 	lhsLen := lhs.Len()
@@ -6151,6 +6153,126 @@ func ReverseDivideScalarU8(series telem.Series, scalar uint8, output *telem.Seri
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = scalar / inData[i]
+	}
+}
+
+func ReverseModuloScalarF64(series telem.Series, scalar float64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float64](series.Data)
+	outData := xunsafe.CastSlice[uint8, float64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = float64(math.Mod(float64(scalar), float64(inData[i])))
+	}
+}
+
+func ReverseModuloScalarF32(series telem.Series, scalar float32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, float32](series.Data)
+	outData := xunsafe.CastSlice[uint8, float32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = float32(math.Mod(float64(scalar), float64(inData[i])))
+	}
+}
+
+func ReverseModuloScalarI64(series telem.Series, scalar int64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int64](series.Data)
+	outData := xunsafe.CastSlice[uint8, int64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
+	}
+}
+
+func ReverseModuloScalarI32(series telem.Series, scalar int32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int32](series.Data)
+	outData := xunsafe.CastSlice[uint8, int32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
+	}
+}
+
+func ReverseModuloScalarI16(series telem.Series, scalar int16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int16](series.Data)
+	outData := xunsafe.CastSlice[uint8, int16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
+	}
+}
+
+func ReverseModuloScalarI8(series telem.Series, scalar int8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, int8](series.Data)
+	outData := xunsafe.CastSlice[uint8, int8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
+	}
+}
+
+func ReverseModuloScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint64](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
+	}
+}
+
+func ReverseModuloScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint32](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
+	}
+}
+
+func ReverseModuloScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint16](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
+	}
+}
+
+func ReverseModuloScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
+	length := series.Len()
+	output.Resize(length)
+
+	inData := xunsafe.CastSlice[uint8, uint8](series.Data)
+	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
+
+	for i := int64(0); i < length; i++ {
+		outData[i] = scalar % inData[i]
 	}
 }
 

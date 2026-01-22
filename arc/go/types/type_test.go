@@ -161,6 +161,66 @@ var _ = Describe("Types", func() {
 		})
 	})
 
+	Describe("UnwrapChan", func() {
+		DescribeTable("should unwrap channel types to their element type",
+			func(t types.Type, expected types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(expected))
+			},
+			Entry("chan i32 -> i32", types.Chan(types.I32()), types.I32()),
+			Entry("chan f64 -> f64", types.Chan(types.F64()), types.F64()),
+			Entry("chan u8 -> u8", types.Chan(types.U8()), types.U8()),
+			Entry("chan timestamp -> timestamp", types.Chan(types.TimeStamp()), types.TimeStamp()),
+			Entry("chan series i32 -> series i32", types.Chan(types.Series(types.I32())), types.Series(types.I32())),
+		)
+
+		DescribeTable("should leave series types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("series i32", types.Series(types.I32())),
+			Entry("series f64", types.Series(types.F64())),
+			Entry("series timestamp", types.Series(types.TimeStamp())),
+		)
+
+		DescribeTable("should leave primitive types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("i32", types.I32()),
+			Entry("f64", types.F64()),
+			Entry("u8", types.U8()),
+			Entry("timestamp", types.TimeStamp()),
+			Entry("timespan", types.TimeSpan()),
+			Entry("string", types.String()),
+		)
+
+		DescribeTable("should leave other types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("type variable", types.Variable("T", nil)),
+			Entry("constrained type variable", func() types.Type {
+				c := types.NumericConstraint()
+				return types.Variable("N", &c)
+			}()),
+			Entry("function", types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+				Outputs: types.Params{{Name: "result", Type: types.I32()}},
+			})),
+			Entry("sequence", types.Sequence()),
+			Entry("stage", types.Stage()),
+		)
+
+		DescribeTable("should handle edge cases",
+			func(t types.Type, expected types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(expected))
+			},
+			Entry("invalid type", types.Type{}, types.Type{}),
+			Entry("chan with nil Elem", types.Type{Kind: types.KindChan, Elem: nil}, types.Type{Kind: types.KindChan, Elem: nil}),
+			Entry("nested chan", types.Chan(types.Chan(types.I32())), types.Chan(types.I32())),
+		)
+	})
+
 	Describe("Type predicates", func() {
 		Describe("IsNumeric", func() {
 			DescribeTable("Should return true for numeric types",
@@ -610,6 +670,8 @@ var _ = Describe("Types", func() {
 			Entry("U64", types.U64(), "u64"),
 			Entry("F32", types.F32(), "f32"),
 			Entry("F64", types.F64(), "f64"),
+			Entry("Sequence", types.Sequence(), "sequence"),
+			Entry("Stage", types.Stage(), "stage"),
 			Entry("String", types.String(), "str"),
 			Entry("TimeStamp", types.TimeStamp(), "i64 ns"),
 			Entry("TimeSpan", types.TimeSpan(), "i64 ns"),
@@ -956,5 +1018,30 @@ var _ = Describe("Types", func() {
 			u2 := types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "s"}
 			Expect(u1.Equal(u2)).To(BeFalse())
 		})
+	})
+
+	Describe("StructuralMatch", func() {
+		DescribeTable("Should match types with same structure",
+			func(t1, t2 types.Type) {
+				Expect(types.StructuralMatch(t1, t2)).To(BeTrue())
+			},
+			Entry("scalar to scalar", types.I32(), types.F64()),
+			Entry("series to series", types.Series(types.I32()), types.Series(types.F64())),
+			Entry("channel to channel", types.Chan(types.I32()), types.Chan(types.F64())),
+			Entry("string to int", types.String(), types.I32()),
+			Entry("type variable to scalar", types.Variable("T", nil), types.I32()),
+		)
+
+		DescribeTable("Should not match types with different structure",
+			func(t1, t2 types.Type) {
+				Expect(types.StructuralMatch(t1, t2)).To(BeFalse())
+			},
+			Entry("scalar to series", types.I32(), types.Series(types.I32())),
+			Entry("series to scalar", types.Series(types.I32()), types.I32()),
+			Entry("scalar to channel", types.I32(), types.Chan(types.I32())),
+			Entry("channel to scalar", types.Chan(types.I32()), types.I32()),
+			Entry("series to channel", types.Series(types.I32()), types.Chan(types.I32())),
+			Entry("channel to series", types.Chan(types.I32()), types.Series(types.I32())),
+		)
 	})
 })
