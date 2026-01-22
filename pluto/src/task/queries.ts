@@ -394,28 +394,32 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<
 
 export interface UseRenameArgs extends Pick<task.Payload, "key" | "name"> {}
 
+export const rename = async (
+  params: Flux.UpdateParams<UseRenameArgs, FluxSubStore>,
+): Promise<UseRenameArgs> => {
+  const {
+    client,
+    data,
+    rollbacks,
+    store,
+    data: { key, name },
+  } = params;
+  rollbacks.push(
+    store.tasks.set(
+      key,
+      state.skipUndefined((p) => client.tasks.sugar({ ...p.payload, name })),
+    ),
+  );
+  rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
+  const t = await retrieveSingle({ ...params, query: { key } });
+  await client.tasks.create({ ...t.payload, name });
+  return data;
+};
+
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async (params) => {
-    const {
-      client,
-      data,
-      rollbacks,
-      store,
-      data: { key, name },
-    } = params;
-    rollbacks.push(
-      store.tasks.set(
-        key,
-        state.skipUndefined((p) => client.tasks.sugar({ ...p.payload, name })),
-      ),
-    );
-    rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
-    const t = await retrieveSingle({ ...params, query: { key } });
-    await client.tasks.create({ ...t.payload, name });
-    return data;
-  },
+  update: rename,
 });
 
 export type CommandParams = task.NewCommand | task.NewCommand[];

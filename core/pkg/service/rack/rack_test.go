@@ -88,6 +88,22 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(k.LocalKey()).To(Equal(uint16(2)))
 		})
 	})
+	Describe("StatusKey", func() {
+		It("Should return the ontology ID string for a rack key", func() {
+			k := rack.NewKey(1, 2)
+			statusKey := rack.StatusKey(k)
+			Expect(statusKey).To(Equal(rack.OntologyID(k).String()))
+		})
+		It("Should return consistent status keys for the same rack key", func() {
+			k := rack.NewKey(5, 10)
+			Expect(rack.StatusKey(k)).To(Equal(rack.StatusKey(k)))
+		})
+		It("Should return different status keys for different rack keys", func() {
+			k1 := rack.NewKey(1, 1)
+			k2 := rack.NewKey(1, 2)
+			Expect(rack.StatusKey(k1)).ToNot(Equal(rack.StatusKey(k2)))
+		})
+	})
 	Describe("Key msgpack decoding", func() {
 		var codec = &binary.MsgPackCodec{}
 		DescribeTable("Should decode rack.Key from various types",

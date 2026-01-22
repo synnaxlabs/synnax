@@ -114,7 +114,8 @@ var _ = Describe("Flow Statements", func() {
 			once{} -> processor{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should return an error when once of the tasks being called is not defined", func() {
@@ -122,10 +123,12 @@ var _ = Describe("Flow Statements", func() {
 			once{} -> processor{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, nil)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			first := (*ctx.Diagnostics)[0]
-			Expect(first.Message).To(Equal("undefined symbol: once"))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			// Complete analysis reports all undefined symbols
+			Expect(*ctx.Diagnostics).To(HaveLen(2))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: once"))
+			Expect((*ctx.Diagnostics)[1].Message).To(Equal("undefined symbol: processor"))
 		})
 
 		It("Should verify func config parameters match the expected signature types", func() {
@@ -149,7 +152,8 @@ var _ = Describe("Flow Statements", func() {
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should detect when func is invoked with missing required parameters", func() {
@@ -171,13 +175,12 @@ var _ = Describe("Flow Statements", func() {
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			// We should get an error about the first missing parameter
-			Expect((*ctx.Diagnostics)[0].Message).To(Or(
-				Equal("missing required config parameter 'threshold' for func 'filter'"),
-				Equal("missing required config parameter 'output' for func 'filter'"),
-			))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			// Complete analysis reports all missing required parameters
+			Expect(*ctx.Diagnostics).To(HaveLen(2))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required config parameter 'threshold' for func 'filter'"))
+			Expect((*ctx.Diagnostics)[1].Message).To(Equal("missing required config parameter 'output' for func 'filter'"))
 		})
 
 		It("Should detect when func is invoked with extra parameters not in signature", func() {
@@ -195,7 +198,8 @@ var _ = Describe("Flow Statements", func() {
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for func 'simple'"))
 		})
@@ -226,9 +230,10 @@ var _ = Describe("Flow Statements", func() {
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
-			// Should have at least one type mismatch error (stops at first error)
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			// Complete analysis reports all type mismatches
+			Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
@@ -255,7 +260,8 @@ var _ = Describe("Flow Statements", func() {
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should allow channels as both sources and targets in flow statements", func() {
@@ -286,7 +292,8 @@ var _ = Describe("Flow Statements", func() {
 			} -> valve_cmd
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should understand channel pass-through triggers tasks on new values", func() {
@@ -320,7 +327,8 @@ var _ = Describe("Flow Statements", func() {
 			// sensor_chan -> logger{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should implicitly convert channel sources to on{channel} func invocations", func() {
@@ -340,7 +348,8 @@ var _ = Describe("Flow Statements", func() {
 			// Where "on" is a stdlib func that triggers when the channel receives a value
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 
 			// The analyzer should have converted the channel source to an "on" fn
 			// This test verifies that the "on" func is required in the resolver
@@ -368,7 +377,8 @@ var _ = Describe("Flow Statements", func() {
 			`))
 
 			ctx := context.CreateRoot(bCtx, ast, noOnResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should convert expressions in flow statements to anonymous tasks", func() {
@@ -389,7 +399,8 @@ sensor_chan > 100 -> alarm{}
 
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			// The expressions should be validated successfully
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should validate that expressions in flows only reference channels and literals", func() {
@@ -406,7 +417,8 @@ sensor_chan > threshold -> alarm{}
 			`))
 
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: threshold"))
 		})
@@ -426,7 +438,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 
 			demuxSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "demux"))
 			// Verify this has named outputs (not a default output)
@@ -463,7 +476,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should detect when routing table is used with func without named outputs", func() {
@@ -479,7 +493,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have named outputs"))
 		})
@@ -502,7 +517,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have output 'medium'"))
 		})
@@ -524,7 +540,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
@@ -552,7 +569,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should route to channels in routing table", func() {
@@ -571,7 +589,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should warn about unassigned outputs", func() {
@@ -584,7 +603,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			// Should have warning about unassigned output
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
@@ -611,7 +631,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Should fail because 'low' route is missing required config parameter
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("missing required config parameter"))
@@ -637,7 +658,8 @@ sensor_chan > threshold -> alarm{}
 			} -> combiner{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should detect invalid parameter name in routing table", func() {
@@ -659,7 +681,8 @@ sensor_chan > threshold -> alarm{}
 			} -> doubler{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have parameter 'invalid_param'"))
 		})
@@ -687,7 +710,8 @@ sensor_chan > threshold -> alarm{}
 			} -> converter{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
@@ -720,7 +744,8 @@ sensor_chan > threshold -> alarm{}
 			} -> scaler{}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
 		It("Should require next func when using parameter mapping", func() {
@@ -738,7 +763,8 @@ sensor_chan > threshold -> alarm{}
 			}
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("parameter mapping requires a func after the routing table"))
 		})
@@ -753,7 +779,8 @@ sensor_chan > threshold -> alarm{}
 				{ sensor_chan: a, output_chan: b } -> combiner{}
 				`))
 				ctx := context.CreateRoot(bCtx, ast, resolver)
-				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			})
 
 			It("Should detect when input routing table has invalid parameter name", func() {
@@ -765,7 +792,8 @@ sensor_chan > threshold -> alarm{}
 				{ sensor_chan: invalid_param } -> combiner{}
 				`))
 				ctx := context.CreateRoot(bCtx, ast, resolver)
-				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have parameter 'invalid_param'"))
 			})
@@ -775,7 +803,8 @@ sensor_chan > threshold -> alarm{}
 				{ sensor_chan: a } -> output_chan
 				`))
 				ctx := context.CreateRoot(bCtx, ast, resolver)
-				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("input routing table must precede a func invocation"))
 			})
@@ -793,7 +822,8 @@ sensor_chan > threshold -> alarm{}
 				{ sensor_chan: processor{} } -> combiner{}
 				`))
 				ctx := context.CreateRoot(bCtx, ast, resolver)
-				Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("last element in input routing entry must be a parameter name"))
 			})
@@ -808,7 +838,8 @@ sensor_chan > threshold -> alarm{}
 				}
 				ast := MustSucceed(parser.Parse(source))
 				ctx := context.CreateRoot(bCtx, ast, literalResolver)
-				Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			},
 			Entry("integer literal to f32 channel", `1 -> output`, types.F32()),
 			Entry("integer literal to i32 channel", `1 -> output`, types.I32()),
@@ -849,7 +880,8 @@ sensor_chan > threshold -> alarm{}
 			start_cmd => main
 			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
 })

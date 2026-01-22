@@ -669,6 +669,18 @@ export const useList = Flux.createList<
         await handleListParentRelationshipSet(rel, onChange, client, store);
         await handleListLabelRelationshipSet(rel, onChange, client, store);
       }),
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        const isLabel = rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE;
+        if (isLabel)
+          onChange(rel.from.key, (prev) => {
+            if (prev == null) return prev;
+            return client.ranges.sugarOne({
+              ...prev,
+              labels: prev.labels?.filter((l) => l.key !== rel.to.key),
+            });
+          });
+      }),
     ];
   },
 });

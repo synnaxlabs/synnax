@@ -104,6 +104,9 @@ type Bindings struct {
 	SeriesElementModU8  func(context.Context, uint32, uint8) uint32
 	SeriesElementRSubU8 func(context.Context, uint8, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivU8 func(context.Context, uint8, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddU8 func(context.Context, uint8, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulU8 func(context.Context, uint8, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModU8 func(context.Context, uint8, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddU8 func(context.Context, uint32, uint32) uint32
@@ -145,6 +148,9 @@ type Bindings struct {
 	SeriesElementModU16  func(context.Context, uint32, uint16) uint32
 	SeriesElementRSubU16 func(context.Context, uint16, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivU16 func(context.Context, uint16, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddU16 func(context.Context, uint16, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulU16 func(context.Context, uint16, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModU16 func(context.Context, uint16, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddU16 func(context.Context, uint32, uint32) uint32
@@ -186,6 +192,9 @@ type Bindings struct {
 	SeriesElementModU32  func(context.Context, uint32, uint32) uint32
 	SeriesElementRSubU32 func(context.Context, uint32, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivU32 func(context.Context, uint32, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddU32 func(context.Context, uint32, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulU32 func(context.Context, uint32, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModU32 func(context.Context, uint32, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddU32 func(context.Context, uint32, uint32) uint32
@@ -227,6 +236,9 @@ type Bindings struct {
 	SeriesElementModU64  func(context.Context, uint32, uint64) uint32
 	SeriesElementRSubU64 func(context.Context, uint64, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivU64 func(context.Context, uint64, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddU64 func(context.Context, uint64, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulU64 func(context.Context, uint64, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModU64 func(context.Context, uint64, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddU64 func(context.Context, uint32, uint32) uint32
@@ -268,6 +280,9 @@ type Bindings struct {
 	SeriesElementModI8  func(context.Context, uint32, int8) uint32
 	SeriesElementRSubI8 func(context.Context, int8, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivI8 func(context.Context, int8, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddI8 func(context.Context, int8, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulI8 func(context.Context, int8, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModI8 func(context.Context, int8, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddI8 func(context.Context, uint32, uint32) uint32
@@ -309,6 +324,9 @@ type Bindings struct {
 	SeriesElementModI16  func(context.Context, uint32, int16) uint32
 	SeriesElementRSubI16 func(context.Context, int16, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivI16 func(context.Context, int16, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddI16 func(context.Context, int16, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulI16 func(context.Context, int16, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModI16 func(context.Context, int16, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddI16 func(context.Context, uint32, uint32) uint32
@@ -350,6 +368,9 @@ type Bindings struct {
 	SeriesElementModI32  func(context.Context, uint32, int32) uint32
 	SeriesElementRSubI32 func(context.Context, int32, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivI32 func(context.Context, int32, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddI32 func(context.Context, int32, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulI32 func(context.Context, int32, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModI32 func(context.Context, int32, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddI32 func(context.Context, uint32, uint32) uint32
@@ -391,6 +412,9 @@ type Bindings struct {
 	SeriesElementModI64  func(context.Context, uint32, int64) uint32
 	SeriesElementRSubI64 func(context.Context, int64, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivI64 func(context.Context, int64, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddI64 func(context.Context, int64, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulI64 func(context.Context, int64, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModI64 func(context.Context, int64, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddI64 func(context.Context, uint32, uint32) uint32
@@ -432,6 +456,9 @@ type Bindings struct {
 	SeriesElementModF32  func(context.Context, uint32, float32) uint32
 	SeriesElementRSubF32 func(context.Context, float32, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivF32 func(context.Context, float32, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddF32 func(context.Context, float32, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulF32 func(context.Context, float32, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModF32 func(context.Context, float32, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddF32 func(context.Context, uint32, uint32) uint32
@@ -473,6 +500,9 @@ type Bindings struct {
 	SeriesElementModF64  func(context.Context, uint32, float64) uint32
 	SeriesElementRSubF64 func(context.Context, float64, uint32) uint32 // (scalar, handle) for scalar - series
 	SeriesElementRDivF64 func(context.Context, float64, uint32) uint32 // (scalar, handle) for scalar / series
+	SeriesElementRAddF64 func(context.Context, float64, uint32) uint32 // (scalar, handle) for scalar + series
+	SeriesElementRMulF64 func(context.Context, float64, uint32) uint32 // (scalar, handle) for scalar * series
+	SeriesElementRModF64 func(context.Context, float64, uint32) uint32 // (scalar, handle) for scalar % series
 
 	// Series arithmetic - series-to-series operations
 	SeriesSeriesAddF64 func(context.Context, uint32, uint32) uint32
@@ -818,6 +848,21 @@ func (b *Bindings) setDefaultStubs() {
 			panic("series_element_rdiv_u8 not implemented")
 		}
 	}
+	if b.SeriesElementRAddU8 == nil {
+		b.SeriesElementRAddU8 = func(ctx context.Context, value uint8, handle uint32) uint32 {
+			panic("series_element_radd_u8 not implemented")
+		}
+	}
+	if b.SeriesElementRMulU8 == nil {
+		b.SeriesElementRMulU8 = func(ctx context.Context, value uint8, handle uint32) uint32 {
+			panic("series_element_rmul_u8 not implemented")
+		}
+	}
+	if b.SeriesElementRModU8 == nil {
+		b.SeriesElementRModU8 = func(ctx context.Context, value uint8, handle uint32) uint32 {
+			panic("series_element_rmod_u8 not implemented")
+		}
+	}
 
 	// Series-to-series arithmetic stubs
 	if b.SeriesSeriesAddU8 == nil {
@@ -971,6 +1016,21 @@ func (b *Bindings) setDefaultStubs() {
 	if b.SeriesElementRDivU16 == nil {
 		b.SeriesElementRDivU16 = func(ctx context.Context, value uint16, handle uint32) uint32 {
 			panic("series_element_rdiv_u16 not implemented")
+		}
+	}
+	if b.SeriesElementRAddU16 == nil {
+		b.SeriesElementRAddU16 = func(ctx context.Context, value uint16, handle uint32) uint32 {
+			panic("series_element_radd_u16 not implemented")
+		}
+	}
+	if b.SeriesElementRMulU16 == nil {
+		b.SeriesElementRMulU16 = func(ctx context.Context, value uint16, handle uint32) uint32 {
+			panic("series_element_rmul_u16 not implemented")
+		}
+	}
+	if b.SeriesElementRModU16 == nil {
+		b.SeriesElementRModU16 = func(ctx context.Context, value uint16, handle uint32) uint32 {
+			panic("series_element_rmod_u16 not implemented")
 		}
 	}
 
@@ -1128,6 +1188,21 @@ func (b *Bindings) setDefaultStubs() {
 			panic("series_element_rdiv_u32 not implemented")
 		}
 	}
+	if b.SeriesElementRAddU32 == nil {
+		b.SeriesElementRAddU32 = func(ctx context.Context, value uint32, handle uint32) uint32 {
+			panic("series_element_radd_u32 not implemented")
+		}
+	}
+	if b.SeriesElementRMulU32 == nil {
+		b.SeriesElementRMulU32 = func(ctx context.Context, value uint32, handle uint32) uint32 {
+			panic("series_element_rmul_u32 not implemented")
+		}
+	}
+	if b.SeriesElementRModU32 == nil {
+		b.SeriesElementRModU32 = func(ctx context.Context, value uint32, handle uint32) uint32 {
+			panic("series_element_rmod_u32 not implemented")
+		}
+	}
 
 	// Series-to-series arithmetic stubs
 	if b.SeriesSeriesAddU32 == nil {
@@ -1281,6 +1356,21 @@ func (b *Bindings) setDefaultStubs() {
 	if b.SeriesElementRDivU64 == nil {
 		b.SeriesElementRDivU64 = func(ctx context.Context, value uint64, handle uint32) uint32 {
 			panic("series_element_rdiv_u64 not implemented")
+		}
+	}
+	if b.SeriesElementRAddU64 == nil {
+		b.SeriesElementRAddU64 = func(ctx context.Context, value uint64, handle uint32) uint32 {
+			panic("series_element_radd_u64 not implemented")
+		}
+	}
+	if b.SeriesElementRMulU64 == nil {
+		b.SeriesElementRMulU64 = func(ctx context.Context, value uint64, handle uint32) uint32 {
+			panic("series_element_rmul_u64 not implemented")
+		}
+	}
+	if b.SeriesElementRModU64 == nil {
+		b.SeriesElementRModU64 = func(ctx context.Context, value uint64, handle uint32) uint32 {
+			panic("series_element_rmod_u64 not implemented")
 		}
 	}
 
@@ -1438,6 +1528,21 @@ func (b *Bindings) setDefaultStubs() {
 			panic("series_element_rdiv_i8 not implemented")
 		}
 	}
+	if b.SeriesElementRAddI8 == nil {
+		b.SeriesElementRAddI8 = func(ctx context.Context, value int8, handle uint32) uint32 {
+			panic("series_element_radd_i8 not implemented")
+		}
+	}
+	if b.SeriesElementRMulI8 == nil {
+		b.SeriesElementRMulI8 = func(ctx context.Context, value int8, handle uint32) uint32 {
+			panic("series_element_rmul_i8 not implemented")
+		}
+	}
+	if b.SeriesElementRModI8 == nil {
+		b.SeriesElementRModI8 = func(ctx context.Context, value int8, handle uint32) uint32 {
+			panic("series_element_rmod_i8 not implemented")
+		}
+	}
 
 	// Series-to-series arithmetic stubs
 	if b.SeriesSeriesAddI8 == nil {
@@ -1591,6 +1696,21 @@ func (b *Bindings) setDefaultStubs() {
 	if b.SeriesElementRDivI16 == nil {
 		b.SeriesElementRDivI16 = func(ctx context.Context, value int16, handle uint32) uint32 {
 			panic("series_element_rdiv_i16 not implemented")
+		}
+	}
+	if b.SeriesElementRAddI16 == nil {
+		b.SeriesElementRAddI16 = func(ctx context.Context, value int16, handle uint32) uint32 {
+			panic("series_element_radd_i16 not implemented")
+		}
+	}
+	if b.SeriesElementRMulI16 == nil {
+		b.SeriesElementRMulI16 = func(ctx context.Context, value int16, handle uint32) uint32 {
+			panic("series_element_rmul_i16 not implemented")
+		}
+	}
+	if b.SeriesElementRModI16 == nil {
+		b.SeriesElementRModI16 = func(ctx context.Context, value int16, handle uint32) uint32 {
+			panic("series_element_rmod_i16 not implemented")
 		}
 	}
 
@@ -1748,6 +1868,21 @@ func (b *Bindings) setDefaultStubs() {
 			panic("series_element_rdiv_i32 not implemented")
 		}
 	}
+	if b.SeriesElementRAddI32 == nil {
+		b.SeriesElementRAddI32 = func(ctx context.Context, value int32, handle uint32) uint32 {
+			panic("series_element_radd_i32 not implemented")
+		}
+	}
+	if b.SeriesElementRMulI32 == nil {
+		b.SeriesElementRMulI32 = func(ctx context.Context, value int32, handle uint32) uint32 {
+			panic("series_element_rmul_i32 not implemented")
+		}
+	}
+	if b.SeriesElementRModI32 == nil {
+		b.SeriesElementRModI32 = func(ctx context.Context, value int32, handle uint32) uint32 {
+			panic("series_element_rmod_i32 not implemented")
+		}
+	}
 
 	// Series-to-series arithmetic stubs
 	if b.SeriesSeriesAddI32 == nil {
@@ -1901,6 +2036,21 @@ func (b *Bindings) setDefaultStubs() {
 	if b.SeriesElementRDivI64 == nil {
 		b.SeriesElementRDivI64 = func(ctx context.Context, value int64, handle uint32) uint32 {
 			panic("series_element_rdiv_i64 not implemented")
+		}
+	}
+	if b.SeriesElementRAddI64 == nil {
+		b.SeriesElementRAddI64 = func(ctx context.Context, value int64, handle uint32) uint32 {
+			panic("series_element_radd_i64 not implemented")
+		}
+	}
+	if b.SeriesElementRMulI64 == nil {
+		b.SeriesElementRMulI64 = func(ctx context.Context, value int64, handle uint32) uint32 {
+			panic("series_element_rmul_i64 not implemented")
+		}
+	}
+	if b.SeriesElementRModI64 == nil {
+		b.SeriesElementRModI64 = func(ctx context.Context, value int64, handle uint32) uint32 {
+			panic("series_element_rmod_i64 not implemented")
 		}
 	}
 
@@ -2058,6 +2208,21 @@ func (b *Bindings) setDefaultStubs() {
 			panic("series_element_rdiv_f32 not implemented")
 		}
 	}
+	if b.SeriesElementRAddF32 == nil {
+		b.SeriesElementRAddF32 = func(ctx context.Context, value float32, handle uint32) uint32 {
+			panic("series_element_radd_f32 not implemented")
+		}
+	}
+	if b.SeriesElementRMulF32 == nil {
+		b.SeriesElementRMulF32 = func(ctx context.Context, value float32, handle uint32) uint32 {
+			panic("series_element_rmul_f32 not implemented")
+		}
+	}
+	if b.SeriesElementRModF32 == nil {
+		b.SeriesElementRModF32 = func(ctx context.Context, value float32, handle uint32) uint32 {
+			panic("series_element_rmod_f32 not implemented")
+		}
+	}
 
 	// Series-to-series arithmetic stubs
 	if b.SeriesSeriesAddF32 == nil {
@@ -2211,6 +2376,21 @@ func (b *Bindings) setDefaultStubs() {
 	if b.SeriesElementRDivF64 == nil {
 		b.SeriesElementRDivF64 = func(ctx context.Context, value float64, handle uint32) uint32 {
 			panic("series_element_rdiv_f64 not implemented")
+		}
+	}
+	if b.SeriesElementRAddF64 == nil {
+		b.SeriesElementRAddF64 = func(ctx context.Context, value float64, handle uint32) uint32 {
+			panic("series_element_radd_f64 not implemented")
+		}
+	}
+	if b.SeriesElementRMulF64 == nil {
+		b.SeriesElementRMulF64 = func(ctx context.Context, value float64, handle uint32) uint32 {
+			panic("series_element_rmul_f64 not implemented")
+		}
+	}
+	if b.SeriesElementRModF64 == nil {
+		b.SeriesElementRModF64 = func(ctx context.Context, value float64, handle uint32) uint32 {
+			panic("series_element_rmod_f64 not implemented")
 		}
 	}
 
@@ -2490,7 +2670,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementU8()).Export("series_set_element_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexU8()).Export("series_index_u8")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddU8()).Export("series_element_add_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulU8()).Export("series_element_mul_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubU8()).Export("series_element_sub_u8")
@@ -2498,6 +2678,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModU8()).Export("series_element_mod_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubU8()).Export("series_element_rsub_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivU8()).Export("series_element_rdiv_u8")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddU8()).Export("series_element_radd_u8")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulU8()).Export("series_element_rmul_u8")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModU8()).Export("series_element_rmod_u8")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddU8).Export("series_series_add_u8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulU8).Export("series_series_mul_u8")
@@ -2528,7 +2711,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementU16()).Export("series_set_element_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexU16()).Export("series_index_u16")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddU16()).Export("series_element_add_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulU16()).Export("series_element_mul_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubU16()).Export("series_element_sub_u16")
@@ -2536,6 +2719,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModU16()).Export("series_element_mod_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubU16()).Export("series_element_rsub_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivU16()).Export("series_element_rdiv_u16")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddU16()).Export("series_element_radd_u16")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulU16()).Export("series_element_rmul_u16")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModU16()).Export("series_element_rmod_u16")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddU16).Export("series_series_add_u16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulU16).Export("series_series_mul_u16")
@@ -2566,7 +2752,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementU32()).Export("series_set_element_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexU32()).Export("series_index_u32")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddU32()).Export("series_element_add_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulU32()).Export("series_element_mul_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubU32()).Export("series_element_sub_u32")
@@ -2574,6 +2760,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModU32()).Export("series_element_mod_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubU32()).Export("series_element_rsub_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivU32()).Export("series_element_rdiv_u32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddU32()).Export("series_element_radd_u32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulU32()).Export("series_element_rmul_u32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModU32()).Export("series_element_rmod_u32")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddU32).Export("series_series_add_u32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulU32).Export("series_series_mul_u32")
@@ -2604,7 +2793,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementU64()).Export("series_set_element_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexU64()).Export("series_index_u64")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddU64()).Export("series_element_add_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulU64()).Export("series_element_mul_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubU64()).Export("series_element_sub_u64")
@@ -2612,6 +2801,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModU64()).Export("series_element_mod_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubU64()).Export("series_element_rsub_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivU64()).Export("series_element_rdiv_u64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddU64()).Export("series_element_radd_u64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulU64()).Export("series_element_rmul_u64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModU64()).Export("series_element_rmod_u64")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddU64).Export("series_series_add_u64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulU64).Export("series_series_mul_u64")
@@ -2642,7 +2834,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementI8()).Export("series_set_element_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexI8()).Export("series_index_i8")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddI8()).Export("series_element_add_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulI8()).Export("series_element_mul_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubI8()).Export("series_element_sub_i8")
@@ -2650,6 +2842,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModI8()).Export("series_element_mod_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubI8()).Export("series_element_rsub_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivI8()).Export("series_element_rdiv_i8")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddI8()).Export("series_element_radd_i8")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulI8()).Export("series_element_rmul_i8")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModI8()).Export("series_element_rmod_i8")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddI8).Export("series_series_add_i8")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulI8).Export("series_series_mul_i8")
@@ -2680,7 +2875,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementI16()).Export("series_set_element_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexI16()).Export("series_index_i16")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddI16()).Export("series_element_add_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulI16()).Export("series_element_mul_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubI16()).Export("series_element_sub_i16")
@@ -2688,6 +2883,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModI16()).Export("series_element_mod_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubI16()).Export("series_element_rsub_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivI16()).Export("series_element_rdiv_i16")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddI16()).Export("series_element_radd_i16")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulI16()).Export("series_element_rmul_i16")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModI16()).Export("series_element_rmod_i16")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddI16).Export("series_series_add_i16")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulI16).Export("series_series_mul_i16")
@@ -2718,7 +2916,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementI32()).Export("series_set_element_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexI32()).Export("series_index_i32")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddI32()).Export("series_element_add_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulI32()).Export("series_element_mul_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubI32()).Export("series_element_sub_i32")
@@ -2726,6 +2924,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModI32()).Export("series_element_mod_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubI32()).Export("series_element_rsub_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivI32()).Export("series_element_rdiv_i32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddI32()).Export("series_element_radd_i32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulI32()).Export("series_element_rmul_i32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModI32()).Export("series_element_rmod_i32")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddI32).Export("series_series_add_i32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulI32).Export("series_series_mul_i32")
@@ -2756,7 +2957,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementI64()).Export("series_set_element_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexI64()).Export("series_index_i64")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddI64()).Export("series_element_add_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulI64()).Export("series_element_mul_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubI64()).Export("series_element_sub_i64")
@@ -2764,6 +2965,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModI64()).Export("series_element_mod_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubI64()).Export("series_element_rsub_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivI64()).Export("series_element_rdiv_i64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddI64()).Export("series_element_radd_i64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulI64()).Export("series_element_rmul_i64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModI64()).Export("series_element_rmod_i64")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddI64).Export("series_series_add_i64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulI64).Export("series_series_mul_i64")
@@ -2794,7 +2998,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementF32()).Export("series_set_element_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexF32()).Export("series_index_f32")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddF32()).Export("series_element_add_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulF32()).Export("series_element_mul_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubF32()).Export("series_element_sub_f32")
@@ -2802,6 +3006,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModF32()).Export("series_element_mod_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubF32()).Export("series_element_rsub_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivF32()).Export("series_element_rdiv_f32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddF32()).Export("series_element_radd_f32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulF32()).Export("series_element_rmul_f32")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModF32()).Export("series_element_rmod_f32")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddF32).Export("series_series_add_f32")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulF32).Export("series_series_mul_f32")
@@ -2832,7 +3039,7 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesSetElementF64()).Export("series_set_element_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesIndexF64()).Export("series_index_f64")
 
-	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv
+	// Series arithmetic operations - order must match imports.go: add, mul, sub, div, mod, rsub, rdiv, radd, rmul, rmod
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementAddF64()).Export("series_element_add_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementMulF64()).Export("series_element_mul_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementSubF64()).Export("series_element_sub_f64")
@@ -2840,6 +3047,9 @@ func (b *Bindings) Bind(ctx context.Context, rt wazero.Runtime) error {
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementModF64()).Export("series_element_mod_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRSubF64()).Export("series_element_rsub_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRDivF64()).Export("series_element_rdiv_f64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRAddF64()).Export("series_element_radd_f64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRMulF64()).Export("series_element_rmul_f64")
+	hostBuilder.NewFunctionBuilder().WithFunc(b.wrapSeriesElementRModF64()).Export("series_element_rmod_f64")
 
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesAddF64).Export("series_series_add_f64")
 	hostBuilder.NewFunctionBuilder().WithFunc(b.SeriesSeriesMulF64).Export("series_series_mul_f64")
@@ -3301,6 +3511,24 @@ func (b *Bindings) wrapSeriesElementRDivU8() func(context.Context, uint32, uint3
 	}
 }
 
+func (b *Bindings) wrapSeriesElementRAddU8() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRAddU8(ctx, uint8(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulU8() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRMulU8(ctx, uint8(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModU8() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRModU8(ctx, uint8(value), handle)
+	}
+}
+
 // Series scalar comparison wrappers for u8
 func (b *Bindings) wrapSeriesCompareGTScalarU8() func(context.Context, uint32, uint32) uint32 {
 	return func(ctx context.Context, handle uint32, value uint32) uint32 {
@@ -3392,6 +3620,24 @@ func (b *Bindings) wrapSeriesElementRSubU16() func(context.Context, uint32, uint
 func (b *Bindings) wrapSeriesElementRDivU16() func(context.Context, uint32, uint32) uint32 {
 	return func(ctx context.Context, value uint32, handle uint32) uint32 {
 		return b.SeriesElementRDivU16(ctx, uint16(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRAddU16() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRAddU16(ctx, uint16(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulU16() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRMulU16(ctx, uint16(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModU16() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRModU16(ctx, uint16(value), handle)
 	}
 }
 
@@ -3489,6 +3735,24 @@ func (b *Bindings) wrapSeriesElementRDivU32() func(context.Context, uint32, uint
 	}
 }
 
+func (b *Bindings) wrapSeriesElementRAddU32() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRAddU32(ctx, uint32(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulU32() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRMulU32(ctx, uint32(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModU32() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRModU32(ctx, uint32(value), handle)
+	}
+}
+
 // Series scalar comparison wrappers for u32
 func (b *Bindings) wrapSeriesCompareGTScalarU32() func(context.Context, uint32, uint32) uint32 {
 	return func(ctx context.Context, handle uint32, value uint32) uint32 {
@@ -3580,6 +3844,24 @@ func (b *Bindings) wrapSeriesElementRSubU64() func(context.Context, uint64, uint
 func (b *Bindings) wrapSeriesElementRDivU64() func(context.Context, uint64, uint32) uint32 {
 	return func(ctx context.Context, value uint64, handle uint32) uint32 {
 		return b.SeriesElementRDivU64(ctx, uint64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRAddU64() func(context.Context, uint64, uint32) uint32 {
+	return func(ctx context.Context, value uint64, handle uint32) uint32 {
+		return b.SeriesElementRAddU64(ctx, uint64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulU64() func(context.Context, uint64, uint32) uint32 {
+	return func(ctx context.Context, value uint64, handle uint32) uint32 {
+		return b.SeriesElementRMulU64(ctx, uint64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModU64() func(context.Context, uint64, uint32) uint32 {
+	return func(ctx context.Context, value uint64, handle uint32) uint32 {
+		return b.SeriesElementRModU64(ctx, uint64(value), handle)
 	}
 }
 
@@ -3677,6 +3959,24 @@ func (b *Bindings) wrapSeriesElementRDivI8() func(context.Context, uint32, uint3
 	}
 }
 
+func (b *Bindings) wrapSeriesElementRAddI8() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRAddI8(ctx, int8(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulI8() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRMulI8(ctx, int8(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModI8() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRModI8(ctx, int8(value), handle)
+	}
+}
+
 // Series scalar comparison wrappers for i8
 func (b *Bindings) wrapSeriesCompareGTScalarI8() func(context.Context, uint32, uint32) uint32 {
 	return func(ctx context.Context, handle uint32, value uint32) uint32 {
@@ -3768,6 +4068,24 @@ func (b *Bindings) wrapSeriesElementRSubI16() func(context.Context, uint32, uint
 func (b *Bindings) wrapSeriesElementRDivI16() func(context.Context, uint32, uint32) uint32 {
 	return func(ctx context.Context, value uint32, handle uint32) uint32 {
 		return b.SeriesElementRDivI16(ctx, int16(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRAddI16() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRAddI16(ctx, int16(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulI16() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRMulI16(ctx, int16(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModI16() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRModI16(ctx, int16(value), handle)
 	}
 }
 
@@ -3865,6 +4183,24 @@ func (b *Bindings) wrapSeriesElementRDivI32() func(context.Context, uint32, uint
 	}
 }
 
+func (b *Bindings) wrapSeriesElementRAddI32() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRAddI32(ctx, int32(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulI32() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRMulI32(ctx, int32(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModI32() func(context.Context, uint32, uint32) uint32 {
+	return func(ctx context.Context, value uint32, handle uint32) uint32 {
+		return b.SeriesElementRModI32(ctx, int32(value), handle)
+	}
+}
+
 // Series scalar comparison wrappers for i32
 func (b *Bindings) wrapSeriesCompareGTScalarI32() func(context.Context, uint32, uint32) uint32 {
 	return func(ctx context.Context, handle uint32, value uint32) uint32 {
@@ -3956,6 +4292,24 @@ func (b *Bindings) wrapSeriesElementRSubI64() func(context.Context, uint64, uint
 func (b *Bindings) wrapSeriesElementRDivI64() func(context.Context, uint64, uint32) uint32 {
 	return func(ctx context.Context, value uint64, handle uint32) uint32 {
 		return b.SeriesElementRDivI64(ctx, int64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRAddI64() func(context.Context, uint64, uint32) uint32 {
+	return func(ctx context.Context, value uint64, handle uint32) uint32 {
+		return b.SeriesElementRAddI64(ctx, int64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulI64() func(context.Context, uint64, uint32) uint32 {
+	return func(ctx context.Context, value uint64, handle uint32) uint32 {
+		return b.SeriesElementRMulI64(ctx, int64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModI64() func(context.Context, uint64, uint32) uint32 {
+	return func(ctx context.Context, value uint64, handle uint32) uint32 {
+		return b.SeriesElementRModI64(ctx, int64(value), handle)
 	}
 }
 
@@ -4053,6 +4407,24 @@ func (b *Bindings) wrapSeriesElementRDivF32() func(context.Context, float32, uin
 	}
 }
 
+func (b *Bindings) wrapSeriesElementRAddF32() func(context.Context, float32, uint32) uint32 {
+	return func(ctx context.Context, value float32, handle uint32) uint32 {
+		return b.SeriesElementRAddF32(ctx, float32(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulF32() func(context.Context, float32, uint32) uint32 {
+	return func(ctx context.Context, value float32, handle uint32) uint32 {
+		return b.SeriesElementRMulF32(ctx, float32(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModF32() func(context.Context, float32, uint32) uint32 {
+	return func(ctx context.Context, value float32, handle uint32) uint32 {
+		return b.SeriesElementRModF32(ctx, float32(value), handle)
+	}
+}
+
 // Series scalar comparison wrappers for f32
 func (b *Bindings) wrapSeriesCompareGTScalarF32() func(context.Context, uint32, float32) uint32 {
 	return func(ctx context.Context, handle uint32, value float32) uint32 {
@@ -4144,6 +4516,24 @@ func (b *Bindings) wrapSeriesElementRSubF64() func(context.Context, float64, uin
 func (b *Bindings) wrapSeriesElementRDivF64() func(context.Context, float64, uint32) uint32 {
 	return func(ctx context.Context, value float64, handle uint32) uint32 {
 		return b.SeriesElementRDivF64(ctx, float64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRAddF64() func(context.Context, float64, uint32) uint32 {
+	return func(ctx context.Context, value float64, handle uint32) uint32 {
+		return b.SeriesElementRAddF64(ctx, float64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRMulF64() func(context.Context, float64, uint32) uint32 {
+	return func(ctx context.Context, value float64, handle uint32) uint32 {
+		return b.SeriesElementRMulF64(ctx, float64(value), handle)
+	}
+}
+
+func (b *Bindings) wrapSeriesElementRModF64() func(context.Context, float64, uint32) uint32 {
+	return func(ctx context.Context, value float64, handle uint32) uint32 {
+		return b.SeriesElementRModF64(ctx, float64(value), handle)
 	}
 }
 
