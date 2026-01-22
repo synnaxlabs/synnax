@@ -124,6 +124,9 @@ const (
 	KindIntegerConstant
 	// KindFloatConstant is a constraint for any floating-point type.
 	KindFloatConstant
+	// KindExactIntegerFloatConstant is a constraint for float literals that represent
+	// exact integers (like 5.0, 0.0). Defaults to f64 but can unify with integer types.
+	KindExactIntegerFloatConstant
 
 	// KindFunction is a function type (requires Inputs, Outputs, optional Config).
 	KindFunction
@@ -327,6 +330,8 @@ func (t Type) String() string {
 		return "integer"
 	case KindFloatConstant:
 		return "float"
+	case KindExactIntegerFloatConstant:
+		return "exact integer float"
 	case KindFunction:
 		return "function"
 	case KindSequence:
@@ -449,6 +454,10 @@ func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 // FloatConstraint returns a constraint accepting any floating-point type.
 func FloatConstraint() Type { return Type{Kind: KindFloatConstant} }
 
+// ExactIntegerFloatConstraint returns a constraint for float literals that represent
+// exact integers (like 5.0, 0.0). Defaults to f64 but can unify with integer types.
+func ExactIntegerFloatConstraint() Type { return Type{Kind: KindExactIntegerFloatConstant} }
+
 // Sequence returns a sequence (state machine) type.
 func Sequence() Type { return Type{Kind: KindSequence} }
 
@@ -471,7 +480,8 @@ func (t Type) IsNumeric() bool {
 		}
 		if unwrapped.Constraint.Kind == KindNumericConstant ||
 			unwrapped.Constraint.Kind == KindIntegerConstant ||
-			unwrapped.Constraint.Kind == KindFloatConstant {
+			unwrapped.Constraint.Kind == KindFloatConstant ||
+			unwrapped.Constraint.Kind == KindExactIntegerFloatConstant {
 			return true
 		}
 		return unwrapped.Constraint.IsNumeric()
@@ -480,7 +490,7 @@ func (t Type) IsNumeric() bool {
 	case KindU8, KindU16, KindU32, KindU64,
 		KindI8, KindI16, KindI32, KindI64,
 		KindF32, KindF64,
-		KindNumericConstant, KindIntegerConstant, KindFloatConstant:
+		KindNumericConstant, KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant:
 		return true
 	default:
 		return false

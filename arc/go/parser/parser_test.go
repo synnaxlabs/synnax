@@ -444,9 +444,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		It("Should fail parsing mixed named and anonymous config values", func() {
 			// Note: 'stage' is now a reserved keyword, so we use a different function name
-			_, err := parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("1:22 error: mismatched input")))
+			Expect(parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)).Error().To(MatchError(ContainSubstring("1:22 error: mismatched input")))
 		})
 	})
 
@@ -758,9 +756,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		Context("Error cases", func() {
 			It("Should report error for unclosed parenthesis", func() {
-				_, err := parser.ParseExpression("(2 + 3")
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("missing ')'")))
+				Expect(parser.ParseExpression("(2 + 3")).Error().To(MatchError(ContainSubstring("missing ')'")))
 			})
 
 			It("Should report error for invalid operators", func() {
@@ -771,17 +767,13 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
 				// Regression test: lexer errors were not being captured properly
 				// Using && instead of 'and' should produce lexer token recognition errors
-				_, err := parser.ParseExpression("a > 5 && b < 10")
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(ContainSubstring("token recognition error at: '&'")))
+				Expect(parser.ParseExpression("a > 5 && b < 10")).Error().To(MatchError(ContainSubstring("token recognition error at: '&'")))
 			})
 
 			It("Should report error for double assignment", func() {
-				_, err := parser.Parse(`func test() {
+				Expect(parser.Parse(`func test() {
 					x := := 5
-				}`)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("error: extraneous input")))
+				}`)).Error().To(MatchError(ContainSubstring("error: extraneous input")))
 			})
 
 			It("Should report multiple errors with line information", func() {
@@ -813,11 +805,9 @@ func broken() {
 			})
 
 			It("Should report error for unclosed brace", func() {
-				_, err := parser.Parse(`func test() {
+				Expect(parser.Parse(`func test() {
 					x := 5
-				`)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("3:4 error: extraneous input")))
+				`)).Error().To(MatchError(ContainSubstring("3:4 error: extraneous input")))
 			})
 
 			It("Should report error for missing function body", func() {
@@ -874,9 +864,7 @@ func broken() {
 			})
 
 			It("Should return error for invalid block", func() {
-				block, err := parser.ParseBlock("{ x := := 5 }")
-				Expect(err).To(MatchError(ContainSubstring("1:7 error: extraneous input")))
-				Expect(block).To(BeNil())
+				Expect(parser.ParseBlock("{ x := := 5 }")).Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
 			})
 
 			It("Should handle empty block", func() {
@@ -885,9 +873,7 @@ func broken() {
 			})
 
 			It("Should handle block without braces", func() {
-				block, err := parser.ParseBlock("x := 42")
-				Expect(err).To(MatchError(ContainSubstring("missing '{'")))
-				Expect(block).To(BeNil())
+				Expect(parser.ParseBlock("x := 42")).Error().To(MatchError(ContainSubstring("missing '{'")))
 			})
 		})
 

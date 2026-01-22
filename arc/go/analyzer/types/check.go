@@ -39,9 +39,10 @@ func Check(
 	}
 
 	// Check for wrapped type mismatch (series vs scalar, chan vs scalar)
+	// Skip this check if either type is a variable - let the constraint system handle it
 	t1Wrapped := t1.Kind == types.KindChan || t1.Kind == types.KindSeries
 	t2Wrapped := t2.Kind == types.KindChan || t2.Kind == types.KindSeries
-	if t1Wrapped != t2Wrapped {
+	if t1Wrapped != t2Wrapped && t1.Kind != types.KindVariable && t2.Kind != types.KindVariable {
 		resolved1 := cs.ApplySubstitutions(t1)
 		resolved2 := cs.ApplySubstitutions(t2)
 		if reason != "" {
@@ -88,16 +89,14 @@ func concreteTypeForHint(t types.Type) string {
 		switch t.Constraint.Kind {
 		case types.KindIntegerConstant:
 			return "i64"
-		case types.KindFloatConstant:
-			return "f64"
-		case types.KindNumericConstant:
+		case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
 			return "f64"
 		}
 	}
 	if t.Kind == types.KindIntegerConstant {
 		return "i64"
 	}
-	if t.Kind == types.KindFloatConstant {
+	if t.Kind == types.KindFloatConstant || t.Kind == types.KindExactIntegerFloatConstant {
 		return "f64"
 	}
 	return t.String()

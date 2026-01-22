@@ -35,16 +35,12 @@ var _ = Describe("MapResolver", func() {
 			resolver := symbol.MapResolver{
 				"x": symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			}
-			_, err := resolver.Resolve(bCtx, "y")
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(resolver.Resolve(bCtx, "y")).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should work with empty resolver", func() {
 			resolver := symbol.MapResolver{}
-			_, err := resolver.Resolve(bCtx, "anything")
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(resolver.Resolve(bCtx, "anything")).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 

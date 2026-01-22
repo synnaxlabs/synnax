@@ -325,8 +325,8 @@ var _ = Describe("Function Analyzer", func() {
 			func(src string, msgMatcher OmegaMatcher) {
 				analyzeExpectError(src, nil, msgMatcher)
 			},
-			Entry("float literal on integer return",
-				`func dog() i32 { return 1.0 }`,
+			Entry("non-exact-integer float literal on integer return",
+				`func dog() i32 { return 1.5 }`,
 				ContainSubstring("is not compatible with")),
 			Entry("return value in void function",
 				`func dog() { return 5 }`,

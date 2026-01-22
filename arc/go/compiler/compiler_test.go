@@ -772,6 +772,11 @@ var _ = Describe("Compiler", func() {
 			compare := mod.ExportedFunction("compare")
 			Expect(compare).ToNot(BeNil())
 
+			x := 12
+			if x > 3.0 {
+
+			}
+
 			// Test with 10, should return 1 (true)
 			results := MustSucceed(compare.Call(ctx, 10))
 			Expect(results).To(ConsistOf(uint64(1)))

@@ -1032,9 +1032,9 @@ var _ = Describe("Statement", func() {
 					b := 5
 					x := [a, b]
 				}`),
-				Entry("inferred int variable and float literal", `{
+				Entry("inferred int variable and non-exact-integer float literal", `{
 					a := 5
-					x := [a, 12.0]
+					x := [a, 12.5]
 				}`),
 			)
 		})

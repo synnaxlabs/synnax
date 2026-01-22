@@ -112,16 +112,14 @@ func concreteTypeForHint(t types.Type) string {
 		switch t.Constraint.Kind {
 		case types.KindIntegerConstant:
 			return "i64"
-		case types.KindFloatConstant:
-			return "f64"
-		case types.KindNumericConstant:
+		case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
 			return "f64"
 		}
 	}
 	if t.Kind == types.KindIntegerConstant {
 		return "i64"
 	}
-	if t.Kind == types.KindFloatConstant {
+	if t.Kind == types.KindFloatConstant || t.Kind == types.KindExactIntegerFloatConstant {
 		return "f64"
 	}
 	return t.String()
@@ -250,13 +248,22 @@ func (s *System) unifyTypeVariableWithVisited(
 				other,
 			)
 		}
+	} else if tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
+		if !checkType.IsNumeric() {
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy exact integer float constraint",
+				other,
+			)
+		}
 	}
 
-	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant),
+	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant, ExactIntegerFloatConstant),
 	// we've already validated compatibility above, so skip exact match check
 	isConstraintKind := tv.Constraint != nil && (tv.Constraint.Kind == types.KindIntegerConstant ||
 		tv.Constraint.Kind == types.KindFloatConstant ||
-		tv.Constraint.Kind == types.KindNumericConstant)
+		tv.Constraint.Kind == types.KindNumericConstant ||
+		tv.Constraint.Kind == types.KindExactIntegerFloatConstant)
 
 	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
 		if source.Kind != KindCompatible || !tv.Constraint.IsNumeric() || !other.IsNumeric() {
@@ -280,11 +287,9 @@ func occursIn(lhs, rhs types.Type) bool {
 
 func defaultTypeForConstraint(constraint types.Type) types.Type {
 	switch constraint.Kind {
-	case types.KindNumericConstant:
-		return types.F64()
 	case types.KindIntegerConstant:
 		return types.I64()
-	case types.KindFloatConstant:
+	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
 		return types.F64()
 	default:
 		return constraint
@@ -327,18 +332,22 @@ func promoteNumericTypes(t1, t2 types.Type) types.Type {
 func isNumericConstraint(kind types.Kind) bool {
 	return kind == types.KindNumericConstant ||
 		kind == types.KindIntegerConstant ||
-		kind == types.KindFloatConstant
+		kind == types.KindFloatConstant ||
+		kind == types.KindExactIntegerFloatConstant
 }
 
 // numericConstraintsCompatible checks if two constraint kinds are compatible.
 // IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
 // float variables in operations, consistent with how explicit i32 and f64 are rejected.
-// NumericConstant is compatible with both since it represents an unconstrained numeric literal.
+// NumericConstant and ExactIntegerFloatConstant are compatible with both since they can adapt.
 func numericConstraintsCompatible(k1, k2 types.Kind) bool {
 	if k1 == k2 {
 		return true
 	}
 	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
+		return isNumericConstraint(k1) && isNumericConstraint(k2)
+	}
+	if k1 == types.KindExactIntegerFloatConstant || k2 == types.KindExactIntegerFloatConstant {
 		return isNumericConstraint(k1) && isNumericConstraint(k2)
 	}
 	if isNumericConstraint(k1) && isNumericConstraint(k2) {

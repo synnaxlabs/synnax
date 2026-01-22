@@ -175,9 +175,7 @@ var _ = Describe("Scope", func() {
 				symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()},
 			))
 			Expect(scope).ToNot(BeNil())
-			_, err := rootScope.GetChildByParserRule(antlr.NewBaseParserRuleContext(nil, 0))
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("could not find symbol matching parser rule")))
+			Expect(rootScope.GetChildByParserRule(antlr.NewBaseParserRuleContext(nil, 0))).Error().To(MatchError(ContainSubstring("could not find symbol matching parser rule")))
 		})
 	})
 

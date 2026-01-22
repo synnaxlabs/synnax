@@ -11,6 +11,8 @@ package types
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/context"
@@ -369,13 +371,14 @@ func literalsCompatible(t1, t2 types.Type) bool {
 func isNumericConstraint(kind types.Kind) bool {
 	return kind == types.KindNumericConstant ||
 		kind == types.KindIntegerConstant ||
-		kind == types.KindFloatConstant
+		kind == types.KindFloatConstant ||
+		kind == types.KindExactIntegerFloatConstant
 }
 
 // numericConstraintsCompatible checks if two constraint kinds are compatible for series elements.
 // IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
 // float variables in a series literal, consistent with how explicit i32 and f64 are rejected.
-// NumericConstant is compatible with both since it represents an unconstrained numeric literal.
+// NumericConstant and ExactIntegerFloatConstant are compatible with both since they can adapt.
 func numericConstraintsCompatible(k1, k2 types.Kind) bool {
 	// Same constraint kind is always compatible
 	if k1 == k2 {
@@ -383,6 +386,9 @@ func numericConstraintsCompatible(k1, k2 types.Kind) bool {
 	}
 	// NumericConstant is compatible with any numeric constraint
 	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
+		return isNumericConstraint(k1) && isNumericConstraint(k2)
+	}
+	if k1 == types.KindExactIntegerFloatConstant || k2 == types.KindExactIntegerFloatConstant {
 		return isNumericConstraint(k1) && isNumericConstraint(k2)
 	}
 	// IntegerConstraint and FloatConstraint are NOT compatible with each other
@@ -398,7 +404,7 @@ func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
 		return true
 	}
 	switch constraint.Kind {
-	case types.KindNumericConstant, types.KindIntegerConstant:
+	case types.KindNumericConstant, types.KindIntegerConstant, types.KindExactIntegerFloatConstant:
 		return concreteType.IsNumeric()
 	case types.KindFloatConstant:
 		return concreteType.IsFloat()
@@ -414,13 +420,26 @@ func inferNumericLiteralType(
 	// Determine constraint based on literal form (integer vs float)
 	// This applies to both plain numeric literals AND unit literals
 	var (
-		isFloat    = numLit.FLOAT_LITERAL() != nil
-		line       = ctx.AST.GetStart().GetLine()
-		col        = ctx.AST.GetStart().GetColumn()
-		tvName     = fmt.Sprintf("lit_%d_%d", line, col)
-		constraint = lo.Ternary(isFloat, types.FloatConstraint(), types.IntegerConstraint())
-		tv         = types.Variable(tvName, &constraint)
+		floatLit = numLit.FLOAT_LITERAL()
+		isFloat  = floatLit != nil
+		line     = ctx.AST.GetStart().GetLine()
+		col      = ctx.AST.GetStart().GetColumn()
+		tvName   = fmt.Sprintf("lit_%d_%d", line, col)
 	)
+
+	var constraint types.Type
+	if isFloat {
+		floatText := floatLit.GetText()
+		floatValue, err := strconv.ParseFloat(floatText, 64)
+		if err == nil && isExactInteger(floatValue) {
+			constraint = types.ExactIntegerFloatConstraint()
+		} else {
+			constraint = types.FloatConstraint()
+		}
+	} else {
+		constraint = types.IntegerConstraint()
+	}
+	tv := types.Variable(tvName, &constraint)
 
 	// Check for unit suffix (e.g., 5psi, 3s, 100Hz)
 	if unitID := numLit.IDENTIFIER(); unitID != nil {
@@ -436,6 +455,16 @@ func inferNumericLiteralType(
 	return tv
 }
 
+// isExactInteger checks if a float64 value represents an exact integer.
+// Uses a relative epsilon to handle floating-point precision issues.
+func isExactInteger(value float64) bool {
+	rounded := math.Round(value)
+	if rounded == 0 {
+		return math.Abs(value) < 1e-9
+	}
+	return math.Abs(value-rounded)/math.Abs(rounded) < 1e-9
+}
+
 // resolveLiteralConstraint converts a type variable with a literal constraint to a concrete type.
 // This is used when a variable is referenced in an expression to distinguish between:
 // - Direct literals (2 + 3.2) which can be promoted
@@ -449,11 +478,7 @@ func resolveLiteralConstraint(t types.Type) types.Type {
 		result := types.I64()
 		result.Unit = t.Unit
 		return result
-	case types.KindFloatConstant:
-		result := types.F64()
-		result.Unit = t.Unit
-		return result
-	case types.KindNumericConstant:
+	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
 		result := types.F64()
 		result.Unit = t.Unit
 		return result

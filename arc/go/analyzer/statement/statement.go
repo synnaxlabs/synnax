@@ -897,6 +897,9 @@ func unifyReturnTypes(
 			if t.Constraint != nil && t.Constraint.Kind == types.KindNumericConstant {
 				return types.F64(), nil
 			}
+			if t.Constraint != nil && t.Constraint.Kind == types.KindExactIntegerFloatConstant {
+				return types.F64(), nil
+			}
 		}
 		return t, nil
 	}
@@ -924,6 +927,9 @@ func unifyReturnTypes(
 			return types.F64(), nil
 		}
 		if firstVar.Constraint != nil && firstVar.Constraint.Kind == types.KindNumericConstant {
+			return types.F64(), nil
+		}
+		if firstVar.Constraint != nil && firstVar.Constraint.Kind == types.KindExactIntegerFloatConstant {
 			return types.F64(), nil
 		}
 		return typeVariables[0], nil
@@ -1123,6 +1129,14 @@ func resolveTypeVariableWithContext(tv types.Type, concreteTypes []types.Type) t
 		return types.F64()
 	}
 	if tv.Constraint != nil && tv.Constraint.Kind == types.KindNumericConstant {
+		return types.F64()
+	}
+	if tv.Constraint != nil && tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
+		for _, t := range concreteTypes {
+			if t.IsNumeric() {
+				return t
+			}
+		}
 		return types.F64()
 	}
 	return tv
