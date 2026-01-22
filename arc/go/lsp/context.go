@@ -29,50 +29,36 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	if isPositionInComment(content, pos) {
 		return ContextComment
 	}
-
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
-
 	if len(tokensBeforeCursor) == 0 {
 		return ContextStatementStart
 	}
-
 	lastToken := tokensBeforeCursor[len(tokensBeforeCursor)-1]
-
 	if isTypeAnnotationContext(tokensBeforeCursor, lastToken) {
 		return ContextTypeAnnotation
 	}
-
 	if isExpressionContext(lastToken) {
 		return ContextExpression
 	}
-
 	if isStatementStartContext(tokensBeforeCursor, lastToken, pos) {
 		return ContextStatementStart
 	}
-
 	return ContextUnknown
 }
 
 func isPositionInComment(content string, pos protocol.Position) bool {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	lexer.RemoveErrorListeners()
-	allTokens := lexer.GetAllTokens()
-
+	allTokens := tokenizeContent(content)
 	line := int(pos.Line) + 1
 	col := int(pos.Character)
-
 	for _, t := range allTokens {
 		tokenType := t.GetTokenType()
 		if tokenType != parser.ArcLexerSINGLE_LINE_COMMENT && tokenType != parser.ArcLexerMULTI_LINE_COMMENT {
 			continue
 		}
-
 		startLine := t.GetLine()
 		startCol := t.GetColumn()
 		text := t.GetText()
-
 		if tokenType == parser.ArcLexerSINGLE_LINE_COMMENT {
 			if line == startLine && col >= startCol {
 				return true
@@ -91,7 +77,6 @@ func isPositionInComment(content string, pos protocol.Position) bool {
 func calculateEndPosition(startLine, startCol int, text string) (endLine, endCol int) {
 	endLine = startLine
 	endCol = startCol
-
 	for _, ch := range text {
 		if ch == '\n' {
 			endLine++
@@ -100,7 +85,6 @@ func calculateEndPosition(startLine, startCol int, text string) (endLine, endCol
 			endCol++
 		}
 	}
-
 	return endLine, endCol
 }
 
@@ -115,13 +99,6 @@ func isPositionInRange(line, col, startLine, startCol, endLine, endCol int) bool
 		return false
 	}
 	return true
-}
-
-func tokenizeContent(content string) []antlr.Token {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	lexer.RemoveErrorListeners()
-	return lexer.GetAllTokens()
 }
 
 func getTokensBeforeCursor(tokens []antlr.Token, pos protocol.Position) []antlr.Token {
@@ -158,18 +135,14 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 	if lastToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
 		return false
 	}
-
 	if len(tokens) < 2 {
 		return false
 	}
-
 	prevToken := tokens[len(tokens)-2]
 	prevType := prevToken.GetTokenType()
-
 	if prevType == parser.ArcLexerLPAREN || prevType == parser.ArcLexerCOMMA {
 		return true
 	}
-
 	if prevType == parser.ArcLexerIDENTIFIER && len(tokens) >= 3 {
 		prevPrevToken := tokens[len(tokens)-3]
 		prevPrevType := prevPrevToken.GetTokenType()
@@ -177,13 +150,11 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 			return true
 		}
 	}
-
 	return false
 }
 
 func isExpressionContext(lastToken antlr.Token) bool {
 	tokenType := lastToken.GetTokenType()
-
 	switch tokenType {
 	case parser.ArcLexerDECLARE,
 		parser.ArcLexerSTATE_DECLARE,
@@ -214,24 +185,19 @@ func isExpressionContext(lastToken antlr.Token) bool {
 		parser.ArcLexerRETURN:
 		return true
 	}
-
 	return false
 }
 
 func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos protocol.Position) bool {
 	tokenType := lastToken.GetTokenType()
-
 	if tokenType == parser.ArcLexerLBRACE {
 		return true
 	}
-
 	if len(tokens) == 0 {
 		return true
 	}
-
 	lastLine := lastToken.GetLine()
 	cursorLine := int(pos.Line) + 1
-
 	if cursorLine > lastLine {
 		switch tokenType {
 		case parser.ArcLexerRBRACE,
@@ -244,6 +210,5 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 			return true
 		}
 	}
-
 	return false
 }

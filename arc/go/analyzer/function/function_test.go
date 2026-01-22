@@ -180,7 +180,7 @@ var _ = Describe("Function Analyzer", func() {
 					func dog() {}
 					func dog() {}
 				`, nil, ContainSubstring("name dog conflicts with existing symbol"))
-				Expect((*ctx.Diagnostics)[0].Line).To(Equal(3))
+				Expect((*ctx.Diagnostics)[0].Start.Line).To(Equal(3))
 			})
 
 			It("should diagnose duplicate parameter names", func() {

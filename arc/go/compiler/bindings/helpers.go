@@ -33,14 +33,24 @@ func (idx *ImportIndex) lookupImport(
 	return 0, errors.Newf("no %s function for type %v", funcName, t)
 }
 
-// GetChannelRead returns the import index for a channel read function
+// GetChannelRead returns the import index for a channel read function.
+// Uses UnwrapChan to handle channel types while rejecting series types.
 func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
-	return idx.lookupImport(idx.ChannelRead, t, "channel read")
+	suffix := t.UnwrapChan().String()
+	if funcIdx, ok := idx.ChannelRead[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no channel read function for type %v", t)
 }
 
-// GetChannelWrite returns the import index for a channel write function
+// GetChannelWrite returns the import index for a channel write function.
+// Uses UnwrapChan to handle channel types while rejecting series types.
 func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
-	return idx.lookupImport(idx.ChannelWrite, t, "channel write")
+	suffix := t.UnwrapChan().String()
+	if funcIdx, ok := idx.ChannelWrite[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no channel write function for type %v", t)
 }
 
 // GetSeriesCreateEmpty returns the import index for creating an empty series

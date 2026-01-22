@@ -53,16 +53,16 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should allow errors with different messages at same location", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "error one", Severity: diagnostics.SeverityError})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "error two", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "error one", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "error two", Severity: diagnostics.SeverityError})
 			Expect(d).To(HaveLen(2))
 		})
 
 		It("Should allow errors with same message at different locations", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "same error", Severity: diagnostics.SeverityError})
-			d.Add(diagnostics.Diagnostic{Line: 2, Column: 0, Message: "same error", Severity: diagnostics.SeverityError})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 5, Message: "same error", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same error", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 2, Col: 0}, Message: "same error", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 5}, Message: "same error", Severity: diagnostics.SeverityError})
 			Expect(d).To(HaveLen(3))
 		})
 
@@ -94,8 +94,8 @@ var _ = Describe("Diagnostics", func() {
 			// Same location + message is considered duplicate even with different severity.
 			// This prevents confusing output where the same issue is reported as both error and warning.
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "same message", Severity: diagnostics.SeverityError})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "same message", Severity: diagnostics.SeverityWarning})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityWarning})
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError)) // Error has higher severity
 		})
@@ -103,59 +103,59 @@ var _ = Describe("Diagnostics", func() {
 		It("Should replace warning with error when error comes second", func() {
 			// When a warning is added first, a later error at the same location should replace it.
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "same message", Severity: diagnostics.SeverityWarning})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "same message", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityWarning})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "same message", Severity: diagnostics.SeverityError})
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError)) // Error replaces warning
 		})
 
 		It("Should keep error when hint comes second", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "issue", Severity: diagnostics.SeverityError})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "issue", Severity: diagnostics.SeverityHint})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "issue", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "issue", Severity: diagnostics.SeverityHint})
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError))
 		})
 
 		It("Should replace info with warning", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityInfo})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityWarning})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityInfo})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityWarning})
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityWarning))
 		})
 
 		It("Should replace hint with info", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityHint})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityInfo})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityHint})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityInfo})
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityInfo))
 		})
 
 		It("Should keep warning over hint", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityWarning})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityHint})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityWarning})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityHint})
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityWarning))
 		})
 
 		It("Should converge to highest severity across multiple adds", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityHint})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityInfo})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityWarning})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityHint})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityInfo})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityWarning})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityError})
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityError))
 		})
 
 		It("Should track multiple different messages at same location", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 5, Column: 10, Message: "msg1", Severity: diagnostics.SeverityError})
-			d.Add(diagnostics.Diagnostic{Line: 5, Column: 10, Message: "msg2", Severity: diagnostics.SeverityWarning})
-			d.Add(diagnostics.Diagnostic{Line: 5, Column: 10, Message: "msg3", Severity: diagnostics.SeverityHint})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 5, Col: 10}, Message: "msg1", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 5, Col: 10}, Message: "msg2", Severity: diagnostics.SeverityWarning})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 5, Col: 10}, Message: "msg3", Severity: diagnostics.SeverityHint})
 			Expect(d).To(HaveLen(3))
 		})
 	})
@@ -163,26 +163,26 @@ var _ = Describe("Diagnostics", func() {
 	Describe("AtLocation", func() {
 		It("Should return empty slice when no diagnostics at location", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityError})
-			indices := d.AtLocation(2, 0)
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityError})
+			indices := d.AtLocation(diagnostics.Position{Line: 2, Col: 0})
 			Expect(indices).To(BeEmpty())
 		})
 
 		It("Should return single index when one diagnostic at location", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "x", Severity: diagnostics.SeverityError})
-			indices := d.AtLocation(1, 0)
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "x", Severity: diagnostics.SeverityError})
+			indices := d.AtLocation(diagnostics.Position{Line: 1, Col: 0})
 			Expect(indices).To(HaveLen(1))
 			Expect(indices[0]).To(Equal(0))
 		})
 
 		It("Should return multiple indices when multiple diagnostics at location", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "msg1", Severity: diagnostics.SeverityError})
-			d.Add(diagnostics.Diagnostic{Line: 2, Column: 5, Message: "other", Severity: diagnostics.SeverityWarning})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "msg2", Severity: diagnostics.SeverityInfo})
-			d.Add(diagnostics.Diagnostic{Line: 1, Column: 0, Message: "msg3", Severity: diagnostics.SeverityHint})
-			indices := d.AtLocation(1, 0)
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "msg1", Severity: diagnostics.SeverityError})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 2, Col: 5}, Message: "other", Severity: diagnostics.SeverityWarning})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "msg2", Severity: diagnostics.SeverityInfo})
+			d.Add(diagnostics.Diagnostic{Start: diagnostics.Position{Line: 1, Col: 0}, Message: "msg3", Severity: diagnostics.SeverityHint})
+			indices := d.AtLocation(diagnostics.Position{Line: 1, Col: 0})
 			Expect(indices).To(HaveLen(3))
 			Expect(indices).To(ContainElements(0, 2, 3))
 		})
@@ -278,8 +278,7 @@ var _ = Describe("Diagnostics", func() {
 		It("Should format single diagnostic", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Line:     10,
-				Column:   5,
+				Start:    diagnostics.Position{Line: 10, Col: 5},
 				Severity: diagnostics.SeverityError,
 				Message:  "undefined symbol",
 			})
@@ -289,14 +288,12 @@ var _ = Describe("Diagnostics", func() {
 		It("Should format multiple diagnostics with newlines", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Line:     1,
-				Column:   0,
+				Start:    diagnostics.Position{Line: 1, Col: 0},
 				Severity: diagnostics.SeverityError,
 				Message:  "first error",
 			})
 			d.Add(diagnostics.Diagnostic{
-				Line:     2,
-				Column:   10,
+				Start:    diagnostics.Position{Line: 2, Col: 10},
 				Severity: diagnostics.SeverityWarning,
 				Message:  "a warning",
 			})
@@ -319,8 +316,8 @@ var _ = Describe("Diagnostics", func() {
 			var d diagnostics.Diagnostics
 			d.AddError(errors.New("error"), nil)
 			Expect(d).To(HaveLen(1))
-			Expect(d[0].Line).To(Equal(0))
-			Expect(d[0].Column).To(Equal(0))
+			Expect(d[0].Start.Line).To(Equal(0))
+			Expect(d[0].Start.Col).To(Equal(0))
 		})
 
 		It("Should handle nil context for AddWarning", func() {

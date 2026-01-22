@@ -22,9 +22,170 @@ import arcGrammarRaw from "@/code/arc/arc.tmLanguage.json?raw";
 import arcLanguageConfigurationRaw from "@/code/arc/language-configuration.json?raw";
 import { type Extension } from "@/code/init/initialize";
 
-const NOOP_DISPOSER = () => ({ dispose: () => {} });
-
 export const LANGUAGE = "arc";
+
+const TOKEN_CONFIG = {
+  keyword: {
+    dark: "#CC255F",
+    light: "#CC255F",
+    scopes: [
+      "keyword.control.arc",
+      "keyword.other.arc",
+      "keyword.operator.logical.arc",
+      "constant.language.boolean.arc",
+      "constant.language.null.arc",
+    ],
+  },
+  operator: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [
+      "keyword.operator.arithmetic.arc",
+      "keyword.operator.comparison.arc",
+      "keyword.operator.assignment.arc",
+      "keyword.operator.assignment.declare.arc",
+      "keyword.operator.channel.arc",
+    ],
+  },
+  statefulVariable: {
+    dark: "#E5A84B",
+    light: "#B45000",
+    scopes: ["keyword.operator.assignment.stateful.arc"],
+  },
+  edgeOneShot: {
+    dark: "#E06C75",
+    light: "#BE3E4A",
+    scopes: ["keyword.operator.transition.arc"],
+  },
+  edgeContinuous: {
+    dark: "#56c8d8",
+    light: "#0097A7",
+    scopes: ["keyword.operator.flow.arc"],
+  },
+  string: {
+    dark: "#98C379",
+    light: "#0A7D00",
+    scopes: ["string.quoted.double.arc", "string.quoted.single.arc"],
+  },
+  number: {
+    dark: "#98C379",
+    light: "#0A7D00",
+    scopes: ["constant.numeric"],
+  },
+  type: {
+    dark: "#4EC9B0",
+    light: "#267F99",
+    scopes: ["support.type.primitive.arc", "support.type.composite.arc"],
+  },
+  channel: {
+    dark: "#61AFEF",
+    light: "#0070C1",
+    scopes: ["support.type.channel.arc"],
+  },
+  comment: {
+    dark: "#5C6370",
+    light: "#9DA5B4",
+    scopes: ["comment"],
+  },
+  function: {
+    dark: "#556bf8",
+    light: "#3774D0",
+    scopes: ["entity.name.function.arc", "support.function.builtin.arc"],
+  },
+  stage: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: ["support.function.builtin.stage.arc", "entity.name.type.stage.arc"],
+  },
+  sequence: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: ["entity.name.type.sequence.arc"],
+  },
+  variable: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: ["variable.other.arc"],
+  },
+  block: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  parameter: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  config: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  input: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  output: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  constant: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+  unit: {
+    dark: "#dadada",
+    light: "#292929",
+    scopes: [],
+  },
+} as const;
+
+export type SemanticTokenType = keyof typeof TOKEN_CONFIG;
+
+type Theme = "dark" | "light";
+
+export type SemanticTokenColors = Record<SemanticTokenType, string>;
+
+export interface ThemedSemanticTokenColors {
+  dark: SemanticTokenColors;
+  light: SemanticTokenColors;
+}
+
+const deriveSemanticTokenColors = (): ThemedSemanticTokenColors => ({
+  dark: Object.fromEntries(
+    Object.entries(TOKEN_CONFIG).map(([key, value]) => [key, value.dark]),
+  ) as SemanticTokenColors,
+  light: Object.fromEntries(
+    Object.entries(TOKEN_CONFIG).map(([key, value]) => [key, value.light]),
+  ) as SemanticTokenColors,
+});
+
+export const SEMANTIC_TOKEN_COLORS: ThemedSemanticTokenColors =
+  deriveSemanticTokenColors();
+
+interface TextMateRule {
+  scope: string;
+  settings: { foreground: string };
+}
+
+const deriveTextMateRules = (theme: Theme): TextMateRule[] =>
+  Object.values(TOKEN_CONFIG).flatMap((config) =>
+    config.scopes.map((scope) => ({
+      scope,
+      settings: { foreground: config[theme] },
+    })),
+  );
+
+const TEXTMATE_RULES = {
+  dark: deriveTextMateRules("dark"),
+  light: deriveTextMateRules("light"),
+};
+
+const NOOP_DISPOSER = () => ({ dispose: () => {} });
 
 interface FreighterTransportProps {
   stream: Stream<typeof arc.lspMessageZ, typeof arc.lspMessageZ>;
@@ -39,67 +200,46 @@ const createFreighterTransport = ({
   let isClosed = false;
   let onCloseCallback: (() => void) | null = null;
   let onErrorCallback: ((error: Error) => void) | null = null;
+  let onMessageCallback: ((message: Message) => void) | null = null;
 
-  // Start receiving messages in the background
   const receiveLoop = async () => {
     try {
       while (!isClosed) {
         const [msg, err] = await stream.receive();
         if (err != null) {
-          if (onErrorCallback != null) onErrorCallback(err);
+          onErrorCallback?.(err);
           break;
         }
         if (msg == null) break;
-
-        // Parse the raw JSON message
         try {
           const parsed = JSON.parse(msg.content);
-          if (onMessageCallback != null) onMessageCallback(parsed);
+          onMessageCallback?.(parsed);
         } catch (parseError) {
-          if (onErrorCallback != null)
-            onErrorCallback(
-              parseError instanceof Error ? parseError : new Error(String(parseError)),
-            );
+          onErrorCallback?.(
+            parseError instanceof Error ? parseError : new Error(String(parseError)),
+          );
         }
       }
     } finally {
       isClosed = true;
-      if (onCloseCallback != null) onCloseCallback();
+      onCloseCallback?.();
     }
   };
-
-  let onMessageCallback: ((message: Message) => void) | null = null;
 
   const reader: MessageReader = {
     listen: (callback) => {
       onMessageCallback = callback as (message: Message) => void;
-      receiveLoop().catch((err) => {
-        if (onErrorCallback != null) onErrorCallback(err);
-      });
-      return {
-        dispose: () => {
-          onMessageCallback = null;
-        },
-      };
+      receiveLoop().catch((err) => onErrorCallback?.(err));
+      return { dispose: () => (onMessageCallback = null) };
     },
-    dispose: () => {
-      isClosed = true;
-    },
+    dispose: () => (isClosed = true),
     onError: (callback) => {
       onErrorCallback = callback;
-      return {
-        dispose: () => {
-          onErrorCallback = null;
-        },
-      };
+      return { dispose: () => (onErrorCallback = null) };
     },
     onClose: (callback) => {
       onCloseCallback = callback;
-      return {
-        dispose: () => {
-          onCloseCallback = null;
-        },
-      };
+      return { dispose: () => (onCloseCallback = null) };
     },
     onPartialMessage: NOOP_DISPOSER,
   };
@@ -109,25 +249,14 @@ const createFreighterTransport = ({
       if (isClosed) throw new Error("Stream is closed");
       stream.send({ content: JSON.stringify(message) });
     },
-    dispose: () => {
-      isClosed = true;
-    },
+    dispose: () => (isClosed = true),
     onError: (callback) => {
-      const wrappedCallback = (err: Error) => callback([err, undefined, undefined]);
-      onErrorCallback = wrappedCallback;
-      return {
-        dispose: () => {
-          onErrorCallback = null;
-        },
-      };
+      onErrorCallback = (err: Error) => callback([err, undefined, undefined]);
+      return { dispose: () => (onErrorCallback = null) };
     },
     onClose: (callback) => {
       onCloseCallback = callback;
-      return {
-        dispose: () => {
-          onCloseCallback = null;
-        },
-      };
+      return { dispose: () => (onCloseCallback = null) };
     },
     end: () => {
       isClosed = true;
@@ -146,10 +275,8 @@ export const setSynnaxClient = async (client: Synnax | null): Promise<void> => {
     await lspDestructor();
     lspDestructor = null;
   }
-
   synnaxClient = client;
   if (client == null) return;
-
   lspDestructor = await startArcLSP();
 };
 
@@ -161,7 +288,6 @@ const startArcLSP = async (): Promise<destructor.Async> => {
 
   try {
     const stream = await synnaxClient.arcs.openLSP();
-
     const { reader, writer } = createFreighterTransport({ stream });
 
     const languageClient = new MonacoLanguageClient({
@@ -187,127 +313,6 @@ const startArcLSP = async (): Promise<destructor.Async> => {
     return async () => {};
   }
 };
-
-export type SemanticTokenType =
-  | "type"
-  | "function"
-  | "parameter"
-  | "variable"
-  | "keyword"
-  | "string"
-  | "number"
-  | "comment"
-  | "operator"
-  | "channel"
-  | "sequence"
-  | "stage"
-  | "block"
-  | "statefulVariable"
-  | "edgeOneShot"
-  | "edgeContinuous"
-  | "constant"
-  | "config"
-  | "input"
-  | "output"
-  | "unit";
-
-export type SemanticTokenColors = Record<SemanticTokenType, string>;
-
-export interface ThemedSemanticTokenColors {
-  dark: SemanticTokenColors;
-  light: SemanticTokenColors;
-}
-
-export const SEMANTIC_TOKEN_COLORS: ThemedSemanticTokenColors = {
-  dark: {
-    statefulVariable: "#E5A84B",
-    edgeOneShot: "#E06C75",
-    edgeContinuous: "#56c8d8",
-    channel: "#61AFEF",
-    keyword: "#CC255F",
-    type: "#4EC9B0",
-    string: "#98C379",
-    number: "#98C379",
-    variable: "#dadada",
-    function: "#556bf8",
-    sequence: "#dadada",
-    stage: "#dadada",
-    block: "#dadada",
-    parameter: "#dadada",
-    config: "#dadada",
-    input: "#dadada",
-    output: "#dadada",
-    constant: "#dadada",
-    operator: "#dadada",
-    unit: "#dadada",
-    comment: "#5C6370",
-  },
-  light: {
-    statefulVariable: "#B45000",
-    edgeOneShot: "#BE3E4A",
-    edgeContinuous: "#0097A7",
-    channel: "#0070C1",
-    keyword: "#CC255F",
-    type: "#267F99",
-    string: "#0A7D00",
-    number: "#0A7D00",
-    variable: "#292929",
-    function: "#3774D0",
-    sequence: "#292929",
-    stage: "#292929",
-    block: "#292929",
-    parameter: "#292929",
-    config: "#292929",
-    input: "#292929",
-    output: "#292929",
-    constant: "#292929",
-    operator: "#292929",
-    unit: "#292929",
-    comment: "#9DA5B4",
-  },
-};
-
-const TEXTMATE_SCOPE_TO_SEMANTIC: Record<string, SemanticTokenType> = {
-  "keyword.control.arc": "keyword",
-  "keyword.other.arc": "keyword",
-  "keyword.operator.logical.arc": "keyword",
-  "constant.language.boolean.arc": "keyword",
-  "constant.language.null.arc": "keyword",
-  "keyword.operator.arithmetic.arc": "operator",
-  "keyword.operator.comparison.arc": "operator",
-  "keyword.operator.assignment.arc": "operator",
-  "keyword.operator.assignment.declare.arc": "operator",
-  "keyword.operator.channel.arc": "operator",
-  "keyword.operator.assignment.stateful.arc": "statefulVariable",
-  "keyword.operator.transition.arc": "edgeOneShot",
-  "keyword.operator.flow.arc": "edgeContinuous",
-  "string.quoted.double.arc": "string",
-  "string.quoted.single.arc": "string",
-  "constant.numeric": "number",
-  "support.type.primitive.arc": "type",
-  "support.type.composite.arc": "type",
-  "support.type.channel.arc": "channel",
-  comment: "comment",
-  "entity.name.function.arc": "function",
-  "support.function.builtin.arc": "function",
-  "support.function.builtin.stage.arc": "stage",
-  "entity.name.type.sequence.arc": "sequence",
-  "entity.name.type.stage.arc": "stage",
-  "variable.other.arc": "variable",
-};
-
-type Theme = "dark" | "light";
-
-interface TextMateRule {
-  scope: string;
-  settings: { foreground: string };
-}
-
-const generateTextMateRules = (theme: Theme): TextMateRule[] =>
-  Object.entries(TEXTMATE_SCOPE_TO_SEMANTIC).map(([scope, tokenType]) => ({
-    scope,
-    settings: { foreground: SEMANTIC_TOKEN_COLORS[theme][tokenType] },
-  }));
 
 const GRAMMAR_PATH = "./arc.tmLanguage.json";
 const LANGUAGE_CONFIGURATION_PATH = "./language-configuration.json";
@@ -348,43 +353,26 @@ const registerArcLanguage = async (): Promise<destructor.Async> => {
   return async () => {};
 };
 
-const TEXTMATE_RULES = {
-  dark: generateTextMateRules("dark"),
-  light: generateTextMateRules("light"),
-};
-
 const applySemanticTokenColors = async (): Promise<destructor.Async> => {
   try {
     const vscode = await import("vscode");
     const config = vscode.workspace.getConfiguration("editor");
 
-    // Apply semantic token colors
-    const semanticColorCustomizations = {
-      "[Default Dark+]": {
-        rules: SEMANTIC_TOKEN_COLORS.dark,
-      },
-      "[Default Light+]": {
-        rules: SEMANTIC_TOKEN_COLORS.light,
-      },
-    };
     await config.update(
       "semanticTokenColorCustomizations",
-      semanticColorCustomizations,
+      {
+        "[Default Dark+]": { rules: SEMANTIC_TOKEN_COLORS.dark },
+        "[Default Light+]": { rules: SEMANTIC_TOKEN_COLORS.light },
+      },
       vscode.ConfigurationTarget.Global,
     );
 
-    // Apply TextMate token colors (for hover popups)
-    const textmateColorCustomizations = {
-      "[Default Dark+]": {
-        textMateRules: TEXTMATE_RULES.dark,
-      },
-      "[Default Light+]": {
-        textMateRules: TEXTMATE_RULES.light,
-      },
-    };
     await config.update(
       "tokenColorCustomizations",
-      textmateColorCustomizations,
+      {
+        "[Default Dark+]": { textMateRules: TEXTMATE_RULES.dark },
+        "[Default Light+]": { textMateRules: TEXTMATE_RULES.light },
+      },
       vscode.ConfigurationTarget.Global,
     );
   } catch (error) {

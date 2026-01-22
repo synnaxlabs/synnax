@@ -14,9 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/analyzer/testutil"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -497,51 +495,6 @@ var _ = Describe("Type Inference", func() {
 			Entry("channel to scalar", types.I32(), types.Chan(types.I32()), false),
 			Entry("scalar to channel", types.Chan(types.I32()), types.I32(), false),
 		)
-	})
-
-	Describe("Check", func() {
-		var cs *constraints.System
-
-		BeforeEach(func() {
-			cs = constraints.New()
-		})
-
-		DescribeTable("type checking",
-			func(t1, t2 types.Type, expectError bool, errSubstring string) {
-				ast := testutil.NewMockAST(1)
-				err := atypes.Check(cs, t1, t2, ast, "test")
-				if expectError {
-					Expect(err).To(MatchError(ContainSubstring(errSubstring)))
-				} else {
-					Expect(err).ToNot(HaveOccurred())
-				}
-			},
-			// Invalid types skip constraint checking
-			Entry("invalid with concrete", types.Type{}, types.I32(), false, ""),
-			Entry("concrete with invalid", types.F32(), types.Type{}, false, ""),
-			Entry("invalid with invalid", types.Type{}, types.Type{}, false, ""),
-
-			// Type variables add constraints, no error
-			Entry("type var with concrete", types.Variable("T", nil), types.I32(), false, ""),
-			Entry("concrete with type var", types.F32(), types.Variable("T", nil), false, ""),
-
-			// Matching types
-			Entry("f32 with f32", types.F32(), types.F32(), false, ""),
-			Entry("chan f32 with chan f32", types.Chan(types.F32()), types.Chan(types.F32()), false, ""),
-			Entry("series i64 with series i64", types.Series(types.I64()), types.Series(types.I64()), false, ""),
-
-			// Mismatched types
-			Entry("f32 with f64", types.F32(), types.F64(), true, "type mismatch"),
-			Entry("chan f32 with f32", types.Chan(types.F32()), types.F32(), true, "type mismatch"),
-			Entry("series i64 with i64", types.Series(types.I64()), types.I64(), true, "type mismatch"),
-		)
-
-		It("should add constraint for type variables", func() {
-			tv := types.Variable("T", nil)
-			ast := testutil.NewMockAST(1)
-			Expect(atypes.Check(cs, tv, types.I32(), ast, "test")).To(Succeed())
-			Expect(cs.Constraints).ToNot(BeEmpty())
-		})
 	})
 
 	Describe("InferFromTypeContext", func() {

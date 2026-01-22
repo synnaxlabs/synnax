@@ -18,13 +18,26 @@ import (
 
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 )
 
 type JSONRPCMessage struct {
 	Content string `json:"content" msgpack:"content"`
+}
+
+func (m *JSONRPCMessage) UnmarshalJSON(data []byte) error {
+	type Alias JSONRPCMessage
+	aux := &struct{ *Alias }{Alias: (*Alias)(m)}
+	if err := json.Unmarshal(data, aux); err == nil {
+		return nil
+	}
+	m.Content = string(data)
+	return nil
 }
 
 const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
@@ -135,37 +148,47 @@ func (s *streamAdapter) Close() error {
 }
 
 type Config struct {
+	Server           *lsp.Server
+	Stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
 	MaxContentLength int
+}
+
+var _ config.Config[Config] = (*Config)(nil)
+
+// Validate implements config.Config.
+func (c Config) Validate() error {
+	v := validate.New("arc.lsp.transport.freighter")
+	validate.NotNil(v, "server", c.Server)
+	validate.NotNil(v, "stream", c.Stream)
+	validate.Positive(v, "max_content_length", c.MaxContentLength)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c Config) Override(other Config) Config {
+	c.Stream = override.Nil(c.Stream, other.Stream)
+	c.Server = override.Nil(c.Server, other.Server)
+	c.MaxContentLength = override.Numeric(c.MaxContentLength, other.MaxContentLength)
+	return c
 }
 
 var DefaultConfig = Config{MaxContentLength: DefaultMaxContentLength}
 
 func ServeFreighter(
 	ctx context.Context,
-	server *lsp.Server,
-	stream freighter.ServerStream[JSONRPCMessage, JSONRPCMessage],
-	cfg Config,
+	cfgs ...Config,
 ) error {
-	if cfg.MaxContentLength == 0 {
-		cfg.MaxContentLength = DefaultMaxContentLength
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return err
 	}
 	var (
-		adapter = &streamAdapter{stream: stream, maxContentLength: cfg.MaxContentLength}
+		adapter = &streamAdapter{stream: cfg.Stream, maxContentLength: cfg.MaxContentLength}
 		conn    = jsonrpc2.NewConn(jsonrpc2.NewStream(adapter))
-		client  = protocol.ClientDispatcher(conn, server.Logger())
+		client  = protocol.ClientDispatcher(conn, cfg.Server.Logger())
 	)
-	server.SetClient(client)
-	conn.Go(ctx, protocol.ServerHandler(server, nil))
+	cfg.Server.SetClient(client)
+	conn.Go(ctx, protocol.ServerHandler(cfg.Server, nil))
 	<-conn.Done()
 	return conn.Err()
-}
-
-func (m *JSONRPCMessage) UnmarshalJSON(data []byte) error {
-	type Alias JSONRPCMessage
-	aux := &struct{ *Alias }{Alias: (*Alias)(m)}
-	if err := json.Unmarshal(data, aux); err == nil {
-		return nil
-	}
-	m.Content = string(data)
-	return nil
 }

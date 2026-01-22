@@ -753,6 +753,133 @@ var _ = Describe("Vectorized Operations", func() {
 				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
 			})
 		})
+
+		Describe("Reverse Modulo Scalar", func() {
+			It("should perform scalar % series (reverse modulo) for F64", func() {
+				series := telem.NewSeriesV[float64](3.0, 4.0, 2.5)
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.ReverseModuloScalarF64(series, 10.5, &output)
+
+				result := telem.UnmarshalSlice[float64](output.Data, telem.Float64T)
+				Expect(output.Len()).To(Equal(int64(3)))
+				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
+				Expect(result[1]).To(BeNumerically("~", 2.5, 0.001))
+				Expect(result[2]).To(BeNumerically("~", 0.5, 0.001))
+			})
+
+			It("should perform scalar % series (reverse modulo) for F32", func() {
+				series := telem.NewSeriesV[float32](3.0, 4.0, 2.5)
+				output := telem.Series{DataType: telem.Float32T}
+
+				op.ReverseModuloScalarF32(series, 10.5, &output)
+
+				result := telem.UnmarshalSlice[float32](output.Data, telem.Float32T)
+				Expect(output.Len()).To(Equal(int64(3)))
+				Expect(result[0]).To(BeNumerically("~", 1.5, 0.001))
+				Expect(result[1]).To(BeNumerically("~", 2.5, 0.001))
+				Expect(result[2]).To(BeNumerically("~", 0.5, 0.001))
+			})
+
+			It("should perform reverse modulo for I64", func() {
+				series := telem.NewSeriesV[int64](3, 4, 7)
+				output := telem.Series{DataType: telem.Int64T}
+
+				op.ReverseModuloScalarI64(series, 10, &output)
+
+				expected := []int64{1, 2, 3}
+				Expect(telem.UnmarshalSlice[int64](output.Data, telem.Int64T)).To(Equal(expected))
+			})
+
+			It("should perform reverse modulo for I32", func() {
+				series := telem.NewSeriesV[int32](3, 7, 5)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.ReverseModuloScalarI32(series, 17, &output)
+
+				expected := []int32{2, 3, 2}
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+
+			It("should perform reverse modulo for I16", func() {
+				series := telem.NewSeriesV[int16](3, 4, 5)
+				output := telem.Series{DataType: telem.Int16T}
+
+				op.ReverseModuloScalarI16(series, 11, &output)
+
+				expected := []int16{2, 3, 1}
+				Expect(telem.UnmarshalSlice[int16](output.Data, telem.Int16T)).To(Equal(expected))
+			})
+
+			It("should perform reverse modulo for I8", func() {
+				series := telem.NewSeriesV[int8](3, 4, 5)
+				output := telem.Series{DataType: telem.Int8T}
+
+				op.ReverseModuloScalarI8(series, 11, &output)
+
+				expected := []int8{2, 3, 1}
+				Expect(telem.UnmarshalSlice[int8](output.Data, telem.Int8T)).To(Equal(expected))
+			})
+
+			It("should perform reverse modulo for U64", func() {
+				series := telem.NewSeriesV[uint64](3, 7, 11)
+				output := telem.Series{DataType: telem.Uint64T}
+
+				op.ReverseModuloScalarU64(series, 100, &output)
+
+				expected := []uint64{1, 2, 1}
+				Expect(telem.UnmarshalSlice[uint64](output.Data, telem.Uint64T)).To(Equal(expected))
+			})
+
+			It("should perform reverse modulo for U32", func() {
+				series := telem.NewSeriesV[uint32](3, 7, 11)
+				output := telem.Series{DataType: telem.Uint32T}
+
+				op.ReverseModuloScalarU32(series, 100, &output)
+
+				expected := []uint32{1, 2, 1}
+				Expect(telem.UnmarshalSlice[uint32](output.Data, telem.Uint32T)).To(Equal(expected))
+			})
+
+			It("should perform reverse modulo for U16", func() {
+				series := telem.NewSeriesV[uint16](3, 4, 5)
+				output := telem.Series{DataType: telem.Uint16T}
+
+				op.ReverseModuloScalarU16(series, 11, &output)
+
+				expected := []uint16{2, 3, 1}
+				Expect(telem.UnmarshalSlice[uint16](output.Data, telem.Uint16T)).To(Equal(expected))
+			})
+
+			It("should perform reverse modulo for U8", func() {
+				series := telem.NewSeriesV[uint8](3, 4, 5)
+				output := telem.Series{DataType: telem.Uint8T}
+
+				op.ReverseModuloScalarU8(series, 11, &output)
+
+				expected := []uint8{2, 3, 1}
+				Expect(telem.UnmarshalSlice[uint8](output.Data, telem.Uint8T)).To(Equal(expected))
+			})
+
+			It("should handle empty series for reverse modulo", func() {
+				series := telem.Series{DataType: telem.Float64T}
+				output := telem.Series{DataType: telem.Float64T}
+
+				op.ReverseModuloScalarF64(series, 10.0, &output)
+
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+
+			It("should handle single element for reverse modulo", func() {
+				series := telem.NewSeriesV[int32](7)
+				output := telem.Series{DataType: telem.Int32T}
+
+				op.ReverseModuloScalarI32(series, 23, &output)
+
+				expected := []int32{2}
+				Expect(telem.UnmarshalSlice[int32](output.Data, telem.Int32T)).To(Equal(expected))
+			})
+		})
 	})
 
 })

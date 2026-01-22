@@ -17,7 +17,6 @@ import (
 )
 
 type printer struct {
-	cfg               Config
 	output            strings.Builder
 	indentLevel       int
 	linePos           int
@@ -33,13 +32,12 @@ type printer struct {
 
 const maxCachedIndentLevel = 16
 
-func newPrinter(cfg Config) *printer {
+func newPrinter() *printer {
 	cache := make([]string, maxCachedIndentLevel)
 	for i := 0; i < maxCachedIndentLevel; i++ {
-		cache[i] = strings.Repeat(" ", i*cfg.IndentWidth)
+		cache[i] = strings.Repeat(" ", i*indentWidth)
 	}
 	return &printer{
-		cfg:         cfg,
 		atLineStart: true,
 		indentCache: cache,
 	}
@@ -132,8 +130,8 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 			if !hasLeadingComments {
 				lineDiff := tokLine - p.prevLine
 				blankLines := lineDiff - 1
-				if blankLines > p.cfg.MaxBlankLines {
-					blankLines = p.cfg.MaxBlankLines
+				if blankLines > maxBlankLines {
+					blankLines = maxBlankLines
 				}
 				for i := 0; i < blankLines; i++ {
 					p.writeNewline()
@@ -476,7 +474,7 @@ func (p *printer) writeIndent() {
 	if p.indentLevel < maxCachedIndentLevel {
 		indent = p.indentCache[p.indentLevel]
 	} else {
-		indent = strings.Repeat(" ", p.indentLevel*p.cfg.IndentWidth)
+		indent = strings.Repeat(" ", p.indentLevel*indentWidth)
 	}
 	p.output.WriteString(indent)
 	p.linePos = len(indent)

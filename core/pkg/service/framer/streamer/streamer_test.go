@@ -24,7 +24,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -52,12 +54,34 @@ var _ = Describe("Streamer", Ordered, func() {
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
 		}))
+		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           dist.DB,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       statusSvc,
+		}))
+		DeferCleanup(func() {
+			Expect(rackService.Close()).To(Succeed())
+		})
+		taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Rack:     rackService,
+			Status:   statusSvc,
+		}))
+		DeferCleanup(func() {
+			Expect(taskSvc.Close()).To(Succeed())
+		})
 		arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
 			Signals:  dist.Signals,
+			Task:     taskSvc,
 		}))
+
 		calc := MustSucceed(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Arc:               arcSvc,

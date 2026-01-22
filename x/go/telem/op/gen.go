@@ -520,15 +520,12 @@ func main() {
 		}))
 	}
 
-	// Generate reverse modulo scalar operations - integer types use %, float types use math.Mod
 	for _, typ := range types {
 		if typ.IsFloat {
-			// Float types use math.Mod
 			lo.Must0(floatReverseModuloScalarTmpl.Execute(&buf, map[string]interface{}{
 				"Type": typ,
 			}))
 		} else {
-			// Integer types use %
 			lo.Must0(reverseScalarArithTmpl.Execute(&buf, map[string]interface{}{
 				"Type":       typ,
 				"Operations": []Operation{reverseModuloScalarIntOp},
@@ -539,12 +536,10 @@ func main() {
 	// Generate modulo scalar operations - integer types use %, float types use math.Mod
 	for _, typ := range types {
 		if typ.IsFloat {
-			// Float types use math.Mod
 			lo.Must0(floatModuloScalarTmpl.Execute(&buf, map[string]interface{}{
 				"Type": typ,
 			}))
 		} else {
-			// Integer types use %
 			lo.Must0(scalarArithTmpl.Execute(&buf, map[string]interface{}{
 				"Type":       typ,
 				"Operations": []Operation{moduloScalarIntOp},

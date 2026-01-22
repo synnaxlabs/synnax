@@ -14,19 +14,19 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/x/testutil"
+	xutil "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
-	server := testutil.MustSucceed(lsp.New(cfgs...))
+	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
 	server.SetClient(&MockClient{})
 	return server, uri
 }
 
 func SetupTestServerWithClient(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI, *MockClient) {
-	server := testutil.MustSucceed(lsp.New(cfgs...))
+	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
 	client := &MockClient{}
 	server.SetClient(client)
@@ -48,4 +48,56 @@ func OpenDocument(
 			Text:       content,
 		},
 	})).To(gomega.Succeed())
+}
+
+func Hover(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) *protocol.Hover {
+	return xutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	}))
+}
+
+func Definition(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) []protocol.Location {
+	return xutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	}))
+}
+
+func Completion(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) *protocol.CompletionList {
+	return xutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	}))
+}
+
+func SemanticTokens(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+) *protocol.SemanticTokens {
+	return xutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}))
 }

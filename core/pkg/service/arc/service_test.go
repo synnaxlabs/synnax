@@ -18,8 +18,31 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("AnalyzeCalculation", func() {
+	It("Should return the data type for a valid integer expression", func() {
+		dataType := MustSucceed(svc.AnalyzeCalculation(ctx, "return 1 + 2"))
+		Expect(dataType).To(Equal(telem.Int64T))
+	})
+
+	It("Should return the data type for a valid float expression", func() {
+		dataType := MustSucceed(svc.AnalyzeCalculation(ctx, "return 1.0 + 2.0"))
+		Expect(dataType).To(Equal(telem.Float64T))
+	})
+
+	It("Should return parser error for invalid expression syntax", func() {
+		Expect(svc.AnalyzeCalculation(ctx, "return 1 +")).
+			Error().To(MatchError(ContainSubstring("mismatched input")))
+	})
+
+	It("Should return diagnostic error for undefined variable", func() {
+		Expect(svc.AnalyzeCalculation(ctx, "return undefined_var + 1")).
+			Error().To(MatchError(ContainSubstring("undefined symbol")))
+	})
+})
 
 var _ = Describe("CompileModule", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func() {
@@ -51,8 +74,8 @@ var _ = Describe("CompileModule", func() {
 
 	It("Should return error when Arc does not exist", func() {
 		nonExistentKey := uuid.New()
-		_, err := svc.CompileModule(ctx, nonExistentKey)
-		Expect(err).To(MatchError(query.ErrNotFound))
+		Expect(svc.CompileModule(ctx, nonExistentKey)).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should return error when graph compilation fails", func() {
@@ -81,7 +104,7 @@ var _ = Describe("CompileModule", func() {
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
-		_, err := svc.CompileModule(ctx, a.Key)
-		Expect(err).To(HaveOccurred())
+		Expect(svc.CompileModule(ctx, a.Key)).Error().
+			To(MatchError(ContainSubstring("edge target node 'nonexistent' not found")))
 	})
 })
