@@ -779,32 +779,51 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
 		})
 
-		It("Should execute normally for nodes with inputs", func() {
+		It("Should execute once for non-expression nodes with inputs", func() {
 			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
 			h := newHarness(ctx, g, nil, nil)
 			defer h.Close()
 
 			n := h.CreateNode(ctx, "add")
 
-			// Set inputs
 			h.SetInput("lhs", 0, telem.NewSeriesV[int64](1), telem.NewSeriesSecondsTSV(1))
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
 
-			// First call - should execute
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(3)))
 
-			// Update inputs
 			h.SetInput("lhs", 0, telem.NewSeriesV[int64](10), telem.NewSeriesSecondsTSV(2))
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](20), telem.NewSeriesSecondsTSV(2))
 
-			// Second call - should execute again with new inputs (nodes with inputs don't use initialized pattern)
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(30)))
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+		})
+	})
+
+	Describe("Flow Expression Execution", func() {
+		It("Should execute every time for flow expression nodes", func() {
+			g := singleFunctionGraph("expression_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
 		})
 	})
 })
