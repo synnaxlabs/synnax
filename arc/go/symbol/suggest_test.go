@@ -51,7 +51,7 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should return empty slice when no similar symbols exist", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
 
 			suggestions := root.SuggestSimilar(bCtx, "temperature", 2, 3)
 			Expect(suggestions).To(BeEmpty())
@@ -59,10 +59,10 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should respect maxSuggestions limit", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "cat", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "bat", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "rat", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "hat", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "cat", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "bat", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "rat", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "hat", Kind: symbol.KindVariable}))
 
 			suggestions := root.SuggestSimilar(bCtx, "mat", 2, 1)
 			Expect(suggestions).To(HaveLen(2))
@@ -70,8 +70,8 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should respect maxDistance limit", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "pressure", Kind: symbol.KindVariable}))
 
 			// "temp" is 7 edits away from "temperature"
 			suggestions := root.SuggestSimilar(bCtx, "temp", 2, 2)
@@ -80,7 +80,7 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should search parent scopes", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "globalVar", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "globalVar", Kind: symbol.KindVariable}))
 
 			child, _ := root.Add(bCtx, symbol.Symbol{Name: "block", Kind: symbol.KindBlock})
 
@@ -90,9 +90,9 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should sort suggestions by distance", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "test", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "tests", Kind: symbol.KindVariable})
-			root.Add(bCtx, symbol.Symbol{Name: "testing", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "test", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "tests", Kind: symbol.KindVariable}))
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "testing", Kind: symbol.KindVariable}))
 
 			suggestions := root.SuggestSimilar(bCtx, "tset", 3, 3)
 			// "test" has distance 2, "tests" has distance 2, "testing" has distance 4
@@ -102,7 +102,7 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should not include exact matches", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
 
 			suggestions := root.SuggestSimilar(bCtx, "temperature", 2, 3)
 			Expect(suggestions).NotTo(ContainElement("temperature"))
@@ -112,7 +112,7 @@ var _ = Describe("Symbol Suggestions", func() {
 	Describe("Resolve with suggestions", func() {
 		It("should include suggestions in undefined symbol error", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "temperature", Kind: symbol.KindVariable}))
 
 			_, err := root.Resolve(bCtx, "temperatur")
 			Expect(err).To(HaveOccurred())
@@ -122,7 +122,7 @@ var _ = Describe("Symbol Suggestions", func() {
 
 		It("should not include suggestions when none are close enough", func() {
 			root := symbol.CreateRootScope(nil)
-			root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable})
+			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable}))
 
 			_, err := root.Resolve(bCtx, "unknownSymbol")
 			Expect(err).To(HaveOccurred())
