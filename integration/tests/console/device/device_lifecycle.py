@@ -7,11 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import random
 import uuid
 
 import synnax as sy
-
+from framework.utils import get_random_name
 from console.case import ConsoleCase
 
 
@@ -20,8 +19,7 @@ class DeviceLifecycle(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.rand_suffix: int = random.randint(1000, 9999)
-        self.rack_name: str = f"TestRack_{self.rand_suffix}"
+        self.rack_name = "Test Rack " + get_random_name()
         self.test_rack: sy.Rack = self.client.racks.create(name=self.rack_name)
         self.created_devices: list[str] = []
 
@@ -32,23 +30,15 @@ class DeviceLifecycle(ConsoleCase):
         self.test_delete_device()
 
     def cleanup(self) -> None:
-        for device_key in self.created_devices:
-            try:
-                self.client.devices.delete([device_key])
-            except Exception:
-                pass
-        try:
-            self.client.racks.delete([self.test_rack.key])
-        except Exception:
-            pass
+        self.client.devices.delete(self.created_devices)
+        self.client.racks.delete([self.test_rack.key])
         super().cleanup()
 
     def _create_test_device(self, name: str, make: str = "NI") -> sy.Device:
         """Create a test device and track it for cleanup."""
-        device_key = str(uuid.uuid4())
         device = self.client.devices.create(
             sy.Device(
-                key=device_key,
+                key=uuid.uuid4(),
                 rack=self.test_rack.key,
                 name=name,
                 make=make,
@@ -92,8 +82,12 @@ class DeviceLifecycle(ConsoleCase):
         new_name = f"RenamedDevice_{self.rand_suffix}"
         self.console.devices.rename(device_name, new_name)
 
-        assert self.console.devices.exists(new_name), f"Device should exist with new name '{new_name}'"
-        assert not self.console.devices.exists(device_name), f"Device should not exist with old name '{device_name}'"
+        assert self.console.devices.exists(
+            new_name
+        ), f"Device should exist with new name '{new_name}'"
+        assert not self.console.devices.exists(
+            device_name
+        ), f"Device should not exist with old name '{device_name}'"
         self.log(f"  - Device renamed from '{device_name}' to '{new_name}'")
 
     def test_group_devices(self) -> None:
@@ -120,10 +114,14 @@ class DeviceLifecycle(ConsoleCase):
         device = self._create_test_device(device_name)
 
         self.page.wait_for_timeout(500)
-        assert self.console.devices.exists(device_name), f"Device '{device_name}' should exist before deletion"
+        assert self.console.devices.exists(
+            device_name
+        ), f"Device '{device_name}' should exist before deletion"
 
         self.console.devices.delete(device_name)
         self.created_devices.remove(device.key)
 
-        assert not self.console.devices.exists(device_name), f"Device '{device_name}' should be deleted"
+        assert not self.console.devices.exists(
+            device_name
+        ), f"Device '{device_name}' should be deleted"
         self.log(f"  - Device '{device_name}' deleted successfully")

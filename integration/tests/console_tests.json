@@ -49,7 +49,7 @@
           "case": "console/range/range_lifecycle"
         },
         {
-          "case": "console/device/lifecycle"
+          "case": "console/device/device_lifecycle"
         },
         {
           "case": "console/documentation"
