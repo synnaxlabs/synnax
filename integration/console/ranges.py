@@ -619,4 +619,7 @@ class RangesClient:
         icon = label.locator("svg").first
         if icon.count() == 0:
             return None
-        return rgb_to_hex(icon.get_attribute("color"))
+        color = icon.get_attribute("color")
+        if color is None:
+            return None
+        return rgb_to_hex(color)

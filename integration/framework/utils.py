@@ -176,12 +176,10 @@ def get_machine_info() -> str:
         return system
 
 
-def rgb_to_hex(rgb_str: str) -> str | None:
+def rgb_to_hex(rgb_str: str) -> str:
     vals = re.findall(r"[\d.]+", rgb_str)
-    if len(vals) >= 3:
-        r, g, b = [int(float(x)) for x in vals[:3]]
-        return f"#{r:02X}{g:02X}{b:02X}"
-    return None
+    r, g, b = [int(float(x)) for x in vals[:3]]
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 
 def get_memory_info() -> str:

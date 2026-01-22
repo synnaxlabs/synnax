@@ -9,8 +9,10 @@
 
 import re
 from typing import TYPE_CHECKING
-from framework.utils import rgb_to_hex
+
 from playwright.sync_api import Locator, Page
+
+from framework.utils import rgb_to_hex
 
 if TYPE_CHECKING:
     from .console import Console
