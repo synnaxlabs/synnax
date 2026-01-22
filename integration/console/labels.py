@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import re
+from re import search as re_search
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
@@ -84,7 +84,7 @@ class LabelClient:
         if style is None:
             raise ValueError(f"Label '{name}' has no style attribute")
         # Find --pluto-swatch-color: rgba( ... );
-        match = re.search(r"--pluto-swatch-color:\s*(rgba?\([^)]+\))", style)
+        match = re_search(r"--pluto-swatch-color:\s*(rgba?\([^)]+\))", style)
         if match is None:
             raise ValueError(f"Label '{name}' does not have --pluto-swatch-color")
         rgba = match.group(1)
