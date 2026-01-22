@@ -27,10 +27,10 @@ const (
 	ContextConfigParamValue
 )
 
-type ConfigContextInfo struct {
-	FunctionName     string
-	ExistingParams   []string
-	CurrentParamName string
+type configContextInfo struct {
+	functionName     string
+	existingParams   []string
+	currentParamName string
 }
 
 func DetectCompletionContext(content string, pos protocol.Position) CompletionContext {
@@ -305,7 +305,7 @@ func detectConfigContext(tokens []antlr.Token) CompletionContext {
 	return ContextUnknown
 }
 
-func ExtractConfigContext(content string, pos protocol.Position) *ConfigContextInfo {
+func extractConfigContext(content string, pos protocol.Position) *configContextInfo {
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
 	if len(tokensBeforeCursor) == 0 {
@@ -345,15 +345,15 @@ func ExtractConfigContext(content string, pos protocol.Position) *ConfigContextI
 			return nil
 		}
 	}
-	info := &ConfigContextInfo{
-		FunctionName:   prevToken.GetText(),
-		ExistingParams: []string{},
+	info := &configContextInfo{
+		functionName:   prevToken.GetText(),
+		existingParams: []string{},
 	}
 	for i := configBraceIndex + 1; i < len(tokensBeforeCursor); i++ {
 		t := tokensBeforeCursor[i]
 		if t.GetTokenType() == parser.ArcLexerIDENTIFIER {
 			if i+1 < len(tokensBeforeCursor) && tokensBeforeCursor[i+1].GetTokenType() == parser.ArcLexerASSIGN {
-				info.ExistingParams = append(info.ExistingParams, t.GetText())
+				info.existingParams = append(info.existingParams, t.GetText())
 			}
 		}
 	}
@@ -361,7 +361,7 @@ func ExtractConfigContext(content string, pos protocol.Position) *ConfigContextI
 	if lastToken.GetTokenType() == parser.ArcLexerASSIGN && len(tokensBeforeCursor) >= 2 {
 		prevToken := tokensBeforeCursor[len(tokensBeforeCursor)-2]
 		if prevToken.GetTokenType() == parser.ArcLexerIDENTIFIER {
-			info.CurrentParamName = prevToken.GetText()
+			info.currentParamName = prevToken.GetText()
 		}
 	}
 	return info

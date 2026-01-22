@@ -322,7 +322,7 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
-		configInfo := ExtractConfigContext(doc.displayContent(), pos)
+		configInfo := extractConfigContext(doc.displayContent(), pos)
 		if configInfo != nil {
 			if completionCtx == ContextConfigParamName {
 				return s.getConfigParamCompletions(ctx, doc, prefix, configInfo)
@@ -479,14 +479,14 @@ func (s *Server) getConfigParamCompletions(
 	ctx context.Context,
 	doc *Document,
 	prefix string,
-	configInfo *ConfigContextInfo,
+	configInfo *configContextInfo,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.FunctionName)
+	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
 	existingSet := make(map[string]bool)
-	for _, param := range configInfo.ExistingParams {
+	for _, param := range configInfo.existingParams {
 		existingSet[param] = true
 	}
 	var items []protocol.CompletionItem
@@ -509,13 +509,13 @@ func (s *Server) getConfigValueCompletions(
 	ctx context.Context,
 	doc *Document,
 	prefix string,
-	configInfo *ConfigContextInfo,
+	configInfo *configContextInfo,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.FunctionName)
+	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	param, found := fnType.Config.Get(configInfo.CurrentParamName)
+	param, found := fnType.Config.Get(configInfo.currentParamName)
 	if !found {
 		return []protocol.CompletionItem{}
 	}
