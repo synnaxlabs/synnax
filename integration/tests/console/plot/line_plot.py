@@ -27,6 +27,7 @@ class LinePlot(ConsoleCase):
         plot = Plot(self.client, self.console, f"Line Plot Test {prefix}")
         plot.add_channels("Y1", data_name)
 
+        # General
         self.test_set_line_thickness(plot)
         self.test_set_line_label(plot, prefix)
         self.test_set_plot_title(plot, prefix)
@@ -36,8 +37,25 @@ class LinePlot(ConsoleCase):
         self.test_drag_channel_to_toolbar(plot)
         self.test_download_csv(plot, data_name)
         self.test_create_range_from_selection(plot, prefix)
+        self.test_export_json(plot, data_name)
 
+        plot_link = self.test_copy_link(plot)
+        plot_name = plot.page_name
         plot.close()
+
+        # Resources Toolbar
+        self.test_open_plot_from_resources(plot_name, plot_link)
+        self.test_drag_plot_onto_mosaic(plot_name, plot_link)
+
+        # Resources Toolbar > Context Menu
+        self.test_ctx_rename_plot()
+        self.test_ctx_delete_plot()
+        self.test_ctx_delete_multiple_plots()
+        self.test_ctx_export_json()
+        self.test_ctx_copy_link()
+
+        self.test_open_plot_by_name(plot_name, plot_link)
+
         self.client.channels.delete([data_name, index_name])
 
     def _setup_channels(self, prefix: str) -> tuple[str, str]:
@@ -152,3 +170,195 @@ class LinePlot(ConsoleCase):
         assert (
             created_range.name == range_name
         ), f"Range name mismatch: {created_range.name}"
+
+    def test_copy_link(self, plot: Plot) -> str:
+        """Test copying a link to the line plot via toolbar button.
+
+        Returns:
+            The full link to the plot.
+        """
+        self.log("Testing copy link to line plot")
+
+        link = plot.copy_link()
+
+        assert link.startswith(
+            "synnax://"
+        ), f"Link should start with synnax://, got: {link}"
+        parts = link.replace("synnax://", "").split("/")
+        assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
+        assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
+        assert (
+            len(parts[1]) == 36
+        ), f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
+        assert (
+            parts[2] == "lineplot"
+        ), f"Third part should be 'lineplot', got: {parts[2]}"
+        assert (
+            len(parts[3]) == 36
+        ), f"Plot ID should be 36 chars (UUID), got: {parts[3]}"
+
+        return link
+
+    def test_export_json(self, plot: Plot, data_name: str) -> None:
+        """Test exporting the plot as a JSON file via toolbar button."""
+        self.log("Testing export plot as JSON")
+
+        exported = plot.export_json()
+
+        assert "key" in exported, "Exported JSON should contain 'key'"
+        assert len(exported["key"]) == 36, "Plot key should be a UUID"
+        assert "channels" in exported, "Exported JSON should contain 'channels'"
+        assert "y1" in exported["channels"], "Channels should include 'y1' axis"
+
+        data_channel = self.client.channels.retrieve(data_name)
+        y1_channels = exported["channels"]["y1"]
+        assert (
+            data_channel.key in y1_channels
+        ), f"Y1 should contain channel key {data_channel.key}"
+
+    def test_open_plot_from_resources(self, plot_name: str, expected_link: str) -> None:
+        """Test opening a plot by double-clicking it in the workspace resources toolbar."""
+        self.log("Testing open plot from resources toolbar")
+
+        plot = self.console.workspace.open_plot(self.client, plot_name)
+
+        assert plot.pane_locator is not None, "Plot pane should be visible"
+        assert plot.pane_locator.is_visible(), "Plot pane should be visible"
+
+        opened_link = plot.copy_link()
+        assert (
+            opened_link == expected_link
+        ), f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+
+        plot.close()
+
+    def test_drag_plot_onto_mosaic(self, plot_name: str, expected_link: str) -> None:
+        """Test dragging a plot from the resources toolbar onto the mosaic."""
+        self.log("Testing drag plot onto mosaic")
+
+        plot = self.console.workspace.drag_plot_to_mosaic(self.client, plot_name)
+
+        assert plot.pane_locator is not None, "Plot pane should be visible"
+        assert plot.pane_locator.is_visible(), "Plot pane should be visible"
+
+        opened_link = plot.copy_link()
+        assert (
+            opened_link == expected_link
+        ), f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+
+        plot.close()
+
+    def test_ctx_rename_plot(self) -> None:
+        """Test renaming a plot via context menu in the workspace resources toolbar."""
+        self.log("Testing rename plot via context menu")
+
+        prefix = str(uuid.uuid4())[:6]
+        plot = Plot(self.client, self.console, f"Rename Test {prefix}")
+        original_name = plot.page_name
+        plot.close()
+
+        new_name = f"Renamed Plot {prefix}"
+        self.console.workspace.rename_page(original_name, new_name)
+
+        assert self.console.workspace.page_exists(
+            new_name
+        ), f"Renamed plot '{new_name}' should exist"
+        assert not self.console.workspace.page_exists(
+            original_name, timeout=1000
+        ), f"Original plot '{original_name}' should not exist"
+
+        self.console.workspace.delete_page(new_name)
+
+    def test_ctx_delete_plot(self) -> None:
+        """Test deleting a plot via context menu in the workspace resources toolbar."""
+        self.log("Testing delete plot via context menu")
+
+        prefix = str(uuid.uuid4())[:6]
+        plot = Plot(self.client, self.console, f"Delete Test {prefix}")
+        plot_name = plot.page_name
+        plot.close()
+
+        assert self.console.workspace.page_exists(
+            plot_name
+        ), f"Plot '{plot_name}' should exist before deletion"
+
+        self.console.workspace.delete_page(plot_name)
+
+        assert not self.console.workspace.page_exists(
+            plot_name, timeout=1000
+        ), f"Plot '{plot_name}' should not exist after deletion"
+
+    def test_ctx_delete_multiple_plots(self) -> None:
+        """Test deleting multiple plots via multi-select and context menu."""
+        self.log("Testing delete multiple plots via context menu")
+
+        prefix = str(uuid.uuid4())[:6]
+        plot_names = []
+
+        for i in range(3):
+            plot = Plot(self.client, self.console, f"Multi Delete {prefix} {i}")
+            plot_names.append(plot.page_name)
+            plot.close()
+
+        for name in plot_names:
+            assert self.console.workspace.page_exists(
+                name
+            ), f"Plot '{name}' should exist before deletion"
+
+        self.console.workspace.delete_pages(plot_names)
+
+        for name in plot_names:
+            assert not self.console.workspace.page_exists(
+                name, timeout=1000
+            ), f"Plot '{name}' should not exist after deletion"
+
+    def test_ctx_export_json(self) -> None:
+        """Test exporting a plot as JSON via context menu."""
+        self.log("Testing export plot via context menu")
+
+        prefix = str(uuid.uuid4())[:6]
+        plot = Plot(self.client, self.console, f"Export Test {prefix}")
+        plot_name = plot.page_name
+        plot.close()
+
+        exported = self.console.workspace.export_page(plot_name)
+
+        assert "key" in exported, "Exported JSON should contain 'key'"
+        assert len(exported["key"]) == 36, "Plot key should be a UUID"
+        assert "channels" in exported, "Exported JSON should contain 'channels'"
+
+        self.console.workspace.delete_page(plot_name)
+
+    def test_ctx_copy_link(self) -> None:
+        """Test copying a link to a plot via context menu."""
+        self.log("Testing copy link via context menu")
+
+        prefix = str(uuid.uuid4())[:6]
+        plot = Plot(self.client, self.console, f"Copy Link Test {prefix}")
+        plot_name = plot.page_name
+        expected_link = plot.copy_link()
+        plot.close()
+
+        link = self.console.workspace.copy_page_link(plot_name)
+
+        assert (
+            link == expected_link
+        ), f"Context menu link should match: expected {expected_link}, got {link}"
+
+        self.console.workspace.delete_page(plot_name)
+
+    def test_open_plot_by_name(self, plot_name: str, expected_link: str) -> None:
+        """Test opening an existing plot by searching its name in the command palette."""
+        self.log("Testing open plot by name via command palette")
+
+        plot = self.console.workspace.open_plot_from_search(self.client, plot_name)
+
+        assert plot.pane_locator is not None, "Plot pane should be visible"
+        assert plot.pane_locator.is_visible(), "Plot pane should be visible"
+
+        opened_link = plot.copy_link()
+        assert (
+            opened_link == expected_link
+        ), f"Opened plot link should match: expected {expected_link}, got {opened_link}"
+
+        plot.close()

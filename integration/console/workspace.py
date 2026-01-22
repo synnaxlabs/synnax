@@ -7,14 +7,19 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
+import platform
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
 
+from framework.utils import get_results_path
+
 if TYPE_CHECKING:
     from .console import Console
+    from .plot import Plot
 
 
 class WorkspaceClient:
@@ -114,6 +119,31 @@ class WorkspaceClient:
         except Exception:
             return False
 
+    def open_page(self, name: str) -> None:
+        """Open a page by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            name: Name of the page to open
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.dblclick()
+        self.console.close_nav_drawer()
+
+    def drag_page_to_mosaic(self, name: str) -> None:
+        """Drag a page from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            name: Name of the page to drag
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        mosaic = self.page.locator(".console-mosaic").first
+        page_item.drag_to(mosaic)
+        self.console.close_nav_drawer()
+
     def rename_page(self, old_name: str, new_name: str) -> None:
         """Rename a page via context menu in the workspace resources toolbar.
 
@@ -130,6 +160,110 @@ class WorkspaceClient:
         self.page.keyboard.type(new_name)
         self.console.ENTER
         self.refresh_tree()
+
+    def delete_page(self, name: str) -> None:
+        """Delete a page via context menu in the workspace resources toolbar.
+
+        Args:
+            name: Name of the page to delete
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn.wait_for(state="visible", timeout=5000)
+        delete_btn.click(timeout=5000)
+        self.refresh_tree()
+        self.console.close_nav_drawer()
+
+    def delete_pages(self, names: list[str]) -> None:
+        """Delete multiple pages via multi-select and context menu.
+
+        Args:
+            names: List of page names to delete
+        """
+        if not names:
+            return
+
+        self.expand_active()
+
+        modifier = "Meta" if platform.system() == "Darwin" else "Control"
+
+        first_item = self.get_page(names[0])
+        first_item.wait_for(state="visible", timeout=5000)
+        first_item.click()
+
+        for name in names[1:]:
+            page_item = self.get_page(name)
+            page_item.wait_for(state="visible", timeout=5000)
+            self.page.keyboard.down(modifier)
+            page_item.click()
+            self.page.keyboard.up(modifier)
+
+        last_item = self.get_page(names[-1])
+        last_item.click(button="right")
+
+        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn.wait_for(state="visible", timeout=5000)
+        delete_btn.click(timeout=5000)
+        self.refresh_tree()
+        self.console.close_nav_drawer()
+
+    def copy_page_link(self, name: str) -> str:
+        """Copy link to a page via context menu.
+
+        Args:
+            name: Name of the page to copy link for
+
+        Returns:
+            The copied link from clipboard
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+        menu = self.page.locator(".pluto-menu-context")
+        menu.wait_for(state="visible", timeout=2000)
+        menu.get_by_text("Copy link", exact=True).click(timeout=5000)
+        self.console.close_nav_drawer()
+
+        try:
+            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
+            return link
+        except Exception:
+            return ""
+
+    def export_page(self, name: str) -> dict[str, Any]:
+        """Export a page via context menu.
+
+        The file is saved to the tests/results directory.
+
+        Args:
+            name: Name of the page to export
+
+        Returns:
+            The exported JSON content as a dictionary
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+        self.page.evaluate("delete window.showSaveFilePicker")
+
+        with self.page.expect_download(timeout=5000) as download_info:
+            self.page.get_by_text("Export", exact=True).first.click(timeout=5000)
+
+        download = download_info.value
+        save_path = get_results_path(f"{name}_export.json")
+        download.save_as(save_path)
+        self.console.close_nav_drawer()
+
+        with open(save_path, "r") as f:
+            result: dict[str, Any] = json.load(f)
+            return result
 
     def create(self, name: str) -> bool:
         """Create a workspace via command palette.
@@ -232,3 +366,66 @@ class WorkspaceClient:
         self.create(name)
         self.select(name)
         self.console.close_nav_drawer()
+
+    def _create_plot_instance(self, client: sy.Synnax, page_name: str) -> "Plot":
+        """Create a Plot instance after a line plot becomes visible.
+
+        Args:
+            client: Synnax client instance.
+            page_name: The name of the plot page.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        from .plot import Plot
+
+        line_plot = self.page.locator(Plot.pluto_label)
+        line_plot.first.wait_for(state="visible", timeout=5000)
+
+        plot = Plot.__new__(Plot)
+        plot.client = client
+        plot.console = self.console
+        plot.page = self.page
+        plot.page_name = page_name
+        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
+        plot.pane_locator = line_plot.first
+        return plot
+
+    def open_plot(self, client: sy.Synnax, name: str) -> "Plot":
+        """Open a plot by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the plot to open.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        self.open_page(name)
+        return self._create_plot_instance(client, name)
+
+    def drag_plot_to_mosaic(self, client: sy.Synnax, name: str) -> "Plot":
+        """Drag a plot from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the plot to drag.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        self.drag_page_to_mosaic(name)
+        return self._create_plot_instance(client, name)
+
+    def open_plot_from_search(self, client: sy.Synnax, name: str) -> "Plot":
+        """Open a plot by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the plot to search for and open.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        self.console.search_palette(name)
+        return self._create_plot_instance(client, name)
