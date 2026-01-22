@@ -29,6 +29,16 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 		return nil, query.ErrNotFound
 	}
 	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
+	// Count incoming edges to this node
+	incomingEdges := 0
+	for _, edge := range cfg.Module.Edges {
+		if edge.Target.Node == cfg.Node.Key {
+			incomingEdges++
+		}
+	}
+	// Entry nodes have no incoming edges and are not expression nodes.
+	// They should only execute once per stage entry.
+	isEntryNode := !strings.HasPrefix(cfg.Node.Key, "expression_") && incomingEdges == 0
 	n := &nodeImpl{
 		Node: cfg.State,
 		ir:   cfg.Node,
@@ -38,9 +48,9 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 			irFn.Outputs,
 			cfg.Module.OutputMemoryBases[cfg.Node.Type],
 		),
-		inputs:       make([]uint64, len(irFn.Inputs)),
-		offsets:      make([]int, len(irFn.Outputs)),
-		isExpression: strings.HasPrefix(cfg.Node.Key, "expression_"),
+		inputs:      make([]uint64, len(irFn.Inputs)),
+		offsets:     make([]int, len(irFn.Outputs)),
+		isEntryNode: isEntryNode,
 	}
 	return n, nil
 }

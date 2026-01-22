@@ -16,6 +16,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
+#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -28,20 +29,30 @@ class Node : public node::Node {
     std::vector<telem::SampleValue> inputs;
     std::vector<int> offsets;
     bool initialized = false;
-    bool is_expression = false;
+    bool is_entry_node = false;
 
 public:
-    Node(const ir::Node &node, state::Node &&state, const Module::Function &func):
+    Node(
+        const ir::IR &prog,
+        const ir::Node &node,
+        state::Node &&state,
+        const Module::Function &func
+    ):
         ir(node),
         state(std::move(state)),
         func(func),
-        is_expression(node.key.rfind("expression_", 0) == 0) {
+        // Entry nodes have no incoming edges and are not expression nodes.
+        // They should only execute once per stage entry.
+        is_entry_node(
+            node.key.rfind("expression_", 0) != 0 &&
+            prog.edges_into(node.key).empty()
+        ) {
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
     }
 
     xerrors::Error next(node::Context &ctx) override {
-        if (!this->is_expression) {
+        if (this->is_entry_node) {
             if (this->initialized) return xerrors::NIL;
             this->initialized = true;
         }

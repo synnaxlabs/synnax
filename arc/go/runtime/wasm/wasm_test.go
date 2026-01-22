@@ -779,7 +779,7 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
 		})
 
-		It("Should execute once for non-expression nodes with inputs", func() {
+		It("Should execute every time for non-entry nodes with inputs", func() {
 			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
 			h := newHarness(ctx, g, nil, nil)
 			defer h.Close()
@@ -797,9 +797,11 @@ var _ = Describe("WASM", func() {
 			h.SetInput("lhs", 0, telem.NewSeriesV[int64](10), telem.NewSeriesSecondsTSV(2))
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](20), telem.NewSeriesSecondsTSV(2))
 
+			// Nodes with incoming edges should execute every time they have new input
 			changed = make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(30)))
 		})
 	})
 
