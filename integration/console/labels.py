@@ -15,14 +15,12 @@ if TYPE_CHECKING:
     from .console import Console
 
 
+_MODAL_SELECTOR = ".console-label__edit"
+_LABEL_ITEM_SELECTOR = ".console-label__list-item"
+
+
 class LabelClient:
     """Console label client for managing labels via the UI."""
-
-    # CSS selectors for label modal elements
-    MODAL_SELECTOR = ".console-label__edit"
-    HEADER_SELECTOR = ".console-label__edit-header"
-    ADD_BUTTON_SELECTOR = ".console-label__add-btn"
-    LABEL_ITEM_SELECTOR = ".console-label__list-item"
 
     def __init__(self, page: Page, console: "Console"):
         """Initialize the label client.
@@ -41,19 +39,17 @@ class LabelClient:
             RuntimeError: If the modal fails to open.
         """
         self.console.command_palette("Edit Labels")
-        # Wait for modal to appear
-        modal = self.page.locator(self.MODAL_SELECTOR)
+        modal = self.page.locator(_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
-        self.page.wait_for_timeout(200)  # Allow modal content to render
+        self.page.wait_for_timeout(200)
 
     def close_edit_modal(self) -> None:
         """Close the Edit Labels modal by clicking the close button."""
-        # The close button is inside .pluto-dialog__dialog and has pluto-icon--close
         close_button = self.page.locator(
             ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
         ).first
         close_button.click(timeout=2000)
-        modal = self.page.locator(self.MODAL_SELECTOR)
+        modal = self.page.locator(_MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=3000)
 
     def create(self, name: str, color: str | None = None) -> None:
@@ -64,20 +60,13 @@ class LabelClient:
             color: Optional hex color code (e.g., "#FF0000"). If not provided,
                    uses the default color.
         """
-        # Open the modal if not already open
-        modal = self.page.locator(self.MODAL_SELECTOR)
-        if not modal.is_visible():
-            self.open_edit_modal()
 
-        # Click the Add Label button
-        add_button = self.page.locator(self.ADD_BUTTON_SELECTOR)
+        self.open_edit_modal()
+        add_button = self.page.locator(".console-label__add-btn")
         add_button.click(timeout=2000)
         self.page.wait_for_timeout(200)
 
-        # Find the create form (first list item with --create modifier)
-        create_form = self.page.locator(
-            f"{self.LABEL_ITEM_SELECTOR}.console--create"
-        ).first
+        create_form = self.page.locator(f"{_LABEL_ITEM_SELECTOR}.console--create").first
 
         # If color is provided, click the color swatch to open picker
         if color:
@@ -89,15 +78,14 @@ class LabelClient:
             # For now, try clicking the swatch again to toggle and use preset
             self.page.keyboard.press("Escape")  # Close color picker
 
-        # Fill in the name
         name_input = create_form.locator("input[placeholder='Label Name']")
         name_input.fill(name)
         self.page.wait_for_timeout(100)
 
-        # Click the check button to save
         save_button = create_form.locator("button:has(svg.pluto-icon--check)")
         save_button.click(timeout=2000)
         self.page.wait_for_timeout(300)  # Wait for save to complete
+        self.close_edit_modal()
 
     def list_all(self) -> list[str]:
         """List all existing labels.
@@ -105,15 +93,12 @@ class LabelClient:
         Returns:
             List of label names.
         """
-        # Open the modal if not already open
-        modal = self.page.locator(self.MODAL_SELECTOR)
-        if not modal.is_visible():
-            self.open_edit_modal()
+        self.open_edit_modal()
 
         labels: list[str] = []
         # Get all label items (excluding the create form)
         label_items = self.page.locator(
-            f"{self.LABEL_ITEM_SELECTOR}:not(.console--create)"
+            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
         ).all()
 
         for item in label_items:
@@ -127,7 +112,19 @@ class LabelClient:
 
         return labels
 
-    def find_label_item(self, name: str) -> Locator | None:
+    def find(self, name: str) -> None:
+        """Find a label by name. Throws an error if the label is not found.
+
+        Args:
+            name: The name of the label to find.
+        """
+        self.open_edit_modal()
+        label_item = self._find_label_item(name)
+        if label_item is None:
+            raise ValueError(f"Label '{name}' not found")
+        self.close_edit_modal()
+
+    def _find_label_item(self, name: str) -> Locator | None:
         """Find a label item by name.
 
         Args:
@@ -137,7 +134,7 @@ class LabelClient:
             The Locator for the label item, or None if not found.
         """
         label_items = self.page.locator(
-            f"{self.LABEL_ITEM_SELECTOR}:not(.console--create)"
+            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
         ).all()
 
         for item in label_items:
@@ -157,19 +154,17 @@ class LabelClient:
             new_name: The new name for the label.
         """
         # Open the modal if not already open
-        modal = self.page.locator(self.MODAL_SELECTOR)
+        modal = self.page.locator(_MODAL_SELECTOR)
         if not modal.is_visible():
             self.open_edit_modal()
 
-        # Find the label item
-        label_item = self.find_label_item(old_name)
+        label_item = self._find_label_item(old_name)
         if label_item is None:
             raise ValueError(f"Label '{old_name}' not found")
 
         # Click on the name input and change it
         name_input = label_item.locator("input").first
         name_input.click()
-        # Clear and fill the new name
         name_input.clear()
         name_input.type(new_name)
         # Press Tab to blur and trigger auto-save
@@ -184,12 +179,12 @@ class LabelClient:
             name: The name of the label to delete.
         """
         # Open the modal if not already open
-        modal = self.page.locator(self.MODAL_SELECTOR)
+        modal = self.page.locator(_MODAL_SELECTOR)
         if not modal.is_visible():
             self.open_edit_modal()
 
         # Find the label item
-        label_item = self.find_label_item(name)
+        label_item = self._find_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
 
@@ -200,6 +195,7 @@ class LabelClient:
         # Click the delete button (has pluto-icon--delete)
         delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
         delete_button.click(timeout=2000)
+        self.close_edit_modal()
         self.page.wait_for_timeout(300)  # Wait for delete to complete
 
     def change_color(self, name: str, new_color: str) -> None:
@@ -211,7 +207,7 @@ class LabelClient:
         """
         self.open_edit_modal()
 
-        label_item = self.find_label_item(name)
+        label_item = self._find_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
 

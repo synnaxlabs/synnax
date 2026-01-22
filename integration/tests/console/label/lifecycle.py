@@ -48,17 +48,10 @@ class LabelLifecycle(ConsoleCase):
 
         label_name = "TestLabel"
 
-        self.console.labels.open_edit_modal()
         self.console.labels.create(name=label_name)
 
-        label_item = self.page.locator(
-            f".console-label__list-item:not(.console--create) input[value='{label_name}']"
-        )
-        assert label_item.count() > 0, f"Label '{label_name}' should appear in the list"
-
+        self.console.labels.find(label_name)
         self.log(f"Successfully created label: {label_name}")
-
-        self.console.labels.close_edit_modal()
 
     def test_rename_label(self) -> None:
         """Test renaming an existing label."""
@@ -67,14 +60,12 @@ class LabelLifecycle(ConsoleCase):
         old_name = "TestLabel"
         new_name = "RenamedLabel"
 
-        self.console.labels.open_edit_modal()
-
         labels_before = self.console.labels.list_all()
         assert old_name in labels_before, f"Label '{old_name}' should exist"
 
         self.console.labels.rename(old_name, new_name)
 
-        self.page.wait_for_timeout(300)
+        ## TODO: make a get label via name function on the client
         self.console.labels.open_edit_modal()
 
         label_item = self.page.locator(
@@ -104,9 +95,7 @@ class LabelLifecycle(ConsoleCase):
         label_name = "SyncTestLabel"
         range_name = "LabelSyncRange"
 
-        self.console.labels.open_edit_modal()
         self.console.labels.create(name=label_name)
-        self.console.labels.close_edit_modal()
 
         self.console.ranges.create(name=range_name, persisted=True, labels=[label_name])
         self.console.ranges.open_explorer()
@@ -122,7 +111,6 @@ class LabelLifecycle(ConsoleCase):
         new_label_name = "RenamedSyncLabel"
         self.console.labels.rename(label_name, new_label_name)
 
-        self.console.ranges.show_toolbar()
         assert self.console.ranges.label_exists_in_toolbar(
             range_name, new_label_name
         ), f"Label should be renamed to '{new_label_name}' in toolbar"
@@ -148,8 +136,6 @@ class LabelLifecycle(ConsoleCase):
         new_color = "#00FF00"
         self.console.labels.change_color(label_name, new_color)
 
-        self.console.ranges.show_toolbar()
-        self.page.wait_for_timeout(500)
         updated_color = self.console.ranges.get_label_color_in_toolbar(
             range_name, label_name
         )
@@ -167,16 +153,14 @@ class LabelLifecycle(ConsoleCase):
 
     def _cleanup_sync_test(self, label_name: str, range_name: str) -> None:
         """Clean up resources created for sync tests."""
-        self.console.labels.open_edit_modal()
         self.console.labels.delete(label_name)
-        self.console.labels.close_edit_modal()
 
         self.console.ranges.open_explorer()
         for _ in range(5):
             if not self.console.ranges.exists_in_explorer(range_name):
                 break
             self.console.ranges.delete_from_explorer(range_name)
-            self.page.wait_for_timeout(500)
+            self.page.wait_for_timeout(100)
 
     def test_delete_label(self) -> None:
         """Test deleting a label (also cleans up the test label)."""
@@ -184,11 +168,10 @@ class LabelLifecycle(ConsoleCase):
 
         label_name = "RenamedLabel"
 
-        self.console.labels.open_edit_modal()
         self.console.labels.delete(label_name)
 
-        self.console.labels.close_edit_modal()
-        self.page.wait_for_timeout(300)
+        self.page.wait_for_timeout(100)
+        ## TODO: make a get label via name function on the client
         self.console.labels.open_edit_modal()
 
         label_item = self.page.locator(
