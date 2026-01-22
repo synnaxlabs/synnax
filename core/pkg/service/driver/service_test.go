@@ -49,6 +49,13 @@ func (f *mockFactory) ConfigureTask(_ driver.Context, t task.Task) (driver.Task,
 	return nil, false, nil
 }
 
+func (f *mockFactory) ConfigureInitialTasks(
+	_ driver.Context,
+	_ rack.Key,
+) ([]task.Task, error) {
+	return nil, nil
+}
+
 func (f *mockFactory) Name() string { return f.name }
 
 type mockTask struct {

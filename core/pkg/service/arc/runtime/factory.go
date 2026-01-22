@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -149,6 +150,14 @@ func (f *Factory) setConfigStatus(ctx driver.Context, t task.Task, variant xstat
 			zap.Error(err),
 		)
 	}
+}
+
+// ConfigureInitialTasks returns no initial tasks for Arc (Arc tasks are user-created).
+func (f *Factory) ConfigureInitialTasks(
+	_ driver.Context,
+	_ rack.Key,
+) ([]task.Task, error) {
+	return nil, nil
 }
 
 // Name returns the factory name.

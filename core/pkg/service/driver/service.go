@@ -186,6 +186,27 @@ func (d *Driver) handleTaskChange(ctx context.Context, reader gorp.TxReader[task
 }
 
 func (d *Driver) configureInitialTasks(ctx context.Context) {
+	taskCtx := NewContext(ctx, d.cfg.Status)
+
+	// Ask factory to create any tasks that should exist on startup
+	factoryTasks, err := d.cfg.Factory.ConfigureInitialTasks(taskCtx, d.rack.Key)
+	if err != nil {
+		d.cfg.L.Error("factory failed to configure initial tasks", zap.Error(err))
+	} else if len(factoryTasks) > 0 {
+		// Persist factory-created tasks (task service handles dedup via key)
+		for _, t := range factoryTasks {
+			if err := d.cfg.Task.NewWriter(nil).Create(ctx, &t); err != nil {
+				d.cfg.L.Error("failed to persist factory task",
+					zap.Stringer("task", t.Key),
+					zap.String("type", t.Type),
+					zap.Error(err),
+				)
+			}
+		}
+		d.cfg.L.Info("factory created initial tasks", zap.Int("count", len(factoryTasks)))
+	}
+
+	// Now retrieve and configure all tasks for this rack
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
 		WhereRacks(d.rack.Key).

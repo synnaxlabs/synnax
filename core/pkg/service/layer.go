@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/sift"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -341,6 +342,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
+	// Create sift factory for Sift integration
+	siftFactory, err := sift.NewFactory(sift.FactoryConfig{
+		Device:          l.Device,
+		Ranger:          l.Ranger,
+		Framer:          l.Framer,
+		Channel:         cfg.Distribution.Channel,
+		Status:          l.Status,
+		Instrumentation: cfg.Child("sift"),
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
+	// Use composite factory to combine Arc and Sift factories
+	compositeFactory := driver.CompositeFactory{arcFactory, siftFactory}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -349,7 +364,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Framer:          cfg.Distribution.Framer,
 		Channel:         cfg.Distribution.Channel,
 		Status:          l.Status,
-		Factory:         arcFactory,
+		Factory:         compositeFactory,
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err
