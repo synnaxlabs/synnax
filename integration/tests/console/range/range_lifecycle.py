@@ -136,14 +136,12 @@ class RangeLifecycle(ConsoleCase):
         self.log("Testing: Create label for range test")
         self.test_label_name = f"RangeLabel_{self.rand_suffix}"
         self.console.labels.create(name=self.test_label_name)
-        self.console.labels.close_edit_modal()
 
     def test_create_second_label(self) -> None:
         """Create a second label for add/remove label tests."""
         self.log("Testing: Create second label")
         self.second_label_name = f"SecondLabel_{self.rand_suffix}"
         self.console.labels.create(name=self.second_label_name)
-        self.console.labels.close_edit_modal()
 
     def test_create_range_with_labels(self) -> None:
         """Test creating a range with labels attached."""
@@ -474,4 +472,3 @@ class RangeLifecycle(ConsoleCase):
             self.console.labels.delete(self.test_label_name)
         if self.second_label_name in all_labels:
             self.console.labels.delete(self.second_label_name)
-        self.console.labels.close_edit_modal()

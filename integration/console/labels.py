@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
 from typing import TYPE_CHECKING
-
+from framework.utils import rgb_to_hex
 from playwright.sync_api import Locator, Page
 
 if TYPE_CHECKING:
@@ -32,26 +33,7 @@ class LabelClient:
         self.page = page
         self.console = console
 
-    def open_edit_modal(self) -> None:
-        """Open the Edit Labels Modal via the Command Palette.
-
-        Raises:
-            RuntimeError: If the modal fails to open.
-        """
-        self.console.command_palette("Edit Labels")
-        modal = self.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="visible", timeout=5000)
-
-    def close_edit_modal(self) -> None:
-        """Close the Edit Labels Modal by clicking the close button."""
-        close_button = self.page.locator(
-            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
-        ).first
-        close_button.click(timeout=2000)
-        modal = self.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="hidden", timeout=3000)
-
-    def create(self, name: str, color: str | None = None) -> None:
+    def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
 
         Args:
@@ -59,31 +41,27 @@ class LabelClient:
             color: Optional hex color code (e.g., "#FF0000") to set for the new label.
         """
 
-        self.open_edit_modal()
+        self._open_edit_modal()
         add_button = self.page.locator(".console-label__add-btn")
-        add_button.click(timeout=2000)
-        self.page.wait_for_timeout(200)
+        add_button.click()
 
         create_form = self.page.locator(f"{_LABEL_ITEM_SELECTOR}.console--create").first
 
-        # If color is provided, click the color swatch to open picker
         if color is not None:
             color_swatch = create_form.locator(".pluto-color-swatch").first
-            color_swatch.click(timeout=1000)
-            self.page.wait_for_timeout(100)
-            # The color picker should open - find and fill the hex input
-            # or select from the preset colors
-            # For now, try clicking the swatch again to toggle and use preset
-            self.page.keyboard.press("Escape")  # Close color picker
+            color_swatch.click()
+            hex_input = self.page.locator(".sketch-picker input").first
+            hex_input.click()
+            hex_input.fill(color.lstrip("#"))
+            self.page.keyboard.press("Enter")
+            self.page.keyboard.press("Escape")
 
         name_input = create_form.locator("input[placeholder='Label Name']")
         name_input.fill(name)
-        self.page.wait_for_timeout(100)
 
         save_button = create_form.locator("button:has(svg.pluto-icon--check)")
-        save_button.click(timeout=2000)
-        self.page.wait_for_timeout(300)  # Wait for save to complete
-        self.close_edit_modal()
+        save_button.click()
+        self._close_edit_modal()
 
     def list_all(self) -> list[str]:
         """List all existing labels.
@@ -91,7 +69,7 @@ class LabelClient:
         Returns:
             List of label names.
         """
-        self.open_edit_modal()
+        self._open_edit_modal()
 
         labels: list[str] = []
         # Get all label items (excluding the create form)
@@ -108,19 +86,122 @@ class LabelClient:
                     if name:
                         labels.append(name)
 
+        self._close_edit_modal()
         return labels
 
-    def assert_exists(self, name: str) -> None:
-        """Assert a label exists by name. Throws an error if the label is not found.
+    def exists(self, name: str) -> bool:
+        """Check if a label exists by name."""
+        self._open_edit_modal()
+        label_item = self._find_label_item(name)
+        exists = label_item is not None
+        self._close_edit_modal()
+        return exists
+
+    def get_color(self, name: str) -> str | None:
+        """Get the color of a label by name."""
+        self._open_edit_modal()
+        label_item = self._find_label_item(name)
+        if label_item is None:
+            return None
+        color_swatch = label_item.locator(".pluto-color-swatch").first
+        style = color_swatch.get_attribute("style")
+        color = None
+        if style:
+            # Find --pluto-swatch-color: rgba( ... );
+            match = re.search(r"--pluto-swatch-color:\s*(rgba?\([^)]+\))", style)
+            if match:
+                rgba = match.group(1)
+                color = rgb_to_hex(rgba)
+        self._close_edit_modal()
+        return color
+
+    def rename(self, old_name: str, new_name: str) -> None:
+        """Rename an existing label.
 
         Args:
-            name: The name of the label to find.
+            old_name: The current name of the label.
+            new_name: The new name for the label.
         """
-        self.open_edit_modal()
+        # Open the modal if not already open
+        modal = self.page.locator(_MODAL_SELECTOR)
+        if not modal.is_visible():
+            self._open_edit_modal()
+
+        label_item = self._find_label_item(old_name)
+        if label_item is None:
+            raise ValueError(f"Label '{old_name}' not found")
+
+        # Click on the name input and change it
+        name_input = label_item.locator("input").first
+        name_input.click()
+        name_input.clear()
+        name_input.type(new_name)
+        # Press Tab to blur and trigger auto-save
+        self.page.keyboard.press("Tab")
+        self.page.wait_for_timeout(500)  # Wait for save to complete
+        self._close_edit_modal()
+
+    def delete(self, name: str) -> None:
+        """Delete a label.
+
+        Args:
+            name: The name of the label to delete.
+
+        Raises:
+            ValueError: If the label with the provided name is not found.
+        """
+        self._open_edit_modal()
         label_item = self._find_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
-        self.close_edit_modal()
+        label_item.hover()
+        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
+        delete_button.click()
+        self._close_edit_modal()
+
+    def change_color(self, name: str, new_color: str) -> None:
+        """Change the color of a label.
+
+        Args:
+            name: The name of the label to update.
+            new_color: The new hex color code (e.g., "#FF0000").
+        """
+        self._open_edit_modal()
+
+        label_item = self._find_label_item(name)
+        if label_item is None:
+            raise ValueError(f"Label '{name}' not found")
+
+        # Click the color swatch to open the picker
+        color_swatch = label_item.locator(".pluto-color-swatch").first
+        color_swatch.click(timeout=2000)
+
+        # The SketchPicker has a hex input - find and fill it
+        # The input is in the color picker container
+        hex_input = self.page.locator(".sketch-picker input").first
+        hex_input.click()
+        hex_input.fill(new_color.lstrip("#"))
+        self.page.keyboard.press("Enter")
+        self.page.wait_for_timeout(200)
+
+        # Click outside to close the color picker
+        label_item.locator("input").first.click()
+        self.page.wait_for_timeout(300)
+        self._close_edit_modal()
+
+    def _open_edit_modal(self) -> None:
+        self.console.command_palette("Edit Labels")
+        modal = self.page.locator(_MODAL_SELECTOR)
+        modal.wait_for(state="visible")
+
+    def _close_edit_modal(self) -> None:
+        """Close the Edit Labels Modal by clicking the close button."""
+        close_button = self.page.locator(
+            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
+        ).first
+        close_button.click()
+        modal = self.page.locator(_MODAL_SELECTOR)
+        modal.wait_for(state="hidden")
 
     def _find_label_item(self, name: str) -> Locator | None:
         """Find a label item by name.
@@ -143,79 +224,3 @@ class LabelClient:
                     if current_name == name:
                         return item
         return None
-
-    def rename(self, old_name: str, new_name: str) -> None:
-        """Rename an existing label.
-
-        Args:
-            old_name: The current name of the label.
-            new_name: The new name for the label.
-        """
-        # Open the modal if not already open
-        modal = self.page.locator(_MODAL_SELECTOR)
-        if not modal.is_visible():
-            self.open_edit_modal()
-
-        label_item = self._find_label_item(old_name)
-        if label_item is None:
-            raise ValueError(f"Label '{old_name}' not found")
-
-        # Click on the name input and change it
-        name_input = label_item.locator("input").first
-        name_input.click()
-        name_input.clear()
-        name_input.type(new_name)
-        # Press Tab to blur and trigger auto-save
-        self.page.keyboard.press("Tab")
-        self.page.wait_for_timeout(500)  # Wait for save to complete
-        self.close_edit_modal()
-
-    def delete(self, name: str) -> None:
-        """Delete a label.
-
-        Args:
-            name: The name of the label to delete.
-        """
-        self.open_edit_modal()
-
-        label_item = self._find_label_item(name)
-        if label_item is None:
-            raise ValueError(f"Label '{name}' not found")
-
-        label_item.hover()
-        self.page.wait_for_timeout(100)
-
-        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
-        delete_button.click(timeout=2000)
-        self.close_edit_modal()
-        self.page.wait_for_timeout(300)  # Wait for delete to complete
-
-    def change_color(self, name: str, new_color: str) -> None:
-        """Change the color of a label.
-
-        Args:
-            name: The name of the label to update.
-            new_color: The new hex color code (e.g., "#FF0000").
-        """
-        self.open_edit_modal()
-
-        label_item = self._find_label_item(name)
-        if label_item is None:
-            raise ValueError(f"Label '{name}' not found")
-
-        # Click the color swatch to open the picker
-        color_swatch = label_item.locator(".pluto-color-swatch").first
-        color_swatch.click(timeout=2000)
-
-        # The SketchPicker has a hex input - find and fill it
-        # The input is in the color picker container
-        hex_input = self.page.locator(".sketch-picker input").first
-        hex_input.click()
-        hex_input.fill(new_color.lstrip("#"))
-        self.page.keyboard.press("Enter")
-        self.page.wait_for_timeout(200)
-
-        # Click outside to close the color picker
-        label_item.locator("input").first.click()
-        self.page.wait_for_timeout(300)
-        self.close_edit_modal()
