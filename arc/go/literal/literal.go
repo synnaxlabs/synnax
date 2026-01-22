@@ -29,9 +29,11 @@ type ParsedValue struct {
 }
 
 // Parse parses a literal AST node and returns its value and type.
-// It supports numeric literals (integer, float, with optional unit suffix) and validates type compatibility.
+// It supports numeric literals (integer, float, with optional unit suffix) and validates
+// type compatibility.
 // The targetType parameter specifies the expected type for conversion.
-// Float-to-int conversions that lose precision will fail (matching Go semantics for constant conversions).
+// Float-to-int conversions that lose precision will fail (matching Go semantics for
+// constant conversions).
 func Parse(
 	literal parser.ILiteralContext,
 	targetType types.Type,
@@ -64,43 +66,38 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 	return ParsedValue{Value: unquoted, Type: types.String()}, nil
 }
 
-// ParseNumeric parses a numeric literal (integer or float, with optional unit suffix) and returns its value and type.
-// It validates that the value fits within the target type's range and rejects lossy conversions.
+// ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
+// and returns its value and type.
+// It validates that the value fits within the target type's range and rejects lossy
+// conversions.
 // If a unit suffix is present (e.g., "300ms"), unit conversion is applied.
 func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	var (
-		numericValue float64
-		isInt        bool
-	)
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
-		v, err := strconv.ParseInt(intLit.GetText(), 10, 64)
+		intValue, err := strconv.ParseInt(intLit.GetText(), 10, 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid integer literal: %s", intLit.GetText())
 		}
-		numericValue = float64(v)
-		isInt = true
-	} else if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
-		v, err := strconv.ParseFloat(floatLit.GetText(), 64)
+		if unitID := numLit.IDENTIFIER(); unitID != nil {
+			return parseNumericWithUnit(float64(intValue), true, unitID.GetText(), targetType)
+		}
+		return parseIntegerLiteral(intValue, targetType)
+	}
+
+	if floatLit := numLit.FLOAT_LITERAL(); floatLit != nil {
+		floatValue, err := strconv.ParseFloat(floatLit.GetText(), 64)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid float literal: %s", floatLit.GetText())
 		}
-		numericValue = v
-		isInt = false
-	} else {
-		return ParsedValue{}, errors.New("unknown numeric literal")
+		if unitID := numLit.IDENTIFIER(); unitID != nil {
+			return parseNumericWithUnit(floatValue, false, unitID.GetText(), targetType)
+		}
+		return parseFloatLiteral(floatValue, targetType)
 	}
 
-	if unitID := numLit.IDENTIFIER(); unitID != nil {
-		return parseNumericWithUnit(numericValue, isInt, unitID.GetText(), targetType)
-	}
-
-	if isInt {
-		return parseIntegerLiteral(numericValue, targetType)
-	}
-	return parseFloatLiteral(numericValue, targetType)
+	return ParsedValue{}, errors.New("unknown numeric literal")
 }
 
 // parseNumericWithUnit handles numeric literals with unit suffixes (e.g., "300ms", "5km").
@@ -138,7 +135,7 @@ func parseNumericWithUnit(
 	siValue := numericValue * unit.Scale
 
 	resultType := types.Type{Unit: unit}
-	if isIntLiteral && isExactInteger(siValue) {
+	if isIntLiteral && IsExactInteger(siValue) {
 		resultType.Kind = types.KindI64
 		return ParsedValue{Value: int64(math.Round(siValue)), Type: resultType}, nil
 	}
@@ -147,9 +144,8 @@ func parseNumericWithUnit(
 }
 
 // parseIntegerLiteral converts an integer value to the target type.
-func parseIntegerLiteral(value float64, targetType types.Type) (ParsedValue, error) {
-	intValue := int64(value)
-
+// It takes int64 directly to preserve full precision for large integer literals.
+func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, error) {
 	// If no target type specified, default to i64
 	if !targetType.IsValid() {
 		return ParsedValue{Value: intValue, Type: types.I64()}, nil
@@ -159,39 +155,69 @@ func parseIntegerLiteral(value float64, targetType types.Type) (ParsedValue, err
 	switch targetType.Kind {
 	case types.KindI8:
 		if intValue < math.MinInt8 || intValue > math.MaxInt8 {
-			return ParsedValue{}, errors.Newf("value %d out of range for i8 (must be in [%d, %d])", intValue, math.MinInt8, math.MaxInt8)
+			return ParsedValue{}, errors.Newf(
+				"value %d out of range for i8 (must be in [%d, %d])",
+				intValue,
+				math.MinInt8,
+				math.MaxInt8,
+			)
 		}
 		return ParsedValue{Value: int8(intValue), Type: types.I8()}, nil
 	case types.KindI16:
 		if intValue < math.MinInt16 || intValue > math.MaxInt16 {
-			return ParsedValue{}, errors.Newf("value %d out of range for i16 (must be in [%d, %d])", intValue, math.MinInt16, math.MaxInt16)
+			return ParsedValue{}, errors.Newf(
+				"value %d out of range for i16 (must be in [%d, %d])",
+				intValue,
+				math.MinInt16,
+				math.MaxInt16,
+			)
 		}
 		return ParsedValue{Value: int16(intValue), Type: types.I16()}, nil
 	case types.KindI32:
 		if intValue < math.MinInt32 || intValue > math.MaxInt32 {
-			return ParsedValue{}, errors.Newf("value %d out of range for i32 (must be in [%d, %d])", intValue, math.MinInt32, math.MaxInt32)
+			return ParsedValue{}, errors.Newf(
+				"value %d out of range for i32 (must be in [%d, %d])",
+				intValue,
+				math.MinInt32,
+				math.MaxInt32,
+			)
 		}
 		return ParsedValue{Value: int32(intValue), Type: types.I32()}, nil
 	case types.KindI64:
 		return ParsedValue{Value: intValue, Type: types.I64()}, nil
 	case types.KindU8:
 		if intValue < 0 || intValue > math.MaxUint8 {
-			return ParsedValue{}, errors.Newf("value %d out of range for u8 (must be in [0, %d])", intValue, math.MaxUint8)
+			return ParsedValue{}, errors.Newf(
+				"value %d out of range for u8 (must be in [0, %d])",
+				intValue,
+				math.MaxUint8,
+			)
 		}
 		return ParsedValue{Value: uint8(intValue), Type: types.U8()}, nil
 	case types.KindU16:
 		if intValue < 0 || intValue > math.MaxUint16 {
-			return ParsedValue{}, errors.Newf("value %d out of range for u16 (must be in [0, %d])", intValue, math.MaxUint16)
+			return ParsedValue{}, errors.Newf(
+				"value %d out of range for u16 (must be in [0, %d])",
+				intValue,
+				math.MaxUint16,
+			)
 		}
 		return ParsedValue{Value: uint16(intValue), Type: types.U16()}, nil
 	case types.KindU32:
 		if intValue < 0 || intValue > math.MaxUint32 {
-			return ParsedValue{}, errors.Newf("value %d out of range for u32 (must be in [0, %d])", intValue, math.MaxUint32)
+			return ParsedValue{}, errors.Newf(
+				"value %d out of range for u32 (must be in [0, %d])",
+				intValue,
+				math.MaxUint32,
+			)
 		}
 		return ParsedValue{Value: uint32(intValue), Type: types.U32()}, nil
 	case types.KindU64:
 		if intValue < 0 {
-			return ParsedValue{}, errors.Newf("value %d out of range for u64 (must be non-negative)", intValue)
+			return ParsedValue{}, errors.Newf(
+				"value %d out of range for u64 (must be non-negative)",
+				intValue,
+			)
 		}
 		return ParsedValue{Value: uint64(intValue), Type: types.U64()}, nil
 	case types.KindF32:
@@ -292,7 +318,11 @@ func parseFloatLiteral(value float64, targetType types.Type) (ParsedValue, error
 
 // convertToTargetKind converts a float64 value to the target type's kind.
 // Uses Go-like constant conversion semantics: errors on fractional parts for integer types.
-func convertToTargetKind(value float64, targetType types.Type, sourceUnit *types.Unit) (ParsedValue, error) {
+func convertToTargetKind(
+	value float64,
+	targetType types.Type,
+	sourceUnit *types.Unit,
+) (ParsedValue, error) {
 	resultType := types.Type{Kind: targetType.Kind, Unit: sourceUnit}
 
 	// For integer target types, check for fractional part (Go-like constant semantics)
@@ -300,7 +330,7 @@ func convertToTargetKind(value float64, targetType types.Type, sourceUnit *types
 	switch targetType.Kind {
 	case types.KindI8, types.KindI16, types.KindI32, types.KindI64,
 		types.KindU8, types.KindU16, types.KindU32, types.KindU64:
-		if !isExactInteger(value) {
+		if !IsExactInteger(value) {
 			return ParsedValue{}, errors.Newf(
 				"cannot convert %g to %s: value has fractional part",
 				value, targetType.Kind,
@@ -370,9 +400,9 @@ func convertToTargetKind(value float64, targetType types.Type, sourceUnit *types
 	}
 }
 
-// isExactInteger checks if a float64 value is very close to an integer.
+// IsExactInteger checks if a float64 value is very close to an integer.
 // Uses a relative epsilon to handle floating-point precision issues at any scale.
-func isExactInteger(value float64) bool {
+func IsExactInteger(value float64) bool {
 	rounded := math.Round(value)
 	if rounded == 0 {
 		return math.Abs(value) < 1e-9

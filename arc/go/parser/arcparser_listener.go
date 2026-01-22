@@ -10,7 +10,6 @@
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // ArcParserListener is a complete listener for a parse tree produced by ArcParser.
@@ -58,6 +57,9 @@ type ArcParserListener interface {
 
 	// EnterStageItem is called when entering the stageItem production.
 	EnterStageItem(c *StageItemContext)
+
+	// EnterSingleInvocation is called when entering the singleInvocation production.
+	EnterSingleInvocation(c *SingleInvocationContext)
 
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
@@ -130,9 +132,6 @@ type ArcParserListener interface {
 
 	// EnterReturnStatement is called when entering the returnStatement production.
 	EnterReturnStatement(c *ReturnStatementContext)
-
-	// EnterFunctionCall is called when entering the functionCall production.
-	EnterFunctionCall(c *FunctionCallContext)
 
 	// EnterType is called when entering the type production.
 	EnterType(c *TypeContext)
@@ -254,6 +253,9 @@ type ArcParserListener interface {
 	// ExitStageItem is called when exiting the stageItem production.
 	ExitStageItem(c *StageItemContext)
 
+	// ExitSingleInvocation is called when exiting the singleInvocation production.
+	ExitSingleInvocation(c *SingleInvocationContext)
+
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
 
@@ -325,9 +327,6 @@ type ArcParserListener interface {
 
 	// ExitReturnStatement is called when exiting the returnStatement production.
 	ExitReturnStatement(c *ReturnStatementContext)
-
-	// ExitFunctionCall is called when exiting the functionCall production.
-	ExitFunctionCall(c *FunctionCallContext)
 
 	// ExitType is called when exiting the type production.
 	ExitType(c *TypeContext)

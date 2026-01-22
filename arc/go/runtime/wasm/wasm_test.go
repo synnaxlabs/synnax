@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/module"
+	"github.com/synnaxlabs/arc/runtime/builtin"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/runtime/wasm"
@@ -160,6 +161,16 @@ func binaryOpGraph(
 	}
 }
 
+// expectOutput is a helper that executes a single-function graph and checks the first output element.
+func expectOutput[T telem.Sample](ctx context.Context, key string, outType types.Type, body string, resolver symbol.Resolver, expected T) {
+	g := singleFunctionGraph(key, outType, body)
+	h := newHarness(ctx, g, resolver, nil)
+	defer h.Close()
+	h.Execute(ctx, key)
+	result := h.Output(key, 0)
+	Expect(telem.UnmarshalSeries[T](result)[0]).To(Equal(expected))
+}
+
 var _ = Describe("WASM", func() {
 	Describe("Next with mismatched input lengths", func() {
 		It("Should repeat shorter input values to match longest input", func() {
@@ -283,16 +294,15 @@ var _ = Describe("WASM", func() {
 
 			n := h.CreateNode(ctx, "counter")
 
-			// First call - should return 1
 			changed := make(set.Set[string])
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(1)))
 
-			// Second call - should return 2
+			n.Reset()
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(2)))
 
-			// Third call - should return 3
+			n.Reset()
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
 		})
@@ -477,6 +487,388 @@ var _ = Describe("WASM", func() {
 			// Second call - state persists
 			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
 			Expect(telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0]).To(Equal(float64(0.0)))
+		})
+	})
+
+	Describe("Series Literal Edge Cases", func() {
+		DescribeTable("empty series",
+			func(elemType string, outType types.Type) {
+				expectOutput(ctx, "empty_series", types.I32(), `{
+				s series `+elemType+` := []
+				return len(s)
+			}`, builtin.SymbolResolver, int32(0))
+			},
+			Entry("i32", "i32", types.I32()),
+			Entry("f64", "f64", types.F64()),
+		)
+
+		DescribeTable("single element series",
+			expectOutput[int32],
+			Entry("i32", ctx, "single_elem", types.I32(), `{
+				s series i32 := [42]
+				return s[0]
+			}`, nil, int32(42)),
+		)
+
+		It("Should handle single element f64 series", func() {
+			expectOutput(ctx, "single_elem", types.F64(), `{
+				s series f64 := [3.14]
+				return s[0]
+			}`, nil, 3.14)
+		})
+
+		It("Should handle 10 element series access", func() {
+			expectOutput(ctx, "ten_elem", types.I32(), `{
+				s series i32 := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+				return s[9]
+			}`, nil, int32(9))
+		})
+
+		It("Should sum elements from 10 element series", func() {
+			expectOutput(ctx, "sum_ten", types.I32(), `{
+				s series i32 := [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+				return s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7] + s[8] + s[9]
+			}`, nil, int32(10))
+		})
+	})
+
+	Describe("Series Arithmetic Per Type", func() {
+		DescribeTable("i32 arithmetic",
+			expectOutput[int32],
+			Entry("add", ctx, "add_i32", types.I32(), `{
+				a series i32 := [1, 2, 3]
+				b series i32 := [10, 20, 30]
+				c series i32 := a + b
+				return c[0]
+			}`, nil, int32(11)),
+			Entry("subtract", ctx, "sub_i32", types.I32(), `{
+				a series i32 := [10, 20, 30]
+				b series i32 := [1, 2, 3]
+				c series i32 := a - b
+				return c[2]
+			}`, nil, int32(27)),
+			Entry("multiply", ctx, "mul_i32", types.I32(), `{
+				a series i32 := [2, 3, 4]
+				b series i32 := [5, 6, 7]
+				c series i32 := a * b
+				return c[1]
+			}`, nil, int32(18)),
+			Entry("divide", ctx, "div_i32", types.I32(), `{
+				a series i32 := [10, 20, 30]
+				b series i32 := [2, 4, 5]
+				c series i32 := a / b
+				return c[0]
+			}`, nil, int32(5)),
+		)
+
+		It("Should add i64 series", func() {
+			expectOutput(ctx, "add_i64", types.I64(), `{
+				a series i64 := [1, 2, 3]
+				b series i64 := [10, 20, 30]
+				c series i64 := a + b
+				return c[0]
+			}`, nil, int64(11))
+		})
+
+		DescribeTable("f32 arithmetic",
+			expectOutput[float32],
+			Entry("add", ctx, "add_f32", types.F32(), `{
+				a series f32 := [1.0, 2.0, 3.0]
+				b series f32 := [0.5, 0.5, 0.5]
+				c series f32 := a + b
+				return c[0]
+			}`, nil, float32(1.5)),
+			Entry("multiply", ctx, "mul_f32", types.F32(), `{
+				a series f32 := [2.0, 3.0]
+				b series f32 := [1.5, 2.5]
+				c series f32 := a * b
+				return c[0]
+			}`, nil, float32(3.0)),
+		)
+
+		It("Should mod f64 series", func() {
+			expectOutput(ctx, "mod_f64", types.F64(), `{
+				a series f64 := [10.0, 20.0]
+				b series f64 := [3.0, 7.0]
+				c series f64 := a % b
+				return c[0]
+			}`, nil, 1.0)
+		})
+	})
+
+	Describe("Series-Scalar Operations", func() {
+		DescribeTable("series op scalar (i32)",
+			expectOutput[int32],
+			Entry("add", ctx, "series_scalar_add", types.I32(), `{
+				s series i32 := [1, 2, 3]
+				r series i32 := s + 10
+				return r[0]
+			}`, nil, int32(11)),
+			Entry("subtract", ctx, "series_scalar_sub", types.I32(), `{
+				s series i32 := [10, 20, 30]
+				r series i32 := s - 5
+				return r[1]
+			}`, nil, int32(15)),
+		)
+
+		DescribeTable("series op scalar (f64)",
+			expectOutput[float64],
+			Entry("multiply", ctx, "series_scalar_mul", types.F64(), `{
+				s series f64 := [1.0, 2.0, 3.0]
+				r series f64 := s * 2.0
+				return r[2]
+			}`, nil, 6.0),
+			Entry("divide", ctx, "series_scalar_div", types.F64(), `{
+				s series f64 := [10.0, 20.0]
+				r series f64 := s / 2.0
+				return r[0]
+			}`, nil, 5.0),
+		)
+
+		DescribeTable("scalar op series (i32)",
+			expectOutput[int32],
+			Entry("add", ctx, "scalar_series_add", types.I32(), `{
+				s series i32 := [1, 2, 3]
+				r series i32 := 10 + s
+				return r[0]
+			}`, nil, int32(11)),
+			Entry("subtract", ctx, "scalar_series_sub", types.I32(), `{
+				s series i32 := [1, 2, 3]
+				r series i32 := 10 - s
+				return r[0]
+			}`, nil, int32(9)),
+		)
+
+		DescribeTable("scalar op series (f64)",
+			expectOutput[float64],
+			Entry("multiply", ctx, "scalar_series_mul", types.F64(), `{
+				s series f64 := [1.0, 2.0, 3.0]
+				r series f64 := 2.0 * s
+				return r[1]
+			}`, nil, 4.0),
+			Entry("divide", ctx, "scalar_series_div", types.F64(), `{
+				s series f64 := [2.0, 4.0, 5.0]
+				r series f64 := 10.0 / s
+				return r[0]
+			}`, nil, 5.0),
+		)
+	})
+
+	Describe("Series Comparison Operations", func() {
+		DescribeTable("comparison operators",
+			expectOutput[uint8],
+			Entry("less than", ctx, "series_lt", types.U8(), `{
+				a series f64 := [1.0, 5.0, 3.0]
+				b series f64 := [2.0, 4.0, 3.0]
+				c series u8 := a < b
+				return c[0]
+			}`, nil, uint8(1)),
+			Entry("greater than", ctx, "series_gt", types.U8(), `{
+				a series f64 := [1.0, 5.0, 3.0]
+				b series f64 := [2.0, 4.0, 3.0]
+				c series u8 := a > b
+				return c[1]
+			}`, nil, uint8(1)),
+			Entry("equal", ctx, "series_eq", types.U8(), `{
+				a series f64 := [1.0, 5.0, 3.0]
+				b series f64 := [2.0, 4.0, 3.0]
+				c series u8 := a == b
+				return c[2]
+			}`, nil, uint8(1)),
+			Entry("not equal", ctx, "series_ne", types.U8(), `{
+				a series f64 := [1.0, 5.0, 3.0]
+				b series f64 := [1.0, 4.0, 3.0]
+				c series u8 := a != b
+				return c[1]
+			}`, nil, uint8(1)),
+			Entry("less than or equal", ctx, "series_le", types.U8(), `{
+				a series f64 := [1.0, 5.0, 3.0]
+				b series f64 := [2.0, 4.0, 3.0]
+				c series u8 := a <= b
+				return c[2]
+			}`, nil, uint8(1)),
+			Entry("greater than or equal", ctx, "series_ge", types.U8(), `{
+				a series f64 := [1.0, 5.0, 3.0]
+				b series f64 := [2.0, 4.0, 3.0]
+				c series u8 := a >= b
+				return c[1]
+			}`, nil, uint8(1)),
+		)
+	})
+
+	Describe("Series Length Operations", func() {
+		DescribeTable("len() function",
+			expectOutput[int32],
+			Entry("empty series", ctx, "len_empty", types.I32(), `{
+				s series f64 := []
+				return len(s)
+			}`, builtin.SymbolResolver, int32(0)),
+			Entry("single element", ctx, "len_one", types.I32(), `{
+				s series f64 := [1.0]
+				return len(s)
+			}`, builtin.SymbolResolver, int32(1)),
+			Entry("five elements", ctx, "len_five", types.I32(), `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				return len(s)
+			}`, builtin.SymbolResolver, int32(5)),
+			Entry("after operation", ctx, "len_after_op", types.I32(), `{
+				a series f64 := [1.0, 2.0, 3.0]
+				b series f64 := [4.0, 5.0, 6.0]
+				c series f64 := a + b
+				return len(c)
+			}`, builtin.SymbolResolver, int32(3)),
+		)
+	})
+
+	Describe("String Operations Extended", func() {
+		DescribeTable("string len() function",
+			expectOutput[int32],
+			Entry("empty string", ctx, "len_empty_str", types.I32(), `{
+				return len("")
+			}`, builtin.SymbolResolver, int32(0)),
+			Entry("simple string", ctx, "len_str", types.I32(), `{
+				return len("hello")
+			}`, builtin.SymbolResolver, int32(5)),
+			Entry("concatenated strings", ctx, "len_concat", types.I32(), `{
+				return len("ab" + "cd")
+			}`, builtin.SymbolResolver, int32(4)),
+			Entry("triple concatenation", ctx, "len_triple", types.I32(), `{
+				return len("a" + "b" + "c")
+			}`, builtin.SymbolResolver, int32(3)),
+			Entry("variable concatenation", ctx, "len_var_concat", types.I32(), `{
+				a str := "hello"
+				b str := " world"
+				return len(a + b)
+			}`, builtin.SymbolResolver, int32(11)),
+		)
+	})
+
+	Describe("No-Input Node Initialization", func() {
+		It("Should execute only once per stage entry for nodes with no inputs", func() {
+			// Create a stateful counter function with no inputs
+			g := singleFunctionGraph("init_counter", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "init_counter")
+
+			// First call - should execute and return 1
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(1)))
+
+			// Second call - should NOT execute again (initialized flag)
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			// No output should be marked as changed since we didn't execute
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+
+			// Reset the node (simulating stage re-entry)
+			n.Reset()
+
+			// Third call - should execute again after reset
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			// Counter persists so it should be 2 now
+			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
+		})
+
+		It("Should execute every time for non-entry nodes with inputs", func() {
+			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "add")
+
+			h.SetInput("lhs", 0, telem.NewSeriesV[int64](1), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("rhs", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
+
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(3)))
+
+			h.SetInput("lhs", 0, telem.NewSeriesV[int64](10), telem.NewSeriesSecondsTSV(2))
+			h.SetInput("rhs", 0, telem.NewSeriesV[int64](20), telem.NewSeriesSecondsTSV(2))
+
+			// Nodes with incoming edges should execute every time they have new input
+			changed = make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(30)))
+		})
+	})
+
+	Describe("Flow Expression Execution", func() {
+		It("Should execute every time for flow expression nodes", func() {
+			g := singleFunctionGraph("expression_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
+		})
+
+		It("Should continue executing after reset for expression nodes", func() {
+			g := singleFunctionGraph("expression_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Reset()
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
+		})
+
+		It("Should not treat non-expression nodes as expressions", func() {
+			g := singleFunctionGraph("expr_0", types.I64(), `{
+				count i64 $= 0
+				count = count + 1
+				return count
+			}`)
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			n := h.CreateNode(ctx, "expr_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
 		})
 	})
 })

@@ -33,14 +33,24 @@ func (idx *ImportIndex) lookupImport(
 	return 0, errors.Newf("no %s function for type %v", funcName, t)
 }
 
-// GetChannelRead returns the import index for a channel read function
+// GetChannelRead returns the import index for a channel read function.
+// Uses UnwrapChan to handle channel types while rejecting series types.
 func (idx *ImportIndex) GetChannelRead(t types.Type) (uint32, error) {
-	return idx.lookupImport(idx.ChannelRead, t, "channel read")
+	suffix := t.UnwrapChan().String()
+	if funcIdx, ok := idx.ChannelRead[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no channel read function for type %v", t)
 }
 
-// GetChannelWrite returns the import index for a channel write function
+// GetChannelWrite returns the import index for a channel write function.
+// Uses UnwrapChan to handle channel types while rejecting series types.
 func (idx *ImportIndex) GetChannelWrite(t types.Type) (uint32, error) {
-	return idx.lookupImport(idx.ChannelWrite, t, "channel write")
+	suffix := t.UnwrapChan().String()
+	if funcIdx, ok := idx.ChannelWrite[suffix]; ok {
+		return funcIdx, nil
+	}
+	return 0, errors.Newf("no channel write function for type %v", t)
 }
 
 // GetSeriesCreateEmpty returns the import index for creating an empty series
@@ -103,19 +113,25 @@ func (idx *ImportIndex) GetSeriesArithmetic(op string, t types.Type, isScalar bo
 }
 
 // GetSeriesReverseArithmetic returns the import index for reverse scalar arithmetic
-// operations (scalar op series instead of series op scalar). This is needed for
-// non-commutative operations like subtraction and division where order matters.
+// operations (scalar op series instead of series op scalar). This is needed because
+// the stack has [scalar, handle] but series_element_* functions expect [handle, scalar].
 func (idx *ImportIndex) GetSeriesReverseArithmetic(op string, t types.Type) (uint32, error) {
 	suffix := t.Unwrap().String()
 
 	var m map[string]uint32
 	switch op {
+	case "+":
+		m = idx.SeriesElementRAdd // scalar + series
 	case "-":
 		m = idx.SeriesElementRSub // scalar - series
+	case "*":
+		m = idx.SeriesElementRMul // scalar * series
 	case "/":
 		m = idx.SeriesElementRDiv // scalar / series
+	case "%":
+		m = idx.SeriesElementRMod // scalar % series
 	default:
-		return 0, errors.Newf("reverse arithmetic only supported for - and /: got %s", op)
+		return 0, errors.Newf("reverse arithmetic not supported for: %s", op)
 	}
 
 	if funcIdx, ok := m[suffix]; ok {

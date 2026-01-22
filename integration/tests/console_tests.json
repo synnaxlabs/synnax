@@ -68,6 +68,9 @@
         },
         {
           "case": "console/log/log_lifecycle"
+        },
+        {
+          "case": "console/documentation"
         }
       ]
     },

@@ -10,6 +10,8 @@
 package metrics
 
 import (
+	"fmt"
+
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -17,59 +19,70 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+const (
+	tsSizeMetricName = "ts_size_gb"
+	kvSizeMetricName = "kv_size_gb"
+)
+
 type metric struct {
-	collect func() (any, error)
+	collect func() (float32, error)
 	ch      channel.Channel
 }
 
-func (svc *Service) buildMetrics() []metric {
-	return []metric{
+func (svc *Service) createMetrics(namePrefix string, idxKey channel.LocalKey) []metric {
+	makeChannel := func(name string) channel.Channel {
+		return channel.Channel{
+			Name:       namePrefix + name,
+			LocalIndex: idxKey,
+			DataType:   telem.Float32T,
+		}
+	}
+	metrics := []metric{
 		{
-			ch: channel.Channel{Name: "mem_percentage", DataType: telem.Float32T},
-			collect: func() (any, error) {
+			ch: makeChannel("mem_percentage"),
+			collect: func() (float32, error) {
 				vm, err := mem.VirtualMemory()
 				if err != nil {
-					return float32(0), err
+					return 0, err
 				}
 				return float32(vm.UsedPercent), nil
 			},
 		},
 		{
-			ch: channel.Channel{Name: "cpu_percentage", DataType: telem.Float32T},
-			collect: func() (any, error) {
+			ch: makeChannel("cpu_percentage"),
+			collect: func() (float32, error) {
 				cpuUsage, err := cpu.Percent(0, false)
 				if err != nil {
-					return float32(0), err
+					return 0, err
 				}
 				if len(cpuUsage) < 1 {
-					return float32(0), errors.New("no CPU usage metric found")
+					return 0, errors.New("no CPU usage metric found")
 				}
 				return float32(cpuUsage[0]), nil
 			},
 		},
 		{
-			ch: channel.Channel{Name: "total_size_gb", DataType: telem.Float32T},
-			collect: func() (any, error) {
-				return float32(svc.cfg.Storage.Size().Gigabytes()), nil
-			},
-		},
-		{
-			ch: channel.Channel{Name: "ts_size_gb", DataType: telem.Float32T},
-			collect: func() (any, error) {
+			ch: makeChannel(tsSizeMetricName),
+			collect: func() (float32, error) {
 				return float32(svc.cfg.Storage.TSSize().Gigabytes()), nil
 			},
 		},
 		{
-			ch: channel.Channel{Name: "kv_size_gb", DataType: telem.Float32T},
-			collect: func() (any, error) {
+			ch: makeChannel(kvSizeMetricName),
+			collect: func() (float32, error) {
 				return float32(svc.cfg.Storage.KVSize().Gigabytes()), nil
 			},
 		},
+	}
+	return metrics
+}
+
+func createCalculatedMetrics(namePrefix string) []channel.Channel {
+	return []channel.Channel{
 		{
-			ch: channel.Channel{Name: "channel_count", DataType: telem.Int32T},
-			collect: func() (any, error) {
-				return int32(svc.cfg.Channel.CountExternalNonVirtual()), nil
-			},
+			Name:       namePrefix + "total_size_gb",
+			DataType:   telem.Float32T,
+			Expression: fmt.Sprintf("return %s%s + %s%s", namePrefix, tsSizeMetricName, namePrefix, kvSizeMetricName),
 		},
 	}
 }

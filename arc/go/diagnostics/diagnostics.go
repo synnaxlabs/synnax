@@ -20,6 +20,11 @@ import (
 // Severity represents the importance level of a diagnostic message.
 type Severity int
 
+type Position struct {
+	Line int
+	Col  int
+}
+
 //go:generate stringer -type=Severity
 const (
 	// SeverityError indicates a critical issue that prevents compilation.
@@ -47,13 +52,104 @@ func (s Severity) String() string {
 	}
 }
 
-// Diagnostic represents a single issue found during analysis.
+// Note provides supplementary context for a diagnostic, such as where a type was inferred.
+type Note struct {
+	Message string   `json:"message"`
+	Start   Position `json:"start,omitempty"`
+}
+
+// HintProvider is implemented by errors that include a hint for fixing the issue.
+type HintProvider interface {
+	GetHint() string
+}
+
+// Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
-	Key      string   `json:"key"`
-	Message  string   `json:"message"`
-	Severity Severity `json:"severity"`
-	Line     int      `json:"line"`
-	Column   int      `json:"column"`
+	Key      string    `json:"key"`
+	Code     ErrorCode `json:"code,omitempty"`
+	Message  string    `json:"message"`
+	Severity Severity  `json:"severity"`
+	Start    Position  `json:"start"`
+	End      Position  `json:"end"`
+	Notes    []Note    `json:"notes,omitempty"`
+}
+
+// SetRange sets the Start and End positions from an ANTLR parser rule context.
+func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
+	if ctx == nil {
+		return
+	}
+	start := ctx.GetStart()
+	stop := ctx.GetStop()
+	d.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
+	if stop != nil {
+		d.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
+	} else {
+		d.End = Position{Line: d.Start.Line, Col: d.Start.Col + len(start.GetText())}
+	}
+}
+
+// Error creates an error diagnostic from an existing error. If the error implements
+// HintProvider, the hint is automatically extracted and added as a note.
+func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
+	d := Diagnostic{Severity: SeverityError, Message: err.Error()}
+	d.SetRange(ctx)
+	if hp, ok := err.(HintProvider); ok {
+		if hint := hp.GetHint(); hint != "" {
+			d.Notes = append(d.Notes, Note{Message: hint})
+		}
+	}
+	return d
+}
+
+// Errorf creates an error diagnostic with a formatted message.
+func Errorf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityError, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// Warningf creates a warning diagnostic with a formatted message.
+func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityWarning, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// Infof creates an info diagnostic with a formatted message.
+func Infof(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityInfo, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// Hintf creates a hint diagnostic with a formatted message.
+func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityHint, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// WithCode returns a copy of the diagnostic with the given error code.
+func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
+	d.Code = code
+	return d
+}
+
+// WithNote returns a copy of the diagnostic with an additional note.
+func (d Diagnostic) WithNote(note string) Diagnostic {
+	if note != "" {
+		d.Notes = append(d.Notes, Note{Message: note})
+	}
+	return d
+}
+
+// WithNoteAt returns a copy of the diagnostic with an additional note at the given position.
+func (d Diagnostic) WithNoteAt(note string, pos Position) Diagnostic {
+	if note != "" {
+		d.Notes = append(d.Notes, Note{Message: note, Start: pos})
+	}
+	return d
 }
 
 // Diagnostics is a collection of diagnostic messages.
@@ -61,68 +157,42 @@ type Diagnostics []Diagnostic
 
 var _ error = (*Diagnostics)(nil)
 
-// Ok returns true if there are no diagnostics.
+// Ok returns true if there are no error-level diagnostics.
+// Warnings, info, and hints are allowed.
 func (d Diagnostics) Ok() bool {
-	return len(d) == 0
+	for _, diag := range d {
+		if diag.Severity == SeverityError {
+			return false
+		}
+	}
+	return true
 }
 
 // Error implements the error interface.
 func (d Diagnostics) Error() string { return d.String() }
 
 func (d *Diagnostics) Add(diag Diagnostic) {
-	*d = append(*d, diag)
-}
-
-// AddError adds an error-level diagnostic with the given message and source location.
-func (d *Diagnostics) AddError(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
-	diag := Diagnostic{Severity: SeverityError, Message: err.Error()}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
+	for _, idx := range d.AtLocation(diag.Start) {
+		existing := (*d)[idx]
+		if existing.Message == diag.Message {
+			if diag.Severity < existing.Severity {
+				(*d)[idx] = diag
+			}
+			return
+		}
 	}
 	*d = append(*d, diag)
 }
 
-// AddWarning adds a warning-level diagnostic with the given message and source location.
-func (d *Diagnostics) AddWarning(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
-	diag := Diagnostic{Severity: SeverityWarning, Message: err.Error()}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
+// AtLocation returns the indices of all diagnostics at the given position.
+func (d *Diagnostics) AtLocation(start Position) []int {
+	var indices []int
+	for i, diag := range *d {
+		if diag.Start == start {
+			indices = append(indices, i)
+		}
 	}
-	*d = append(*d, diag)
-}
-
-// AddInfo adds an info-level diagnostic with the given message and source location.
-func (d *Diagnostics) AddInfo(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
-	diag := Diagnostic{Severity: SeverityInfo, Message: err.Error()}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
-	}
-	*d = append(*d, diag)
-}
-
-// AddHint adds a hint-level diagnostic with the given message and source location.
-func (d *Diagnostics) AddHint(
-	err error,
-	ctx antlr.ParserRuleContext,
-) {
-	diag := Diagnostic{Severity: SeverityHint, Message: err.Error()}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
-	}
-	*d = append(*d, diag)
+	return indices
 }
 
 // Errors returns only error-level diagnostics.
@@ -157,13 +227,32 @@ func (d Diagnostics) String() string {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
-		sb.WriteString(fmt.Sprintf(
-			"%d:%d %s: %s",
-			diag.Line,
-			diag.Column,
-			diag.Severity.String(),
-			diag.Message,
-		))
+		if diag.Code != "" {
+			sb.WriteString(fmt.Sprintf(
+				"%d:%d %s [%s]: %s",
+				diag.Start.Line,
+				diag.Start.Col,
+				diag.Severity.String(),
+				diag.Code,
+				diag.Message,
+			))
+		} else {
+			sb.WriteString(fmt.Sprintf(
+				"%d:%d %s: %s",
+				diag.Start.Line,
+				diag.Start.Col,
+				diag.Severity.String(),
+				diag.Message,
+			))
+		}
+		for _, note := range diag.Notes {
+			sb.WriteString("\n")
+			if note.Start.Line > 0 {
+				sb.WriteString(fmt.Sprintf("  %d:%d note: %s", note.Start.Line, note.Start.Col, note.Message))
+			} else {
+				sb.WriteString(fmt.Sprintf("  note: %s", note.Message))
+			}
+		}
 	}
 	return sb.String()
 }

@@ -64,18 +64,6 @@ type Server struct {
 
 var _ protocol.Server = (*Server)(nil)
 
-// Document represents an open document
-type Document struct {
-	Metadata *DocumentMetadata // Metadata for calculated channels
-	Content  string
-	URI      protocol.DocumentURI
-	// IR with symbol table
-	IR ir.IR
-	// Diagnostics diagnostics
-	Diagnostics diagnostics.Diagnostics
-	Version     int32
-}
-
 // New creates a new LSP server
 func New(cfgs ...Config) (*Server, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
@@ -94,9 +82,13 @@ func New(cfgs ...Config) (*Server, error) {
 			CompletionProvider: &protocol.CompletionOptions{
 				TriggerCharacters: []string{".", ":", "<", "-", ">"},
 			},
-			DefinitionProvider:     true,
-			DocumentSymbolProvider: true,
-			SemanticTokensProvider: map[string]interface{}{
+			DefinitionProvider:              true,
+			DocumentSymbolProvider:          true,
+			DocumentFormattingProvider:      true,
+			DocumentRangeFormattingProvider: true,
+			FoldingRangeProvider:            true,
+			RenameProvider:                  true,
+			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
 				},
@@ -163,17 +155,17 @@ func (s *Server) Shutdown(_ context.Context) error {
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
-	metadata := ExtractMetadataFromURI(uri)
+	metadata := extractMetadataFromURI(uri)
 	s.cfg.L.Debug("file meta-data",
 		zap.String("uri", string(uri)),
 		zap.Bool("hasMetadata", metadata != nil),
-		zap.Bool("isBlock", metadata != nil && metadata.IsFunctionBlock))
+		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	s.mu.Lock()
 	s.documents[uri] = &Document{
 		URI:      uri,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
-		Metadata: metadata,
+		metadata: metadata,
 	}
 	s.mu.Unlock()
 
@@ -230,8 +222,11 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 
 	var pDiagnostics []protocol.Diagnostic
-	if doc.Metadata.IsFunctionBlock {
-		t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
+	if doc.metadata.isFunctionBlock {
+		// Wrap content with {} for parsing - store wrapped content so AST positions match
+		wrappedContent := fmt.Sprintf("{%s}", content)
+		doc.Content = wrappedContent
+		t, err := parser.ParseBlock(wrappedContent)
 		if err != nil {
 			pDiagnostics = translateDiagnostics(*err)
 		} else {
@@ -286,25 +281,62 @@ func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	return out
 }
 
-// translateDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
 func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
-		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
+		end := diag.End
+		if end.Line == 0 && end.Col == 0 {
+			end.Line = diag.Start.Line
+			end.Col = diag.Start.Col + 1
+		}
+
+		pDiag := protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column),
+					Line:      uint32(diag.Start.Line - 1),
+					Character: uint32(diag.Start.Col),
 				},
 				End: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column + 10),
+					Line:      uint32(end.Line - 1),
+					Character: uint32(end.Col),
 				},
 			},
 			Severity: severity(diag.Severity),
-			Source:   "arc-analyzer",
+			Source:   "arc",
 			Message:  diag.Message,
-		})
+		}
+
+		if diag.Code != "" {
+			pDiag.Code = string(diag.Code)
+		}
+
+		if len(diag.Notes) > 0 {
+			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
+			for _, note := range diag.Notes {
+				loc := protocol.Location{
+					Range: protocol.Range{
+						Start: protocol.Position{
+							Line:      uint32(note.Start.Line - 1),
+							Character: uint32(note.Start.Col),
+						},
+						End: protocol.Position{
+							Line:      uint32(note.Start.Line - 1),
+							Character: uint32(note.Start.Col + 1),
+						},
+					},
+				}
+				if note.Start.Line == 0 {
+					loc.Range = pDiag.Range
+				}
+				related = append(related, protocol.DiagnosticRelatedInformation{
+					Location: loc,
+					Message:  note.Message,
+				})
+			}
+			pDiag.RelatedInformation = related
+		}
+
+		oDiagnostics = append(oDiagnostics, pDiag)
 	}
 	return oDiagnostics
 }

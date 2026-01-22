@@ -127,6 +127,9 @@ def assert_link_format(link: str, resource_type: str, resource_id: str | None = 
             raise AssertionError(
                 f"Resource ID should be a valid UUID, got: {actual_id}"
             )
+def get_random_name() -> str:
+    """Get a random name, which is a random 12-character string"""
+    return "".join(random.choices(string.ascii_letters + string.digits, k=12))
 
 
 def get_machine_info() -> str:
@@ -207,6 +210,12 @@ def get_machine_info() -> str:
 
     else:
         return system
+
+
+def rgb_to_hex(rgb_str: str) -> str:
+    vals = re.findall(r"[\d.]+", rgb_str)
+    r, g, b = [int(float(x)) for x in vals[:3]]
+    return f"#{r:02X}{g:02X}{b:02X}"
 
 
 def get_memory_info() -> str:

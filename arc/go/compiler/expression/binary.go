@@ -73,29 +73,14 @@ func compileBinaryAdditive(
 			}
 			ctx.Writer.WriteCall(funcIdx)
 		} else if secondIsSeries {
-			// scalar op series - need reverse arithmetic for non-commutative ops
+			// scalar op series - use reverse arithmetic to match stack order [scalar, handle]
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			if op == "-" || op == "/" {
-				// Non-commutative: use reverse operations (rsub, rdiv)
-				funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
-				if err != nil {
-					return types.Type{}, err
-				}
-				ctx.Writer.WriteCall(funcIdx)
-			} else {
-				// Commutative (+): just use regular series_element_add with swapped args
-				// Stack has [scalar, handle], but series_element_add expects [handle, scalar]
-				// We need to swap them. For now, use a local variable approach.
-				// Actually, for commutative ops we can just call the regular function
-				// with swapped stack order - but that requires a swap instruction or temp local.
-				// Simplest solution: call the same function, host handles the swap.
-				funcIdx, err := ctx.Imports.GetSeriesArithmetic(op, secondElemType, true)
-				if err != nil {
-					return types.Type{}, err
-				}
-				ctx.Writer.WriteCall(funcIdx)
+			funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
+			if err != nil {
+				return types.Type{}, err
 			}
+			ctx.Writer.WriteCall(funcIdx)
 			// Update state to reflect we now have a series result
 			resultType = operandType
 			elemType = secondElemType
@@ -178,26 +163,14 @@ func compileBinaryMultiplicative(
 			}
 			ctx.Writer.WriteCall(funcIdx)
 		} else if secondIsSeries {
-			// scalar op series - need reverse arithmetic for non-commutative ops
+			// scalar op series - use reverse arithmetic to match stack order [scalar, handle]
 			secondElemType := *operandType.Elem
 			op := operators[i-1]
-			if op == "/" {
-				// Non-commutative: use reverse operations (rdiv)
-				funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
-				if err != nil {
-					return types.Type{}, err
-				}
-				ctx.Writer.WriteCall(funcIdx)
-			} else {
-				// Commutative (* and %): just use regular series_element_mul/mod
-				// Stack has [scalar, handle], but series_element_* expects [handle, scalar]
-				// For now, call the same function - the host will need to handle this
-				funcIdx, err := ctx.Imports.GetSeriesArithmetic(op, secondElemType, true)
-				if err != nil {
-					return types.Type{}, err
-				}
-				ctx.Writer.WriteCall(funcIdx)
+			funcIdx, err := ctx.Imports.GetSeriesReverseArithmetic(op, secondElemType)
+			if err != nil {
+				return types.Type{}, err
 			}
+			ctx.Writer.WriteCall(funcIdx)
 			// Update state to reflect we now have a series result
 			resultType = operandType
 			elemType = secondElemType

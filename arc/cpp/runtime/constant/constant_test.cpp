@@ -75,7 +75,7 @@ TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
 
     constant::Factory factory;
     ASSERT_OCCURRED_AS_P(
-        factory.create(node::Config(ir_node, setup.make_node())),
+        factory.create(node::Config(setup.ir, ir_node, setup.make_node())),
         xerrors::NOT_FOUND
     );
 }
@@ -85,7 +85,7 @@ TEST(ConstantFactoryTest, CreatesConstantNode) {
     TestSetup setup(arc::types::Kind::F32, 42.5f);
     constant::Factory factory;
     auto node = ASSERT_NIL_P(
-        factory.create(node::Config(setup.ir.nodes[0], setup.make_node()))
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }

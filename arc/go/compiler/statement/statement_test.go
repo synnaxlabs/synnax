@@ -27,7 +27,8 @@ import (
 func compile(source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+	analyzer.AnalyzeStatement(aCtx)
+	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
 	Expect(MustSucceed(statement.Compile(context.Child(ctx, stmt)))).To(BeFalse())
 	return ctx.Writer.Bytes()
@@ -36,7 +37,8 @@ func compile(source string) []byte {
 func compileBlock(source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 	aCtx := acontext.CreateRoot(bCtx, block, nil)
-	Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+	analyzer.AnalyzeBlock(aCtx)
+	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
 	diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 	Expect(diverged).To(BeFalse())
@@ -93,7 +95,8 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable declaration with explicit type", func() {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+			analyzer.AnalyzeStatement(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
@@ -111,7 +114,8 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable declaration with inferred type", func() {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+			analyzer.AnalyzeStatement(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
@@ -132,7 +136,8 @@ var _ = Describe("Statement Compiler", func() {
 				count = 5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -162,7 +167,8 @@ var _ = Describe("Statement Compiler", func() {
 				x i64 := count + 1
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -193,7 +199,8 @@ var _ = Describe("Statement Compiler", func() {
 				c i64 := a + b
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -229,7 +236,8 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable with different types", func() {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+			analyzer.AnalyzeStatement(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
@@ -250,7 +258,8 @@ var _ = Describe("Statement Compiler", func() {
 				count += 5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -281,7 +290,8 @@ var _ = Describe("Statement Compiler", func() {
 				value -= 25.5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -313,7 +323,8 @@ var _ = Describe("Statement Compiler", func() {
 				n *= 3
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -676,7 +687,8 @@ var _ = Describe("Statement Compiler", func() {
 		compileStr := func(source string) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -850,7 +862,8 @@ var _ = Describe("Statement Compiler", func() {
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
 
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue(), aCtx.Diagnostics.String())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
@@ -868,6 +881,133 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(bytecode).To(ContainSubstring(string([]byte{byte(OpLocalGet)})))
 			Expect(seriesCreateIdx).ToNot(Equal(uint32(0)))
 			Expect(seriesSetElementIdx).ToNot(Equal(uint32(0)))
+		})
+	})
+
+	Describe("Series Literals with Inferred Variables and Literal Coercion", func() {
+		It("Should compile inferred int variable with exact-integer float literal", func() {
+			// a := 5 creates an i64 variable
+			// 12.0 is an exact integer float that should coerce to i64
+			// Result: series[i64] with elements [5, 12]
+			block := MustSucceed(parser.ParseBlock(`{
+				a := 5
+				x := [a, 12.0]
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
+			seriesSetIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// a := 5
+				OpI64Const, int64(5),
+				OpLocalSet, 0,
+				// x := [a, 12.0] - create series[i64] with 2 elements
+				OpI32Const, int32(2),
+				OpCall, uint64(seriesCreateIdx),
+				// set element 0 = a
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(seriesSetIdx),
+				// set element 1 = 12 (12.0 coerced to i64)
+				OpI32Const, int32(1),
+				OpI64Const, int64(12),
+				OpCall, uint64(seriesSetIdx),
+				// store series in x
+				OpLocalSet, 1,
+			))
+		})
+
+		It("Should compile inferred float variable with int literal", func() {
+			// a := 12.0 creates an f64 variable
+			// 5 is an int literal that should coerce to f64
+			// Result: series[f64] with elements [12.0, 5.0]
+			block := MustSucceed(parser.ParseBlock(`{
+				a := 12.0
+				x := [a, 5]
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.F64().String()]
+			seriesSetIdx := ctx.Imports.SeriesSetElement[types.F64().String()]
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// a := 12.0
+				OpF64Const, float64(12.0),
+				OpLocalSet, 0,
+				// x := [a, 5] - create series[f64] with 2 elements
+				OpI32Const, int32(2),
+				OpCall, uint64(seriesCreateIdx),
+				// set element 0 = a
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(seriesSetIdx),
+				// set element 1 = 5.0 (5 coerced to f64)
+				OpI32Const, int32(1),
+				OpF64Const, float64(5),
+				OpCall, uint64(seriesSetIdx),
+				// store series in x
+				OpLocalSet, 1,
+			))
+		})
+
+		It("Should compile multiple inferred variables with mixed literals", func() {
+			// a := 5, b := 10 creates i64 variables
+			// 15.0 is an exact integer float that should coerce to i64
+			// Result: series[i64] with elements [5, 10, 15]
+			block := MustSucceed(parser.ParseBlock(`{
+				a := 5
+				b := 10
+				x := [a, b, 15.0]
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
+			seriesSetIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// a := 5
+				OpI64Const, int64(5),
+				OpLocalSet, 0,
+				// b := 10
+				OpI64Const, int64(10),
+				OpLocalSet, 1,
+				// x := [a, b, 15.0] - create series[i64] with 3 elements
+				OpI32Const, int32(3),
+				OpCall, uint64(seriesCreateIdx),
+				// set element 0 = a
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(seriesSetIdx),
+				// set element 1 = b
+				OpI32Const, int32(1),
+				OpLocalGet, 1,
+				OpCall, uint64(seriesSetIdx),
+				// set element 2 = 15 (15.0 coerced to i64)
+				OpI32Const, int32(2),
+				OpI64Const, int64(15),
+				OpCall, uint64(seriesSetIdx),
+				// store series in x
+				OpLocalSet, 2,
+			))
 		})
 	})
 })

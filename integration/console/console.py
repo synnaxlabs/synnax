@@ -20,6 +20,7 @@ from framework.utils import get_results_path
 
 from .access import AccessClient
 from .channels import ChannelClient
+from .docs import DocsClient
 from .labels import LabelClient
 from .layout import LayoutClient
 from .notifications import NotificationsClient
@@ -57,6 +58,7 @@ class Console:
 
     access: AccessClient
     channels: ChannelClient
+    docs: DocsClient
     labels: LabelClient
     layout: LayoutClient
     notifications: NotificationsClient
@@ -70,6 +72,7 @@ class Console:
         self.page = page
         self.access = AccessClient(page, self)
         self.channels = ChannelClient(page, self)
+        self.docs = DocsClient(page, self)
         self.labels = LabelClient(page, self)
         self.layout = LayoutClient(page, self)
         self.notifications = NotificationsClient(page, self)

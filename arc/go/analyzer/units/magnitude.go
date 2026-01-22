@@ -10,13 +10,12 @@
 package units
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // Scale ratio thresholds for magnitude safety warnings.
@@ -82,15 +81,13 @@ func checkAdditiveScaleSafety[AST antlr.ParserRuleContext](
 
 	if scaleRatio >= threshold {
 		ordersMagnitude := int(math.Log10(scaleRatio))
-		ctx.Diagnostics.AddWarning(
-			errors.New(fmt.Sprintf(
-				"additive operation combines values with ~%d orders of magnitude difference (%s vs %s); smaller value may lose precision",
-				ordersMagnitude,
-				left.Unit.Name,
-				right.Unit.Name,
-			)),
+		ctx.Diagnostics.Add(diagnostics.Warningf(
 			ctx.AST,
-		)
+			"additive operation combines values with ~%d orders of magnitude difference (%s vs %s); smaller value may lose precision",
+			ordersMagnitude,
+			left.Unit.Name,
+			right.Unit.Name,
+		))
 	}
 }
 
@@ -131,16 +128,14 @@ func CheckAssignmentScaleSafety[AST antlr.ParserRuleContext](
 
 	// Check for potential truncation (scaling down to very small values)
 	if scaleFactor <= TruncationThreshold {
-		ctx.Diagnostics.AddWarning(
-			errors.New(fmt.Sprintf(
-				"unit conversion from %s to %s may truncate to zero for integer type %s (scale factor: %.2e)",
-				sourceType.Unit.Name,
-				targetType.Unit.Name,
-				targetType.Kind.String(),
-				scaleFactor,
-			)),
+		ctx.Diagnostics.Add(diagnostics.Warningf(
 			ctx.AST,
-		)
+			"unit conversion from %s to %s may truncate to zero for integer type %s (scale factor: %.2e)",
+			sourceType.Unit.Name,
+			targetType.Unit.Name,
+			targetType.Kind.String(),
+			scaleFactor,
+		))
 		return
 	}
 
@@ -150,17 +145,15 @@ func CheckAssignmentScaleSafety[AST antlr.ParserRuleContext](
 
 		// If even a value of 1 would overflow, definitely warn
 		if scaleFactor > float64(maxVal) {
-			ctx.Diagnostics.AddWarning(
-				errors.New(fmt.Sprintf(
-					"unit conversion from %s to %s may overflow %s (scale factor: %.2e, max: %d)",
-					sourceType.Unit.Name,
-					targetType.Unit.Name,
-					targetType.Kind.String(),
-					scaleFactor,
-					maxVal,
-				)),
+			ctx.Diagnostics.Add(diagnostics.Warningf(
 				ctx.AST,
-			)
+				"unit conversion from %s to %s may overflow %s (scale factor: %.2e, max: %d)",
+				sourceType.Unit.Name,
+				targetType.Unit.Name,
+				targetType.Kind.String(),
+				scaleFactor,
+				maxVal,
+			))
 			return
 		}
 
@@ -169,19 +162,17 @@ func CheckAssignmentScaleSafety[AST antlr.ParserRuleContext](
 			convertedValue := *sourceValue * scaleFactor
 			minVal := targetType.IntegerMinValue()
 			if convertedValue > float64(maxVal) || convertedValue < float64(minVal) {
-				ctx.Diagnostics.AddWarning(
-					errors.New(fmt.Sprintf(
-						"value %.2g %s converts to %.2e %s, which overflows %s (range: %d to %d)",
-						*sourceValue,
-						sourceType.Unit.Name,
-						convertedValue,
-						targetType.Unit.Name,
-						targetType.Kind.String(),
-						minVal,
-						maxVal,
-					)),
+				ctx.Diagnostics.Add(diagnostics.Warningf(
 					ctx.AST,
-				)
+					"value %.2g %s converts to %.2e %s, which overflows %s (range: %d to %d)",
+					*sourceValue,
+					sourceType.Unit.Name,
+					convertedValue,
+					targetType.Unit.Name,
+					targetType.Kind.String(),
+					minVal,
+					maxVal,
+				))
 			}
 		}
 	}

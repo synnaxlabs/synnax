@@ -174,7 +174,7 @@ var _ = Describe("Parser", func() {
 		Context("Type Casting", func() {
 			It("Should parse type casts", func() {
 				expr := mustParseExpression("f32(42)")
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.TypeCast()).NotTo(BeNil())
 				cast := primary.TypeCast()
 				Expect(cast.Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
@@ -383,11 +383,11 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			Expect(exprs).To(HaveLen(2))
 
 			// First expression should be ox_pt_1
-			expr1 := getPrimaryExpression(exprs[0])
+			expr1 := parser.GetPrimaryExpression(exprs[0])
 			Expect(expr1.IDENTIFIER().GetText()).To(Equal("ox_pt_1"))
 
 			// Second expression should be ox_pt_2
-			expr2 := getPrimaryExpression(exprs[1])
+			expr2 := parser.GetPrimaryExpression(exprs[1])
 			Expect(expr2.IDENTIFIER().GetText()).To(Equal("ox_pt_2"))
 		})
 
@@ -444,9 +444,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 		It("Should fail parsing mixed named and anonymous config values", func() {
 			// Note: 'stage' is now a reserved keyword, so we use a different function name
-			_, err := parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)
-			Expect(err).To(HaveOccurred())
-			Expect(err).To(MatchError(ContainSubstring("1:22 error: mismatched input")))
+			Expect(parser.Parse(`myfunc{ox_pt_1, second: ox_pt_2} -> output`)).Error().To(MatchError(ContainSubstring("1:22 error: mismatched input")))
 		})
 	})
 
@@ -744,23 +742,21 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				expr := mustParseExpression("((((((1)))))))")
 
 				// Navigate through all the parentheses
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.LPAREN()).NotTo(BeNil())
 				Expect(primary.RPAREN()).NotTo(BeNil())
 
-				inner1 := getPrimaryExpression(primary.Expression())
+				inner1 := parser.GetPrimaryExpression(primary.Expression())
 				Expect(inner1.LPAREN()).NotTo(BeNil())
 
-				inner2 := getPrimaryExpression(inner1.Expression())
+				inner2 := parser.GetPrimaryExpression(inner1.Expression())
 				Expect(inner2.LPAREN()).NotTo(BeNil())
 			})
 		})
 
 		Context("Error cases", func() {
 			It("Should report error for unclosed parenthesis", func() {
-				_, err := parser.ParseExpression("(2 + 3")
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("missing ')'")))
+				Expect(parser.ParseExpression("(2 + 3")).Error().To(MatchError(ContainSubstring("missing ')'")))
 			})
 
 			It("Should report error for invalid operators", func() {
@@ -771,17 +767,13 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
 				// Regression test: lexer errors were not being captured properly
 				// Using && instead of 'and' should produce lexer token recognition errors
-				_, err := parser.ParseExpression("a > 5 && b < 10")
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(MatchError(ContainSubstring("token recognition error at: '&'")))
+				Expect(parser.ParseExpression("a > 5 && b < 10")).Error().To(MatchError(ContainSubstring("token recognition error at: '&'")))
 			})
 
 			It("Should report error for double assignment", func() {
-				_, err := parser.Parse(`func test() {
+				Expect(parser.Parse(`func test() {
 					x := := 5
-				}`)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("error: extraneous input")))
+				}`)).Error().To(MatchError(ContainSubstring("error: extraneous input")))
 			})
 
 			It("Should report multiple errors with line information", func() {
@@ -813,11 +805,9 @@ func broken() {
 			})
 
 			It("Should report error for unclosed brace", func() {
-				_, err := parser.Parse(`func test() {
+				Expect(parser.Parse(`func test() {
 					x := 5
-				`)
-				Expect(err).NotTo(BeNil())
-				Expect(err).To(MatchError(ContainSubstring("3:4 error: extraneous input")))
+				`)).Error().To(MatchError(ContainSubstring("3:4 error: extraneous input")))
 			})
 
 			It("Should report error for missing function body", func() {
@@ -830,8 +820,7 @@ func broken() {
 	Describe("Wrapper Functions", func() {
 		Context("ParseExpression", func() {
 			It("Should parse valid expression and return nil error", func() {
-				expr, err := parser.ParseExpression("2 + 3")
-				Expect(err).To(BeNil())
+				expr := MustSucceed(parser.ParseExpression("2 + 3"))
 				Expect(expr).NotTo(BeNil())
 			})
 
@@ -848,8 +837,7 @@ func broken() {
 
 		Context("ParseStatement", func() {
 			It("Should parse valid statement and return nil error", func() {
-				stmt, err := parser.ParseStatement("x := 42")
-				Expect(err).To(BeNil())
+				stmt := MustSucceed(parser.ParseStatement("x := 42"))
 				Expect(stmt).NotTo(BeNil())
 			})
 
@@ -874,9 +862,7 @@ func broken() {
 			})
 
 			It("Should return error for invalid block", func() {
-				block, err := parser.ParseBlock("{ x := := 5 }")
-				Expect(err).To(MatchError(ContainSubstring("1:7 error: extraneous input")))
-				Expect(block).To(BeNil())
+				Expect(parser.ParseBlock("{ x := := 5 }")).Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
 			})
 
 			It("Should handle empty block", func() {
@@ -885,9 +871,7 @@ func broken() {
 			})
 
 			It("Should handle block without braces", func() {
-				block, err := parser.ParseBlock("x := 42")
-				Expect(err).To(MatchError(ContainSubstring("missing '{'")))
-				Expect(block).To(BeNil())
+				Expect(parser.ParseBlock("x := 42")).Error().To(MatchError(ContainSubstring("missing '{'")))
 			})
 		})
 
@@ -903,11 +887,10 @@ func broken() {
 			})
 
 			It("Should handle program with multiple top-level items", func() {
-				prog, err := parser.Parse(`
+				prog := MustSucceed(parser.Parse(`
 func test1() { x := 1 }
 func test2() { y := 2 }
-sensor -> controller{}`)
-				Expect(err).To(BeNil())
+sensor -> controller{}`))
 				Expect(prog).NotTo(BeNil())
 				Expect(prog.AllTopLevelItem()).To(HaveLen(3))
 			})
@@ -918,13 +901,13 @@ sensor -> controller{}`)
 		Context("Unicode identifiers", func() {
 			It("Should handle ASCII identifiers", func() {
 				expr := mustParseExpression("sensor_1")
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.IDENTIFIER().GetText()).To(Equal("sensor_1"))
 			})
 
 			It("Should handle identifiers with underscores", func() {
 				expr := mustParseExpression("temp_sensor_value")
-				primary := getPrimaryExpression(expr)
+				primary := parser.GetPrimaryExpression(expr)
 				Expect(primary.IDENTIFIER().GetText()).To(Equal("temp_sensor_value"))
 			})
 		})
@@ -1445,12 +1428,8 @@ func mustParseExpression(expr string) parser.IExpressionContext {
 
 // AST Navigation Helpers - traverse the parse tree to access specific nodes
 func getPrimaryLiteral(expr parser.IExpressionContext) parser.ILiteralContext {
-	primary := getPrimaryExpression(expr)
+	primary := parser.GetPrimaryExpression(expr)
 	return primary.Literal()
-}
-
-func getPrimaryExpression(expr parser.IExpressionContext) parser.IPrimaryExpressionContext {
-	return getPostfixExpression(expr).PrimaryExpression()
 }
 
 func getPostfixExpression(expr parser.IExpressionContext) parser.IPostfixExpressionContext {

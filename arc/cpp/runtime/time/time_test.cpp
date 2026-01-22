@@ -74,7 +74,7 @@ TEST(TimeFactoryTest, ReturnsNotFoundForWrongType) {
 
     time::Factory factory;
     ASSERT_OCCURRED_AS_P(
-        factory.create(node::Config(ir_node, setup.make_node())),
+        factory.create(node::Config(setup.ir, ir_node, setup.make_node())),
         xerrors::NOT_FOUND
     );
 }
@@ -84,7 +84,7 @@ TEST(TimeFactoryTest, CreatesIntervalNode) {
     TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
     time::Factory factory;
     const auto node = ASSERT_NIL_P(
-        factory.create(node::Config(setup.ir.nodes[0], setup.make_node()))
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }
@@ -94,7 +94,7 @@ TEST(TimeFactoryTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", telem::SECOND.nanoseconds());
     time::Factory factory;
     const auto node = ASSERT_NIL_P(
-        factory.create(node::Config(setup.ir.nodes[0], setup.make_node()))
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }
@@ -103,7 +103,9 @@ TEST(TimeFactoryTest, CreatesWaitNode) {
 TEST(TimeFactoryTest, TimingBaseSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * telem::MILLISECOND).nanoseconds());
     time::Factory factory;
-    ASSERT_NIL_P(factory.create(node::Config(setup.ir.nodes[0], setup.make_node())));
+    ASSERT_NIL_P(
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
+    );
     EXPECT_EQ(factory.timing_base, 500 * telem::MILLISECOND);
 }
 
@@ -113,8 +115,12 @@ TEST(TimeFactoryTest, TimingBaseComputesGCDAcrossNodes) {
     TestSetup setup2("wait", "duration", (400 * telem::MILLISECOND).nanoseconds());
 
     time::Factory factory;
-    ASSERT_NIL_P(factory.create(node::Config(setup1.ir.nodes[0], setup1.make_node())));
-    ASSERT_NIL_P(factory.create(node::Config(setup2.ir.nodes[0], setup2.make_node())));
+    ASSERT_NIL_P(
+        factory.create(node::Config(setup1.ir, setup1.ir.nodes[0], setup1.make_node()))
+    );
+    ASSERT_NIL_P(
+        factory.create(node::Config(setup2.ir, setup2.ir.nodes[0], setup2.make_node()))
+    );
     EXPECT_EQ(factory.timing_base, 200 * telem::MILLISECOND);
 }
 

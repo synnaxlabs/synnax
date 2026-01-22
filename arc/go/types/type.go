@@ -124,6 +124,9 @@ const (
 	KindIntegerConstant
 	// KindFloatConstant is a constraint for any floating-point type.
 	KindFloatConstant
+	// KindExactIntegerFloatConstant is a constraint for float literals that represent
+	// exact integers (like 5.0, 0.0). Defaults to f64 but can unify with integer types.
+	KindExactIntegerFloatConstant
 
 	// KindFunction is a function type (requires Inputs, Outputs, optional Config).
 	KindFunction
@@ -318,17 +321,23 @@ func (t Type) String() string {
 		return "series <invalid>"
 	case KindVariable:
 		if t.Constraint != nil {
-			return t.Name + ":" + t.Constraint.String()
+			return t.Constraint.String()
 		}
-		return t.Name
+		return "unknown"
 	case KindNumericConstant:
 		return "numeric"
 	case KindIntegerConstant:
 		return "integer"
 	case KindFloatConstant:
 		return "float"
+	case KindExactIntegerFloatConstant:
+		return "exact integer float"
 	case KindFunction:
 		return "function"
+	case KindSequence:
+		return "sequence"
+	case KindStage:
+		return "stage"
 	default:
 		return "invalid"
 	}
@@ -338,6 +347,30 @@ func (t Type) String() string {
 		return base + " " + t.Unit.Name
 	}
 	return base
+}
+
+// DebugString returns a detailed string representation of the type for debugging.
+// Unlike String(), this includes type variable names for better debugging visibility.
+func (t Type) DebugString() string {
+	switch t.Kind {
+	case KindChan:
+		if t.Elem != nil {
+			return "chan " + t.Elem.DebugString()
+		}
+		return "chan <invalid>"
+	case KindSeries:
+		if t.Elem != nil {
+			return "series " + t.Elem.DebugString()
+		}
+		return "series <invalid>"
+	case KindVariable:
+		if t.Constraint != nil {
+			return t.Name + ":" + t.Constraint.DebugString()
+		}
+		return t.Name
+	default:
+		return t.String()
+	}
 }
 
 // U8 returns an 8-bit unsigned integer type.
@@ -421,6 +454,10 @@ func IntegerConstraint() Type { return Type{Kind: KindIntegerConstant} }
 // FloatConstraint returns a constraint accepting any floating-point type.
 func FloatConstraint() Type { return Type{Kind: KindFloatConstant} }
 
+// ExactIntegerFloatConstraint returns a constraint for float literals that represent
+// exact integers (like 5.0, 0.0). Defaults to f64 but can unify with integer types.
+func ExactIntegerFloatConstraint() Type { return Type{Kind: KindExactIntegerFloatConstant} }
+
 // Sequence returns a sequence (state machine) type.
 func Sequence() Type { return Type{Kind: KindSequence} }
 
@@ -443,7 +480,8 @@ func (t Type) IsNumeric() bool {
 		}
 		if unwrapped.Constraint.Kind == KindNumericConstant ||
 			unwrapped.Constraint.Kind == KindIntegerConstant ||
-			unwrapped.Constraint.Kind == KindFloatConstant {
+			unwrapped.Constraint.Kind == KindFloatConstant ||
+			unwrapped.Constraint.Kind == KindExactIntegerFloatConstant {
 			return true
 		}
 		return unwrapped.Constraint.IsNumeric()
@@ -452,7 +490,7 @@ func (t Type) IsNumeric() bool {
 	case KindU8, KindU16, KindU32, KindU64,
 		KindI8, KindI16, KindI32, KindI64,
 		KindF32, KindF64,
-		KindNumericConstant, KindIntegerConstant, KindFloatConstant:
+		KindNumericConstant, KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant:
 		return true
 	default:
 		return false
@@ -517,6 +555,24 @@ func (t Type) Unwrap() Type {
 		return *t.Elem
 	}
 	return t
+}
+
+// UnwrapChan returns the effective value type when a type is used as a value.
+// Channels are implicitly read: chan<T> -> T
+// Series stay as series: series<T> -> series<T>
+// This should be used when inferring expression types at use sites.
+func (t Type) UnwrapChan() Type {
+	if t.Kind == KindChan && t.Elem != nil {
+		return *t.Elem
+	}
+	return t
+}
+
+// StructuralMatch returns true if both types have the same wrapper structure.
+// Series matches series, channel matches channel, scalar matches scalar.
+func StructuralMatch(t1, t2 Type) bool {
+	return (t1.Kind == KindSeries) == (t2.Kind == KindSeries) &&
+		(t1.Kind == KindChan) == (t2.Kind == KindChan)
 }
 
 // IsValid returns true if the type is not invalid or uninitialized.

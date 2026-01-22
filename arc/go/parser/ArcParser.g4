@@ -27,7 +27,7 @@ functionDeclaration
     ;
 
 inputList
-    : input (COMMA input)*
+    : input (COMMA input)* COMMA?
     ;
 
 input
@@ -41,7 +41,7 @@ outputType
     ;
 
 multiOutputBlock
-    : LPAREN namedOutput (COMMA namedOutput)* RPAREN
+    : LPAREN namedOutput (COMMA namedOutput)* COMMA? RPAREN
     ;
 
 namedOutput
@@ -72,11 +72,17 @@ stageDeclaration
 
 // { reactive flows and transitions, comma-separated }
 stageBody
-    : LBRACE (stageItem (COMMA stageItem)*)? RBRACE
+    : LBRACE (stageItem (COMMA stageItem)* COMMA?)? RBRACE
     ;
 
 stageItem
     : flowStatement
+    | singleInvocation
+    ;
+
+singleInvocation
+    : function
+    | expression
     ;
 
 // =============================================================================
@@ -93,7 +99,7 @@ flowOperator
     ;
 
 routingTable
-    : LBRACE routingEntry (COMMA routingEntry)* RBRACE
+    : LBRACE routingEntry (COMMA routingEntry)* COMMA? RBRACE
     ;
 
 routingEntry
@@ -122,7 +128,7 @@ configValues
     ;
 
 namedConfigValues
-    : namedConfigValue (COMMA namedConfigValue)*
+    : namedConfigValue (COMMA namedConfigValue)* COMMA?
     ;
 
 namedConfigValue
@@ -130,7 +136,7 @@ namedConfigValue
     ;
 
 anonymousConfigValues
-    : expression (COMMA expression)*
+    : expression (COMMA expression)* COMMA?
     ;
 
 arguments
@@ -138,7 +144,7 @@ arguments
     ;
 
 argumentList
-    : expression (COMMA expression)*
+    : expression (COMMA expression)* COMMA?
     ;
 
 // =============================================================================
@@ -154,7 +160,6 @@ statement
     | assignment
     | ifStatement
     | returnStatement
-    | functionCall
     | expression
     ;
 
@@ -202,10 +207,6 @@ elseClause
 
 returnStatement
     : RETURN expression?
-    ;
-
-functionCall
-    : IDENTIFIER LPAREN argumentList? RPAREN
     ;
 
 // =============================================================================
@@ -340,5 +341,5 @@ seriesLiteral
     ;
 
 expressionList
-    : expression (COMMA expression)*
+    : expression (COMMA expression)* COMMA?
     ;

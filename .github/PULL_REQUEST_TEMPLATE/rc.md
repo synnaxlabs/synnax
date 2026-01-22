@@ -144,27 +144,6 @@ I can successfully:
     - [ ] Rename a device.
     - [ ] Delete a device.
 
-### Documentation
-
-I can successfully:
-
-- [ ] Open documentation from the command palette.
-- [ ] Open documentation from the question mark icon.
-- [ ] Close and reopen documentation in the same place as left off.
-
-### Labels
-
-I can successfully:
-
-- **Search and Command Palette**
-  - [x] Open the "Edit Label" modal. (label_lifecycle.py)
-- **Edit Label Modal**
-  - [x] Add a new label. (label_lifecycle.py)
-  - [x] Edit an existing label's name. (label_lifecycle.py)
-  - [x] Change the color of an existing label. (label_lifecycle.py)
-  - [ ] Rename a label and ensure the change synchronizes with the range toolbar.
-  - [ ] Change a label's color and ensure the change synchronizes with the range toolbar.
-
 ### Layout
 
 I can successfully:
@@ -247,18 +226,6 @@ I can successfully:
   - [ ] Can view schematics, line plots, tables, logs.
   - [ ] Cannot actuate valves on a schematic.
   - [x] Cannot create or edit any resources. (role_viewer_permissions.py)
-
-### Racks
-
-I can successfully:
-
-- **Devices Toolbar**
-  - [x] See a rack's state get updated. (rack_lifecycle.py)
-  - **Context Menu**
-    - [x] Rename a rack. (rack_lifecycle.py)
-    - [x] Delete a rack. (rack_lifecycle.py)
-    - [x] Copy a rack's key. (rack_lifecycle.py)
-    - [ ] Create a control sequence from a rack.
 
 ### Ranges
 

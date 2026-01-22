@@ -13,22 +13,23 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
 
-// analyzeExpression converts an inline expression into a synthetic function that
+// AnalyzeSingleExpression converts an inline expression into a synthetic function that
 // can be used as a node in a flow graph. Pure literals are registered as KindConstant
 // symbols and don't require code compilation.
-func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
+func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	exprType := atypes.InferFromExpression(ctx).Unwrap()
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 
 	// Pure literals become constants - no code to compile
-	if expression.IsLiteral(ctx.AST) {
+	if parser.IsLiteral(ctx.AST) {
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})
 		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 			Kind: symbol.KindConstant,
@@ -36,11 +37,11 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 			AST:  ctx.AST,
 		})
 		if err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
-			return false
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return
 		}
 		scope.AutoName("constant_")
-		return true
+		return
 	}
 
 	// Complex expressions become synthetic functions that need compilation
@@ -50,8 +51,8 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
 	}
 	fnScope = fnScope.AutoName("expression_")
 	fnScope.AccumulateReadChannels()
@@ -61,8 +62,8 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) bool {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
-		return false
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
 	}
-	return expression.Analyze(ctx.WithScope(blockScope))
+	expression.Analyze(ctx.WithScope(blockScope))
 }
