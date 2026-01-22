@@ -296,7 +296,7 @@ class Console:
             try:
                 self.page.locator(
                     ".console-nav__drawer.pluto--visible.pluto--expanded:not(.pluto--location-bottom)"
-                ).wait_for(state="hidden", timeout=000)
+                ).wait_for(state="hidden", timeout=2000)
             except Exception:
                 # Retry
                 active_nav_btn.click()
