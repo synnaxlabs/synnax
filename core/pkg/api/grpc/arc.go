@@ -265,7 +265,7 @@ func translateArcBackward(msg *gapi.Arc, _ int) (api.Arc, error) {
 		return api.Arc{}, err
 	}
 
-	mode := msg.Mode
+	var mode = arc.Mode(msg.Mode)
 	if mode == "" {
 		mode = "graph"
 	}

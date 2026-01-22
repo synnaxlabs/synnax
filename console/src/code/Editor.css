@@ -61,64 +61,155 @@ using the default for now.  */
     }
 }
 
+/* ===== Monaco Hover Widget - Synnax Styled ===== */
+
+/* Outer resizable container - remove default styling */
 .monaco-resizable-hover {
     border: none !important;
     box-shadow: none !important;
+    background: transparent !important;
 }
 
+/* Hide resize sashes for cleaner look */
+.monaco-resizable-hover .monaco-sash {
+    background: transparent !important;
+    &:hover {
+        background: var(--pluto-primary-z-30) !important;
+        transition: background 0.15s ease !important;
+    }
+}
+
+/* Main hover container */
 .monaco-editor .monaco-hover {
-    font-family: var(--pluto-code-font-family) !important;
-    border: var(--pluto-border-l5) !important;
-    border-radius: var(--pluto-border-radius) !important;
+    font-family: var(--pluto-font-family) !important;
+    background: var(--pluto-gray-l2) !important;
+    border: var(--pluto-border-width) solid var(--pluto-gray-l5) !important;
+    border-radius: calc(var(--pluto-border-radius) * 2) !important;
     box-shadow: var(--pluto-shadow-v1) !important;
+    overflow: hidden !important;
 }
 
+/* Hover content wrapper */
+.monaco-editor .monaco-hover .monaco-hover-content {
+    padding: 0 !important;
+}
+
+/* Individual hover rows */
+.monaco-editor .monaco-hover .hover-row {
+    padding: 0 1.5rem 1.5rem !important;
+    border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
+    &:last-child {
+        border-bottom: none !important;
+    }
+    &:focus {
+        outline: none !important;
+        background: var(--pluto-gray-l2) !important;
+    }
+    /* Remove padding and border when row contains a diagnostic marker */
+    &:has(.marker.hover-contents) {
+        padding: 0 !important;
+        border-bottom: none !important;
+    }
+}
+
+/* Diagnostic/marker rows (errors, warnings) */
+.monaco-editor .monaco-hover .marker.hover-contents {
+    display: flex !important;
+    align-items: center !important;
+    width: calc(100% - 1px) !important;
+    gap: 1rem !important;
+    padding: 1.5rem 2rem !important;
+    background: var(--pluto-error-z-10) !important;
+    border: 1px solid var(--pluto-error-z) !important;
+    border-radius: 1rem !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    font-family: var(--pluto-font-family) !important;
+    justify-content: center !important;
+    & > span:first-child {
+        color: var(--pluto-gray-l10) !important;
+        font-size: var(--pluto-p-size) !important;
+        line-height: 1.5 !important;
+        white-space: pre-wrap !important;
+        flex: 1 !important;
+    }
+    & > span:last-child {
+        display: none !important;
+    }
+}
+
+/* Markdown hover content (type info, docs) */
+.monaco-editor .monaco-hover .markdown-hover {
+    font-family: var(--pluto-font-family) !important;
+}
+
+.monaco-editor .monaco-hover .hover-contents {
+    padding: 0 !important;
+}
+
+.monaco-editor .monaco-hover .code-hover-contents {
+    padding: 0 !important;
+}
+
+.monaco-editor .monaco-hover .rendered-markdown {
+    font-family: var(--pluto-font-family) !important;
+}
+
+/* Headings in hover (function/variable names) */
 .monaco-editor .monaco-hover h4 {
+    font-family: var(--pluto-code-font-family) !important;
     font-size: var(--pluto-h4-size) !important;
-    font-weight: 450 !important;
-    color: var(--pluto-gray-l11) !important;
-    margin: 0 0 0.25rem 0 !important;
+    font-weight: 500 !important;
+    color: var(--pluto-primary-z) !important;
     line-height: 1.3 !important;
 }
 
+/* Subheadings (type labels like "Function", "Variable") */
 .monaco-editor .monaco-hover h5 {
-    font-size: var(--pluto-small-size) !important;
-    font-weight: 400 !important;
-    color: var(--pluto-gray-l9) !important;
+    font-family: var(--pluto-font-family) !important;
+    font-size: calc(var(--pluto-p-size) * 0.85) !important;
+    font-weight: 500 !important;
+    color: var(--pluto-gray-l8) !important;
     margin: 0 0 1rem 0 !important;
     line-height: 1.3 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.02em !important;
+    letter-spacing: 0.05em !important;
 }
 
+/* Paragraphs */
 .monaco-editor .monaco-hover p {
     font-size: var(--pluto-p-size) !important;
     color: var(--pluto-gray-l10) !important;
     margin: 0 0 1rem 0 !important;
     line-height: 1.5 !important;
+    &:last-child {
+        margin-bottom: 0 !important;
+    }
 }
 
+/* Horizontal rules */
 .monaco-editor .monaco-hover hr {
     border: none !important;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
     margin: 1rem 0 !important;
 }
 
+/* Inline code */
 .monaco-editor .monaco-hover code {
     font-family: var(--pluto-code-font-family) !important;
-    font-size: var(--pluto-small-size) !important;
+    font-size: var(--pluto-p-size) !important;
     background: var(--pluto-gray-l2) !important;
     padding: 0.15rem 0.4rem !important;
     border-radius: var(--pluto-border-radius) !important;
-    color: var(--pluto-primary-m1) !important;
 }
 
+/* Code blocks and tokenized source */
 .monaco-editor .monaco-hover pre,
 .monaco-editor .monaco-hover .monaco-tokenized-source {
     background: var(--pluto-gray-l1) !important;
     border: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
-    border-radius: calc(var(--pluto-border-radius) * 1.5) !important;
-    padding: 1rem 1.25rem !important;
+    border-radius: calc(var(--pluto-border-radius) * 2) !important;
+    padding: 1rem 1.5rem !important;
     margin: 0 !important;
     overflow-x: auto !important;
 }
@@ -127,10 +218,107 @@ using the default for now.  */
 .monaco-editor .monaco-hover .monaco-tokenized-source code {
     background: transparent !important;
     padding: 0 !important;
-    font-size: calc(var(--pluto-small-size) * 0.95) !important;
+    font-size: calc(var(--pluto-p-size) * 0.95) !important;
     line-height: 1.5 !important;
+}
+
+/* Status bar at bottom */
+.monaco-editor .monaco-hover .hover-row.status-bar {
+    padding: 0 !important;
+    border: var(--pluto-border-l5);
+}
+
+/* Actions container in status bar */
+.monaco-editor .monaco-hover .status-bar .actions {
+    display: flex !important;
+    justify-content: space-between;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    margin-top: calc(-1 * var(--pluto-border-width)) !important;
+    font-size: var(--pluto-p-size) !important;
+    border-bottom-right-radius: 1rem !important;
+    border-bottom-left-radius: 1rem !important;
+    color: var(--pluto-gray-l9) !important;
+    min-width: 350px !important;
+    & > div {
+        padding: 0.5rem;
+        white-space: nowrap !important;
+    }
+}
+
+/* Action buttons */
+.monaco-editor .monaco-hover .status-bar .action-container {
+    cursor: pointer !important;
+    white-space: nowrap !important;
+    & .action {
+        color: var(--pluto-primary-z) !important;
+        text-decoration: none !important;
+        font-weight: 450 !important;
+        transition: color 0.1s ease !important;
+        &:hover {
+            color: var(--pluto-primary-p1) !important;
+        }
+    }
+}
+
+/* Scrollbar styling */
+.monaco-editor .monaco-hover .monaco-scrollable-element > .scrollbar {
+    & > .slider {
+        background: var(--pluto-gray-l5) !important;
+        border-radius: var(--pluto-border-radius) !important;
+    }
+    &:hover > .slider {
+        background: var(--pluto-gray-l6) !important;
+    }
 }
 
 .console-editor__context-menu {
     min-width: 25rem;
+}
+
+/* ===== Monaco Rename Widget - Pluto Styled ===== */
+
+.monaco-editor.rename-box {
+    background: var(--pluto-gray-l2) !important;
+    border: var(--pluto-border-width) solid var(--pluto-primary-z) !important;
+    border-radius: var(--pluto-border-radius) !important;
+    box-shadow: var(--pluto-shadow-v1) !important;
+    padding: 0 !important;
+    font-family: var(--pluto-font-family) !important;
+
+    & .rename-input-with-button {
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+        padding: 0 0.5rem !important;
+    }
+
+    & .rename-input {
+        background: transparent !important;
+        color: var(--pluto-gray-l11) !important;
+        font-family: var(--pluto-code-font-family) !important;
+        font-size: var(--pluto-p-size) !important;
+        padding: 0.75rem 0.5rem 0.5rem !important;
+        outline: none !important;
+        border: none !important;
+
+        &::placeholder {
+            color: var(--pluto-gray-l7) !important;
+        }
+
+        &::selection {
+            background: var(--pluto-primary-z-20) !important;
+        }
+    }
+
+    & .rename-label {
+        color: var(--pluto-gray-l8) !important;
+        font-family: var(--pluto-font-family) !important;
+        font-size: var(--pluto-p-size) !important;
+        padding: 0.25rem 0.5rem !important;
+    }
+
+    & .rename-candidate-list-container {
+        margin-top: 0.25rem !important;
+    }
 }

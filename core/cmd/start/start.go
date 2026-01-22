@@ -32,13 +32,10 @@ import (
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/synnax/pkg/driver"
-	cppdriver "github.com/synnaxlabs/synnax/pkg/driver/cpp"
-	godriver "github.com/synnaxlabs/synnax/pkg/driver/go"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -300,52 +297,27 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return nil
 	}
 
-	var arcTaskFactory godriver.Factory
-	arcTaskFactory, err = arcruntime.NewFactory(arcruntime.FactoryConfig{
-		Channel:   distributionLayer.Channel,
-		Framer:    distributionLayer.Framer,
-		Status:    serviceLayer.Status,
-		GetModule: serviceLayer.Arc.CompileModule,
-	})
-	if !ok(err, nil) {
-		return err
-	}
-
-	driverIns := cfg.Child("driver")
 	if embeddedDriver, err = driver.Open(
 		ctx,
 		driver.Config{
-			Go: godriver.Config{
-				Instrumentation: driverIns.Child("go"),
-				DB:              distributionLayer.DB,
-				Rack:            serviceLayer.Rack,
-				Task:            serviceLayer.Task,
-				Framer:          distributionLayer.Framer,
-				Channel:         distributionLayer.Channel,
-				Status:          serviceLayer.Status,
-				Factory:         arcTaskFactory,
-				Host:            distributionLayer.Cluster,
-			},
-			CPP: cppdriver.Config{
-				Enabled:             config.Bool(!*cfg.noDriver),
-				Insecure:            cfg.insecure,
-				Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
-				Instrumentation:     driverIns.Child("cpp"),
-				Address:             cfg.listenAddress,
-				RackKey:             serviceLayer.Rack.EmbeddedKey,
-				ClusterKey:          distributionLayer.Cluster.Key(),
-				Username:            cfg.rootUsername,
-				Password:            cfg.rootPassword,
-				Debug:               cfg.debug,
-				CACertPath:          cfg.certFactoryConfig.AbsoluteCACertPath(),
-				ClientCertFile:      cfg.certFactoryConfig.AbsoluteNodeCertPath(),
-				ClientKeyFile:       cfg.certFactoryConfig.AbsoluteNodeKeyPath(),
-				ParentDirname:       workDir,
-				TaskWorkerCount:     cfg.taskWorkerCount,
-				TaskShutdownTimeout: cfg.taskShutdownTimeout,
-				TaskPollInterval:    cfg.taskPollInterval,
-				TaskOpTimeout:       cfg.taskOpTimeout,
-			},
+			Enabled:             config.Bool(!*cfg.noDriver),
+			Insecure:            cfg.insecure,
+			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
+			Instrumentation:     cfg.Child("driver"),
+			Address:             cfg.listenAddress,
+			RackKey:             serviceLayer.Rack.EmbeddedKey,
+			ClusterKey:          distributionLayer.Cluster.Key(),
+			Username:            cfg.rootUsername,
+			Password:            cfg.rootPassword,
+			Debug:               cfg.debug,
+			CACertPath:          cfg.certFactoryConfig.AbsoluteCACertPath(),
+			ClientCertFile:      cfg.certFactoryConfig.AbsoluteNodeCertPath(),
+			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteNodeKeyPath(),
+			ParentDirname:       workDir,
+			TaskWorkerCount:     cfg.taskWorkerCount,
+			TaskShutdownTimeout: cfg.taskShutdownTimeout,
+			TaskPollInterval:    cfg.taskPollInterval,
+			TaskOpTimeout:       cfg.taskOpTimeout,
 		},
 	); !ok(err, embeddedDriver) {
 		return err

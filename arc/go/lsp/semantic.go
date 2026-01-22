@@ -84,9 +84,7 @@ type token struct {
 }
 
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
-	input := antlr.NewInputStream(content)
-	lexer := parser.NewArcLexer(input)
-	allTokens := lexer.GetAllTokens()
+	allTokens := tokenizeContent(content)
 	var tokens []token
 	for _, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
@@ -108,73 +106,24 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 
 func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
 	antlrType := t.GetTokenType()
-
 	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
 		return classifyIdentifier(ctx, t, docIR.Symbols)
 	}
-
 	return mapLexerTokenType(antlrType)
 }
 
 func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Scope) *uint32 {
-	name := t.GetText()
-	line := t.GetLine()
-	col := t.GetColumn()
-
-	scope := findScopeAtLine(rootScope, line, col)
-	if scope == nil {
-		scope = rootScope
-	}
-
+	var (
+		name  = t.GetText()
+		pos   = position{Line: t.GetLine(), Col: t.GetColumn()}
+		scope = findScopeAtInternalPosition(rootScope, pos)
+	)
 	sym, err := scope.Resolve(ctx, name)
 	if err != nil || sym == nil {
 		tokenType := uint32(SemanticTokenTypeVariable)
 		return &tokenType
 	}
-
 	return mapSymbolKind(sym.Kind)
-}
-
-func findScopeAtLine(scope *symbol.Scope, line, col int) *symbol.Scope {
-	if scope == nil {
-		return nil
-	}
-
-	var deepest *symbol.Scope
-	findScopeAtLineRecursive(scope, line, col, &deepest)
-	if deepest == nil {
-		return scope
-	}
-	return deepest
-}
-
-func findScopeAtLineRecursive(scope *symbol.Scope, line, col int, deepest **symbol.Scope) {
-	if scope.AST != nil {
-		start := scope.AST.GetStart()
-		stop := scope.AST.GetStop()
-		if start != nil && stop != nil {
-			startLine := start.GetLine()
-			startCol := start.GetColumn()
-			stopLine := stop.GetLine()
-			stopCol := stop.GetColumn() + len(stop.GetText())
-			inRange := false
-			if line > startLine && line < stopLine {
-				inRange = true
-			} else if line == startLine && line == stopLine {
-				inRange = col >= startCol && col <= stopCol
-			} else if line == startLine {
-				inRange = col >= startCol
-			} else if line == stopLine {
-				inRange = col <= stopCol
-			}
-			if inRange {
-				*deepest = scope
-			}
-		}
-	}
-	for _, child := range scope.Children {
-		findScopeAtLineRecursive(child, line, col, deepest)
-	}
 }
 
 func mapSymbolKind(kind symbol.Kind) *uint32 {
@@ -266,6 +215,5 @@ func encodeSemanticTokens(tokens []token) []uint32 {
 		prevLine = t.line
 		prevChar = t.startChar
 	}
-
 	return encoded
 }

@@ -14,28 +14,28 @@ import (
 	"strings"
 )
 
-// Title renders a heading with an optional kind annotation.
-type Title struct {
-	Name string
-	Kind string
+// title renders a heading with an optional kind annotation.
+type title struct {
+	name string
+	kind string
 }
 
-// NewTitle creates a Title with just a name.
-func NewTitle(name string) Title {
-	return Title{Name: name}
+// Title creates a title block with just a name.
+func Title(name string) Block {
+	return title{name: name}
 }
 
-// NewTitleWithKind creates a Title with a name and kind annotation.
-func NewTitleWithKind(name, kind string) Title {
-	return Title{Name: name, Kind: kind}
+// TitleWithKind creates a title block with a name and kind annotation.
+func TitleWithKind(name, kind string) Block {
+	return title{name: name, kind: kind}
 }
 
 // Render returns the markdown representation of the title.
-func (t Title) Render() string {
-	if t.Kind != "" {
-		return fmt.Sprintf("#### %s\n##### %s", t.Name, t.Kind)
+func (t title) Render() string {
+	if t.kind != "" {
+		return fmt.Sprintf("#### %s\n##### %s", t.name, t.kind)
 	}
-	return fmt.Sprintf("#### %s", t.Name)
+	return fmt.Sprintf("#### %s", t.name)
 }
 
 // Paragraph is a simple text block.
@@ -46,139 +46,122 @@ func (p Paragraph) Render() string {
 	return string(p)
 }
 
-// Code renders a fenced code block.
-type Code struct {
-	Language string
-	Content  string
+// code renders a fenced code block.
+type code struct {
+	language string
+	content  string
 }
 
-// NewCode creates a Code block with a specified language.
-func NewCode(language, content string) Code {
-	return Code{Language: language, Content: content}
+// Code creates a code block with a specified language.
+func Code(language, content string) Block {
+	return code{language: language, content: content}
 }
 
-// NewArcCode creates a Code block with the arc language.
-func NewArcCode(content string) Code {
-	return Code{Language: "arc", Content: content}
+// ArcCode creates a code block with the arc language.
+func ArcCode(content string) Block {
+	return code{language: "arc", content: content}
 }
 
 // Render returns the markdown fenced code block.
-func (c Code) Render() string {
-	return fmt.Sprintf("```%s\n%s\n```", c.Language, c.Content)
+func (c code) Render() string {
+	return fmt.Sprintf("```%s\n%s\n```", c.language, c.content)
 }
 
-// Detail renders a key-value line, optionally with code formatting for the value.
-type Detail struct {
-	Key   string
-	Value string
-	Code  bool
+// detail renders a key-value line, optionally with code formatting for the value.
+type detail struct {
+	key   string
+	value string
+	code  bool
 }
 
-// NewDetail creates a Detail with the given key, value, and code formatting flag.
-func NewDetail(key, value string, code bool) Detail {
-	return Detail{Key: key, Value: value, Code: code}
+// Detail creates a detail with the given key, value, and code formatting flag.
+func Detail(key, value string, asCode bool) Block {
+	return detail{key: key, value: value, code: asCode}
 }
 
 // Render returns the markdown representation of the detail.
-func (d Detail) Render() string {
-	if d.Code {
-		return fmt.Sprintf("%s: `%s`", d.Key, d.Value)
+func (d detail) Render() string {
+	if d.code {
+		return fmt.Sprintf("%s: `%s`", d.key, d.value)
 	}
-	return fmt.Sprintf("%s: %s", d.Key, d.Value)
+	return fmt.Sprintf("%s: %s", d.key, d.value)
 }
 
-// Details renders multiple key-value lines.
-type Details []Detail
-
-// Render returns all details joined by newlines.
-func (ds Details) Render() string {
-	parts := make([]string, len(ds))
-	for i, d := range ds {
-		parts[i] = d.Render()
-	}
-	return strings.Join(parts, "\n")
+// errorBlock renders an error display with optional code.
+type errorBlock struct {
+	code    string
+	message string
 }
 
-// Error renders an error display with optional code.
-type Error struct {
-	Code    string
-	Message string
+// Error creates an error block with just a message.
+func Error(message string) Block {
+	return errorBlock{message: message}
 }
 
-// NewError creates an Error with just a message.
-func NewError(message string) Error {
-	return Error{Message: message}
-}
-
-// NewErrorWithCode creates an Error with a code and message.
-func NewErrorWithCode(code, message string) Error {
-	return Error{Code: code, Message: message}
+// ErrorWithCode creates an error block with a code and message.
+func ErrorWithCode(code, message string) Block {
+	return errorBlock{code: code, message: message}
 }
 
 // Render returns the markdown representation of the error.
-func (e Error) Render() string {
-	if e.Code != "" {
-		return fmt.Sprintf("**Error %s**: %s", e.Code, e.Message)
+func (e errorBlock) Render() string {
+	if e.code != "" {
+		return fmt.Sprintf("**Error %s**: %s", e.code, e.message)
 	}
-	return fmt.Sprintf("**Error**: %s", e.Message)
+	return fmt.Sprintf("**Error**: %s", e.message)
 }
 
 // Hint renders a suggestion hint.
 type Hint string
-
-// NewHint creates a Hint with the given message.
-func NewHint(message string) Hint {
-	return Hint(message)
-}
 
 // Render returns the markdown representation of the hint.
 func (h Hint) Render() string {
 	return fmt.Sprintf("_Hint_: %s", string(h))
 }
 
-// Fix renders a fix suggestion with optional code.
-type Fix struct {
-	Description string
-	Code        string
+// fix renders a fix suggestion with optional code.
+type fix struct {
+	description string
+	code        string
 }
 
-// NewFix creates a Fix with a description and code example.
-func NewFix(description, code string) Fix {
-	return Fix{Description: description, Code: code}
+// Fix creates a fix block with a description and code example.
+func Fix(description, codeExample string) Block {
+	return fix{description: description, code: codeExample}
 }
 
 // Render returns the markdown representation of the fix.
-func (f Fix) Render() string {
-	if f.Code != "" {
-		return fmt.Sprintf("**Fix**: %s\n\n```arc\n%s\n```", f.Description, f.Code)
+func (f fix) Render() string {
+	if f.code != "" {
+		return fmt.Sprintf("**Fix**: %s\n\n```arc\n%s\n```", f.description, f.code)
 	}
-	return fmt.Sprintf("**Fix**: %s", f.Description)
+	return fmt.Sprintf("**Fix**: %s", f.description)
 }
 
-// List renders a bullet or numbered list.
-type List struct {
-	Items   []string
-	Ordered bool
+// list renders a bullet or numbered list.
+type list struct {
+	items   []string
+	ordered bool
 }
 
-// NewList creates an unordered list.
-func NewList(items ...string) List {
-	return List{Items: items, Ordered: false}
+// List creates an unordered list.
+func List(items ...string) Block {
+	return list{items: items, ordered: false}
 }
 
-// NewOrderedList creates an ordered list.
-func NewOrderedList(items ...string) List {
-	return List{Items: items, Ordered: true}
+// OrderedList creates an ordered list.
+func OrderedList(items ...string) Block {
+	return list{items: items, ordered: true}
 }
 
 // Render returns the markdown representation of the list.
-func (l List) Render() string {
-	if len(l.Items) == 0 {
+func (l list) Render() string {
+	if len(l.items) == 0 {
 		return ""
 	}
-	parts := make([]string, len(l.Items))
-	for i, item := range l.Items {
-		if l.Ordered {
+	parts := make([]string, len(l.items))
+	for i, item := range l.items {
+		if l.ordered {
 			parts[i] = fmt.Sprintf("%d. %s", i+1, item)
 		} else {
 			parts[i] = fmt.Sprintf("- %s", item)
@@ -190,11 +173,6 @@ func (l List) Render() string {
 // Bold renders bold text.
 type Bold string
 
-// NewBold creates a Bold block.
-func NewBold(text string) Bold {
-	return Bold(text)
-}
-
 // Render returns the markdown bold text.
 func (b Bold) Render() string {
 	return fmt.Sprintf("**%s**", string(b))
@@ -202,11 +180,6 @@ func (b Bold) Render() string {
 
 // Italic renders italic text.
 type Italic string
-
-// NewItalic creates an Italic block.
-func NewItalic(text string) Italic {
-	return Italic(text)
-}
 
 // Render returns the markdown italic text.
 func (i Italic) Render() string {
@@ -216,25 +189,16 @@ func (i Italic) Render() string {
 // InlineCode renders inline code.
 type InlineCode string
 
-// NewInlineCode creates an InlineCode block.
-func NewInlineCode(text string) InlineCode {
-	return InlineCode(text)
-}
-
 // Render returns the markdown inline code.
 func (c InlineCode) Render() string {
 	return fmt.Sprintf("`%s`", string(c))
 }
 
-// Divider renders a horizontal rule.
-type Divider struct{}
+// divider renders a horizontal rule.
+type divider struct{}
 
-// NewDivider creates a Divider block.
-func NewDivider() Divider {
-	return Divider{}
-}
+// Divider creates a divider block.
+func Divider() Block { return divider{} }
 
 // Render returns the markdown horizontal rule.
-func (d Divider) Render() string {
-	return "---"
-}
+func (d divider) Render() string { return "---" }

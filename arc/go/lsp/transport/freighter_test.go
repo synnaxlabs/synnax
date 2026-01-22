@@ -198,7 +198,10 @@ var _ = Describe("Freighter Transport", func() {
 			clientStream, serverStream := fmock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
 			errChan := make(chan error, 1)
 			go func() {
-				errChan <- transport.ServeFreighter(ctx, server, serverStream, transport.DefaultConfig)
+				errChan <- transport.ServeFreighter(ctx, transport.Config{
+					Server: server,
+					Stream: serverStream,
+				})
 			}()
 			Expect(clientStream.CloseSend()).To(Succeed())
 			Eventually(errChan, time.Second).Should(Receive())

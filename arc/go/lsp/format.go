@@ -24,29 +24,16 @@ func (s *Server) Formatting(
 	if !ok {
 		return nil, nil
 	}
-
-	cfg := formatter.Config{
-		IndentWidth:   4,
-		MaxBlankLines: 2,
-	}
-
-	if params.Options.TabSize > 0 {
-		cfg.IndentWidth = int(params.Options.TabSize)
-	}
-
-	formatted := formatter.Format(doc.Content, cfg)
-
+	formatted := formatter.Format(doc.Content)
 	if formatted == doc.Content {
 		return nil, nil
 	}
-
-	lines := splitLines(doc.Content)
+	lines := formatter.SplitLines(doc.Content)
 	endLine := len(lines) - 1
 	endChar := 0
 	if endLine >= 0 && len(lines) > 0 {
 		endChar = len(lines[endLine])
 	}
-
 	return []protocol.TextEdit{
 		{
 			Range: protocol.Range{
@@ -66,32 +53,18 @@ func (s *Server) RangeFormatting(
 	if !ok {
 		return nil, nil
 	}
-
-	cfg := formatter.Config{
-		IndentWidth:   4,
-		MaxBlankLines: 2,
-	}
-
-	if params.Options.TabSize > 0 {
-		cfg.IndentWidth = int(params.Options.TabSize)
-	}
-
 	startLine := int(params.Range.Start.Line)
 	endLine := int(params.Range.End.Line)
-
-	formatted := formatter.FormatRange(doc.Content, startLine, endLine, cfg)
-
+	formatted := formatter.FormatRange(doc.Content, startLine, endLine)
 	if formatted == doc.Content {
 		return nil, nil
 	}
-
-	lines := splitLines(doc.Content)
+	lines := formatter.SplitLines(doc.Content)
 	docEndLine := len(lines) - 1
 	docEndChar := 0
 	if docEndLine >= 0 && len(lines) > 0 {
 		docEndChar = len(lines[docEndLine])
 	}
-
 	return []protocol.TextEdit{
 		{
 			Range: protocol.Range{

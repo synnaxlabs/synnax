@@ -18,9 +18,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
@@ -131,6 +133,8 @@ type Layer struct {
 	Status *status.Service
 	// View is used for managing views
 	View *view.Service
+	// Driver is the Go task executor that handles in-process task lifecycle.
+	Driver *driver.Driver
 	// closer is for properly shutting down the service layer.
 	closer xio.MultiCloser
 }
@@ -282,6 +286,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 			Ontology:        cfg.Distribution.Ontology,
 			Channel:         cfg.Distribution.Channel,
 			Signals:         cfg.Distribution.Signals,
+			Task:            l.Task,
 		},
 	); !ok(err, l.Arc) {
 		return nil, err
@@ -315,12 +320,38 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 	if l.Metrics, err = metrics.OpenService(
 		ctx,
 		metrics.ServiceConfig{
+			DB:              cfg.Distribution.DB,
 			Instrumentation: cfg.Child("metrics"),
 			Framer:          l.Framer,
 			Channel:         cfg.Distribution.Channel,
 			HostProvider:    cfg.Distribution.Cluster,
 			Storage:         cfg.Storage,
+			Group:           cfg.Distribution.Group,
+			Ontology:        cfg.Distribution.Ontology,
 		}); !ok(err, l.Metrics) {
+		return nil, err
+	}
+	// Create arc task factory for the driver
+	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
+		Channel:   cfg.Distribution.Channel,
+		Framer:    cfg.Distribution.Framer,
+		Status:    l.Status,
+		GetModule: l.Arc.CompileModule,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
+	if l.Driver, err = driver.Open(ctx, driver.Config{
+		Instrumentation: cfg.Child("driver"),
+		DB:              cfg.Distribution.DB,
+		Rack:            l.Rack,
+		Task:            l.Task,
+		Framer:          cfg.Distribution.Framer,
+		Channel:         cfg.Distribution.Channel,
+		Status:          l.Status,
+		Factory:         arcFactory,
+		Host:            cfg.Distribution.Cluster,
+	}); !ok(err, l.Driver) {
 		return nil, err
 	}
 	return l, nil

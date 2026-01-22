@@ -12,14 +12,24 @@ package lsp
 import (
 	"context"
 
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"go.lsp.dev/protocol"
+	"go.uber.org/zap"
 )
 
-// PrepareRename checks if the symbol at the given position can be renamed.
-// Returns the range of the symbol if it can be renamed, nil otherwise.
+func (s *Server) logUnexpectedSymbolError(sym *symbol.Scope, err error) {
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		s.cfg.L.Error("unexpected failure resolving symbol", zap.Stringer("symbol", sym), zap.Error(err))
+	}
+}
+
+func isValidSymbol(sym *symbol.Scope, err error) bool {
+	return !errors.Is(err, query.ErrNotFound) && sym != nil && sym.AST != nil
+}
+
 func (s *Server) PrepareRename(
 	ctx context.Context,
 	params *protocol.PrepareRenameParams,
@@ -28,29 +38,14 @@ func (s *Server) PrepareRename(
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
 	}
-
-	word := s.getWordAtPosition(doc.Content, params.Position)
-	if word == "" {
+	sym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
+	if !isValidSymbol(sym, err) {
 		return nil, nil
 	}
-
-	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, params.Position)
-	sym, err := scopeAtCursor.Resolve(ctx, word)
-	if err != nil || sym == nil {
-		return nil, nil
-	}
-
-	// Cannot rename symbols without AST (globals/builtins)
-	if sym.AST == nil {
-		return nil, nil
-	}
-
-	// Return the range of the word at cursor
-	wordRange := s.getWordRangeAtPosition(doc.Content, params.Position)
-	return wordRange, nil
+	s.logUnexpectedSymbolError(sym, err)
+	return doc.getWordRangeAtPosition(params.Position), nil
 }
 
-// Rename renames all occurrences of the symbol at the given position.
 func (s *Server) Rename(
 	ctx context.Context,
 	params *protocol.RenameParams,
@@ -59,38 +54,23 @@ func (s *Server) Rename(
 	if !ok || doc.IR.Symbols == nil {
 		return nil, nil
 	}
-
-	word := s.getWordAtPosition(doc.Content, params.Position)
-	if word == "" {
+	targetSym, err := doc.resolveSymbolAtPosition(ctx, params.Position)
+	if !isValidSymbol(targetSym, err) {
 		return nil, nil
 	}
-
-	scopeAtCursor := s.findScopeAtPosition(doc.IR.Symbols, params.Position)
-	targetSym, err := scopeAtCursor.Resolve(ctx, word)
-	if err != nil || targetSym == nil {
-		return nil, nil
-	}
-
-	// Cannot rename symbols without AST (globals/builtins)
-	if targetSym.AST == nil {
-		return nil, nil
-	}
-
-	// Find all references to the target symbol
+	s.logUnexpectedSymbolError(targetSym, err)
 	locations := s.findAllReferences(ctx, doc, targetSym)
 	if len(locations) == 0 {
 		return nil, nil
 	}
-
-	// Build text edits for each location
-	edits := make([]protocol.TextEdit, 0, len(locations))
-	for _, loc := range locations {
+	docLocations := doc.toDocLocations(locations)
+	edits := make([]protocol.TextEdit, 0, len(docLocations))
+	for _, loc := range docLocations {
 		edits = append(edits, protocol.TextEdit{
 			Range:   loc.Range,
 			NewText: params.NewName,
 		})
 	}
-
 	return &protocol.WorkspaceEdit{
 		Changes: map[protocol.DocumentURI][]protocol.TextEdit{
 			params.TextDocument.URI: edits,
@@ -98,7 +78,6 @@ func (s *Server) Rename(
 	}, nil
 }
 
-// findAllReferences finds all references to the given symbol in the document.
 func (s *Server) findAllReferences(
 	ctx context.Context,
 	doc *Document,
@@ -107,107 +86,39 @@ func (s *Server) findAllReferences(
 	if doc.IR.Symbols == nil || targetSym == nil || targetSym.AST == nil {
 		return nil
 	}
-
-	// Use lexer to walk all tokens (same pattern as semantic.go)
-	input := antlr.NewInputStream(doc.Content)
-	lexer := parser.NewArcLexer(input)
-	allTokens := lexer.GetAllTokens()
-
+	allTokens := tokenizeContent(doc.Content)
 	var locations []protocol.Location
 	for _, t := range allTokens {
 		if t.GetTokenType() != parser.ArcLexerIDENTIFIER {
 			continue
 		}
-
 		tokenText := t.GetText()
-		// Quick filter: only check tokens with the same name
 		if tokenText != targetSym.Name {
 			continue
 		}
-
-		// Find scope at this token's position
-		line := t.GetLine()
-		col := t.GetColumn()
-		scope := findScopeAtLine(doc.IR.Symbols, line, col)
-		if scope == nil {
-			scope = doc.IR.Symbols
-		}
-
-		// Resolve the symbol at this position
+		pos := position{Line: t.GetLine(), Col: t.GetColumn()}
+		scope := findScopeAtInternalPosition(doc.IR.Symbols, pos)
 		sym, err := scope.Resolve(ctx, tokenText)
-		if err != nil || sym == nil || sym.AST == nil {
+		if !isValidSymbol(sym, err) {
 			continue
 		}
-
-		// Check if this is the same symbol (pointer equality on AST)
-		if sym.AST == targetSym.AST {
-			// Convert token position to LSP location
-			locations = append(locations, protocol.Location{
-				URI: doc.URI,
-				Range: protocol.Range{
-					Start: protocol.Position{
-						Line:      uint32(line - 1),
-						Character: uint32(col),
-					},
-					End: protocol.Position{
-						Line:      uint32(line - 1),
-						Character: uint32(col + len(tokenText)),
-					},
+		s.logUnexpectedSymbolError(sym, err)
+		if sym.AST != targetSym.AST {
+			continue
+		}
+		locations = append(locations, protocol.Location{
+			URI: doc.URI,
+			Range: protocol.Range{
+				Start: protocol.Position{
+					Line:      uint32(pos.Line - 1),
+					Character: uint32(pos.Col),
 				},
-			})
-		}
+				End: protocol.Position{
+					Line:      uint32(pos.Line - 1),
+					Character: uint32(pos.Col + len(tokenText)),
+				},
+			},
+		})
 	}
-
 	return locations
-}
-
-// getWordRangeAtPosition returns the range of the word at the given position.
-func (s *Server) getWordRangeAtPosition(
-	content string,
-	pos protocol.Position,
-) *protocol.Range {
-	word := s.getWordAtPosition(content, pos)
-	if word == "" {
-		return nil
-	}
-
-	// Find the start of the word
-	lines := splitLines(content)
-	if int(pos.Line) >= len(lines) {
-		return nil
-	}
-	line := lines[pos.Line]
-	if int(pos.Character) >= len(line) {
-		return nil
-	}
-
-	start := int(pos.Character)
-	for start > 0 && isWordChar(line[start-1]) {
-		start--
-	}
-
-	return &protocol.Range{
-		Start: protocol.Position{Line: pos.Line, Character: uint32(start)},
-		End:   protocol.Position{Line: pos.Line, Character: uint32(start + len(word))},
-	}
-}
-
-// splitLines splits content into lines, handling both \n and \r\n.
-func splitLines(content string) []string {
-	var lines []string
-	start := 0
-	for i := 0; i < len(content); i++ {
-		if content[i] == '\n' {
-			if i > 0 && content[i-1] == '\r' {
-				lines = append(lines, content[start:i-1])
-			} else {
-				lines = append(lines, content[start:i])
-			}
-			start = i + 1
-		}
-	}
-	if start <= len(content) {
-		lines = append(lines, content[start:])
-	}
-	return lines
 }

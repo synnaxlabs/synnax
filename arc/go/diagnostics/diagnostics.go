@@ -20,6 +20,11 @@ import (
 // Severity represents the importance level of a diagnostic message.
 type Severity int
 
+type Position struct {
+	Line int
+	Col  int
+}
+
 //go:generate stringer -type=Severity
 const (
 	// SeverityError indicates a critical issue that prevents compilation.
@@ -48,13 +53,11 @@ func (s Severity) String() string {
 }
 
 type Diagnostic struct {
-	Key       string   `json:"key"`
-	Message   string   `json:"message"`
-	Severity  Severity `json:"severity"`
-	Line      int      `json:"line"`
-	Column    int      `json:"column"`
-	EndLine   int      `json:"endLine"`
-	EndColumn int      `json:"endColumn"`
+	Key      string   `json:"key"`
+	Message  string   `json:"message"`
+	Severity Severity `json:"severity"`
+	Start    Position `json:"start"`
+	End      Position `json:"end"`
 }
 
 // Diagnostics is a collection of diagnostic messages.
@@ -77,7 +80,7 @@ func (d Diagnostics) Ok() bool {
 func (d Diagnostics) Error() string { return d.String() }
 
 func (d *Diagnostics) Add(diag Diagnostic) {
-	for _, idx := range d.AtLocation(diag.Line, diag.Column) {
+	for _, idx := range d.AtLocation(diag.Start) {
 		existing := (*d)[idx]
 		if existing.Message == diag.Message {
 			if diag.Severity < existing.Severity {
@@ -89,11 +92,11 @@ func (d *Diagnostics) Add(diag Diagnostic) {
 	*d = append(*d, diag)
 }
 
-// AtLocation returns the indices of all diagnostics at the given line and column.
-func (d *Diagnostics) AtLocation(line, column int) []int {
+// AtLocation returns the indices of all diagnostics at the given position.
+func (d *Diagnostics) AtLocation(start Position) []int {
 	var indices []int
 	for i, diag := range *d {
-		if diag.Line == line && diag.Column == column {
+		if diag.Start == start {
 			indices = append(indices, i)
 		}
 	}
@@ -105,14 +108,11 @@ func (d *Diagnostics) AddError(err error, ctx antlr.ParserRuleContext) {
 	if ctx != nil {
 		start := ctx.GetStart()
 		stop := ctx.GetStop()
-		diag.Line = start.GetLine()
-		diag.Column = start.GetColumn()
+		diag.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
 		if stop != nil {
-			diag.EndLine = stop.GetLine()
-			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+			diag.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
 		} else {
-			diag.EndLine = diag.Line
-			diag.EndColumn = diag.Column + len(start.GetText())
+			diag.End = Position{Line: diag.Start.Line, Col: diag.Start.Col + len(start.GetText())}
 		}
 	}
 	d.Add(diag)
@@ -123,14 +123,11 @@ func (d *Diagnostics) AddWarning(err error, ctx antlr.ParserRuleContext) {
 	if ctx != nil {
 		start := ctx.GetStart()
 		stop := ctx.GetStop()
-		diag.Line = start.GetLine()
-		diag.Column = start.GetColumn()
+		diag.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
 		if stop != nil {
-			diag.EndLine = stop.GetLine()
-			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+			diag.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
 		} else {
-			diag.EndLine = diag.Line
-			diag.EndColumn = diag.Column + len(start.GetText())
+			diag.End = Position{Line: diag.Start.Line, Col: diag.Start.Col + len(start.GetText())}
 		}
 	}
 	d.Add(diag)
@@ -141,14 +138,11 @@ func (d *Diagnostics) AddInfo(err error, ctx antlr.ParserRuleContext) {
 	if ctx != nil {
 		start := ctx.GetStart()
 		stop := ctx.GetStop()
-		diag.Line = start.GetLine()
-		diag.Column = start.GetColumn()
+		diag.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
 		if stop != nil {
-			diag.EndLine = stop.GetLine()
-			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+			diag.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
 		} else {
-			diag.EndLine = diag.Line
-			diag.EndColumn = diag.Column + len(start.GetText())
+			diag.End = Position{Line: diag.Start.Line, Col: diag.Start.Col + len(start.GetText())}
 		}
 	}
 	d.Add(diag)
@@ -159,14 +153,11 @@ func (d *Diagnostics) AddHint(err error, ctx antlr.ParserRuleContext) {
 	if ctx != nil {
 		start := ctx.GetStart()
 		stop := ctx.GetStop()
-		diag.Line = start.GetLine()
-		diag.Column = start.GetColumn()
+		diag.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
 		if stop != nil {
-			diag.EndLine = stop.GetLine()
-			diag.EndColumn = stop.GetColumn() + len(stop.GetText())
+			diag.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
 		} else {
-			diag.EndLine = diag.Line
-			diag.EndColumn = diag.Column + len(start.GetText())
+			diag.End = Position{Line: diag.Start.Line, Col: diag.Start.Col + len(start.GetText())}
 		}
 	}
 	d.Add(diag)
@@ -206,8 +197,8 @@ func (d Diagnostics) String() string {
 		}
 		sb.WriteString(fmt.Sprintf(
 			"%d:%d %s: %s",
-			diag.Line,
-			diag.Column,
+			diag.Start.Line,
+			diag.Start.Col,
 			diag.Severity.String(),
 			diag.Message,
 		))

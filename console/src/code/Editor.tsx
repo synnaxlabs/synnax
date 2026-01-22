@@ -216,6 +216,14 @@ export interface EditorProps
   isBlock?: boolean;
 }
 
+const MENU_EDITOR_ACTIONS: Record<string, string> = {
+  cut: "editor.action.clipboardCutAction",
+  copy: "editor.action.clipboardCopyAction",
+  paste: "editor.action.clipboardPasteAction",
+  rename: "editor.action.rename",
+  format: "editor.action.formatDocument",
+};
+
 export const Editor = ({
   value,
   onChange,
@@ -236,33 +244,42 @@ export const Editor = ({
   const handleMenuSelect = useCallback((key: string) => {
     const editor = editorRef.current;
     if (editor == null) return;
-    switch (key) {
-      case "cut":
-        editor.trigger("contextMenu", "editor.action.clipboardCutAction", null);
-        break;
-      case "copy":
-        editor.trigger("contextMenu", "editor.action.clipboardCopyAction", null);
-        break;
-      case "paste":
-        editor.trigger("contextMenu", "editor.action.clipboardPasteAction", null);
-        break;
-      case "rename":
-        editor.trigger("contextMenu", "editor.action.rename", null);
-        break;
-      case "format":
-        editor.trigger("contextMenu", "editor.action.formatDocument", null);
-        break;
-    }
+    editor.focus();
+    const action = MENU_EDITOR_ACTIONS[key];
+    editor.trigger("contextMenu", action, null);
   }, []);
 
-  const menuContent = useCallback(
-    () => (
+  const menuContent = useCallback(() => {
+    const editor = editorRef.current;
+    const selection = editor?.getSelection();
+    const hasSelection =
+      selection != null &&
+      (selection.startLineNumber !== selection.endLineNumber ||
+        selection.startColumn !== selection.endColumn);
+
+    const position = editor?.getPosition();
+    const model = editor?.getModel();
+    const wordAtCursor =
+      position != null && model != null ? model.getWordAtPosition(position) : null;
+    const canRename = wordAtCursor != null;
+
+    return (
       <Menu.Menu level="small" onChange={handleMenuSelect}>
-        <Menu.Item itemKey="cut" trigger={CUT_TRIGGER} triggerIndicator>
+        <Menu.Item
+          itemKey="cut"
+          trigger={CUT_TRIGGER}
+          triggerIndicator
+          disabled={!hasSelection}
+        >
           <Icon.Cut />
           Cut
         </Menu.Item>
-        <Menu.Item itemKey="copy" trigger={COPY_TRIGGER} triggerIndicator>
+        <Menu.Item
+          itemKey="copy"
+          trigger={COPY_TRIGGER}
+          triggerIndicator
+          disabled={!hasSelection}
+        >
           <Icon.Copy />
           Copy
         </Menu.Item>
@@ -271,7 +288,12 @@ export const Editor = ({
           Paste
         </Menu.Item>
         <Menu.Divider />
-        <Menu.Item itemKey="rename" trigger={RENAME_TRIGGER} triggerIndicator>
+        <Menu.Item
+          itemKey="rename"
+          trigger={RENAME_TRIGGER}
+          triggerIndicator
+          disabled={!canRename}
+        >
           <Icon.Rename />
           Rename
         </Menu.Item>
@@ -280,9 +302,8 @@ export const Editor = ({
           Format
         </Menu.Item>
       </Menu.Menu>
-    ),
-    [handleMenuSelect],
-  );
+    );
+  }, [handleMenuSelect]);
 
   return (
     <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
