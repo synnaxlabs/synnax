@@ -75,7 +75,6 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				},
 			})).To(Succeed())
 
-			// Hover over "sensor" (position 7)
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -293,7 +292,6 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				},
 			})).To(Succeed())
 
-			// Request completion - should now complete "pressure"
 			completions := MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -303,7 +301,8 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 
 			Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "pressure")).To(BeTrue(), "Expected to find 'pressure' after content change")
+			Expect(HasCompletion(completions.Items, "pressure")).
+				To(BeTrue(), "Expected to find 'pressure' after content change")
 		})
 	})
 
@@ -371,14 +370,12 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				},
 			})).To(Succeed())
 
-			// Go to definition on "sensor"
 			locations := MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 0, Character: 7},
 				},
 			}))
-			// GlobalResolver symbols have no AST, so should return nil
 			Expect(locations).To(BeNil())
 		})
 

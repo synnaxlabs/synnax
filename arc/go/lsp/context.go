@@ -33,6 +33,55 @@ type configContextInfo struct {
 	currentParamName string
 }
 
+type configBraceResult struct {
+	configBraceIndex int
+	functionName     string
+}
+
+func findConfigBrace(tokens []antlr.Token) *configBraceResult {
+	if len(tokens) == 0 {
+		return nil
+	}
+	braceDepth := 0
+	configBraceIndex := -1
+	for i := len(tokens) - 1; i >= 0; i-- {
+		tokenType := tokens[i].GetTokenType()
+		switch tokenType {
+		case parser.ArcLexerRBRACE:
+			braceDepth++
+		case parser.ArcLexerLBRACE:
+			if braceDepth > 0 {
+				braceDepth--
+			} else {
+				configBraceIndex = i
+			}
+		}
+		if configBraceIndex >= 0 {
+			break
+		}
+	}
+	if configBraceIndex < 1 {
+		return nil
+	}
+	prevToken := tokens[configBraceIndex-1]
+	if prevToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
+		return nil
+	}
+	if configBraceIndex >= 2 {
+		prevPrevToken := tokens[configBraceIndex-2]
+		prevPrevType := prevPrevToken.GetTokenType()
+		if prevPrevType == parser.ArcLexerRPAREN ||
+			prevPrevType == parser.ArcLexerSTAGE ||
+			prevPrevType == parser.ArcLexerSEQUENCE {
+			return nil
+		}
+	}
+	return &configBraceResult{
+		configBraceIndex: configBraceIndex,
+		functionName:     prevToken.GetText(),
+	}
+}
+
 func DetectCompletionContext(content string, pos protocol.Position) CompletionContext {
 	if isPositionInComment(content, pos) {
 		return ContextComment
@@ -241,56 +290,9 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 }
 
 func detectConfigContext(tokens []antlr.Token) CompletionContext {
-	if len(tokens) == 0 {
+	result := findConfigBrace(tokens)
+	if result == nil {
 		return ContextUnknown
-	}
-	braceDepth := 0
-	bracketDepth := 0
-	parenDepth := 0
-	configBraceIndex := -1
-	for i := len(tokens) - 1; i >= 0; i-- {
-		tokenType := tokens[i].GetTokenType()
-		switch tokenType {
-		case parser.ArcLexerRBRACE:
-			braceDepth++
-		case parser.ArcLexerLBRACE:
-			if braceDepth > 0 {
-				braceDepth--
-			} else {
-				configBraceIndex = i
-			}
-		case parser.ArcLexerRBRACKET:
-			bracketDepth++
-		case parser.ArcLexerLBRACKET:
-			if bracketDepth > 0 {
-				bracketDepth--
-			}
-		case parser.ArcLexerRPAREN:
-			parenDepth++
-		case parser.ArcLexerLPAREN:
-			if parenDepth > 0 {
-				parenDepth--
-			}
-		}
-		if configBraceIndex >= 0 {
-			break
-		}
-	}
-	if configBraceIndex < 1 {
-		return ContextUnknown
-	}
-	prevToken := tokens[configBraceIndex-1]
-	if prevToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
-		return ContextUnknown
-	}
-	if configBraceIndex >= 2 {
-		prevPrevToken := tokens[configBraceIndex-2]
-		prevPrevType := prevPrevToken.GetTokenType()
-		if prevPrevType == parser.ArcLexerRPAREN ||
-			prevPrevType == parser.ArcLexerSTAGE ||
-			prevPrevType == parser.ArcLexerSEQUENCE {
-			return ContextUnknown
-		}
 	}
 	lastToken := tokens[len(tokens)-1]
 	lastTokenType := lastToken.GetTokenType()
@@ -308,48 +310,15 @@ func detectConfigContext(tokens []antlr.Token) CompletionContext {
 func extractConfigContext(content string, pos protocol.Position) *configContextInfo {
 	tokens := tokenizeContent(content)
 	tokensBeforeCursor := getTokensBeforeCursor(tokens, pos)
-	if len(tokensBeforeCursor) == 0 {
+	result := findConfigBrace(tokensBeforeCursor)
+	if result == nil {
 		return nil
-	}
-	braceDepth := 0
-	configBraceIndex := -1
-	for i := len(tokensBeforeCursor) - 1; i >= 0; i-- {
-		tokenType := tokensBeforeCursor[i].GetTokenType()
-		switch tokenType {
-		case parser.ArcLexerRBRACE:
-			braceDepth++
-		case parser.ArcLexerLBRACE:
-			if braceDepth > 0 {
-				braceDepth--
-			} else {
-				configBraceIndex = i
-			}
-		}
-		if configBraceIndex >= 0 {
-			break
-		}
-	}
-	if configBraceIndex < 1 {
-		return nil
-	}
-	prevToken := tokensBeforeCursor[configBraceIndex-1]
-	if prevToken.GetTokenType() != parser.ArcLexerIDENTIFIER {
-		return nil
-	}
-	if configBraceIndex >= 2 {
-		prevPrevToken := tokensBeforeCursor[configBraceIndex-2]
-		prevPrevType := prevPrevToken.GetTokenType()
-		if prevPrevType == parser.ArcLexerRPAREN ||
-			prevPrevType == parser.ArcLexerSTAGE ||
-			prevPrevType == parser.ArcLexerSEQUENCE {
-			return nil
-		}
 	}
 	info := &configContextInfo{
-		functionName:   prevToken.GetText(),
+		functionName:   result.functionName,
 		existingParams: []string{},
 	}
-	for i := configBraceIndex + 1; i < len(tokensBeforeCursor); i++ {
+	for i := result.configBraceIndex + 1; i < len(tokensBeforeCursor); i++ {
 		t := tokensBeforeCursor[i]
 		if t.GetTokenType() == parser.ArcLexerIDENTIFIER {
 			if i+1 < len(tokensBeforeCursor) && tokensBeforeCursor[i+1].GetTokenType() == parser.ArcLexerASSIGN {

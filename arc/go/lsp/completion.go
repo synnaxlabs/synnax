@@ -360,32 +360,14 @@ func (s *Server) getCompletionItems(
 			scopes, err := scopeAtCursor.Search(ctx, prefix)
 			if err == nil {
 				for _, scope := range scopes {
-					var (
-						kind   protocol.CompletionItemKind
-						detail string
-					)
-					if typeStr := scope.Type.String(); typeStr != "" {
-						if strings.Contains(typeStr, "->") {
-							kind = protocol.CompletionItemKindFunction
-						} else {
-							kind = protocol.CompletionItemKindVariable
-						}
-						detail = typeStr
-					} else {
-						kind = protocol.CompletionItemKindVariable
-					}
-					items = append(items, protocol.CompletionItem{
-						Label:  scope.Name,
-						Kind:   kind,
-						Detail: detail,
-					})
+					items = append(items, symbolCompletionItem(scope.Name, scope.Type))
 				}
 			}
 		} else if s.cfg.GlobalResolver != nil {
 			symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
 			if err == nil {
 				for _, sym := range symbols {
-					addSymbolCompletion(sym.Name, sym.Type)
+					items = append(items, symbolCompletionItem(sym.Name, sym.Type))
 				}
 			}
 		}
@@ -403,6 +385,28 @@ func getAllowedCategories(ctx CompletionContext) completionCategory {
 		return categoryKeyword | categoryValue | categoryFunction
 	default:
 		return categoryType | categoryKeyword | categoryFunction | categoryUnit | categoryValue
+	}
+}
+
+func symbolCompletionItem(name string, t types.Type) protocol.CompletionItem {
+	var (
+		kind   protocol.CompletionItemKind
+		detail string
+	)
+	if typeStr := t.String(); typeStr != "" {
+		if strings.Contains(typeStr, "->") {
+			kind = protocol.CompletionItemKindFunction
+		} else {
+			kind = protocol.CompletionItemKindVariable
+		}
+		detail = typeStr
+	} else {
+		kind = protocol.CompletionItemKindVariable
+	}
+	return protocol.CompletionItem{
+		Label:  name,
+		Kind:   kind,
+		Detail: detail,
 	}
 }
 
