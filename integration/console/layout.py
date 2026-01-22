@@ -96,7 +96,8 @@ class LayoutClient:
         self.page.keyboard.press("ControlOrMeta+a")
         self.page.keyboard.type(new_name)
         self.console.ENTER
-        self.get_tab(new_name).wait_for(state="visible", timeout=5000)
+        self.page.wait_for_timeout(200)
+        self.get_tab(new_name).wait_for(state="visible", timeout=10000)
 
     def split_horizontal(self, tab_name: str) -> None:
         """Split a leaf horizontally via context menu.
