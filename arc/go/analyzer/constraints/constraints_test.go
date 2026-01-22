@@ -50,7 +50,7 @@ var _ = Describe("Constraint System", func() {
 				tv         = types.Variable("T", &constraint)
 				chanType   = types.Chan(tv)
 			)
-			system.AddEquality(chanType, types.Chan(types.F32()), nil, "channel types")
+			Expect(system.AddEquality(chanType, types.Chan(types.F32()), nil, "channel types")).To(Succeed())
 			Expect(system.TypeVars).To(HaveLen(1))
 			Expect(system.TypeVars["T"]).NotTo(BeNil())
 		})
@@ -63,7 +63,7 @@ var _ = Describe("Constraint System", func() {
 
 		It("should return true when type variables exist", func() {
 			tv := types.Variable("T", nil)
-			system.AddEquality(tv, types.F32(), nil, "test")
+			Expect(system.AddEquality(tv, types.F32(), nil, "test")).To(Succeed())
 			Expect(system.HasTypeVariables()).To(BeTrue())
 		})
 	})
@@ -236,8 +236,8 @@ var _ = Describe("Constraint System", func() {
 				tv1        = types.Variable("Resolved", &constraint)
 				tv2        = types.Variable("Unresolved", nil)
 			)
-			system.AddEquality(tv1, types.F32(), nil, "test")
-			system.AddEquality(tv2, tv2, nil, "test")
+			Expect(system.AddEquality(tv1, types.F32(), nil, "test")).To(Succeed())
+			Expect(system.AddEquality(tv2, tv2, nil, "test")).To(Succeed())
 			system.Substitutions["Resolved"] = types.F32()
 			str := system.String()
 			Expect(str).To(ContainSubstring("Resolved"))
@@ -262,7 +262,7 @@ var _ = Describe("Constraint System", func() {
 
 		It("should show constraint reasons", func() {
 			tv := types.Variable("T", nil)
-			system.AddEquality(tv, types.F32(), nil, "because we need float precision")
+			Expect(system.AddEquality(tv, types.F32(), nil, "because we need float precision")).To(Succeed())
 			str := system.String()
 			Expect(str).To(ContainSubstring("because we need float precision"))
 		})
