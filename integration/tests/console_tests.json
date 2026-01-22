@@ -34,7 +34,7 @@
           "case": "console/plot/line_plot"
         },
         {
-          "case": "console/label/lifecycle"
+          "case": "console/label/label_lifecycle"
         },
         {
           "case": "console/layout/mosaic_operations"
