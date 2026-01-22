@@ -51,33 +51,11 @@ func compileWithCtx(ctx ccontext.Context[antlr.ParserRuleContext], source string
 
 func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source string, hint types.Type) ([]byte, types.Type) {
 	expr := MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
-
 	if hint.Kind == types.KindSeries {
-		if logicalOr := expr.LogicalOrExpression(); logicalOr != nil {
-			if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
-				if eqs := ands[0].AllEqualityExpression(); len(eqs) == 1 {
-					if rels := eqs[0].AllRelationalExpression(); len(rels) == 1 {
-						if adds := rels[0].AllAdditiveExpression(); len(adds) == 1 {
-							if muls := adds[0].AllMultiplicativeExpression(); len(muls) == 1 {
-								if pows := muls[0].AllPowerExpression(); len(pows) == 1 {
-									if unary := pows[0].UnaryExpression(); unary != nil {
-										if postfix := unary.PostfixExpression(); postfix != nil {
-											if primary := postfix.PrimaryExpression(); primary != nil {
-												if lit := primary.Literal(); lit != nil {
-													ctx.TypeMap[lit] = hint
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+		if lit := parser.GetLiteral(expr); lit != nil {
+			ctx.TypeMap[lit] = hint
 		}
 	}
-
 	exprType := MustSucceedWithOffset[types.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
 	return ctx.Writer.Bytes(), exprType
 }
@@ -196,28 +174,8 @@ func expectSeriesLiteralWithHint(
 	}
 
 	if hint.IsValid() && hint.Kind == types.KindSeries {
-		if logicalOr := parsedExpr.LogicalOrExpression(); logicalOr != nil {
-			if ands := logicalOr.AllLogicalAndExpression(); len(ands) == 1 {
-				if eqs := ands[0].AllEqualityExpression(); len(eqs) == 1 {
-					if rels := eqs[0].AllRelationalExpression(); len(rels) == 1 {
-						if adds := rels[0].AllAdditiveExpression(); len(adds) == 1 {
-							if muls := adds[0].AllMultiplicativeExpression(); len(muls) == 1 {
-								if pows := muls[0].AllPowerExpression(); len(pows) == 1 {
-									if unary := pows[0].UnaryExpression(); unary != nil {
-										if postfix := unary.PostfixExpression(); postfix != nil {
-											if primary := postfix.PrimaryExpression(); primary != nil {
-												if lit := primary.Literal(); lit != nil {
-													analyzerCtx.TypeMap[lit] = hint
-												}
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+		if lit := parser.GetLiteral(parsedExpr); lit != nil {
+			analyzerCtx.TypeMap[lit] = hint
 		}
 	}
 

@@ -161,6 +161,16 @@ func binaryOpGraph(
 	}
 }
 
+// expectOutput is a helper that executes a single-function graph and checks the first output element.
+func expectOutput[T telem.Sample](ctx context.Context, key string, outType types.Type, body string, resolver symbol.Resolver, expected T) {
+	g := singleFunctionGraph(key, outType, body)
+	h := newHarness(ctx, g, resolver, nil)
+	defer h.Close()
+	h.Execute(ctx, key)
+	result := h.Output(key, 0)
+	Expect(telem.UnmarshalSeries[T](result)[0]).To(Equal(expected))
+}
+
 var _ = Describe("WASM", func() {
 	Describe("Next with mismatched input lengths", func() {
 		It("Should repeat shorter input values to match longest input", func() {
@@ -482,493 +492,255 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Series Literal Edge Cases", func() {
-		It("Should handle empty i32 series", func() {
-			g := singleFunctionGraph("empty_series", types.I32(), `{
-				s series i32 := []
+		DescribeTable("empty series",
+			func(elemType string, outType types.Type) {
+				expectOutput(ctx, "empty_series", types.I32(), `{
+				s series `+elemType+` := []
 				return len(s)
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "empty_series")
-			result := h.Output("empty_series", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(0)))
-		})
+			}`, builtin.SymbolResolver, int32(0))
+			},
+			Entry("i32", "i32", types.I32()),
+			Entry("f64", "f64", types.F64()),
+		)
 
-		It("Should handle empty f64 series", func() {
-			g := singleFunctionGraph("empty_series", types.I32(), `{
-				s series f64 := []
-				return len(s)
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "empty_series")
-			result := h.Output("empty_series", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(0)))
-		})
-
-		It("Should handle single element i32 series", func() {
-			g := singleFunctionGraph("single_elem", types.I32(), `{
+		DescribeTable("single element series",
+			expectOutput[int32],
+			Entry("i32", ctx, "single_elem", types.I32(), `{
 				s series i32 := [42]
 				return s[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "single_elem")
-			result := h.Output("single_elem", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(42)))
-		})
+			}`, nil, int32(42)),
+		)
 
 		It("Should handle single element f64 series", func() {
-			g := singleFunctionGraph("single_elem", types.F64(), `{
+			expectOutput(ctx, "single_elem", types.F64(), `{
 				s series f64 := [3.14]
 				return s[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "single_elem")
-			result := h.Output("single_elem", 0)
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(Equal(3.14))
+			}`, nil, 3.14)
 		})
 
 		It("Should handle 10 element series access", func() {
-			g := singleFunctionGraph("ten_elem", types.I32(), `{
+			expectOutput(ctx, "ten_elem", types.I32(), `{
 				s series i32 := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 				return s[9]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "ten_elem")
-			result := h.Output("ten_elem", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(9)))
+			}`, nil, int32(9))
 		})
 
 		It("Should sum elements from 10 element series", func() {
-			g := singleFunctionGraph("sum_ten", types.I32(), `{
+			expectOutput(ctx, "sum_ten", types.I32(), `{
 				s series i32 := [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 				return s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7] + s[8] + s[9]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "sum_ten")
-			result := h.Output("sum_ten", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(10)))
+			}`, nil, int32(10))
 		})
 	})
 
 	Describe("Series Arithmetic Per Type", func() {
-		It("Should add i32 series", func() {
-			g := singleFunctionGraph("add_i32", types.I32(), `{
+		DescribeTable("i32 arithmetic",
+			expectOutput[int32],
+			Entry("add", ctx, "add_i32", types.I32(), `{
 				a series i32 := [1, 2, 3]
 				b series i32 := [10, 20, 30]
 				c series i32 := a + b
 				return c[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "add_i32")
-			result := h.Output("add_i32", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(11)))
-		})
-
-		It("Should subtract i32 series", func() {
-			g := singleFunctionGraph("sub_i32", types.I32(), `{
+			}`, nil, int32(11)),
+			Entry("subtract", ctx, "sub_i32", types.I32(), `{
 				a series i32 := [10, 20, 30]
 				b series i32 := [1, 2, 3]
 				c series i32 := a - b
 				return c[2]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "sub_i32")
-			result := h.Output("sub_i32", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(27)))
-		})
-
-		It("Should multiply i32 series", func() {
-			g := singleFunctionGraph("mul_i32", types.I32(), `{
+			}`, nil, int32(27)),
+			Entry("multiply", ctx, "mul_i32", types.I32(), `{
 				a series i32 := [2, 3, 4]
 				b series i32 := [5, 6, 7]
 				c series i32 := a * b
 				return c[1]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "mul_i32")
-			result := h.Output("mul_i32", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(18)))
-		})
-
-		It("Should divide i32 series", func() {
-			g := singleFunctionGraph("div_i32", types.I32(), `{
+			}`, nil, int32(18)),
+			Entry("divide", ctx, "div_i32", types.I32(), `{
 				a series i32 := [10, 20, 30]
 				b series i32 := [2, 4, 5]
 				c series i32 := a / b
 				return c[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "div_i32")
-			result := h.Output("div_i32", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(5)))
-		})
+			}`, nil, int32(5)),
+		)
 
 		It("Should add i64 series", func() {
-			g := singleFunctionGraph("add_i64", types.I64(), `{
+			expectOutput(ctx, "add_i64", types.I64(), `{
 				a series i64 := [1, 2, 3]
 				b series i64 := [10, 20, 30]
 				c series i64 := a + b
 				return c[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "add_i64")
-			result := h.Output("add_i64", 0)
-			Expect(telem.UnmarshalSeries[int64](result)[0]).To(Equal(int64(11)))
+			}`, nil, int64(11))
 		})
 
-		It("Should add f32 series", func() {
-			g := singleFunctionGraph("add_f32", types.F32(), `{
+		DescribeTable("f32 arithmetic",
+			expectOutput[float32],
+			Entry("add", ctx, "add_f32", types.F32(), `{
 				a series f32 := [1.0, 2.0, 3.0]
 				b series f32 := [0.5, 0.5, 0.5]
 				c series f32 := a + b
 				return c[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "add_f32")
-			result := h.Output("add_f32", 0)
-			Expect(telem.UnmarshalSeries[float32](result)[0]).To(Equal(float32(1.5)))
-		})
-
-		It("Should multiply f32 series", func() {
-			g := singleFunctionGraph("mul_f32", types.F32(), `{
+			}`, nil, float32(1.5)),
+			Entry("multiply", ctx, "mul_f32", types.F32(), `{
 				a series f32 := [2.0, 3.0]
 				b series f32 := [1.5, 2.5]
 				c series f32 := a * b
 				return c[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "mul_f32")
-			result := h.Output("mul_f32", 0)
-			Expect(telem.UnmarshalSeries[float32](result)[0]).To(Equal(float32(3.0)))
-		})
+			}`, nil, float32(3.0)),
+		)
 
 		It("Should mod f64 series", func() {
-			g := singleFunctionGraph("mod_f64", types.F64(), `{
+			expectOutput(ctx, "mod_f64", types.F64(), `{
 				a series f64 := [10.0, 20.0]
 				b series f64 := [3.0, 7.0]
 				c series f64 := a % b
 				return c[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "mod_f64")
-			result := h.Output("mod_f64", 0)
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(Equal(1.0))
+			}`, nil, 1.0)
 		})
 	})
 
 	Describe("Series-Scalar Operations", func() {
-		It("Should add series + scalar i32", func() {
-			g := singleFunctionGraph("series_scalar_add", types.I32(), `{
+		DescribeTable("series op scalar (i32)",
+			expectOutput[int32],
+			Entry("add", ctx, "series_scalar_add", types.I32(), `{
 				s series i32 := [1, 2, 3]
 				r series i32 := s + 10
 				return r[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_scalar_add")
-			result := h.Output("series_scalar_add", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(11)))
-		})
-
-		It("Should subtract series - scalar i32", func() {
-			g := singleFunctionGraph("series_scalar_sub", types.I32(), `{
+			}`, nil, int32(11)),
+			Entry("subtract", ctx, "series_scalar_sub", types.I32(), `{
 				s series i32 := [10, 20, 30]
 				r series i32 := s - 5
 				return r[1]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_scalar_sub")
-			result := h.Output("series_scalar_sub", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(15)))
-		})
+			}`, nil, int32(15)),
+		)
 
-		It("Should multiply series * scalar f64", func() {
-			g := singleFunctionGraph("series_scalar_mul", types.F64(), `{
+		DescribeTable("series op scalar (f64)",
+			expectOutput[float64],
+			Entry("multiply", ctx, "series_scalar_mul", types.F64(), `{
 				s series f64 := [1.0, 2.0, 3.0]
 				r series f64 := s * 2.0
 				return r[2]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_scalar_mul")
-			result := h.Output("series_scalar_mul", 0)
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(Equal(6.0))
-		})
-
-		It("Should divide series / scalar f64", func() {
-			g := singleFunctionGraph("series_scalar_div", types.F64(), `{
+			}`, nil, 6.0),
+			Entry("divide", ctx, "series_scalar_div", types.F64(), `{
 				s series f64 := [10.0, 20.0]
 				r series f64 := s / 2.0
 				return r[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_scalar_div")
-			result := h.Output("series_scalar_div", 0)
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(Equal(5.0))
-		})
+			}`, nil, 5.0),
+		)
 
-		It("Should add scalar + series i32", func() {
-			g := singleFunctionGraph("scalar_series_add", types.I32(), `{
+		DescribeTable("scalar op series (i32)",
+			expectOutput[int32],
+			Entry("add", ctx, "scalar_series_add", types.I32(), `{
 				s series i32 := [1, 2, 3]
 				r series i32 := 10 + s
 				return r[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "scalar_series_add")
-			result := h.Output("scalar_series_add", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(11)))
-		})
-
-		It("Should subtract scalar - series i32", func() {
-			g := singleFunctionGraph("scalar_series_sub", types.I32(), `{
+			}`, nil, int32(11)),
+			Entry("subtract", ctx, "scalar_series_sub", types.I32(), `{
 				s series i32 := [1, 2, 3]
 				r series i32 := 10 - s
 				return r[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "scalar_series_sub")
-			result := h.Output("scalar_series_sub", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(9)))
-		})
+			}`, nil, int32(9)),
+		)
 
-		It("Should multiply scalar * series f64", func() {
-			g := singleFunctionGraph("scalar_series_mul", types.F64(), `{
+		DescribeTable("scalar op series (f64)",
+			expectOutput[float64],
+			Entry("multiply", ctx, "scalar_series_mul", types.F64(), `{
 				s series f64 := [1.0, 2.0, 3.0]
 				r series f64 := 2.0 * s
 				return r[1]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "scalar_series_mul")
-			result := h.Output("scalar_series_mul", 0)
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(Equal(4.0))
-		})
-
-		It("Should divide scalar / series f64", func() {
-			g := singleFunctionGraph("scalar_series_div", types.F64(), `{
+			}`, nil, 4.0),
+			Entry("divide", ctx, "scalar_series_div", types.F64(), `{
 				s series f64 := [2.0, 4.0, 5.0]
 				r series f64 := 10.0 / s
 				return r[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "scalar_series_div")
-			result := h.Output("scalar_series_div", 0)
-			Expect(telem.UnmarshalSeries[float64](result)[0]).To(Equal(5.0))
-		})
+			}`, nil, 5.0),
+		)
 	})
 
 	Describe("Series Comparison Operations", func() {
-		It("Should compare series < series", func() {
-			g := singleFunctionGraph("series_lt", types.U8(), `{
+		DescribeTable("comparison operators",
+			expectOutput[uint8],
+			Entry("less than", ctx, "series_lt", types.U8(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
 				c series u8 := a < b
 				return c[0]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_lt")
-			result := h.Output("series_lt", 0)
-			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
-		})
-
-		It("Should compare series > series", func() {
-			g := singleFunctionGraph("series_gt", types.U8(), `{
+			}`, nil, uint8(1)),
+			Entry("greater than", ctx, "series_gt", types.U8(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
 				c series u8 := a > b
 				return c[1]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_gt")
-			result := h.Output("series_gt", 0)
-			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
-		})
-
-		It("Should compare series == series", func() {
-			g := singleFunctionGraph("series_eq", types.U8(), `{
+			}`, nil, uint8(1)),
+			Entry("equal", ctx, "series_eq", types.U8(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
 				c series u8 := a == b
 				return c[2]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_eq")
-			result := h.Output("series_eq", 0)
-			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
-		})
-
-		It("Should compare series != series", func() {
-			g := singleFunctionGraph("series_ne", types.U8(), `{
+			}`, nil, uint8(1)),
+			Entry("not equal", ctx, "series_ne", types.U8(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [1.0, 4.0, 3.0]
 				c series u8 := a != b
 				return c[1]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_ne")
-			result := h.Output("series_ne", 0)
-			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
-		})
-
-		It("Should compare series <= series", func() {
-			g := singleFunctionGraph("series_le", types.U8(), `{
+			}`, nil, uint8(1)),
+			Entry("less than or equal", ctx, "series_le", types.U8(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
 				c series u8 := a <= b
 				return c[2]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_le")
-			result := h.Output("series_le", 0)
-			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
-		})
-
-		It("Should compare series >= series", func() {
-			g := singleFunctionGraph("series_ge", types.U8(), `{
+			}`, nil, uint8(1)),
+			Entry("greater than or equal", ctx, "series_ge", types.U8(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
 				c series u8 := a >= b
 				return c[1]
-			}`)
-			h := newHarness(ctx, g, nil, nil)
-			defer h.Close()
-			h.Execute(ctx, "series_ge")
-			result := h.Output("series_ge", 0)
-			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
-		})
+			}`, nil, uint8(1)),
+		)
 	})
 
 	Describe("Series Length Operations", func() {
-		It("Should return 0 for empty series", func() {
-			g := singleFunctionGraph("len_empty", types.I32(), `{
+		DescribeTable("len() function",
+			expectOutput[int32],
+			Entry("empty series", ctx, "len_empty", types.I32(), `{
 				s series f64 := []
 				return len(s)
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_empty")
-			result := h.Output("len_empty", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(0)))
-		})
-
-		It("Should return 1 for single element series", func() {
-			g := singleFunctionGraph("len_one", types.I32(), `{
+			}`, builtin.SymbolResolver, int32(0)),
+			Entry("single element", ctx, "len_one", types.I32(), `{
 				s series f64 := [1.0]
 				return len(s)
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_one")
-			result := h.Output("len_one", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(1)))
-		})
-
-		It("Should return 5 for five element series", func() {
-			g := singleFunctionGraph("len_five", types.I32(), `{
+			}`, builtin.SymbolResolver, int32(1)),
+			Entry("five elements", ctx, "len_five", types.I32(), `{
 				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
 				return len(s)
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_five")
-			result := h.Output("len_five", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(5)))
-		})
-
-		It("Should return correct length after series operation", func() {
-			g := singleFunctionGraph("len_after_op", types.I32(), `{
+			}`, builtin.SymbolResolver, int32(5)),
+			Entry("after operation", ctx, "len_after_op", types.I32(), `{
 				a series f64 := [1.0, 2.0, 3.0]
 				b series f64 := [4.0, 5.0, 6.0]
 				c series f64 := a + b
 				return len(c)
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_after_op")
-			result := h.Output("len_after_op", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(3)))
-		})
+			}`, builtin.SymbolResolver, int32(3)),
+		)
 	})
 
 	Describe("String Operations Extended", func() {
-		It("Should return 0 for empty string length", func() {
-			g := singleFunctionGraph("len_empty_str", types.I32(), `{
+		DescribeTable("string len() function",
+			expectOutput[int32],
+			Entry("empty string", ctx, "len_empty_str", types.I32(), `{
 				return len("")
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_empty_str")
-			result := h.Output("len_empty_str", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(0)))
-		})
-
-		It("Should return correct length for string", func() {
-			g := singleFunctionGraph("len_str", types.I32(), `{
+			}`, builtin.SymbolResolver, int32(0)),
+			Entry("simple string", ctx, "len_str", types.I32(), `{
 				return len("hello")
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_str")
-			result := h.Output("len_str", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(5)))
-		})
-
-		It("Should return correct length for concatenated strings", func() {
-			g := singleFunctionGraph("len_concat", types.I32(), `{
+			}`, builtin.SymbolResolver, int32(5)),
+			Entry("concatenated strings", ctx, "len_concat", types.I32(), `{
 				return len("ab" + "cd")
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_concat")
-			result := h.Output("len_concat", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(4)))
-		})
-
-		It("Should return correct length for triple concatenation", func() {
-			g := singleFunctionGraph("len_triple", types.I32(), `{
+			}`, builtin.SymbolResolver, int32(4)),
+			Entry("triple concatenation", ctx, "len_triple", types.I32(), `{
 				return len("a" + "b" + "c")
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_triple")
-			result := h.Output("len_triple", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(3)))
-		})
-
-		It("Should return correct length for variable concatenation", func() {
-			g := singleFunctionGraph("len_var_concat", types.I32(), `{
+			}`, builtin.SymbolResolver, int32(3)),
+			Entry("variable concatenation", ctx, "len_var_concat", types.I32(), `{
 				a str := "hello"
 				b str := " world"
 				return len(a + b)
-			}`)
-			h := newHarness(ctx, g, builtin.SymbolResolver, nil)
-			defer h.Close()
-			h.Execute(ctx, "len_var_concat")
-			result := h.Output("len_var_concat", 0)
-			Expect(telem.UnmarshalSeries[int32](result)[0]).To(Equal(int32(11)))
-		})
+			}`, builtin.SymbolResolver, int32(11)),
+		)
 	})
 })
