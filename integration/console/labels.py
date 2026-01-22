@@ -63,32 +63,6 @@ class LabelClient:
         save_button.click()
         self._close_edit_modal()
 
-    def list_all(self) -> list[str]:
-        """List all existing labels.
-
-        Returns:
-            List of label names.
-        """
-        self._open_edit_modal()
-
-        labels: list[str] = []
-        # Get all label items (excluding the create form)
-        label_items = self.page.locator(
-            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
-        ).all()
-
-        for item in label_items:
-            if item.is_visible():
-                # Get the label name from the input field
-                name_input = item.locator("input").first
-                if name_input.count() > 0:
-                    name = name_input.input_value()
-                    if name:
-                        labels.append(name)
-
-        self._close_edit_modal()
-        return labels
-
     def exists(self, name: str) -> bool:
         """Check if a label exists by name."""
         self._open_edit_modal()
@@ -97,21 +71,22 @@ class LabelClient:
         self._close_edit_modal()
         return exists
 
-    def get_color(self, name: str) -> str | None:
+    def get_color(self, name: str) -> str:
         """Get the color of a label by name."""
         self._open_edit_modal()
         label_item = self._find_label_item(name)
         if label_item is None:
-            return None
+            raise ValueError(f"Label '{name}' not found")
         color_swatch = label_item.locator(".pluto-color-swatch").first
         style = color_swatch.get_attribute("style")
-        color = None
-        if style:
-            # Find --pluto-swatch-color: rgba( ... );
-            match = re.search(r"--pluto-swatch-color:\s*(rgba?\([^)]+\))", style)
-            if match:
-                rgba = match.group(1)
-                color = rgb_to_hex(rgba)
+        if style is None:
+            raise ValueError(f"Label '{name}' has no style attribute")
+        # Find --pluto-swatch-color: rgba( ... );
+        match = re.search(r"--pluto-swatch-color:\s*(rgba?\([^)]+\))", style)
+        if match is None:
+            raise ValueError(f"Label '{name}' does not have --pluto-swatch-color")
+        rgba = match.group(1)
+        color = rgb_to_hex(rgba)
         self._close_edit_modal()
         return color
 
@@ -122,23 +97,16 @@ class LabelClient:
             old_name: The current name of the label.
             new_name: The new name for the label.
         """
-        # Open the modal if not already open
-        modal = self.page.locator(_MODAL_SELECTOR)
-        if not modal.is_visible():
-            self._open_edit_modal()
+        self._open_edit_modal()
 
         label_item = self._find_label_item(old_name)
         if label_item is None:
             raise ValueError(f"Label '{old_name}' not found")
-
-        # Click on the name input and change it
         name_input = label_item.locator("input").first
         name_input.click()
         name_input.clear()
         name_input.type(new_name)
-        # Press Tab to blur and trigger auto-save
-        self.page.keyboard.press("Tab")
-        self.page.wait_for_timeout(500)  # Wait for save to complete
+        self.page.keyboard.press("Enter")
         self._close_edit_modal()
 
     def delete(self, name: str) -> None:
@@ -158,6 +126,33 @@ class LabelClient:
         delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
         delete_button.click()
         self._close_edit_modal()
+
+    def list_all(self) -> list[str]:
+        """List all existing labels.
+
+        Returns:
+            List of label names.
+        """
+        ### TODO: Implement this function
+        self._open_edit_modal()
+
+        labels: list[str] = []
+        # Get all label items (excluding the create form)
+        label_items = self.page.locator(
+            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
+        ).all()
+
+        for item in label_items:
+            if item.is_visible():
+                # Get the label name from the input field
+                name_input = item.locator("input").first
+                if name_input.count() > 0:
+                    name = name_input.input_value()
+                    if name:
+                        labels.append(name)
+
+        self._close_edit_modal()
+        return labels
 
     def change_color(self, name: str, new_color: str) -> None:
         """Change the color of a label.
@@ -182,11 +177,9 @@ class LabelClient:
         hex_input.click()
         hex_input.fill(new_color.lstrip("#"))
         self.page.keyboard.press("Enter")
+        ## TODO: remove this wait
         self.page.wait_for_timeout(200)
-
-        # Click outside to close the color picker
-        label_item.locator("input").first.click()
-        self.page.wait_for_timeout(300)
+        self.page.keyboard.press("Escape")
         self._close_edit_modal()
 
     def _open_edit_modal(self) -> None:

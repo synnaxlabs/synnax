@@ -16,59 +16,53 @@ class LabelLifecycle(ConsoleCase):
 
     def run(self) -> None:
         self.test_create_label()
-        # self.test_rename_label()
-        # self.test_change_label_color()
+        self.test_rename_label()
+        self.test_change_label_color()
         # self.test_rename_label_syncs_with_range_toolbar()
         # self.test_change_label_color_syncs_with_range_toolbar()
-        # self.test_delete_label()
 
     def test_create_label(self) -> None:
         """Test creating a new label."""
         self.log("Testing: Create label")
-        label_name = get_random_name()
-        self.console.labels.create(label_name, color="#F0FE00")
-        assert self.console.labels.exists(
-            label_name
-        ), f"Label '{label_name}' should exist"
-        label_color = self.console.labels.get_color(label_name)
+        name = get_random_name()
+        color = "#F0FE00"
+        self.console.labels.create(name, color=color)
+        assert self.console.labels.exists(name), f"Label {name} should exist"
+        label_color = self.console.labels.get_color(name)
         self.log(f"Label color: {label_color}")
-        assert label_color is not None, f"Label '{label_name}' should have a color"
-        assert (
-            label_color == "#F0FE00"
-        ), f"Label '{label_name}' should have color '#F0FE00'"
-        self.log(f"Successfully created label: {label_name} with color '#F0FE00'")
-        self.console.labels.delete(label_name)
+        assert label_color == color, f"Label {name} should have color {color}"
+        self.log(f"Successfully created label {name} with color '{color}'")
+        self.console.labels.delete(name)
 
     def test_rename_label(self) -> None:
         """Test renaming an existing label."""
         self.log("Testing: Rename label")
-
-        old_name = "TestLabel"
-        new_name = "RenamedLabel"
-
-        labels_before = self.console.labels.list_all()
-        assert old_name in labels_before, f"Label '{old_name}' should exist"
-
+        old_name = get_random_name()
+        new_name = get_random_name()
+        self.console.labels.create(old_name)
         self.console.labels.rename(old_name, new_name)
-
-        self.console.labels.exists(new_name)
-        self.log(f"Successfully renamed label from '{old_name}' to '{new_name}'")
+        assert self.console.labels.exists(new_name), f"Label {new_name} should exist"
+        assert not self.console.labels.exists(
+            old_name
+        ), f"Label {old_name} should not exist"
+        self.log(f"Successfully renamed label from {old_name} to {new_name}")
+        self.console.labels.delete(new_name)
 
     def test_change_label_color(self) -> None:
         """Test changing the color of a label."""
         self.log("Testing: Change label color")
-
-        label_name = "RenamedLabel"
-        new_color = "#FF5733"  # Orange color
-
-        self.console.labels.change_color(label_name, new_color)
-
-        ## Todo: test the new color
-
-        self.log(f"Successfully changed color of label '{label_name}' to {new_color}")
+        name = get_random_name()
+        self.console.labels.create(name, color="#F0FE00")
+        new_color = "#FF5733"
+        self.console.labels.change_color(name, new_color)
+        changed_color = self.console.labels.get_color(name)
+        assert changed_color == new_color, f"Label {name} should have color {new_color}"
+        self.log(f"Successfully changed color of label {name} to {new_color}")
+        self.console.labels.delete(name)
 
     def test_rename_label_syncs_with_range_toolbar(self) -> None:
         """Test that renaming a label updates the range toolbar."""
+        ## TODO: Implement this test
         self.log("Testing: Rename label syncs with range toolbar")
 
         label_name = "SyncTestLabel"
@@ -100,6 +94,7 @@ class LabelLifecycle(ConsoleCase):
 
     def test_change_label_color_syncs_with_range_toolbar(self) -> None:
         """Test that changing a label color updates the range toolbar."""
+        ## TODO: Implement this test
         self.log("Testing: Change label color syncs with range toolbar")
 
         label_name = "RenamedSyncLabel"
@@ -129,6 +124,7 @@ class LabelLifecycle(ConsoleCase):
 
     def _cleanup_sync_test(self, label_name: str, range_name: str) -> None:
         """Clean up resources created for sync tests."""
+        ## TODO: Implement this function
         self.console.labels.delete(label_name)
 
         self.console.ranges.open_explorer()
@@ -137,23 +133,3 @@ class LabelLifecycle(ConsoleCase):
                 break
             self.console.ranges.delete_from_explorer(range_name)
             self.page.wait_for_timeout(100)
-
-    def test_delete_label(self) -> None:
-        """Test deleting a label (also cleans up the test label)."""
-        self.log("Testing: Delete label")
-
-        label_name = "RenamedLabel"
-
-        self.console.labels.delete(label_name)
-
-        self.page.wait_for_timeout(100)
-        ## TODO: make a get label via name function on the client
-        self.console.labels._open_edit_modal()
-
-        label_item = self.page.locator(
-            f".console-label__list-item:not(.console--create) input[value='{label_name}']"
-        )
-        assert label_item.count() == 0, f"Label '{label_name}' should be deleted"
-
-        self.log(f"Successfully deleted label: {label_name}")
-        self.console.labels._close_edit_modal()
