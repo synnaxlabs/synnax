@@ -79,9 +79,8 @@ class RackClient:
         rack_item = self.get_item(old_name)
         rack_item.click(button="right")
         self.page.get_by_text("Rename", exact=True).click(timeout=2000)
-        self.page.keyboard.press("ControlOrMeta+a")
-        self.page.keyboard.type(new_name)
-        self.page.keyboard.press("Enter")
+        self.console.select_all_and_type(new_name)
+        self.console.ENTER
 
     def delete(self, name: str) -> None:
         """Delete a rack via context menu."""

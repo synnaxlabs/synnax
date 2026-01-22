@@ -235,6 +235,18 @@ class Console:
         self.page.keyboard.press("Delete")
 
     @property
+    def SELECT_ALL(self) -> None:
+        # Pressing too quickly can cause the arcs toolbar to open and block.
+        sy.sleep(0.1)
+        self.page.keyboard.press("ControlOrMeta+a")
+
+    def select_all_and_type(self, text: str) -> None:
+        """Select all text in the focused element and type new text."""
+        self.SELECT_ALL
+        sy.sleep(0.1)
+        self.page.keyboard.type(text)
+
+    @property
     def MODAL_OPEN(self) -> bool:
         return (
             self.page.locator(
@@ -265,16 +277,19 @@ class Console:
         nav_drawer = self.page.locator(
             ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
         )
-        if nav_drawer.count() > 0 and nav_drawer.first.is_visible():
-            active_nav_btn = self.page.locator(
-                "button.console-main-nav__item.pluto--selected"
-            ).first
-            if active_nav_btn.count() > 0:
-                active_nav_btn.click()
-            else:
-                # No selected button - press Escape to close
-                self.page.keyboard.press("Escape")
-            nav_drawer.wait_for(state="hidden", timeout=5000)
+        if nav_drawer.count() == 0 or not nav_drawer.first.is_visible():
+            return
+        active_nav_btn = self.page.locator(
+            "button.console-main-nav__item.pluto--selected"
+        ).first
+        if active_nav_btn.count() == 0:
+            return
+        drawer_class = nav_drawer.first.get_attribute("class") or ""
+        is_expanded = "pluto--expanded" in drawer_class
+        if is_expanded:
+            active_nav_btn.click()
+        active_nav_btn.click()
+        nav_drawer.wait_for(state="hidden", timeout=5000)
 
     def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
         """Select an item from an open dropdown."""
@@ -317,6 +332,7 @@ class Console:
         """
         Create a new page via New Page (+) button or command palette (randomly chosen).
         """
+        self.close_nav_drawer()
         if random.random() < 0:
             return self._create_page_by_new_page_button(page_type, page_name)
         return self._create_page_by_command_palette(page_type, page_name)
@@ -572,3 +588,9 @@ class Console:
             yield element
         finally:
             element.evaluate(f"element => element.style.zIndex = '{original_z_index}'")
+
+    def reload(self) -> None:
+        """Reload the console page."""
+        self.page.reload()
+        self.page.wait_for_load_state("load", timeout=30000)
+        self.page.wait_for_load_state("networkidle", timeout=30000)

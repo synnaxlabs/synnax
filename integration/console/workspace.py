@@ -156,8 +156,7 @@ class WorkspaceClient:
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
-        self.page.keyboard.press("ControlOrMeta+a")
-        self.page.keyboard.type(new_name)
+        self.console.select_all_and_type(new_name)
         self.console.ENTER
         self.refresh_tree()
 
@@ -235,6 +234,39 @@ class WorkspaceClient:
             return link
         except Exception:
             return ""
+
+    def group_pages(self, names: list[str], group_name: str) -> None:
+        """Group multiple pages into a folder via multi-select and context menu.
+
+        Args:
+            names: List of page names to group
+            group_name: Name for the new group/folder
+        """
+        if not names:
+            return
+
+        self.expand_active()
+
+        modifier = "Meta" if platform.system() == "Darwin" else "Control"
+
+        first_item = self.get_page(names[0])
+        first_item.wait_for(state="visible", timeout=5000)
+        first_item.click()
+
+        for name in names[1:]:
+            page_item = self.get_page(name)
+            page_item.wait_for(state="visible", timeout=5000)
+            self.page.keyboard.down(modifier)
+            page_item.click()
+            self.page.keyboard.up(modifier)
+
+        last_item = self.get_page(names[-1])
+        last_item.click(button="right")
+
+        self.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
+        self.console.select_all_and_type(group_name)
+        self.console.ENTER
+        self.refresh_tree()
 
     def export_page(self, name: str) -> dict[str, Any]:
         """Export a page via context menu.
@@ -331,8 +363,7 @@ class WorkspaceClient:
         workspace.wait_for(state="visible", timeout=5000)
         workspace.click(button="right")
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
-        self.page.keyboard.press("ControlOrMeta+a")
-        self.page.keyboard.type(new_name)
+        self.console.select_all_and_type(new_name)
         self.console.ENTER
         self.refresh_tree()
 
@@ -429,3 +460,52 @@ class WorkspaceClient:
         """
         self.console.search_palette(name)
         return self._create_plot_instance(client, name)
+
+    def _create_log_instance(self, client: sy.Synnax, page_name: str) -> "Log":
+        """Create a Log instance after a log becomes visible.
+
+        Args:
+            client: Synnax client instance.
+            page_name: The name of the log page.
+
+        Returns:
+            Log instance for the opened log.
+        """
+        from .log import Log
+
+        log_pane = self.page.locator(Log.pluto_label)
+        log_pane.first.wait_for(state="visible", timeout=5000)
+
+        log = Log.__new__(Log)
+        log.client = client
+        log.console = self.console
+        log.page = self.page
+        log.page_name = page_name
+        log.pane_locator = log_pane.first
+        return log
+
+    def open_log(self, client: sy.Synnax, name: str) -> "Log":
+        """Open a log by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the log to open.
+
+        Returns:
+            Log instance for the opened log.
+        """
+        self.open_page(name)
+        return self._create_log_instance(client, name)
+
+    def drag_log_to_mosaic(self, client: sy.Synnax, name: str) -> "Log":
+        """Drag a log from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the log to drag.
+
+        Returns:
+            Log instance for the opened log.
+        """
+        self.drag_page_to_mosaic(name)
+        return self._create_log_instance(client, name)

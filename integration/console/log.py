@@ -55,3 +55,73 @@ class Log(ConsolePage):
         channel_text = channel_btn.inner_text().strip()
         result = channel_name in channel_text
         return result
+
+    def copy_link(self) -> str:
+        """Copy link to the log via the toolbar link button."""
+        self.console.notifications.close_all()
+        self.console.layout.show_visualization_toolbar()
+        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button.click(timeout=5000)
+
+        try:
+            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
+            return link
+        except Exception:
+            return ""
+
+    def is_empty(self) -> bool:
+        """Check if the log shows any empty state message."""
+        if not self.pane_locator:
+            return True
+        no_channel = self.pane_locator.locator("text=No channel configured").count() > 0
+        no_data = self.pane_locator.locator("text=No data received yet").count() > 0
+        return no_channel or no_data
+
+    def needs_channel_configured(self) -> bool:
+        """Check if the log shows 'No channel configured' message."""
+        if not self.pane_locator:
+            return False
+        return self.pane_locator.locator("text=No channel configured").count() > 0
+
+    def is_waiting_for_data(self) -> bool:
+        """Check if the log shows 'No data received yet' message."""
+        if not self.pane_locator:
+            return False
+        return self.pane_locator.locator("text=No data received yet").count() > 0
+
+    def is_streaming(self) -> bool:
+        """Check if the log is actively streaming data (live button visible)."""
+        if not self.pane_locator:
+            return False
+        live_button = self.pane_locator.locator("button.pluto-log__live")
+        return live_button.count() > 0
+
+    def is_scrolling_paused(self) -> bool:
+        """Check if log scrolling is paused."""
+        if not self.pane_locator:
+            return False
+        live_button = self.pane_locator.locator("button.pluto-log__live")
+        if live_button.count() == 0:
+            return False
+        btn_class = live_button.get_attribute("class") or ""
+        return "pluto--active" in btn_class
+
+    def pause_scrolling(self) -> None:
+        """Pause log scrolling (enter scrollback mode)."""
+        if self.is_scrolling_paused():
+            return
+        if not self.pane_locator:
+            return
+        live_button = self.pane_locator.locator("button.pluto-log__live")
+        if live_button.count() > 0:
+            live_button.click()
+
+    def resume_scrolling(self) -> None:
+        """Resume log scrolling (exit scrollback mode)."""
+        if not self.is_scrolling_paused():
+            return
+        if not self.pane_locator:
+            return
+        live_button = self.pane_locator.locator("button.pluto-log__live")
+        if live_button.count() > 0:
+            live_button.click()

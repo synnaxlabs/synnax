@@ -70,6 +70,12 @@ class ConsolePage:
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
+        sy.sleep(0.1)
+
+    def is_open(self) -> bool:
+        """Check if the page tab is visible."""
+        tab = self.console.layout.get_tab(self.page_name)
+        return tab.count() > 0 and tab.is_visible()
 
     def rename(self, new_name: str) -> None:
         """Rename the page by double-clicking the tab name.

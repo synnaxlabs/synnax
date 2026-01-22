@@ -92,9 +92,7 @@ class LayoutClient:
         else:
             tab.locator("p").click(button="right")
             self.page.get_by_text("Rename").first.click()
-
-        self.page.keyboard.press("ControlOrMeta+a")
-        self.page.keyboard.type(new_name)
+        self.console.select_all_and_type(new_name)
         self.console.ENTER
         self.page.wait_for_timeout(200)
         self.get_tab(new_name).wait_for(state="visible", timeout=10000)

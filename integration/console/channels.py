@@ -321,9 +321,8 @@ class ChannelClient:
         self.page.locator(".monaco-editor.focused").wait_for(
             state="visible", timeout=2000
         )
-        self.page.keyboard.press("ControlOrMeta+a")
         self.page.wait_for_timeout(50)
-        self.page.keyboard.type(new_expression)
+        self.console.select_all_and_type(new_expression)
 
         self.page.locator("button").filter(has_text="Save").first.click()
         editor.wait_for(state="hidden", timeout=5000)

@@ -203,33 +203,11 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new log from the visualization selector. (pages/open_close.py)
 - **Visualization**
-  - [ ] Rename a log from its mosaic tab title.
   - [ ] Scroll to view historical data.
-  - [ ] Stream data from a virtual channel.
-  - [ ] Stream data from a persisted channel.
-  - [ ] Pause and resume scrolling using the streaming icon in the top right.
-  - [ ] Switch the logging channel and observe data switching.
-  - [ ] Preserve log data from a virtual channel in the buffer.
-  - [ ] Copy a link to a log.
-- **Resources Toolbar**
-  - [ ] Open a log by selecting it.
-  - [ ] Drag a log onto the mosaic.
-  - **Context Menu**
-    - [ ] Rename a log.
-    - [ ] Delete a log.
-    - [ ] Delete multiple logs.
-    - [ ] Group logs.
-    - [ ] Copy a link to a log.
 - **Search and Command Palette**
-  - [x] Create a new log. (pages/open_close.py)
   - [ ] Open an existing log.
 - [ ] Open a log from its link.
-- [x] Rename a log and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Resources Toolbar
-  - [x] Mosaic Tab
-  - [x] Visualization Toolbar
 
 ### Ontology
 
