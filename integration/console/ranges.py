@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
 
-from framework.utils import get_results_path
+from framework.utils import get_results_path, rgb_to_hex
 
 if TYPE_CHECKING:
     from .console import Console
@@ -39,7 +39,7 @@ class RangesClient:
         if toolbar_header.is_visible():
             return
         self.page.keyboard.press("r")
-        toolbar_header.wait_for(state="visible", timeout=5000)
+        toolbar_header.wait_for(state="visible")
 
     def hide_toolbar(self) -> None:
         """Hide the ranges toolbar."""
@@ -619,4 +619,4 @@ class RangesClient:
         icon = label.locator("svg").first
         if icon.count() == 0:
             return None
-        return icon.get_attribute("color")
+        return rgb_to_hex(icon.get_attribute("color"))
