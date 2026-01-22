@@ -1,13 +1,4 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
-// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
 import "github.com/antlr4-go/antlr/v4"
@@ -256,12 +247,6 @@ func (s *BaseArcParserListener) EnterReturnStatement(ctx *ReturnStatementContext
 
 // ExitReturnStatement is called when production returnStatement is exited.
 func (s *BaseArcParserListener) ExitReturnStatement(ctx *ReturnStatementContext) {}
-
-// EnterFunctionCall is called when production functionCall is entered.
-func (s *BaseArcParserListener) EnterFunctionCall(ctx *FunctionCallContext) {}
-
-// ExitFunctionCall is called when production functionCall is exited.
-func (s *BaseArcParserListener) ExitFunctionCall(ctx *FunctionCallContext) {}
 
 // EnterType is called when production type is entered.
 func (s *BaseArcParserListener) EnterType(ctx *TypeContext) {}

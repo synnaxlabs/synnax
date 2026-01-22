@@ -215,11 +215,11 @@ func analyzeFunctionNode(
 	key := kg.generate(name, "")
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, nil)
+		ctx.Diagnostics.AddError(err, ctx.AST)
 		return nodeResult{}, false
 	}
 	if sym.Type.Kind != types.KindFunction {
-		ctx.Diagnostics.AddError(errors.Newf("expected function type, got %s", sym.Type), nil)
+		ctx.Diagnostics.AddError(errors.Newf("expected function type, got %s", sym.Type), ctx.AST)
 		return nodeResult{}, false
 	}
 	n := ir.Node{

@@ -103,4 +103,33 @@ var _ = Describe("Server Diagnostics", func() {
 			Expect(client.Diagnostics[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
 		})
 	})
+
+	Describe("Diagnostic Error Codes", func() {
+		It("Should include error code for function argument count mismatch", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			Expect(client.Diagnostics[0].Code).To(Equal("ARC3001"))
+		})
+
+		It("Should include error code for function argument type mismatch", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func process(x i32) i32 { return x }\nfunc test() { z := process(\"hello\") }")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			Expect(client.Diagnostics[0].Code).To(Equal("ARC3002"))
+		})
+	})
+
+	Describe("Diagnostic Related Information", func() {
+		It("Should include function signature in related information for argument errors", func() {
+			server, uri, client := SetupTestServerWithClient()
+			OpenDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
+
+			Expect(client.Diagnostics).To(HaveLen(1))
+			Expect(client.Diagnostics[0].RelatedInformation).To(HaveLen(1))
+			Expect(client.Diagnostics[0].RelatedInformation[0].Message).To(ContainSubstring("add(x i64, y i64) i64"))
+		})
+	})
 })

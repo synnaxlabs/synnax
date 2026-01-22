@@ -1,16 +1,6 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
-// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 // A complete Visitor for a parse tree produced by ArcParser.
@@ -116,6 +106,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#assignment.
 	VisitAssignment(ctx *AssignmentContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#compoundOp.
+	VisitCompoundOp(ctx *CompoundOpContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#ifStatement.
 	VisitIfStatement(ctx *IfStatementContext) interface{}
 
@@ -127,9 +120,6 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#returnStatement.
 	VisitReturnStatement(ctx *ReturnStatementContext) interface{}
-
-	// Visit a parse tree produced by ArcParser#functionCall.
-	VisitFunctionCall(ctx *FunctionCallContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#type.
 	VisitType(ctx *TypeContext) interface{}

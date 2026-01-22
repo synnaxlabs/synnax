@@ -341,4 +341,76 @@ var _ = Describe("Diagnostics", func() {
 			Expect(d[0].Severity).To(Equal(diagnostics.SeverityHint))
 		})
 	})
+
+	Describe("Error Codes", func() {
+		It("Should add error with code", func() {
+			var d diagnostics.Diagnostics
+			d.AddErrorWithCode(diagnostics.ErrorCodeTypeMismatch, "type error", nil)
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeTypeMismatch))
+			Expect(d[0].Message).To(Equal("type error"))
+		})
+
+		It("Should format error code in string output", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 1, Col: 5},
+				Severity: diagnostics.SeverityError,
+				Code:     diagnostics.ErrorCodeFuncArgCount,
+				Message:  "wrong arg count",
+			})
+			Expect(d.String()).To(Equal("1:5 error [ARC3001]: wrong arg count"))
+		})
+	})
+
+	Describe("Notes", func() {
+		It("Should add error with note", func() {
+			var d diagnostics.Diagnostics
+			d.AddErrorWithNote(errors.New("type mismatch"), nil, "expected i64")
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Notes).To(HaveLen(1))
+			Expect(d[0].Notes[0].Message).To(Equal("expected i64"))
+		})
+
+		It("Should add error with code and note", func() {
+			var d diagnostics.Diagnostics
+			d.AddErrorWithCodeAndNote(diagnostics.ErrorCodeFuncArgType, "wrong type", nil, "signature: add(x i64, y i64) i64")
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Code).To(Equal(diagnostics.ErrorCodeFuncArgType))
+			Expect(d[0].Notes).To(HaveLen(1))
+			Expect(d[0].Notes[0].Message).To(Equal("signature: add(x i64, y i64) i64"))
+		})
+
+		It("Should format notes in string output", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 1, Col: 0},
+				Severity: diagnostics.SeverityError,
+				Message:  "error msg",
+				Notes:    []diagnostics.Note{{Message: "additional context"}},
+			})
+			str := d.String()
+			Expect(str).To(ContainSubstring("error msg"))
+			Expect(str).To(ContainSubstring("note: additional context"))
+		})
+
+		It("Should format note with position", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 5, Col: 2},
+				Severity: diagnostics.SeverityError,
+				Message:  "error here",
+				Notes:    []diagnostics.Note{{Message: "related to this", Start: diagnostics.Position{Line: 3, Col: 10}}},
+			})
+			str := d.String()
+			Expect(str).To(ContainSubstring("3:10 note: related to this"))
+		})
+
+		It("Should skip empty note", func() {
+			var d diagnostics.Diagnostics
+			d.AddErrorWithNote(errors.New("error"), nil, "")
+			Expect(d).To(HaveLen(1))
+			Expect(d[0].Notes).To(BeEmpty())
+		})
+	})
 })

@@ -11,11 +11,13 @@ package analyzer
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 )
@@ -25,7 +27,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	analyzeDeclarations(ctx)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+			addUnificationError(ctx.Diagnostics, err, ctx.AST)
 			return
 		}
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
@@ -60,7 +62,7 @@ func AnalyzeStatement(ctx acontext.Context[parser.IStatementContext]) {
 	statement.Analyze(ctx)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+			addUnificationError(ctx.Diagnostics, err, ctx.AST)
 			return
 		}
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
@@ -71,7 +73,7 @@ func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) {
 	statement.AnalyzeBlock(ctx)
 	if ctx.Constraints.HasTypeVariables() {
 		if err := ctx.Constraints.Unify(); err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+			addUnificationError(ctx.Diagnostics, err, ctx.AST)
 			return
 		}
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
@@ -87,5 +89,17 @@ func applyTypeSubstitutionsToSymbols[T antlr.ParserRuleContext](
 	}
 	for _, child := range scope.Children {
 		applyTypeSubstitutionsToSymbols[T](ctx, child)
+	}
+}
+
+func addUnificationError(
+	diag *diagnostics.Diagnostics,
+	err error,
+	fallbackCtx antlr.ParserRuleContext,
+) {
+	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil && ue.Constraint.Source != nil {
+		diag.AddError(err, ue.Constraint.Source)
+	} else {
+		diag.AddError(err, fallbackCtx)
 	}
 }

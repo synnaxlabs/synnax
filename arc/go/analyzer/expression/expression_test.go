@@ -725,6 +725,22 @@ var _ = Describe("Expressions", func() {
 					result := process(x)
 				}
 			`, "argument 1 of process"),
+			Entry("wrong argument type - integer literal to string parameter", `
+				func greet(name str) {
+				}
+
+				func testFunc() {
+					greet(42)
+				}
+			`, "argument 1 of greet"),
+			Entry("wrong argument type - integer literal to string in standalone call", `
+				func log(msg str) {
+				}
+
+				func testFunc() {
+					log(123)
+				}
+			`, "argument 1 of log"),
 			Entry("nested call type mismatch", `
 				func getFloat() f32 {
 					return 3.14

@@ -27,6 +27,16 @@ const (
 	KindCompatible
 )
 
+// TypeOrigin tracks where a type was inferred for error reporting.
+type TypeOrigin struct {
+	// Source is the AST node where inference occurred.
+	Source antlr.ParserRuleContext
+	// SymbolName is the variable or parameter name, if applicable.
+	SymbolName string
+	// InferredAs is a human-readable description of the inferred type.
+	InferredAs string
+}
+
 // Constraint represents a type relationship that must hold for successful type checking.
 type Constraint struct {
 	// Source is the AST node that generated this constraint for error reporting.
@@ -37,6 +47,10 @@ type Constraint struct {
 	Left types.Type
 	// Right is the second type in the relationship.
 	Right types.Type
+	// LeftOrigin tracks where the left type was inferred.
+	LeftOrigin *TypeOrigin
+	// RightOrigin tracks where the right type was inferred.
+	RightOrigin *TypeOrigin
 	// Kind classifies the constraint as equality or compatibility.
 	Kind Kind
 }
@@ -77,7 +91,7 @@ func (s *System) AddEquality(
 		Source: source,
 		Reason: reason,
 	}
-	if err := s.unifyConstraint(constraint); err != nil {
+	if err := s.UnifyConstraint(constraint); err != nil {
 		return err
 	}
 	s.Constraints = append(s.Constraints, constraint)
@@ -101,7 +115,7 @@ func (s *System) AddCompatible(
 		Source: source,
 		Reason: reason,
 	}
-	if err := s.unifyConstraint(constraint); err != nil {
+	if err := s.UnifyConstraint(constraint); err != nil {
 		return err
 	}
 	s.Constraints = append(s.Constraints, constraint)

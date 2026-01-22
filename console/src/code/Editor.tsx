@@ -13,7 +13,7 @@ import {
   Flex,
   Icon,
   type Input,
-  Menu,
+  Menu as PMenu,
   Theming,
   TimeSpan,
   type Triggers,
@@ -21,6 +21,7 @@ import {
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";
+import { Menu } from "@/components";
 import { CSS } from "@/css";
 
 const CUT_TRIGGER: Triggers.Trigger = ["Control", "X"];
@@ -99,7 +100,7 @@ const forwardGlobalTriggers = (
 interface UseProps extends Input.Control<string> {
   language: string;
   isBlock?: boolean;
-  openContextMenu?: Menu.ContextMenuProps["open"];
+  openContextMenu?: PMenu.ContextMenuProps["open"];
 }
 
 const useTheme = (language: string) => {
@@ -232,7 +233,7 @@ export const Editor = ({
   isBlock,
   ...rest
 }: EditorProps) => {
-  const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
+  const { className: menuClassName, ...menuProps } = PMenu.useContextMenu();
   const { containerRef, editorRef } = use({
     value,
     onChange,
@@ -264,8 +265,8 @@ export const Editor = ({
     const canRename = wordAtCursor != null;
 
     return (
-      <Menu.Menu level="small" onChange={handleMenuSelect}>
-        <Menu.Item
+      <PMenu.Menu level="small" onChange={handleMenuSelect}>
+        <PMenu.Item
           itemKey="cut"
           trigger={CUT_TRIGGER}
           triggerIndicator
@@ -273,8 +274,8 @@ export const Editor = ({
         >
           <Icon.Cut />
           Cut
-        </Menu.Item>
-        <Menu.Item
+        </PMenu.Item>
+        <PMenu.Item
           itemKey="copy"
           trigger={COPY_TRIGGER}
           triggerIndicator
@@ -282,13 +283,13 @@ export const Editor = ({
         >
           <Icon.Copy />
           Copy
-        </Menu.Item>
-        <Menu.Item itemKey="paste" trigger={PASTE_TRIGGER} triggerIndicator>
+        </PMenu.Item>
+        <PMenu.Item itemKey="paste" trigger={PASTE_TRIGGER} triggerIndicator>
           <Icon.Paste />
           Paste
-        </Menu.Item>
-        <Menu.Divider />
-        <Menu.Item
+        </PMenu.Item>
+        <PMenu.Divider />
+        <PMenu.Item
           itemKey="rename"
           trigger={RENAME_TRIGGER}
           triggerIndicator
@@ -296,24 +297,27 @@ export const Editor = ({
         >
           <Icon.Rename />
           Rename
-        </Menu.Item>
-        <Menu.Item itemKey="format" trigger={FORMAT_TRIGGER} triggerIndicator>
+        </PMenu.Item>
+        <PMenu.Divider />
+        <PMenu.Item itemKey="format" trigger={FORMAT_TRIGGER} triggerIndicator>
           <Icon.TextAlign.Left />
           Format
-        </Menu.Item>
-      </Menu.Menu>
+        </PMenu.Item>
+        <PMenu.Divider />
+        <Menu.ReloadConsoleItem />
+      </PMenu.Menu>
     );
   }, [handleMenuSelect]);
 
   return (
     <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>
-      <Menu.ContextMenu
+      <PMenu.ContextMenu
         className={CSS(CSS.BE("editor", "context-menu"), className)}
         menu={menuContent}
         {...menuProps}
       >
         <Flex.Box ref={containerRef} full role="textbox" />
-      </Menu.ContextMenu>
+      </PMenu.ContextMenu>
     </Flex.Box>
   );
 };

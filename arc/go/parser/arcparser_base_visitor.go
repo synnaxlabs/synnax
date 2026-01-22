@@ -1,16 +1,6 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
-// Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
+// Code generated from /Users/emilianobonilla/Desktop/synnaxlabs/synnax/arc/go/parser/ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
-
 import "github.com/antlr4-go/antlr/v4"
 
 type BaseArcParserVisitor struct {
@@ -149,6 +139,10 @@ func (v *BaseArcParserVisitor) VisitAssignment(ctx *AssignmentContext) interface
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitCompoundOp(ctx *CompoundOpContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitIfStatement(ctx *IfStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -162,10 +156,6 @@ func (v *BaseArcParserVisitor) VisitElseClause(ctx *ElseClauseContext) interface
 }
 
 func (v *BaseArcParserVisitor) VisitReturnStatement(ctx *ReturnStatementContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitFunctionCall(ctx *FunctionCallContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

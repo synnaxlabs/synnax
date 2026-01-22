@@ -154,7 +154,6 @@ statement
     | assignment
     | ifStatement
     | returnStatement
-    | functionCall
     | expression
     ;
 
@@ -202,10 +201,6 @@ elseClause
 
 returnStatement
     : RETURN expression?
-    ;
-
-functionCall
-    : IDENTIFIER LPAREN argumentList? RPAREN
     ;
 
 // =============================================================================

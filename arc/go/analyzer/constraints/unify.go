@@ -34,6 +34,25 @@ var (
 	ErrConvergence = errors.Wrap(ErrConstraints, "unification did not converge")
 )
 
+// UnificationError captures context about a failed type unification.
+type UnificationError struct {
+	// Constraint that failed to unify.
+	Constraint *Constraint
+	// Left is the resolved left type after substitutions.
+	Left types.Type
+	// Right is the resolved right type after substitutions.
+	Right types.Type
+	// Message is the user-facing error message.
+	Message string
+	// Hint provides an optional suggestion for fixing the error (e.g., type conversion).
+	Hint string
+}
+
+func (e *UnificationError) Error() string { return e.Message }
+
+// GetHint implements diagnostics.HintProvider.
+func (e *UnificationError) GetHint() string { return e.Hint }
+
 const maxUnificationIterations = 100
 
 // Unify solves all accumulated constraints by computing type variable substitutions.
@@ -85,9 +104,9 @@ func (s *System) Unify() error {
 	return nil
 }
 
-// unifyConstraint attempts to unify a single constraint immediately.
-// Returns an error with user-friendly message if types are incompatible.
-func (s *System) unifyConstraint(c Constraint) error {
+// UnifyConstraint attempts to unify a single constraint immediately.
+// Returns a UnificationError with context if types are incompatible.
+func (s *System) UnifyConstraint(c Constraint) error {
 	if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
 		left := s.ApplySubstitutions(c.Left)
 		right := s.ApplySubstitutions(c.Right)
@@ -95,12 +114,18 @@ func (s *System) unifyConstraint(c Constraint) error {
 		if c.Reason != "" {
 			msg = fmt.Sprintf("type mismatch in %s: %v is not compatible with %v", c.Reason, right, left)
 		}
+		var hint string
 		if left.IsNumeric() && right.IsNumeric() {
-			// Get a concrete type name for the hint (not "integer" or "float")
 			hintType := concreteTypeForHint(left)
-			msg += fmt.Sprintf(" (hint: use %s(value) to convert)", hintType)
+			hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
 		}
-		return errors.New(msg)
+		return &UnificationError{
+			Constraint: &c,
+			Left:       left,
+			Right:      right,
+			Message:    msg,
+			Hint:       hint,
+		}
 	}
 	return nil
 }

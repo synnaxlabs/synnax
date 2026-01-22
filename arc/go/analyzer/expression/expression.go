@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -421,22 +422,23 @@ func validateFunctionCall(
 	totalCount := len(funcType.Inputs)
 	requiredCount := funcType.Inputs.RequiredCount()
 	actualCount := len(args)
+	signature := ir.FormatFunctionSignature(funcName, funcType)
 
 	if actualCount < requiredCount || actualCount > totalCount {
+		var msg string
 		if requiredCount == totalCount {
-			// No optional params - use existing message format
-			ctx.Diagnostics.AddError(
-				errors.Newf("function %s expects %d argument(s), got %d",
-					funcName, totalCount, actualCount),
-				funcCall,
-			)
+			msg = fmt.Sprintf("function %s expects %d argument(s), got %d",
+				funcName, totalCount, actualCount)
 		} else {
-			ctx.Diagnostics.AddError(
-				errors.Newf("function %s expects %d to %d argument(s), got %d",
-					funcName, requiredCount, totalCount, actualCount),
-				funcCall,
-			)
+			msg = fmt.Sprintf("function %s expects %d to %d argument(s), got %d",
+				funcName, requiredCount, totalCount, actualCount)
 		}
+		ctx.Diagnostics.AddErrorWithCodeAndNote(
+			diagnostics.ErrorCodeFuncArgCount,
+			msg,
+			funcCall,
+			"signature: "+signature,
+		)
 		return
 	}
 
@@ -446,17 +448,27 @@ func validateFunctionCall(
 		if paramType.Kind == basetypes.KindVariable || argType.Kind == basetypes.KindVariable {
 			if err := ctx.Constraints.AddCompatible(argType, paramType, arg,
 				fmt.Sprintf("argument %d of %s", i+1, funcName)); err != nil {
-				ctx.Diagnostics.AddError(err, arg)
+				ctx.Diagnostics.AddErrorWithNote(err, arg, "signature: "+signature)
 				return
 			}
 			continue
 		}
 		if !types.Compatible(argType, paramType) {
-			ctx.Diagnostics.AddError(
-				errors.Newf("argument %d of %s: expected %s, got %s",
+			diag := diagnostics.Diagnostic{
+				Severity: diagnostics.SeverityError,
+				Code:     diagnostics.ErrorCodeFuncArgType,
+				Message: fmt.Sprintf("argument %d of %s: expected %s, got %s",
 					i+1, funcName, paramType, argType),
-				arg,
-			)
+				Notes: []diagnostics.Note{{Message: "signature: " + signature}},
+			}
+			if paramType.IsNumeric() && argType.IsNumeric() {
+				diag.Notes = append(
+					[]diagnostics.Note{{Message: fmt.Sprintf("hint: use %s(value) to convert", paramType)}},
+					diag.Notes...,
+				)
+			}
+			diag.SetRange(arg)
+			ctx.Diagnostics.Add(diag)
 			return
 		}
 	}

@@ -19,6 +19,17 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// TypeMismatchError represents a type mismatch with an optional hint for fixing it.
+type TypeMismatchError struct {
+	Message string
+	Hint    string
+}
+
+func (e *TypeMismatchError) Error() string { return e.Message }
+
+// GetHint implements diagnostics.HintProvider.
+func (e *TypeMismatchError) GetHint() string { return e.Hint }
+
 // Check verifies type compatibility between t1 and t2, adding constraints for type variables
 // or recursively checking wrapped types for channels and series.
 func Check(
@@ -33,8 +44,7 @@ func Check(
 
 	if t1.Kind != types.KindVariable && t2.Kind != types.KindVariable {
 		if !types.StructuralMatch(t1, t2) {
-			msg := formatTypeMismatch(t1, t2, reason)
-			return errors.New(msg)
+			return newTypeMismatchError(t1, t2, reason)
 		}
 	}
 
@@ -60,26 +70,26 @@ func Check(
 	}
 
 	if !types.Equal(t1, t2) {
-		msg := formatTypeMismatch(t1, t2, reason)
-		return errors.New(msg)
+		return newTypeMismatchError(t1, t2, reason)
 	}
 	return nil
 }
 
-// formatTypeMismatch creates a descriptive error message for type mismatches.
+// newTypeMismatchError creates a TypeMismatchError for type mismatches.
 // If both types are numeric, it includes a cast suggestion hint.
-func formatTypeMismatch(expected, actual types.Type, reason string) string {
+func newTypeMismatchError(expected, actual types.Type, reason string) *TypeMismatchError {
 	var msg string
 	if reason != "" {
 		msg = fmt.Sprintf("type mismatch in %s: expected %v, got %v", reason, expected, actual)
 	} else {
 		msg = fmt.Sprintf("type mismatch: expected %v, got %v", expected, actual)
 	}
+	var hint string
 	if expected.IsNumeric() && actual.IsNumeric() {
 		hintType := concreteTypeForHint(expected)
-		msg += fmt.Sprintf(" (hint: use %s(value) to convert)", hintType)
+		hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
 	}
-	return msg
+	return &TypeMismatchError{Message: msg, Hint: hint}
 }
 
 // concreteTypeForHint returns a concrete type name for use in error hints.

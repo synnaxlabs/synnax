@@ -539,6 +539,65 @@ var _ = Describe("Type Unification", func() {
 		})
 	})
 
+	Describe("UnificationError", func() {
+		It("Should implement error interface with correct message", func() {
+			err := &constraints.UnificationError{
+				Message: "type mismatch: i32 is not compatible with f64",
+			}
+			var e error = err
+			Expect(e.Error()).To(Equal("type mismatch: i32 is not compatible with f64"))
+		})
+
+		It("Should preserve constraint context", func() {
+			constraint := constraints.Constraint{
+				Left:   types.I32(),
+				Right:  types.F64(),
+				Reason: "assignment",
+			}
+			err := &constraints.UnificationError{
+				Constraint: &constraint,
+				Left:       types.I32(),
+				Right:      types.F64(),
+				Message:    "type mismatch in assignment: i32 is not compatible with f64",
+			}
+			Expect(err.Constraint).ToNot(BeNil())
+			Expect(err.Constraint.Reason).To(Equal("assignment"))
+			Expect(err.Left).To(Equal(types.I32()))
+			Expect(err.Right).To(Equal(types.F64()))
+		})
+
+		It("Should be returned by UnifyConstraint on type mismatch", func() {
+			system := constraints.New()
+			constraint := constraints.Constraint{
+				Left:   types.I32(),
+				Right:  types.String(),
+				Reason: "test",
+			}
+			err := system.UnifyConstraint(constraint)
+			Expect(err).To(HaveOccurred())
+
+			ue, ok := err.(*constraints.UnificationError)
+			Expect(ok).To(BeTrue(), "expected UnificationError")
+			Expect(ue.Message).To(ContainSubstring("is not compatible with"))
+		})
+
+		It("Should include conversion hint for numeric type mismatches", func() {
+			system := constraints.New()
+			constraint := constraints.Constraint{
+				Left:   types.I64(),
+				Right:  types.F64(),
+				Reason: "test",
+			}
+			err := system.UnifyConstraint(constraint)
+			Expect(err).To(HaveOccurred())
+
+			ue, ok := err.(*constraints.UnificationError)
+			Expect(ok).To(BeTrue())
+			Expect(ue.Hint).To(ContainSubstring("use"))
+			Expect(ue.Hint).To(ContainSubstring("to convert"))
+		})
+	})
+
 	Describe("Complex Scenarios", func() {
 		It("should handle multiple interconnected type variables", func() {
 			var (
