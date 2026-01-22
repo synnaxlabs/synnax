@@ -1120,7 +1120,7 @@ var _ = Describe("Text", func() {
 			},
 			Entry("error when adding incompatible dimensions",
 				`func bad() f64 { return 5psi + 3s }`,
-				false, "incompatible: dimensions",
+				false, "incompatible dimensions:",
 			),
 			Entry("allow adding same dimensions",
 				`func good() f64 { return 100psi + 50psi }`,

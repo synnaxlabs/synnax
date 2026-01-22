@@ -45,8 +45,7 @@ var _ = Describe("Type Unification", func() {
 				constraint = types.NumericConstraint()
 				tv         = types.Variable("T", &constraint)
 			)
-			err := system.AddEquality(tv, types.String(), nil, "T = string")
-			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(system.AddEquality(tv, types.String(), nil, "T = string")).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -183,8 +182,7 @@ var _ = Describe("Type Unification", func() {
 				chanI32    = types.Chan(types.I32())
 				chanString = types.Chan(types.String())
 			)
-			err := system.AddEquality(chanI32, chanString, nil, "chan i32 = chan string")
-			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(system.AddEquality(chanI32, chanString, nil, "chan i32 = chan string")).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -196,8 +194,7 @@ var _ = Describe("Type Unification", func() {
 					tv         = types.Variable("T", nil)
 					cyclicType = makeCyclic(tv)
 				)
-				err := system.AddEquality(tv, cyclicType, nil, "T = cyclic T")
-				Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+				Expect(system.AddEquality(tv, cyclicType, nil, "T = cyclic T")).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("chan T", func(tv types.Type) types.Type { return types.Chan(tv) }),
 			Entry("series T", func(tv types.Type) types.Type { return types.Series(tv) }),
@@ -226,8 +223,7 @@ var _ = Describe("Type Unification", func() {
 		DescribeTable("should fail when unifying incompatible compound types",
 			func(compoundType, otherType types.Type) {
 				system := constraints.New()
-				err := system.AddEquality(compoundType, otherType, nil, "incompatible")
-				Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+				Expect(system.AddEquality(compoundType, otherType, nil, "incompatible")).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("chan f32 = i32", types.Chan(types.F32()), types.I32()),
 			Entry("series f32 = string", types.Series(types.F32()), types.String()),
@@ -240,8 +236,7 @@ var _ = Describe("Type Unification", func() {
 				f32Constraint = types.F32()
 				tv            = types.Variable("T", &f32Constraint)
 			)
-			err := system.AddEquality(tv, types.I32(), nil, "T = i32")
-			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(system.AddEquality(tv, types.I32(), nil, "T = i32")).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -414,8 +409,7 @@ var _ = Describe("Type Unification", func() {
 					floatConstraint = types.FloatConstraint()
 					tv              = types.Variable("T", &floatConstraint)
 				)
-				err := system.AddEquality(tv, targetType, nil, "T = target")
-				Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+				Expect(system.AddEquality(tv, targetType, nil, "T = target")).To(MatchError(ContainSubstring("is not compatible with")))
 			},
 			Entry("i32", types.I32()),
 			Entry("string", types.String()),
@@ -437,8 +431,7 @@ var _ = Describe("Type Unification", func() {
 				floatConstraint = types.FloatConstraint()
 				tv              = types.Variable("T", &floatConstraint)
 			)
-			err := system.AddCompatible(tv, types.String(), nil, "T ~ string")
-			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(system.AddCompatible(tv, types.String(), nil, "T ~ string")).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 	})
 
@@ -449,8 +442,7 @@ var _ = Describe("Type Unification", func() {
 				intConstraint = types.IntegerConstraint()
 				tv            = types.Variable("T", &intConstraint)
 			)
-			err := system.AddEquality(tv, types.String(), nil, "T = string")
-			Expect(err).To(MatchError(ContainSubstring("is not compatible with")))
+			Expect(system.AddEquality(tv, types.String(), nil, "T = string")).To(MatchError(ContainSubstring("is not compatible with")))
 		})
 
 		DescribeTable("should allow integer literal to be assigned to integer type",

@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -300,18 +301,23 @@ func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) t
 		// Literals can unify across int/float (like Go), but variables cannot
 		if allLiterals && thisIsLiteral {
 			if !literalsCompatible(elemType, nextType) {
-				ctx.Diagnostics.AddError(
-					fmt.Errorf("series element %d has incompatible type %s, expected %s", i+1, nextType, elemType),
+				ctx.Diagnostics.Add(diagnostics.Errorf(
 					exprs[i],
-				)
+					"series element %d has incompatible type %s, expected %s",
+					i+1,
+					nextType,
+					elemType,
+				))
 			}
 		} else {
 			allLiterals = false
 			if !seriesElementCompatible(elemType, nextType) {
-				ctx.Diagnostics.AddError(
-					fmt.Errorf("series element %d has incompatible type %s, expected %s", i+1, nextType, elemType),
+				ctx.Diagnostics.Add(diagnostics.Errorf(
 					exprs[i],
-				)
+					"series element %d has incompatible type %s, expected %s", i+1,
+					nextType,
+					elemType,
+				))
 			}
 		}
 		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {

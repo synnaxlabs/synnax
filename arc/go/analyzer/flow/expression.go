@@ -13,6 +13,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -36,7 +37,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) {
 			AST:  ctx.AST,
 		})
 		if err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
 		}
 		scope.AutoName("constant_")
@@ -50,7 +51,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
 	fnScope = fnScope.AutoName("expression_")
@@ -61,7 +62,7 @@ func analyzeExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		AST:  ctx.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
 	expression.Analyze(ctx.WithScope(blockScope))

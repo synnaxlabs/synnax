@@ -98,8 +98,8 @@ func addUnificationError(
 	fallbackCtx antlr.ParserRuleContext,
 ) {
 	if ue, ok := err.(*constraints.UnificationError); ok && ue.Constraint != nil && ue.Constraint.Source != nil {
-		diag.AddError(err, ue.Constraint.Source)
+		diag.Add(diagnostics.Error(err, ue.Constraint.Source))
 	} else {
-		diag.AddError(err, fallbackCtx)
+		diag.Add(diagnostics.Error(err, fallbackCtx))
 	}
 }
