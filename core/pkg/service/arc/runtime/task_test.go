@@ -32,10 +32,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
+	return svcarc.Arc{}, query.ErrNotFound
+}
 
 var _ = Describe("Task", Ordered, func() {
 	var (
@@ -92,7 +96,7 @@ var _ = Describe("Task", Ordered, func() {
 		cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
-			Name:   "test-taskImpl",
+			Name:   "test-task",
 			Type:   runtime.TaskType,
 			Config: string(cfgJSON),
 		}
@@ -107,7 +111,7 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	Describe("Factory.ConfigureTask", func() {
-		It("Should return false for non-arc taskImpl types", func() {
+		It("Should return false for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
@@ -151,12 +155,10 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileModule fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel: dist.Channel,
-				Framer:  dist.Framer,
-				Status:  statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
-					return svcarc.Arc{}, errors.New("module not found")
-				},
+				Channel:   dist.Channel,
+				Framer:    dist.Framer,
+				Status:    statusSvc,
+				GetModule: moduleNotFoundGetter,
 			}))
 			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
@@ -165,7 +167,7 @@ var _ = Describe("Task", Ordered, func() {
 				Config: string(cfgJSON),
 			}
 			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(ContainSubstring("module not found")))
+			Expect(err).To(MatchError(query.ErrNotFound))
 			Expect(handled).To(BeTrue())
 			Expect(t).To(BeNil())
 		})
@@ -196,12 +198,10 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetModule fails", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel: dist.Channel,
-				Framer:  dist.Framer,
-				Status:  statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
-					return svcarc.Arc{}, errors.New("module not found")
-				},
+				Channel:   dist.Channel,
+				Framer:    dist.Framer,
+				Status:    statusSvc,
+				GetModule: moduleNotFoundGetter,
 			}))
 			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
@@ -211,13 +211,13 @@ var _ = Describe("Task", Ordered, func() {
 				Config: string(cfgJSON),
 			}
 			_, _, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("module not found"))
+			Expect(stat.Message).To(ContainSubstring("not found"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -298,7 +298,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 		})
 
-		It("Should start taskImpl with start command", func() {
+		It("Should start task with start command", func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		})
 
@@ -307,7 +307,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		})
 
-		It("Should stop taskImpl with stop command", func() {
+		It("Should stop task with stop command", func() {
 			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			Expect(arcTask.Exec(ctx, task.Command{Type: "stop"})).To(Succeed())
 		})
@@ -359,8 +359,6 @@ var _ = Describe("Task", Ordered, func() {
 				DataType:   telem.Float32T,
 			}
 			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
-
-			// Graph with "write" node that writes to a channel
 			writeGraph := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "const", Type: "constant", Config: map[string]any{"value": 42.0}},
