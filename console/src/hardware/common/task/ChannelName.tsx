@@ -44,7 +44,13 @@ export const ChannelName = ({
     retrieve({ key: channel, rangeKey: range ?? undefined });
   }, [channel, range]);
   const { update } = Channel.useRename();
-  const name = data?.name ?? (primitive.isNonZero(formName) ? formName : defaultName);
+  const name = primitive.isNonZero(data?.alias)
+    ? data.alias
+    : primitive.isNonZero(data?.name)
+      ? data.name
+      : primitive.isNonZero(formName)
+        ? formName
+        : defaultName;
   const handleRename = useCallback(
     (name: string) => {
       if (channel === 0) {
