@@ -327,7 +327,7 @@ class JSONConfigMixin(TaskProtocol):
     def to_payload(self) -> TaskPayload:
         """Implements TaskProtocol protocol"""
         pld = self._internal.to_payload()
-        pld.config = json.dumps(self.config.dict())
+        pld.config = json.dumps(self.config.model_dump())
         return pld
 
     def set_internal(self, task: Task):

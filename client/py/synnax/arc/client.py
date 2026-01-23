@@ -17,10 +17,7 @@ from pydantic import PrivateAttr
 
 from synnax.arc.payload import (
     ArcKey,
-    ArcKeys,
     ArcMode,
-    ArcName,
-    ArcNames,
     ArcPayload,
     Graph,
     Text,
@@ -167,14 +164,14 @@ class ArcClient:
     def retrieve(self, *, key: ArcKey) -> Arc: ...
 
     @overload
-    def retrieve(self, *, name: ArcName) -> Arc: ...
+    def retrieve(self, *, name: str) -> Arc: ...
 
     @overload
     def retrieve(
         self,
         *,
-        keys: ArcKeys | None = None,
-        names: ArcNames | None = None,
+        keys: list[ArcKey] | None = None,
+        names: list[str] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -184,9 +181,9 @@ class ArcClient:
         self,
         *,
         key: ArcKey | None = None,
-        name: ArcName | None = None,
-        keys: ArcKeys | None = None,
-        names: ArcNames | None = None,
+        name: str | None = None,
+        keys: list[ArcKey] | None = None,
+        names: list[str] | None = None,
         search_term: str | None = None,
         limit: int | None = None,
         offset: int | None = None,
@@ -221,7 +218,7 @@ class ArcClient:
             raise MultipleFoundError(f"Multiple Arcs matching {identifier} found")
         return arcs[0]
 
-    def delete(self, keys: ArcKey | ArcKeys) -> None:
+    def delete(self, keys: ArcKey | list[ArcKey]) -> None:
         send_required(
             self._client,
             "/arc/delete",
