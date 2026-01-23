@@ -200,6 +200,7 @@ class Stream final
     grpc::ClientContext grpc_ctx;
     /// @brief the RPC stub used to instantiate the connection.
     const std::unique_ptr<typename RPC::Stub> stub;
+    /// @brief stored to check connection state.
     std::shared_ptr<grpc::Channel> channel;
 
     /// @brief set to true when the stream is closed.
@@ -218,7 +219,7 @@ public:
         freighter::Context &req_ctx,
         freighter::Context &res_ctx
     ):
-        mw(mw), stub(RPC::NewStub(ch)), channel(std::move(ch)) {
+        mw(mw), stub(RPC::NewStub(ch)), channel(ch) {
         for (const auto &[k, v]: req_ctx.params)
             this->grpc_ctx.AddMetadata(k, v);
         this->stream = this->stub->Exec(&this->grpc_ctx);
