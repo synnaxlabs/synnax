@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
 # Copyright 2025 Synnax Labs, Inc.
 #
@@ -9,84 +10,120 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-if [[ -z "$1" ]]; then
+SCRIPT_DIR="$(
+  cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1
+  pwd
+)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
+
+if [[ -z "${1:-}" ]]; then
     echo "Usage: $0 <version>"
+    echo "Example: $0 0.51.0"
     exit 1
 fi
 
-VERSION=$1
+VERSION="$1"
 
-# Function to update the version in the VERSION file
-update_version_file() {
-    local version_file="../core/pkg/version/VERSION"
-    echo "$VERSION" > "$version_file"
-    echo "Updated VERSION file to $VERSION"
-}
-
-# Function to update the version in MODULE.bazel
-update_module_bazel() {
-    local version=$1
-    local module_file="../MODULE.bazel"
-
-    if [[ -f "$module_file" ]]; then
-        # Only update the version within the module() declaration, not bazel_dep versions
-        # This matches the pattern: module(...version = "X.Y.Z"...)
-        sed -i '' "/^module(/,/^)/ s/version = \".*\"/version = \"$version\"/" "$module_file"
-        echo "Updated version in MODULE.bazel to $version"
-    else
-        echo "MODULE.bazel not found!"
-    fi
-}
-
-# Function to update the version in console/src-tauri/Cargo.toml
-update_cargo_toml() {
-    local version=$1
-    local cargo_file="../console/src-tauri/Cargo.toml"
-
-    if [[ -f "$cargo_file" ]]; then
-        sed -i '' "s/^version = \".*\"/version = \"$version\"/" "$cargo_file"
-        echo "Updated version in console/src-tauri/Cargo.toml to $version"
-    else
-        echo "console/src-tauri/Cargo.toml not found!"
-    fi
-}
-
-# Combined function to update the version in either a TypeScript package.json or Python pyproject.toml file
-update_version() {
-    local path=$1
-    local version=$2
-
-    if [[ -f "$path/package.json" ]]; then
-        sed -i '' "s/\"version\": \".*\"/\"version\": \"$version\"/" "$path/package.json"
-        echo "Updated version in $path/package.json"
-    elif [[ -f "$path/pyproject.toml" ]]; then
-        sed -i '' "s/^version = \".*\"/version = \"$version\"/" "$path/pyproject.toml"
-        echo "Updated version in $path/pyproject.toml"
-    else
-        echo "No package.json or pyproject.toml found in $path!"
-    fi
-}
-
-update_version_file
-update_module_bazel "$VERSION"
-update_cargo_toml "$VERSION"
-
-paths=("../x/ts" "../x/media" "../alamos/ts" "../client/ts" "../pluto" "../console" "../drift" ".." "../freighter/ts" "../freighter/py" "../alamos/py" "../client/py" "../integration")
-
-for path in "${paths[@]}"; do
-    update_version "$path" "$VERSION"
-done
-
-echo "Version update complete."
-
-./check_version.sh
-
-CHECK_VERSION_STATUS=$?
-
-if [[ $CHECK_VERSION_STATUS -eq 0 ]]; then
-    echo "All version checks passed successfully."
-else
-    echo "Some version checks failed. Please review the output above."
+if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Error: Version must be in semver format (e.g., 0.51.0)"
+    exit 1
 fi
 
-exit $CHECK_VERSION_STATUS
+echo "Bumping all versions to $VERSION"
+echo "================================"
+
+update_version_file() {
+    local version_file="$ROOT_DIR/core/pkg/version/VERSION"
+    echo "$VERSION" > "$version_file"
+    echo "✅ Updated VERSION file: $version_file"
+}
+
+update_python() {
+    local pyproject="$1"
+    if [[ -f "$pyproject" ]]; then
+        sed -i '' "s/^version = \".*\"/version = \"$VERSION\"/" "$pyproject"
+        echo "✅ Updated Python: $pyproject"
+    else
+        echo "❌ File not found: $pyproject"
+        return 1
+    fi
+}
+
+update_node() {
+    local pkg_json="$1"
+    if [[ -f "$pkg_json" ]]; then
+        sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$pkg_json"
+        echo "✅ Updated Node: $pkg_json"
+    else
+        echo "❌ File not found: $pkg_json"
+        return 1
+    fi
+}
+
+update_tauri() {
+    local tauri_conf="$1"
+    if [[ -f "$tauri_conf" ]]; then
+        sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION\"/" "$tauri_conf"
+        echo "✅ Updated Tauri: $tauri_conf"
+    else
+        echo "❌ File not found: $tauri_conf"
+        return 1
+    fi
+}
+
+echo ""
+echo "Updating VERSION file..."
+update_version_file
+
+echo ""
+echo "Updating Python packages..."
+PYTHON_DIRS=(
+    "$ROOT_DIR/alamos/py"
+    "$ROOT_DIR/freighter/py"
+    "$ROOT_DIR/client/py"
+)
+for d in "${PYTHON_DIRS[@]}"; do
+    update_python "$d/pyproject.toml"
+done
+
+echo ""
+echo "Updating Node packages..."
+NODE_DIRS=(
+    "$ROOT_DIR/alamos/ts"
+    "$ROOT_DIR/client/ts"
+    "$ROOT_DIR/configs/eslint"
+    "$ROOT_DIR/configs/stylelint"
+    "$ROOT_DIR/configs/ts"
+    "$ROOT_DIR/configs/vite"
+    "$ROOT_DIR/drift"
+    "$ROOT_DIR/freighter/ts"
+    "$ROOT_DIR/pluto"
+    "$ROOT_DIR/x/media"
+    "$ROOT_DIR/x/ts"
+)
+for d in "${NODE_DIRS[@]}"; do
+    update_node "$d/package.json"
+done
+
+echo ""
+echo "Updating Tauri config..."
+update_tauri "$ROOT_DIR/console/src-tauri/tauri.conf.json"
+
+echo ""
+echo "================================"
+echo "Version bump complete. Running check_versions.sh to verify..."
+echo ""
+
+"$SCRIPT_DIR/check_versions.sh"
+
+CHECK_STATUS=$?
+
+if [[ $CHECK_STATUS -eq 0 ]]; then
+    echo ""
+    echo "✅ All version checks passed!"
+else
+    echo ""
+    echo "❌ Some version checks failed. Please review the output above."
+fi
+
+exit $CHECK_STATUS
