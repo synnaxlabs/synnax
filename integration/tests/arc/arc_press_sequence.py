@@ -68,6 +68,7 @@ class ArcPressSequence(ConsoleCase):
     def run(self) -> None:
         self.log("Creating Arc sequence through Console UI")
         self.console.arc.create(ARC_NAME, ARC_SEQUENCE_SOURCE, mode="Text")
+        sy.sleep(0.5)
 
         rack_key = self.params.get("rack_key")
         if rack_key:
@@ -75,11 +76,13 @@ class ArcPressSequence(ConsoleCase):
         else:
             rack = self.client.racks.retrieve(embedded=False)
         rack_name = rack.name
+
         self.log(f"Selecting rack: {rack_name} (key: {rack.key})")
         self.console.arc.select_rack(rack_name)
 
         self.log("Configuring Arc task")
         self.console.arc.configure()
+        sy.sleep(1.0)
 
         arc = self.client.arcs.retrieve(name=ARC_NAME)
         self.log(f"Arc saved with key: {arc.key}")
@@ -87,6 +90,7 @@ class ArcPressSequence(ConsoleCase):
         self.log("Starting Arc task")
         self.console.arc.start()
         self.log(f"Arc is running: {self.console.arc.is_running()}")
+        sy.sleep(1.0)
 
         self.log("Triggering sequence")
         with self.client.open_writer(sy.TimeStamp.now(), "start_seq_cmd") as w:
@@ -96,6 +100,7 @@ class ArcPressSequence(ConsoleCase):
 
         self.log("Stopping Arc task")
         self.console.arc.stop()
+        sy.sleep(1.0)
 
         self.log("Signaling sim_daq to stop")
         with self.client.open_writer(sy.TimeStamp.now(), "end_test_cmd") as w:

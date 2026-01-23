@@ -47,18 +47,22 @@ class ArcClient:
 
         add_btn = self.page.locator(f"{self.TOOLBAR_CLASS} button").first
         add_btn.click()
+        sy.sleep(0.5)
 
         name_input = self.page.locator("input[placeholder='Automation Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
+        sy.sleep(0.5)
 
         mode_btn = self.page.locator(
             f".console-arc-create-modal__mode-select-button:has-text('{mode}')"
         )
         mode_btn.click()
+        sy.sleep(0.5)
 
         create_btn = self.page.get_by_role("button", name="Create", exact=True)
         create_btn.click()
+        sy.sleep(0.5)
 
         if mode == "Text":
             editor = self.page.locator("[data-mode-id='arc']")
@@ -67,7 +71,7 @@ class ArcClient:
             self.page.keyboard.press("ControlOrMeta+a")
             self.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
             self.page.keyboard.press("ControlOrMeta+v")
-            self.page.keyboard.press("ControlOrMeta+s")
+        sy.sleep(0.5)
 
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name."""
