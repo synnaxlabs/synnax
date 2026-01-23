@@ -10,16 +10,22 @@
       ]
     },
     {
-      "sequence_name": "channel",
+      "sequence_name": "lifecycle",
       "tests": [
         {
-          "case": "console/channel/channel_operations"
+          "case": "console/label/label_lifecycle"
         },
         {
-          "case": "console/channel/rename_synchronization"
+          "case": "console/range/range_lifecycle"
         },
         {
-          "case": "console/channel/alias_synchronization"
+          "case": "console/log/log_lifecycle"
+        },
+        {
+          "case": "console/plot/line_plot"
+        },
+        {
+          "case": "console/rack/rack_lifecycle"
         }
       ]
     },
@@ -36,36 +42,34 @@
       ]
     },
     {
-      "sequence_name": "general",
+      "sequence_name": "schematic",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
       "tests": [
-        {
-          "case": "console/label/label_lifecycle"
-        },
-        {
-          "case": "console/range/range_lifecycle"
-        },
-        {
-          "case": "console/log/log_lifecycle"
-        },
         {
           "case": "console/schematic/alignment"
         },
         {
           "case": "console/schematic/edit_props"
-        },
-        {
-          "case": "console/plot/line_plot"
-        },
-        {
-          "case": "console/rack/rack_lifecycle"
-        },
-        {
-          "case": "console/documentation"
         }
       ]
     },
     {
-      "sequence_name": "access",
+      "sequence_name": "channel",
+      "tests": [
+        {
+          "case": "console/channel/channel_operations"
+        },
+        {
+          "case": "console/channel/rename_synchronization"
+        },
+        {
+          "case": "console/channel/alias_synchronization"
+        }
+      ]
+    },
+    {
+      "sequence_name": "user",
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
@@ -87,19 +91,7 @@
       ]
     },
     {
-      "sequence_name": "layout",
-      "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "console/layout/mosaic_operations"
-        },
-        {
-          "case": "console/layout/keyboard_shortcuts"
-        }
-      ]
-    },
-    {
-      "sequence_name": "permissions",
+      "sequence_name": "roles",
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
@@ -127,6 +119,22 @@
         },
         {
           "case": "console/task/ni_analog_read_forms"
+        }
+      ]
+    },
+    {
+      "sequence_name": "other",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
+        },
+        {
+          "case": "console/documentation"
         }
       ]
     }

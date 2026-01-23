@@ -281,8 +281,12 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
         except Exception as e:
             all_items = self.page.locator(".pluto-tree__item").all()
-            item_texts = [item.text_content() for item in all_items if item.is_visible()]
-            raise Exception(f"Page '{name}' not found. Available items: {item_texts}") from e
+            item_texts = [
+                item.text_content() for item in all_items if item.is_visible()
+            ]
+            raise Exception(
+                f"Page '{name}' not found. Available items: {item_texts}"
+            ) from e
         page_item.click(button="right")
         self.page.evaluate("delete window.showSaveFilePicker")
 

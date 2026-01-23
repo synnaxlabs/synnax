@@ -134,22 +134,32 @@ class LabelClient:
 
         print(f"[DEBUG_LABEL_RENAME] Pressing Enter on input element to save rename")
         name_input.press("Enter")
-        print(f"[DEBUG_LABEL_RENAME] Pressed Enter on input, waiting for rename to complete")
+        print(
+            f"[DEBUG_LABEL_RENAME] Pressed Enter on input, waiting for rename to complete"
+        )
 
         self.page.wait_for_load_state("networkidle", timeout=5000)
 
         renamed_item = self._find_label_item(new_name)
         old_item = self._find_label_item(old_name)
-        print(f"[DEBUG_LABEL_RENAME] After rename - new_name exists: {renamed_item is not None}, old_name exists: {old_item is not None}")
+        print(
+            f"[DEBUG_LABEL_RENAME] After rename - new_name exists: {renamed_item is not None}, old_name exists: {old_item is not None}"
+        )
 
         if renamed_item is None:
             all_items = self._find_label_items()
             all_names = self._enumerate_label_names(all_items)
-            print(f"[DEBUG_LABEL_RENAME] Rename verification failed. Available labels: {all_names}")
-            raise RuntimeError(f"Label rename from '{old_name}' to '{new_name}' did not complete. Available labels: {all_names}")
+            print(
+                f"[DEBUG_LABEL_RENAME] Rename verification failed. Available labels: {all_names}"
+            )
+            raise RuntimeError(
+                f"Label rename from '{old_name}' to '{new_name}' did not complete. Available labels: {all_names}"
+            )
 
         if old_item is not None:
-            print(f"[DEBUG_LABEL_RENAME] WARNING: Old label '{old_name}' still exists after rename")
+            print(
+                f"[DEBUG_LABEL_RENAME] WARNING: Old label '{old_name}' still exists after rename"
+            )
 
         self._close_edit_modal()
 
@@ -172,7 +182,9 @@ class LabelClient:
             self._close_edit_modal()
             raise ValueError(f"Label '{name}' not found. Available labels: {all_names}")
 
-        print(f"[DEBUG_LABEL_DELETE] Found label '{name}', hovering to show delete button")
+        print(
+            f"[DEBUG_LABEL_DELETE] Found label '{name}', hovering to show delete button"
+        )
         label_item.hover()
 
         delete_button = label_item.locator("button.console-label__delete")
@@ -184,13 +196,19 @@ class LabelClient:
         delete_button.click(timeout=5000)
         print(f"[DEBUG_LABEL_DELETE] Clicked delete button")
 
-        self.page.locator(f"[id='{element_id}']").wait_for(state="hidden", timeout=10000)
+        self.page.locator(f"[id='{element_id}']").wait_for(
+            state="hidden", timeout=10000
+        )
 
         print(f"[DEBUG_LABEL_DELETE] Verifying label '{name}' was deleted")
         still_exists = self._find_label_item(name)
         if still_exists is not None:
-            print(f"[DEBUG_LABEL_DELETE] ERROR: Label '{name}' still exists after delete!")
-            raise RuntimeError(f"Failed to delete label '{name}' - still exists after clicking delete")
+            print(
+                f"[DEBUG_LABEL_DELETE] ERROR: Label '{name}' still exists after delete!"
+            )
+            raise RuntimeError(
+                f"Failed to delete label '{name}' - still exists after clicking delete"
+            )
 
         print(f"[DEBUG_LABEL_DELETE] Label '{name}' successfully deleted")
         self._close_edit_modal()
