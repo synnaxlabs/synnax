@@ -8,16 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import re
-import time
 from typing import TYPE_CHECKING
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
-
-
-def _debug_timing(label: str) -> None:
-    print(f"[TIMING] {time.strftime('%H:%M:%S')} - {label}")
-
 
 from synnax.channel.payload import (
     ChannelKey,
@@ -128,8 +122,6 @@ class ChannelClient:
         channels do not store any data, and are used for streaming purposes only.
         :returns: True if the channel was created successfully.
         """
-        _debug_timing(f"create() START for '{name}'")
-
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP
 
@@ -197,56 +189,39 @@ class ChannelClient:
             virtual = ch_config.get("virtual", False)
             index_str = str(index) if index != 0 else ""
 
-            print(f"[DEBUG] Creating channel {i+1}/{len(channels)}: {name}")
-            print(
-                f"[DEBUG]   is_index={is_index}, data_type={data_type}, index={index}"
-            )
-
             if is_index and data_type == DataType.UNKNOWN:
                 data_type = DataType.TIMESTAMP
 
             # Open command palette for first channel
             if i == 0:
-                print(f"[DEBUG]   Opening Create Channel modal")
                 self.console.command_palette("Create a Channel")
                 # Wait for modal to appear
                 self.page.wait_for_selector(
                     "div.pluto-dialog__dialog.pluto--modal.pluto--visible",
                     timeout=5000,
                 )
-                print(f"[DEBUG]   Modal is visible")
             else:
                 modal = self.page.locator(
                     "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
                 )
                 modal_count = modal.count()
-                print(
-                    f"[DEBUG]   At start of channel {i+1}, modal count: {modal_count}"
-                )
                 if modal_count == 0:
-                    print(f"[DEBUG]   ERROR: Modal closed between iterations!")
                     raise RuntimeError(
                         "Modal closed between channel creations despite 'Create More'"
                     )
 
             # Fill channel name (use same pattern as create method)
             name_input = self.page.get_by_role("textbox", name="Name")
-            print(f"[DEBUG]   Waiting for name input to be visible")
             name_input.wait_for(state="visible", timeout=5000)
-            current_value = name_input.input_value()
-            print(f"[DEBUG]   Name input is visible, current value: '{current_value}'")
             name_input.fill(name)
-            print(f"[DEBUG]   Filled name input with: '{name}'")
 
             # Set virtual if needed
             if virtual:
                 self.console.click_checkbox("Virtual")
-                print(f"[DEBUG]   Set Virtual checkbox")
 
             # Configure as index or regular channel
             if is_index:
                 self.console.click_checkbox("Is Index")
-                print(f"[DEBUG]   Set Is Index checkbox")
             else:
                 if index == 0:
                     raise ValueError(
@@ -255,12 +230,10 @@ class ChannelClient:
 
                 # Set data type
                 data_type_str = str(DataType(data_type))
-                print(f"[DEBUG]   Setting data type: {data_type_str}")
                 self.console.click_btn("Data Type")
                 self.console.select_from_dropdown(data_type_str, "Search Data Types")
 
                 # Set index
-                print(f"[DEBUG]   Setting index: {index_str}")
                 self.console.click_btn("Index")
                 self.console.select_from_dropdown(index_str, "Search Channels")
 
@@ -276,75 +249,45 @@ class ChannelClient:
             if not is_last:
                 # Ensure "Create More" is checked
                 is_checked = create_more_checkbox.is_checked()
-                print(f"[DEBUG]   Create More checkbox is currently: {is_checked}")
                 if not is_checked:
                     create_more_checkbox.click()
-                    print(f"[DEBUG]   Clicked Create More checkbox to enable it")
             else:
                 # Ensure "Create More" is unchecked for last channel
                 is_checked = create_more_checkbox.is_checked()
-                print(
-                    f"[DEBUG]   LAST CHANNEL - Create More checkbox is currently: {is_checked}"
-                )
                 if is_checked:
                     create_more_checkbox.click()
-                    print(f"[DEBUG]   Clicked Create More checkbox to disable it")
 
-            print(f"[DEBUG]   Clicking Create button")
             self.page.get_by_role("button", name="Create", exact=True).click()
             created_channels.append(name)
-            print(f"[DEBUG]   Clicked Create button")
 
             if not is_last:
-                print(f"[DEBUG]   Waiting for form to reset...")
-
                 modal = self.page.locator(
                     "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
                 )
                 modal_count = modal.count()
-                print(f"[DEBUG]   Modal count after Create click: {modal_count}")
                 if modal_count == 0:
-                    print(
-                        f"[DEBUG]   ERROR: Modal closed after Create! 'Create More' should keep it open"
-                    )
                     raise RuntimeError(
                         "Modal closed after creating channel with 'Create More' checked"
                     )
 
                 name_input_after = self.page.get_by_role("textbox", name="Name")
-                name_input_count = name_input_after.count()
-                print(f"[DEBUG]   Name input count: {name_input_count}")
 
                 name_input_after.wait_for(state="visible", timeout=5000)
-                print(f"[DEBUG]   Name input is visible after Create")
                 # Wait for input to be cleared (form reset)
                 for attempt in range(30):
                     try:
                         current_val = name_input_after.input_value()
-                        print(
-                            f"[DEBUG]   Attempt {attempt+1}/30: name input value = '{current_val}'"
-                        )
                         if current_val == "":
-                            print(
-                                f"[DEBUG]   Form reset complete (name input is empty)"
-                            )
                             break
-                    except Exception as e:
-                        print(
-                            f"[DEBUG]   Attempt {attempt+1}/30: Exception checking input value: {e}"
-                        )
+                    except Exception:
                         pass
                     self.page.wait_for_timeout(100)
                 else:
-                    print(f"[DEBUG]   ERROR: Form did not reset after 3 seconds")
                     raise RuntimeError(
                         "Form did not reset after creating channel with 'Create More'"
                     )
 
         self.hide_channels()
-        print(
-            f"[DEBUG] create_with_create_more completed. Created {len(created_channels)} channels: {created_channels}"
-        )
         return created_channels
 
     def create_calculated(self, *, name: ChannelName, expression: str) -> str | None:
@@ -354,8 +297,6 @@ class ChannelClient:
         :param expression: The calculation expression (e.g., "channel_a * 2").
         :returns: None if successful, error message string if failed.
         """
-        _debug_timing(f"create_calculated() START for '{name}'")
-
         self.open_create_calculated_modal()
 
         name_input = self.page.locator("input[placeholder='Name']")
@@ -492,8 +433,6 @@ class ChannelClient:
         :param names: List of channel names to group.
         :param group_name: The name for the new group.
         """
-        _debug_timing(f"group() START for {names}")
-        group_start = time.time()
         if len(names) < 2:
             raise ValueError("At least 2 channels are required to create a group")
 
@@ -522,27 +461,21 @@ class ChannelClient:
                     item.click(button="right")
                     break
 
-        _debug_timing(f"group() waiting for 'Group Selection' menu item")
         group_selection_item = self.page.get_by_text(
             "Group Selection", exact=True
         ).first
         group_selection_item.wait_for(state="visible", timeout=2000)
-        _debug_timing(f"group() 'Group Selection' is visible, clicking")
         group_selection_item.click()
 
-        _debug_timing(f"group() checking for editable input")
         editable_input = self.page.locator("input.pluto-text__input--editable").first
         try:
             editable_input.wait_for(state="visible", timeout=500)
-            _debug_timing(f"group() editable input visible, filling")
             editable_input.fill(group_name)
             self.page.keyboard.press("Enter")
         except Exception:
-            _debug_timing(f"group() no editable input, typing directly")
             self.page.keyboard.type(group_name)
             self.page.keyboard.press("Enter")
 
-        _debug_timing(f"group() TOTAL: {time.time() - group_start:.2f}s")
         self.hide_channels()
 
     def copy_link(self, name: ChannelName) -> str:
@@ -551,16 +484,11 @@ class ChannelClient:
         :param name: The name of the channel to copy link for.
         :returns: The copied link (if clipboard access is available).
         """
-        _debug_timing(f"copy_link() START for '{name}'")
-        copy_start = time.time()
         self._right_click_channel(name)
 
-        _debug_timing(f"copy_link() waiting for 'Copy Link' menu item")
         copy_link_item = self.page.get_by_text("Copy Link").first
         copy_link_item.wait_for(state="visible", timeout=2000)
-        _debug_timing(f"copy_link() 'Copy Link' visible, clicking")
         copy_link_item.click(timeout=1000)
-        _debug_timing(f"copy_link() TOTAL: {time.time() - copy_start:.2f}s")
 
         self.hide_channels()
 
@@ -577,34 +505,20 @@ class ChannelClient:
         :param name: The name of the channel to check.
         :returns: True if the channel exists, False otherwise.
         """
-        _debug_timing(f"exists() START for '{name}'")
-        start = time.time()
         self.show_channels()
-        _debug_timing(f"exists() show_channels took {time.time() - start:.2f}s")
         channel_name_str = str(name)
         selector = (
             f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
         )
         try:
-            wait_start = time.time()
             self.page.wait_for_selector(selector, state="visible", timeout=500)
-            _debug_timing(
-                f"exists() wait_for_selector FOUND in {time.time() - wait_start:.2f}s"
-            )
             return True
         except Exception as e:
             if "Timeout" in type(e).__name__:
-                _debug_timing(
-                    f"exists() wait_for_selector TIMEOUT after {time.time() - wait_start:.2f}s"
-                )
                 return False
             raise RuntimeError(f"Error checking if channel '{name}' exists: {e}") from e
         finally:
-            hide_start = time.time()
             self.hide_channels()
-            _debug_timing(
-                f"exists() hide_channels took {time.time() - hide_start:.2f}s, TOTAL: {time.time() - start:.2f}s"
-            )
 
     def wait_for_channels(
         self, names: ChannelNames, timeout: sy.CrudeTimeSpan = 10.0
@@ -670,27 +584,16 @@ class ChannelClient:
 
     def _rename_single_channel(self, *, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
-        _debug_timing(f"_rename_single_channel() START '{old_name}' -> '{new_name}'")
-        rename_start = time.time()
-
         item = self._right_click_channel(old_name)
-        _debug_timing(
-            f"_rename_single_channel() right-click done in {time.time() - rename_start:.2f}s"
-        )
 
-        _debug_timing(f"_rename_single_channel() waiting for 'Rename' menu item")
         rename_option = self.page.get_by_text("Rename", exact=True).first
         rename_option.wait_for(state="visible", timeout=2000)
-        _debug_timing(f"_rename_single_channel() 'Rename' visible, clicking")
         rename_option.click(timeout=1000)
 
         channel_name_element = item.locator("p.pluto-text--editable")
         channel_name_element.click()
         channel_name_element.fill(new_name)
         self.page.keyboard.press("Enter")
-        _debug_timing(
-            f"_rename_single_channel() TOTAL: {time.time() - rename_start:.2f}s"
-        )
 
         self.hide_channels()
 
@@ -713,13 +616,7 @@ class ChannelClient:
 
     def _delete_single_channel(self, name: str) -> None:
         """Deletes a single channel via console UI."""
-        _debug_timing(f"_delete_single_channel() START for '{name}'")
-        delete_start = time.time()
-
         self._right_click_channel(name)
-        _debug_timing(
-            f"_delete_single_channel() right-click done in {time.time() - delete_start:.2f}s"
-        )
 
         delete_option = self.page.get_by_text("Delete", exact=True).first
         delete_option.wait_for(state="visible", timeout=5000)
