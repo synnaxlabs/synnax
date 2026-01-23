@@ -293,7 +293,7 @@ jobs:
         id: console-version
         working-directory: console
         run: |
-          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up pnpm
