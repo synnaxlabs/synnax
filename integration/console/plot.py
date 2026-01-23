@@ -139,6 +139,7 @@ class Plot(ConsolePage):
             state="visible", timeout=5000
         )
         download_button = self.page.get_by_role("button", name="Download").last
+        download_button.wait_for(state="visible", timeout=5000)
         self.page.evaluate("delete window.showSaveFilePicker")
 
         with self.page.expect_download(timeout=5000) as download_info:
