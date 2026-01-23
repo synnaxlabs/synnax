@@ -3,20 +3,21 @@
   "sequences": [
     {
       "sequence_name": "workspace",
-      "sequence_order": "sequential",
       "tests": [
         {
           "case": "console/workspace"
-        },
-        {
-          "case": "console/pages/rename_synchronization"
         }
       ]
     },
     {
       "sequence_name": "channel",
-      "sequence_order": "sequential",
       "tests": [
+        {
+          "case": "console/channel/calc_channel_stress",
+          "parameters": {
+            "rate": [10, 100, 1000]
+          }
+        },
         {
           "case": "console/channel/channel_operations"
         },
@@ -25,12 +26,28 @@
         },
         {
           "case": "console/channel/alias_synchronization"
+        }
+      ]
+    },
+    {
+      "sequence_name": "pages",
+      "tests": [
+        {
+          "case": "console/pages/rename_synchronization"
         },
         {
-          "case": "console/channel/calc_channel_stress",
-          "parameters": {
-            "rate": [10, 100, 1000]
-          }
+          "case": "console/pages/open_close"
+        }
+      ]
+    },
+    {
+      "sequence_name": "layout",
+      "tests": [
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
         }
       ]
     },
@@ -40,13 +57,13 @@
       "pool_size": 3,
       "tests": [
         {
+          "case": "console/log/log_lifecycle"
+        },
+        {
           "case": "console/schematic/alignment"
         },
         {
           "case": "console/schematic/edit_props"
-        },
-        {
-          "case": "console/pages/open_close"
         },
         {
           "case": "console/plot/line_plot"
@@ -55,19 +72,10 @@
           "case": "console/label/label_lifecycle"
         },
         {
-          "case": "console/layout/mosaic_operations"
-        },
-        {
-          "case": "console/layout/keyboard_shortcuts"
-        },
-        {
           "case": "console/rack/rack_lifecycle"
         },
         {
           "case": "console/range/range_lifecycle"
-        },
-        {
-          "case": "console/log/log_lifecycle"
         },
         {
           "case": "console/documentation"
@@ -93,12 +101,6 @@
         },
         {
           "case": "console/user_logout_badge"
-        },
-        {
-          "case": "console/role_operator_permissions"
-        },
-        {
-          "case": "console/role_viewer_permissions"
         }
       ]
     },

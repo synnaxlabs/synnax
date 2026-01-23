@@ -495,7 +495,9 @@ class ChannelClient:
                 channel_name_str = str(name)
                 selector = f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
                 try:
-                    self.page.wait_for_selector(selector, state="visible", timeout=timeout_ms)
+                    self.page.wait_for_selector(
+                        selector, state="visible", timeout=timeout_ms
+                    )
                 except Exception:
                     self.hide_channels()
                     return False
