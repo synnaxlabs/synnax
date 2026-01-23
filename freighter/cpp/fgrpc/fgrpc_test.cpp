@@ -324,7 +324,9 @@ TEST(testGRPC, testCloseSendOnDeadConnection) {
     streamer->send(mes);
     ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::UNREACHABLE);
     auto err = streamer->close_send();
-    ASSERT_TRUE(err.matches(freighter::UNREACHABLE) || err.matches(freighter::STREAM_CLOSED));
+    ASSERT_TRUE(
+        err.matches(freighter::UNREACHABLE) || err.matches(freighter::STREAM_CLOSED)
+    );
 }
 
 /// @brief it should safely call close_send multiple times.
