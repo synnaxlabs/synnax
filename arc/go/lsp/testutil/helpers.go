@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/lsp"
 	xutil "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
@@ -100,4 +101,18 @@ func SemanticTokens(
 	return xutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 	}))
+}
+
+func FindCompletion(
+	items []protocol.CompletionItem,
+	label string,
+) (protocol.CompletionItem, bool) {
+	return lo.Find(items, func(item protocol.CompletionItem) bool {
+		return item.Label == label
+	})
+}
+
+func HasCompletion(items []protocol.CompletionItem, label string) bool {
+	_, found := FindCompletion(items, label)
+	return found
 }

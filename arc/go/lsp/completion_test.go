@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
 	"github.com/synnaxlabs/arc/symbol"
@@ -80,15 +79,8 @@ var _ = Describe("Completion", func() {
 					"Expected only type completions, got: %s (kind: %v)", item.Label, item.Kind)
 			}
 
-			_, foundFunc := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "func"
-			})
-			Expect(foundFunc).To(BeFalse(), "Should not show 'func' keyword in type annotation context")
-
-			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "if"
-			})
-			Expect(foundIf).To(BeFalse(), "Should not show 'if' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' keyword in type annotation context")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' keyword in type annotation context")
 		})
 
 		It("should return types matching prefix in type annotation position", func() {
@@ -111,15 +103,8 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
-			_, foundFunc := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "func"
-			})
-			Expect(foundFunc).To(BeFalse(), "Should not show 'func' keyword in expression context")
-
-			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "if"
-			})
-			Expect(foundIf).To(BeFalse(), "Should not show 'if' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' keyword in expression context")
+			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' keyword in expression context")
 		})
 
 		It("should show functions and values in expression context", func() {
@@ -129,15 +114,8 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
-			_, foundLen := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "len"
-			})
-			Expect(foundLen).To(BeTrue(), "Should show 'len' function in expression context")
-
-			_, foundNow := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "now"
-			})
-			Expect(foundNow).To(BeTrue(), "Should show 'now' function in expression context")
+			Expect(HasCompletion(completions.Items, "len")).To(BeTrue(), "Should show 'len' function in expression context")
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(), "Should show 'now' function in expression context")
 		})
 
 		It("should show keywords at statement start", func() {
@@ -147,15 +125,8 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
-			_, foundIf := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "if"
-			})
-			Expect(foundIf).To(BeTrue(), "Should show 'if' keyword at statement start")
-
-			_, foundReturn := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "return"
-			})
-			Expect(foundReturn).To(BeTrue(), "Should show 'return' keyword at statement start")
+			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start")
+			Expect(HasCompletion(completions.Items, "return")).To(BeTrue(), "Should show 'return' keyword at statement start")
 		})
 
 		It("should not show types at statement start", func() {
@@ -165,10 +136,7 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 0, 13)
 			Expect(completions).ToNot(BeNil())
 
-			_, foundI32 := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "i32"
-			})
-			Expect(foundI32).To(BeFalse(), "Should not show 'i32' type at statement start")
+			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at statement start")
 		})
 	})
 
@@ -197,20 +165,13 @@ var _ = Describe("Completion", func() {
 			Expect(completions).ToNot(BeNil())
 
 			// Check that myGlobal is in the completion list
-			found := false
-			for _, item := range completions.Items {
-				if item.Label == "myGlobal" {
-					found = true
-					Expect(item.Kind).To(Equal(protocol.CompletionItemKindVariable))
-					Expect(item.Detail).To(Equal("i32"))
-					break
-				}
-			}
+			item, found := FindCompletion(completions.Items, "myGlobal")
 			Expect(found).To(BeTrue(), "Expected to find 'myGlobal' in completion items")
+			Expect(item.Kind).To(Equal(protocol.CompletionItemKindVariable))
+			Expect(item.Detail).To(Equal("i32"))
 		})
 
 		It("should not show GlobalResolver symbols when prefix doesn't match", func() {
-			// Create a mock GlobalResolver with a global variable
 			globalResolver := symbol.MapResolver{
 				"myGlobal": symbol.Symbol{
 					Name: "myGlobal",
@@ -219,22 +180,196 @@ var _ = Describe("Completion", func() {
 				},
 			}
 
-			// Create server with GlobalResolver
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return xyz\n}"
 			OpenDocument(server, ctx, uri, content)
 
-			// Request completion at "xyz|"
-			completions := Completion(server, ctx, uri, 1, 14) // xyz|
+			completions := Completion(server, ctx, uri, 1, 14)
 			Expect(completions).ToNot(BeNil())
 
-			// Check that myGlobal is NOT in the completion list (prefix doesn't match)
-			_, found := lo.Find(completions.Items, func(item protocol.CompletionItem) bool {
-				return item.Label == "myGlobal"
-			})
-			Expect(found).To(BeFalse(), "Expected NOT to find 'myGlobal' in completion items when prefix doesn't match")
+			Expect(HasCompletion(completions.Items, "myGlobal")).To(BeFalse(), "Expected NOT to find 'myGlobal' in completion items when prefix doesn't match")
+		})
+	})
+
+	Describe("Config Parameter Completion", func() {
+		var globalResolver symbol.MapResolver
+
+		BeforeEach(func() {
+			globalResolver = symbol.MapResolver{
+				"myTask": symbol.Symbol{
+					Name: "myTask",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Config: types.Params{
+							{Name: "threshold", Type: types.F64()},
+							{Name: "timeout", Type: types.I64()},
+							{Name: "channel", Type: types.Chan(types.F64())},
+						},
+					}),
+				},
+				"sensorCh": symbol.Symbol{
+					Name: "sensorCh",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+			}
+		})
+
+		It("should suggest all config parameters in empty config block", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    myTask{}\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 11)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "threshold")).To(BeTrue(), "Should suggest 'threshold' parameter")
+			Expect(HasCompletion(completions.Items, "timeout")).To(BeTrue(), "Should suggest 'timeout' parameter")
+			Expect(HasCompletion(completions.Items, "channel")).To(BeTrue(), "Should suggest 'channel' parameter")
+		})
+
+		It("should filter out already-provided parameters", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    myTask{threshold=1.0, timeout=100}\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 26)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "threshold")).To(BeFalse(), "Should NOT suggest already-provided 'threshold' parameter")
+			Expect(HasCompletion(completions.Items, "channel")).To(BeTrue(), "Should still suggest 'channel' parameter")
+		})
+
+		It("should filter by prefix when typing parameter name", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    myTask{threshold=1.0}\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 13)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "threshold")).To(BeTrue(), "Should suggest 'threshold' matching prefix 'th'")
+			Expect(HasCompletion(completions.Items, "timeout")).To(BeFalse(), "Should NOT suggest 'timeout' not matching prefix 'th'")
+		})
+
+		It("should show type details for config parameters", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    myTask{}\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 11)
+			Expect(completions).ToNot(BeNil())
+
+			thresholdItem, found := FindCompletion(completions.Items, "threshold")
+			Expect(found).To(BeTrue())
+			Expect(thresholdItem.Detail).To(Equal("f64"))
+			Expect(thresholdItem.Kind).To(Equal(protocol.CompletionItemKindProperty))
+		})
+
+		It("should suggest channel symbols for chan type parameters", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    myTask{channel=sensorCh}\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 19)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "sensorCh")).To(BeTrue(), "Should suggest 'sensorCh' channel for chan type parameter")
+		})
+	})
+
+	Describe("Stage Body Completion", func() {
+		var globalResolver symbol.MapResolver
+
+		BeforeEach(func() {
+			globalResolver = symbol.MapResolver{
+				"vent_vlv_cmd": symbol.Symbol{
+					Name: "vent_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				"press_vlv_cmd": symbol.Symbol{
+					Name: "press_vlv_cmd",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   2,
+				},
+				"press_pt": symbol.Symbol{
+					Name: "press_pt",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   3,
+				},
+			}
+		})
+
+		It("should suggest channels inside stage body", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        \n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' channel inside stage")
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue(), "Should suggest 'press_vlv_cmd' channel inside stage")
+			Expect(HasCompletion(completions.Items, "press_pt")).To(BeTrue(), "Should suggest 'press_pt' channel inside stage")
+		})
+
+		It("should suggest channels with prefix filter inside stage body", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        v\n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 2, 9)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeFalse(), "Should NOT suggest 'press_vlv_cmd' not matching prefix 'v'")
+		})
+
+		It("should suggest channels inside stage after flow statement", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        \n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 3, 8)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' channel")
+			Expect(HasCompletion(completions.Items, "press_vlv_cmd")).To(BeTrue(), "Should suggest 'press_vlv_cmd' channel")
+		})
+
+		It("should suggest channels with prefix after flow statement", func() {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        v\n    }\n}"
+			OpenDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 3, 9)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
 		})
 	})
 })
