@@ -732,31 +732,21 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
-- [x] Connect to an unencrypted OPC UA server. (opcua_read.py)
 - [ ] Connect to an encrypted OPC UA server.
-- [x] Create additional channels and move them to existing sampling groups. (opcua_read.py)
 - [ ] Move and rename channels.
 - **Read Task**
   - **Single Sampling**
-    - [x] Read from multiple channels. (opcua_read.py)
-    - [x] Autogenerate timestamps on the driver. (opcua_read.py)
     - [ ] Read timestamps from the OPC UA server.
-  - **Array Sampling**
-    - [x] Read from multiple channels. (opcua_read.py)
     - **Test the following array sizes:**
-      - [ ] 1
       - [ ] 10
       - [ ] 100
-    - [x] Autogenerate timestamps on the driver.
     - [ ] Read timestamps from the OPC UA server.
-    - [x] Avoid driver crashes when improper array sizes are specified. (opcua/server.py injects improper arrays)
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
   - [ ] Maintain Driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
-  - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
   - [ ] Perform a write operation on an encrypted server.
 
