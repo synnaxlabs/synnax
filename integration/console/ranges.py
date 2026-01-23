@@ -688,6 +688,31 @@ class RangesClient:
                 return False
             raise RuntimeError(f"Error checking label '{label_name}' in toolbar for range '{range_name}': {e}") from e
 
+    def wait_for_label_removed_from_toolbar(
+        self, range_name: str, label_name: str, timeout_ms: int = 5000
+    ) -> bool:
+        """Wait until a label is removed from a range in the toolbar.
+
+        Args:
+            range_name: The name of the range.
+            label_name: The name of the label to wait for removal.
+            timeout_ms: Maximum time to wait in milliseconds.
+
+        Returns:
+            True if the label was removed, False if timeout occurred.
+        """
+        self.show_toolbar()
+        label = self.get_label_in_toolbar(range_name, label_name)
+        try:
+            label.wait_for(state="hidden", timeout=timeout_ms)
+            return True
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return False
+            raise RuntimeError(
+                f"Error waiting for label '{label_name}' removal from range '{range_name}': {e}"
+            ) from e
+
     def get_label_color_in_toolbar(
         self, range_name: str, label_name: str
     ) -> str | None:
