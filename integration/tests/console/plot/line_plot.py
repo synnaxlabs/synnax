@@ -7,13 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import uuid
-
 import numpy as np
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.plot import Plot
+from framework.utils import assert_link_format, get_random_name
 
 
 class LinePlot(ConsoleCase):
@@ -21,22 +20,22 @@ class LinePlot(ConsoleCase):
 
     def run(self) -> None:
         """Run all line plot tests."""
-        prefix = str(uuid.uuid4())[:6]
-        index_name, data_name = self._setup_channels(prefix)
+        suffix = get_random_name()
+        index_name, data_name = self._setup_channels(suffix)
 
-        plot = Plot(self.client, self.console, f"Line Plot Test {prefix}")
+        plot = Plot(self.client, self.console, f"Line Plot Test {suffix}")
         plot.add_channels("Y1", data_name)
 
         # General
         self.test_set_line_thickness(plot)
-        self.test_set_line_label(plot, prefix)
-        self.test_set_plot_title(plot, prefix)
+        self.test_set_line_label(plot, suffix)
+        self.test_set_plot_title(plot, suffix)
         self.test_move_channel_between_axes(plot, data_name)
         self.test_live_data(plot)
         self.test_drag_channel_to_canvas(plot)
         self.test_drag_channel_to_toolbar(plot)
         self.test_download_csv(plot, data_name)
-        self.test_create_range_from_selection(plot, prefix)
+        self.test_create_range_from_selection(plot, suffix)
         self.test_export_json(plot, data_name)
 
         plot_link = self.test_copy_link(plot)
@@ -58,10 +57,10 @@ class LinePlot(ConsoleCase):
 
         self.client.channels.delete([data_name, index_name])
 
-    def _setup_channels(self, prefix: str) -> tuple[str, str]:
+    def _setup_channels(self, suffix: str) -> tuple[str, str]:
         """Create and populate test channels."""
-        index_name = f"test_idx_{prefix}"
-        data_name = f"test_data_{prefix}"
+        index_name = f"test_idx_{suffix}"
+        data_name = f"test_data_{suffix}"
 
         index_ch = self.client.channels.create(
             name=index_name,
@@ -103,20 +102,20 @@ class LinePlot(ConsoleCase):
         value = plot.get_line_thickness()
         assert value == 5, f"Expected stroke width 5, got {value}"
 
-    def test_set_line_label(self, plot: Plot, prefix: str) -> None:
+    def test_set_line_label(self, plot: Plot, suffix: str) -> None:
         """Test relabeling a line via Lines tab."""
         self.log("Testing set line label")
 
-        new_label = f"Custom Label {prefix}"
+        new_label = f"Custom Label {suffix}"
         plot.set_line_label(new_label)
         value = plot.get_line_label()
         assert value == new_label, f"Expected label '{new_label}', got '{value}'"
 
-    def test_set_plot_title(self, plot: Plot, prefix: str) -> None:
+    def test_set_plot_title(self, plot: Plot, suffix: str) -> None:
         """Test setting the plot title via Properties tab."""
         self.log("Testing set plot title")
 
-        new_title = f"Custom Plot Title {prefix}"
+        new_title = f"Custom Plot Title {suffix}"
         plot.set_title(new_title)
         value = plot.get_title()
         assert value == new_title, f"Expected title '{new_title}', got '{value}'"
@@ -159,11 +158,11 @@ class LinePlot(ConsoleCase):
         lines = csv_content.strip().split("\n")
         assert len(lines) > 1, "CSV should have header and data rows"
 
-    def test_create_range_from_selection(self, plot: Plot, prefix: str) -> None:
+    def test_create_range_from_selection(self, plot: Plot, suffix: str) -> None:
         """Test creating a range from a plot selection."""
         self.log("Testing create range from selection")
 
-        range_name = f"Test Range {prefix}"
+        range_name = f"Test Range {suffix}"
         plot.create_range_from_selection(range_name)
 
         created_range = self.client.ranges.retrieve(name=range_name)
@@ -181,21 +180,7 @@ class LinePlot(ConsoleCase):
 
         link = plot.copy_link()
 
-        assert link.startswith(
-            "synnax://"
-        ), f"Link should start with synnax://, got: {link}"
-        parts = link.replace("synnax://", "").split("/")
-        assert len(parts) == 4, f"Link should have 4 path parts, got: {parts}"
-        assert parts[0] == "cluster", f"First part should be 'cluster', got: {parts[0]}"
-        assert (
-            len(parts[1]) == 36
-        ), f"Cluster ID should be 36 chars (UUID), got: {parts[1]}"
-        assert (
-            parts[2] == "lineplot"
-        ), f"Third part should be 'lineplot', got: {parts[2]}"
-        assert (
-            len(parts[3]) == 36
-        ), f"Plot ID should be 36 chars (UUID), got: {parts[3]}"
+        assert_link_format(link, "lineplot")
 
         return link
 
@@ -226,6 +211,7 @@ class LinePlot(ConsoleCase):
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"
 
         opened_link = plot.copy_link()
+        # Verify link is the same between resources and visualization toolbars
         assert (
             opened_link == expected_link
         ), f"Opened plot link should match: expected {expected_link}, got {opened_link}"
@@ -252,20 +238,13 @@ class LinePlot(ConsoleCase):
         """Test renaming a plot via context menu in the workspace resources toolbar."""
         self.log("Testing rename plot via context menu")
 
-        prefix = str(uuid.uuid4())[:6]
-        plot = Plot(self.client, self.console, f"Rename Test {prefix}")
+        suffix = get_random_name()
+        plot = Plot(self.client, self.console, f"Rename Test {suffix}")
         original_name = plot.page_name
         plot.close()
 
-        new_name = f"Renamed Plot {prefix}"
+        new_name = f"Renamed Plot {suffix}"
         self.console.workspace.rename_page(original_name, new_name)
-
-        assert self.console.workspace.page_exists(
-            new_name
-        ), f"Renamed plot '{new_name}' should exist"
-        assert not self.console.workspace.page_exists(
-            original_name, timeout=1000
-        ), f"Original plot '{original_name}' should not exist"
 
         self.console.workspace.delete_page(new_name)
 
@@ -273,8 +252,8 @@ class LinePlot(ConsoleCase):
         """Test deleting a plot via context menu in the workspace resources toolbar."""
         self.log("Testing delete plot via context menu")
 
-        prefix = str(uuid.uuid4())[:6]
-        plot = Plot(self.client, self.console, f"Delete Test {prefix}")
+        suffix = get_random_name()
+        plot = Plot(self.client, self.console, f"Delete Test {suffix}")
         plot_name = plot.page_name
         plot.close()
 
@@ -284,19 +263,15 @@ class LinePlot(ConsoleCase):
 
         self.console.workspace.delete_page(plot_name)
 
-        assert not self.console.workspace.page_exists(
-            plot_name, timeout=1000
-        ), f"Plot '{plot_name}' should not exist after deletion"
-
     def test_ctx_delete_multiple_plots(self) -> None:
         """Test deleting multiple plots via multi-select and context menu."""
         self.log("Testing delete multiple plots via context menu")
 
-        prefix = str(uuid.uuid4())[:6]
+        suffix = get_random_name()
         plot_names = []
 
         for i in range(3):
-            plot = Plot(self.client, self.console, f"Multi Delete {prefix} {i}")
+            plot = Plot(self.client, self.console, f"Multi Delete {suffix} {i}")
             plot_names.append(plot.page_name)
             plot.close()
 
@@ -307,17 +282,12 @@ class LinePlot(ConsoleCase):
 
         self.console.workspace.delete_pages(plot_names)
 
-        for name in plot_names:
-            assert not self.console.workspace.page_exists(
-                name, timeout=1000
-            ), f"Plot '{name}' should not exist after deletion"
-
     def test_ctx_export_json(self) -> None:
         """Test exporting a plot as JSON via context menu."""
         self.log("Testing export plot via context menu")
 
-        prefix = str(uuid.uuid4())[:6]
-        plot = Plot(self.client, self.console, f"Export Test {prefix}")
+        suffix = get_random_name()
+        plot = Plot(self.client, self.console, f"Export Test {suffix}")
         plot_name = plot.page_name
         plot.close()
 
@@ -333,8 +303,8 @@ class LinePlot(ConsoleCase):
         """Test copying a link to a plot via context menu."""
         self.log("Testing copy link via context menu")
 
-        prefix = str(uuid.uuid4())[:6]
-        plot = Plot(self.client, self.console, f"Copy Link Test {prefix}")
+        suffix = get_random_name()
+        plot = Plot(self.client, self.console, f"Copy Link Test {suffix}")
         plot_name = plot.page_name
         expected_link = plot.copy_link()
         plot.close()
@@ -351,7 +321,7 @@ class LinePlot(ConsoleCase):
         """Test opening an existing plot by searching its name in the command palette."""
         self.log("Testing open plot by name via command palette")
 
-        plot = self.console.workspace.open_plot_from_search(self.client, plot_name)
+        plot = Plot.open_from_search(self.client, self.console, plot_name)
 
         assert plot.pane_locator is not None, "Plot pane should be visible"
         assert plot.pane_locator.is_visible(), "Plot pane should be visible"

@@ -18,12 +18,11 @@ Note: Log, Schematic, and Table toolbars are excluded as aliases do not sync the
 Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.plot import Plot
+from framework.utils import get_random_name
 
 
 class AliasSynchronization(ConsoleCase):
@@ -31,7 +30,7 @@ class AliasSynchronization(ConsoleCase):
 
     # SY-3584: Verify alias for Logs Schematics, Tables
 
-    prefix: str
+    suffix: str
     range_name: str
     index_name: str
     data_name: str
@@ -39,11 +38,11 @@ class AliasSynchronization(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.prefix = str(uuid.uuid4())[:6]
-        self.range_name = f"alias_sync_range_{self.prefix}"
-        self.index_name = f"alias_sync_idx_{self.prefix}"
-        self.data_name = f"alias_sync_data_{self.prefix}"
-        self.alias_name = f"AliasSync_{self.prefix}"
+        self.suffix = get_random_name()
+        self.range_name = f"alias_sync_range_{self.suffix}"
+        self.index_name = f"alias_sync_idx_{self.suffix}"
+        self.data_name = f"alias_sync_data_{self.suffix}"
+        self.alias_name = f"AliasSync_{self.suffix}"
 
     def teardown(self) -> None:
         self.console.channels.delete([self.data_name, self.index_name])
@@ -72,11 +71,11 @@ class AliasSynchronization(ConsoleCase):
         )
 
         self.log("Setting up Line Plot with channel")
-        plot = Plot(client, console, f"Alias Test Plot {self.prefix}")
+        plot = Plot(client, console, f"Alias Test Plot {self.suffix}")
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting alias for channel")
-        console.channels.set_alias(self.data_name, self.alias_name)
+        console.channels.set_alias(name=self.data_name, alias=self.alias_name)
 
         self.log("Verifying sync in Resources Toolbar")
         console.channels.show_channels()
