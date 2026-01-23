@@ -106,7 +106,7 @@ class LayoutClient:
         # The tab name uses Text.Editable which becomes contentEditable (not an input)
         editable_text = tab.locator("p[contenteditable='true']").first
         try:
-            editable_text.wait_for(state="visible", timeout=3000)
+            editable_text.wait_for(state="visible", timeout=2000)
         except Exception:
             # Fallback to more general selector
             editable_text = tab.locator(

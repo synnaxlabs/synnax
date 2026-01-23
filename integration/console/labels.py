@@ -63,6 +63,7 @@ class LabelClient:
 
         save_button = create_form.locator("button:has(svg.pluto-icon--check)")
         save_button.click()
+        create_form.wait_for(state="hidden", timeout=5000)
         self._close_edit_modal()
 
     def exists(self, name: str) -> bool:
