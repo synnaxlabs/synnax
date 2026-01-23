@@ -126,7 +126,7 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 // The returned Arc has its Module field populated with the compiled module.
 func (s *Service) CompileModule(ctx context.Context, key uuid.UUID) (Arc, error) {
 	var prog Arc
-	err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil);
+	err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil)
 	if err != nil {
 		return Arc{}, err
 	}
