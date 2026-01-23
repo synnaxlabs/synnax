@@ -11,12 +11,30 @@
     },
     {
       "sequence_name": "lifecycle",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
       "tests": [
         {
           "case": "console/label/label_lifecycle"
         },
         {
+          "case": "console/rack/rack_lifecycle"
+        },
+        {
           "case": "console/range/range_lifecycle"
+        }
+      ]
+    },
+    {
+      "sequence_name": "pages",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/pages/open_close"
+        },
+        {
+          "case": "console/pages/rename_synchronization"
         },
         {
           "case": "console/log/log_lifecycle"
@@ -24,28 +42,6 @@
         {
           "case": "console/plot/line_plot"
         },
-        {
-          "case": "console/rack/rack_lifecycle"
-        }
-      ]
-    },
-    {
-      "sequence_name": "pages",
-      "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "console/pages/rename_synchronization"
-        },
-        {
-          "case": "console/pages/open_close"
-        }
-      ]
-    },
-    {
-      "sequence_name": "schematic",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
-      "tests": [
         {
           "case": "console/schematic/alignment"
         },
