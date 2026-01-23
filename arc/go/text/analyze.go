@@ -730,7 +730,10 @@ func analyzeStage(
 		Type:     "stage_entry",
 		Channels: symbol.NewChannels(),
 		Inputs: types.Params{
-			{Name: "activate", Type: types.U8()},
+			{
+				Name:  "activate",
+				Type:  types.U8(),
+			},
 		},
 	}
 	nodes = append(nodes, entryNode)

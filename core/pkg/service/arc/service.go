@@ -126,14 +126,26 @@ func (s *Service) AnalyzeCalculation(ctx context.Context, expr string) (telem.Da
 // The returned Arc has its Module field populated with the compiled module.
 func (s *Service) CompileModule(ctx context.Context, key uuid.UUID) (Arc, error) {
 	var prog Arc
-	if err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil); err != nil {
-		return Arc{}, err
-	}
-	mod, err := arc.CompileGraph(ctx, prog.Graph, arc.WithResolver(s.symbolResolver))
+	err := s.NewRetrieve().WhereKeys(key).Entry(&prog).Exec(ctx, nil);
 	if err != nil {
 		return Arc{}, err
 	}
-	prog.Module = mod
+	if prog.Mode == "graph" {
+		prog.Module, err = arc.CompileGraph(
+			ctx,
+			prog.Graph,
+			arc.WithResolver(s.symbolResolver),
+		)
+	} else {
+		prog.Module, err = arc.CompileText(
+			ctx,
+			prog.Text,
+			arc.WithResolver(s.symbolResolver),
+		)
+	}
+	if err != nil {
+		return Arc{}, err
+	}
 	return prog, nil
 }
 

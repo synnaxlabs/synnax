@@ -15,13 +15,11 @@ package stage
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/telem"
 )
 
 const symName = "stage_entry"
@@ -31,7 +29,10 @@ var (
 		Name: symName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
+			Inputs: types.Params{{
+				Name: "activate",
+				Type: types.U8(),
+			}},
 		}),
 	}
 	// SymbolResolver provides the stage_entry symbol for the Arc analyzer.
@@ -47,19 +48,7 @@ type entry struct {
 var _ node.Node = (*entry)(nil)
 
 func (s *entry) Next(ctx node.Context) {
-	if !s.RefreshInputs() {
-		return
-	}
-
-	input := s.Input(0)
-	if input.Len() == 0 {
-		return
-	}
-
-	// Activation signal is a u8 with value 1
-	if telem.ValueAt[uint8](input, 0) == 1 {
-		ctx.ActivateStage()
-	}
+	ctx.ActivateStage()
 }
 
 type Factory struct{}
