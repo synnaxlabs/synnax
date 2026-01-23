@@ -32,21 +32,15 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 		return nil, query.ErrNotFound
 	}
 	wasmFn := w.wasm.ExportedFunction(cfg.Node.Type)
-	// Count incoming edges to this node
-	incomingEdges := 0
-	for _, edge := range cfg.Module.Edges {
-		if edge.Target.Node == cfg.Node.Key {
-			incomingEdges++
-		}
-	}
 	// Entry nodes have no incoming edges and are not expression nodes.
 	// They should only execute once per stage entry.
-	isEntryNode := !strings.HasPrefix(cfg.Node.Key, "expression_") && incomingEdges == 0
+	isEntryNode := !strings.HasPrefix(cfg.Node.Key, "expression_") &&
+		len(cfg.Module.Edges.GetInputs(cfg.Node.Key)) == 0
 
-	// Extract config values from the node's config params
-	configValues := make([]uint64, len(cfg.Node.Config))
+	configCount := len(cfg.Node.Config)
+	params := make([]uint64, configCount+len(irFn.Inputs))
 	for i, param := range cfg.Node.Config {
-		configValues[i] = convertConfigValue(param.Value)
+		params[i] = convertConfigValue(param.Value)
 	}
 
 	n := &nodeImpl{
@@ -58,10 +52,10 @@ func (w *factory) Create(_ context.Context, cfg node2.Config) (node2.Node, error
 			irFn.Outputs,
 			cfg.Module.OutputMemoryBases[cfg.Node.Type],
 		),
-		configValues: configValues,
-		inputs:       make([]uint64, len(irFn.Inputs)),
-		offsets:      make([]int, len(irFn.Outputs)),
-		isEntryNode:  isEntryNode,
+		params:      params,
+		configCount: configCount,
+		offsets:     make([]int, len(irFn.Outputs)),
+		isEntryNode: isEntryNode,
 	}
 	return n, nil
 }

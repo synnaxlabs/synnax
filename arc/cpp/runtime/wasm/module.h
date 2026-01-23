@@ -291,8 +291,9 @@ public:
             }
         }
 
-        std::pair<std::vector<Result>, xerrors::Error>
-        call(const std::vector<telem::SampleValue> &inputs) {
+        const std::vector<Result> &
+        call(const std::vector<telem::SampleValue> &inputs, xerrors::Error &err) {
+            err = xerrors::NIL;
             for (auto &[_, changed]: this->output_values)
                 changed = false;
 
@@ -305,7 +306,8 @@ public:
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
                 std::fprintf(stderr, "WASM trap: %s\n", trap_msg.c_str());
-                return {{}, xerrors::Error("WASM execution failed: " + trap_msg)};
+                err = xerrors::Error("WASM execution failed: " + trap_msg);
+                return this->output_values;
             }
 
             const auto results = result.ok();
@@ -316,15 +318,17 @@ public:
                         .value = sample_from_wasm(results[0], this->outputs[0].type),
                         .changed = true
                     };
-                return {this->output_values, xerrors::NIL};
+                return this->output_values;
             }
 
             const auto mem_span = this->module.memory.data(this->module.store);
             const uint8_t *mem_data = mem_span.data();
             const size_t mem_size = mem_span.size();
 
-            if (this->base + sizeof(uint64_t) > mem_size)
-                return {{}, xerrors::Error("base address out of memory bounds")};
+            if (this->base + sizeof(uint64_t) > mem_size) {
+                err = xerrors::Error("base address out of memory bounds");
+                return this->output_values;
+            }
 
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
@@ -341,7 +345,7 @@ public:
                 };
             }
 
-            return {this->output_values, xerrors::NIL};
+            return this->output_values;
         }
     };
 

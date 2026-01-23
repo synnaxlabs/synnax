@@ -89,7 +89,8 @@ public:
                 this->inputs[j] = input_series->at(i % input_len);
             }
 
-            auto [results, err] = this->func.call(this->inputs);
+            xerrors::Error err;
+            const auto &results = this->func.call(this->inputs, err);
             if (err) {
                 ctx.report_error(
                     xerrors::Error(

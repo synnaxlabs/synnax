@@ -19,13 +19,13 @@ import (
 
 type nodeImpl struct {
 	*state.Node
-	ir           ir.Node
-	wasm         *Function
-	configValues []uint64
-	inputs       []uint64
-	offsets      []int
-	initialized  bool
-	isEntryNode  bool
+	ir          ir.Node
+	wasm        *Function
+	params      []uint64
+	configCount int
+	offsets     []int
+	initialized bool
+	isEntryNode bool
 }
 
 func (n *nodeImpl) Init(node.Context) {}
@@ -98,13 +98,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()
-			n.inputs[j] = valueAt(n.Input(j), int(i%inputLen))
+			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
 		}
-		// Prepend config values to inputs for the WASM call
-		params := make([]uint64, len(n.configValues)+len(n.inputs))
-		copy(params, n.configValues)
-		copy(params[len(n.configValues):], n.inputs)
-		res, err := n.wasm.Call(ctx, params...)
+		res, err := n.wasm.Call(ctx, n.params...)
 		if err != nil {
 			ctx.ReportError(errors.Wrapf(
 				err,
