@@ -252,6 +252,13 @@ public:
     Module &operator=(const Module &) = delete;
 
     class Function {
+    public:
+        struct Result {
+            telem::SampleValue value;
+            bool changed = false;
+        };
+
+    private:
         Module &module;
         wasmtime::Func fn;
         ir::Params outputs;
@@ -259,11 +266,6 @@ public:
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
-
-        struct Result {
-            telem::SampleValue value;
-            bool changed = false;
-        };
 
     public:
         Function(
