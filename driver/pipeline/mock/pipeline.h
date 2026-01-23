@@ -61,11 +61,10 @@ public:
 
     xerrors::Error close() override { return config.close_err; }
 
-    xerrors::Error close_send() override {
+    void close_send() override {
         if (this->config.read_errors == nullptr)
             this->config.read_errors = std::make_shared<std::vector<xerrors::Error>>();
         this->config.read_errors->push_back(freighter::STREAM_CLOSED);
-        return xerrors::NIL;
     }
 };
 

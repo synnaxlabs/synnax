@@ -248,14 +248,13 @@ public:
     }
 
     /// @brief implements Stream::close_send.
-    xerrors::Error close_send() override {
-        if (this->writes_done_called) return xerrors::NIL;
+    void close_send() override {
+        if (this->writes_done_called) return;
         this->writes_done_called = true;
         auto state = this->channel->GetState(false);
         if (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE)
-            return freighter::UNREACHABLE;
-        if (!this->stream->WritesDone()) return freighter::STREAM_CLOSED;
-        return xerrors::NIL;
+            return;
+        this->stream->WritesDone();
     }
 
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>

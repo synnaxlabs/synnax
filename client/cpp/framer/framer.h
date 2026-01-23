@@ -203,7 +203,7 @@ public:
     /// receive() will exhaust the stream and eventually return an EOF.
     /// @note close_send() is safe to call concurrently with read(), but not with
     /// any other DB methods.
-    xerrors::Error close_send() const;
+    void close_send() const;
 
 private:
     /// @brief true if the streamer has been closed.

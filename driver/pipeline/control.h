@@ -63,7 +63,7 @@ public:
     /// that it should being the streamer shutdown process. This mechanism should be
     /// thread safe when concurrently used with read(). When close_send() is called,
     /// read() should return as soon as possible.
-    virtual xerrors::Error close_send() = 0;
+    virtual void close_send() = 0;
 
     virtual ~Streamer() = default;
 };
@@ -102,7 +102,7 @@ public:
     xerrors::Error close() override;
 
     /// @brief implements pipeline::Streamer to close the streamer.
-    xerrors::Error close_send() override;
+    void close_send() override;
 };
 
 /// @brief an implementation of the pipeline::StreamerFactory interface that is

@@ -49,8 +49,8 @@ std::pair<telem::Frame, xerrors::Error> Streamer::read() const {
     return {telem::Frame(fr.frame()), exc};
 }
 
-xerrors::Error Streamer::close_send() const {
-    return this->stream->close_send();
+void Streamer::close_send() const {
+    this->stream->close_send();
 }
 
 xerrors::Error Streamer::close() const {

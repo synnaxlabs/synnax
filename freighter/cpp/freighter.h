@@ -256,7 +256,7 @@ public:
     /// @brief Closes the sending end of the stream, signaling to the server that no
     /// more requests will be sent, and (if desired) allowing the server to close
     /// the receiving end of the stream.
-    virtual xerrors::Error close_send() = 0;
+    virtual void close_send() = 0;
 
     virtual ~Stream() = default;
 };

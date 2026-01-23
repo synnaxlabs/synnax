@@ -89,8 +89,8 @@ xerrors::Error SynnaxStreamer::close() {
     return this->internal.close();
 }
 
-xerrors::Error SynnaxStreamer::close_send() {
-    return this->internal.close_send();
+void SynnaxStreamer::close_send() {
+    this->internal.close_send();
 }
 
 SynnaxStreamerFactory::SynnaxStreamerFactory(
