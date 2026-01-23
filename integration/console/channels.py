@@ -610,7 +610,7 @@ class ChannelClient:
 
         self.hide_channels()
 
-    def delete(self, names: ChannelNames) -> None:
+    def delete(self, names: ChannelNames, timeout: int = 5000) -> None:
         """Deletes one or more channels via console UI.
 
         :param names: The name(s) of the channel(s) to delete.
@@ -625,9 +625,9 @@ class ChannelClient:
 
         # Delete each channel via console UI
         for name in normalized_names.channels:
-            self._delete_single_channel(str(name))
+            self._delete_single_channel(str(name), timeout)
 
-    def _delete_single_channel(self, name: str) -> None:
+    def _delete_single_channel(self, name: str, timeout: int = 5000) -> None:
         """Deletes a single channel via console UI."""
         self._right_click_channel(name)
 
@@ -642,7 +642,7 @@ class ChannelClient:
         modal.wait_for(state="visible", timeout=2000)
         modal_delete_btn = modal.get_by_role("button", name="Delete", exact=True)
         modal_delete_btn.click()
-        modal.wait_for(state="hidden", timeout=5000)
+        modal.wait_for(state="hidden", timeout=timeout)
 
         for i, notification in enumerate(self.console.notifications.check()):
             message = notification.get("message", "")
@@ -654,7 +654,7 @@ class ChannelClient:
         channel_item = self.page.locator("div[id^='channel:']").filter(
             has=self.page.get_by_text(name, exact=True)
         )
-        channel_item.first.wait_for(state="hidden", timeout=5000)
+        channel_item.first.wait_for(state="hidden", timeout=timeout)
 
         self.hide_channels()
 
