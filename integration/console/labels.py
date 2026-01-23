@@ -113,11 +113,27 @@ class LabelClient:
         label_item = self._find_label_item(old_name)
         if label_item is None:
             raise ValueError(f"Label '{old_name}' not found")
-        name_input = label_item.locator("input").first
+
+        name_input = label_item.locator("input[placeholder='Label Name']").first
+
         name_input.click()
-        name_input.clear()
-        name_input.type(new_name)
-        self.page.keyboard.press("Enter")
+        self.console.select_all()
+
+        self.page.keyboard.type(new_name)
+
+        name_input.press("Enter")
+
+        self.page.wait_for_load_state("networkidle", timeout=5000)
+
+        renamed_item = self._find_label_item(new_name)
+
+        if renamed_item is None:
+            all_items = self._find_label_items()
+            all_names = self._enumerate_label_names(all_items)
+            raise RuntimeError(
+                f"Label rename from '{old_name}' to '{new_name}' did not complete. Available labels: {all_names}"
+            )
+
         self._close_edit_modal()
 
     def delete(self, name: str) -> None:
@@ -135,11 +151,27 @@ class LabelClient:
         if label_item is None:
             items = self._find_label_items()
             all_names = self._enumerate_label_names(items)
+            self._close_edit_modal()
             raise ValueError(f"Label '{name}' not found. Available labels: {all_names}")
 
         label_item.hover()
-        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
-        delete_button.click()
+
+        delete_button = label_item.locator("button.console-label__delete")
+        delete_button.wait_for(state="visible", timeout=5000)
+
+        element_id = label_item.get_attribute("id")
+        delete_button.click(timeout=5000)
+
+        self.page.locator(f"[id='{element_id}']").wait_for(
+            state="hidden", timeout=10000
+        )
+
+        still_exists = self._find_label_item(name)
+        if still_exists is not None:
+            raise RuntimeError(
+                f"Failed to delete label '{name}' - still exists after clicking delete"
+            )
+
         self._close_edit_modal()
 
     def list_all(self) -> list[str]:
@@ -150,9 +182,10 @@ class LabelClient:
         """
         self._open_edit_modal()
         labels: list[str] = []
-        for item in self._find_label_items():
+        items = self._find_label_items()
+        for item in items:
             if item.is_visible():
-                name_input = item.locator("input").first
+                name_input = item.locator("input[placeholder='Label Name']").first
                 if name_input.count() > 0:
                     name = name_input.input_value()
                     if name:
@@ -198,12 +231,15 @@ class LabelClient:
 
     def _find_label_item(self, name: str) -> Locator | None:
         for item in self._find_label_items():
-            if item.is_visible():
-                name_input = item.locator("input").first
-                if name_input.count() > 0:
-                    current_name = name_input.input_value()
-                    if current_name == name:
-                        return item
+            if not item.is_visible():
+                continue
+            name_input = item.locator("input[placeholder='Label Name']").first
+            if name_input.count() == 0:
+                continue
+            if name_input.input_value() != name:
+                continue
+            element_id = item.get_attribute("id")
+            return self.page.locator(f"[id='{element_id}']")
         return None
 
     def _find_label_items(self) -> list[Locator]:
@@ -221,7 +257,7 @@ class LabelClient:
         all_names = []
         for item in items:
             if item.is_visible():
-                inp = item.locator("input").first
+                inp = item.locator("input[placeholder='Label Name']").first
                 if inp.count() > 0:
                     current_name = inp.input_value()
                     if current_name:

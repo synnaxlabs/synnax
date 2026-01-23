@@ -65,6 +65,19 @@ class WorkspaceClient:
         count = self.page.locator("div[id^='workspace:']").filter(has_text=name).count()
         return count > 0
 
+    def wait_for_workspace_removed(self, name: str) -> None:
+        """Wait for a workspace to be removed from the resources toolbar.
+
+        Args:
+            name: Name of the workspace to wait for removal
+            timeout: Maximum time in milliseconds to wait
+        """
+        self.console.show_resource_toolbar("workspace")
+        workspace_item = self.page.locator("div[id^='workspace:']").filter(
+            has_text=name
+        )
+        workspace_item.first.wait_for(state="hidden", timeout=5000)
+
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.console.show_resource_toolbar("workspace")
@@ -102,6 +115,16 @@ class WorkspaceClient:
             return True
         except Exception:
             return False
+
+    def wait_for_page_removed(self, name: str, timeout: int = 5000) -> None:
+        """Wait for a page to be removed from the workspace.
+
+        Args:
+            name: Name of the page to wait for removal
+            timeout: Maximum time in milliseconds to wait
+        """
+        page_item = self.get_page(name)
+        page_item.wait_for(state="hidden", timeout=timeout)
 
     def open_page(self, name: str) -> None:
         """Open a page by double-clicking it in the workspace resources toolbar.
@@ -142,6 +165,8 @@ class WorkspaceClient:
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
         self.console.ENTER
+        self.get_page(new_name).wait_for(state="visible", timeout=5000)
+        self.wait_for_page_removed(old_name)
         self.console.close_nav_drawer()
 
     def delete_page(self, name: str) -> None:
@@ -158,6 +183,7 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
+        self.wait_for_page_removed(name)
         self.console.close_nav_drawer()
 
     def delete_group(self, name: str) -> None:
@@ -211,6 +237,8 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
+        for name in names:
+            self.wait_for_page_removed(name)
         self.console.close_nav_drawer()
 
     def copy_page_link(self, name: str) -> str:
@@ -277,7 +305,16 @@ class WorkspaceClient:
         """
         self.expand_active()
         page_item = self.get_page(name)
-        page_item.wait_for(state="visible", timeout=5000)
+        try:
+            page_item.wait_for(state="visible", timeout=5000)
+        except Exception as e:
+            all_items = self.page.locator(".pluto-tree__item").all()
+            item_texts = [
+                item.text_content() for item in all_items if item.is_visible()
+            ]
+            raise Exception(
+                f"Page '{name}' not found. Available items: {item_texts}"
+            ) from e
         page_item.click(button="right")
         self.page.evaluate("delete window.showSaveFilePicker")
 
@@ -380,6 +417,7 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
+        self.wait_for_workspace_removed(name)
         self.console.close_nav_drawer()
 
     def ensure_selected(self, name: str) -> None:

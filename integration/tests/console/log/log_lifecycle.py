@@ -118,10 +118,9 @@ class LogLifecycle(ConsoleCase):
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
         self.console.reload()
-        sy.sleep(2)
 
-        assert (
-            log.is_streaming()
+        assert log.wait_until_streaming(
+            timeout_ms=5000
         ), "Log should still be streaming after reload (persisted)"
         assert (
             not log.is_waiting_for_data()
@@ -132,8 +131,9 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing virtual channel streaming")
 
         log.set_channel(self.virtual_name)
-        sy.sleep(0.5)
-        assert log.is_waiting_for_data(), "Log should be waiting for data initially"
+        assert log.wait_until_waiting_for_data(
+            timeout_ms=2000
+        ), "Log should be waiting for data initially (virtual channel)"
 
         with self.client.open_writer(
             sy.TimeStamp.now(),
@@ -149,9 +149,10 @@ class LogLifecycle(ConsoleCase):
             assert not log.is_empty(), "Log should not be empty with virtual data"
 
         self.console.reload()
-        sy.sleep(2)
 
-        assert log.is_waiting_for_data(), "Log should be waiting for data after reload"
+        assert log.wait_until_waiting_for_data(
+            timeout_ms=5000
+        ), "Log should be waiting for data after reload (virtual channel not persisted)"
 
     def test_rename_from_tab(self, log: Log) -> None:
         """Test renaming a log by double-clicking the mosaic tab title."""
@@ -259,9 +260,7 @@ class LogLifecycle(ConsoleCase):
         assert self.console.workspace.page_exists(
             new_name
         ), f"Renamed log '{new_name}' should exist"
-        assert not self.console.workspace.page_exists(
-            original_name, timeout=1000
-        ), f"Original log '{original_name}' should not exist"
+        self.console.workspace.wait_for_page_removed(original_name)
 
         self.console.workspace.delete_page(new_name)
 
@@ -281,10 +280,6 @@ class LogLifecycle(ConsoleCase):
         ), f"Log '{log_name}' should exist before deletion"
 
         self.console.workspace.delete_page(log_name)
-
-        assert not self.console.workspace.page_exists(
-            log_name, timeout=1000
-        ), f"Log '{log_name}' should not exist after deletion"
 
     def test_ctx_delete_multiple_logs(self) -> None:
         """Test deleting multiple logs via multi-select and context menu."""
@@ -306,11 +301,6 @@ class LogLifecycle(ConsoleCase):
             ), f"Log '{name}' should exist before deletion"
 
         self.console.workspace.delete_pages(log_names)
-
-        for name in log_names:
-            assert not self.console.workspace.page_exists(
-                name, timeout=1000
-            ), f"Log '{name}' should not exist after deletion"
 
     def test_ctx_group_logs(self) -> None:
         """Test grouping multiple logs via multi-select and context menu."""

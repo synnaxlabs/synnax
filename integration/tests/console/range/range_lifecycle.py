@@ -21,13 +21,35 @@ class RangeLifecycle(ConsoleCase):
     def setup(self) -> None:
         super().setup()
         self.rand_suffix: int = random.randint(1000, 9999)
+        self.test_label_name = f"RangeLabel_{self.rand_suffix}"
+        self.second_label_name = f"SecondLabel_{self.rand_suffix}"
+        self.console.labels.create(name=self.test_label_name)
+        self.console.labels.create(name=self.second_label_name)
+
+    def teardown(self) -> None:
+        ranges_to_delete = [
+            getattr(self, "labeled_range_name", None),
+            getattr(self, "new_child_range_name", None),
+            getattr(self, "child_range_name", None),
+            getattr(self, "staged_range_name", None),
+        ]
+
+        self.console.ranges.open_explorer()
+        for range_name in ranges_to_delete:
+            if range_name and self.console.ranges.exists_in_explorer(range_name):
+                self.console.ranges.delete_from_explorer(range_name)
+
+        if self.console.labels.exists(self.test_label_name):
+            self.console.labels.delete(self.test_label_name)
+        if self.console.labels.exists(self.second_label_name):
+            self.console.labels.delete(self.second_label_name)
+
+        super().teardown()
 
     def run(self) -> None:
         """Run all range lifecycle tests."""
         # Setup
         self.test_open_range_toolbar()
-        self.test_create_label_for_range()
-        self.test_create_second_label()
 
         # Range Creation
         self.test_create_local_range()
@@ -65,12 +87,6 @@ class RangeLifecycle(ConsoleCase):
         self.test_change_child_range_stage()
         self.test_favorite_child_range()
         self.test_unfavorite_child_range()
-
-        # Child Range - Context Menu
-        # Child Range Context menu subsection tests here
-
-        # Cleanup
-        self.test_cleanup_ranges()
 
     def test_open_range_toolbar(self) -> None:
         """Test opening the ranges toolbar."""
@@ -131,18 +147,6 @@ class RangeLifecycle(ConsoleCase):
             self.staged_range_name
         ), "Should navigate to parent range overview"
 
-    def test_create_label_for_range(self) -> None:
-        """Create a label to use when creating a range with labels."""
-        self.log("Testing: Create label for range test")
-        self.test_label_name = f"RangeLabel_{self.rand_suffix}"
-        self.console.labels.create(name=self.test_label_name)
-
-    def test_create_second_label(self) -> None:
-        """Create a second label for add/remove label tests."""
-        self.log("Testing: Create second label")
-        self.second_label_name = f"SecondLabel_{self.rand_suffix}"
-        self.console.labels.create(name=self.second_label_name)
-
     def test_create_range_with_labels(self) -> None:
         """Test creating a range with labels attached."""
         self.log("Testing: Create range with labels")
@@ -178,10 +182,8 @@ class RangeLifecycle(ConsoleCase):
         ), f"Range '{self.range_name}' should appear in toolbar after favoriting"
 
         self.log("Testing: Unfavorite range")
+        # Will raise an error if the range is still in the toolbar
         self.console.ranges.unfavorite_from_toolbar(self.range_name)
-        assert not self.console.ranges.exists_in_toolbar(
-            self.range_name
-        ), f"Range '{self.range_name}' should not appear in toolbar after unfavoriting"
 
         self.log("Testing: Re-favorite range for subsequent tests")
         self.console.ranges.open_explorer()
@@ -449,28 +451,5 @@ class RangeLifecycle(ConsoleCase):
     def test_unfavorite_child_range(self) -> None:
         """Test unfavoriting a child range from the parent overview."""
         self.log("Testing: Unfavorite child range")
+        # Will raise an error if the range is still in the toolbar
         self.console.ranges.unfavorite_child_range(self.child_range_name)
-
-        assert not self.console.ranges.exists_in_toolbar(
-            self.child_range_name
-        ), "Child range should not appear in toolbar after unfavoriting"
-
-    def test_cleanup_ranges(self) -> None:
-        """Clean up test ranges and labels."""
-        self.log("Testing: Cleanup ranges")
-        self.console.ranges.open_explorer()
-        if self.console.ranges.exists_in_explorer(self.labeled_range_name):
-            self.console.ranges.delete_from_explorer(self.labeled_range_name)
-        if hasattr(
-            self, "new_child_range_name"
-        ) and self.console.ranges.exists_in_explorer(self.new_child_range_name):
-            self.console.ranges.delete_from_explorer(self.new_child_range_name)
-        if self.console.ranges.exists_in_explorer(self.child_range_name):
-            self.console.ranges.delete_from_explorer(self.child_range_name)
-        if self.console.ranges.exists_in_explorer(self.staged_range_name):
-            self.console.ranges.delete_from_explorer(self.staged_range_name)
-        all_labels = self.console.labels.list_all()
-        if self.test_label_name in all_labels:
-            self.console.labels.delete(self.test_label_name)
-        if self.second_label_name in all_labels:
-            self.console.labels.delete(self.second_label_name)

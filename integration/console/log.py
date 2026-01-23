@@ -146,6 +146,29 @@ class Log(ConsolePage):
                 return False
             raise RuntimeError from e
 
+    def wait_until_waiting_for_data(self, timeout_ms: int = 5000) -> bool:
+        """Wait until the log shows 'No data received yet' message.
+
+        Args:
+            timeout_ms: Maximum time to wait in milliseconds.
+
+        Returns:
+            True if waiting state reached, False if timeout reached.
+
+        Raises:
+            Exception: Re-raises any non-timeout exceptions.
+        """
+        waiting_message = self.page.locator(self.pluto_label).get_by_text(
+            "No data received yet"
+        )
+        try:
+            waiting_message.wait_for(state="visible", timeout=timeout_ms)
+            return True
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return False
+            raise RuntimeError from e
+
     def is_scrolling_paused(self) -> bool:
         """Check if log scrolling is paused."""
         if not self.pane_locator:
