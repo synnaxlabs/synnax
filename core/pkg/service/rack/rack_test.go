@@ -185,6 +185,35 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereEmbedded(true).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Embedded).To(BeTrue())
 		})
+		Describe("WhereName", func() {
+			It("Should retrieve a rack by its exact name", func() {
+				r := &rack.Rack{Name: "unique-rack-name"}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res rack.Rack
+				Expect(svc.NewRetrieve().WhereName("unique-rack-name").Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(res.Key).To(Equal(r.Key))
+				Expect(res.Name).To(Equal("unique-rack-name"))
+			})
+			It("Should return not found when name does not match", func() {
+				r := &rack.Rack{Name: "existing-rack"}
+				Expect(writer.Create(ctx, r)).To(Succeed())
+				var res rack.Rack
+				Expect(svc.NewRetrieve().
+					WhereName("nonexistent-rack", gorp.Required()).
+					Entry(&res).
+					Exec(ctx, tx)).Error().To(MatchError(query.ErrNotFound))
+			})
+			It("Should filter among multiple racks correctly", func() {
+				r1 := &rack.Rack{Name: "filter-rack-alpha"}
+				r2 := &rack.Rack{Name: "filter-rack-beta"}
+				Expect(writer.Create(ctx, r1)).To(Succeed())
+				Expect(writer.Create(ctx, r2)).To(Succeed())
+				var res rack.Rack
+				Expect(svc.NewRetrieve().WhereName("filter-rack-beta").Entry(&res).Exec(ctx, tx)).To(Succeed())
+				Expect(res.Key).To(Equal(r2.Key))
+				Expect(res.Name).To(Equal("filter-rack-beta"))
+			})
+		})
 	})
 	Describe("Delete", func() {
 		It("Should delete a rack and its associated status", func() {
@@ -491,7 +520,10 @@ var _ = Describe("Migration", func() {
 		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
 		// Retrieve the embedded rack
 		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().WhereKeys(svc.EmbeddedKey).Entry(&embeddedRack).Exec(ctx, db)).To(Succeed())
+		Expect(svc.NewRetrieve().
+			WhereKeys(svc.EmbeddedKey).
+			Entry(&embeddedRack).
+			Exec(ctx, db)).To(Succeed())
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 		count := MustSucceed(gorp.NewRetrieve[rack.Key, rack.Rack]().Count(ctx, db))
