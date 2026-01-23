@@ -185,11 +185,11 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
     const { rack } = data;
-    let taskKeyToUse: task.Key | undefined;
+    let taskKey: task.Key | undefined;
     // If the caller selected a rack to deploy the arc on, we need to create a task
     // for it.
     if (rack != null) {
-      taskKeyToUse = task.newKey(rack, 0);
+      taskKey = task.newKey(rack, 0);
       if (data.key != null) {
         const tsk = await retrieveTask({ client, store, query: { arcKey: data.key } });
         if (tsk != null)
@@ -207,22 +207,20 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
               ),
             );
             await client.tasks.delete([tsk.key]);
-          } else taskKeyToUse = tsk.key;
+          } else taskKey = tsk.key;
       }
     }
-
     const prog = await client.arcs.create(data);
     rollbacks.push(store.arcs.set(prog));
     const { key, name } = prog;
-
-    if (taskKeyToUse == null) return prog;
+    if (taskKey == null) return prog;
     const newTsk = await client.tasks.create(
       {
-        key: taskKeyToUse,
+        key: taskKey,
         name,
-        type: "arc",
+        type: TASK_TYPE,
         config: { arcKey: key },
-        status: configuringStatus(taskKeyToUse),
+        status: configuringStatus(taskKey),
       },
       TASK_SCHEMAS,
     );
