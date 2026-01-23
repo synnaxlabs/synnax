@@ -85,8 +85,8 @@ class CalcChannelStress(ConsoleCase):
         sine_50_channels = self._create_multiple_channels(
             "sine_50_channel", 50, timestamp_channel.key
         )
-        linear_500_channels = self._create_multiple_channels(
-            "linear_500_channel", 500, timestamp_channel.key
+        linear_50_channels = self._create_multiple_channels(
+            "linear_50_channel", 50, timestamp_channel.key
         )
 
         # Different average calculations
@@ -126,7 +126,7 @@ class CalcChannelStress(ConsoleCase):
             + [cosine_channel]
             + linear_channels
             + sine_50_channels
-            + linear_500_channels
+            + linear_50_channels
             + [
                 calc_avg_sum_div_50_sine,
                 calc_avg_explicit_50_sine,
@@ -161,7 +161,7 @@ class CalcChannelStress(ConsoleCase):
                             i / 10.0 + j * (2 * np.pi / 50)
                         )
 
-                    for j, ch in enumerate(linear_500_channels):
+                    for j, ch in enumerate(linear_50_channels):
                         data_to_write[ch.key] = ((j + 1) * 0.1 * i + j) % WRAP_THRESHOLD
 
                     writer.write(data_to_write)

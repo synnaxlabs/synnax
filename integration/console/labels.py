@@ -136,7 +136,7 @@ class LabelClient:
         name_input.press("Enter")
         print(f"[DEBUG_LABEL_RENAME] Pressed Enter on input, waiting for rename to complete")
 
-        self.page.wait_for_timeout(2000)
+        self.page.wait_for_load_state("networkidle", timeout=5000)
 
         renamed_item = self._find_label_item(new_name)
         old_item = self._find_label_item(old_name)
@@ -174,17 +174,17 @@ class LabelClient:
 
         print(f"[DEBUG_LABEL_DELETE] Found label '{name}', hovering to show delete button")
         label_item.hover()
-        self.page.wait_for_timeout(200)
 
         delete_button = label_item.locator("button.console-label__delete")
         print(f"[DEBUG_LABEL_DELETE] Waiting for delete button to become visible")
         delete_button.wait_for(state="visible", timeout=5000)
 
         print(f"[DEBUG_LABEL_DELETE] Clicking delete button with force")
+        element_id = label_item.get_attribute("id")
         delete_button.click(timeout=5000)
         print(f"[DEBUG_LABEL_DELETE] Clicked delete button")
 
-        self.page.wait_for_timeout(500)
+        self.page.locator(f"[id='{element_id}']").wait_for(state="hidden", timeout=10000)
 
         print(f"[DEBUG_LABEL_DELETE] Verifying label '{name}' was deleted")
         still_exists = self._find_label_item(name)
@@ -256,12 +256,15 @@ class LabelClient:
 
     def _find_label_item(self, name: str) -> Locator | None:
         for item in self._find_label_items():
-            if item.is_visible():
-                name_input = item.locator("input[placeholder='Label Name']").first
-                if name_input.count() > 0:
-                    current_name = name_input.input_value()
-                    if current_name == name:
-                        return item
+            if not item.is_visible():
+                continue
+            name_input = item.locator("input[placeholder='Label Name']").first
+            if name_input.count() == 0:
+                continue
+            if name_input.input_value() != name:
+                continue
+            element_id = item.get_attribute("id")
+            return self.page.locator(f"[id='{element_id}']")
         return None
 
     def _find_label_items(self) -> list[Locator]:
