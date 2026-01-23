@@ -16,13 +16,17 @@ I have verified that, when released, the following packages will not conflict wi
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
 - [ ] [`client/py`](https://pypi.org/project/synnax/)
 - [ ] [`client/ts`](https://www.npmjs.com/package/@synnaxlabs/client)
+- [ ] [`configs/eslint`](https://www.npmjs.com/package/eslint-config-synnaxlabs)
+- [ ] [`configs/stylelint`](https://www.npmjs.com/package/stylelint-config-synnaxlabs)
+- [ ] [`configs/ts`](https://www.npmjs.com/package/@synnaxlabs/tsconfig)
+- [ ] [`configs/vite`](https://www.npmjs.com/package/@synnaxlabs/vite-plugin)
 - [ ] [`console`](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [`core`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`drift`](https://www.npmjs.com/package/@synnaxlabs/drift)
 - [ ] [`freighter/py`](https://pypi.org/project/synnax-freighter/)
 - [ ] [`freighter/ts`](https://www.npmjs.com/package/@synnaxlabs/freighter)
 - [ ] [`media`](https://npmjs.com/package/@synnaxlabs/media)
 - [ ] [`pluto`](https://npmjs.com/package/@synnaxlabs/pluto)
-- [ ] [`server`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`x/ts`](https://www.npmjs.com/package/@synnaxlabs/x)
 
 ## Documentation

@@ -1,6 +1,6 @@
 [project]
 name = "bench"
-version = "0.1.0"
+version = "0.0.0"
 description = "Performance benchmarking"
 authors = [
     { name = "Emiliano Bonilla", email = "56323762+emilbon99@users.noreply.github.com" },
