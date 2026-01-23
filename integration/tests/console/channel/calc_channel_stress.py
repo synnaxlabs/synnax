@@ -194,7 +194,15 @@ class CalcChannelStress(ConsoleCase):
         client = self.client
         console = self.console
 
-        sy.sleep(1)
+        self.log("Waiting for calculated channels to appear in console")
+        channels_exist = console.channels.wait_for_channels(CALC_CHANNELS, timeout=15.0)
+        if not channels_exist:
+            available = console.channels.list_all()
+            raise RuntimeError(
+                f"Calculated channels did not appear in console within timeout. "
+                f"Available channels: {available}"
+            )
+        self.log("All calculated channels are now visible in console")
 
         plot = Plot(client, console, f"Calc Stress {self.rate}Hz")
         plot.add_channels("Y1", CALC_CHANNELS)

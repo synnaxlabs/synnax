@@ -474,6 +474,36 @@ class ChannelClient:
         all_channels = self.list_all()
         return name in all_channels
 
+    def wait_for_channels(
+        self, names: ChannelNames, timeout: sy.CrudeTimeSpan = 10.0
+    ) -> bool:
+        """Wait for one or more channels to appear in the console UI.
+
+        Polls every 500ms until all channels exist or timeout is reached.
+
+        :param names: The name(s) of the channel(s) to wait for.
+        :param timeout: Maximum time to wait in seconds (default: 10.0).
+        :returns: True if all channels exist, False if timeout reached.
+        """
+        normalized_names = normalize_channel_params(names)
+        start_time = sy.TimeStamp.now()
+        timeout_span = sy.TimeSpan(timeout * sy.TimeSpan.SECOND)
+        poll_interval = 500  # ms
+
+        while sy.TimeStamp.now() - start_time < timeout_span:
+            all_exist = True
+            for name in normalized_names.channels:
+                if not self.exists(str(name)):
+                    all_exist = False
+                    break
+
+            if all_exist:
+                return True
+
+            sy.sleep(poll_interval / 1000)
+
+        return False
+
     def rename(self, *, names: ChannelNames, new_names: ChannelNames) -> bool:
         """Renames one or more channels via console UI.
 

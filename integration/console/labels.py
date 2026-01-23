@@ -42,7 +42,6 @@ class LabelClient:
             name: The name for the new label.
             color: Optional hex color code (e.g., "#FF0000") to set for the new label.
         """
-
         self._open_edit_modal()
         add_button = self.page.locator(".console-label__add-btn")
         add_button.click()
@@ -67,7 +66,11 @@ class LabelClient:
 
         label_item = self._find_label_item(name)
         if label_item is None:
-            raise ValueError(f"Label '{name}' was not created successfully")
+            items = self._find_label_items()
+            all_names = self._enumerate_label_names(items)
+            raise ValueError(
+                f"Label '{name}' was not created successfully. Available labels: {all_names}"
+            )
 
         self._close_edit_modal()
 
@@ -127,9 +130,13 @@ class LabelClient:
             ValueError: If the label with the provided name is not found.
         """
         self._open_edit_modal()
+
         label_item = self._find_label_item(name)
         if label_item is None:
-            raise ValueError(f"Label '{name}' not found")
+            items = self._find_label_items()
+            all_names = self._enumerate_label_names(items)
+            raise ValueError(f"Label '{name}' not found. Available labels: {all_names}")
+
         label_item.hover()
         delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
         delete_button.click()
@@ -201,3 +208,22 @@ class LabelClient:
 
     def _find_label_items(self) -> list[Locator]:
         return self.page.locator(f"{_LABEL_ITEM_SELECTOR}:not(.console--create)").all()
+
+    def _enumerate_label_names(self, items: list[Locator]) -> list[str]:
+        """Extract label names from a list of label item locators.
+
+        Args:
+            items: List of label item locators
+
+        Returns:
+            List of label names
+        """
+        all_names = []
+        for item in items:
+            if item.is_visible():
+                inp = item.locator("input").first
+                if inp.count() > 0:
+                    current_name = inp.input_value()
+                    if current_name:
+                        all_names.append(current_name)
+        return all_names

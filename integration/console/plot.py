@@ -142,7 +142,9 @@ class Plot(ConsolePage):
         download_button.wait_for(state="visible", timeout=5000)
 
         self.page.evaluate("delete window.showSaveFilePicker")
-        self.page.wait_for_function("() => window.showSaveFilePicker === undefined", timeout=5000)
+        self.page.wait_for_function(
+            "() => window.showSaveFilePicker === undefined", timeout=5000
+        )
 
         with self.page.expect_download(timeout=20000) as download_info:
             download_button.click()
