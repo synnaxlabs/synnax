@@ -40,10 +40,18 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 // WhereNames filters racks by their names.
-func (r Retrieve) WhereNames(names ...string) Retrieve {
+func (r Retrieve) WhereNames(names []string, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return lo.Contains(names, rack.Name), nil
-	})
+	}, opts...)
+	return r
+}
+
+// WhereName filters racks by their names.
+func (r Retrieve) WhereName(name string, opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
+		return name == rack.Name, nil
+	}, opts...)
 	return r
 }
 
