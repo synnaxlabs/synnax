@@ -113,10 +113,12 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return false for non-arc task types", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:   dist.Channel,
-				Framer:    dist.Framer,
-				Status:    statusSvc,
-				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Channel: dist.Channel,
+				Framer:  dist.Framer,
+				Status:  statusSvc,
+				GetModule: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
+					return svcarc.Arc{}, nil
+				},
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
@@ -234,8 +236,10 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))),
 			}
-			t, handled, err := newFactory(simpleGraph(ch.Key())).ConfigureTask(newContext(), svcTask)
-			Expect(err).ToNot(HaveOccurred())
+			t, handled := MustSucceed2(
+				newFactory(simpleGraph(ch.Key())).
+					ConfigureTask(newContext(), svcTask),
+			)
 			Expect(handled).To(BeTrue())
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
@@ -264,8 +268,10 @@ var _ = Describe("Task", Ordered, func() {
 					AutoStart: true,
 				}))),
 			}
-			t, handled, err := newFactory(simpleGraph(ch.Key())).ConfigureTask(newContext(), svcTask)
-			Expect(err).ToNot(HaveOccurred())
+			t, handled := MustSucceed2(newFactory(
+				simpleGraph(ch.Key())).
+				ConfigureTask(newContext(), svcTask),
+			)
 			Expect(handled).To(BeTrue())
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
