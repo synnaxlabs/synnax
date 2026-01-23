@@ -260,9 +260,7 @@ class LogLifecycle(ConsoleCase):
         assert self.console.workspace.page_exists(
             new_name
         ), f"Renamed log '{new_name}' should exist"
-        assert not self.console.workspace.page_exists(
-            original_name, timeout=1000
-        ), f"Original log '{original_name}' should not exist"
+        self.console.workspace.wait_for_page_removed(original_name)
 
         self.console.workspace.delete_page(new_name)
 
@@ -282,10 +280,6 @@ class LogLifecycle(ConsoleCase):
         ), f"Log '{log_name}' should exist before deletion"
 
         self.console.workspace.delete_page(log_name)
-
-        assert not self.console.workspace.page_exists(
-            log_name, timeout=1000
-        ), f"Log '{log_name}' should not exist after deletion"
 
     def test_ctx_delete_multiple_logs(self) -> None:
         """Test deleting multiple logs via multi-select and context menu."""
@@ -307,11 +301,6 @@ class LogLifecycle(ConsoleCase):
             ), f"Log '{name}' should exist before deletion"
 
         self.console.workspace.delete_pages(log_names)
-
-        for name in log_names:
-            assert not self.console.workspace.page_exists(
-                name, timeout=1000
-            ), f"Log '{name}' should not exist after deletion"
 
     def test_ctx_group_logs(self) -> None:
         """Test grouping multiple logs via multi-select and context menu."""

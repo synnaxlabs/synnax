@@ -103,6 +103,16 @@ class WorkspaceClient:
         except Exception:
             return False
 
+    def wait_for_page_removed(self, name: str, timeout: int = 5000) -> None:
+        """Wait for a page to be removed from the workspace.
+
+        Args:
+            name: Name of the page to wait for removal
+            timeout: Maximum time in milliseconds to wait
+        """
+        page_item = self.get_page(name)
+        page_item.wait_for(state="hidden", timeout=timeout)
+
     def open_page(self, name: str) -> None:
         """Open a page by double-clicking it in the workspace resources toolbar.
 
@@ -158,6 +168,7 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
+        self.wait_for_page_removed(name)
         self.console.close_nav_drawer()
 
     def delete_group(self, name: str) -> None:
@@ -211,6 +222,8 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
+        for name in names:
+            self.wait_for_page_removed(name)
         self.console.close_nav_drawer()
 
     def copy_page_link(self, name: str) -> str:

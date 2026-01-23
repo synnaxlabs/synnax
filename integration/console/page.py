@@ -73,7 +73,7 @@ class ConsolePage:
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
-        sy.sleep(0.1)
+        tab.wait_for(state="hidden", timeout=5000)
 
     def is_open(self) -> bool:
         """Check if the page tab is visible."""
