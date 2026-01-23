@@ -479,41 +479,32 @@ class ChannelClient:
     ) -> bool:
         """Wait for one or more channels to appear in the console UI.
 
-        Polls every 500ms until all channels exist or timeout is reached.
+        Uses Playwright's wait_for_selector to efficiently wait for specific channels.
 
         :param names: The name(s) of the channel(s) to wait for.
         :param timeout: Maximum time to wait in seconds (default: 10.0).
         :returns: True if all channels exist, False if timeout reached.
         """
         normalized_names = normalize_channel_params(names)
-        start_time = sy.TimeStamp.now()
-        timeout_span = sy.TimeSpan(timeout * sy.TimeSpan.SECOND)
-        poll_interval = 500  # ms
+        timeout_ms = int(timeout * 1000)
 
         self.show_channels()
 
-        while sy.TimeStamp.now() - start_time < timeout_span:
-            all_channels = []
-            for item in self.channels_list.all():
-                if item.is_visible():
-                    channel_name_element = item.locator("p.pluto-text--editable")
-                    channel_name = channel_name_element.inner_text().strip()
-                    all_channels.append(channel_name)
-
-            all_exist = True
+        try:
             for name in normalized_names.channels:
-                if str(name) not in all_channels:
-                    all_exist = False
-                    break
+                channel_name_str = str(name)
+                selector = f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
+                try:
+                    self.page.wait_for_selector(selector, state="visible", timeout=timeout_ms)
+                except Exception:
+                    self.hide_channels()
+                    return False
 
-            if all_exist:
-                self.hide_channels()
-                return True
-
-            sy.sleep(poll_interval / 1000)
-
-        self.hide_channels()
-        return False
+            self.hide_channels()
+            return True
+        except Exception:
+            self.hide_channels()
+            return False
 
     def rename(self, *, names: ChannelNames, new_names: ChannelNames) -> bool:
         """Renames one or more channels via console UI.
