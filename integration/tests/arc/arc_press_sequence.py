@@ -69,8 +69,13 @@ class ArcPressSequence(ConsoleCase):
         self.log("Creating Arc sequence through Console UI")
         self.console.arc.create(ARC_NAME, ARC_SEQUENCE_SOURCE, mode="Text")
 
-        rack_name = self.client.racks.retrieve(embedded=False).name
-        self.log(f"Selecting rack: {rack_name}")
+        rack_key = self.params.get("rack_key")
+        if rack_key:
+            rack = self.client.racks.retrieve(rack_key)
+        else:
+            rack = self.client.racks.retrieve(embedded=False)
+        rack_name = rack.name
+        self.log(f"Selecting rack: {rack_name} (key: {rack.key})")
         self.console.arc.select_rack(rack_name)
 
         self.log("Configuring Arc task")
