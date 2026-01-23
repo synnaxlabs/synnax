@@ -200,6 +200,8 @@ class Stream final
     grpc::ClientContext grpc_ctx;
     /// @brief the RPC stub used to instantiate the connection.
     const std::unique_ptr<typename RPC::Stub> stub;
+    /// @brief stored to check connection state.
+    std::shared_ptr<grpc::Channel> channel;
 
     /// @brief set to true when the stream is closed.
     bool closed = false;
@@ -217,7 +219,7 @@ public:
         freighter::Context &req_ctx,
         freighter::Context &res_ctx
     ):
-        mw(mw), stub(RPC::NewStub(ch)) {
+        mw(mw), stub(RPC::NewStub(ch)), channel(ch) {
         for (const auto &[k, v]: req_ctx.params)
             this->grpc_ctx.AddMetadata(k, v);
         this->stream = this->stub->Exec(&this->grpc_ctx);
@@ -249,8 +251,11 @@ public:
     /// @brief implements Stream::close_send.
     void close_send() override {
         if (this->writes_done_called) return;
-        this->stream->WritesDone();
         this->writes_done_called = true;
+        auto state = this->channel->GetState(false);
+        if (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE)
+            return;
+        this->stream->WritesDone();
     }
 
     freighter::FinalizerReturn<std::unique_ptr<freighter::Stream<RQ, RS>>>
