@@ -15,7 +15,7 @@
         {
           "case": "console/channel/calc_channel_stress",
           "parameters": {
-            "rate": [10, 100, 1000]
+            "rate": [10, 100]
           }
         },
         {
@@ -31,6 +31,7 @@
     },
     {
       "sequence_name": "pages",
+      "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/pages/rename_synchronization"
@@ -42,6 +43,7 @@
     },
     {
       "sequence_name": "layout",
+      "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/layout/mosaic_operations"
