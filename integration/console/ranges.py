@@ -432,9 +432,10 @@ class RangesClient:
         print(f"[DEBUG_LABEL_OVERVIEW] Adding label '{label_name}' in overview")
         labels_row = self.page.get_by_text("Labels", exact=True).locator("..")
         add_button = labels_row.locator("button").last
+        add_button.wait_for(state="visible", timeout=2000)
         print(f"[DEBUG_LABEL_OVERVIEW] Clicking add button")
         add_button.click()
-        self.page.locator(".pluto-list__item").first.wait_for(state="visible", timeout=2000)
+        self.page.locator(".pluto-list__item:not(.pluto--hidden)").first.wait_for(state="visible", timeout=2000)
         print(f"[DEBUG_LABEL_OVERVIEW] Dropdown opened, looking for label '{label_name}'")
         item = self.page.locator(".pluto-list__item").filter(has_text=label_name).first
         item.wait_for(state="visible", timeout=3000)
