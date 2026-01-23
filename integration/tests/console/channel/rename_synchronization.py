@@ -20,8 +20,6 @@ Verifies that renaming a channel properly synchronizes across:
 Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
@@ -30,22 +28,23 @@ from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.schematic.value import Value
 from console.table import Table
+from framework.utils import get_random_name
 
 
 class RenameSynchronization(ConsoleCase):
     """Test channel rename synchronization across UI elements."""
 
-    prefix: str
+    suffix: str
     index_name: str
     data_name: str
     new_name: str
 
     def setup(self) -> None:
         super().setup()
-        self.prefix = str(uuid.uuid4())[:6]
-        self.index_name = f"sync_idx_{self.prefix}"
-        self.data_name = f"sync_data_{self.prefix}"
-        self.new_name = f"renamed_sync_{self.prefix}"
+        self.suffix = get_random_name()
+        self.index_name = f"sync_idx_{self.suffix}"
+        self.data_name = f"sync_data_{self.suffix}"
+        self.new_name = f"renamed_sync_{self.suffix}"
 
     def teardown(self) -> None:
         self.console.channels.delete([self.new_name, self.index_name])
@@ -65,24 +64,24 @@ class RenameSynchronization(ConsoleCase):
         )
 
         self.log("Setting up Line Plot with channel")
-        plot = Plot(client, console, f"Sync Test Plot {self.prefix}")
+        plot = Plot(client, console, f"Sync Test Plot {self.suffix}")
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting up Log with channel")
-        log_page = Log(client, console, f"Sync Test Log {self.prefix}")
+        log_page = Log(client, console, f"Sync Test Log {self.suffix}")
         log_page.set_channel(self.data_name)
 
         self.log("Setting up Schematic with channel")
-        schematic = Schematic(client, console, f"Sync Test Schematic {self.prefix}")
+        schematic = Schematic(client, console, f"Sync Test Schematic {self.suffix}")
         value_symbol = Value(label=self.data_name, channel_name=self.data_name)
         schematic.create_symbol(value_symbol)
 
         self.log("Setting up Table with channel")
-        table = Table(client, console, f"Sync Test Table {self.prefix}")
+        table = Table(client, console, f"Sync Test Table {self.suffix}")
         table.set_cell_channel(self.data_name)
 
         self.log("Renaming channel")
-        console.channels.rename(self.data_name, self.new_name)
+        console.channels.rename(names=self.data_name, new_names=self.new_name)
 
         self.log("Verifying sync in Resources Toolbar")
         console.channels.show_channels()
@@ -112,7 +111,7 @@ class RenameSynchronization(ConsoleCase):
         ), f"Renamed channel {self.new_name} should appear in Log toolbar"
 
         self.log("Verifying sync in Schematic Toolbar")
-        console.layout.get_tab(f"Sync Test Schematic {self.prefix}").click()
+        console.layout.get_tab(f"Sync Test Schematic {self.suffix}").click()
         props = value_symbol.get_properties()
         assert props["channel"] == self.new_name, (
             f"Value symbol should have renamed channel {self.new_name}, "

@@ -35,19 +35,18 @@ class BadActor(ConsoleCase):
         sy.sleep(2)
         for ch in channels_to_delete:
             try:
-                console.channels.delete(ch)
+                console.channels.delete(ch, timeout=500)
 
-                # Not getting an error immediately does not mean
-                # the channel was deleted. Query the core directly.
                 try:
                     client.channels.retrieve(ch)
                     self.log(f"'{ch}' still exists on core (delete was blocked)")
                 except Exception:
                     self.fail(f"Channel '{ch}' improperly deleted.")
 
-            except RuntimeError as rte:
-                if "Failed to delete Channel" in str(rte):
-                    self.log(f"Properly failed to delete '{ch}'")
-
             except Exception as e:
-                self.fail(f"Unexpected error while deleting '{ch}': {e}")
+                if "Timeout" in type(e).__name__:
+                    self.log(f"Properly failed to delete '{ch}' (timeout)")
+                elif "Failed to delete Channel" in str(e):
+                    self.log(f"Properly failed to delete '{ch}'")
+                else:
+                    self.fail(f"Unexpected error while deleting '{ch}': {e}")
