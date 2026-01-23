@@ -37,8 +37,6 @@
     },
     {
       "sequence_name": "general",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
       "tests": [
         {
           "case": "console/label/label_lifecycle"
