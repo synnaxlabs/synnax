@@ -23,7 +23,7 @@
 
 namespace arc::runtime::wasm {
 
-/// Convert SampleValue to wasmtime::Val for WASM function calls
+/// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
 inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
     return std::visit(
         []<typename T0>(T0 &&arg) -> wasmtime::Val {
@@ -39,16 +39,31 @@ inline wasmtime::Val sample_to_wasm(const telem::SampleValue &val) {
             } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
                 return wasmtime::Val(static_cast<int64_t>(arg.nanoseconds()));
             } else if constexpr (std::is_same_v<T, std::string>) {
-                // Strings are passed as handles (uint32_t) which should already be
-                // converted
                 return wasmtime::Val(0);
             } else {
-                // int32_t, int16_t, int8_t, uint32_t, uint16_t, uint8_t
                 return wasmtime::Val(static_cast<int32_t>(arg));
             }
         },
         val
     );
+}
+
+/// @brief Convert SampleValue to wasmtime::Val using the declared type.
+/// @note Needed because protobuf stores all numbers as double.
+inline wasmtime::Val
+sample_to_wasm(const telem::SampleValue &val, const types::Type &type) {
+    const auto as_double = telem::cast<double>(val);
+    switch (type.kind) {
+        case types::Kind::F64:
+            return wasmtime::Val(as_double);
+        case types::Kind::F32:
+            return wasmtime::Val(static_cast<float>(as_double));
+        case types::Kind::I64:
+        case types::Kind::U64:
+            return wasmtime::Val(static_cast<int64_t>(as_double));
+        default:
+            return wasmtime::Val(static_cast<int32_t>(as_double));
+    }
 }
 
 /// Convert wasmtime::Val to SampleValue after WASM function returns
@@ -240,6 +255,7 @@ public:
         Module &module;
         wasmtime::Func fn;
         ir::Params outputs;
+        size_t config_count;
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
@@ -254,12 +270,20 @@ public:
             Module &module,
             wasmtime::Func fn,
             const ir::Params &outputs,
+            const ir::Params &config,
             const ir::Params &inputs,
             const uint32_t base
         ):
-            module(module), fn(std::move(fn)), outputs(outputs), base(base) {
+            module(module),
+            fn(std::move(fn)),
+            outputs(outputs),
+            config_count(config.size()),
+            base(base) {
             this->output_values.resize(outputs.size(), Result{});
-            this->args.resize(inputs.size(), wasmtime::Val(0));
+            this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
+            for (size_t i = 0; i < config.size(); i++)
+                if (config[i].value.has_value())
+                    this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
@@ -268,12 +292,12 @@ public:
         }
 
         std::pair<std::vector<Result>, xerrors::Error>
-        call(const std::vector<telem::SampleValue> &params) {
+        call(const std::vector<telem::SampleValue> &inputs) {
             for (auto &[_, changed]: this->output_values)
                 changed = false;
 
-            for (size_t i = 0; i < params.size(); i++)
-                this->args[i] = sample_to_wasm(params[i]);
+            for (size_t i = 0; i < inputs.size(); i++)
+                this->args[this->config_count + i] = sample_to_wasm(inputs[i]);
 
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
@@ -327,9 +351,14 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    std::pair<Function, xerrors::Error> func(const std::string &name) {
+    /// @brief Returns a WASM function wrapper for the given function name.
+    /// @param name The function name.
+    /// @param node_config The node's config params with values. If empty, uses the
+    /// function's config.
+    std::pair<Function, xerrors::Error>
+    func(const std::string &name, const ir::Params &node_config = {}) {
         const auto export_opt = this->instance.get(this->store, name);
-        const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
+        const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
         if (!export_opt) return {zero_func, xerrors::NOT_FOUND};
 
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
@@ -347,8 +376,9 @@ public:
             base = base_it->second;
         }
 
+        const auto &config_to_use = node_config.empty() ? func.config : node_config;
         return {
-            Function(*this, *func_ptr, func.outputs, func.inputs, base),
+            Function(*this, *func_ptr, func.outputs, config_to_use, func.inputs, base),
             xerrors::NIL
         };
     }

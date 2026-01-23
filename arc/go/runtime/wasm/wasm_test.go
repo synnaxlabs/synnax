@@ -805,6 +805,123 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
+	Describe("Config Parameters", func() {
+		It("Should pass config values to WASM function", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "add_config",
+						Config:  types.Params{{Name: "x", Type: types.I64()}},
+						Inputs:  types.Params{{Name: "y", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return x + y }`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "add_config", Type: "add_config", Config: map[string]any{"x": int64(10)}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_config", Param: "y"}},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			// Set up input source output
+			h.SetInput("input_source", 0, telem.NewSeriesV[int64](5), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "add_config")
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+
+			output := h.Output("add_config", 0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(15)))
+		})
+
+		It("Should handle multiple config parameters", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "multi_config",
+						Config:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
+						Inputs:  types.Params{{Name: "c", Type: types.I32()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+						Body:    ir.Body{Raw: `{ return a + b + c }`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "multi_config", Type: "multi_config", Config: map[string]any{"a": int32(5), "b": int32(10)}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_config", Param: "c"}},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			h.SetInput("input_source", 0, telem.NewSeriesV[int32](3), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "multi_config")
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+
+			output := h.Output("multi_config", 0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[int32](output)[0]).To(Equal(int32(18)))
+		})
+
+		It("Should handle float64 config parameters", func() {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "scale_config",
+						Config:  types.Params{{Name: "factor", Type: types.F64()}},
+						Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return value * factor }`},
+					},
+					{
+						Key:     "input_source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return 1.0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "input_source", Type: "input_source"},
+					{Key: "scale_config", Type: "scale_config", Config: map[string]any{"factor": 2.5}},
+				},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_config", Param: "value"}},
+				},
+			}
+			h := newHarness(ctx, g, nil, nil)
+			defer h.Close()
+
+			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
+
+			n := h.CreateNode(ctx, "scale_config")
+			changed := make(set.Set[string])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+
+			output := h.Output("scale_config", 0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(25.0))
+		})
+	})
+
 	Describe("Flow Expression Execution", func() {
 		It("Should execute every time for flow expression nodes", func() {
 			g := singleFunctionGraph("expression_0", types.I64(), `{
