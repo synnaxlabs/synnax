@@ -9,9 +9,41 @@
 
 #pragma once
 
+#include <queue>
 #include <utility>
 
 #include "freighter/cpp/freighter.h"
+
+template<typename RQ, typename RS>
+class MockStream final : public freighter::Stream<RQ, RS> {
+public:
+    std::queue<RS> responses;
+    std::queue<xerrors::Error> receive_errors;
+    xerrors::Error close_send_error = xerrors::NIL;
+    bool send_closed = false;
+
+    std::pair<RS, xerrors::Error> receive() override {
+        if (!receive_errors.empty()) {
+            auto err = receive_errors.front();
+            receive_errors.pop();
+            return {{}, err};
+        }
+        if (responses.empty()) return {{}, freighter::EOF_ERR};
+        auto res = responses.front();
+        responses.pop();
+        return {res, xerrors::NIL};
+    }
+
+    xerrors::Error send(RQ &request) const override {
+        if (send_closed) return freighter::STREAM_CLOSED;
+        return xerrors::NIL;
+    }
+
+    xerrors::Error close_send() override {
+        send_closed = true;
+        return close_send_error;
+    }
+};
 
 template<typename RQ, typename RS>
 class MockUnaryClient final : public freighter::UnaryClient<RQ, RS>,
