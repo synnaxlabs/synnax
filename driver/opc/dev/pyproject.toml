@@ -1,6 +1,6 @@
 [project]
 name = "opc-dev"
-version = "0.1.0"
+version = "0.0.0"
 description = "OPC UA development tools"
 requires-python = ">=3.12"
 dependencies = ["asyncua==1.1.5", "synnax"]

@@ -1,6 +1,6 @@
 [project]
 name = "cesium-benchmarking"
-version = "0.25.1"
+version = "0.0.0"
 description = "Benchmarking framework for cesium"
 keywords = ["Synnax", "Cesium"]
 authors = [{ name = "leo liu", email = "leohliu@umich.edu" }]
