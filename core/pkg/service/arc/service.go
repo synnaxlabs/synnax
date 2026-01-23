@@ -130,18 +130,11 @@ func (s *Service) CompileModule(ctx context.Context, key uuid.UUID) (Arc, error)
 	if err != nil {
 		return Arc{}, err
 	}
-	if prog.Mode == "graph" {
-		prog.Module, err = arc.CompileGraph(
-			ctx,
-			prog.Graph,
-			arc.WithResolver(s.symbolResolver),
-		)
+	resolverOpt := arc.WithResolver(s.symbolResolver)
+	if prog.Mode == "text" {
+		prog.Module, err = arc.CompileText(ctx, prog.Text, resolverOpt)
 	} else {
-		prog.Module, err = arc.CompileText(
-			ctx,
-			prog.Text,
-			arc.WithResolver(s.symbolResolver),
-		)
+		prog.Module, err = arc.CompileGraph(ctx, prog.Graph, resolverOpt)
 	}
 	if err != nil {
 		return Arc{}, err
