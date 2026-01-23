@@ -120,15 +120,3 @@ export const ZERO_SLICE_STATE: SliceState = {
   toolbar: { activeTab: "stages" },
   arcs: {},
 };
-
-export const taskConfigZ = z.object({
-  arcKey: z.string(),
-});
-
-export interface TaskConfig extends z.infer<typeof taskConfigZ> {}
-
-export const taskStatusDataZ = z.null().or(z.undefined());
-export type TaskStatusData = z.infer<typeof taskStatusDataZ>;
-const TASK_TYPE = "arc";
-export const taskTypeZ = z.literal(TASK_TYPE);
-export type TaskType = z.infer<typeof taskTypeZ>;
