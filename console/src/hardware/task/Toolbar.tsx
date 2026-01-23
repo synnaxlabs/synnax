@@ -61,7 +61,8 @@ const INITIAL_QUERY: Task.ListQuery = {
   snapshot: false,
 };
 
-const filter = (task: task.Task) => !task.internal && !task.snapshot;
+const filter = (task: task.Task) =>
+  !task.internal && !task.snapshot && task.type !== "arc";
 
 const Content = () => {
   const client = Synnax.use();
