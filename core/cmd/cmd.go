@@ -64,7 +64,7 @@ func init() {
 }
 
 func initConfig() {
-	cfgFile := viper.GetString(flagConfig)
+	cfgFile := viper.GetString(start.FlagConfig)
 	if cfgFile != "" {
 		viper.SetConfigFile(cfgFile)
 	} else {

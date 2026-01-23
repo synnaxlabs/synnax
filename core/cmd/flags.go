@@ -11,17 +11,8 @@ package cmd
 
 import "github.com/spf13/cobra"
 
-const (
-	flagConfig  = "config"
-	flagVersion = "version"
-)
+const flagVersion = "version"
 
 func bindFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringP(
-		flagConfig,
-		"c",
-		"/usr/local/synnax/config.yaml",
-		"config file",
-	)
 	cmd.Flags().Bool(flagVersion, false, "Print the version of Synnax")
 }

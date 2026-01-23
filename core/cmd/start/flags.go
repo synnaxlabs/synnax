@@ -23,6 +23,7 @@ const (
 	FlagPeers                        = "peers"
 	FlagData                         = "data"
 	FlagMem                          = "mem"
+	FlagConfig                       = "config"
 	FlagInsecure                     = "insecure"
 	FlagUsername                     = "username"
 	FlagPassword                     = "password"
@@ -46,6 +47,12 @@ func BindFlags(cmd *cobra.Command) {
 		"l",
 		"localhost:9090",
 		"The address to listen for client connections",
+	)
+	cmd.Flags().StringP(
+		FlagConfig,
+		"c",
+		"/usr/local/synnax/config.yaml",
+		"The path to the configuration file",
 	)
 	cmd.Flags().StringSliceP(
 		FlagPeers,
