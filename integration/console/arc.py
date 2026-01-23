@@ -90,7 +90,6 @@ class ArcClient:
         """Open an Arc by double-clicking its item in the panel."""
         item = self.get_item(name)
         item.dblclick()
-        # Wait for editor to appear
         self.page.locator("[data-mode-id='arc']").wait_for(
             state="visible", timeout=5000
         )
@@ -109,7 +108,6 @@ class ArcClient:
         configure_btn = controls.locator("button:has-text('Configure')")
         configure_btn.wait_for(state="visible", timeout=5000)
         configure_btn.click()
-        # Wait for configure to complete by checking play button appears
         controls.locator("button:has(.pluto-icon--play)").wait_for(
             state="visible", timeout=5000
         )
@@ -120,7 +118,6 @@ class ArcClient:
         play_btn = controls.locator("button:has(.pluto-icon--play)")
         play_btn.wait_for(state="visible", timeout=5000)
         play_btn.click()
-        # Wait for pause button to appear (indicates running)
         controls.locator("button:has(.pluto-icon--pause)").wait_for(
             state="visible", timeout=5000
         )
@@ -131,7 +128,6 @@ class ArcClient:
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         pause_btn.wait_for(state="visible", timeout=5000)
         pause_btn.click()
-        # Wait for play button to reappear (indicates stopped)
         controls.locator("button:has(.pluto-icon--play)").wait_for(
             state="visible", timeout=5000
         )

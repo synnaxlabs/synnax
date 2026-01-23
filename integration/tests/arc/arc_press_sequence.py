@@ -13,7 +13,6 @@ import synnax as sy
 
 from console.case import ConsoleCase
 
-
 ARC_NAME = f"ArcPressSequence_{int(time.time())}"
 
 ARC_SEQUENCE_SOURCE = """
@@ -100,7 +99,6 @@ class ArcPressSequence(ConsoleCase):
         self.log(f"Arc sequence on {rack_name} completed")
 
     def _verify_sequence_execution(self) -> None:
-        # Press stage - valve opens
         self.log("Verifying press stage - valve opens...")
         while self.should_continue:
             if self.read_tlm("press_vlv_state") == 1:
@@ -110,7 +108,6 @@ class ArcPressSequence(ConsoleCase):
                 self.fail("Press valve should open")
                 return
 
-        # Maintain stage - press valve closes after press_pt > 30
         self.log("Verifying maintain stage - press valve closes...")
         while self.should_continue:
             if self.read_tlm("press_vlv_state") == 0:
@@ -120,7 +117,6 @@ class ArcPressSequence(ConsoleCase):
                 self.fail("Press valve should close in maintain stage")
                 return
 
-        # Vent stage - vent valve opens after 1s wait
         self.log("Verifying vent stage - vent valve opens...")
         while self.should_continue:
             if self.read_tlm("vent_vlv_state") == 1:
@@ -130,7 +126,6 @@ class ArcPressSequence(ConsoleCase):
                 self.fail("Vent valve should open")
                 return
 
-        # Complete stage - vent valve closes after press_pt < 10
         self.log("Verifying complete stage - vent valve closes...")
         while self.should_continue:
             if self.read_tlm("vent_vlv_state") == 0:
