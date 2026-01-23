@@ -765,16 +765,10 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
-- [x] Connect to a Modbus TCP server. (modbus_read.py)
-- [x] Configure connection parameters (IP address, port, unit ID). (modbus_task.py)
 - **Read Task**
-  - [x] Read holding registers from a Modbus server. (modbus_task.py)
-  - [x] Read input registers from a Modbus server. (modbus_task.py)
-  - [x] Read coils and discrete inputs from a Modbus server. (modbus_task.py)
   - [ ] Plot live data from Modbus registers.
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.
-  - [ ] Stop, start, and reconfigure read tasks.
   - [ ] Handle device disconnection gracefully.
   - **Reliable data reading at the following sample rates:**
     - [ ] 1 Hz
@@ -785,8 +779,5 @@ I can successfully:
   - [ ] Write to coils on a Modbus server.
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure write tasks.
-  - **Configure response time for specified state rates:**
-    - [ ] 1 Hz (visible delay)
-    - [ ] 20 Hz (near-instant response)
 - [ ] Run simultaneous read and write tasks on the same device.
 - [ ] Run tasks across multiple Modbus servers concurrently.
