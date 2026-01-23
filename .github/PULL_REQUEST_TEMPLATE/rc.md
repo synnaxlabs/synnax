@@ -554,34 +554,18 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new workspace. (workspace.py)
 - [ ] Import a workspace by drag and dropping from a directory.
-- **Workspace Selector**
-  - [x] Create a new workspace. (workspace.py)
-  - [x] Switch workspaces in the selector. (workspace.py)
-  - [x] Clear workspaces from the selector. (workspace.py)
+
 - **Resources Toolbar**
-  - [x] Switch workspaces in the resources view. (workspace.py)
   - **Context Menu**
-    - [x] Rename a workspace. (workspace.py)
-    - [x] Delete a workspace. (workspace.py)
     - [ ] Export a workspace.
-    - [x] Create a new line plot in a workspace. (pages/open_close.py, plot/line_plot.py, layout/mosaic_operations.py, layout/keyboard_shortcuts.py)
-    - [x] Create a new log in a workspace. (pages/open_close.py, pages/snap_to_grid.py)
-    - [x] Create a new schematic in a workspace. (pages/open_close.py, schematic/alignment.py, schematic/edit_props.py)
-    - [x] Create a new table in a workspace. (pages/open_close.py)
     - [ ] Import a line plot.
     - [ ] Import a schematic.
     - [ ] Import a log.
     - [ ] Import a table.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
-  - [x] Open the "Create Workspace" dialog. (workspace.py)
   - [ ] Import a workspace.
-  - [x] Open an existing workspace. (workspace.py)
-- [x] Rename a workspace and ensure synchronization across: (workspace.py)
-  - Resources Toolbar
-  - Workspace Selector
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
