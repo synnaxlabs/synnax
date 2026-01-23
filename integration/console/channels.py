@@ -8,10 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 import re
+import time
 from typing import TYPE_CHECKING
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
+
+
+def _debug_timing(label: str):
+    print(f"[TIMING] {time.strftime('%H:%M:%S')} - {label}")
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -121,11 +126,10 @@ class ChannelClient:
         channels do not store any data, and are used for streaming purposes only.
         :returns: True if the channel was created successfully.
         """
+        _debug_timing(f"create() START for '{name}'")
 
         if is_index and data_type == DataType.UNKNOWN:
             data_type = DataType.TIMESTAMP
-        if self.exists(name):
-            return False
 
         self.open_create_modal()
         self.console.fill_input_field("Name", name)
@@ -322,8 +326,7 @@ class ChannelClient:
         :param expression: The calculation expression (e.g., "channel_a * 2").
         :returns: None if successful, error message string if failed.
         """
-        if self.exists(name):
-            return "Channel already exists"
+        _debug_timing(f"create_calculated() START for '{name}'")
 
         self.open_create_calculated_modal()
 
@@ -459,12 +462,13 @@ class ChannelClient:
         :param names: List of channel names to group.
         :param group_name: The name for the new group.
         """
+        _debug_timing(f"group() START for {names}")
+        group_start = time.time()
         if len(names) < 2:
             raise ValueError("At least 2 channels are required to create a group")
 
         self.show_channels()
 
-        # Find and select all channels
         first_item = True
 
         for name in names:
@@ -480,9 +484,6 @@ class ChannelClient:
                             item.click(modifiers=["ControlOrMeta"])
                         break
 
-        self.page.wait_for_timeout(200)
-
-        # Right-click to open context menu on the last selected item
         for item in self.channels_list.all():
             if item.is_visible():
                 channel_name_element = item.locator("p.pluto-text--editable")
@@ -491,24 +492,25 @@ class ChannelClient:
                     item.click(button="right")
                     break
 
-        self.page.wait_for_timeout(200)
+        _debug_timing(f"group() waiting for 'Group Selection' menu item")
+        group_selection_item = self.page.get_by_text("Group Selection", exact=True).first
+        group_selection_item.wait_for(state="visible", timeout=2000)
+        _debug_timing(f"group() 'Group Selection' is visible, clicking")
+        group_selection_item.click()
 
-        # Click "Group" option - this creates a folder in the toolbar
-        self.page.get_by_text("Group Selection", exact=True).first.click()
-        self.page.wait_for_timeout(500)
-
-        # A folder is created with an inline editable name - look for the input
-        # The folder/group should have an editable text input active
+        _debug_timing(f"group() checking for editable input")
         editable_input = self.page.locator("input.pluto-text__input--editable").first
-        if editable_input.count() > 0 and editable_input.is_visible():
+        try:
+            editable_input.wait_for(state="visible", timeout=500)
+            _debug_timing(f"group() editable input visible, filling")
             editable_input.fill(group_name)
             self.page.keyboard.press("Enter")
-        else:
-            # If no input is visible, try to find and click the new folder to rename it
+        except Exception:
+            _debug_timing(f"group() no editable input, typing directly")
             self.page.keyboard.type(group_name)
             self.page.keyboard.press("Enter")
 
-        self.page.wait_for_timeout(300)
+        _debug_timing(f"group() TOTAL: {time.time() - group_start:.2f}s")
         self.hide_channels()
 
     def copy_link(self, name: ChannelName) -> str:
@@ -517,11 +519,16 @@ class ChannelClient:
         :param name: The name of the channel to copy link for.
         :returns: The copied link (if clipboard access is available).
         """
+        _debug_timing(f"copy_link() START for '{name}'")
+        copy_start = time.time()
         self._right_click_channel(name)
-        self.page.wait_for_timeout(500)
 
-        self.page.get_by_text("Copy Link").first.click()
-        self.page.wait_for_timeout(200)
+        _debug_timing(f"copy_link() waiting for 'Copy Link' menu item")
+        copy_link_item = self.page.get_by_text("Copy Link").first
+        copy_link_item.wait_for(state="visible", timeout=2000)
+        _debug_timing(f"copy_link() 'Copy Link' visible, clicking")
+        copy_link_item.click(timeout=1000)
+        _debug_timing(f"copy_link() TOTAL: {time.time() - copy_start:.2f}s")
 
         self.hide_channels()
 
@@ -538,18 +545,26 @@ class ChannelClient:
         :param name: The name of the channel to check.
         :returns: True if the channel exists, False otherwise.
         """
+        _debug_timing(f"exists() START for '{name}'")
+        start = time.time()
         self.show_channels()
+        _debug_timing(f"exists() show_channels took {time.time() - start:.2f}s")
         channel_name_str = str(name)
         selector = f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
         try:
-            self.page.wait_for_selector(selector, state="visible", timeout=1000)
+            wait_start = time.time()
+            self.page.wait_for_selector(selector, state="visible", timeout=500)
+            _debug_timing(f"exists() wait_for_selector FOUND in {time.time() - wait_start:.2f}s")
             return True
         except Exception as e:
             if "Timeout" in type(e).__name__:
+                _debug_timing(f"exists() wait_for_selector TIMEOUT after {time.time() - wait_start:.2f}s")
                 return False
             raise RuntimeError(f"Error checking if channel '{name}' exists: {e}") from e
         finally:
+            hide_start = time.time()
             self.hide_channels()
+            _debug_timing(f"exists() hide_channels took {time.time() - hide_start:.2f}s, TOTAL: {time.time() - start:.2f}s")
 
     def wait_for_channels(
         self, names: ChannelNames, timeout: sy.CrudeTimeSpan = 10.0
@@ -615,23 +630,23 @@ class ChannelClient:
 
     def _rename_single_channel(self, *, old_name: str, new_name: str) -> None:
         """Renames a single channel via console UI."""
-        if not self.exists(old_name):
-            raise ValueError(f"Channel {old_name} does not exist")
-        new_exists = self.exists(new_name)
-        if new_exists:
-            raise ValueError(f"Channel {new_name} already exists")
+        _debug_timing(f"_rename_single_channel() START '{old_name}' -> '{new_name}'")
+        rename_start = time.time()
 
         item = self._right_click_channel(old_name)
+        _debug_timing(f"_rename_single_channel() right-click done in {time.time() - rename_start:.2f}s")
 
+        _debug_timing(f"_rename_single_channel() waiting for 'Rename' menu item")
         rename_option = self.page.get_by_text("Rename", exact=True).first
-        self.page.wait_for_timeout(200)
+        rename_option.wait_for(state="visible", timeout=2000)
+        _debug_timing(f"_rename_single_channel() 'Rename' visible, clicking")
         rename_option.click(timeout=1000)
 
         channel_name_element = item.locator("p.pluto-text--editable")
         channel_name_element.click()
         channel_name_element.fill(new_name)
         self.page.keyboard.press("Enter")
-        self.page.wait_for_timeout(100)
+        _debug_timing(f"_rename_single_channel() TOTAL: {time.time() - rename_start:.2f}s")
 
         self.hide_channels()
 
@@ -654,10 +669,11 @@ class ChannelClient:
 
     def _delete_single_channel(self, name: str) -> None:
         """Deletes a single channel via console UI."""
-        if not self.exists(name):
-            raise ValueError(f"Channel {name} does not exist")
+        _debug_timing(f"_delete_single_channel() START for '{name}'")
+        delete_start = time.time()
 
         self._right_click_channel(name)
+        _debug_timing(f"_delete_single_channel() right-click done in {time.time() - delete_start:.2f}s")
 
         delete_option = self.page.get_by_text("Delete", exact=True).first
         delete_option.wait_for(state="visible", timeout=5000)
