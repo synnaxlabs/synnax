@@ -15,27 +15,32 @@ package stage
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/telem"
 )
 
-const symName = "stage_entry"
+const (
+	EntryNodeName        = "stage_entry"
+	EntryActivationParam = "activate"
+)
 
 var (
-	sym = symbol.Symbol{
-		Name: symName,
+	EntryNode = symbol.Symbol{
+		Name: EntryNodeName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
+			Inputs: types.Params{{
+				Name:  EntryActivationParam,
+				Type:  types.U8(),
+				Value: uint8(0),
+			}},
 		}),
 	}
 	// SymbolResolver provides the stage_entry symbol for the Arc analyzer.
-	SymbolResolver = symbol.MapResolver{symName: sym}
+	SymbolResolver = symbol.MapResolver{EntryNodeName: EntryNode}
 )
 
 // entry is a node that triggers stage transitions when it receives
@@ -47,19 +52,10 @@ type entry struct {
 var _ node.Node = (*entry)(nil)
 
 func (s *entry) Next(ctx node.Context) {
-	if !s.RefreshInputs() {
-		return
-	}
-
-	input := s.Input(0)
-	if input.Len() == 0 {
-		return
-	}
-
-	// Activation signal is a u8 with value 1
-	if telem.ValueAt[uint8](input, 0) == 1 {
-		ctx.ActivateStage()
-	}
+	// Entry nodes only execute when the scheduler's markChanged adds them to the
+	// changed set. markChanged already validates IsOutputTruthy on the upstream node
+	// for one-shot edges, so no input check is needed here.
+	ctx.ActivateStage()
 }
 
 type Factory struct{}
@@ -69,7 +65,7 @@ func NewFactory() *Factory {
 }
 
 func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symName {
+	if cfg.Node.Type != EntryNodeName {
 		return nil, query.ErrNotFound
 	}
 	return &entry{Node: cfg.State}, nil

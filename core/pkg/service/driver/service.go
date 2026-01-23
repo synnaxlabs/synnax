@@ -68,8 +68,8 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	d.mu.tasks = make(map[task.Key]Task)
 
 	if err = cfg.Rack.NewRetrieve().
-		WhereEmbedded(true).
-		WhereNames(fmt.Sprintf("Node %s", cfg.Host.HostKey())).
+		WhereEmbedded(true, gorp.Required()).
+		WhereName(fmt.Sprintf("Node %s", cfg.Host.HostKey()), gorp.Required()).
 		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
 		d.rack = rack.Rack{
 			Name:     fmt.Sprintf("Node %d", cfg.Host.HostKey()),
