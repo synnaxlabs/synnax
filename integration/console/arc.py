@@ -1,0 +1,145 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+from typing import TYPE_CHECKING
+
+import synnax as sy
+from playwright.sync_api import Locator, Page
+
+if TYPE_CHECKING:
+    from .console import Console
+
+
+class ArcClient:
+    """Arc automation management for Console UI automation."""
+
+    ITEM_PREFIX = "arc:"
+    TOOLBAR_CLASS = ".console-arc-toolbar"
+    CONTROLS_CLASS = ".console-arc-editor__controls"
+
+    def __init__(self, page: Page, console: "Console"):
+        self.page = page
+        self.console = console
+
+    def _show_arc_panel(self) -> None:
+        """Show the arc panel in the navigation drawer."""
+        toolbar = self.page.locator(self.TOOLBAR_CLASS)
+        if toolbar.count() > 0 and toolbar.is_visible():
+            return
+        self.page.keyboard.press("a")
+        toolbar.wait_for(state="visible", timeout=5000)
+
+    def _get_controls(self) -> Locator:
+        """Get the Arc editor controls locator."""
+        controls = self.page.locator(self.CONTROLS_CLASS)
+        controls.wait_for(state="visible", timeout=5000)
+        return controls
+
+    def create(self, name: str, source: str, mode: str = "Text") -> None:
+        """Create a new Arc via Console UI."""
+        self._show_arc_panel()
+
+        add_btn = self.page.locator(f"{self.TOOLBAR_CLASS} button").first
+        add_btn.click()
+
+        name_input = self.page.locator("input[placeholder='Automation Name']")
+        name_input.wait_for(state="visible", timeout=5000)
+        name_input.fill(name)
+
+        mode_btn = self.page.locator(
+            f".console-arc-create-modal__mode-select-button:has-text('{mode}')"
+        )
+        mode_btn.click()
+
+        create_btn = self.page.get_by_role("button", name="Create", exact=True)
+        create_btn.click()
+
+        if mode == "Text":
+            editor = self.page.locator("[data-mode-id='arc']")
+            editor.wait_for(state="visible", timeout=10000)
+            editor.click()
+            self.page.keyboard.press("ControlOrMeta+a")
+            self.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
+            self.page.keyboard.press("ControlOrMeta+v")
+            self.page.keyboard.press("ControlOrMeta+s")
+
+    def find_item(self, name: str) -> Locator | None:
+        """Find an Arc item in the panel by name."""
+        self._show_arc_panel()
+        items = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+            has_text=name
+        )
+        if items.count() == 0:
+            return None
+        return items.first
+
+    def get_item(self, name: str) -> Locator:
+        """Get an Arc item locator from the panel."""
+        item = self.find_item(name)
+        if item is None:
+            raise ValueError(f"Arc '{name}' not found in panel")
+        return item
+
+    def open(self, name: str) -> None:
+        """Open an Arc by double-clicking its item in the panel."""
+        item = self.get_item(name)
+        item.dblclick()
+        # Wait for editor to appear
+        self.page.locator("[data-mode-id='arc']").wait_for(
+            state="visible", timeout=5000
+        )
+
+    def select_rack(self, rack_name: str) -> None:
+        """Select a rack from the rack dropdown in the Arc editor controls."""
+        controls = self._get_controls()
+        rack_dropdown = controls.locator("button").first
+        rack_dropdown.wait_for(state="visible", timeout=5000)
+        rack_dropdown.click()
+        self.console.select_from_dropdown(rack_name, placeholder="Search")
+
+    def configure(self) -> None:
+        """Click the Configure button in the Arc editor controls."""
+        controls = self._get_controls()
+        configure_btn = controls.locator("button:has-text('Configure')")
+        configure_btn.wait_for(state="visible", timeout=5000)
+        configure_btn.click()
+        # Wait for configure to complete by checking play button appears
+        controls.locator("button:has(.pluto-icon--play)").wait_for(
+            state="visible", timeout=5000
+        )
+
+    def start(self) -> None:
+        """Click the Play button to start the Arc."""
+        controls = self._get_controls()
+        play_btn = controls.locator("button:has(.pluto-icon--play)")
+        play_btn.wait_for(state="visible", timeout=5000)
+        play_btn.click()
+        # Wait for pause button to appear (indicates running)
+        controls.locator("button:has(.pluto-icon--pause)").wait_for(
+            state="visible", timeout=5000
+        )
+
+    def stop(self) -> None:
+        """Click the Pause button to stop the Arc."""
+        controls = self._get_controls()
+        pause_btn = controls.locator("button:has(.pluto-icon--pause)")
+        pause_btn.wait_for(state="visible", timeout=5000)
+        pause_btn.click()
+        # Wait for play button to reappear (indicates stopped)
+        controls.locator("button:has(.pluto-icon--play)").wait_for(
+            state="visible", timeout=5000
+        )
+
+    def is_running(self) -> bool:
+        """Check if the Arc is currently running by looking for the pause button."""
+        controls = self.page.locator(self.CONTROLS_CLASS)
+        if controls.count() == 0:
+            return False
+        pause_btn = controls.locator("button:has(.pluto-icon--pause)")
+        return pause_btn.count() > 0 and pause_btn.is_visible()

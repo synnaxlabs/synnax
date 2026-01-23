@@ -1,0 +1,18 @@
+{
+  "$schema": "test_schema.json",
+  "sequences": [
+    {
+      "sequence_name": "arc_sequence",
+      "sequence_order": "asynchronous",
+      "pool_size": 2,
+      "tests": [
+        {
+          "case": "client/sim_daq"
+        },
+        {
+          "case": "arc/arc_press_sequence"
+        }
+      ]
+    }
+  ]
+}
