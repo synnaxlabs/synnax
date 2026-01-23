@@ -14,10 +14,8 @@ import synnax as sy
 from framework.test_case import TestCase
 
 
-class SimDaq(TestCase):
-    """
-    Simulated DAQ for press control sequence
-    """
+class PressSimDaq(TestCase):
+    """Simulated DAQ for pressurization sequence."""
 
     def setup(self) -> None:
         self.set_manual_timeout(60)

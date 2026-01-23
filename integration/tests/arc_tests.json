@@ -2,12 +2,12 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "arc_sequence_rack_65538",
+      "sequence_name": "arc_press_sequence_rack_65538",
       "sequence_order": "asynchronous",
       "pool_size": 2,
       "tests": [
         {
-          "case": "client/sim_daq"
+          "case": "client/press_sim_daq"
         },
         {
           "case": "arc/arc_press_sequence",
@@ -16,16 +16,29 @@
       ]
     },
     {
-      "sequence_name": "arc_sequence_rack_65539",
+      "sequence_name": "arc_press_sequence_rack_65539",
       "sequence_order": "asynchronous",
       "pool_size": 2,
       "tests": [
         {
-          "case": "client/sim_daq"
+          "case": "client/press_sim_daq"
         },
         {
           "case": "arc/arc_press_sequence",
           "parameters": { "rack_key": 65539 }
+        }
+      ]
+    },
+    {
+      "sequence_name": "arc_thermal_monitor",
+      "sequence_order": "asynchronous",
+      "pool_size": 2,
+      "tests": [
+        {
+          "case": "client/thermal_sim_daq"
+        },
+        {
+          "case": "arc/arc_thermal_monitor"
         }
       ]
     }
