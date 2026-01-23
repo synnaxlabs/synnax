@@ -245,8 +245,8 @@ func process(input chan f64, output chan f64) {
 		It("Should parse function with config block", func() {
 			prog := mustParseProgram(`
 func controller{
-    setpoint f64
-    sensor chan f64
+    setpoint f64,
+    sensor chan f64,
     actuator chan f64
 } (enable u8) {
     error := setpoint - sensor
@@ -262,7 +262,8 @@ func controller{
 			// Config block
 			config := taskDecl.ConfigBlock()
 			Expect(config).NotTo(BeNil())
-			Expect(config.AllConfig()).To(HaveLen(3))
+			Expect(config.ConfigList()).NotTo(BeNil())
+			Expect(config.ConfigList().AllConfig()).To(HaveLen(3))
 
 			// Runtime parameters
 			params := taskDecl.InputList()
@@ -279,7 +280,7 @@ func controller{
 		It("Should parse function with return type", func() {
 			prog := mustParseProgram(`
 func doubler{
-    input chan f64
+    input chan f64,
 } () f64 {
     return (input) * 2
 }`)
@@ -930,7 +931,7 @@ func test() {
 			It("Should parse func with multiple named outputs", func() {
 				prog := mustParseProgram(`
 func demux{
-    threshold f64
+    threshold f64,
 } (value f32) (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value
@@ -968,8 +969,8 @@ func demux{
 			It("Should parse func with three named outputs", func() {
 				prog := mustParseProgram(`
 func range_classifier{
-    low f64
-    high f64
+    low f64,
+    high f64,
 } (value f32) (below_range f32, in_range f32, above_range f32) {
     // Logic
 }`)
@@ -1197,7 +1198,7 @@ stage1{} -> {
 			It("Should parse complete example with multi-output func and routing", func() {
 				prog := mustParseProgram(`
 func demux{
-    threshold f64
+    threshold f64,
 } (value f32) (high f32, low f32) {
     if (value > f32(threshold)) {
         high = value

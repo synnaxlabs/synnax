@@ -28,6 +28,7 @@ func main() {
 	re := regexp.MustCompile(`(\w+)\s*:\s*'([^']+)'\s*;`)
 	matches := re.FindAllStringSubmatch(string(content), -1)
 	var b strings.Builder
+	b.WriteString("package parser\n\nconst (\n")
 	for _, m := range matches {
 		name, literal := m[1], m[2]
 		b.WriteString(fmt.Sprintf("\tLiteral%s = %q\n", name, literal))

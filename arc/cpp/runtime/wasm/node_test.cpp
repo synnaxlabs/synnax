@@ -763,3 +763,155 @@ counter{} -> )" + output_name;
     auto s2 = ASSERT_NIL_P(state.node(func_node->key));
     EXPECT_EQ(s2.output(0)->at<int64_t>(0), 42);
 }
+
+/// @brief Config parameters are passed to WASM function correctly.
+TEST(NodeTest, ConfigParametersPassedToWasm) {
+    const auto client = new_test_client();
+
+    auto input_idx_name = random_name("input_idx");
+    auto input_name = random_name("input");
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(input_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+
+    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
+    ASSERT_NIL(client.channels.create(input_ch));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    // Function with config parameter 'x' and input parameter 'y'
+    // Use i32 since integer literals default to i32
+    const std::string source = R"(
+func add_config{x i32}(y i32) i32 {
+    return x + y
+}
+)" + input_name + " -> add_config{x=10} -> " +
+                               output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "add_config");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {input_idx.key, telem::TIMESTAMP_T, 0},
+                {input_ch.key, telem::INT32_T, input_idx.key},
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT32_T, output_idx.key}
+            }
+        }
+    );
+
+    // Find and set up the 'on' node that reads from the input channel
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = telem::Series(std::vector<int32_t>{5});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(std::vector{telem::TimeStamp(1 * telem::MICROSECOND)});
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("add_config", func_node->config));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    // Verify the output: config x=10 + input y=5 = 15
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<int32_t>(0), 15);
+}
+
+/// @brief Multiple config parameters are passed correctly.
+TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
+    const auto client = new_test_client();
+
+    auto input_idx_name = random_name("input_idx");
+    auto input_name = random_name("input");
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(input_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+
+    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
+    ASSERT_NIL(client.channels.create(input_ch));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    // Function with two config parameters 'a', 'b' and input parameter 'c'
+    const std::string source = R"(
+func multi_config{a i32, b i32}(c i32) i32 {
+    return a + b + c
+}
+)" + input_name + " -> multi_config{a=5, b=10} -> " +
+                               output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "multi_config");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {input_idx.key, telem::TIMESTAMP_T, 0},
+                {input_ch.key, telem::INT32_T, input_idx.key},
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT32_T, output_idx.key}
+            }
+        }
+    );
+
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = telem::Series(std::vector<int32_t>{3});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(std::vector{telem::TimeStamp(1 * telem::MICROSECOND)});
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("multi_config", func_node->config));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    // Verify the output: a=5 + b=10 + c=3 = 18
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<int32_t>(0), 18);
+}

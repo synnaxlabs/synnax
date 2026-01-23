@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from ArcParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // ArcParser
@@ -42,6 +33,9 @@ type ArcParserListener interface {
 
 	// EnterConfigBlock is called when entering the configBlock production.
 	EnterConfigBlock(c *ConfigBlockContext)
+
+	// EnterConfigList is called when entering the configList production.
+	EnterConfigList(c *ConfigListContext)
 
 	// EnterConfig is called when entering the config production.
 	EnterConfig(c *ConfigContext)
@@ -237,6 +231,9 @@ type ArcParserListener interface {
 
 	// ExitConfigBlock is called when exiting the configBlock production.
 	ExitConfigBlock(c *ConfigBlockContext)
+
+	// ExitConfigList is called when exiting the configList production.
+	ExitConfigList(c *ConfigListContext)
 
 	// ExitConfig is called when exiting the config production.
 	ExitConfig(c *ConfigContext)

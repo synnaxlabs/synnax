@@ -234,8 +234,8 @@ int_chan -> consumer{}
 		It("Should verify func config parameters match the expected signature types", func() {
 			ast := MustSucceed(parser.Parse(`
 			func controller{
-				setpoint f64
-				input chan f64
+				setpoint f64,
+				input chan f64,
 				output chan f64
 			} () {
 				value := input
@@ -259,8 +259,8 @@ int_chan -> consumer{}
 		It("Should detect when func is invoked with missing required parameters", func() {
 			ast := MustSucceed(parser.Parse(`
 			func filter{
-				threshold f64
-				input chan f64
+				threshold f64,
+				input chan f64,
 				output chan f64
 			} () {
 				value := input
@@ -307,9 +307,9 @@ int_chan -> consumer{}
 		It("Should detect type mismatch in func config parameters", func() {
 			ast := MustSucceed(parser.Parse(`
 			func typed_task{
-				threshold f64
-				count u32
-				message str
+				threshold f64,
+				count u32,
+				message str,
 				input chan f64
 			} () {
 				value := input
@@ -340,9 +340,9 @@ int_chan -> consumer{}
 		It("Should accept correct types for func config parameters", func() {
 			ast := MustSucceed(parser.Parse(`
 			func typed_task{
-				threshold f64
-				count u32
-				message str
+				threshold f64,
+				count u32,
+				message str,
 				input chan f64
 			} () {
 				value := input
@@ -367,7 +367,7 @@ int_chan -> consumer{}
 		It("Should allow channels as both sources and targets in flow statements", func() {
 			ast := MustSucceed(parser.Parse(`
 			func process{
-				input chan f64
+				input chan f64,
 				output chan f64
 			} () {
 				value := input
@@ -399,14 +399,14 @@ int_chan -> consumer{}
 		It("Should understand channel pass-through triggers tasks on new values", func() {
 			ast := MustSucceed(parser.Parse(`
 			func logger{
-				value chan f64
+				value chan f64,
 			} () {
 				v := value
 				// Log the value
 			}
 
 			func controller{
-				temp chan f64
+				temp chan f64,
 				setpoint f64
 			} () {
 				current := temp
