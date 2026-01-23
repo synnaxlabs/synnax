@@ -231,18 +231,21 @@ class ArcThermalMonitor(ConsoleCase):
 
         cycle_count = self.read_tlm("cycle_count")
         self.log(f"Cycle count: {cycle_count}")
-        if cycle_count < 2:
+        if cycle_count is None or cycle_count < 2:
             self.fail(f"Expected cycle_count >= 2, got {cycle_count}")
             return
 
         peak_temp = self.read_tlm("peak_temp")
-        self.log(f"Peak temperature tracked: {peak_temp:.1f}")
-        if peak_temp < 55:
-            self.fail(f"Expected peak_temp > 55, got {peak_temp:.1f}")
+        self.log(f"Peak temperature tracked: {peak_temp:.1f}" if peak_temp else "None")
+        if peak_temp is None or peak_temp < 55:
+            self.fail(f"Expected peak_temp > 55, got {peak_temp}")
             return
 
         temp_error = self.read_tlm("temp_error")
         current_temp = self.read_tlm("temp_sensor")
+        if temp_error is None or current_temp is None:
+            self.fail(f"temp_error or current_temp is None")
+            return
         expected_error = current_temp - 50.0
         self.log(f"Temp error: {temp_error:.1f} (expected ~{expected_error:.1f})")
         if abs(temp_error - expected_error) > 1.0:
@@ -261,7 +264,7 @@ class ArcThermalMonitor(ConsoleCase):
         self.log("Waiting for temp to exceed 80...")
         while self.should_continue:
             temp = self.read_tlm("temp_sensor")
-            if temp > 80:
+            if temp is not None and temp > 80:
                 self.log(f"Temperature exceeded 80: {temp:.1f}")
                 break
             if self.should_stop:
