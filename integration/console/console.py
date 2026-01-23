@@ -337,15 +337,15 @@ class Console:
                 search_input.fill(text)
             sy.sleep(0.2)
 
-        for attempt in range(10):
+        for _ in range(5):
             try:
-                self.page.wait_for_selector(target_item, timeout=500)
+                self.page.wait_for_selector(target_item, timeout=1000)
                 item = self.page.locator(target_item).first
                 item.wait_for(state="attached", timeout=5000)
                 item.click()
                 return
             except Exception:
-                sy.sleep(0.1)
+                sy.sleep(1)
                 continue
 
         items = self.page.locator(
