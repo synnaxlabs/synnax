@@ -45,7 +45,7 @@ var installCmd = &cobra.Command{
 	Long: `Install Synnax as a Windows service.
 
 Core configuration flags (--listen, --data, --insecure, etc.) will be stored in a YAML config file at C:\ProgramData\Synnax\config.yaml and used when the service starts. You can edit this file to change the configuration without reinstalling the service.`,
-	PreRun:  syncFlagsToViper,
+	PreRunE: syncFlagsToViper,
 	RunE:    runInstall,
 	Args:    cobra.NoArgs,
 	Example: "synnax service install --listen localhost:9090 --insecure",
@@ -89,11 +89,14 @@ Displays whether the service is installed and running, along with configuration 
 
 // syncFlagsToViper syncs changed cobra flags to viper. This is necessary because
 // viper.BindPFlags doesn't properly pick up flag values after cobra parses them.
-func syncFlagsToViper(cmd *cobra.Command, _ []string) {
-	viper.BindPFlags(cmd.Flags())
+func syncFlagsToViper(cmd *cobra.Command, _ []string) error {
+	if err := viper.BindPFlags(cmd.Flags()); err != nil {
+		return err
+	}
 	viper.SetDefault(cmdstart.FlagData, filepath.Join(ConfigDir(), "data"))
 	viper.SetDefault(instrumentation.FlagLogFilePath, filepath.Join(ConfigDir(), "logs", "synnax.log"))
 	viper.SetDefault(cert.FlagCertsDir, filepath.Join(ConfigDir(), "certs"))
+	return nil
 }
 
 // AddCommand adds the service subcommand to the given parent command.

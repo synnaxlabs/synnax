@@ -35,7 +35,10 @@ var startCmd = &cobra.Command{
 	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag. If --peers is specified and no existing data is found, the Core will attempt to join the cluster formed by its peers. If no peers are specified and no existing data is found, the Core will bootstrap a new cluster.",
 	Example: "synnax start --listen localhost:9091 --data /mnt/ssd1 --peers localhost:9092,localhost:9093 --insecure",
 	Args:    cobra.NoArgs,
-	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
+		return viper.BindPFlags(cmd.Flags())
+	},
+	Run: func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
 func scanForStopKeyword(interruptC chan os.Signal) {

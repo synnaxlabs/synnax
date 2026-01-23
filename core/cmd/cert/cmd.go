@@ -30,6 +30,9 @@ var caCmd = &cobra.Command{
 	Short: "Generate a self-signed CA certificate",
 	Long:  "Generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
+		return viper.BindPFlags(cmd.Flags())
+	},
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cmd.SilenceUsage = true
 		ins := instrumentation.Configure()
@@ -47,6 +50,9 @@ var nodeCmd = &cobra.Command{
 	Short: "Generate a self-signed node certificate",
 	Long:  "Generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
+		return viper.BindPFlags(cmd.Flags())
+	},
 	RunE: func(cmd *cobra.Command, hosts []string) error {
 		cmd.SilenceUsage = true
 		ins := instrumentation.Configure()
