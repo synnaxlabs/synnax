@@ -25,10 +25,6 @@ def ontology_id(key: UUID) -> ID:
 
 
 ArcKey = UUID
-ArcKeys = list[UUID]
-ArcName = str
-ArcNames = list[str]
-ArcParams = ArcKey | ArcKeys | ArcName | ArcNames
 ArcMode = Literal["graph", "text"]
 
 
