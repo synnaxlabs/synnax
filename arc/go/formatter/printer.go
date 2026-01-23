@@ -22,6 +22,15 @@ const (
 	braceContextBlock braceContext = iota
 	braceContextConfigBlock
 	braceContextConfigValues
+	braceContextStageBody
+)
+
+type parenContext int
+
+const (
+	parenContextDefault parenContext = iota
+	parenContextInputList
+	parenContextMultiOutput
 )
 
 type printer struct {
@@ -37,7 +46,9 @@ type printer struct {
 	indentCache        []string
 	delimiterStack     []int
 	braceContextStack  []braceContext
+	parenContextStack  []parenContext
 	inlineConfigValues bool
+	multilineParens    map[int]bool // tracks which paren depth levels are multiline
 }
 
 const maxCachedIndentLevel = 16
@@ -48,8 +59,9 @@ func newPrinter() *printer {
 		cache[i] = strings.Repeat(" ", i*indentWidth)
 	}
 	return &printer{
-		atLineStart: true,
-		indentCache: cache,
+		atLineStart:     true,
+		indentCache:     cache,
+		multilineParens: make(map[int]bool),
 	}
 }
 
@@ -158,9 +170,9 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 	case parser.ArcLexerRBRACE:
 		p.handleCloseBrace(idx, tokens)
 	case parser.ArcLexerLPAREN:
-		p.handleOpenParen()
+		p.handleOpenParen(idx, tokens)
 	case parser.ArcLexerRPAREN:
-		p.handleCloseParen()
+		p.handleCloseParen(idx, tokens)
 	case parser.ArcLexerLBRACKET:
 		p.handleOpenBracket()
 	case parser.ArcLexerRBRACKET:
@@ -182,10 +194,23 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 	if p.isFuncConfigBlock(idx, tokens) {
 		return braceContextConfigBlock
 	}
+	if p.isStageBody(idx, tokens) {
+		return braceContextStageBody
+	}
 	if p.isConfigValuesBlock(idx, tokens) {
 		return braceContextConfigValues
 	}
 	return braceContextBlock
+}
+
+func (p *printer) isStageBody(idx int, tokens []antlr.Token) bool {
+	if idx < 2 {
+		return false
+	}
+	prevTok := tokens[idx-1]
+	prevPrevTok := tokens[idx-2]
+	return prevTok.GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		prevPrevTok.GetTokenType() == parser.ArcLexerSTAGE
 }
 
 func (p *printer) isFuncConfigBlock(idx int, tokens []antlr.Token) bool {
@@ -328,6 +353,11 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 
 	isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
 	if !isEmptyBlock {
+		// Add trailing comma for multi-line config blocks and stage bodies
+		if (ctx == braceContextConfigBlock || ctx == braceContextStageBody) &&
+			p.lastTokenType != parser.ArcLexerCOMMA {
+			p.emitChar(",")
+		}
 		p.indentLevel--
 		if p.indentLevel < 0 {
 			p.indentLevel = 0
@@ -349,19 +379,188 @@ func (p *printer) popBraceContext() braceContext {
 	return ctx
 }
 
-func (p *printer) handleOpenParen() {
+func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
+	ctx := p.detectParenContext(idx, tokens)
+	p.parenContextStack = append(p.parenContextStack, ctx)
+
 	if p.prevToken != nil && p.isBinaryOperator(p.lastTokenType) {
 		p.writeSpace()
 	} else if p.needsSpaceBeforeParen() {
 		p.writeSpace()
 	}
+
+	// Check if this paren list should be multiline
+	if ctx == parenContextInputList || ctx == parenContextMultiOutput {
+		depth := len(p.parenContextStack)
+		if p.shouldMultilineParenList(idx, tokens) {
+			p.multilineParens[depth] = true
+			p.emitChar("(")
+			if !p.isEmptyParenList(idx, tokens) {
+				p.writeNewline()
+				p.indentLevel++
+			}
+			p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
+			return
+		}
+	}
+
 	p.emitChar("(")
 	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLPAREN)
 }
 
-func (p *printer) handleCloseParen() {
+func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 	p.popDelimiter()
+	ctx := p.popParenContext()
+	depth := len(p.parenContextStack) + 1
+
+	if p.multilineParens[depth] {
+		delete(p.multilineParens, depth)
+		isEmptyList := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLPAREN
+		if !isEmptyList {
+			// Add trailing comma for multiline paren lists
+			if (ctx == parenContextInputList || ctx == parenContextMultiOutput) &&
+				p.lastTokenType != parser.ArcLexerCOMMA {
+				p.emitChar(",")
+			}
+			p.indentLevel--
+			if p.indentLevel < 0 {
+				p.indentLevel = 0
+			}
+			if !p.atLineStart {
+				p.writeNewline()
+			}
+			p.writeIndent()
+		}
+	}
 	p.emitChar(")")
+}
+
+func (p *printer) detectParenContext(idx int, tokens []antlr.Token) parenContext {
+	if p.isInputListParen(idx, tokens) {
+		return parenContextInputList
+	}
+	if p.isMultiOutputParen(idx, tokens) {
+		return parenContextMultiOutput
+	}
+	return parenContextDefault
+}
+
+func (p *printer) isInputListParen(idx int, tokens []antlr.Token) bool {
+	// Input list follows: func IDENTIFIER ( or func IDENTIFIER { ... } (
+	for i := idx - 1; i >= 0; i-- {
+		tokType := tokens[i].GetTokenType()
+		switch tokType {
+		case parser.ArcLexerIDENTIFIER:
+			// Check if preceded by func
+			if i > 0 && tokens[i-1].GetTokenType() == parser.ArcLexerFUNC {
+				return true
+			}
+			continue
+		case parser.ArcLexerRBRACE:
+			// Skip over config block
+			braceDepth := 1
+			for j := i - 1; j >= 0 && braceDepth > 0; j-- {
+				switch tokens[j].GetTokenType() {
+				case parser.ArcLexerRBRACE:
+					braceDepth++
+				case parser.ArcLexerLBRACE:
+					braceDepth--
+					if braceDepth == 0 {
+						i = j
+					}
+				}
+			}
+			continue
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+func (p *printer) isMultiOutputParen(idx int, tokens []antlr.Token) bool {
+	// Multi-output follows: ) or ) type or ) IDENTIFIER type
+	if idx < 1 {
+		return false
+	}
+	prevType := tokens[idx-1].GetTokenType()
+
+	// Direct: ) (
+	if prevType == parser.ArcLexerRPAREN {
+		// Check if the ) was from an input list
+		return len(p.parenContextStack) > 0 &&
+			p.parenContextStack[len(p.parenContextStack)-1] == parenContextInputList
+	}
+
+	// After type: ) type (
+	if p.isType(prevType) {
+		if idx >= 2 && tokens[idx-2].GetTokenType() == parser.ArcLexerRPAREN {
+			return true
+		}
+		// After named output: ) IDENTIFIER type (
+		if idx >= 3 &&
+			tokens[idx-2].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+			tokens[idx-3].GetTokenType() == parser.ArcLexerRPAREN {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (p *printer) popParenContext() parenContext {
+	if len(p.parenContextStack) == 0 {
+		return parenContextDefault
+	}
+	ctx := p.parenContextStack[len(p.parenContextStack)-1]
+	p.parenContextStack = p.parenContextStack[:len(p.parenContextStack)-1]
+	return ctx
+}
+
+func (p *printer) shouldMultilineParenList(idx int, tokens []antlr.Token) bool {
+	length := p.calculateParenListLength(idx, tokens)
+	return length > maxLineLength
+}
+
+func (p *printer) calculateParenListLength(idx int, tokens []antlr.Token) int {
+	length := p.linePos
+	parenDepth := 1
+	length++ // opening paren
+	needsSpace := false
+	for i := idx + 1; i < len(tokens); i++ {
+		tok := tokens[i]
+		tokType := tok.GetTokenType()
+		switch tokType {
+		case parser.ArcLexerLPAREN:
+			parenDepth++
+			length++
+		case parser.ArcLexerRPAREN:
+			parenDepth--
+			length++
+			if parenDepth == 0 {
+				return length
+			}
+		case parser.ArcLexerCOMMA:
+			length += 2 // comma + space
+			needsSpace = false
+		case parser.ArcLexerWS:
+			continue
+		default:
+			if needsSpace {
+				length++
+			}
+			length += len(tok.GetText())
+			needsSpace = p.isWordToken(tokType)
+		}
+	}
+	return length
+}
+
+func (p *printer) isEmptyParenList(idx int, tokens []antlr.Token) bool {
+	if idx+1 >= len(tokens) {
+		return false
+	}
+	return tokens[idx+1].GetTokenType() == parser.ArcLexerRPAREN
 }
 
 func (p *printer) handleOpenBracket() {
@@ -599,6 +798,8 @@ func (p *printer) needsSpaceBeforeParen() bool {
 		return true
 	case parser.ArcLexerRBRACE:
 		return true
+	case parser.ArcLexerRPAREN:
+		return true
 	}
 	return false
 }
@@ -616,6 +817,10 @@ func (p *printer) shouldBreakAfterComma() bool {
 	}
 	if p.inConfigValuesContext() && p.inlineConfigValues {
 		return false
+	}
+	// Break after comma in multiline paren lists
+	if p.multilineParens[len(p.parenContextStack)] {
+		return true
 	}
 	return p.delimiterStack[len(p.delimiterStack)-1] == parser.ArcLexerLBRACE
 }

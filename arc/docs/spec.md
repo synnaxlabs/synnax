@@ -271,7 +271,8 @@ Arc has two execution contexts with different function syntax:
 ```
 FunctionDeclaration ::= 'func' Identifier ConfigBlock? '(' InputList? ')' OutputType? Block
 
-ConfigBlock ::= '{' ConfigParameter* '}'
+ConfigBlock ::= '{' ConfigList? '}'
+ConfigList ::= ConfigParameter (',' ConfigParameter)* ','?
 ConfigParameter ::= Identifier Type
 
 InputList ::= Input (',' Input)*
@@ -288,12 +289,12 @@ NamedOutput ::= Identifier Type
 
 Functions can have a **config block** containing parameters set at instantiation time
 (compile-time constants). Config parameters are enclosed in `{}` after the function
-name:
+name, separated by commas:
 
 ```arc
 func controller{
-    setpoint f64              // config: static at instantiation
-    sensor chan f64           // config: channel reference
+    setpoint f64,             // config: static at instantiation
+    sensor chan f64,          // config: channel reference
     actuator chan f64         // config: channel reference
 } (enable u8) f64 {
     // function body
@@ -382,8 +383,8 @@ Functions can read from and write to channels:
 
 ```arc
 func controller{
-    input chan f64
-    output chan f64
+    input chan f64,
+    output chan f64,
     threshold f64
 } () {
     value := input              // read from channel (non-blocking)

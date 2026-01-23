@@ -49,7 +49,11 @@ namedOutput
     ;
 
 configBlock
-    : LBRACE config* RBRACE
+    : LBRACE configList? RBRACE
+    ;
+
+configList
+    : config (COMMA config)* COMMA?
     ;
 
 config

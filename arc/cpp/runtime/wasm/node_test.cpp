@@ -863,7 +863,7 @@ TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
 
     // Function with two config parameters 'a', 'b' and input parameter 'c'
     const std::string source = R"(
-func multi_config{a i32  b i32}(c i32) i32 {
+func multi_config{a i32, b i32}(c i32) i32 {
     return a + b + c
 }
 )" + input_name + " -> multi_config{a=5, b=10} -> " +

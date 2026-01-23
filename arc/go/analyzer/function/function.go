@@ -75,10 +75,10 @@ func collectConfig[T antlr.ParserRuleContext](
 	configBlock parser.IConfigBlockContext,
 	config *types.Params,
 ) {
-	if configBlock == nil {
+	if configBlock == nil || configBlock.ConfigList() == nil {
 		return
 	}
-	for _, cfg := range configBlock.AllConfig() {
+	for _, cfg := range configBlock.ConfigList().AllConfig() {
 		configName := cfg.IDENTIFIER().GetText()
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
@@ -369,10 +369,10 @@ func addConfigToScope[T antlr.ParserRuleContext](
 	configBlock parser.IConfigBlockContext,
 	scope *symbol.Scope,
 ) {
-	if configBlock == nil {
+	if configBlock == nil || configBlock.ConfigList() == nil {
 		return
 	}
-	for _, cfg := range configBlock.AllConfig() {
+	for _, cfg := range configBlock.ConfigList().AllConfig() {
 		configName := cfg.IDENTIFIER().GetText()
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
