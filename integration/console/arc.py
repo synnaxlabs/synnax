@@ -19,9 +19,9 @@ if TYPE_CHECKING:
 class ArcClient:
     """Arc automation management for Console UI automation."""
 
-    ITEM_PREFIX = "arc:"
     TOOLBAR_CLASS = ".console-arc-toolbar"
     CONTROLS_CLASS = ".console-arc-editor__controls"
+    LIST_ITEM_CLASS = ".pluto-list__item"
 
     def __init__(self, page: Page, console: "Console"):
         self.page = page
@@ -76,9 +76,8 @@ class ArcClient:
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name."""
         self._show_arc_panel()
-        items = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
-            has_text=name
-        )
+        toolbar = self.page.locator(self.TOOLBAR_CLASS)
+        items = toolbar.locator(self.LIST_ITEM_CLASS).filter(has_text=name)
         if items.count() == 0:
             return None
         return items.first
@@ -143,3 +142,15 @@ class ArcClient:
             return False
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         return pause_btn.count() > 0 and pause_btn.is_visible()
+
+    def delete(self, name: str) -> None:
+        """Delete an Arc via context menu."""
+        self._show_arc_panel()
+        sy.sleep(0.5)
+        item = self.get_item(name)
+        item.click(button="right")
+        self.page.get_by_text("Delete", exact=True).click(timeout=2000)
+        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn.wait_for(state="visible", timeout=3000)
+        delete_btn.click()
+        sy.sleep(0.5)

@@ -60,11 +60,12 @@ temp_sensor -> calc_temp_error{setpoint=50.0} -> temp_error
 sequence monitor {
     stage heating {
         1 -> heater_cmd,
-        temp_sensor > 60 => cooling,
-        temp_sensor > 80 => abort
+        temp_sensor > 80 => abort,
+        temp_sensor > 60 => cooling
     }
     stage cooling {
         0 -> heater_cmd,
+        temp_sensor > 80 => abort,
         temp_sensor < 40 => heating
     }
 }
@@ -111,8 +112,8 @@ class ArcThermalMonitor(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-        arc_time = self.client.channels.create(
-            name="arc_output_time",
+        cycle_count_time = self.client.channels.create(
+            name="cycle_count_time",
             is_index=True,
             data_type=sy.DataType.TIMESTAMP,
             retrieve_if_name_exists=True,
@@ -120,25 +121,33 @@ class ArcThermalMonitor(ConsoleCase):
         self.client.channels.create(
             name="cycle_count",
             data_type=sy.DataType.INT64,
-            index=arc_time.key,
+            index=cycle_count_time.key,
+            retrieve_if_name_exists=True,
+        )
+
+        peak_temp_time = self.client.channels.create(
+            name="peak_temp_time",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
             retrieve_if_name_exists=True,
         )
         self.client.channels.create(
             name="peak_temp",
             data_type=sy.DataType.FLOAT32,
-            index=arc_time.key,
+            index=peak_temp_time.key,
+            retrieve_if_name_exists=True,
+        )
+
+        temp_error_time = self.client.channels.create(
+            name="temp_error_time",
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
             retrieve_if_name_exists=True,
         )
         self.client.channels.create(
             name="temp_error",
             data_type=sy.DataType.FLOAT32,
-            index=arc_time.key,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="alarm_active",
-            data_type=sy.DataType.UINT8,
-            index=arc_time.key,
+            index=temp_error_time.key,
             retrieve_if_name_exists=True,
         )
 
@@ -170,10 +179,14 @@ class ArcThermalMonitor(ConsoleCase):
 
         self._verify_thermal_cycling()
         self._verify_stateful_variables()
+        self._verify_abort_transition()
 
         self.log("Stopping Arc task")
         self.console.arc.stop()
         sy.sleep(0.5)
+
+        self.log("Deleting Arc program")
+        self.console.arc.delete(ARC_NAME)
 
         self.log("Signaling thermal sim to stop")
         with self.client.open_writer(sy.TimeStamp.now(), "end_thermal_test_cmd") as w:
@@ -219,14 +232,58 @@ class ArcThermalMonitor(ConsoleCase):
         cycle_count = self.read_tlm("cycle_count")
         self.log(f"Cycle count: {cycle_count}")
         if cycle_count < 2:
-            self.log(f"WARNING: Expected cycle_count >= 2, got {cycle_count}")
+            self.fail(f"Expected cycle_count >= 2, got {cycle_count}")
+            return
 
         peak_temp = self.read_tlm("peak_temp")
         self.log(f"Peak temperature tracked: {peak_temp:.1f}")
         if peak_temp < 55:
-            self.log(f"WARNING: Expected peak_temp > 55, got {peak_temp:.1f}")
+            self.fail(f"Expected peak_temp > 55, got {peak_temp:.1f}")
+            return
 
         temp_error = self.read_tlm("temp_error")
         current_temp = self.read_tlm("temp_sensor")
         expected_error = current_temp - 50.0
         self.log(f"Temp error: {temp_error:.1f} (expected ~{expected_error:.1f})")
+        if abs(temp_error - expected_error) > 1.0:
+            self.fail(
+                f"temp_error {temp_error:.1f} doesn't match expected {expected_error:.1f}"
+            )
+            return
+
+    def _verify_abort_transition(self) -> None:
+        self.log("Verifying abort transition (temp > 80)...")
+
+        self.log("Triggering force overheat to simulate thermal runaway")
+        with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
+            w.write("force_overheat_cmd", 1)
+
+        self.log("Waiting for temp to exceed 80...")
+        while self.should_continue:
+            temp = self.read_tlm("temp_sensor")
+            if temp > 80:
+                self.log(f"Temperature exceeded 80: {temp:.1f}")
+                break
+            if self.should_stop:
+                self.fail("Temperature should exceed 80 during force overheat")
+                return
+
+        self.log("Waiting for abort sequence (heater off, alarm active)...")
+        log_counter = 0
+        while self.should_continue:
+            heater = self.read_tlm("heater_state")
+            alarm = self.read_tlm("alarm_active")
+            log_counter += 1
+            if log_counter % 50 == 0:
+                self.log(f"Checking abort: heater={heater}, alarm={alarm}")
+            if heater == 0 and alarm == 1:
+                self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
+                break
+            if self.should_stop:
+                self.fail(
+                    f"Abort sequence should activate (heater={heater}, alarm={alarm})"
+                )
+                return
+
+        with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
+            w.write("force_overheat_cmd", 0)

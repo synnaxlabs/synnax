@@ -2,7 +2,7 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "arc_press_sequence_rack_65538",
+      "sequence_name": "arc_press_sequence_rack_node_1",
       "sequence_order": "asynchronous",
       "pool_size": 2,
       "tests": [
@@ -16,7 +16,7 @@
       ]
     },
     {
-      "sequence_name": "arc_press_sequence_rack_65539",
+      "sequence_name": "arc_press_sequence_rack_node_1_embedded",
       "sequence_order": "asynchronous",
       "pool_size": 2,
       "tests": [
@@ -30,7 +30,7 @@
       ]
     },
     {
-      "sequence_name": "arc_thermal_monitor",
+      "sequence_name": "arc_thermal_monitor_rack_node_1",
       "sequence_order": "asynchronous",
       "pool_size": 2,
       "tests": [
@@ -38,7 +38,22 @@
           "case": "client/thermal_sim_daq"
         },
         {
-          "case": "arc/arc_thermal_monitor"
+          "case": "arc/arc_thermal_monitor",
+          "parameters": { "rack_key": 65538 }
+        }
+      ]
+    },
+    {
+      "sequence_name": "arc_thermal_monitor_rack_node_1_embedded",
+      "sequence_order": "asynchronous",
+      "pool_size": 2,
+      "tests": [
+        {
+          "case": "client/thermal_sim_daq"
+        },
+        {
+          "case": "arc/arc_thermal_monitor",
+          "parameters": { "rack_key": 65539 }
         }
       ]
     }

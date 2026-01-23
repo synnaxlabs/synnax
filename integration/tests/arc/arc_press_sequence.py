@@ -100,7 +100,10 @@ class ArcPressSequence(ConsoleCase):
 
         self.log("Stopping Arc task")
         self.console.arc.stop()
-        sy.sleep(1.0)
+        sy.sleep(0.5)
+
+        self.log("Deleting Arc program")
+        self.console.arc.delete(ARC_NAME)
 
         self.log("Signaling sim_daq to stop")
         with self.client.open_writer(sy.TimeStamp.now(), "end_test_cmd") as w:
