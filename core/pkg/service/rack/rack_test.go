@@ -518,7 +518,6 @@ var _ = Describe("Migration", func() {
 			Status:       stat,
 		}))
 		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
-		// Retrieve the embedded rack
 		var embeddedRack rack.Rack
 		Expect(svc.NewRetrieve().
 			WhereKeys(svc.EmbeddedKey).
