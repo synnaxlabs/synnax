@@ -478,20 +478,13 @@ I can successfully:
 I can successfully:
 
 - **Resources Toolbar**
-  - [ ] Open the "Assign Role" dialog for a user.
-  - [ ] Assign a role to a user.
   - [ ] Unassign a role from a user.
-  - [ ] View the roles assigned to a user.
   - [ ] Open the "Permissions" dialog.
   - [ ] Rename a user.
   - [ ] Delete a user.
   - [ ] Delete multiple users.
-- **Search and Command Palette**
-  - [x] Register a new user. (user_register.py)
-  - [x] Register a new user with a specific role assigned. (user_register.py)
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
-- [ ] Log in as a user with a specific role and verify permission enforcement.
 
 ### Arc
 
