@@ -46,11 +46,11 @@ class SetpointPressUser(ConsoleCase):
                 command_channel="test_flag_cmd",
             )
         )
-        start_cmd.move(-90, -100)
+        start_cmd.move(delta_x=-90, delta_y=-100)
         end_cmd = schematic.create_symbol(
             Button(label="end_test_cmd", channel_name="end_test_cmd", mode="Fire")
         )
-        end_cmd.move(90, -100)
+        end_cmd.move(delta_x=90, delta_y=-100)
         press_valve = schematic.create_symbol(
             Valve(
                 label="press_vlv",
@@ -58,7 +58,7 @@ class SetpointPressUser(ConsoleCase):
                 command_channel="press_vlv",
             )
         )
-        press_valve.move(-90, 10)
+        press_valve.move(delta_x=-90, delta_y=10)
         vent_valve = schematic.create_symbol(
             Valve(
                 label="vent_vlv",
@@ -66,11 +66,11 @@ class SetpointPressUser(ConsoleCase):
                 command_channel="vent_vlv",
             )
         )
-        vent_valve.move(90, 10)
+        vent_valve.move(delta_x=90, delta_y=10)
         setpoint = schematic.create_symbol(
             Setpoint(label="press_setpoint_cmd", channel_name="press_setpoint_cmd")
         )
-        setpoint.move(0, 120)
+        setpoint.move(delta_x=0, delta_y=120)
 
         schematic.set_authority(100)
         # ------------- Test 1: Control Authority --------------

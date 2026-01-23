@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import platform
 import random
 import re
 from collections.abc import Generator
@@ -240,6 +239,18 @@ class Console:
     def DELETE(self) -> None:
         self.page.keyboard.press("Delete")
 
+    def select_all(self) -> None:
+        """Select all text in the focused element."""
+        # Pressing too quickly can cause the arcs toolbar to open and block.
+        sy.sleep(0.1)
+        self.page.keyboard.press("ControlOrMeta+a")
+
+    def select_all_and_type(self, text: str) -> None:
+        """Select all text in the focused element and type new text."""
+        self.select_all()
+        sy.sleep(0.1)
+        self.page.keyboard.type(text)
+
     @property
     def MODAL_OPEN(self) -> bool:
         return (
@@ -255,7 +266,10 @@ class Console:
             ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
         )
         items = self.page.locator(f"div[id^='{resource}:']")
-        if nav_drawer.count() > 0 and items.count() > 0 and items.first.is_visible():
+        drawer_count = nav_drawer.count()
+        items_count = items.count()
+        items_visible = items.first.is_visible() if items_count > 0 else False
+        if drawer_count > 0 and items_count > 0 and items_visible:
             return
 
         button = self.page.locator("button.console-main-nav__item").filter(
@@ -271,16 +285,43 @@ class Console:
         nav_drawer = self.page.locator(
             ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
         )
-        if nav_drawer.count() > 0 and nav_drawer.first.is_visible():
-            active_nav_btn = self.page.locator(
-                "button.console-main-nav__item.pluto--selected"
-            ).first
-            if active_nav_btn.count() > 0:
+        if nav_drawer.count() == 0 or not nav_drawer.first.is_visible():
+            return
+        active_nav_btn = self.page.locator(
+            "button.console-main-nav__item.pluto--selected"
+        ).first
+        if active_nav_btn.count() == 0:
+            return
+        drawer_class = nav_drawer.first.get_attribute("class") or ""
+        is_expanded = "pluto--expanded" in drawer_class
+        if is_expanded:
+            # First click: collapse from expanded to anchored
+            active_nav_btn.click()
+
+            try:
+                self.page.locator(
+                    ".console-nav__drawer.pluto--visible.pluto--expanded:not(.pluto--location-bottom)"
+                ).wait_for(state="hidden", timeout=2000)
+            except Exception:
+                # Retry
                 active_nav_btn.click()
-            else:
-                # No selected button - press Escape to close
-                self.page.keyboard.press("Escape")
-            nav_drawer.wait_for(state="hidden", timeout=5000)
+                sy.sleep(0.2)
+
+            anchored_drawer = self.page.locator(
+                ".console-nav__drawer.pluto--visible:not(.pluto--expanded):not(.pluto--location-bottom)"
+            )
+            if anchored_drawer.count() > 0 and anchored_drawer.first.is_visible():
+                # Re-find the selected button to close anchored drawer
+                selected_btn = self.page.locator(
+                    "button.console-main-nav__item.pluto--selected"
+                ).first
+                if selected_btn.count() > 0:
+                    selected_btn.click()
+        else:
+            # Drawer is anchored (not expanded), single click closes it
+            active_nav_btn.click()
+
+        nav_drawer.wait_for(state="hidden", timeout=5000)
 
     def select_from_dropdown(self, text: str, placeholder: str | None = None) -> None:
         """Select an item from an open dropdown."""
@@ -299,15 +340,15 @@ class Console:
                 search_input.fill(text)
             sy.sleep(0.2)
 
-        for attempt in range(10):
+        for _ in range(5):
             try:
-                self.page.wait_for_selector(target_item, timeout=500)
+                self.page.wait_for_selector(target_item, timeout=1000)
                 item = self.page.locator(target_item).first
                 item.wait_for(state="attached", timeout=5000)
                 item.click()
                 return
             except Exception:
-                sy.sleep(0.1)
+                sy.sleep(1)
                 continue
 
         items = self.page.locator(
@@ -323,6 +364,7 @@ class Console:
         """
         Create a new page via New Page (+) button or command palette (randomly chosen).
         """
+        self.close_nav_drawer()
         if random.random() < 0:
             return self._create_page_by_new_page_button(page_type, page_name)
         return self._create_page_by_command_palette(page_type, page_name)
@@ -381,7 +423,7 @@ class Console:
         page_id = page_tab.inner_text().strip()
 
         if page_name is not None and not modal_was_open:
-            self.layout.rename_tab(tab_name, page_name)
+            self.layout.rename_tab(old_name=tab_name, new_name=page_name)
             page_id = page_name
             page_tab = self._get_tab_locator(page_name)
 
@@ -529,19 +571,12 @@ class Console:
             timeout: Maximum time in milliseconds to wait for actionability.
             sleep: Time in milliseconds to wait after clicking. Buffer for network delays and slow animations.
         """
-
-        modifier = "Meta" if platform.system() == "Darwin" else "Control"
-
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
-            self.page.keyboard.down(modifier)
-            element.click(timeout=timeout)
-            self.page.keyboard.up(modifier)
+            element.click(timeout=timeout, modifiers=["ControlOrMeta"])
         else:
             with self.bring_to_front(selector) as el:
-                self.page.keyboard.down(modifier)
-                el.click(timeout=timeout)
-                self.page.keyboard.up(modifier)
+                el.click(timeout=timeout, modifiers=["ControlOrMeta"])
 
         sy.sleep(sleep / 1000)
 
@@ -578,3 +613,55 @@ class Console:
             yield element
         finally:
             element.evaluate(f"element => element.style.zIndex = '{original_z_index}'")
+
+    def reload(self) -> None:
+        """Reload the console page."""
+        self.page.reload()
+        self.page.wait_for_load_state("load", timeout=30000)
+        self.page.wait_for_load_state("networkidle", timeout=30000)
+
+    def _dismiss_unsaved_changes_dialog(self) -> None:
+        """Dismiss the 'Lose Unsaved Changes' dialog if present."""
+        if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
+            self.page.get_by_role("button", name="Confirm").click()
+
+    def _find_tab_to_close(self, except_tabs: list[str]) -> Locator | None:
+        """Find the first tab that should be closed.
+
+        Skips tabs that become stale during iteration (can happen if DOM updates).
+        """
+        for tab in self.page.locator(".pluto-tabs-selector__btn").all():
+            try:
+                name = tab.inner_text(timeout=1000).strip()
+            except TimeoutError:
+                continue  # Tab became stale, skip it
+            if name not in except_tabs:
+                return tab
+        return None
+
+    def close_all_tabs(self, except_tabs: list[str] | None = None) -> None:
+        """Close all tabs except specified ones.
+
+        Args:
+            except_tabs: Tab names to keep open. Defaults to ["Get Started"].
+
+        Raises:
+            RuntimeError: If tabs remain open after max iterations.
+        """
+        if except_tabs is None:
+            except_tabs = ["Get Started"]
+
+        self.close_nav_drawer()
+
+        tabs_to_close = [
+            tab
+            for tab in self.page.locator(".pluto-tabs-selector__btn").all()
+            if tab.inner_text(timeout=1000).strip() not in except_tabs
+        ]
+
+        for _ in range(len(tabs_to_close)):
+            tab = self._find_tab_to_close(except_tabs)
+            if tab is None:
+                return
+            tab.get_by_label("pluto-tabs__close").click()
+            self._dismiss_unsaved_changes_dialog()

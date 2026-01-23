@@ -58,7 +58,7 @@ class Alignment(ConsoleCase):
                 command_channel=CHANNEL_NAME,
             )
         )
-        valve_threeway.move(-150, 0)
+        valve_threeway.move(delta_x=-150, delta_y=0)
 
         valve_threeway_ball = schematic.create_symbol(
             ValveThreeWayBall(
@@ -67,7 +67,7 @@ class Alignment(ConsoleCase):
                 command_channel=CHANNEL_NAME,
             )
         )
-        valve_threeway_ball.move(150, -20)
+        valve_threeway_ball.move(delta_x=150, delta_y=-20)
 
         valve = schematic.create_symbol(
             Valve(
@@ -76,12 +76,12 @@ class Alignment(ConsoleCase):
                 command_channel=CHANNEL_NAME,
             )
         )
-        valve.move(0, 50)
+        valve.move(delta_x=0, delta_y=50)
 
         setpoint = schematic.create_symbol(
             Setpoint(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
-        setpoint.move(-210, 0)
+        setpoint.move(delta_x=-210, delta_y=0)
 
         symbols = [setpoint, valve_threeway, valve_threeway_ball, valve]
 
@@ -92,8 +92,8 @@ class Alignment(ConsoleCase):
         schematic.distribute(symbols, "horizontal")
 
         self.log("Align Horizontal")
-        valve_threeway.move(0, -100)
-        valve_threeway_ball.move(0, 100)
+        valve_threeway.move(delta_x=0, delta_y=-100)
+        valve_threeway_ball.move(delta_x=0, delta_y=100)
         schematic.align(symbols, "horizontal")
 
         self.log("Distribute Vertical")
@@ -106,14 +106,14 @@ class Alignment(ConsoleCase):
         schematic.align(symbols, "right")
 
         self.log("Align Top")
-        valve_threeway.move(-150, 0)
-        valve_threeway_ball.move(150, 0)
+        valve_threeway.move(delta_x=-150, delta_y=0)
+        valve_threeway_ball.move(delta_x=150, delta_y=0)
         schematic.align(symbols, "top")
         schematic.distribute(symbols, "horizontal")
 
         self.log("Align Bottom")
-        valve.move(0, -20)
-        valve_threeway.move(0, 30)
+        valve.move(delta_x=0, delta_y=-20)
+        valve_threeway.move(delta_x=0, delta_y=30)
         schematic.align(symbols, "bottom")
 
         self.log("Rotate Individual Clockwise")

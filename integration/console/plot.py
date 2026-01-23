@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import json
 from typing import Any, Literal
 
@@ -25,6 +27,41 @@ class Plot(ConsolePage):
 
     page_type: str = "Line Plot"
     pluto_label: str = ".pluto-line-plot"
+
+    @classmethod
+    def open_from_search(cls, client: sy.Synnax, console: Console, name: str) -> Plot:
+        """Open an existing plot by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance.
+            console: Console instance.
+            name: Name of the plot to search for and open.
+
+        Returns:
+            Plot instance for the opened plot.
+        """
+        console.search_palette(name)
+
+        plot_pane = console.page.locator(cls.pluto_label)
+        plot_pane.first.wait_for(state="visible", timeout=5000)
+
+        tabs = console.page.locator(".pluto-tabs-selector div").filter(
+            has=console.page.locator("[aria-label='pluto-tabs__close']")
+        )
+        tab_count = tabs.count()
+        actual_tab_name = "Line Plot"
+        if tab_count > 0:
+            last_tab = tabs.nth(tab_count - 1)
+            actual_tab_name = last_tab.inner_text().strip()
+
+        plot = cls.__new__(cls)
+        plot.client = client
+        plot.console = console
+        plot.page = console.page
+        plot.page_name = actual_tab_name
+        plot.pane_locator = plot_pane.first
+        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
+        return plot
 
     def __init__(
         self,
@@ -102,9 +139,14 @@ class Plot(ConsolePage):
             state="visible", timeout=5000
         )
         download_button = self.page.get_by_role("button", name="Download").last
-        self.page.evaluate("delete window.showSaveFilePicker")
+        download_button.wait_for(state="visible", timeout=5000)
 
-        with self.page.expect_download(timeout=5000) as download_info:
+        self.page.evaluate("delete window.showSaveFilePicker")
+        self.page.wait_for_function(
+            "() => window.showSaveFilePicker === undefined", timeout=5000
+        )
+
+        with self.page.expect_download(timeout=20000) as download_info:
             download_button.click()
 
         download = download_info.value

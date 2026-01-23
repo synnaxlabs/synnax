@@ -3,19 +3,55 @@
   "sequences": [
     {
       "sequence_name": "workspace",
-      "sequence_order": "sequential",
       "tests": [
         {
           "case": "console/workspace"
+        }
+      ]
+    },
+    {
+      "sequence_name": "lifecycle",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/label/label_lifecycle"
+        },
+        {
+          "case": "console/rack/rack_lifecycle"
+        },
+        {
+          "case": "console/range/range_lifecycle"
+        }
+      ]
+    },
+    {
+      "sequence_name": "pages",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/pages/open_close"
         },
         {
           "case": "console/pages/rename_synchronization"
+        },
+        {
+          "case": "console/log/log_lifecycle"
+        },
+        {
+          "case": "console/plot/line_plot"
+        },
+        {
+          "case": "console/schematic/alignment"
+        },
+        {
+          "case": "console/schematic/edit_props"
         }
       ]
     },
     {
       "sequence_name": "channel",
-      "sequence_order": "sequential",
       "tests": [
         {
           "case": "console/channel/channel_operations"
@@ -35,44 +71,7 @@
       ]
     },
     {
-      "sequence_name": "general",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
-      "tests": [
-        {
-          "case": "console/schematic/alignment"
-        },
-        {
-          "case": "console/schematic/edit_props"
-        },
-        {
-          "case": "console/pages/open_close"
-        },
-        {
-          "case": "console/plot/line_plot"
-        },
-        {
-          "case": "console/label/label_lifecycle"
-        },
-        {
-          "case": "console/layout/mosaic_operations"
-        },
-        {
-          "case": "console/layout/keyboard_shortcuts"
-        },
-        {
-          "case": "console/rack/rack_lifecycle"
-        },
-        {
-          "case": "console/range/range_lifecycle"
-        },
-        {
-          "case": "console/documentation"
-        }
-      ]
-    },
-    {
-      "sequence_name": "access",
+      "sequence_name": "user",
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
@@ -90,17 +89,11 @@
         },
         {
           "case": "console/user_logout_badge"
-        },
-        {
-          "case": "console/role_operator_permissions"
-        },
-        {
-          "case": "console/role_viewer_permissions"
         }
       ]
     },
     {
-      "sequence_name": "permissions",
+      "sequence_name": "roles",
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
@@ -128,6 +121,22 @@
         },
         {
           "case": "console/task/ni_analog_read_forms"
+        }
+      ]
+    },
+    {
+      "sequence_name": "other",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
+        },
+        {
+          "case": "console/documentation"
         }
       ]
     }

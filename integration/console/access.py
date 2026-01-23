@@ -93,7 +93,7 @@ class AccessClient:
         # Wait for login screen to appear
         self.page.wait_for_selector(".pluto-field__username", timeout=5000)
 
-    def login(self, username: str, password: str) -> None:
+    def login(self, *, username: str, password: str) -> None:
         """Log in as a user.
 
         Assumes the login screen is currently displayed.
@@ -148,6 +148,7 @@ class AccessClient:
 
     def register_user(
         self,
+        *,
         username: str,
         password: str,
         first_name: str,
@@ -205,7 +206,7 @@ class AccessClient:
     # Role Assignment (context menu → modal)
     # -------------------------------------------------------------------------
 
-    def assign_role_to_user(self, username: str, role_name: str) -> bool:
+    def assign_role_to_user(self, *, username: str, role_name: str) -> bool:
         """Assign a role to a user via the context menu modal.
 
         This uses the "Assign to role" context menu option on a user,
@@ -280,7 +281,7 @@ class AccessClient:
     # Role Rename/Delete (context menu)
     # -------------------------------------------------------------------------
 
-    def rename_role(self, old_name: str, new_name: str) -> bool:
+    def rename_role(self, *, old_name: str, new_name: str) -> bool:
         """Rename a role via context menu.
 
         Note: Internal/system roles cannot be renamed.
