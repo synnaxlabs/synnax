@@ -89,6 +89,17 @@ class RangesClient:
         except Exception:
             return False
 
+    def wait_for_removed_from_toolbar(self, name: str) -> None:
+        """Wait for a range to be removed from the toolbar."""
+        self.show_toolbar()
+        items = self.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
+        items.first.wait_for(state="hidden", timeout=5000)
+
+    def wait_for_removed_from_explorer(self, name: str) -> None:
+        """Wait for a range to be removed from the explorer."""
+        items = self.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
+        items.first.wait_for(state="hidden", timeout=5000)
+
     def create(
         self,
         name: str,
@@ -224,7 +235,7 @@ class RangesClient:
         remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
         remove_btn.wait_for(state="visible", timeout=5000)
         remove_btn.click()
-        remove_btn.wait_for(state="hidden", timeout=2000)
+        self.wait_for_removed_from_toolbar(name)
 
     def favorite(self, name: str) -> None:
         """Favorite a range by opening its overview and clicking the favorite button.
@@ -655,7 +666,7 @@ class RangesClient:
         remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
         remove_btn.wait_for(state="visible", timeout=2000)
         remove_btn.click()
-        remove_btn.wait_for(state="hidden", timeout=2000)
+        self.wait_for_removed_from_toolbar(name)
 
     def child_range_exists(self, name: str) -> bool:
         """Check if a child range exists in the Child Ranges section.

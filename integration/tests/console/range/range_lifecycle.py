@@ -182,10 +182,8 @@ class RangeLifecycle(ConsoleCase):
         ), f"Range '{self.range_name}' should appear in toolbar after favoriting"
 
         self.log("Testing: Unfavorite range")
+        # Will raise an error if the range is still in the toolbar
         self.console.ranges.unfavorite_from_toolbar(self.range_name)
-        assert not self.console.ranges.exists_in_toolbar(
-            self.range_name
-        ), f"Range '{self.range_name}' should not appear in toolbar after unfavoriting"
 
         self.log("Testing: Re-favorite range for subsequent tests")
         self.console.ranges.open_explorer()
@@ -453,8 +451,5 @@ class RangeLifecycle(ConsoleCase):
     def test_unfavorite_child_range(self) -> None:
         """Test unfavoriting a child range from the parent overview."""
         self.log("Testing: Unfavorite child range")
+        # Will raise an error if the range is still in the toolbar
         self.console.ranges.unfavorite_child_range(self.child_range_name)
-
-        assert not self.console.ranges.exists_in_toolbar(
-            self.child_range_name
-        ), "Child range should not appear in toolbar after unfavoriting"
