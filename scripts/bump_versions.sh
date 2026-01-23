@@ -11,10 +11,10 @@ set -euo pipefail
 # included in the file licenses/APL.txt.
 
 SCRIPT_DIR="$(
-  cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1
-  pwd
+    cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1
+    pwd
 )"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." >/dev/null 2>&1 && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." > /dev/null 2>&1 && pwd)"
 
 if [[ -z "${1:-}" ]]; then
     echo "Usage: $0 <version>"
