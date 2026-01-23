@@ -527,10 +527,10 @@ class ChannelClient:
         """
         self.show_channels()
         channel_name_str = str(name)
-        selector = (
-            f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
+        channel_item = self.page.locator("div[id^='channel:']").filter(
+            has=self.page.get_by_text(channel_name_str, exact=True)
         )
-        self.page.wait_for_selector(selector, state="hidden", timeout=timeout)
+        channel_item.first.wait_for(state="hidden", timeout=timeout)
         self.hide_channels()
 
     def wait_for_channels(
@@ -651,8 +651,10 @@ class ChannelClient:
                 self.console.notifications.close(i)
                 raise RuntimeError(f"{message} {name}, {description}")
 
-        selector = f"div[id^='channel:'] p.pluto-text--editable:has-text('{name}')"
-        self.page.wait_for_selector(selector, state="hidden", timeout=5000)
+        channel_item = self.page.locator("div[id^='channel:']").filter(
+            has=self.page.get_by_text(name, exact=True)
+        )
+        channel_item.first.wait_for(state="hidden", timeout=5000)
 
         self.hide_channels()
 
