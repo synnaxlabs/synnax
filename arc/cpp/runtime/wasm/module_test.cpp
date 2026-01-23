@@ -146,8 +146,8 @@ func double(val f32) f32 {
     auto func = ASSERT_NIL_P(module->func("double"));
 
     std::vector<telem::SampleValue> params = {5.0f};
-    xerrors::Error err;
-    const auto &results = func.call(params, err);
+    std::vector<Module::Function::Result> results;
+    const auto err = func.call(params, results);
     ASSERT_NIL(err);
     ASSERT_EQ(results.size(), 1);
     ASSERT_TRUE(results[0].changed);

@@ -259,11 +259,11 @@ public:
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
+
         struct Result {
             telem::SampleValue value;
             bool changed = false;
         };
-        std::vector<Result> output_values;
 
     public:
         Function(
@@ -279,7 +279,6 @@ public:
             outputs(outputs),
             config_count(config.size()),
             base(base) {
-            this->output_values.resize(outputs.size(), Result{});
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
             for (size_t i = 0; i < config.size(); i++)
                 if (config[i].value.has_value())
@@ -291,44 +290,40 @@ public:
             }
         }
 
-        const std::vector<Result> &
-        call(const std::vector<telem::SampleValue> &inputs, xerrors::Error &err) {
-            err = xerrors::NIL;
-            for (auto &[_, changed]: this->output_values)
-                changed = false;
+        xerrors::Error call(
+            const std::vector<telem::SampleValue> &input_vals,
+            std::vector<Result> &output_vals
+        ) {
+            output_vals.assign(this->outputs.size(), Result{});
 
-            for (size_t i = 0; i < inputs.size(); i++)
-                this->args[this->config_count + i] = sample_to_wasm(inputs[i]);
+            for (size_t i = 0; i < input_vals.size(); i++)
+                this->args[this->config_count + i] = sample_to_wasm(input_vals[i]);
 
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
                 auto trap = result.err();
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
-                std::fprintf(stderr, "WASM trap: %s\n", trap_msg.c_str());
-                err = xerrors::Error("WASM execution failed: " + trap_msg);
-                return this->output_values;
+                return xerrors::Error("WASM execution failed: " + trap_msg);
             }
 
             const auto results = result.ok();
 
             if (this->base == 0) {
-                if (!this->output_values.empty() && !results.empty())
-                    this->output_values[0] = Result{
+                if (!output_vals.empty() && !results.empty())
+                    output_vals[0] = Result{
                         .value = sample_from_wasm(results[0], this->outputs[0].type),
                         .changed = true
                     };
-                return this->output_values;
+                return xerrors::NIL;
             }
 
             const auto mem_span = this->module.memory.data(this->module.store);
             const uint8_t *mem_data = mem_span.data();
             const size_t mem_size = mem_span.size();
 
-            if (this->base + sizeof(uint64_t) > mem_size) {
-                err = xerrors::Error("base address out of memory bounds");
-                return this->output_values;
-            }
+            if (this->base + sizeof(uint64_t) > mem_size)
+                return xerrors::Error("base address out of memory bounds");
 
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
@@ -339,13 +334,13 @@ public:
                 if (offset + output.type.density() > mem_size) continue;
                 uint64_t raw_value = 0;
                 memcpy(&raw_value, mem_data + offset, output.type.density());
-                this->output_values[i] = Result{
+                output_vals[i] = Result{
                     .value = sample_from_bits(raw_value, output.type),
                     .changed = true
                 };
             }
 
-            return this->output_values;
+            return xerrors::NIL;
         }
     };
 
