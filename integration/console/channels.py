@@ -490,18 +490,29 @@ class ChannelClient:
         timeout_span = sy.TimeSpan(timeout * sy.TimeSpan.SECOND)
         poll_interval = 500  # ms
 
+        self.show_channels()
+
         while sy.TimeStamp.now() - start_time < timeout_span:
+            all_channels = []
+            for item in self.channels_list.all():
+                if item.is_visible():
+                    channel_name_element = item.locator("p.pluto-text--editable")
+                    channel_name = channel_name_element.inner_text().strip()
+                    all_channels.append(channel_name)
+
             all_exist = True
             for name in normalized_names.channels:
-                if not self.exists(str(name)):
+                if str(name) not in all_channels:
                     all_exist = False
                     break
 
             if all_exist:
+                self.hide_channels()
                 return True
 
             sy.sleep(poll_interval / 1000)
 
+        self.hide_channels()
         return False
 
     def rename(self, *, names: ChannelNames, new_names: ChannelNames) -> bool:
