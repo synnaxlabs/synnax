@@ -12,7 +12,7 @@
     {
       "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
-      "pool_size": 3,
+      "pool_size": 4,
       "tests": [
         {
           "case": "console/label/label_lifecycle"
@@ -22,14 +22,7 @@
         },
         {
           "case": "console/range/range_lifecycle"
-        }
-      ]
-    },
-    {
-      "sequence_name": "pages",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
-      "tests": [
+        },
         {
           "case": "console/pages/open_close"
         },
@@ -47,12 +40,7 @@
         },
         {
           "case": "console/schematic/edit_props"
-        }
-      ]
-    },
-    {
-      "sequence_name": "channel",
-      "tests": [
+        },
         {
           "case": "console/channel/channel_operations"
         },
@@ -67,14 +55,7 @@
           "parameters": {
             "rate": [10, 100, 1000]
           }
-        }
-      ]
-    },
-    {
-      "sequence_name": "user",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
-      "tests": [
+        },
         {
           "case": "console/user_register"
         },
@@ -89,14 +70,7 @@
         },
         {
           "case": "console/user_logout_badge"
-        }
-      ]
-    },
-    {
-      "sequence_name": "roles",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
-      "tests": [
+        },
         {
           "case": "console/role_engineer_permissions"
         },
@@ -105,14 +79,7 @@
         },
         {
           "case": "console/role_viewer_permissions"
-        }
-      ]
-    },
-    {
-      "sequence_name": "tasks",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
-      "tests": [
+        },
         {
           "case": "console/task/ni_analog_write_forms"
         },
@@ -121,14 +88,7 @@
         },
         {
           "case": "console/task/ni_analog_read_forms"
-        }
-      ]
-    },
-    {
-      "sequence_name": "other",
-      "sequence_order": "asynchronous",
-      "pool_size": 3,
-      "tests": [
+        },
         {
           "case": "console/layout/mosaic_operations"
         },
