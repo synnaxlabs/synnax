@@ -352,7 +352,6 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new table from the mosaic. (pages/open_close.py)
 - [ ] Open a table from a link.
 - **Visualization**
   - [ ] Add rows and columns to a table.
@@ -363,19 +362,11 @@ I can successfully:
   - [ ] Double-click a table to load it.
   - [ ] Drag a table onto the mosaic to load it.
   - **Context Menu**
-    - [ ] Rename a table.
-    - [ ] Delete a table.
-    - [ ] Delete multiple tables.
     - [ ] Export a table.
     - [ ] Copy a link to a table.
 - **Search and Command Palette**
   - [ ] Open an existing table.
-  - [x] Create a new table. (pages/open_close.py)
   - [ ] Import a table from a file.
-- [x] Rename a table and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Resources Toolbar
-  - [x] Mosaic Tab
-  - [x] Visualization Toolbar
 
 ### Tasks
 
