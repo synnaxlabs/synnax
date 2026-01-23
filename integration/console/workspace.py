@@ -65,6 +65,19 @@ class WorkspaceClient:
         count = self.page.locator("div[id^='workspace:']").filter(has_text=name).count()
         return count > 0
 
+    def wait_for_workspace_removed(self, name: str) -> None:
+        """Wait for a workspace to be removed from the resources toolbar.
+
+        Args:
+            name: Name of the workspace to wait for removal
+            timeout: Maximum time in milliseconds to wait
+        """
+        self.console.show_resource_toolbar("workspace")
+        workspace_item = self.page.locator("div[id^='workspace:']").filter(
+            has_text=name
+        )
+        workspace_item.first.wait_for(state="hidden", timeout=5000)
+
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.console.show_resource_toolbar("workspace")
@@ -152,6 +165,8 @@ class WorkspaceClient:
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
         self.console.ENTER
+        self.get_page(new_name).wait_for(state="visible", timeout=5000)
+        self.wait_for_page_removed(old_name)
         self.console.close_nav_drawer()
 
     def delete_page(self, name: str) -> None:
@@ -402,6 +417,7 @@ class WorkspaceClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
+        self.wait_for_workspace_removed(name)
         self.console.close_nav_drawer()
 
     def ensure_selected(self, name: str) -> None:

@@ -15,7 +15,6 @@ from console.case import ConsoleCase
 from console.plot import Plot
 from framework.utils import assert_link_format, get_random_name
 
-
 SRC_CH = "channel_operations_uptime"
 
 
@@ -420,16 +419,7 @@ class ChannelOperations(ConsoleCase):
         )
 
         console.channels.delete([data_name])
-
-        assert not console.channels.exists(
-            data_name
-        ), f"Channel {data_name} should not appear in UI"
-
         console.channels.delete([index_name])
-
-        assert not console.channels.exists(
-            index_name
-        ), f"Index channel {index_name} should not appear in UI"
 
     def test_copy_link(self) -> None:
         """Test copying a channel link via context menu."""

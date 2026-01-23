@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
-
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -520,6 +519,20 @@ class ChannelClient:
         finally:
             self.hide_channels()
 
+    def wait_for_channel_removed(self, name: ChannelName, timeout: int = 5000) -> None:
+        """Wait for a channel to be removed from the channel list.
+
+        :param name: The name of the channel to wait for removal.
+        :param timeout: Maximum time in milliseconds to wait.
+        """
+        self.show_channels()
+        channel_name_str = str(name)
+        selector = (
+            f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
+        )
+        self.page.wait_for_selector(selector, state="hidden", timeout=timeout)
+        self.hide_channels()
+
     def wait_for_channels(
         self, names: ChannelNames, timeout: sy.CrudeTimeSpan = 10.0
     ) -> bool:
@@ -637,6 +650,9 @@ class ChannelClient:
             if message == "Failed to delete Channel" and name in description:
                 self.console.notifications.close(i)
                 raise RuntimeError(f"{message} {name}, {description}")
+
+        selector = f"div[id^='channel:'] p.pluto-text--editable:has-text('{name}')"
+        self.page.wait_for_selector(selector, state="hidden", timeout=5000)
 
         self.hide_channels()
 

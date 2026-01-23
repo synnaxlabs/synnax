@@ -87,10 +87,3 @@ class Workspace(ConsoleCase):
 
         self.console.workspace.delete("WorkspaceB")
         self.console.workspace.delete("WorkspaceA")
-
-        assert not self.console.workspace.exists(
-            "WorkspaceB"
-        ), "WorkspaceB should be deleted"
-        assert not self.console.workspace.exists(
-            "WorkspaceA"
-        ), "WorkspaceA should be deleted"

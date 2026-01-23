@@ -55,6 +55,19 @@ class RackClient:
         """Check if a rack exists in the devices panel."""
         return self.find_item(name) is not None
 
+    def wait_for_rack_removed(self, name: str, timeout: int = 5000) -> None:
+        """Wait for a rack to be removed from the devices panel.
+
+        Args:
+            name: Name of the rack to wait for removal
+            timeout: Maximum time in milliseconds to wait
+        """
+        self._show_devices_panel()
+        rack_item = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+            has_text=name
+        )
+        rack_item.first.wait_for(state="hidden", timeout=timeout)
+
     def get_status(self, name: str) -> dict[str, str]:
         """Get the status of a rack by hovering over its status indicator."""
         self._show_devices_panel()
@@ -81,6 +94,11 @@ class RackClient:
         self.page.get_by_text("Rename", exact=True).click(timeout=2000)
         self.console.select_all_and_type(new_name)
         self.console.ENTER
+        new_item = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+            has_text=new_name
+        )
+        new_item.first.wait_for(state="visible", timeout=5000)
+        self.wait_for_rack_removed(old_name)
 
     def delete(self, name: str) -> None:
         """Delete a rack via context menu."""
@@ -91,6 +109,7 @@ class RackClient:
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=3000)
         delete_btn.click()
+        self.wait_for_rack_removed(name)
 
     def copy_key(self, name: str) -> str:
         """Copy a rack's key to clipboard via context menu."""

@@ -246,13 +246,6 @@ class LinePlot(ConsoleCase):
         new_name = f"Renamed Plot {suffix}"
         self.console.workspace.rename_page(original_name, new_name)
 
-        assert self.console.workspace.page_exists(
-            new_name
-        ), f"Renamed plot '{new_name}' should exist"
-        assert not self.console.workspace.page_exists(
-            original_name, timeout=1000
-        ), f"Original plot '{original_name}' should not exist"
-
         self.console.workspace.delete_page(new_name)
 
     def test_ctx_delete_plot(self) -> None:
@@ -269,10 +262,6 @@ class LinePlot(ConsoleCase):
         ), f"Plot '{plot_name}' should exist before deletion"
 
         self.console.workspace.delete_page(plot_name)
-
-        assert not self.console.workspace.page_exists(
-            plot_name, timeout=1000
-        ), f"Plot '{plot_name}' should not exist after deletion"
 
     def test_ctx_delete_multiple_plots(self) -> None:
         """Test deleting multiple plots via multi-select and context menu."""
@@ -292,11 +281,6 @@ class LinePlot(ConsoleCase):
             ), f"Plot '{name}' should exist before deletion"
 
         self.console.workspace.delete_pages(plot_names)
-
-        for name in plot_names:
-            assert not self.console.workspace.page_exists(
-                name, timeout=1000
-            ), f"Plot '{name}' should not exist after deletion"
 
     def test_ctx_export_json(self) -> None:
         """Test exporting a plot as JSON via context menu."""
