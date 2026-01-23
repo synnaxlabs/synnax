@@ -108,16 +108,49 @@ class LabelClient:
             old_name: The current name of the label.
             new_name: The new name for the label.
         """
+        print(f"[DEBUG_LABEL_RENAME] Renaming label from '{old_name}' to '{new_name}'")
         self._open_edit_modal()
 
         label_item = self._find_label_item(old_name)
         if label_item is None:
             raise ValueError(f"Label '{old_name}' not found")
-        name_input = label_item.locator("input").first
+
+        name_input = label_item.locator("input[placeholder='Label Name']").first
+        current_value = name_input.input_value()
+        print(f"[DEBUG_LABEL_RENAME] Current value in input: '{current_value}'")
+        print(f"[DEBUG_LABEL_RENAME] Input selector: input[placeholder='Label Name']")
+
+        print(f"[DEBUG_LABEL_RENAME] Clicking input and selecting all text")
         name_input.click()
-        name_input.clear()
-        name_input.type(new_name)
-        self.page.keyboard.press("Enter")
+        self.console.select_all()
+        print(f"[DEBUG_LABEL_RENAME] Selected all text")
+
+        print(f"[DEBUG_LABEL_RENAME] Typing new name to replace selected text")
+        self.page.keyboard.type(new_name)
+        print(f"[DEBUG_LABEL_RENAME] Typed new name: '{new_name}'")
+
+        new_value = name_input.input_value()
+        print(f"[DEBUG_LABEL_RENAME] New value in input: '{new_value}'")
+
+        print(f"[DEBUG_LABEL_RENAME] Pressing Enter on input element to save rename")
+        name_input.press("Enter")
+        print(f"[DEBUG_LABEL_RENAME] Pressed Enter on input, waiting for rename to complete")
+
+        self.page.wait_for_timeout(2000)
+
+        renamed_item = self._find_label_item(new_name)
+        old_item = self._find_label_item(old_name)
+        print(f"[DEBUG_LABEL_RENAME] After rename - new_name exists: {renamed_item is not None}, old_name exists: {old_item is not None}")
+
+        if renamed_item is None:
+            all_items = self._find_label_items()
+            all_names = self._enumerate_label_names(all_items)
+            print(f"[DEBUG_LABEL_RENAME] Rename verification failed. Available labels: {all_names}")
+            raise RuntimeError(f"Label rename from '{old_name}' to '{new_name}' did not complete. Available labels: {all_names}")
+
+        if old_item is not None:
+            print(f"[DEBUG_LABEL_RENAME] WARNING: Old label '{old_name}' still exists after rename")
+
         self._close_edit_modal()
 
     def delete(self, name: str) -> None:
@@ -129,6 +162,7 @@ class LabelClient:
         Raises:
             ValueError: If the label with the provided name is not found.
         """
+        print(f"[DEBUG_LABEL_DELETE] Deleting label '{name}'")
         self._open_edit_modal()
 
         label_item = self._find_label_item(name)
@@ -137,9 +171,28 @@ class LabelClient:
             all_names = self._enumerate_label_names(items)
             raise ValueError(f"Label '{name}' not found. Available labels: {all_names}")
 
+        print(f"[DEBUG_LABEL_DELETE] Found label '{name}', hovering to show delete button")
         label_item.hover()
         delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
+        delete_button_count = delete_button.count()
+        print(f"[DEBUG_LABEL_DELETE] Delete button count: {delete_button_count}")
+
+        if delete_button_count == 0:
+            raise RuntimeError(f"Delete button not found for label '{name}'")
+
+        print(f"[DEBUG_LABEL_DELETE] Clicking delete button")
         delete_button.click()
+        print(f"[DEBUG_LABEL_DELETE] Clicked delete button")
+
+        self.page.wait_for_timeout(500)
+
+        print(f"[DEBUG_LABEL_DELETE] Verifying label was deleted")
+        deleted_item = self._find_label_item(name)
+        if deleted_item is not None:
+            print(f"[DEBUG_LABEL_DELETE] WARNING: Label '{name}' still exists after delete click")
+        else:
+            print(f"[DEBUG_LABEL_DELETE] Label '{name}' successfully deleted from modal")
+
         self._close_edit_modal()
 
     def list_all(self) -> list[str]:
@@ -148,15 +201,20 @@ class LabelClient:
         Returns:
             List of label names.
         """
+        print(f"[DEBUG_LABEL_LIST] Listing all labels")
         self._open_edit_modal()
         labels: list[str] = []
-        for item in self._find_label_items():
+        items = self._find_label_items()
+        print(f"[DEBUG_LABEL_LIST] Found {len(items)} label items")
+        for item in items:
             if item.is_visible():
-                name_input = item.locator("input").first
+                name_input = item.locator("input[placeholder='Label Name']").first
                 if name_input.count() > 0:
                     name = name_input.input_value()
                     if name:
                         labels.append(name)
+                        print(f"[DEBUG_LABEL_LIST] Found label: '{name}'")
+        print(f"[DEBUG_LABEL_LIST] Total labels: {labels}")
         self._close_edit_modal()
         return labels
 
@@ -199,7 +257,7 @@ class LabelClient:
     def _find_label_item(self, name: str) -> Locator | None:
         for item in self._find_label_items():
             if item.is_visible():
-                name_input = item.locator("input").first
+                name_input = item.locator("input[placeholder='Label Name']").first
                 if name_input.count() > 0:
                     current_name = name_input.input_value()
                     if current_name == name:
@@ -221,7 +279,7 @@ class LabelClient:
         all_names = []
         for item in items:
             if item.is_visible():
-                inp = item.locator("input").first
+                inp = item.locator("input[placeholder='Label Name']").first
                 if inp.count() > 0:
                     current_name = inp.input_value()
                     if current_name:

@@ -33,6 +33,16 @@ class RangesClient:
         self.page = page
         self.console = console
 
+    def open_from_search(self, name: str) -> None:
+        """Open a range overview by searching its name in the command palette.
+
+        Args:
+            name: Name of the range to search for and open.
+        """
+        self.console.search_palette(name)
+        name_input = self.page.locator(f"input[placeholder='Name'][value='{name}']")
+        name_input.wait_for(state="visible", timeout=5000)
+
     def show_toolbar(self) -> None:
         """Show the ranges toolbar in the left sidebar (favorites only)."""
         toolbar_header = self.page.get_by_text("Ranges", exact=True).first
@@ -133,9 +143,18 @@ class RangesClient:
             label_button = self.page.get_by_text("Select labels", exact=True)
             label_button.click(timeout=5000)
             for label_name in labels:
-                self.page.locator(".pluto-list__item").filter(
+                label_item = self.page.locator(".pluto-list__item").filter(
                     has_text=label_name
-                ).first.click(timeout=2000)
+                ).first
+                try:
+                    label_item.wait_for(state="visible", timeout=3000)
+                    print(f"[DEBUG_RANGE_CREATE] Label '{label_name}' found, clicking")
+                    label_item.click(timeout=2000)
+                except Exception as e:
+                    if "Timeout" in type(e).__name__:
+                        all_labels = self.page.locator(".pluto-list__item").all()
+                        available_labels = [lbl.text_content() for lbl in all_labels if lbl.is_visible()]
+                    raise RuntimeError(f"Error selecting label '{label_name}'. Available labels: {available_labels}. Original error: {e}") from e
             self.page.keyboard.press("Escape")
 
         if persisted:
@@ -206,6 +225,35 @@ class RangesClient:
         remove_btn.wait_for(state="visible", timeout=5000)
         remove_btn.click()
         remove_btn.wait_for(state="hidden", timeout=2000)
+
+    def favorite(self, name: str) -> None:
+        """Favorite a range by opening its overview and clicking the favorite button.
+
+        Args:
+            name: The name of the range to favorite.
+        """
+        print(f"[DEBUG_FAVORITE] Opening overview for range '{name}' via search palette")
+        self.open_from_search(name)
+        print(f"[DEBUG_FAVORITE] Overview loaded, range name verified in header")
+
+        favorite_btn = self.page.locator("button.console-favorite-button")
+        favorite_btn.wait_for(state="visible", timeout=5000)
+
+        button_class = favorite_btn.get_attribute("class")
+        is_favorited = "console--favorite" in button_class
+        print(f"[DEBUG_FAVORITE] Button classes: {button_class}")
+        print(f"[DEBUG_FAVORITE] Already favorited: {is_favorited}")
+
+        if not is_favorited:
+            print(f"[DEBUG_FAVORITE] Not favorited yet, clicking to favorite")
+            favorite_btn.click(force=True)
+            self.page.wait_for_timeout(500)
+            print(f"[DEBUG_FAVORITE] Range '{name}' favorited successfully")
+        else:
+            print(f"[DEBUG_FAVORITE] Range '{name}' is already favorited, skipping click")
+
+        self.console.close_page(name)
+        print(f"[DEBUG_FAVORITE] Closed range overview")
 
     def open_overview_from_explorer(self, name: str) -> None:
         """Open the range overview/details page from explorer."""
@@ -381,11 +429,24 @@ class RangesClient:
         Args:
             label_name: The name of the label to add.
         """
+        print(f"[DEBUG_LABEL_OVERVIEW] Adding label '{label_name}' in overview")
         labels_row = self.page.get_by_text("Labels", exact=True).locator("..")
         add_button = labels_row.locator("button").last
+        print(f"[DEBUG_LABEL_OVERVIEW] Clicking add button")
         add_button.click()
+        self.page.wait_for_timeout(500)
+        print(f"[DEBUG_LABEL_OVERVIEW] Dropdown opened, looking for label '{label_name}'")
         item = self.page.locator(".pluto-list__item").filter(has_text=label_name).first
-        item.click(timeout=2000)
+        item.wait_for(state="visible", timeout=3000)
+        try:
+            item.click(timeout=2000)
+            print(f"[DEBUG_LABEL_OVERVIEW] Successfully clicked label '{label_name}'")
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                all_items = self.page.locator(".pluto-list__item").all()
+                available_labels = [lbl.text_content() for lbl in all_items if lbl.is_visible()]
+                print(f"[DEBUG_LABEL_OVERVIEW] Label '{label_name}' not found. Available labels in dropdown: {available_labels}")
+            raise RuntimeError(f"Error clicking label '{label_name}' in overview dropdown: {e}") from e
         self.page.keyboard.press("Escape")
         item.wait_for(state="hidden", timeout=2000)
 
@@ -615,8 +676,17 @@ class RangesClient:
 
     def label_exists_in_toolbar(self, range_name: str, label_name: str) -> bool:
         """Check if a label exists on a range in the toolbar."""
+        print(f"[DEBUG_LABEL_TOOLBAR] Checking if label '{label_name}' exists in toolbar for range '{range_name}'")
         self.show_toolbar()
-        return self.get_label_in_toolbar(range_name, label_name).count() > 0
+        label = self.get_label_in_toolbar(range_name, label_name)
+        try:
+            label.wait_for(state="visible", timeout=2000)
+            print(f"[DEBUG_LABEL_TOOLBAR] Label '{label_name}' found in toolbar")
+            return True
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return False
+            raise RuntimeError(f"Error checking label '{label_name}' in toolbar for range '{range_name}': {e}") from e
 
     def get_label_color_in_toolbar(
         self, range_name: str, label_name: str
@@ -633,3 +703,36 @@ class RangesClient:
         if color is None:
             return None
         return rgb_to_hex(color)
+
+    def get_all_labels_in_toolbar(self, range_name: str) -> list[str]:
+        """Get all labels currently visible for a range in the toolbar.
+
+        Args:
+            range_name: The name of the range to check.
+
+        Returns:
+            List of label names currently displayed in the toolbar for this range.
+        """
+        self.show_toolbar()
+        range_item = self.get_toolbar_item(range_name)
+        try:
+            range_item.wait_for(state="visible", timeout=2000)
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return []
+            else:
+                raise RuntimeError(f"Error accessing range '{range_name}' in toolbar: {e}") from e
+
+        label_tags = range_item.locator(".pluto-tag")
+        label_count = label_tags.count()
+        print(f"[DEBUG_GET_ALL_LABELS] Found {label_count} label tags")
+
+        labels = []
+        for i in range(label_count):
+            label_text = label_tags.nth(i).text_content()
+            if label_text:
+                labels.append(label_text.strip())
+                print(f"[DEBUG_GET_ALL_LABELS] Label {i+1}: '{label_text.strip()}'")
+
+        print(f"[DEBUG_GET_ALL_LABELS] Total labels for range '{range_name}': {labels}")
+        return labels
