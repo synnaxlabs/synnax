@@ -202,7 +202,7 @@ func gcd(a, b int64) int64 {
 	return a
 }
 
-func parseTime(v any, name string) (telem.TimeSpan, error){
+func parseTime(v any, name string) (telem.TimeSpan, error) {
 	span, ok := v.(telem.TimeSpan)
 	if !ok {
 		return 0, errors.Wrapf(

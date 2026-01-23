@@ -22,21 +22,25 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-const symName = "stage_entry"
+const (
+	EntryNodeName        = "stage_entry"
+	EntryActivationParam = "activate"
+)
 
 var (
-	sym = symbol.Symbol{
-		Name: symName,
+	EntryNode = symbol.Symbol{
+		Name: EntryNodeName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{
-				Name: "activate",
-				Type: types.U8(),
+				Name:  EntryActivationParam,
+				Type:  types.U8(),
+				Value: uint8(0),
 			}},
 		}),
 	}
 	// SymbolResolver provides the stage_entry symbol for the Arc analyzer.
-	SymbolResolver = symbol.MapResolver{symName: sym}
+	SymbolResolver = symbol.MapResolver{EntryNodeName: EntryNode}
 )
 
 // entry is a node that triggers stage transitions when it receives
@@ -48,6 +52,9 @@ type entry struct {
 var _ node.Node = (*entry)(nil)
 
 func (s *entry) Next(ctx node.Context) {
+	// Entry nodes only execute when the scheduler's markChanged adds them to the
+	// changed set. markChanged already validates IsOutputTruthy on the upstream node
+	// for one-shot edges, so no input check is needed here.
 	ctx.ActivateStage()
 }
 
@@ -58,7 +65,7 @@ func NewFactory() *Factory {
 }
 
 func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symName {
+	if cfg.Node.Type != EntryNodeName {
 		return nil, query.ErrNotFound
 	}
 	return &entry{Node: cfg.State}, nil
