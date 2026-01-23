@@ -247,7 +247,7 @@ class RangesClient:
         if not is_favorited:
             print(f"[DEBUG_FAVORITE] Not favorited yet, clicking to favorite")
             favorite_btn.click(force=True)
-            self.page.wait_for_timeout(500)
+            self.page.locator("button.console-favorite-button.console--favorite").wait_for(state="visible", timeout=2000)
             print(f"[DEBUG_FAVORITE] Range '{name}' favorited successfully")
         else:
             print(f"[DEBUG_FAVORITE] Range '{name}' is already favorited, skipping click")
@@ -434,7 +434,7 @@ class RangesClient:
         add_button = labels_row.locator("button").last
         print(f"[DEBUG_LABEL_OVERVIEW] Clicking add button")
         add_button.click()
-        self.page.wait_for_timeout(500)
+        self.page.locator(".pluto-list__item").first.wait_for(state="visible", timeout=2000)
         print(f"[DEBUG_LABEL_OVERVIEW] Dropdown opened, looking for label '{label_name}'")
         item = self.page.locator(".pluto-list__item").filter(has_text=label_name).first
         item.wait_for(state="visible", timeout=3000)

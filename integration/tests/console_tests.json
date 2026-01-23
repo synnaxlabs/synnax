@@ -36,18 +36,6 @@
       ]
     },
     {
-      "sequence_name": "layout",
-      "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "console/layout/mosaic_operations"
-        },
-        {
-          "case": "console/layout/keyboard_shortcuts"
-        }
-      ]
-    },
-    {
       "sequence_name": "general",
       "sequence_order": "asynchronous",
       "pool_size": 3,
@@ -97,6 +85,18 @@
         },
         {
           "case": "console/user_logout_badge"
+        }
+      ]
+    },
+    {
+      "sequence_name": "layout",
+      "sequence_order": "asynchronous",
+      "tests": [
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
         }
       ]
     },
