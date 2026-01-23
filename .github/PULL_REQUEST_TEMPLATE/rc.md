@@ -295,13 +295,9 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new schematic from the mosaic. (pages/open_close.py)
 - **Visualization**
   - [ ] Display live data on a value.
-  - [x] Actuate a valve. (set_output.py, simple_press_valves.py, setpoint_press_user.py)
-  - [x] Select and change the color of multiple elements. (edit_props.py)
   - [ ] View the list of writers in control on the schematic.
-  - [x] Acquire absolute control over a control sequence. (setpoint_press_user.py)
   - [ ] Copy a link.
   - [ ] Export a schematic.
 - **Resources Toolbar**
@@ -318,13 +314,7 @@ I can successfully:
     - [ ] Copy multiple schematics.
     - [ ] Copy a link to a schematic.
 - **Search and Command Palette**
-  - [x] Open an existing schematic. (pages/open_close.py)
-  - [x] Create a new schematic. (pages/open_close.py)
   - [ ] Import a schematic from a file.
-- [x] Rename a schematic and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Mosaic Tab
-  - [x] Resources Toolbar
-  - [x] Visualization Toolbar
 - [ ] Rename a schematic snapshot and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
