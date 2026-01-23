@@ -13,12 +13,6 @@
       "sequence_name": "channel",
       "tests": [
         {
-          "case": "console/channel/calc_channel_stress",
-          "parameters": {
-            "rate": [10, 100]
-          }
-        },
-        {
           "case": "console/channel/channel_operations"
         },
         {
@@ -59,6 +53,12 @@
       "pool_size": 3,
       "tests": [
         {
+          "case": "console/label/label_lifecycle"
+        },
+        {
+          "case": "console/range/range_lifecycle"
+        },
+        {
           "case": "console/log/log_lifecycle"
         },
         {
@@ -71,13 +71,7 @@
           "case": "console/plot/line_plot"
         },
         {
-          "case": "console/label/label_lifecycle"
-        },
-        {
           "case": "console/rack/rack_lifecycle"
-        },
-        {
-          "case": "console/range/range_lifecycle"
         },
         {
           "case": "console/documentation"

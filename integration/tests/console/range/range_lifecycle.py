@@ -458,19 +458,34 @@ class RangeLifecycle(ConsoleCase):
     def test_cleanup_ranges(self) -> None:
         """Clean up test ranges and labels."""
         self.log("Testing: Cleanup ranges")
+
+        ranges_to_delete = [
+            ("labeled_range_name", self.labeled_range_name),
+            ("new_child_range_name", getattr(self, "new_child_range_name", None)),
+            ("child_range_name", self.child_range_name),
+            ("staged_range_name", self.staged_range_name),
+        ]
+
         self.console.ranges.open_explorer()
-        if self.console.ranges.exists_in_explorer(self.labeled_range_name):
-            self.console.ranges.delete_from_explorer(self.labeled_range_name)
-        if hasattr(
-            self, "new_child_range_name"
-        ) and self.console.ranges.exists_in_explorer(self.new_child_range_name):
-            self.console.ranges.delete_from_explorer(self.new_child_range_name)
-        if self.console.ranges.exists_in_explorer(self.child_range_name):
-            self.console.ranges.delete_from_explorer(self.child_range_name)
-        if self.console.ranges.exists_in_explorer(self.staged_range_name):
-            self.console.ranges.delete_from_explorer(self.staged_range_name)
-        all_labels = self.console.labels.list_all()
-        if self.test_label_name in all_labels:
+
+        for var_name, range_name in ranges_to_delete:
+            if range_name is None:
+                print(f"[DEBUG_CLEANUP] Skipping {var_name}: not set")
+                continue
+            print(f"[DEBUG_CLEANUP] Checking range '{range_name}' ({var_name})")
+            if self.console.ranges.exists_in_explorer(range_name):
+                print(f"[DEBUG_CLEANUP] Deleting range '{range_name}'")
+                self.console.ranges.delete_from_explorer(range_name)
+                print(f"[DEBUG_CLEANUP] Deleted range '{range_name}'")
+            else:
+                print(f"[DEBUG_CLEANUP] Range '{range_name}' not found in explorer")
+
+        print(f"[DEBUG_CLEANUP] Checking label '{self.test_label_name}'")
+        if self.console.labels.exists(self.test_label_name):
+            print(f"[DEBUG_CLEANUP] Deleting label '{self.test_label_name}'")
             self.console.labels.delete(self.test_label_name)
-        if self.second_label_name in all_labels:
+
+        print(f"[DEBUG_CLEANUP] Checking label '{self.second_label_name}'")
+        if self.console.labels.exists(self.second_label_name):
+            print(f"[DEBUG_CLEANUP] Deleting label '{self.second_label_name}'")
             self.console.labels.delete(self.second_label_name)

@@ -169,30 +169,30 @@ class LabelClient:
         if label_item is None:
             items = self._find_label_items()
             all_names = self._enumerate_label_names(items)
+            self._close_edit_modal()
             raise ValueError(f"Label '{name}' not found. Available labels: {all_names}")
 
         print(f"[DEBUG_LABEL_DELETE] Found label '{name}', hovering to show delete button")
         label_item.hover()
-        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
-        delete_button_count = delete_button.count()
-        print(f"[DEBUG_LABEL_DELETE] Delete button count: {delete_button_count}")
+        self.page.wait_for_timeout(200)
 
-        if delete_button_count == 0:
-            raise RuntimeError(f"Delete button not found for label '{name}'")
+        delete_button = label_item.locator("button.console-label__delete")
+        print(f"[DEBUG_LABEL_DELETE] Waiting for delete button to become visible")
+        delete_button.wait_for(state="visible", timeout=5000)
 
-        print(f"[DEBUG_LABEL_DELETE] Clicking delete button")
-        delete_button.click()
+        print(f"[DEBUG_LABEL_DELETE] Clicking delete button with force")
+        delete_button.click(timeout=5000)
         print(f"[DEBUG_LABEL_DELETE] Clicked delete button")
 
         self.page.wait_for_timeout(500)
 
-        print(f"[DEBUG_LABEL_DELETE] Verifying label was deleted")
-        deleted_item = self._find_label_item(name)
-        if deleted_item is not None:
-            print(f"[DEBUG_LABEL_DELETE] WARNING: Label '{name}' still exists after delete click")
-        else:
-            print(f"[DEBUG_LABEL_DELETE] Label '{name}' successfully deleted from modal")
+        print(f"[DEBUG_LABEL_DELETE] Verifying label '{name}' was deleted")
+        still_exists = self._find_label_item(name)
+        if still_exists is not None:
+            print(f"[DEBUG_LABEL_DELETE] ERROR: Label '{name}' still exists after delete!")
+            raise RuntimeError(f"Failed to delete label '{name}' - still exists after clicking delete")
 
+        print(f"[DEBUG_LABEL_DELETE] Label '{name}' successfully deleted")
         self._close_edit_modal()
 
     def list_all(self) -> list[str]:
