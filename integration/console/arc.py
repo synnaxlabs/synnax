@@ -111,8 +111,9 @@ class ArcClient:
         configure_btn = controls.locator("button:has-text('Configure')")
         configure_btn.wait_for(state="visible", timeout=5000)
         configure_btn.click()
-        controls.locator("button:has(.pluto-icon--play)").wait_for(
-            state="visible", timeout=5000
+        self.console.notifications.close_all()
+        controls.locator("text=Task configured successfully").wait_for(
+            state="visible", timeout=15000
         )
 
     def start(self) -> None:
@@ -121,8 +122,9 @@ class ArcClient:
         play_btn = controls.locator("button:has(.pluto-icon--play)")
         play_btn.wait_for(state="visible", timeout=5000)
         play_btn.click()
-        controls.locator("button:has(.pluto-icon--pause)").wait_for(
-            state="visible", timeout=5000
+        self.console.notifications.close_all()
+        controls.locator("text=Task started successfully").wait_for(
+            state="visible", timeout=15000
         )
 
     def stop(self) -> None:
@@ -131,8 +133,9 @@ class ArcClient:
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         pause_btn.wait_for(state="visible", timeout=5000)
         pause_btn.click()
-        controls.locator("button:has(.pluto-icon--play)").wait_for(
-            state="visible", timeout=5000
+        self.console.notifications.close_all()
+        controls.locator("text=Task stopped successfully").wait_for(
+            state="visible", timeout=15000
         )
 
     def is_running(self) -> bool:

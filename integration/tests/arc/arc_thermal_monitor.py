@@ -156,11 +156,7 @@ class ArcThermalMonitor(ConsoleCase):
         self.console.arc.create(ARC_NAME, ARC_SOURCE, mode="Text")
         sy.sleep(0.5)
 
-        rack_key = self.params.get("rack_key")
-        if rack_key:
-            rack = self.client.racks.retrieve(rack_key)
-        else:
-            rack = self.client.racks.retrieve(embedded=False)
+        rack = self.client.racks.retrieve_embedded_rack()
 
         self.log(f"Selecting rack: {rack.name}")
         self.console.arc.select_rack(rack.name)

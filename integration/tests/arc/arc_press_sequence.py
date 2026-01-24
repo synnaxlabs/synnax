@@ -70,11 +70,7 @@ class ArcPressSequence(ConsoleCase):
         self.console.arc.create(ARC_NAME, ARC_SEQUENCE_SOURCE, mode="Text")
         sy.sleep(0.5)
 
-        rack_key = self.params.get("rack_key")
-        if rack_key:
-            rack = self.client.racks.retrieve(rack_key)
-        else:
-            rack = self.client.racks.retrieve(embedded=False)
+        rack = self.client.racks.retrieve_embedded_rack()
         rack_name = rack.name
 
         self.log(f"Selecting rack: {rack_name} (key: {rack.key})")
