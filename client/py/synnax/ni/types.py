@@ -2414,11 +2414,13 @@ class AnalogReadTaskConfig(BaseReadTaskConfig):
     """Configuration for NI Analog Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
-    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration
+    with NI hardware sample rate limits (1 MHz max).
     """
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
+    sample_rate: conint(ge=0, le=1000000)
     channels: list[AIChan]
 
     @field_validator("channels")
@@ -2450,11 +2452,13 @@ class CounterReadConfig(BaseReadTaskConfig):
     """Configuration for NI Counter Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
-    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration
+    with NI hardware sample rate limits (1 MHz max).
     """
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
+    sample_rate: conint(ge=0, le=1000000)
     channels: list[CIChan]
 
     @field_validator("channels")
@@ -2471,11 +2475,13 @@ class DigitalReadConfig(BaseReadTaskConfig):
     """Configuration for NI Digital Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
-    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration
+    with NI hardware sample rate limits (1 MHz max).
     """
 
     device: str = Field(min_length=1)
     "The key of the Synnax NI device to read from."
+    sample_rate: conint(ge=0, le=1000000)
     channels: list[DIChan]
 
 
