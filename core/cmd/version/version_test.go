@@ -29,6 +29,7 @@ var _ = Describe("Version", func() {
 		It("Should register the version subcommand", func() {
 			var buf bytes.Buffer
 			version.Cmd.SetOut(&buf)
+			version.Cmd.SetArgs([]string{})
 			Expect(version.Cmd.Execute()).To(Succeed())
 			Expect(buf.String()).To(Equal(expected))
 		})
