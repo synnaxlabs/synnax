@@ -80,8 +80,8 @@ func (s *Server) Hover(
 }
 
 var operators = []string{
-	parser.LiteralDECLARE, parser.LiteralSTATE_DECLARE, parser.LiteralTRANSITION, parser.LiteralARROW,
-	parser.LiteralPLUS_ASSIGN, parser.LiteralMINUS_ASSIGN, parser.LiteralSTAR_ASSIGN, parser.LiteralSLASH_ASSIGN, parser.LiteralPERCENT_ASSIGN,
+	parser.LiteralDECLARE, parser.LiteralSTATEDECLARE, parser.LiteralTRANSITION, parser.LiteralARROW,
+	parser.LiteralPLUSASSIGN, parser.LiteralMINUSASSIGN, parser.LiteralSTARASSIGN, parser.LiteralSLASHASSIGN, parser.LiteralPERCENTASSIGN,
 	parser.LiteralEQ, parser.LiteralNEQ, parser.LiteralLEQ, parser.LiteralGEQ,
 }
 
@@ -95,8 +95,8 @@ var operatorDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("The variable type is inferred from the right-hand side expression."),
 	).Render(),
-	parser.LiteralSTATE_DECLARE: doc.New(
-		doc.TitleWithKind(parser.LiteralSTATE_DECLARE, "Operator"),
+	parser.LiteralSTATEDECLARE: doc.New(
+		doc.TitleWithKind(parser.LiteralSTATEDECLARE, "Operator"),
 		doc.Paragraph("Declares a stateful variable that persists across executions."),
 		doc.Divider(),
 		doc.ArcCode("count $= 0\ncount = count + 1"),
@@ -119,32 +119,32 @@ var operatorDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Sends the left-hand value to the channel on the right."),
 	).Render(),
-	parser.LiteralPLUS_ASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralPLUS_ASSIGN, "Operator"),
+	parser.LiteralPLUSASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralPLUSASSIGN, "Operator"),
 		doc.Paragraph("Adds and assigns."),
 		doc.Divider(),
 		doc.ArcCode("x += 5  // equivalent to: x = x + 5"),
 	).Render(),
-	parser.LiteralMINUS_ASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralMINUS_ASSIGN, "Operator"),
+	parser.LiteralMINUSASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralMINUSASSIGN, "Operator"),
 		doc.Paragraph("Subtracts and assigns."),
 		doc.Divider(),
 		doc.ArcCode("x -= 5  // equivalent to: x = x - 5"),
 	).Render(),
-	parser.LiteralSTAR_ASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralSTAR_ASSIGN, "Operator"),
+	parser.LiteralSTARASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralSTARASSIGN, "Operator"),
 		doc.Paragraph("Multiplies and assigns."),
 		doc.Divider(),
 		doc.ArcCode("x *= 2  // equivalent to: x = x * 2"),
 	).Render(),
-	parser.LiteralSLASH_ASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralSLASH_ASSIGN, "Operator"),
+	parser.LiteralSLASHASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralSLASHASSIGN, "Operator"),
 		doc.Paragraph("Divides and assigns."),
 		doc.Divider(),
 		doc.ArcCode("x /= 2  // equivalent to: x = x / 2"),
 	).Render(),
-	parser.LiteralPERCENT_ASSIGN: doc.New(
-		doc.TitleWithKind(parser.LiteralPERCENT_ASSIGN, "Operator"),
+	parser.LiteralPERCENTASSIGN: doc.New(
+		doc.TitleWithKind(parser.LiteralPERCENTASSIGN, "Operator"),
 		doc.Paragraph("Computes modulo and assigns."),
 		doc.Divider(),
 		doc.ArcCode("x %= 3  // equivalent to: x = x % 3"),
