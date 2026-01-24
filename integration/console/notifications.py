@@ -152,9 +152,7 @@ class NotificationsClient:
             True if notification was found and closed, False otherwise.
         """
 
-        notification = self.page.locator(
-            ".pluto-notification:has-text('Connected to')"
-        )
+        notification = self.page.locator(".pluto-notification:has-text('Connected to')")
         if notification.count() == 0:
             return False
 
