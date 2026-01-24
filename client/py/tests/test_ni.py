@@ -629,7 +629,7 @@ class TestNITask:
         sy.ni.DigitalWriteConfig.model_validate(data)
 
     def test_analog_read_sample_rate_bounds(self):
-        """Test that sample rate validation works (0-1000000 Hz for NI)."""
+        """Test that sample rate validation works (1-1000000 Hz for NI)."""
         # Valid sample rates
         sy.ni.AnalogReadTaskConfig(
             sample_rate=1,
@@ -712,7 +712,7 @@ class TestNITask:
             )
 
     def test_counter_read_sample_rate_bounds(self):
-        """Test that counter read sample rate validation works (0-1000000 Hz for NI)."""
+        """Test that counter read sample rate validation works (1-1000000 Hz for NI)."""
         # Valid max rate (1 MHz)
         sy.ni.CounterReadConfig(
             sample_rate=1000000,
@@ -761,7 +761,7 @@ class TestNITask:
             )
 
     def test_digital_read_sample_rate_bounds(self):
-        """Test that digital read sample rate validation works (0-1000000 Hz for NI)."""
+        """Test that digital read sample rate validation works (1-1000000 Hz for NI)."""
         # Valid max rate (1 MHz)
         sy.ni.DigitalReadConfig(
             device="test-device",

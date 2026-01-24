@@ -2420,7 +2420,7 @@ class AnalogReadTaskConfig(BaseReadTaskConfig):
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
-    sample_rate: conint(ge=0, le=1000000)
+    sample_rate: conint(gt=0, le=1000000)
     channels: list[AIChan]
 
     @field_validator("channels")
@@ -2443,7 +2443,7 @@ class AnalogWriteConfig(BaseWriteTaskConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(ge=0, le=50000)
+    state_rate: conint(gt=0, le=50000)
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[AOChan]
 
@@ -2458,7 +2458,7 @@ class CounterReadConfig(BaseReadTaskConfig):
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
-    sample_rate: conint(ge=0, le=1000000)
+    sample_rate: conint(gt=0, le=1000000)
     channels: list[CIChan]
 
     @field_validator("channels")
@@ -2481,7 +2481,7 @@ class DigitalReadConfig(BaseReadTaskConfig):
 
     device: str = Field(min_length=1)
     "The key of the Synnax NI device to read from."
-    sample_rate: conint(ge=0, le=1000000)
+    sample_rate: conint(gt=0, le=1000000)
     channels: list[DIChan]
 
 
@@ -2495,7 +2495,7 @@ class DigitalWriteConfig(BaseWriteTaskConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(ge=0, le=50000)
+    state_rate: conint(gt=0, le=50000)
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[DOChan]
 
