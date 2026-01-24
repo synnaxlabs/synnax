@@ -21,7 +21,9 @@ var _ = Describe("Cmd", func() {
 	Describe("Version", func() {
 		It("Should print the version when using the --version flag", func() {
 			var buf bytes.Buffer
-			Expect(cmd.ExecuteWithArgs([]string{"--version"}, &buf)).To(Succeed())
+			cmd.Cmd.SetArgs([]string{"--version"})
+			cmd.Cmd.SetOut(&buf)
+			Expect(cmd.Cmd.Execute()).To(Succeed())
 			Expect(buf.String()).To(Equal(version))
 		})
 	})
