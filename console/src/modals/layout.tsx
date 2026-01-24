@@ -23,14 +23,7 @@ export const ModalContentLayout = ({
   ...rest
 }: ModalContentLayoutProps): ReactElement => (
   <Flex.Box y grow justify="center">
-    <Flex.Box
-      y
-      grow
-      align="start"
-      justify="center"
-      style={{ padding: "5rem", ...style }}
-      {...rest}
-    >
+    <Flex.Box y grow justify="center" style={{ padding: "5rem", ...style }} {...rest}>
       {children}
     </Flex.Box>
     <BottomNavBar>{footer}</BottomNavBar>
