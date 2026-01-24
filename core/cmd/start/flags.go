@@ -23,7 +23,6 @@ const (
 	FlagPeers                        = "peers"
 	FlagData                         = "data"
 	FlagMem                          = "mem"
-	FlagConfig                       = "config"
 	FlagInsecure                     = "insecure"
 	FlagUsername                     = "username"
 	FlagPassword                     = "password"
@@ -39,20 +38,14 @@ const (
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 )
 
-// BindFlags binds the start flags to the given command.
-func BindFlags(cmd *cobra.Command) {
-	cert.BindFlags(cmd)
+// AddFlags adds the start flags to the given command.
+func AddFlags(cmd *cobra.Command) {
+	cert.AddFlags(cmd)
 	cmd.Flags().StringP(
 		FlagListen,
 		"l",
 		"localhost:9090",
 		"The address to listen for client connections",
-	)
-	cmd.Flags().StringP(
-		FlagConfig,
-		"c",
-		"/usr/local/synnax/config.yaml",
-		"The path to the configuration file",
 	)
 	cmd.Flags().StringSliceP(
 		FlagPeers,

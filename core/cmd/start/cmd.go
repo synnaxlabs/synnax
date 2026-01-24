@@ -28,8 +28,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// startCmd represents the start command
-var startCmd = &cobra.Command{
+// Cmd represents the start command
+var Cmd = &cobra.Command{
 	Use:     "start",
 	Short:   "Starts a Synnax Core",
 	Long:    "Starts a Synnax Core using the data directory specified by the --data flag, and listening on the address specified by the --listen flag. If --peers is specified and no existing data is found, the Core will attempt to join the cluster formed by its peers. If no peers are specified and no existing data is found, the Core will bootstrap a new cluster.",
@@ -92,12 +92,7 @@ func start(cmd *cobra.Command) {
 	ins.L.Info("\033[34mSynnax has shut down\033[0m")
 }
 
-// AddCommand adds the start command to the given parent command.
-func AddCommand(cmd *cobra.Command) error {
-	BindFlags(startCmd)
-	cmd.AddCommand(startCmd)
-	return viper.BindPFlags(startCmd.Flags())
-}
+func init() { AddFlags(Cmd) }
 
 // GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
 // This is used by the Windows service to start the Core with the config loaded from

@@ -14,7 +14,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/version"
 )
 
@@ -29,11 +28,8 @@ var _ = Describe("Version", func() {
 	Describe("AddCommand", func() {
 		It("Should register the version subcommand", func() {
 			var buf bytes.Buffer
-			root := &cobra.Command{Use: "test"}
-			version.AddCommand(root)
-			root.SetArgs([]string{"version"})
-			root.SetOut(&buf)
-			Expect(root.Execute()).To(Succeed())
+			version.Cmd.SetOut(&buf)
+			Expect(version.Cmd.Execute()).To(Succeed())
 			Expect(buf.String()).To(Equal(expected))
 		})
 	})

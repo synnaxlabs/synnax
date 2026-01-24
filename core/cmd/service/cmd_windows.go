@@ -30,7 +30,7 @@ const (
 	flagDelayedStart = "delayed-start"
 )
 
-var serviceCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "service",
 	Short: "Manage Synnax as a Windows service",
 	Long: `Manage Synnax as a Windows service.
@@ -99,10 +99,8 @@ func syncFlagsToViper(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// AddCommand adds the service subcommand to the given parent command.
-func AddCommand(cmd *cobra.Command) error {
-	cmd.AddCommand(serviceCmd)
-	serviceCmd.AddCommand(installCmd)
+func init() {
+	Cmd.AddCommand(installCmd, uninstallCmd, startCmd, stopCmd, statusCmd)
 	installCmd.Flags().Bool(
 		flagAutoStart,
 		true,
@@ -113,12 +111,7 @@ func AddCommand(cmd *cobra.Command) error {
 		false,
 		"Delay service start until after Windows startup completes",
 	)
-	cmdstart.BindFlags(installCmd)
-	serviceCmd.AddCommand(uninstallCmd)
-	serviceCmd.AddCommand(startCmd)
-	serviceCmd.AddCommand(stopCmd)
-	serviceCmd.AddCommand(statusCmd)
-	return viper.BindPFlags(cmd.Flags())
+	cmdstart.AddFlags(installCmd)
 }
 
 func runInstall(c *cobra.Command, _ []string) error {
