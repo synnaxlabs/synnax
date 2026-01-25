@@ -32,6 +32,7 @@ class ArcConsoleCase(ConsoleCase):
             "start_cmd_channel",
             "end_cmd_channel",
             "subscribe_channels",
+            "sim_daq_class",
         ]
         for attr in required:
             if not hasattr(self, attr):

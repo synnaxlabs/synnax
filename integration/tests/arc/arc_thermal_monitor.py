@@ -21,6 +21,7 @@ Tests Arc features not covered by arc_press_sequence:
 
 import synnax as sy
 
+from simulators.thermal import ThermalSimDAQ
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SOURCE = """
@@ -91,6 +92,7 @@ class ArcThermalMonitor(ArcConsoleCase):
         "alarm_active",
         "end_thermal_test_cmd",
     ]
+    sim_daq_class = ThermalSimDAQ
 
     def setup(self) -> None:
         self._create_additional_channels()

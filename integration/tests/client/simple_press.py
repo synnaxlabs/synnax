@@ -10,12 +10,15 @@
 import synnax as sy
 
 from framework.test_case import TestCase
+from simulators.press import PressSimDAQ
 
 
 class SimplePress(TestCase):
     """
     Test a basic press control sequence
     """
+
+    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(30)

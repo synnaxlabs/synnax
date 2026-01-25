@@ -12,12 +12,15 @@ import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import Button, Valve
 from console.schematic.schematic import Schematic
+from simulators.press import PressSimDAQ
 
 
 class SimplePressValves(ConsoleCase):
     """
     Test a basic press control sequence using valves and buttons
     """
+
+    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(90)

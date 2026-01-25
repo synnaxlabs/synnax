@@ -11,21 +11,14 @@
         {
           "case": "client/setpoint_press_auto",
           "parameters": { "control_authority": 150 }
-        },
-        {
-          "case": "client/press_sim_daq"
         }
       ]
     },
     {
       "sequence_name": "Console Press Control - Valves",
-      "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/schematic/simple_press_valves"
-        },
-        {
-          "case": "client/press_sim_daq"
         }
       ]
     },
@@ -35,9 +28,6 @@
       "tests": [
         {
           "case": "client/simple_press"
-        },
-        {
-          "case": "client/press_sim_daq"
         },
         {
           "case": "console/bad_actor"
