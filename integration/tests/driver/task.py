@@ -98,10 +98,6 @@ class TaskCase(TestCase):
 
     def setup(self) -> None:
         """Create and configure task."""
-
-        rack = self.client.racks.retrieve(name=self.RACK_NAME)
-        self.log(f"Selecting rack: {rack.name} (key: {rack.key})")
-
         # Get device
         device = self.client.devices.retrieve(name=self.device_name)
 
