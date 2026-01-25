@@ -11,6 +11,10 @@
         {
           "case": "arc/arc_thermal_monitor",
           "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/arc_tpc_cold_flow",
+          "parameters": { "rack_key": [65537, 65538] }
         }
       ]
     }

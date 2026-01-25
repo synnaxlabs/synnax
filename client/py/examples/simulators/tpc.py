@@ -160,7 +160,9 @@ class TPCSimDAQ(SimDAQ):
                         if frame is None:
                             break
                         for ch in frame.channels:
-                            daq_state[ch] = frame[ch][0]
+                            val = frame[ch][0]
+                            daq_state[ch] = val
+                            self._log(f"Received command: {ch}={val}")
 
                     # Track MPV open times
                     if daq_state[OX_MPV_CMD] == 1 and ox_mpv_last_open is None:
@@ -210,9 +212,7 @@ class TPCSimDAQ(SimDAQ):
                     if daq_state[OX_MPV_CMD] == 1 and ox_mpv_last_open is not None:
                         delta = (
                             0.1
-                            * sy.TimeSpan(
-                                sy.TimeStamp.now() - ox_mpv_last_open
-                            ).seconds
+                            * sy.TimeSpan(sy.TimeStamp.now() - ox_mpv_last_open).seconds
                         )
                         daq_state[OX_PT_1] -= delta
                         daq_state[OX_PT_2] -= delta
@@ -234,7 +234,7 @@ class TPCSimDAQ(SimDAQ):
                     writer.write(translated)
 
                     loop_count += 1
-                    if loop_count % 200 == 0:
+                    if loop_count % 25 == 0:
                         self._log(
                             f"OX_PT_1={daq_state[OX_PT_1]:.2f}, "
                             f"FUEL_PT_1={daq_state[FUEL_PT_1]:.2f}, "

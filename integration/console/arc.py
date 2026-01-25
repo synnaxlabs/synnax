@@ -29,10 +29,12 @@ class ArcClient:
 
     def _show_arc_panel(self) -> None:
         """Show the arc panel in the navigation drawer."""
+        self.console.ESCAPE
         toolbar = self.page.locator(self.TOOLBAR_CLASS)
         if toolbar.count() > 0 and toolbar.is_visible():
             return
-        self.page.keyboard.press("a")
+        arc_btn = self.page.locator("button:has(.pluto-icon--arc)")
+        arc_btn.click()
         toolbar.wait_for(state="visible", timeout=5000)
 
     def _get_controls(self) -> Locator:
@@ -91,6 +93,7 @@ class ArcClient:
 
     def open(self, name: str) -> None:
         """Open an Arc by double-clicking its item in the panel."""
+        self._show_arc_panel()
         item = self.get_item(name)
         item.dblclick()
         self.page.locator("[data-mode-id='arc']").wait_for(
@@ -130,6 +133,7 @@ class ArcClient:
 
     def stop(self) -> None:
         """Click the Pause button to stop the Arc."""
+        self._show_arc_panel()
         controls = self._get_controls()
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         pause_btn.wait_for(state="visible", timeout=5000)
@@ -141,6 +145,7 @@ class ArcClient:
 
     def is_running(self) -> bool:
         """Check if the Arc is currently running by looking for the pause button."""
+        self._show_arc_panel()
         controls = self.page.locator(self.CONTROLS_CLASS)
         if controls.count() == 0:
             return False
