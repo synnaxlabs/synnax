@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from examples.simulators import PressSimDAQ
+
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SEQUENCE_SOURCE = """
@@ -48,6 +50,7 @@ class ArcPressSequence(ArcConsoleCase):
         "press_pt",
         "end_test_cmd",
     ]
+    sim_daq_class = PressSimDAQ
 
     def verify_sequence_execution(self) -> None:
         self.log("Verifying press stage - valve opens...")

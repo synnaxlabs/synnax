@@ -102,6 +102,9 @@ class TestCase(ABC):
     DEFAULT_TIMEOUT_LIMIT: int = -1
     DEFAULT_MANUAL_TIMEOUT: int = -1
 
+    # Optional simulator class - subclasses can define to auto-start/stop a SimDAQ
+    sim_daq_class: type | None = None
+
     logger: logging.Logger
     frame_in: sy.Frame | None
 
@@ -134,6 +137,11 @@ class TestCase(ABC):
             password=synnax_connection.password,
             secure=synnax_connection.secure,
         )
+
+        self.sim_daq = None
+        if self.sim_daq_class is not None:
+            self.sim_daq = self.sim_daq_class(self.client)
+            self.sim_daq.start()
 
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
         self.client_thread = None
@@ -492,7 +500,8 @@ class TestCase(ABC):
         # Unload configs
         # or open vents
         # or whatever else
-        pass
+        if hasattr(self, "sim_daq") and self.sim_daq is not None:
+            self.sim_daq.stop()
 
     def write_tlm(self, channel: str, value: Any = None) -> None:
         """Write values to telemetry dictionary. Can take single key-value or dict of multiple channels."""

@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from examples.simulators import PressSimDAQ
 
 from console.case import ConsoleCase
 from console.schematic import Button, Setpoint, Valve
@@ -20,6 +21,8 @@ class SetpointPressUser(ConsoleCase):
     read the setpoints and determine whether to
     open or close the valves.
     """
+
+    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(60)

@@ -30,7 +30,7 @@ Before writing a control sequence, you should have done the following:
 
 For the purpose of this guide, we will use a simulated data acquisition system (DAQ) to
 represent the hardware. You can view the
-[code](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/press/simulated_daq.py)
+[code](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/simulators/press.py)
 for this DAQ on Synnax's GitHub repository. This DAQ simulates a pressure vessel that
 can be filled and vented using several valves. The DAQ has the following sensors and
 actuators:
@@ -245,13 +245,13 @@ following command:
 synnax start --insecure --mem
 ```
 
-Next, you will want to run the simulated DAQ. You can do this by downloading the
-[Python script](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/press/simulated_daq.py)
-from the Synnax GitHub repository. After downloading the script, run the following
-command:
+Next, you will want to run the simulated DAQ. You can do this by cloning the
+[Synnax repository](https://github.com/synnaxlabs/synnax) and running the simulator
+from the `client/py` directory:
 
 ```shell
-python simulated_daq.py
+cd client/py
+uv run python -m examples.simulators.press
 ```
 
 <Note.Note variant="info">

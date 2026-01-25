@@ -7,6 +7,26 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+"""
+Abort sequence that monitors for overpressure and takes control to vent.
+
+To run this example:
+
+Terminal 1 - Start the simulator:
+    cd client/py
+    uv run python -m examples.simulators.press
+
+Terminal 2 - Run this abort sequence (must start first):
+    cd client/py
+    uv run python -m examples.control.abort.abort_sequence
+
+Terminal 3 - Run the nominal sequence:
+    cd client/py
+    uv run python -m examples.control.abort.nominal_sequence
+
+The abort sequence will take control when pressure exceeds 30 psi.
+"""
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -16,7 +36,7 @@ client = sy.Synnax()
 # Define the control channel names
 PRESS_VALVE = "press_vlv_cmd"
 VENT_VALVE = "vent_vlv_cmd"
-PRESSURE = "pressure"
+PRESSURE = "press_pt"
 
 # Open a control sequence under a context manager, so that the control is released when
 # the block exits
