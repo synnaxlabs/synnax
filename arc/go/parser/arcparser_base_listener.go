@@ -83,6 +83,12 @@ func (s *BaseArcParserListener) EnterConfigBlock(ctx *ConfigBlockContext) {}
 // ExitConfigBlock is called when production configBlock is exited.
 func (s *BaseArcParserListener) ExitConfigBlock(ctx *ConfigBlockContext) {}
 
+// EnterConfigList is called when production configList is entered.
+func (s *BaseArcParserListener) EnterConfigList(ctx *ConfigListContext) {}
+
+// ExitConfigList is called when production configList is exited.
+func (s *BaseArcParserListener) ExitConfigList(ctx *ConfigListContext) {}
+
 // EnterConfig is called when production config is entered.
 func (s *BaseArcParserListener) EnterConfig(ctx *ConfigContext) {}
 

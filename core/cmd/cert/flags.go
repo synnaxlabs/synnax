@@ -26,9 +26,9 @@ const (
 	FlagKeySize       = "key-size"
 )
 
-// BindFlags binds the cert flags to the given command.
-func BindFlags(cmd *cobra.Command) {
-	instrumentation.BindFlags(cmd)
+// AddFlags adds the cert flags to the given command.
+func AddFlags(cmd *cobra.Command) {
+	instrumentation.AddFlags(cmd)
 	cmd.Flags().String(
 		FlagCertsDir,
 		cert.DefaultLoaderConfig.CertsDir,

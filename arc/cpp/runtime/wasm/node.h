@@ -27,6 +27,7 @@ class Node : public node::Node {
     state::Node state;
     Module::Function func;
     std::vector<telem::SampleValue> inputs;
+    std::vector<Module::Function::Result> results;
     std::vector<int> offsets;
     bool initialized = false;
     bool is_entry_node = false;
@@ -89,7 +90,7 @@ public:
                 this->inputs[j] = input_series->at(i % input_len);
             }
 
-            auto [results, err] = this->func.call(this->inputs);
+            const auto err = this->func.call(this->inputs, this->results);
             if (err) {
                 ctx.report_error(
                     xerrors::Error(

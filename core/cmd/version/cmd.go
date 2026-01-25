@@ -11,7 +11,7 @@ package version
 
 import "github.com/spf13/cobra"
 
-var versionCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version of Synnax",
 	Long:  "Print the version of Synnax.",
@@ -19,6 +19,3 @@ var versionCmd = &cobra.Command{
 		return FPrint(cmd.OutOrStdout())
 	},
 }
-
-// AddCommand registers the version command to the given parent command.
-func AddCommand(cmd *cobra.Command) { cmd.AddCommand(versionCmd) }

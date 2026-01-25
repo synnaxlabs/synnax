@@ -42,7 +42,7 @@ var _ = Describe("Formatter", func() {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("simple function", "func add(x i32,y i32)i32{return x+y}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
-		Entry("function with config block", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64\n} (value f64) u8 {\n    return u8(0)\n}\n"),
+		Entry("function with config block", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64,\n} (value f64) u8 {\n    return u8(0)\n}\n"),
 		Entry("empty function body", "func noop(){}", "func noop() {}\n"),
 	)
 
@@ -136,7 +136,7 @@ var _ = Describe("Formatter", func() {
 		Entry("already formatted function with newlines", "func add(x i32, y i32) i32 {\n    return x + y\n}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
 		Entry("multiple functions", "func foo() {}\nfunc bar() {}", "func foo() {}\nfunc bar() {}\n"),
 		Entry("function with multiple statements", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}\n"),
-		Entry("sequence with stages and content", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}\n"),
+		Entry("sequence with stages and content", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}", "sequence main {\n    stage init {\n        x := 0,\n    }\n    stage run {\n        x := x + 1,\n    }\n}\n"),
 		Entry("nested if statements", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}\n"),
 	)
 
@@ -178,7 +178,7 @@ var _ = Describe("Formatter", func() {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("next with stage name", "next done", "next done\n"),
-		Entry("next in stage", "stage check{if x>0{next success}}", "stage check {\n    if x > 0 {\n        next success\n    }\n}\n"),
+		Entry("next in stage", "stage check{if x>0{next success}}", "stage check {\n    if x > 0 {\n        next success\n    },\n}\n"),
 	)
 
 	DescribeTable("Comments in Blocks",
@@ -270,8 +270,45 @@ var _ = Describe("Formatter", func() {
 		Entry("multiple config values inline", "wait{duration=2ms,retries=3}", "wait{duration=2ms, retries=3}\n"),
 		Entry("empty config values inline", "wait{}", "wait{}\n"),
 		Entry("config values in flow statements", "sensor -> filter{threshold=10} -> output", "sensor -> filter{threshold=10} -> output\n"),
-		Entry("function declaration config block multi-line", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64\n} (value f64) u8 {\n    return u8(0)\n}\n"),
+		Entry("function declaration config block multi-line", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64,\n} (value f64) u8 {\n    return u8(0)\n}\n"),
 		Entry("nested config values", "x := foo{a=1} + bar{b=2}", "x := foo{a=1} + bar{b=2}\n"),
+	)
+
+	DescribeTable("Config Block Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single param gets trailing comma", "func foo{x i32}(){}", "func foo {\n    x i32,\n} () {}\n"),
+		Entry("multiple params get trailing comma", "func foo{x i32, y f64}(){}", "func foo {\n    x i32,\n    y f64,\n} () {}\n"),
+		Entry("empty config block no trailing comma", "func foo{}(){}", "func foo {} () {}\n"),
+		Entry("already has trailing comma is idempotent", "func foo {\n    x i32,\n} () {}\n", "func foo {\n    x i32,\n} () {}\n"),
+		Entry("multiple params already formatted", "func foo {\n    x i32,\n    y f64,\n} () {}\n", "func foo {\n    x i32,\n    y f64,\n} () {}\n"),
+	)
+
+	DescribeTable("Stage Body Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single item gets trailing comma", "stage init{x:=0}", "stage init {\n    x := 0,\n}\n"),
+		Entry("multiple items get trailing commas", "stage init{x:=0,y:=1}", "stage init {\n    x := 0,\n    y := 1,\n}\n"),
+		Entry("empty stage body no trailing comma", "stage init{}", "stage init {}\n"),
+		Entry("flow statement in stage", "stage run{sensor->output}", "stage run {\n    sensor -> output,\n}\n"),
+	)
+
+	DescribeTable("Function Parameter Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("short params stay inline", "func foo(x i32, y f64){}", "func foo(x i32, y f64) {}\n"),
+		Entry("empty params no change", "func foo(){}", "func foo() {}\n"),
+	)
+
+	DescribeTable("Multi-Output Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("short outputs stay inline", "func foo()(a f64, b f64){return}", "func foo() (a f64, b f64) {\n    return\n}\n"),
+		Entry("single output no parens", "func foo() f64{return 0}", "func foo() f64 {\n    return 0\n}\n"),
 	)
 
 	Describe("Boundary Conditions", func() {
