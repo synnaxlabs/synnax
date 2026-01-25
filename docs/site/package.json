@@ -1,7 +1,6 @@
 {
   "name": "@synnaxlabs/docs",
   "type": "module",
-  "version": "0.45.0",
   "private": true,
   "scripts": {
     "dev": "astro dev",

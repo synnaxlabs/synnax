@@ -29,6 +29,7 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -62,7 +63,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 				}),
 				AST: fn,
 			}); err != nil {
-				ctx.Diagnostics.AddError(err, fn)
+				ctx.Diagnostics.Add(diagnostics.Error(err, fn))
 			}
 		}
 	}
@@ -74,10 +75,10 @@ func collectConfig[T antlr.ParserRuleContext](
 	configBlock parser.IConfigBlockContext,
 	config *types.Params,
 ) {
-	if configBlock == nil {
+	if configBlock == nil || configBlock.ConfigList() == nil {
 		return
 	}
-	for _, cfg := range configBlock.AllConfig() {
+	for _, cfg := range configBlock.ConfigList().AllConfig() {
 		configName := cfg.IDENTIFIER().GetText()
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
@@ -107,23 +108,18 @@ func collectInputs(
 		if lit := input.Literal(); lit != nil {
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.AddError(errors.Wrapf(
-					err,
-					"invalid default value for parameter %s",
-					inputName,
-				), lit)
+				ctx.Diagnostics.Add(diagnostics.Error(
+					errors.Wrapf(err, "invalid default value for parameter %s", inputName),
+					lit,
+				))
 				continue
 			}
 			defaultValue = value.Value
 			seenOptional = true
 		} else if seenOptional {
-			ctx.Diagnostics.AddError(
-				errors.Newf(
-					"required parameter %s cannot follow optional parameters",
-					inputName,
-				),
-				input,
-			)
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				input, "required parameter %s cannot follow optional parameters", inputName,
+			))
 			continue
 		}
 
@@ -181,7 +177,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	fn, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
 
@@ -196,19 +192,19 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		statement.AnalyzeBlock(acontext.Child(ctx, block).WithScope(fn))
 		oParam, hasOutput := fn.Type.Outputs.Get(ir.DefaultOutputParam)
 		if hasOutput && !blockAlwaysReturns(block) {
-			ctx.Diagnostics.AddError(errors.Newf(
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"function '%s' must return a value of type %s on all paths",
 				name,
 				oParam.Type,
-			), ctx.AST)
+			))
 		}
 		for _, output := range fn.Type.Outputs {
 			if output.Name != ir.DefaultOutputParam && !checkOutputAssignedInBlock(block, output.Name) {
-				ctx.Diagnostics.AddWarning(errors.Newf(
+				ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
 					"output '%s' is never assigned in function '%s'",
 					output.Name,
 					name,
-				), ctx.AST)
+				))
 			}
 		}
 	}
@@ -229,8 +225,13 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 	if identifier := outputType.IDENTIFIER(); identifier != nil && outputType.Type_() != nil {
 		outputName := identifier.GetText()
 		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
-		if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: outputType}); err != nil {
-			ctx.Diagnostics.AddError(err, outputType)
+		if _, err := scope.Add(ctx, symbol.Symbol{
+			Name: outputName,
+			Kind: symbol.KindOutput,
+			Type: outputTypeVal,
+			AST:  outputType,
+		}); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, outputType))
 		}
 		return
 	}
@@ -248,8 +249,13 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
 				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
 			}
-			if _, err := scope.Add(ctx, symbol.Symbol{Name: outputName, Kind: symbol.KindOutput, Type: outputTypeVal, AST: namedOutput}); err != nil {
-				ctx.Diagnostics.AddError(err, namedOutput)
+			if _, err := scope.Add(ctx, symbol.Symbol{
+				Name: outputName,
+				Kind: symbol.KindOutput,
+				Type: outputTypeVal,
+				AST:  namedOutput,
+			}); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, namedOutput))
 			}
 		}
 	}
@@ -260,10 +266,12 @@ func checkOutputAssignedInBlock(block parser.IBlockContext, outputName string) b
 		return false
 	}
 	for _, stmt := range block.AllStatement() {
-		if assignment := stmt.Assignment(); assignment != nil && assignment.IDENTIFIER().GetText() == outputName {
+		if assignment := stmt.Assignment(); assignment != nil &&
+			assignment.IDENTIFIER().GetText() == outputName {
 			return true
 		}
-		if ifStmt := stmt.IfStatement(); ifStmt != nil && checkOutputAssignedInIfStmt(ifStmt, outputName) {
+		if ifStmt := stmt.IfStatement(); ifStmt != nil &&
+			checkOutputAssignedInIfStmt(ifStmt, outputName) {
 			return true
 		}
 	}
@@ -305,7 +313,10 @@ func addInputsToScope(
 		if lit := input.Literal(); lit != nil {
 			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
-				ctx.Diagnostics.AddError(errors.Wrapf(err, "invalid default value for parameter %s", inputName), lit)
+				ctx.Diagnostics.Add(diagnostics.Error(
+					errors.Wrapf(err, "invalid default value for parameter %s", inputName),
+					lit,
+				))
 			} else {
 				defaultValue = value.Value
 			}
@@ -318,7 +329,7 @@ func addInputsToScope(
 			AST:          input,
 			DefaultValue: defaultValue,
 		}); err != nil {
-			ctx.Diagnostics.AddError(err, input)
+			ctx.Diagnostics.Add(diagnostics.Error(err, input))
 		}
 	}
 }
@@ -358,10 +369,10 @@ func addConfigToScope[T antlr.ParserRuleContext](
 	configBlock parser.IConfigBlockContext,
 	scope *symbol.Scope,
 ) {
-	if configBlock == nil {
+	if configBlock == nil || configBlock.ConfigList() == nil {
 		return
 	}
-	for _, cfg := range configBlock.AllConfig() {
+	for _, cfg := range configBlock.ConfigList().AllConfig() {
 		configName := cfg.IDENTIFIER().GetText()
 		var configType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
@@ -373,7 +384,7 @@ func addConfigToScope[T antlr.ParserRuleContext](
 			Type: configType,
 			AST:  cfg,
 		}); err != nil {
-			ctx.Diagnostics.AddError(err, cfg)
+			ctx.Diagnostics.Add(diagnostics.Error(err, cfg))
 		}
 	}
 }

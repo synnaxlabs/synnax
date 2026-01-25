@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	basetypes "github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 )
 
 func isBool(t basetypes.Type) bool            { return t.IsBool() }
@@ -172,10 +172,7 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 	}
 
 	if firstType.Kind != basetypes.KindVariable && !check(firstType) {
-		ctx.Diagnostics.AddError(
-			errors.Newf("cannot use %s in %s operation", firstType, opName),
-			ctx.AST,
-		)
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "cannot use %s in %s operation", firstType, opName))
 		return
 	}
 
@@ -197,14 +194,14 @@ func validateType[T antlr.ParserRuleContext, N antlr.ParserRuleContext](
 		}
 
 		if firstType.Kind == basetypes.KindVariable || nextType.Kind == basetypes.KindVariable {
-			ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible")
+			if err := ctx.Constraints.AddCompatible(firstType, nextType, items[i], opName+" operands must be compatible"); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+				return
+			}
 		} else {
 			// Unit compatibility is already validated above by units.ValidateBinaryOp
 			if !types.Compatible(firstType, nextType) {
-				ctx.Diagnostics.AddError(
-					errors.Newf("type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName),
-					ctx.AST,
-				)
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "type mismatch: cannot use %s and %s in %s operation", firstType, nextType, opName))
 				return
 			}
 		}
@@ -313,7 +310,7 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 		if baseType.Unit != nil || expType.Unit != nil {
 			_, isLiteral := getSignedIntegerLiteral(power)
 			if err := units.ValidatePowerOp(baseType, expType, isLiteral); err != nil {
-				ctx.Diagnostics.AddError(err, ctx.AST)
+				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 				return
 			}
 		}
@@ -327,21 +324,13 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
 			if !operandType.IsNumeric() {
-				ctx.Diagnostics.AddError(
-					errors.Newf("operator - not supported for type %s", operandType),
-					ctx.AST,
-				)
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "operator - not supported for type %s", operandType))
 				return
 			}
 		} else if ctx.AST.NOT() != nil {
 			if !operandType.IsBool() {
-				ctx.Diagnostics.AddError(
-					errors.Newf(
-						"operator 'not' requires boolean operand, received %s",
-						operandType,
-					),
-					ctx.AST,
-				)
+				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "operator 'not' requires boolean operand, received %s",
+					operandType))
 				return
 			}
 		}
@@ -380,16 +369,15 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		funcName := id.GetText()
 		scope, err := ctx.Scope.Resolve(ctx, funcName)
 		if err != nil {
-			ctx.Diagnostics.AddError(err, primary)
+			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 			return
 		}
 		if scope.Kind == symbol.KindFunction {
 			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 		} else {
-			ctx.Diagnostics.AddError(
-				errors.Newf("cannot call non-function %s of type %s", funcName, scope.Type),
-				funcCalls[0],
-			)
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				funcCalls[0], "cannot call non-function %s of type %s", funcName, scope.Type,
+			))
 		}
 	}
 }
@@ -403,10 +391,7 @@ func validateFunctionCall(
 	_, hasDefaultOutput := funcType.Outputs.Get(ir.DefaultOutputParam)
 	hasMultipleOutputs := len(funcType.Outputs) > 1 || (len(funcType.Outputs) == 1 && !hasDefaultOutput)
 	if hasMultipleOutputs {
-		ctx.Diagnostics.AddError(
-			errors.Newf("cannot call function %s: functions with multiple named outputs are not callable", funcName),
-			funcCall,
-		)
+		ctx.Diagnostics.Add(diagnostics.Errorf(funcCall, "cannot call function %s: functions with multiple named outputs are not callable", funcName))
 		return
 	}
 
@@ -418,22 +403,18 @@ func validateFunctionCall(
 	totalCount := len(funcType.Inputs)
 	requiredCount := funcType.Inputs.RequiredCount()
 	actualCount := len(args)
+	signature := ir.FormatFunctionSignature(funcName, funcType)
 
 	if actualCount < requiredCount || actualCount > totalCount {
+		var msg string
 		if requiredCount == totalCount {
-			// No optional params - use existing message format
-			ctx.Diagnostics.AddError(
-				errors.Newf("function %s expects %d argument(s), got %d",
-					funcName, totalCount, actualCount),
-				funcCall,
-			)
+			msg = fmt.Sprintf("function %s expects %d argument(s), got %d",
+				funcName, totalCount, actualCount)
 		} else {
-			ctx.Diagnostics.AddError(
-				errors.Newf("function %s expects %d to %d argument(s), got %d",
-					funcName, requiredCount, totalCount, actualCount),
-				funcCall,
-			)
+			msg = fmt.Sprintf("function %s expects %d to %d argument(s), got %d",
+				funcName, requiredCount, totalCount, actualCount)
 		}
+		ctx.Diagnostics.Add(diagnostics.Errorf(funcCall, "%s", msg).WithCode(diagnostics.ErrorCodeFuncArgCount).WithNote("signature: " + signature))
 		return
 	}
 
@@ -441,16 +422,29 @@ func validateFunctionCall(
 		paramType := funcType.Inputs[i].Type
 		argType := types.InferFromExpression(context.Child(ctx, arg)).UnwrapChan()
 		if paramType.Kind == basetypes.KindVariable || argType.Kind == basetypes.KindVariable {
-			ctx.Constraints.AddCompatible(argType, paramType, arg,
-				fmt.Sprintf("argument %d of %s", i+1, funcName))
+			if err := ctx.Constraints.AddCompatible(argType, paramType, arg,
+				fmt.Sprintf("argument %d of %s", i+1, funcName)); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, arg).WithNote("signature: " + signature))
+				return
+			}
 			continue
 		}
 		if !types.Compatible(argType, paramType) {
-			ctx.Diagnostics.AddError(
-				errors.Newf("argument %d of %s: expected %s, got %s",
+			diag := diagnostics.Diagnostic{
+				Severity: diagnostics.SeverityError,
+				Code:     diagnostics.ErrorCodeFuncArgType,
+				Message: fmt.Sprintf("argument %d of %s: expected %s, got %s",
 					i+1, funcName, paramType, argType),
-				arg,
-			)
+				Notes: []diagnostics.Note{{Message: "signature: " + signature}},
+			}
+			if paramType.IsNumeric() && argType.IsNumeric() {
+				diag.Notes = append(
+					[]diagnostics.Note{{Message: fmt.Sprintf("hint: use %s(value) to convert", paramType)}},
+					diag.Notes...,
+				)
+			}
+			diag.SetRange(arg)
+			ctx.Diagnostics.Add(diag)
 			return
 		}
 	}
@@ -459,7 +453,7 @@ func validateFunctionCall(
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		if _, err := ctx.Scope.Resolve(ctx, id.GetText()); err != nil {
-			ctx.Diagnostics.AddError(err, ctx.AST)
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		}
 		return
 	}
@@ -478,10 +472,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			if typeCtx := typeCast.Type_(); typeCtx != nil {
 				targetType, _ := types.InferFromTypeContext(typeCtx)
 				if !isValidCast(sourceType, targetType) {
-					ctx.Diagnostics.AddError(
-						errors.Newf("cannot cast %s to %s", sourceType, targetType),
-						ctx.AST,
-					)
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "cannot cast %s to %s", sourceType, targetType))
 				}
 			}
 		}

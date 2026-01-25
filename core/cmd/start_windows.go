@@ -13,6 +13,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/service"
@@ -29,5 +30,9 @@ func RunMain() {
 		cobra.CheckErr(service.Run())
 		return
 	}
-	Execute()
+	if err := Cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
+
+func init() { Cmd.AddCommand(service.Cmd) }

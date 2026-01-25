@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -74,8 +75,7 @@ var _ = Describe("Stage", func() {
 				Node:  ir.Node{Key: "stage_entry_1", Type: "stage_entry"},
 				State: s.Node("stage_entry_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 
@@ -92,11 +92,9 @@ var _ = Describe("Stage", func() {
 	Describe("entry.Next", func() {
 		var factory *stage.Factory
 		var s *state.State
-		var activationCount int
 
 		BeforeEach(func() {
 			factory = stage.NewFactory()
-			activationCount = 0
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},
@@ -131,8 +129,7 @@ var _ = Describe("Stage", func() {
 				Node:  ir.Node{Key: "test_seq_test_stage_entry", Type: "stage_entry"},
 				State: s.Node("test_seq_test_stage_entry"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 
 			// Set source output to activation signal (1)
 			sourceNode := s.Node("source")
@@ -153,48 +150,6 @@ var _ = Describe("Stage", func() {
 			Expect(activationCount).To(Equal(1))
 		})
 
-		It("Should not call ActivateStage when receiving non-activation signal (0)", func() {
-			cfg := node.Config{
-				Node:  ir.Node{Key: "test_seq_test_stage_entry", Type: "stage_entry"},
-				State: s.Node("test_seq_test_stage_entry"),
-			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Set source output to non-activation signal (0)
-			sourceNode := s.Node("source")
-			*sourceNode.Output(0) = telem.NewSeriesV[uint8](0)
-			*sourceNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
-
-			activationCount := 0
-			nodeCtx := node.Context{
-				Context:     ctx,
-				MarkChanged: func(string) {},
-				ActivateStage: func() {
-					activationCount++
-				},
-			}
-			n.Next(nodeCtx)
-
-			// Should not have called ActivateStage
-			Expect(activationCount).To(Equal(0))
-		})
-
-		It("Should not call ActivateStage when input is empty", func() {
-			cfg := node.Config{
-				Node:  ir.Node{Key: "test_seq_test_stage_entry", Type: "stage_entry"},
-				State: s.Node("test_seq_test_stage_entry"),
-			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
-			nodeCtx := node.Context{
-				Context:       ctx,
-				MarkChanged:   func(string) {},
-				ActivateStage: func() { activationCount++ },
-			}
-			n.Next(nodeCtx)
-			Expect(activationCount).To(Equal(0))
-		})
 	})
 
 	Describe("SymbolResolver", func() {

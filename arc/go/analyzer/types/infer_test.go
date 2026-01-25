@@ -499,8 +499,7 @@ var _ = Describe("Type Inference", func() {
 
 	Describe("InferFromTypeContext", func() {
 		It("should return zero type for nil context", func() {
-			t, err := atypes.InferFromTypeContext(nil)
-			Expect(err).ToNot(HaveOccurred())
+			t := MustSucceed(atypes.InferFromTypeContext(nil))
 			Expect(t).To(Equal(types.Type{}))
 		})
 

@@ -44,14 +44,12 @@ var _ = Describe("Rename", func() {
 }`
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.PrepareRename(ctx, &protocol.PrepareRenameParams{
+			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 4}, // x| i32
 				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Start.Line).To(Equal(uint32(1)))
 			Expect(result.Start.Character).To(Equal(uint32(4)))
@@ -63,14 +61,12 @@ var _ = Describe("Rename", func() {
 }`
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.PrepareRename(ctx, &protocol.PrepareRenameParams{
+			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 5}, // ret|urn
 				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).To(BeNil())
 		})
 
@@ -89,26 +85,22 @@ var _ = Describe("Rename", func() {
 			content := "func test() i32 {\n    return myGlobal\n}"
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.PrepareRename(ctx, &protocol.PrepareRenameParams{
+			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 12}, // myGl|obal
 				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).To(BeNil())
 		})
 
 		It("should return nil when document not found", func() {
-			result, err := server.PrepareRename(ctx, &protocol.PrepareRenameParams{
+			result := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
 					Position:     protocol.Position{Line: 0, Character: 0},
 				},
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).To(BeNil())
 		})
 	})
@@ -122,15 +114,13 @@ var _ = Describe("Rename", func() {
 }`
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 4}, // x| i32
 				},
 				NewName: "value",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
 			edits := result.Changes[uri]
@@ -147,15 +137,13 @@ var _ = Describe("Rename", func() {
 			OpenDocument(server, ctx, uri, content)
 
 			// Click on 'x' in return statement
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 11}, // x| * y
 				},
 				NewName: "first",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
 			edits := result.Changes[uri]
@@ -178,15 +166,13 @@ func second() {
 			OpenDocument(server, ctx, uri, content)
 
 			// Rename x in first function
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 4}, // x| in first()
 				},
 				NewName: "value",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
 			edits := result.Changes[uri]
@@ -208,15 +194,13 @@ func second() {
 }`
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 4}, // count| u32 $= 0
 				},
 				NewName: "total",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
 			edits := result.Changes[uri]
@@ -237,15 +221,13 @@ func main() {
 }`
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 0, Character: 6}, // func a|dd
 				},
 				NewName: "sum",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).ToNot(BeNil())
 			Expect(result.Changes).To(HaveKey(uri))
 			edits := result.Changes[uri]
@@ -270,28 +252,24 @@ func main() {
 			content := "func test() i32 {\n    return myGlobal\n}"
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 12}, // myGl|obal
 				},
 				NewName: "renamed",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).To(BeNil())
 		})
 
 		It("should return nil when document not found", func() {
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: "file:///nonexistent.arc"},
 					Position:     protocol.Position{Line: 0, Character: 0},
 				},
 				NewName: "newName",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).To(BeNil())
 		})
 
@@ -301,15 +279,13 @@ func main() {
 }`
 			OpenDocument(server, ctx, uri, content)
 
-			result, err := server.Rename(ctx, &protocol.RenameParams{
+			result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 					Position:     protocol.Position{Line: 1, Character: 0}, // Empty line
 				},
 				NewName: "newName",
-			})
-
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(result).To(BeNil())
 		})
 	})

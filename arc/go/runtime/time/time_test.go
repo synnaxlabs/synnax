@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var ctx = context.Background()
@@ -67,13 +68,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func() {
@@ -89,7 +89,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -115,7 +115,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -151,7 +151,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -187,7 +187,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(100 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -230,13 +230,12 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
 			}
-			n, err := factory.Create(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should not fire before duration elapses", func() {
@@ -244,7 +243,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -269,7 +268,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -305,7 +304,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -350,7 +349,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -443,7 +442,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(100 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -456,7 +455,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(150 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 150 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_2"),

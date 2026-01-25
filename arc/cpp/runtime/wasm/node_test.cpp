@@ -112,7 +112,8 @@ func double(val f32) f32 {
     );
     auto node_state = ASSERT_NIL_P(state.node(mod.nodes[0].key));
 
-    node::Config cfg(fake_node, std::move(node_state));
+    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    node::Config cfg(prog, fake_node, std::move(node_state));
     ASSERT_OCCURRED_AS_P(factory.create(std::move(cfg)), xerrors::NOT_FOUND);
 }
 
@@ -141,7 +142,8 @@ func double(val f32) f32 {
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
 
-    node::Config cfg(*func_node, std::move(node_state));
+    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    node::Config cfg(prog, *func_node, std::move(node_state));
     auto node = ASSERT_NIL_P(factory.create(std::move(cfg)));
     ASSERT_NE(node, nullptr);
 }
@@ -170,7 +172,7 @@ func double(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
@@ -260,7 +262,7 @@ func double(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
@@ -338,7 +340,7 @@ func divide_by_zero(val i32) i32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("divide_by_zero"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     std::vector<xerrors::Error> reported_errors;
@@ -374,7 +376,7 @@ func double(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
     EXPECT_FALSE(node.is_output_truthy("nonexistent"));
 }
 
@@ -437,11 +439,479 @@ func passthrough(val f32) f32 {
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("passthrough"));
 
-    wasm::Node node(*func_node, std::move(node_state), func);
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
 
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
 
     const auto &output_param = func_node->outputs[0];
     EXPECT_TRUE(node.is_output_truthy(output_param.name));
+}
+
+TEST(NodeTest, NoInputNodeExecutesOncePerStageEntry) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func constant() i64 {
+    return 42
+}
+constant{} -> )" + output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "constant");
+    ASSERT_NE(func_node, nullptr);
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT64_T, output_idx.key}
+            }
+        }
+    );
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("constant"));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+    std::vector<std::string> changed_outputs;
+    ctx.mark_changed = [&](const std::string &name) {
+        changed_outputs.push_back(name);
+    };
+
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changed_outputs.size(), 1);
+
+    auto output_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = output_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<int64_t>(0), 42);
+
+    changed_outputs.clear();
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_TRUE(changed_outputs.empty());
+
+    node.reset();
+
+    changed_outputs.clear();
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changed_outputs.size(), 1);
+}
+
+TEST(NodeTest, NodeWithInputsExecutesNormally) {
+    const auto client = new_test_client();
+
+    auto input_idx_name = random_name("input_idx");
+    auto input_name = random_name("input");
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(input_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+
+    auto input_ch = synnax::Channel(input_name, telem::INT64_T, input_idx.key, false);
+    ASSERT_NIL(client.channels.create(input_ch));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func double(val i64) i64 {
+    return val * 2
+}
+)" + input_name + " -> double{} -> " +
+                               output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "double");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {input_idx.key, telem::TIMESTAMP_T, 0},
+                {input_ch.key, telem::INT64_T, input_idx.key},
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT64_T, output_idx.key}
+            }
+        }
+    );
+
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = telem::Series(static_cast<int64_t>(5));
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("double"));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+    std::vector<std::string> changed_outputs;
+    ctx.mark_changed = [&](const std::string &name) {
+        changed_outputs.push_back(name);
+    };
+
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changed_outputs.size(), 1);
+
+    auto on_node_state2 = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data2 = telem::Series(static_cast<int64_t>(10));
+    on_data2.alignment = telem::Alignment(2, 0);
+    on_node_state2.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data2)
+    );
+    auto on_time2 = telem::Series(telem::TimeStamp(2 * telem::MICROSECOND));
+    on_time2.alignment = telem::Alignment(2, 0);
+    on_node_state2.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time2)
+    );
+
+    changed_outputs.clear();
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changed_outputs.size(), 1);
+}
+
+TEST(NodeTest, FlowExpressionExecutesEveryTime) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func counter() i64 {
+    return 42
+}
+counter{} -> )" + output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "counter");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT64_T, output_idx.key}
+            }
+        }
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    arc::ir::Node expr_node = *func_node;
+    expr_node.key = "expression_0";
+
+    wasm::Node node(mod, expr_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+
+    ASSERT_NIL(node.next(ctx));
+    auto s1 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 42);
+
+    ASSERT_NIL(node.next(ctx));
+    auto s2 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 42);
+
+    ASSERT_NIL(node.next(ctx));
+    auto s3 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 42);
+}
+
+TEST(NodeTest, FlowExpressionContinuesAfterReset) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func counter() i64 {
+    return 42
+}
+counter{} -> )" + output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "counter");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT64_T, output_idx.key}
+            }
+        }
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    arc::ir::Node expr_node = *func_node;
+    expr_node.key = "expression_0";
+
+    wasm::Node node(mod, expr_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+
+    ASSERT_NIL(node.next(ctx));
+    auto s1 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 42);
+
+    node.reset();
+
+    ASSERT_NIL(node.next(ctx));
+    auto s2 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 42);
+
+    ASSERT_NIL(node.next(ctx));
+    auto s3 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s3.output(0)->at<int64_t>(0), 42);
+}
+
+TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
+    const auto client = new_test_client();
+
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func counter() i64 {
+    return 42
+}
+counter{} -> )" + output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "counter");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT64_T, output_idx.key}
+            }
+        }
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("counter"));
+
+    arc::ir::Node non_expr_node = *func_node;
+    non_expr_node.key = "expr_0";
+
+    wasm::Node node(mod, non_expr_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+
+    ASSERT_NIL(node.next(ctx));
+    auto s1 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s1.output(0)->at<int64_t>(0), 42);
+
+    ASSERT_NIL(node.next(ctx));
+    auto s2 = ASSERT_NIL_P(state.node(func_node->key));
+    EXPECT_EQ(s2.output(0)->at<int64_t>(0), 42);
+}
+
+/// @brief Config parameters are passed to WASM function correctly.
+TEST(NodeTest, ConfigParametersPassedToWasm) {
+    const auto client = new_test_client();
+
+    auto input_idx_name = random_name("input_idx");
+    auto input_name = random_name("input");
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(input_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+
+    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
+    ASSERT_NIL(client.channels.create(input_ch));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    // Function with config parameter 'x' and input parameter 'y'
+    // Use i32 since integer literals default to i32
+    const std::string source = R"(
+func add_config{x i32}(y i32) i32 {
+    return x + y
+}
+)" + input_name + " -> add_config{x=10} -> " +
+                               output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "add_config");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {input_idx.key, telem::TIMESTAMP_T, 0},
+                {input_ch.key, telem::INT32_T, input_idx.key},
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT32_T, output_idx.key}
+            }
+        }
+    );
+
+    // Find and set up the 'on' node that reads from the input channel
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = telem::Series(std::vector<int32_t>{5});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(std::vector{telem::TimeStamp(1 * telem::MICROSECOND)});
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("add_config", func_node->config));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    // Verify the output: config x=10 + input y=5 = 15
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<int32_t>(0), 15);
+}
+
+/// @brief Multiple config parameters are passed correctly.
+TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
+    const auto client = new_test_client();
+
+    auto input_idx_name = random_name("input_idx");
+    auto input_name = random_name("input");
+    auto output_idx_name = random_name("output_idx");
+    auto output_name = random_name("output");
+
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(input_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client.channels.create(output_idx));
+
+    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
+    ASSERT_NIL(client.channels.create(input_ch));
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    // Function with two config parameters 'a', 'b' and input parameter 'c'
+    const std::string source = R"(
+func multi_config{a i32, b i32}(c i32) i32 {
+    return a + b + c
+}
+)" + input_name + " -> multi_config{a=5, b=10} -> " +
+                               output_name;
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.module = mod}));
+    const auto *func_node = find_node_by_type(mod, "multi_config");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {
+                {input_idx.key, telem::TIMESTAMP_T, 0},
+                {input_ch.key, telem::INT32_T, input_idx.key},
+                {output_idx.key, telem::TIMESTAMP_T, 0},
+                {output_ch.key, telem::INT32_T, output_idx.key}
+            }
+        }
+    );
+
+    const auto *on_node = find_node_by_type(mod, "on");
+    ASSERT_NE(on_node, nullptr);
+
+    auto on_node_state = ASSERT_NIL_P(state.node(on_node->key));
+    auto on_data = telem::Series(std::vector<int32_t>{3});
+    on_data.alignment = telem::Alignment(1, 0);
+    on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_data)
+    );
+    auto on_time = telem::Series(std::vector{telem::TimeStamp(1 * telem::MICROSECOND)});
+    on_time.alignment = telem::Alignment(1, 0);
+    on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
+        std::move(on_time)
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("multi_config", func_node->config));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func);
+
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    // Verify the output: a=5 + b=10 + c=3 = 18
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<int32_t>(0), 18);
 }

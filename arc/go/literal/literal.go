@@ -135,7 +135,7 @@ func parseNumericWithUnit(
 	siValue := numericValue * unit.Scale
 
 	resultType := types.Type{Unit: unit}
-	if isIntLiteral && isExactInteger(siValue) {
+	if isIntLiteral && IsExactInteger(siValue) {
 		resultType.Kind = types.KindI64
 		return ParsedValue{Value: int64(math.Round(siValue)), Type: resultType}, nil
 	}
@@ -330,7 +330,7 @@ func convertToTargetKind(
 	switch targetType.Kind {
 	case types.KindI8, types.KindI16, types.KindI32, types.KindI64,
 		types.KindU8, types.KindU16, types.KindU32, types.KindU64:
-		if !isExactInteger(value) {
+		if !IsExactInteger(value) {
 			return ParsedValue{}, errors.Newf(
 				"cannot convert %g to %s: value has fractional part",
 				value, targetType.Kind,
@@ -400,9 +400,9 @@ func convertToTargetKind(
 	}
 }
 
-// isExactInteger checks if a float64 value is very close to an integer.
+// IsExactInteger checks if a float64 value is very close to an integer.
 // Uses a relative epsilon to handle floating-point precision issues at any scale.
-func isExactInteger(value float64) bool {
+func IsExactInteger(value float64) bool {
 	rounded := math.Round(value)
 	if rounded == 0 {
 		return math.Abs(value) < 1e-9
