@@ -11,7 +11,7 @@ import random
 
 import synnax as sy
 
-from simulators.base import SimDAQ
+from examples.simulators.base import SimDAQ
 
 
 class ThermalSimDAQ(SimDAQ):
@@ -157,7 +157,7 @@ class ThermalSimDAQ(SimDAQ):
                     writer.write(state)
 
                     loop_count += 1
-                    if loop_count % 500 == 0:
+                    if loop_count % 100 == 0:
                         self._log(
                             f"temp={state['temp_sensor']:.2f}°C, "
                             f"heater={state['heater_state']}, "

@@ -1,22 +1,40 @@
 # Abort Sequence Example
 
-To run this example, you'll need three Python shells open. In the first shell, start the
-simulated data acquisition device:
+This example demonstrates how to implement an abort sequence that monitors for
+overpressure conditions and takes control to safely vent the system.
+
+## Files
+
+This directory contains:
+
+- `abort_sequence.py`: Monitors pressure and takes control when it exceeds 30 psi.
+- `nominal_sequence.py`: A normal pressurization sequence that runs alongside the abort.
+
+The simulator for this example is located in `examples/simulators/press.py`.
+
+## Running the Example
+
+To run this example, you'll need three terminals open.
+
+**Terminal 1** - Start the simulator:
 
 ```bash
-python simulated_daq.py
+cd client/py
+uv run python -m examples.simulators.press
 ```
 
-In the second shell, start the abort sequence listener:
+**Terminal 2** - Start the abort sequence listener (must start before nominal):
 
 ```bash
-python abort_sequence.py
+cd client/py
+uv run python -m examples.control.abort.abort_sequence
 ```
 
-In the third shell, run the nominal sequence:
+**Terminal 3** - Run the nominal sequence:
 
 ```bash
-python nominal_sequence.py
+cd client/py
+uv run python -m examples.control.abort.nominal_sequence
 ```
 
 We recommend using the

@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from examples.simulators import PressSimDAQ
 
 from framework.test_case import TestCase
-from simulators.press import PressSimDAQ
 
 
 class SimplePress(TestCase):

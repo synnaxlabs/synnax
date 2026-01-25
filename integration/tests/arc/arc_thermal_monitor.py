@@ -20,8 +20,8 @@ Tests Arc features not covered by arc_press_sequence:
 """
 
 import synnax as sy
+from examples.simulators import ThermalSimDAQ
 
-from simulators.thermal import ThermalSimDAQ
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SOURCE = """

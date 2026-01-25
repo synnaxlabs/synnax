@@ -8,11 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from examples.simulators import PressSimDAQ
 
 from console.case import ConsoleCase
 from console.schematic import Button, Setpoint, Valve
 from console.schematic.schematic import Schematic
-from simulators.press import PressSimDAQ
 
 
 class SetpointPressUser(ConsoleCase):

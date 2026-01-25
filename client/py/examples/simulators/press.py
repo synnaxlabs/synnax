@@ -11,7 +11,7 @@ import random
 
 import synnax as sy
 
-from simulators.base import SimDAQ
+from examples.simulators.base import SimDAQ
 
 
 class PressSimDAQ(SimDAQ):
@@ -169,7 +169,7 @@ class PressSimDAQ(SimDAQ):
                     writer.write(state)
 
                     loop_count += 1
-                    if loop_count % 500 == 0:
+                    if loop_count % 100 == 0:
                         self._log(
                             f"press_pt={state['press_pt']:.2f}, "
                             f"press_vlv={state['press_vlv_state']}, "
