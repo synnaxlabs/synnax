@@ -256,7 +256,7 @@ var _ = Describe("Text", func() {
 			It("Should extract named config values", func() {
 				source := `
 				func processor{
-					threshold i64
+					threshold i64,
 					scale f64
 				} () i64 {
 					return threshold
@@ -286,8 +286,8 @@ var _ = Describe("Text", func() {
 			It("Should handle simple config with multiple values", func() {
 				source := `
 				func calculator{
-					a i64
-					b i64
+					a i64,
+					b i64,
 					c i64
 				} () i64 {
 					return a + b + c

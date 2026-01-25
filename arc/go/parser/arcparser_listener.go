@@ -43,6 +43,9 @@ type ArcParserListener interface {
 	// EnterConfigBlock is called when entering the configBlock production.
 	EnterConfigBlock(c *ConfigBlockContext)
 
+	// EnterConfigList is called when entering the configList production.
+	EnterConfigList(c *ConfigListContext)
+
 	// EnterConfig is called when entering the config production.
 	EnterConfig(c *ConfigContext)
 
@@ -237,6 +240,9 @@ type ArcParserListener interface {
 
 	// ExitConfigBlock is called when exiting the configBlock production.
 	ExitConfigBlock(c *ConfigBlockContext)
+
+	// ExitConfigList is called when exiting the configList production.
+	ExitConfigList(c *ConfigListContext)
 
 	// ExitConfig is called when exiting the config production.
 	ExitConfig(c *ConfigContext)

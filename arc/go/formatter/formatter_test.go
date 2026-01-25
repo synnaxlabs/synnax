@@ -16,151 +16,69 @@ import (
 )
 
 var _ = Describe("Formatter", func() {
-	Describe("Binary Operators", func() {
-		It("should add spaces around :=", func() {
-			input := "x:=42"
-			expected := "x := 42\n"
+	DescribeTable("Binary Operators",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("should add spaces around :=", "x:=42", "x := 42\n"),
+		Entry("should add spaces around $=", "count$=0", "count $= 0\n"),
+		Entry("should add spaces around arithmetic operators", "x:=a+b*c-d/e%f", "x := a + b * c - d / e % f\n"),
+		Entry("should add spaces around comparison operators", "x==y", "x == y\n"),
+		Entry("should add spaces around logical operators", "x and y or z", "x and y or z\n"),
+		Entry("should add spaces around flow operators", "a->b=>c", "a -> b => c\n"),
+		Entry("should add spaces around compound assignment operators", "x+=5", "x += 5\n"),
+	)
 
-		It("should add spaces around $=", func() {
-			input := "count$=0"
-			expected := "count $= 0\n"
+	DescribeTable("Unit Literals",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("should not add space between number and unit suffix", "delay := 100ms", "delay := 100ms\n"),
+		Entry("should not add space between float and unit suffix", "pressure := 14.7psi", "pressure := 14.7psi\n"),
+	)
 
-		It("should add spaces around arithmetic operators", func() {
-			input := "x:=a+b*c-d/e%f"
-			expected := "x := a + b * c - d / e % f\n"
+	DescribeTable("Functions",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("simple function", "func add(x i32,y i32)i32{return x+y}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
+		Entry("function with config block", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64,\n} (value f64) u8 {\n    return u8(0)\n}\n"),
+		Entry("empty function body", "func noop(){}", "func noop() {}\n"),
+	)
 
-		It("should add spaces around comparison operators", func() {
-			input := "x==y"
-			expected := "x == y\n"
+	DescribeTable("Sequences",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("sequence with stages", "sequence main{stage first{}stage second{}}", "sequence main {\n    stage first {}\n    stage second {}\n}\n"),
+	)
 
-		It("should add spaces around logical operators", func() {
-			input := "x and y or z"
-			expected := "x and y or z\n"
+	DescribeTable("Control Flow",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("if statement", "if x>0{return 1}", "if x > 0 {\n    return 1\n}\n"),
+		Entry("if-else statement", "if x>0{return 1}else{return 0}", "if x > 0 {\n    return 1\n} else {\n    return 0\n}\n"),
+	)
 
-		It("should add spaces around flow operators", func() {
-			input := "a->b=>c"
-			expected := "a -> b => c\n"
+	DescribeTable("Comments",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("preserve single-line comments", "// comment\nx := 1", "// comment\nx := 1\n"),
+		Entry("preserve trailing comments", "x := 1 // comment", "x := 1 // comment\n"),
+		Entry("preserve multi-line comments", "/* multi\nline */ x := 1", "/* multi\nline */\nx := 1\n"),
+	)
 
-		It("should add spaces around compound assignment operators", func() {
-			input := "x+=5"
-			expected := "x += 5\n"
+	DescribeTable("Series Literals",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Unit Literals", func() {
-		It("should not add space between number and unit suffix", func() {
-			input := "delay := 100ms"
-			expected := "delay := 100ms\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should not add space between float and unit suffix", func() {
-			input := "pressure := 14.7psi"
-			expected := "pressure := 14.7psi\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Functions", func() {
-		It("should format simple function", func() {
-			input := "func add(x i32,y i32)i32{return x+y}"
-			expected := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should format function with config block", func() {
-			input := "func threshold{limit f64}(value f64)u8{return u8(0)}"
-			expected := "func threshold {\n    limit f64\n} (value f64) u8 {\n    return u8(0)\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should format empty function body", func() {
-			input := "func noop(){}"
-			expected := "func noop() {}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Sequences", func() {
-		It("should format sequence with stages", func() {
-			input := "sequence main{stage first{}stage second{}}"
-			expected := "sequence main {\n    stage first {}\n    stage second {}\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Control Flow", func() {
-		It("should format if statement", func() {
-			input := "if x>0{return 1}"
-			expected := "if x > 0 {\n    return 1\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should format if-else statement", func() {
-			input := "if x>0{return 1}else{return 0}"
-			expected := "if x > 0 {\n    return 1\n} else {\n    return 0\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Comments", func() {
-		It("should preserve single-line comments", func() {
-			input := "// comment\nx := 1"
-			expected := "// comment\nx := 1\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should preserve trailing comments", func() {
-			input := "x := 1 // comment"
-			expected := "x := 1 // comment\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should preserve multi-line comments", func() {
-			input := "/* multi\nline */ x := 1"
-			expected := "/* multi\nline */\nx := 1\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Series Literals", func() {
-		It("should format series literal", func() {
-			input := "[1,2,3]"
-			expected := "[1, 2, 3]\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should format empty series", func() {
-			input := "[]"
-			expected := "[]\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should add space after := before series literal", func() {
-			input := "d:=[1,2]"
-			expected := "d := [1, 2]\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should add space after $= before series literal", func() {
-			input := "d$=[1,2]"
-			expected := "d $= [1, 2]\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
+		},
+		Entry("format series literal", "[1,2,3]", "[1, 2, 3]\n"),
+		Entry("format empty series", "[]", "[]\n"),
+		Entry("add space after := before series literal", "d:=[1,2]", "d := [1, 2]\n"),
+		Entry("add space after $= before series literal", "d$=[1,2]", "d $= [1, 2]\n"),
+	)
 
 	DescribeTable("Spaces After Binary Operators",
 		func(input, expected string) {
@@ -174,201 +92,102 @@ var _ = Describe("Formatter", func() {
 		Entry("should add space after + before bracket", "x:=a+[1]", "x := a + [1]\n"),
 	)
 
-	Describe("Idempotency", func() {
-		It("should be idempotent", func() {
-			input := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
-			firstPass := formatter.Format(input)
-			secondPass := formatter.Format(firstPass)
-			Expect(secondPass).To(Equal(firstPass))
-		})
+	DescribeTable("Idempotency",
+		func(input string) {
+			first := formatter.Format(input)
+			second := formatter.Format(first)
+			third := formatter.Format(second)
+			Expect(second).To(Equal(first))
+			Expect(third).To(Equal(second))
+		},
+		Entry("formatted function", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
+		Entry("messy input", "func   add(x i32,y i32)i32{return   x+y}"),
+		Entry("complex expressions", "x := (a + b) * (c - d) / (e % f) ^ g"),
+		Entry("deeply nested structures", "func a(){if x>0{if y>0{if z>0{return 1}}}}"),
+		Entry("all operator combinations", "x := a + b - c * d / e % f ^ g == h != i < j > k <= l >= m and n or o"),
+		Entry("mixed comments and code", "// header\nfunc test() {\n    // body\n    x := 1 // inline\n}\n// footer"),
+		Entry("sequences with stages", "sequence s{stage a{x:=1}stage b{y:=2}stage c{z:=3}}"),
+		Entry("config values", "wait{duration=2ms, retries=3}"),
+		Entry("config values in flow", "sensor -> filter{threshold=10} -> output"),
+	)
 
-		It("should produce same output for messy input", func() {
-			input := "func   add(x i32,y i32)i32{return   x+y}"
-			firstPass := formatter.Format(input)
-			secondPass := formatter.Format(firstPass)
-			Expect(secondPass).To(Equal(firstPass))
-		})
-	})
-
-	Describe("Edge Cases", func() {
-		It("should handle empty input", func() {
-			input := ""
-			Expect(formatter.Format(input)).To(Equal(""))
-		})
-
-		It("should handle whitespace-only input", func() {
-			input := "   \n\n   "
-			Expect(formatter.Format(input)).To(Equal("   \n\n   "))
-		})
-	})
-
-	Describe("Blank Lines", func() {
-		It("should preserve single blank line between functions", func() {
-			input := "func first() {}\n\nfunc second() {}"
-			expected := "func first() {}\n\nfunc second() {}\n"
+	DescribeTable("Edge Cases",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("empty input", "", ""),
+		Entry("whitespace-only input", "   \n\n   ", "   \n\n   "),
+	)
 
-		It("should preserve blank lines between statements", func() {
-			input := "x := 1\n\ny := 2"
-			expected := "x := 1\n\ny := 2\n"
+	DescribeTable("Blank Lines",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("preserve single blank line between functions", "func first() {}\n\nfunc second() {}", "func first() {}\n\nfunc second() {}\n"),
+		Entry("preserve blank lines between statements", "x := 1\n\ny := 2", "x := 1\n\ny := 2\n"),
+		Entry("limit blank lines to MaxBlankLines", "x := 1\n\n\n\n\ny := 2", "x := 1\n\n\ny := 2\n"),
+	)
 
-		It("should limit blank lines to MaxBlankLines", func() {
-			input := "x := 1\n\n\n\n\ny := 2"
-			expected := "x := 1\n\n\ny := 2\n"
+	DescribeTable("Multi-line Code",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
+		},
+		Entry("preserve newlines between statements", "x := 1\ny := 2\nz := 3", "x := 1\ny := 2\nz := 3\n"),
+		Entry("already formatted function with newlines", "func add(x i32, y i32) i32 {\n    return x + y\n}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
+		Entry("multiple functions", "func foo() {}\nfunc bar() {}", "func foo() {}\nfunc bar() {}\n"),
+		Entry("function with multiple statements", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}\n"),
+		Entry("sequence with stages and content", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}", "sequence main {\n    stage init {\n        x := 0,\n    }\n    stage run {\n        x := x + 1,\n    }\n}\n"),
+		Entry("nested if statements", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}\n"),
+	)
 
-	Describe("Multi-line Code", func() {
-		It("should preserve newlines between statements", func() {
-			input := "x := 1\ny := 2\nz := 3"
-			expected := "x := 1\ny := 2\nz := 3\n"
+	DescribeTable("Unary Operators",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("negation", "x:=-5", "x := -5\n"),
+		Entry("not operator", "x:=not y", "x := not y\n"),
+		Entry("negation in expression", "x:=a+-b", "x := a + -b\n"),
+	)
 
-		It("should handle already formatted function with newlines", func() {
-			input := `func add(x i32, y i32) i32 {
-    return x + y
-}`
-			expected := "func add(x i32, y i32) i32 {\n    return x + y\n}\n"
+	DescribeTable("Type Casts",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("no space between type and paren", "x:=i32(y)", "x := i32(y)\n"),
+		Entry("nested casts", "x:=f64(i32(y))", "x := f64(i32(y))\n"),
+	)
 
-		It("should handle multiple functions", func() {
-			input := `func foo() {}
-func bar() {}`
-			expected := "func foo() {}\nfunc bar() {}\n"
+	DescribeTable("String Literals",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("preserve string content", `x:="hello world"`, "x := \"hello world\"\n"),
+		Entry("preserve strings with spaces", `msg:="  spaces  "`, "msg := \"  spaces  \"\n"),
+	)
 
-		It("should handle function with multiple statements", func() {
-			input := `func test() {
-    x := 1
-    y := 2
-    return x + y
-}`
-			expected := "func test() {\n    x := 1\n    y := 2\n    return x + y\n}\n"
+	DescribeTable("Nested Structures",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("nested function calls", "x:=foo(bar(baz(1)))", "x := foo(bar(baz(1)))\n"),
+		Entry("mixed nesting", "x:=foo([1,2,3])", "x := foo([1, 2, 3])\n"),
+	)
 
-		It("should handle sequence with stages and content", func() {
-			input := `sequence main {
-    stage init {
-        x := 0
-    }
-    stage run {
-        x := x + 1
-    }
-}`
-			expected := "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}\n"
+	DescribeTable("Next Statement",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
+		},
+		Entry("next with stage name", "next done", "next done\n"),
+		Entry("next in stage", "stage check{if x>0{next success}}", "stage check {\n    if x > 0 {\n        next success\n    },\n}\n"),
+	)
 
-		It("should handle nested if statements", func() {
-			input := `func test() {
-    if x > 0 {
-        if y > 0 {
-            return 1
-        }
-    }
-}`
-			expected := "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}\n"
+	DescribeTable("Comments in Blocks",
+		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Unary Operators", func() {
-		It("should handle negation", func() {
-			input := "x:=-5"
-			expected := "x := -5\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should handle not operator", func() {
-			input := "x:=not y"
-			expected := "x := not y\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should handle negation in expression", func() {
-			input := "x:=a+-b"
-			expected := "x := a + -b\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Type Casts", func() {
-		It("should not add space between type and paren", func() {
-			input := "x:=i32(y)"
-			expected := "x := i32(y)\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should handle nested casts", func() {
-			input := "x:=f64(i32(y))"
-			expected := "x := f64(i32(y))\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("String Literals", func() {
-		It("should preserve string content", func() {
-			input := `x:="hello world"`
-			expected := "x := \"hello world\"\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should preserve strings with spaces", func() {
-			input := `msg:="  spaces  "`
-			expected := "msg := \"  spaces  \"\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Nested Structures", func() {
-		It("should handle nested function calls", func() {
-			input := "x:=foo(bar(baz(1)))"
-			expected := "x := foo(bar(baz(1)))\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should handle mixed nesting", func() {
-			input := "x:=foo([1,2,3])"
-			expected := "x := foo([1, 2, 3])\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Next Statement", func() {
-		It("should format next with stage name", func() {
-			input := "next done"
-			expected := "next done\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should format next in stage", func() {
-			input := "stage check{if x>0{next success}}"
-			expected := "stage check {\n    if x > 0 {\n        next success\n    }\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
-
-	Describe("Comments in Blocks", func() {
-		It("should handle comment before closing brace", func() {
-			input := "func test() {\n    x := 1\n    // end\n}"
-			expected := "func test() {\n    x := 1\n    // end\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-
-		It("should handle comment after opening brace", func() {
-			input := "func test() {\n    // start\n    x := 1\n}"
-			expected := "func test() {\n    // start\n    x := 1\n}\n"
-			Expect(formatter.Format(input)).To(Equal(expected))
-		})
-	})
+		},
+		Entry("comment before closing brace", "func test() {\n    x := 1\n    // end\n}", "func test() {\n    x := 1\n    // end\n}\n"),
+		Entry("comment after opening brace", "func test() {\n    // start\n    x := 1\n}", "func test() {\n    // start\n    x := 1\n}\n"),
+	)
 
 	Describe("Boundary Blank Lines", func() {
 		It("should strip leading blank lines", func() {
@@ -431,37 +250,66 @@ func bar() {}`
 		})
 	})
 
-	Describe("Malformed Input", func() {
-		It("should handle unclosed brace gracefully", func() {
-			input := "func test() {"
+	DescribeTable("Malformed Input",
+		func(input, shouldContain string) {
 			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("func test()"))
-		})
+			Expect(result).To(ContainSubstring(shouldContain))
+		},
+		Entry("unclosed brace", "func test() {", "func test()"),
+		Entry("unclosed paren", "x := foo(1, 2", "foo("),
+		Entry("extra closing brace", "x := 1}", "x := 1"),
+		Entry("mismatched delimiters", "x := [1, 2)", "[1, 2)"),
+		Entry("incomplete expression", "x := a +", "x := a +"),
+	)
 
-		It("should handle unclosed paren gracefully", func() {
-			input := "x := foo(1, 2"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("foo("))
-		})
+	DescribeTable("Config Values (Function Instantiation)",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("short config values inline without spaces around =", "wait{duration=2ms}", "wait{duration=2ms}\n"),
+		Entry("multiple config values inline", "wait{duration=2ms,retries=3}", "wait{duration=2ms, retries=3}\n"),
+		Entry("empty config values inline", "wait{}", "wait{}\n"),
+		Entry("config values in flow statements", "sensor -> filter{threshold=10} -> output", "sensor -> filter{threshold=10} -> output\n"),
+		Entry("function declaration config block multi-line", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold {\n    limit f64,\n} (value f64) u8 {\n    return u8(0)\n}\n"),
+		Entry("nested config values", "x := foo{a=1} + bar{b=2}", "x := foo{a=1} + bar{b=2}\n"),
+	)
 
-		It("should handle extra closing brace gracefully", func() {
-			input := "x := 1}"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("x := 1"))
-		})
+	DescribeTable("Config Block Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single param gets trailing comma", "func foo{x i32}(){}", "func foo {\n    x i32,\n} () {}\n"),
+		Entry("multiple params get trailing comma", "func foo{x i32, y f64}(){}", "func foo {\n    x i32,\n    y f64,\n} () {}\n"),
+		Entry("empty config block no trailing comma", "func foo{}(){}", "func foo {} () {}\n"),
+		Entry("already has trailing comma is idempotent", "func foo {\n    x i32,\n} () {}\n", "func foo {\n    x i32,\n} () {}\n"),
+		Entry("multiple params already formatted", "func foo {\n    x i32,\n    y f64,\n} () {}\n", "func foo {\n    x i32,\n    y f64,\n} () {}\n"),
+	)
 
-		It("should handle mismatched delimiters gracefully", func() {
-			input := "x := [1, 2)"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("[1, 2)"))
-		})
+	DescribeTable("Stage Body Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single item gets trailing comma", "stage init{x:=0}", "stage init {\n    x := 0,\n}\n"),
+		Entry("multiple items get trailing commas", "stage init{x:=0,y:=1}", "stage init {\n    x := 0,\n    y := 1,\n}\n"),
+		Entry("empty stage body no trailing comma", "stage init{}", "stage init {}\n"),
+		Entry("flow statement in stage", "stage run{sensor->output}", "stage run {\n    sensor -> output,\n}\n"),
+	)
 
-		It("should handle incomplete expression gracefully", func() {
-			input := "x := a +"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("x := a +"))
-		})
-	})
+	DescribeTable("Function Parameter Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("short params stay inline", "func foo(x i32, y f64){}", "func foo(x i32, y f64) {}\n"),
+		Entry("empty params no change", "func foo(){}", "func foo() {}\n"),
+	)
+
+	DescribeTable("Multi-Output Trailing Commas",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("short outputs stay inline", "func foo()(a f64, b f64){return}", "func foo() (a f64, b f64) {\n    return\n}\n"),
+		Entry("single output no parens", "func foo() f64{return 0}", "func foo() f64 {\n    return 0\n}\n"),
+	)
 
 	Describe("Boundary Conditions", func() {
 		It("should handle single character", func() {
@@ -491,7 +339,6 @@ func bar() {}`
 		It("should handle file with only comments gracefully", func() {
 			input := "// comment 1\n// comment 2\n/* multi\nline */"
 			result := formatter.Format(input)
-			// Formatter processes comment-only files without crashing
 			Expect(result).ToNot(BeEmpty())
 		})
 
@@ -505,113 +352,41 @@ func bar() {}`
 		})
 	})
 
-	Describe("Comment Edge Cases", func() {
-		It("should handle comment on its own line before code", func() {
-			input := "/* comment */\nx := 1"
+	DescribeTable("Comment Edge Cases",
+		func(input string, shouldContain string) {
 			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("/* comment */"))
-			Expect(result).To(ContainSubstring("x := 1"))
-		})
+			Expect(result).To(ContainSubstring(shouldContain))
+		},
+		Entry("comment on its own line before code", "/* comment */\nx := 1", "/* comment */"),
+		Entry("empty single-line comment", "//\nx := 1", "//"),
+		Entry("empty multi-line comment", "/**/\nx := 1", "/**/"),
+		Entry("comment with special characters", "// @#$%^&*()_+\nx := 1", "// @#$%^&*()_+"),
+		Entry("multiple trailing comments - first", "x := 1 // first\ny := 2 // second", "// first"),
+		Entry("multiple trailing comments - second", "x := 1 // first\ny := 2 // second", "// second"),
+	)
 
-		It("should handle empty single-line comment", func() {
-			input := "//\nx := 1"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("//"))
-		})
-
-		It("should handle empty multi-line comment", func() {
-			input := "/**/\nx := 1"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("/**/"))
-		})
-
-		It("should preserve comment with special characters", func() {
-			input := "// @#$%^&*()_+\nx := 1"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("// @#$%^&*()_+"))
-		})
-
-		It("should handle multiple trailing comments", func() {
-			input := "x := 1 // first\ny := 2 // second"
-			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring("// first"))
-			Expect(result).To(ContainSubstring("// second"))
-		})
-	})
-
-	Describe("FormatRange Edge Cases", func() {
-		It("should handle formatting first line only", func() {
-			input := "x:=1\ny := 2\nz := 3"
-			result := formatter.FormatRange(input, 0, 0)
-			Expect(result).To(ContainSubstring("x := 1"))
-			Expect(result).To(ContainSubstring("y := 2"))
-		})
-
-		It("should handle formatting last line only", func() {
-			input := "x := 1\ny := 2\nz:=3"
-			result := formatter.FormatRange(input, 2, 2)
-			Expect(result).To(ContainSubstring("z := 3"))
-		})
-
-		It("should handle negative start line", func() {
-			input := "x := 1\ny := 2"
-			result := formatter.FormatRange(input, -1, 1)
-			Expect(result).To(Equal(input))
-		})
-
-		It("should handle start > end", func() {
-			input := "x := 1\ny := 2"
-			result := formatter.FormatRange(input, 1, 0)
-			Expect(result).To(Equal(input))
-		})
-
-		It("should handle entire file range", func() {
-			input := "x:=1\ny:=2\nz:=3"
-			result := formatter.FormatRange(input, 0, 2)
-			Expect(result).To(ContainSubstring("x := 1"))
-			Expect(result).To(ContainSubstring("y := 2"))
-			Expect(result).To(ContainSubstring("z := 3"))
-		})
-	})
-
-	Describe("Idempotency Stress Tests", func() {
-		It("should be idempotent for complex expressions", func() {
-			input := "x := (a + b) * (c - d) / (e % f) ^ g"
-			first := formatter.Format(input)
-			second := formatter.Format(first)
-			third := formatter.Format(second)
-			Expect(second).To(Equal(first))
-			Expect(third).To(Equal(second))
-		})
-
-		It("should be idempotent for deeply nested structures", func() {
-			input := "func a(){if x>0{if y>0{if z>0{return 1}}}}"
-			first := formatter.Format(input)
-			second := formatter.Format(first)
-			third := formatter.Format(second)
-			Expect(second).To(Equal(first))
-			Expect(third).To(Equal(second))
-		})
-
-		It("should be idempotent for all operator combinations", func() {
-			input := "x := a + b - c * d / e % f ^ g == h != i < j > k <= l >= m and n or o"
-			first := formatter.Format(input)
-			second := formatter.Format(first)
-			Expect(second).To(Equal(first))
-		})
-
-		It("should be idempotent for mixed comments and code", func() {
-			input := "// header\nfunc test() {\n    // body\n    x := 1 // inline\n}\n// footer"
-			first := formatter.Format(input)
-			second := formatter.Format(first)
-			Expect(second).To(Equal(first))
-		})
-
-		It("should be idempotent for sequences with stages", func() {
-			input := "sequence s{stage a{x:=1}stage b{y:=2}stage c{z:=3}}"
-			first := formatter.Format(input)
-			second := formatter.Format(first)
-			Expect(second).To(Equal(first))
-		})
-	})
+	DescribeTable("FormatRange Edge Cases",
+		func(input string, startLine, endLine int, check func(string)) {
+			result := formatter.FormatRange(input, startLine, endLine)
+			check(result)
+		},
+		Entry("formatting first line only", "x:=1\ny := 2\nz := 3", 0, 0, func(r string) {
+			Expect(r).To(ContainSubstring("x := 1"))
+			Expect(r).To(ContainSubstring("y := 2"))
+		}),
+		Entry("formatting last line only", "x := 1\ny := 2\nz:=3", 2, 2, func(r string) {
+			Expect(r).To(ContainSubstring("z := 3"))
+		}),
+		Entry("negative start line", "x := 1\ny := 2", -1, 1, func(r string) {
+			Expect(r).To(Equal("x := 1\ny := 2"))
+		}),
+		Entry("start > end", "x := 1\ny := 2", 1, 0, func(r string) {
+			Expect(r).To(Equal("x := 1\ny := 2"))
+		}),
+		Entry("entire file range", "x:=1\ny:=2\nz:=3", 0, 2, func(r string) {
+			Expect(r).To(ContainSubstring("x := 1"))
+			Expect(r).To(ContainSubstring("y := 2"))
+			Expect(r).To(ContainSubstring("z := 3"))
+		}),
+	)
 })

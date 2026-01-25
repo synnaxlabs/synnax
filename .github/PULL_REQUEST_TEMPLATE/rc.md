@@ -16,13 +16,17 @@ I have verified that, when released, the following packages will not conflict wi
 - [ ] [`alamos/ts`](https://www.npmjs.com/package/@synnaxlabs/alamos)
 - [ ] [`client/py`](https://pypi.org/project/synnax/)
 - [ ] [`client/ts`](https://www.npmjs.com/package/@synnaxlabs/client)
+- [ ] [`configs/eslint`](https://www.npmjs.com/package/eslint-config-synnaxlabs)
+- [ ] [`configs/stylelint`](https://www.npmjs.com/package/stylelint-config-synnaxlabs)
+- [ ] [`configs/ts`](https://www.npmjs.com/package/@synnaxlabs/tsconfig)
+- [ ] [`configs/vite`](https://www.npmjs.com/package/@synnaxlabs/vite-plugin)
 - [ ] [`console`](https://github.com/synnaxlabs/synnax/releases)
+- [ ] [`core`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`drift`](https://www.npmjs.com/package/@synnaxlabs/drift)
 - [ ] [`freighter/py`](https://pypi.org/project/synnax-freighter/)
 - [ ] [`freighter/ts`](https://www.npmjs.com/package/@synnaxlabs/freighter)
 - [ ] [`media`](https://npmjs.com/package/@synnaxlabs/media)
 - [ ] [`pluto`](https://npmjs.com/package/@synnaxlabs/pluto)
-- [ ] [`server`](https://github.com/synnaxlabs/synnax/releases)
 - [ ] [`x/ts`](https://www.npmjs.com/package/@synnaxlabs/x)
 
 ## Documentation
@@ -173,70 +177,24 @@ I can successfully:
 
 - [x] Create a new line plot from the mosaic. (pages/open_close.py)
 - **Visualization**
-  - [x] Plot a historical range of data. (plot/line_plot.py)
-  - [x] Plot a live range of data. (plot/line_plot.py)
-  - [x] Move channels between axes. (plot/line_plot.py)
-  - [x] Adjust the line thickness. (plot/line_plot.py)
-  - [x] Relabel a line. (plot/line_plot.py)
-  - [x] Set the plot title. (plot/line_plot.py)
-  - [x] Download a range as a CSV. (plot/line_plot.py)
-  - [x] Create a range from line plot selection. (plot/line_plot.py)
   - [ ] Use the measuring tool on the line plot.
-  - [x] Rename a line plot from its tab title. (plot/line_plot.py)
-  - [ ] Export a line plot.
-  - [ ] Copy a link to a line plot.
-  - [ ] Download a line plot as a CSV from the toolbar.
-- **Resources Toolbar**
-  - [ ] Open a plot by selecting it.
-  - [ ] Drag a plot onto the mosaic.
-  - **Context Menu**
-    - [ ] Rename a plot.
-    - [ ] Delete a plot.
-    - [ ] Delete multiple plots.
-    - [ ] Export a plot.
-    - [ ] Copy a link to a plot.
 - **Search and Command Palette**
-  - [ ] Open an existing line plot.
-  - [x] Create a new line plot. (pages/open_close.py)
   - [ ] Open the "Import Line Plot" dialog.
 - [ ] Open a line plot from its link.
 - [ ] Import a line plot.
-- [x] Rename a line plot and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Resources Toolbar
-  - [x] Mosaic Tab
-  - [x] Visualization Toolbar
 
 ### Logs
 
 I can successfully:
 
-- [x] Create a new log from the visualization selector. (pages/open_close.py)
 - **Visualization**
-  - [ ] Rename a log from its mosaic tab title.
   - [ ] Scroll to view historical data.
-  - [ ] Stream data from a virtual channel.
-  - [ ] Stream data from a persisted channel.
   - [ ] Pause and resume scrolling using the streaming icon in the top right.
   - [ ] Switch the logging channel and observe data switching.
   - [ ] Preserve log data from a virtual channel in the buffer.
-  - [ ] Copy a link to a log.
-- **Resources Toolbar**
-  - [ ] Open a log by selecting it.
-  - [ ] Drag a log onto the mosaic.
-  - **Context Menu**
-    - [ ] Rename a log.
-    - [ ] Delete a log.
-    - [ ] Delete multiple logs.
-    - [ ] Group logs.
-    - [ ] Copy a link to a log.
 - **Search and Command Palette**
-  - [x] Create a new log. (pages/open_close.py)
   - [ ] Open an existing log.
 - [ ] Open a log from its link.
-- [x] Rename a log and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Resources Toolbar
-  - [x] Mosaic Tab
-  - [x] Visualization Toolbar
 
 ### Ontology
 

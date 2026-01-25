@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/runtime/stage"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -140,6 +141,14 @@ func analyzeIdentifierByRole(
 	}
 }
 
+func newStageTransition(seqName, stageName string, kg *keyGenerator) nodeResult {
+	entryKey := kg.entry(seqName, stageName)
+	return emptyNodeResult(ir.Handle{
+		Node:  entryKey,
+		Param: stage.EntryActivationParam,
+	})
+}
+
 func analyzeSequenceRef(
 	ctx acontext.Context[parser.IIdentifierContext],
 	seqSym *symbol.Scope,
@@ -150,13 +159,11 @@ func analyzeSequenceRef(
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no stages", seqSym.Name))
 		return nodeResult{}, false
 	}
-	entryKey := kg.entry(seqSym.Name, firstStage.Name)
-	return emptyNodeResult(ir.Handle{Node: entryKey, Param: "activate"}), true
+	return newStageTransition(seqSym.Name, firstStage.Name, kg), true
 }
 
 func analyzeStageRef(stageSym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
-	entryKey := kg.entry(stageSym.Parent.Name, stageSym.Name)
-	return emptyNodeResult(ir.Handle{Node: entryKey, Param: "activate"}), true
+	return newStageTransition(stageSym.Parent.Name, stageSym.Name, kg), true
 }
 
 func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
@@ -718,26 +725,24 @@ func analyzeStage(
 	seqName string,
 	kg *keyGenerator,
 ) (ir.Stage, []ir.Node, []ir.Edge, bool) {
-	stageName := ctx.AST.IDENTIFIER().GetText()
-	stage := ir.Stage{Key: stageName}
+	var (
+		stageName = ctx.AST.IDENTIFIER().GetText()
+		stg       = ir.Stage{Key: stageName}
+		nodes     []ir.Node
+		edges     []ir.Edge
+	)
 
-	var nodes []ir.Node
-	var edges []ir.Edge
-
-	entryKey := kg.entry(seqName, stageName)
 	entryNode := ir.Node{
-		Key:      entryKey,
-		Type:     "stage_entry",
+		Key:      kg.entry(seqName, stageName),
+		Type:     stage.EntryNode.Name,
 		Channels: symbol.NewChannels(),
-		Inputs: types.Params{
-			{Name: "activate", Type: types.U8()},
-		},
+		Inputs:   stage.EntryNode.Type.Inputs,
 	}
 	nodes = append(nodes, entryNode)
 
 	stageBody := ctx.AST.StageBody()
 	if stageBody == nil {
-		return stage, nodes, edges, true
+		return stg, nodes, edges, true
 	}
 
 	for _, item := range stageBody.AllStageItem() {
@@ -750,7 +755,7 @@ func analyzeStage(
 			edges = append(edges, itemEdges...)
 
 			for _, n := range itemNodes {
-				stage.Nodes = append(stage.Nodes, n.Key)
+				stg.Nodes = append(stg.Nodes, n.Key)
 			}
 		}
 		if single := item.SingleInvocation(); single != nil {
@@ -759,11 +764,11 @@ func analyzeStage(
 				return ir.Stage{}, nil, nil, false
 			}
 			nodes = append(nodes, node)
-			stage.Nodes = append(stage.Nodes, node.Key)
+			stg.Nodes = append(stg.Nodes, node.Key)
 		}
 	}
 
-	return stage, nodes, edges, true
+	return stg, nodes, edges, true
 }
 
 func analyzeSingleInvocation(

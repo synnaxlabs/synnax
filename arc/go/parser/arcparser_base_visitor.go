@@ -52,6 +52,10 @@ func (v *BaseArcParserVisitor) VisitConfigBlock(ctx *ConfigBlockContext) interfa
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitConfigList(ctx *ConfigListContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitConfig(ctx *ConfigContext) interface{} {
 	return v.VisitChildren(ctx)
 }

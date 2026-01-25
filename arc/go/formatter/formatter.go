@@ -19,6 +19,7 @@ import (
 const (
 	indentWidth   = 4
 	maxBlankLines = 2
+	maxLineLength = 88
 )
 
 func SplitLines(content string) []string {

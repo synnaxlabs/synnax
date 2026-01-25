@@ -74,7 +74,7 @@ class Button(Symbol):
         self.page.get_by_text("Control").last.click()
 
         if channel_name is not None:
-            self.set_channel("Output Channel", channel_name)
+            self.set_channel(input_field="Output Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if activation_delay is not None:

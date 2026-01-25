@@ -43,6 +43,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#configBlock.
 	VisitConfigBlock(ctx *ConfigBlockContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#configList.
+	VisitConfigList(ctx *ConfigListContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#config.
 	VisitConfig(ctx *ConfigContext) interface{}
 

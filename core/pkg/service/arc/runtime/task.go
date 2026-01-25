@@ -21,8 +21,10 @@ import (
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/runtime/selector"
 	"github.com/synnaxlabs/arc/runtime/stable"
+	"github.com/synnaxlabs/arc/runtime/stage"
 	"github.com/synnaxlabs/arc/runtime/state"
 	arctelem "github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -103,6 +105,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 		selector.NewFactory(),
 		constant.NewFactory(),
 		op.NewFactory(),
+		stage.NewFactory(),
+		time.NewFactory(),
 		stable.NewFactory(stable.FactoryConfig{}),
 		arcstatus.NewFactory(t.factoryCfg.Status),
 	}
@@ -370,4 +374,5 @@ func createWritePipeline(
 	plumber.MustConnect[framer.WriterResponse](p, writerAddr, runtimeAddr, 10)
 	plumber.MustConnect[framer.WriterRequest](p, runtimeAddr, writerAddr, 10)
 	return p, nil
+
 }

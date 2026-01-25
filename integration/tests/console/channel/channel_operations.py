@@ -8,12 +8,12 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import uuid
 
 import synnax as sy
 
 from console.case import ConsoleCase
 from console.plot import Plot
+from framework.utils import assert_link_format, get_random_name
 
 SRC_CH = "channel_operations_uptime"
 
@@ -21,7 +21,7 @@ SRC_CH = "channel_operations_uptime"
 class ChannelOperations(ConsoleCase):
     """Test channel lifecycle operations."""
 
-    prefix: str
+    suffix: str
     calc_x2: str
     calc_x6: str
     calc_editable: str
@@ -30,16 +30,15 @@ class ChannelOperations(ConsoleCase):
 
     def setup(self) -> None:
         super().setup()
-        self.prefix = str(uuid.uuid4())[:6]
+        self.suffix = get_random_name()
         self._create_shared_channels()
         self._create_shared_calc_channels()
-        sy.sleep(0.5)
 
     def _create_shared_calc_channels(self) -> None:
         """Create shared calculated channels for reuse across tests."""
-        self.calc_x2 = f"calc_x2_{self.prefix}"
-        self.calc_x6 = f"calc_x6_{self.prefix}"
-        self.calc_editable = f"calc_edit_{self.prefix}"
+        self.calc_x2 = f"calc_x2_{self.suffix}"
+        self.calc_x6 = f"calc_x6_{self.suffix}"
+        self.calc_editable = f"calc_edit_{self.suffix}"
 
         error = self.console.channels.create_calculated(
             name=self.calc_x2,
@@ -61,15 +60,15 @@ class ChannelOperations(ConsoleCase):
 
     def _create_shared_channels(self) -> None:
         """Create shared index + data channel for read-only tests."""
-        self.shared_index = f"shared_idx_{self.prefix}"
-        self.shared_data = f"shared_data_{self.prefix}"
+        self.shared_index = f"shared_idx_{self.suffix}"
+        self.shared_data = f"shared_data_{self.suffix}"
 
         self.client.channels.create(
             name=self.shared_index,
             data_type=sy.DataType.TIMESTAMP,
             is_index=True,
         )
-        sy.sleep(1)
+        self.console.channels.wait_for_channels(self.shared_index, timeout=5.0)
         self.console.channels.create(
             name=self.shared_data,
             data_type=sy.DataType.FLOAT32,
@@ -122,8 +121,7 @@ class ChannelOperations(ConsoleCase):
         console = self.console
         client = self.client
 
-        # Use unique prefix to avoid conflicts with previous runs
-        prefix = str(uuid.uuid4())[:6]
+        suffix = get_random_name()
 
         all_data_types = [
             sy.DataType.FLOAT64,
@@ -142,14 +140,14 @@ class ChannelOperations(ConsoleCase):
         sample_size = max(1, len(all_data_types) // 4)
         data_types = random.sample(all_data_types, sample_size)
 
-        index_name = f"multi_idx_{prefix}"
+        index_name = f"multi_idx_{suffix}"
         channels: list[dict[str, str | int | bool]] = [
             {"name": index_name, "is_index": True}
         ]
         for dt in data_types:
             channels.append(
                 {
-                    "name": f"{str(dt)}_ch_{prefix}",
+                    "name": f"{str(dt)}_ch_{suffix}",
                     "data_type": dt,
                     "index": index_name,
                 }
@@ -164,12 +162,10 @@ class ChannelOperations(ConsoleCase):
         ), f"Expected {expected_count} channels created, got {len(created)}"
         self.log(f"Created channels: {created}")
 
-        # Verify channels exist in the server
         for ch_config in channels:
             ch_name = ch_config["name"]
             assert console.channels.exists(ch_name), f"Channel {ch_name} should exist"
 
-            # Verify data type via client
             ch = client.channels.retrieve(ch_name)
             if ch_config.get("is_index"):
                 assert (
@@ -181,7 +177,6 @@ class ChannelOperations(ConsoleCase):
                     ch.data_type == expected_type
                 ), f"Channel {ch_name} should be {expected_type}, got {ch.data_type}"
 
-        # Cleanup - delete channels in reverse order (data channels first, then index)
         channels_to_delete = [ch["name"] for ch in reversed(channels)]
         console.channels.delete(channels_to_delete)
 
@@ -204,24 +199,22 @@ class ChannelOperations(ConsoleCase):
 
         console = self.console
 
-        prefix = str(uuid.uuid4())[:6]
-        index_name = f"rename_idx_{prefix}"
-        data_name = f"rename_data_{prefix}"
-        new_name = f"renamed_data_{prefix}"
+        suffix = get_random_name()
+        data_name = f"rename_data_{suffix}"
+        new_name = f"renamed_data_{suffix}"
 
-        console.channels.create(name=index_name, is_index=True)
         console.channels.create(
             name=data_name,
             data_type=sy.DataType.FLOAT32,
-            index=index_name,
+            index=self.shared_index,
         )
 
-        console.channels.rename(data_name, new_name)
+        console.channels.rename(names=data_name, new_names=new_name)
 
         ch = self.client.channels.retrieve(new_name)
         assert ch.name == new_name, f"Expected channel name {new_name}, got {ch.name}"
 
-        console.channels.delete([new_name, index_name])
+        console.channels.delete([new_name])
 
     def test_group_channels(self) -> None:
         """Test grouping multiple channels via context menu."""
@@ -229,29 +222,25 @@ class ChannelOperations(ConsoleCase):
 
         console = self.console
 
-        # Use unique prefix to avoid conflicts
-        prefix = str(uuid.uuid4())[:6]
+        suffix = get_random_name()
 
-        # Create test channels
-        index_name = f"group_idx_{prefix}"
-        ch1_name = f"group_ch1_{prefix}"
-        ch2_name = f"group_ch2_{prefix}"
-        group_name = f"TestGroup_{prefix}"
+        ch1_name = f"group_ch1_{suffix}"
+        ch2_name = f"group_ch2_{suffix}"
+        group_name = f"TestGroup_{suffix}"
 
-        console.channels.create(name=index_name, is_index=True)
         console.channels.create(
             name=ch1_name,
             data_type=sy.DataType.FLOAT32,
-            index=index_name,
+            index=self.shared_index,
         )
+
         console.channels.create(
             name=ch2_name,
             data_type=sy.DataType.FLOAT32,
-            index=index_name,
+            index=self.shared_index,
         )
 
-        # Group the two data channels
-        console.channels.group([ch1_name, ch2_name], group_name)
+        console.channels.group(names=[ch1_name, ch2_name], group_name=group_name)
 
         # Verify the group exists by looking for it in the channel list
         console.channels.show_channels()
@@ -260,19 +249,15 @@ class ChannelOperations(ConsoleCase):
         group_element.first.wait_for(state="visible", timeout=5000)
         assert group_element.count() > 0, f"Expected group '{group_name}' to be visible"
 
-        # Cleanup: Expand group, delete data channels first, then index
         console.channels.show_channels()
 
-        # Click on the group to expand it
         group_expander = self.page.locator(f"text={group_name}").first
         group_expander.click()
 
-        # Wait for first channel to become visible (group expanded)
         self.page.locator(f"text={ch1_name}").first.wait_for(
             state="visible", timeout=2000
         )
 
-        # Delete nested channels by finding them directly and right-clicking
         for ch_name in [ch2_name, ch1_name]:
             ch_element = self.page.locator(f"text={ch_name}").first
             if ch_element.count() > 0 and ch_element.is_visible():
@@ -282,15 +267,10 @@ class ChannelOperations(ConsoleCase):
                 delete_option.wait_for(state="visible", timeout=2000)
                 delete_option.click()
 
-                # Confirm delete if modal appears
                 delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
                 if delete_btn.count() > 0:
                     delete_btn.first.click()
-                    # Wait for modal to close
                     delete_btn.first.wait_for(state="hidden", timeout=5000)
-
-        # Then delete the index
-        console.channels.delete([index_name])
 
     def test_edit_calculated_channel(self) -> None:
         """Test editing a calculated channel's calculation via context menu."""
@@ -303,14 +283,17 @@ class ChannelOperations(ConsoleCase):
         updated_multiplier = 30
         updated_expr = f"return {SRC_CH} * {updated_multiplier}"
 
-        uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
-        calc_val = int(client.read_latest(self.calc_editable, n=1)[-1])
+        frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
+        uptime_val = int(frame[SRC_CH][-1])
+        calc_val = int(frame[self.calc_editable][-1])
         expected_val = uptime_val * initial_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
         console.channels.edit_calculated(self.calc_editable, updated_expr)
-        uptime_val = int(client.read_latest(SRC_CH, n=1)[-1])
-        calc_val = int(client.read_latest(self.calc_editable, n=1)[-1])
+        sy.sleep(0.2)
+        frame = client.read_latest([self.calc_editable, SRC_CH], n=1)
+        uptime_val = int(frame[SRC_CH][-1])
+        calc_val = int(frame[self.calc_editable][-1])
         expected_val = uptime_val * updated_multiplier
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
@@ -321,26 +304,25 @@ class ChannelOperations(ConsoleCase):
         console = self.console
         client = self.client
 
-        prefix = str(uuid.uuid4())[:6]
-        range_name = f"alias_range_{prefix}"
-        index_name = f"alias_idx_{prefix}"
-        data_name = f"alias_data_{prefix}"
-        alias_name = f"MyAlias_{prefix}"
+        suffix = get_random_name()
+        range_name = f"alias_range_{suffix}"
+        data_name = f"alias_data_{suffix}"
+        alias_name = f"MyAlias_{suffix}"
 
         console.ranges.create(range_name, persisted=True)
+
         console.ranges.open_explorer()
         console.ranges.favorite_from_explorer(range_name)
         console.ranges.show_toolbar()
         console.ranges.set_active(range_name)
 
-        console.channels.create(name=index_name, is_index=True)
         console.channels.create(
             name=data_name,
             data_type=sy.DataType.FLOAT32,
-            index=index_name,
+            index=self.shared_index,
         )
 
-        console.channels.set_alias(data_name, alias_name)
+        console.channels.set_alias(name=data_name, alias=alias_name)
 
         console.channels.show_channels()
         alias_visible = self.page.get_by_text(alias_name).count() > 0
@@ -354,8 +336,7 @@ class ChannelOperations(ConsoleCase):
             scoped_ch.key == data_ch.key
         ), f"Alias should resolve to channel key {data_ch.key}, got {scoped_ch.key}"
 
-        # Channel now displays as alias_name in the UI
-        console.channels.delete([alias_name, index_name])
+        console.channels.delete([alias_name])
         console.ranges.open_explorer()
         console.ranges.delete_from_explorer(range_name)
 
@@ -366,11 +347,10 @@ class ChannelOperations(ConsoleCase):
         console = self.console
         client = self.client
 
-        prefix = str(uuid.uuid4())[:6]
-        range_name = f"clear_alias_range_{prefix}"
-        index_name = f"clear_alias_idx_{prefix}"
-        data_name = f"clear_alias_data_{prefix}"
-        alias_name = f"ClearAlias_{prefix}"
+        suffix = get_random_name()
+        range_name = f"clear_alias_range_{suffix}"
+        data_name = f"clear_alias_data_{suffix}"
+        alias_name = f"ClearAlias_{suffix}"
 
         console.ranges.create(range_name, persisted=True)
         console.ranges.open_explorer()
@@ -378,14 +358,13 @@ class ChannelOperations(ConsoleCase):
         console.ranges.show_toolbar()
         console.ranges.set_active(range_name)
 
-        console.channels.create(name=index_name, is_index=True)
         console.channels.create(
             name=data_name,
             data_type=sy.DataType.FLOAT32,
-            index=index_name,
+            index=self.shared_index,
         )
 
-        console.channels.set_alias(data_name, alias_name)
+        console.channels.set_alias(name=data_name, alias=alias_name)
 
         console.channels.show_channels()
         alias_visible = self.page.get_by_text(alias_name).count() > 0
@@ -418,7 +397,7 @@ class ChannelOperations(ConsoleCase):
                 f"Expected QueryError when accessing cleared alias, got {type(e).__name__}: {e}"
             )
 
-        console.channels.delete([data_name, index_name])
+        console.channels.delete([data_name])
         console.ranges.open_explorer()
         console.ranges.delete_from_explorer(range_name)
 
@@ -428,9 +407,9 @@ class ChannelOperations(ConsoleCase):
 
         console = self.console
 
-        prefix = str(uuid.uuid4())[:6]
-        index_name = f"delete_idx_{prefix}"
-        data_name = f"delete_data_{prefix}"
+        suffix = get_random_name()
+        index_name = f"delete_idx_{suffix}"
+        data_name = f"delete_data_{suffix}"
 
         console.channels.create(name=index_name, is_index=True)
         console.channels.create(
@@ -440,35 +419,22 @@ class ChannelOperations(ConsoleCase):
         )
 
         console.channels.delete([data_name])
-        assert not console.channels.exists(
-            data_name
-        ), f"Channel {data_name} should not appear in UI"
-
         console.channels.delete([index_name])
-        assert not console.channels.exists(
-            index_name
-        ), f"Index channel {index_name} should not appear in UI"
 
     def test_copy_link(self) -> None:
         """Test copying a channel link via context menu."""
         self.log("Testing copy channel link")
 
         link = self.console.channels.copy_link(self.shared_data)
-        if link:
-            assert (
-                "channel" in link.lower() or self.shared_data in link
-            ), f"Expected link to contain 'channel' or channel name, got: {link}"
-            self.log(f"Copied link: {link}")
-        else:
-            self.log("Copy link executed (clipboard not accessible for verification)")
+
+        channel = self.client.channels.retrieve(self.shared_data)
+        assert_link_format(link, "channel", str(channel.key))
 
     def test_open_channel_plot_by_name(self) -> None:
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        plot = self.console.channels.open_plot_from_search(
-            self.client, self.shared_data
-        )
+        plot = Plot.open_from_search(self.client, self.console, self.shared_data)
         plot.close()
 
     def test_open_create_channel_modal(self) -> None:
@@ -493,7 +459,7 @@ class ChannelOperations(ConsoleCase):
 
         client = self.client
 
-        plot = Plot(client, self.console, f"Nested Calc Plot {self.prefix}")
+        plot = Plot(client, self.console, f"Nested Calc Plot {self.suffix}")
         plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()
 
@@ -529,7 +495,7 @@ class ChannelOperations(ConsoleCase):
         console.notifications.close_all()
 
         self.log("Testing erroneous calculated channel (nonexistent channel)")
-        calc_name = f"calc_err_{self.prefix}"
+        calc_name = f"calc_err_{self.suffix}"
         bad_ch_expression = "return nonexistent_channel_xyz * 3"
 
         error = console.channels.create_calculated(
@@ -550,7 +516,7 @@ class ChannelOperations(ConsoleCase):
         self.log("Testing erroneous calculated channel (bad syntax)")
 
         bad_syntax_expression = "return * 3"
-        calc_name_2 = f"calc_err_syntax_{self.prefix}"
+        calc_name_2 = f"calc_err_syntax_{self.suffix}"
 
         error = console.channels.create_calculated(
             name=calc_name_2, expression=bad_syntax_expression

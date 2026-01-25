@@ -46,7 +46,7 @@ class SimplePressValves(ConsoleCase):
         end_test_cmd = schematic.create_symbol(
             Button(label=END_CMD, channel_name=END_CMD)
         )
-        end_test_cmd.move(0, -90)
+        end_test_cmd.move(delta_x=0, delta_y=-90)
 
         press_valve = schematic.create_symbol(
             Valve(
@@ -55,7 +55,7 @@ class SimplePressValves(ConsoleCase):
                 command_channel="press_vlv",
             )
         )
-        press_valve.move(-200, 0)
+        press_valve.move(delta_x=-200, delta_y=0)
 
         vent_valve = schematic.create_symbol(
             Valve(

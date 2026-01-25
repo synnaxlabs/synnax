@@ -35,7 +35,7 @@ wheels = [
 
 [[package]]
 name = "alamos"
-version = "0.49.0"
+version = "0.50.0"
 source = { editable = "alamos/py" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -1338,7 +1338,7 @@ wheels = [
 
 [[package]]
 name = "synnax"
-version = "0.49.0"
+version = "0.50.0"
 source = { editable = "client/py" }
 dependencies = [
     { name = "alamos" },
@@ -1397,7 +1397,7 @@ dev = [
 
 [[package]]
 name = "synnax-freighter"
-version = "0.49.0"
+version = "0.50.0"
 source = { editable = "freighter/py" }
 dependencies = [
     { name = "alamos" },
@@ -1438,7 +1438,7 @@ dev = [
 
 [[package]]
 name = "synnax-test-framework"
-version = "0.49.0"
+version = "0.0.0"
 source = { editable = "integration" }
 dependencies = [
     { name = "asyncua" },

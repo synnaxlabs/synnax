@@ -361,6 +361,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.tasks.delete(keys));
+    const statusKeys = keys.map((key) => task.statusKey(key));
+    rollbacks.push(store.statuses.delete(statusKeys));
+    // Task client will automatically handle the deletion of the statuses.
     await client.tasks.delete(keys);
     return data;
   },

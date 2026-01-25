@@ -68,7 +68,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -89,7 +89,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -115,7 +115,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -151,7 +151,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -187,7 +187,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(100 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -230,7 +230,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -243,7 +243,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -268,7 +268,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -304,7 +304,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -349,7 +349,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "wait",
 					Config: types.Params{
-						{Name: "duration", Type: types.I64(), Value: int64(telem.Second)},
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
 				State: s.Node("wait_1"),
@@ -442,7 +442,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(100 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_1"),
@@ -455,7 +455,7 @@ var _ = Describe("Time", func() {
 				Node: ir.Node{
 					Type: "interval",
 					Config: types.Params{
-						{Name: "period", Type: types.I64(), Value: int64(150 * telem.Millisecond)},
+						{Name: "period", Type: types.TimeSpan(), Value: 150 * telem.Millisecond},
 					},
 				},
 				State: s.Node("interval_2"),
