@@ -1552,7 +1552,7 @@ export const ZERO_DO_CHANNEL: DOChannel = {
 export type DigitalChannel = DIChannel | DOChannel;
 
 const baseReadConfigZ = Common.Task.baseReadConfigZ.extend({
-  sampleRate: z.number().positive().max(100000),
+  sampleRate: z.number().positive().max(1000000),
   streamRate: z.number().positive().max(20000),
 });
 interface BaseReadConfig extends z.infer<typeof baseReadConfigZ> {}
