@@ -70,6 +70,8 @@ class ArcPressSequence(ConsoleCase):
         self.console.arc.create(ARC_NAME, ARC_SEQUENCE_SOURCE, mode="Text")
         sy.sleep(0.5)
 
+        # Assumes Core with embeded C++ Driver (65537)
+        # Go Driver is at Rack key 65538
         rack = self.client.racks.retrieve(key=65538)
         rack_name = rack.name
 
