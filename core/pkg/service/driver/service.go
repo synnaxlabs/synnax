@@ -69,10 +69,10 @@ func Open(ctx context.Context, cfgs ...Config) (*Driver, error) {
 
 	if err = cfg.Rack.NewRetrieve().
 		WhereEmbedded(true, gorp.Required()).
-		WhereName(fmt.Sprintf("Node %s Embedded Driver", cfg.Host.HostKey()), gorp.Required()).
+		WhereName(fmt.Sprintf("Node %s", cfg.Host.HostKey()), gorp.Required()).
 		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
 		d.rack = rack.Rack{
-			Name:     fmt.Sprintf("Node %s Embedded Driver", cfg.Host.HostKey()),
+			Name:     fmt.Sprintf("Node %d", cfg.Host.HostKey()),
 			Embedded: true,
 		}
 		if err = cfg.Rack.NewWriter(nil).Create(ctx, &d.rack); err != nil {
