@@ -13,7 +13,7 @@
           "parameters": { "control_authority": 150 }
         },
         {
-          "case": "client/sim_daq"
+          "case": "client/press_sim_daq"
         }
       ]
     },
@@ -25,7 +25,7 @@
           "case": "console/schematic/simple_press_valves"
         },
         {
-          "case": "client/sim_daq"
+          "case": "client/press_sim_daq"
         }
       ]
     },
@@ -37,7 +37,7 @@
           "case": "client/simple_press"
         },
         {
-          "case": "client/sim_daq"
+          "case": "client/press_sim_daq"
         },
         {
           "case": "console/bad_actor"
