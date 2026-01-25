@@ -102,6 +102,7 @@ class ArcClient:
         controls = self._get_controls()
         rack_dropdown = controls.locator("button").first
         rack_dropdown.wait_for(state="visible", timeout=5000)
+        self.console.notifications.close_all()
         rack_dropdown.click()
         self.console.select_from_dropdown(rack_name, placeholder="Search")
 
@@ -110,8 +111,8 @@ class ArcClient:
         controls = self._get_controls()
         configure_btn = controls.locator("button:has-text('Configure')")
         configure_btn.wait_for(state="visible", timeout=5000)
-        configure_btn.click()
         self.console.notifications.close_all()
+        configure_btn.click()
         controls.locator("text=Task configured successfully").wait_for(
             state="visible", timeout=15000
         )
@@ -121,8 +122,8 @@ class ArcClient:
         controls = self._get_controls()
         play_btn = controls.locator("button:has(.pluto-icon--play)")
         play_btn.wait_for(state="visible", timeout=5000)
-        play_btn.click()
         self.console.notifications.close_all()
+        play_btn.click()
         controls.locator("text=Task started successfully").wait_for(
             state="visible", timeout=15000
         )
@@ -132,8 +133,8 @@ class ArcClient:
         controls = self._get_controls()
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         pause_btn.wait_for(state="visible", timeout=5000)
-        pause_btn.click()
         self.console.notifications.close_all()
+        pause_btn.click()
         controls.locator("text=Task stopped successfully").wait_for(
             state="visible", timeout=15000
         )

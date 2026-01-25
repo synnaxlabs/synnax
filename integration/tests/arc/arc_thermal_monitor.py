@@ -156,22 +156,28 @@ class ArcThermalMonitor(ConsoleCase):
         self.console.arc.create(ARC_NAME, ARC_SOURCE, mode="Text")
         sy.sleep(0.5)
 
-        # Assumes Core with embeded C++ Driver (65537)
-        # Go Driver is at Rack key 65538
-        rack = self.client.racks.retrieve(key=65538)
+        rack_key = self.params.get("rack_key")
+        if rack_key:
+            rack = self.client.racks.retrieve(rack_key)
+        else:
+            rack = self.client.racks.retrieve(embedded=False)
 
-        self.log(f"Selecting rack: {rack.name}")
+        self.log(f"Selecting rack: {rack.name} (key: {rack.key})")
         self.console.arc.select_rack(rack.name)
 
         self.log("Configuring Arc task")
         self.console.arc.configure()
         sy.sleep(1.0)
 
+        arc = self.client.arcs.retrieve(name=ARC_NAME)
+        self.log(f"Arc saved with key: {arc.key}")
+
         self.log("Starting Arc task")
         self.console.arc.start()
+        self.log(f"Arc is running: {self.console.arc.is_running()}")
         sy.sleep(0.5)
 
-        self.log("Triggering monitor sequence")
+        self.log("Triggering sequence")
         with self.client.open_writer(sy.TimeStamp.now(), "start_monitor_cmd") as w:
             w.write("start_monitor_cmd", 1)
 
@@ -190,7 +196,7 @@ class ArcThermalMonitor(ConsoleCase):
         with self.client.open_writer(sy.TimeStamp.now(), "end_thermal_test_cmd") as w:
             w.write("end_thermal_test_cmd", 1)
 
-        self.log("Arc thermal monitor test completed")
+        self.log(f"Arc sequence {arc.name} on {rack.name} completed")
 
     def _verify_thermal_cycling(self) -> None:
         self.log("Verifying thermal cycling behavior...")

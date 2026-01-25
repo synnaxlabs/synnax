@@ -70,13 +70,14 @@ class ArcPressSequence(ConsoleCase):
         self.console.arc.create(ARC_NAME, ARC_SEQUENCE_SOURCE, mode="Text")
         sy.sleep(0.5)
 
-        # Assumes Core with embeded C++ Driver (65537)
-        # Go Driver is at Rack key 65538
-        rack = self.client.racks.retrieve(key=65538)
-        rack_name = rack.name
+        rack_key = self.params.get("rack_key")
+        if rack_key:
+            rack = self.client.racks.retrieve(rack_key)
+        else:
+            rack = self.client.racks.retrieve(embedded=False)
 
-        self.log(f"Selecting rack: {rack_name} (key: {rack.key})")
-        self.console.arc.select_rack(rack_name)
+        self.log(f"Selecting rack: {rack.name} (key: {rack.key})")
+        self.console.arc.select_rack(rack.name)
 
         self.log("Configuring Arc task")
         self.console.arc.configure()
@@ -107,7 +108,7 @@ class ArcPressSequence(ConsoleCase):
         with self.client.open_writer(sy.TimeStamp.now(), "end_test_cmd") as w:
             w.write("end_test_cmd", 1)
 
-        self.log(f"Arc sequence on {rack_name} completed")
+        self.log(f"Arc sequence {arc.name} on {rack.name} completed")
 
     def _verify_sequence_execution(self) -> None:
         self.log("Verifying press stage - valve opens...")
