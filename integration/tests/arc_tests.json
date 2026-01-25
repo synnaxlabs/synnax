@@ -2,17 +2,12 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "arc_press_sequence",
+      "sequence_name": "arc_simple",
       "tests": [
         {
           "case": "arc/arc_press_sequence",
           "parameters": { "rack_key": [65537, 65538] }
-        }
-      ]
-    },
-    {
-      "sequence_name": "arc_thermal_monitor",
-      "tests": [
+        },
         {
           "case": "arc/arc_thermal_monitor",
           "parameters": { "rack_key": [65537, 65538] }

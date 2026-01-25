@@ -13,6 +13,7 @@ without real hardware. All simulators extend the `SimDAQ` base class which provi
 ### PressSimDAQ (`press.py`)
 
 Simulates a pressurization system with:
+
 - Press valve (`press_vlv_cmd`) - opens to increase pressure
 - Vent valve (`vent_vlv_cmd`) - opens to decrease pressure
 - Pressure transducer (`press_pt`) - reads current pressure
@@ -24,6 +25,7 @@ uv run python -m examples.simulators.press --help
 ### ThermalSimDAQ (`thermal.py`)
 
 Simulates a thermal system with:
+
 - Heater (`heater_cmd`) - turns on to increase temperature
 - Temperature sensor (`temp_sensor`) - reads current temperature
 - Force overheat command (`force_overheat_cmd`) - simulates runaway heating
@@ -35,6 +37,7 @@ uv run python -m examples.simulators.thermal --help
 ### TPCSimDAQ (`tpc.py`)
 
 Simulates a rocket engine tank pressurization control system with:
+
 - Oxidizer (OX) and fuel tank valves
 - Pressurization system with gas booster
 - Multiple pressure transducers and thermocouples

@@ -10,7 +10,6 @@
 import random
 
 import synnax as sy
-
 from examples.simulators.base import SimDAQ
 
 
