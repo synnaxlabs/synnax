@@ -652,7 +652,7 @@ jobs:
         working-directory: console
         shell: bash
         run: |
-          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT

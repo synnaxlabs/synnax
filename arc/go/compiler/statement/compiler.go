@@ -29,8 +29,8 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 	if retStmt := ctx.AST.ReturnStatement(); retStmt != nil {
 		return true, compileReturnStatement(context.Child(ctx, retStmt))
 	}
-	if fnCall := ctx.AST.FunctionCall(); fnCall != nil {
-		_, err = compileFunctionCall(context.Child(ctx, fnCall))
+	if expr := ctx.AST.Expression(); expr != nil {
+		_, err = compileExpressionStatement(context.Child(ctx, expr))
 		return false, err
 	}
 	return false, errors.New("unknown statement type")

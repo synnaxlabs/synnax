@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 )
 
-var certCmd = &cobra.Command{
+var Cmd = &cobra.Command{
 	Use:   "cert",
 	Short: "Generate self-signed certificates for a Synnax Core",
 	Long: `Generate self-signed certificates for a Synnax Core.
@@ -30,6 +30,9 @@ var caCmd = &cobra.Command{
 	Short: "Generate a self-signed CA certificate",
 	Long:  "Generate a self-signed CA certificate.",
 	Args:  cobra.NoArgs,
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
+		return viper.BindPFlags(cmd.Flags())
+	},
 	RunE: func(cmd *cobra.Command, _ []string) error {
 		cmd.SilenceUsage = true
 		ins := instrumentation.Configure()
@@ -47,6 +50,9 @@ var nodeCmd = &cobra.Command{
 	Short: "Generate a self-signed node certificate",
 	Long:  "Generate a self-signed node certificate.",
 	Args:  cobra.MinimumNArgs(1),
+	PreRunE: func(cmd *cobra.Command, _ []string) error {
+		return viper.BindPFlags(cmd.Flags())
+	},
 	RunE: func(cmd *cobra.Command, hosts []string) error {
 		cmd.SilenceUsage = true
 		ins := instrumentation.Configure()
@@ -65,18 +71,8 @@ var nodeCmd = &cobra.Command{
 	},
 }
 
-// AddCommand adds the cert subcommand to the given parent command.
-func AddCommand(cmd *cobra.Command) error {
-	cmd.AddCommand(certCmd)
-	BindFlags(caCmd)
-	if err := viper.BindPFlags(caCmd.Flags()); err != nil {
-		return err
-	}
-	if err := viper.BindPFlags(caCmd.PersistentFlags()); err != nil {
-		return err
-	}
-	certCmd.AddCommand(caCmd)
-	BindFlags(nodeCmd)
-	certCmd.AddCommand(nodeCmd)
-	return nil
+func init() {
+	AddFlags(caCmd)
+	AddFlags(nodeCmd)
+	Cmd.AddCommand(caCmd, nodeCmd)
 }

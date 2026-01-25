@@ -11,7 +11,13 @@ import os
 import random
 from typing import cast
 
-from playwright.sync_api import Browser, BrowserType, Page, sync_playwright
+from playwright.sync_api import (
+    Browser,
+    BrowserContext,
+    BrowserType,
+    Page,
+    sync_playwright,
+)
 
 from console.console import Console
 from framework.test_case import TestCase
@@ -27,6 +33,7 @@ class ConsoleCase(TestCase):
     """
 
     browser: Browser
+    context: BrowserContext
     page: Page
     headed: bool
     default_timeout: int
@@ -45,8 +52,11 @@ class ConsoleCase(TestCase):
         self.playwright = sync_playwright().start()
         browser_engine = self.determine_browser()
         self.browser = browser_engine.launch(headless=not headed, slow_mo=slow_mo)
-        # Use larger viewport to reduce element overlap
-        self.page = self.browser.new_page(viewport={"width": 1920, "height": 1080})
+        self.context = self.browser.new_context(
+            viewport={"width": 1920, "height": 1080},
+            permissions=["clipboard-read", "clipboard-write"],
+        )
+        self.page = self.context.new_page()
 
         # Set timeouts
         self.page.set_default_timeout(default_timeout)  # 1s
@@ -80,13 +90,18 @@ class ConsoleCase(TestCase):
 
         self.page.wait_for_load_state("networkidle")
 
-        # Initialize Console interface
+        # Initialize Console interface & Workspace
         self.console = Console(self.page)
         self.page.wait_for_selector("text=Get Started", timeout=5000)
         self.console.workspace.ensure_selected("TestSpace")
         self.log("Selected default workspace 'TestSpace'")
 
+        # Prevent state pollution
+        # Selecting workspace restores tabs
+        self.console.close_all_tabs()
+
     def teardown(self) -> None:
+        self.context.close()
         self.browser.close()
         self.playwright.stop()
 

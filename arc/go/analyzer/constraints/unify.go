@@ -34,6 +34,27 @@ var (
 	ErrConvergence = errors.Wrap(ErrConstraints, "unification did not converge")
 )
 
+// UnificationError captures context about a failed type unification.
+type UnificationError struct {
+	// Constraint that failed to unify.
+	Constraint *Constraint
+	// Left is the resolved left type after substitutions.
+	Left types.Type
+	// Right is the resolved right type after substitutions.
+	Right types.Type
+	// Message is the user-facing error message.
+	Message string
+	// Hint provides an optional suggestion for fixing the error (e.g., type conversion).
+	Hint string
+}
+
+func (e *UnificationError) Error() string { return e.Message }
+
+// GetHint implements diagnostics.HintProvider.
+func (e *UnificationError) GetHint() string { return e.Hint }
+
+var _ error = (*UnificationError)(nil)
+
 const maxUnificationIterations = 100
 
 // Unify solves all accumulated constraints by computing type variable substitutions.
@@ -83,6 +104,52 @@ func (s *System) Unify() error {
 		}
 	}
 	return nil
+}
+
+// UnifyConstraint attempts to unify a single constraint immediately.
+// Returns a UnificationError with context if types are incompatible.
+func (s *System) UnifyConstraint(c Constraint) error {
+	if err := s.unifyTypes(c.Left, c.Right, c); err != nil {
+		left := s.ApplySubstitutions(c.Left)
+		right := s.ApplySubstitutions(c.Right)
+		msg := fmt.Sprintf("type mismatch: %v is not compatible with %v", right, left)
+		if c.Reason != "" {
+			msg = fmt.Sprintf("type mismatch in %s: %v is not compatible with %v", c.Reason, right, left)
+		}
+		var hint string
+		if left.IsNumeric() && right.IsNumeric() {
+			hintType := concreteTypeForHint(left)
+			hint = fmt.Sprintf("hint: use %s(value) to convert", hintType)
+		}
+		return &UnificationError{
+			Constraint: &c,
+			Left:       left,
+			Right:      right,
+			Message:    msg,
+			Hint:       hint,
+		}
+	}
+	return nil
+}
+
+// concreteTypeForHint returns a concrete type name for use in error hints.
+// Converts constraint kinds (integer, float) to their default concrete types (i64, f64).
+func concreteTypeForHint(t types.Type) string {
+	if t.Kind == types.KindVariable && t.Constraint != nil {
+		switch t.Constraint.Kind {
+		case types.KindIntegerConstant:
+			return "i64"
+		case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+			return "f64"
+		}
+	}
+	if t.Kind == types.KindIntegerConstant {
+		return "i64"
+	}
+	if t.Kind == types.KindFloatConstant || t.Kind == types.KindExactIntegerFloatConstant {
+		return "f64"
+	}
+	return t.String()
 }
 
 func (s *System) unifyTypes(t1, t2 types.Type, source Constraint) error {
@@ -198,32 +265,32 @@ func (s *System) unifyTypeVariableWithVisited(
 			)
 		}
 	} else if tv.Constraint.Kind == types.KindFloatConstant {
-		// Float constraint: accepts float types, or any numeric if compatible context
-		if source.Kind == KindCompatible {
-			if !checkType.IsNumeric() {
-				return errors.Wrapf(
-					ErrConstraintViolation,
-					"%v does not satisfy float constraint",
-					other,
-				)
-			}
-		} else {
-			// In equality/assignment context, only accept floats
-			if !checkType.IsFloat() {
-				return errors.Wrapf(
-					ErrConstraintViolation,
-					"%v does not satisfy float constraint",
-					other,
-				)
-			}
+		// Float constraint: in compatible context, only accept floats (not concrete integers).
+		// This ensures `x := 10; x + 3.2` fails (x is resolved to i64, can't add float literal).
+		// But `2 + 3.2` still works because both are type variables that can promote.
+		if !checkType.IsFloat() {
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy float constraint",
+				other,
+			)
+		}
+	} else if tv.Constraint.Kind == types.KindExactIntegerFloatConstant {
+		if !checkType.IsNumeric() {
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy exact integer float constraint",
+				other,
+			)
 		}
 	}
 
-	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant),
+	// For constraint kinds (IntegerConstant, FloatConstant, NumericConstant, ExactIntegerFloatConstant),
 	// we've already validated compatibility above, so skip exact match check
 	isConstraintKind := tv.Constraint != nil && (tv.Constraint.Kind == types.KindIntegerConstant ||
 		tv.Constraint.Kind == types.KindFloatConstant ||
-		tv.Constraint.Kind == types.KindNumericConstant)
+		tv.Constraint.Kind == types.KindNumericConstant ||
+		tv.Constraint.Kind == types.KindExactIntegerFloatConstant)
 
 	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
 		if source.Kind != KindCompatible || !tv.Constraint.IsNumeric() || !other.IsNumeric() {
@@ -247,11 +314,9 @@ func occursIn(lhs, rhs types.Type) bool {
 
 func defaultTypeForConstraint(constraint types.Type) types.Type {
 	switch constraint.Kind {
-	case types.KindNumericConstant:
-		return types.F64()
 	case types.KindIntegerConstant:
 		return types.I64()
-	case types.KindFloatConstant:
+	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
 		return types.F64()
 	default:
 		return constraint

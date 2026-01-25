@@ -12,6 +12,7 @@ package sequence
 import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/flow"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -45,7 +46,7 @@ func collectSequenceName(ctx context.Context[parser.ISequenceDeclarationContext]
 		Type: types.Sequence(),
 		AST:  ctx.AST,
 	}); err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 	}
 }
 
@@ -53,7 +54,7 @@ func collectSequenceStages(ctx context.Context[parser.ISequenceDeclarationContex
 	name := ctx.AST.IDENTIFIER().GetText()
 	seqScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
 	stages := ctx.AST.AllStageDeclaration()
@@ -73,7 +74,7 @@ func collectStage(
 		Type: types.Stage(),
 		AST:  ctx.AST,
 	}); err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 	}
 }
 
@@ -83,7 +84,7 @@ func Analyze(ctx context.Context[parser.ISequenceDeclarationContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	seqScope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
-		ctx.Diagnostics.AddError(err, ctx.AST)
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
 	for _, stageDecl := range ctx.AST.AllStageDeclaration() {
@@ -104,5 +105,18 @@ func analyzeStage(
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			flow.Analyze(context.Child(ctx, flowStmt))
 		}
+		if single := item.SingleInvocation(); single != nil {
+			analyzeSingleInvocation(context.Child(ctx, single))
+		}
+	}
+}
+
+func analyzeSingleInvocation(ctx context.Context[parser.ISingleInvocationContext]) {
+	if fn := ctx.AST.Function(); fn != nil {
+		flow.AnalyzeSingleFunction(context.Child(ctx, fn))
+		return
+	}
+	if expr := ctx.AST.Expression(); expr != nil {
+		flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 	}
 }

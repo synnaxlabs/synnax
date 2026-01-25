@@ -180,10 +180,11 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
     );
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
+    const ir::IR prog = static_cast<ir::IR>(cfg.mod);
     for (const auto &n: cfg.mod.nodes) {
         auto [node_state, node_state_err] = state->node(n.key);
         if (node_state_err) return {nullptr, node_state_err};
-        auto [node, err] = fact.create(node::Config(n, std::move(node_state)));
+        auto [node, err] = fact.create(node::Config(prog, n, std::move(node_state)));
         if (err) return {nullptr, err};
         nodes[n.key] = std::move(node);
     }

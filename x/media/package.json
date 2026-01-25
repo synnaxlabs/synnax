@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/media",
-  "version": "0.49.0",
+  "version": "0.50.0",
   "type": "module",
   "description": "Media Assets for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/media",

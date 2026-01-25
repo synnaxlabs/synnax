@@ -66,10 +66,19 @@ class ConsolePage:
         Ignore unsaved changes.
         """
         tab = self._get_tab()
-        tab.get_by_label("pluto-tabs__close").click()
+        tab.wait_for(state="visible", timeout=5000)
+        close_button = tab.get_by_label("pluto-tabs__close")
+        close_button.wait_for(state="visible", timeout=5000)
+        close_button.click()
 
         if self.page.get_by_text("Lose Unsaved Changes").count() > 0:
             self.page.get_by_role("button", name="Confirm").click()
+        tab.wait_for(state="hidden", timeout=5000)
+
+    def is_open(self) -> bool:
+        """Check if the page tab is visible."""
+        tab = self.console.layout.get_tab(self.page_name)
+        return tab.count() > 0 and tab.is_visible()
 
     def rename(self, new_name: str) -> None:
         """Rename the page by double-clicking the tab name.
@@ -77,7 +86,7 @@ class ConsolePage:
         Args:
             new_name: The new name for the page
         """
-        self.console.layout.rename_tab(self.page_name, new_name)
+        self.console.layout.rename_tab(old_name=self.page_name, new_name=new_name)
         self.page_name = new_name
 
     def _dblclick_canvas(self) -> None:

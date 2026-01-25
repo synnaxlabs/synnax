@@ -16,6 +16,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
+#include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -26,16 +27,36 @@ class Node : public node::Node {
     state::Node state;
     Module::Function func;
     std::vector<telem::SampleValue> inputs;
+    std::vector<Module::Function::Result> results;
     std::vector<int> offsets;
+    bool initialized = false;
+    bool is_entry_node = false;
 
 public:
-    Node(const ir::Node &node, state::Node &&state, const Module::Function &func):
-        ir(node), state(std::move(state)), func(func) {
+    Node(
+        const ir::IR &prog,
+        const ir::Node &node,
+        state::Node &&state,
+        const Module::Function &func
+    ):
+        ir(node),
+        state(std::move(state)),
+        func(func),
+        // Entry nodes have no incoming edges and are not expression nodes.
+        // They should only execute once per stage entry.
+        is_entry_node(
+            node.key.rfind("expression_", 0) != 0 && prog.edges_into(node.key).empty()
+        ) {
         this->inputs.resize(node.inputs.size());
         this->offsets.resize(node.outputs.size());
     }
 
     xerrors::Error next(node::Context &ctx) override {
+        if (this->is_entry_node) {
+            if (this->initialized) return xerrors::NIL;
+            this->initialized = true;
+        }
+
         if (!state.refresh_inputs()) return xerrors::NIL;
 
         int64_t max_length = 0;
@@ -69,7 +90,7 @@ public:
                 this->inputs[j] = input_series->at(i % input_len);
             }
 
-            auto [results, err] = this->func.call(this->inputs);
+            const auto err = this->func.call(this->inputs, this->results);
             if (err) {
                 ctx.report_error(
                     xerrors::Error(
@@ -105,6 +126,8 @@ public:
 
         return xerrors::NIL;
     }
+
+    void reset() override { this->initialized = false; }
 
     [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
         return state.is_output_truthy(param_name);

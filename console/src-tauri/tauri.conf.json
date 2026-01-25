@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Synnax",
-  "version": "../package.json",
+  "version": "0.50.0",
   "build": {
     "beforeBuildCommand": "pnpm build-vite",
     "beforeDevCommand": "pnpm dev-vite",
