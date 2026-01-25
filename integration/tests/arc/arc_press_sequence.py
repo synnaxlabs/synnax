@@ -7,13 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
-
-import synnax as sy
-
-from console.case import ConsoleCase
-
-ARC_NAME = f"ArcPressSequence_{int(time.time())}"
+from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SEQUENCE_SOURCE = """
 start_seq_cmd => main
@@ -41,76 +35,21 @@ sequence main {
 """
 
 
-class ArcPressSequence(ConsoleCase):
+class ArcPressSequence(ArcConsoleCase):
     """Test Arc pressurization sequence execution via Console UI."""
 
-    def setup(self) -> None:
-        self.set_manual_timeout(180)
-        self.subscribe(
-            [
-                "press_vlv_state",
-                "vent_vlv_state",
-                "press_pt",
-                "end_test_cmd",
-            ]
-        )
-        super().setup()
-        self._create_extra_channels()
+    arc_source = ARC_SEQUENCE_SOURCE
+    arc_name_prefix = "ArcPressSequence"
+    start_cmd_channel = "start_seq_cmd"
+    end_cmd_channel = "end_test_cmd"
+    subscribe_channels = [
+        "press_vlv_state",
+        "vent_vlv_state",
+        "press_pt",
+        "end_test_cmd",
+    ]
 
-    def _create_extra_channels(self) -> None:
-        self.client.channels.create(
-            name="start_seq_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-
-    def run(self) -> None:
-        self.log("Creating Arc sequence through Console UI")
-        self.console.arc.create(ARC_NAME, ARC_SEQUENCE_SOURCE, mode="Text")
-        sy.sleep(0.5)
-
-        rack_key = self.params.get("rack_key")
-        if rack_key:
-            rack = self.client.racks.retrieve(rack_key)
-        else:
-            rack = self.client.racks.retrieve(embedded=False)
-
-        self.log(f"Selecting rack: {rack.name} (key: {rack.key})")
-        self.console.arc.select_rack(rack.name)
-
-        self.log("Configuring Arc task")
-        self.console.arc.configure()
-        sy.sleep(1.0)
-
-        arc = self.client.arcs.retrieve(name=ARC_NAME)
-        self.log(f"Arc saved with key: {arc.key}")
-
-        self.log("Starting Arc task")
-        self.console.arc.start()
-        self.log(f"Arc is running: {self.console.arc.is_running()}")
-        sy.sleep(1.0)
-
-        self.log("Triggering sequence")
-        with self.client.open_writer(sy.TimeStamp.now(), "start_seq_cmd") as w:
-            w.write("start_seq_cmd", 1)
-
-        self._verify_sequence_execution()
-
-        self.log("Stopping Arc task")
-        self.console.arc.stop()
-        sy.sleep(0.5)
-
-        self.log("Deleting Arc program")
-        self.console.arc.delete(ARC_NAME)
-
-        self.log("Signaling sim_daq to stop")
-        with self.client.open_writer(sy.TimeStamp.now(), "end_test_cmd") as w:
-            w.write("end_test_cmd", 1)
-
-        self.log(f"Arc sequence {arc.name} on {rack.name} completed")
-
-    def _verify_sequence_execution(self) -> None:
+    def verify_sequence_execution(self) -> None:
         self.log("Verifying press stage - valve opens...")
         while self.should_continue:
             if self.read_tlm("press_vlv_state") == 1:

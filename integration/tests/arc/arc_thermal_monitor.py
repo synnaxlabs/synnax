@@ -19,13 +19,9 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
-import time
-
 import synnax as sy
 
-from console.case import ConsoleCase
-
-ARC_NAME = f"ArcThermalMonitor_{int(time.time())}"
+from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SOURCE = """
 func count_heater_cycles(heater_on u8) i64 {
@@ -79,32 +75,28 @@ sequence abort {
 """
 
 
-class ArcThermalMonitor(ConsoleCase):
+class ArcThermalMonitor(ArcConsoleCase):
     """Test Arc thermal monitor with stateful variables and looping sequence."""
 
+    arc_source = ARC_SOURCE
+    arc_name_prefix = "ArcThermalMonitor"
+    start_cmd_channel = "start_monitor_cmd"
+    end_cmd_channel = "end_thermal_test_cmd"
+    subscribe_channels = [
+        "temp_sensor",
+        "heater_state",
+        "cycle_count",
+        "peak_temp",
+        "temp_error",
+        "alarm_active",
+        "end_thermal_test_cmd",
+    ]
+
     def setup(self) -> None:
-        self.set_manual_timeout(180)
-        self._create_channels()
-        self.subscribe(
-            [
-                "temp_sensor",
-                "heater_state",
-                "cycle_count",
-                "peak_temp",
-                "temp_error",
-                "alarm_active",
-                "end_thermal_test_cmd",
-            ]
-        )
+        self._create_additional_channels()
         super().setup()
 
-    def _create_channels(self) -> None:
-        self.client.channels.create(
-            name="start_monitor_cmd",
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
+    def _create_additional_channels(self) -> None:
         self.client.channels.create(
             name="abort_cmd",
             data_type=sy.DataType.UINT8,
@@ -151,52 +143,10 @@ class ArcThermalMonitor(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-    def run(self) -> None:
-        self.log("Creating Arc thermal monitor")
-        self.console.arc.create(ARC_NAME, ARC_SOURCE, mode="Text")
-        sy.sleep(0.5)
-
-        rack_key = self.params.get("rack_key")
-        if rack_key:
-            rack = self.client.racks.retrieve(rack_key)
-        else:
-            rack = self.client.racks.retrieve(embedded=False)
-
-        self.log(f"Selecting rack: {rack.name} (key: {rack.key})")
-        self.console.arc.select_rack(rack.name)
-
-        self.log("Configuring Arc task")
-        self.console.arc.configure()
-        sy.sleep(1.0)
-
-        arc = self.client.arcs.retrieve(name=ARC_NAME)
-        self.log(f"Arc saved with key: {arc.key}")
-
-        self.log("Starting Arc task")
-        self.console.arc.start()
-        self.log(f"Arc is running: {self.console.arc.is_running()}")
-        sy.sleep(0.5)
-
-        self.log("Triggering sequence")
-        with self.client.open_writer(sy.TimeStamp.now(), "start_monitor_cmd") as w:
-            w.write("start_monitor_cmd", 1)
-
+    def verify_sequence_execution(self) -> None:
         self._verify_thermal_cycling()
         self._verify_stateful_variables()
         self._verify_abort_transition()
-
-        self.log("Stopping Arc task")
-        self.console.arc.stop()
-        sy.sleep(0.5)
-
-        self.log("Deleting Arc program")
-        self.console.arc.delete(ARC_NAME)
-
-        self.log("Signaling thermal sim to stop")
-        with self.client.open_writer(sy.TimeStamp.now(), "end_thermal_test_cmd") as w:
-            w.write("end_thermal_test_cmd", 1)
-
-        self.log(f"Arc sequence {arc.name} on {rack.name} completed")
 
     def _verify_thermal_cycling(self) -> None:
         self.log("Verifying thermal cycling behavior...")
