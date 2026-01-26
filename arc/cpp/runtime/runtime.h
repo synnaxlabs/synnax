@@ -14,6 +14,8 @@
 #include <set>
 #include <utility>
 
+#include "glog/logging.h"
+
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/xthread/xthread.h"
@@ -40,7 +42,12 @@ struct Config {
         retrieve_channels;
     size_t input_queue_capacity = 256;
     size_t output_queue_capacity = 1024;
+    /// @brief Loop configuration. Fields with default values are auto-selected.
+    loop::Config loop;
 };
+
+/// @brief callback invoked when a fatal error occurs in the runtime.
+using ErrorHandler = std::function<void(const xerrors::Error &)>;
 
 class Runtime {
     breaker::Breaker breaker;
@@ -53,6 +60,7 @@ class Runtime {
     queue::SPSC<telem::Frame> inputs;
     queue::SPSC<telem::Frame> outputs;
     telem::TimeStamp start_time = telem::TimeStamp(0);
+    ErrorHandler error_handler_;
 
 public:
     std::vector<types::ChannelKey> read_channels;
@@ -78,16 +86,21 @@ public:
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
+    /// @brief sets the error handler callback invoked on fatal runtime errors.
+    void set_error_handler(ErrorHandler handler) {
+        this->error_handler_ = std::move(handler);
+    }
+
     void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
-        // May fail on Windows (expected); handled via explicit notify_data() when
-        // writin input frames.
-        if (!this->loop->watch(this->inputs.notifier()))
-            LOG(
-                WARNING
-            ) << "[runtime] Input notifier not watched; using explicit notification";
+        if (!this->loop->watch(this->inputs.notifier())) {
+            const auto err = xerrors::Error("failed to watch input notifier");
+            LOG(ERROR) << "[runtime] " << err.message();
+            if (this->error_handler_) this->error_handler_(err);
+            return;
+        }
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
@@ -120,7 +133,7 @@ public:
 
     bool stop() {
         if (!this->breaker.stop()) return false;
-        this->loop->stop();
+        this->loop->wake();
         this->run_thread.join();
         this->inputs.close();
         this->outputs.close();
@@ -130,9 +143,6 @@ public:
     xerrors::Error write(telem::Frame frame) {
         if (!this->inputs.push(std::move(frame)))
             return xerrors::Error("runtime closed");
-        // Notify the event loop that data is available.
-        // Required on Windows where watch() doesn't support external notifiers.
-        this->loop->notify_data();
         return xerrors::NIL;
     }
 
@@ -188,34 +198,18 @@ inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cf
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
     const ir::IR prog = static_cast<ir::IR>(cfg.mod);
-    for (const auto &n: cfg.mod.nodes) {
-        auto [node_state, node_state_err] = state->node(n.key);
+    for (const auto &mod_node: cfg.mod.nodes) {
+        auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
-        auto [node, err] = fact.create(node::Config(prog, n, std::move(node_state)));
+        auto [node, err] = fact.create(
+            node::Config(prog, mod_node, std::move(node_state))
+        );
         if (err) return {nullptr, err};
-        nodes[n.key] = std::move(node);
+        nodes[mod_node.key] = std::move(node);
     }
-
     auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
-
-    auto timing_interval = time_factory->timing_base;
-    const bool has_intervals = timing_interval.nanoseconds() !=
-                               std::numeric_limits<int64_t>::max();
-
-    auto mode = loop::ExecutionMode::EVENT_DRIVEN;
-    if (has_intervals && timing_interval < loop::timing::SOFTWARE_TIMER_THRESHOLD)
-        mode = loop::ExecutionMode::HIGH_RATE;
-
-    auto [loop, err] = loop::create(
-        loop::Config{
-            .mode = mode,
-            .interval = has_intervals ? timing_interval : telem::TimeSpan(0),
-            .rt_priority = 47,
-            .cpu_affinity = -1,
-        }
-    );
+    auto [loop, err] = loop::create(cfg.loop.apply_defaults(time_factory->timing_base));
     if (err) return {nullptr, err};
-
     return {
         std::make_shared<Runtime>(
             cfg,
