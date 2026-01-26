@@ -11,14 +11,8 @@
 
 .console-error-overlay {
     height: 100vh;
-
-    & .pluto-navbar.pluto--location-top {
+    & > .pluto-navbar.pluto--location-top {
         padding-left: 2rem;
         padding-right: 1rem;
-
-        & .synnax-logo {
-            height: 3rem;
-            width: 3rem;
-        }
     }
 }

@@ -10,13 +10,25 @@
 import "@/errors/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, CSS as PCSS, Errors, Flex, Nav, OS, Theming } from "@synnaxlabs/pluto";
+import {
+  Button,
+  CSS as PCSS,
+  Errors,
+  Flex,
+  Nav,
+  OS,
+  Synnax,
+  Theming,
+} from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
+import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
   useEffect,
+  useState,
 } from "react";
 import { useDispatch } from "react-redux";
 
@@ -24,40 +36,78 @@ import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 import { Runtime } from "@/runtime";
+import { useSelectVersion } from "@/version/selectors";
 
 export interface OverlayProps extends PropsWithChildren {}
 
+const useExtraErrorInfo = (): record.Unknown => {
+  // These hooks must be called unconditionally per React rules.
+  // If they throw, the error bubbles to OverlayWithoutStore which is fine.
+  // We use optional chaining when building extraInfo to handle undefined values.
+  const consoleVersion = useSelectVersion();
+  const connectionState = Synnax.useConnectionState();
+
+  const extraInfo: record.Unknown = {};
+  if (consoleVersion) extraInfo.consoleVersion = consoleVersion;
+  if (connectionState?.nodeVersion)
+    extraInfo.serverVersion = connectionState.nodeVersion;
+  return extraInfo;
+};
+
 const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement => {
   const dispatch = useDispatch();
+  const extraInfo = useExtraErrorInfo();
+
   const handleTryAgain = useCallback((): void => {
     dispatch(REVERT_STATE);
   }, [dispatch]);
   const handleClear = useCallback((): void => {
     dispatch(CLEAR_STATE);
   }, [dispatch]);
+
   return (
     <FallBackRenderContent
       onClear={handleClear}
       onTryAgain={handleTryAgain}
       error={error}
+      extraInfo={extraInfo}
     />
   );
 };
 
-const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactElement => (
-  <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />
-);
+const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactElement => {
+  const [consoleVersion, setConsoleVersion] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (Runtime.ENGINE !== "tauri") return;
+    void getVersion().then(setConsoleVersion);
+  }, []);
+
+  const extraInfo: record.Unknown = {
+    ...(consoleVersion != null && { consoleVersion }),
+  };
+
+  return (
+    <FallBackRenderContent
+      onClear={Persist.hardClearAndReload}
+      error={error}
+      extraInfo={extraInfo}
+    />
+  );
+};
 
 interface FallbackRenderContentProps {
   error: Error;
   onTryAgain?: () => void;
   onClear: () => void;
+  extraInfo?: record.Unknown;
 }
 
 const FallBackRenderContent = ({
   onTryAgain,
   onClear,
   error,
+  extraInfo,
 }: FallbackRenderContentProps): ReactElement => {
   const os = OS.use();
   useEffect(() => {
@@ -127,18 +177,22 @@ const FallBackRenderContent = ({
       <Errors.Fallback
         error={error}
         resetErrorBoundary={resetErrorBoundary}
-        variant="full"
-        showLogo
+        extraInfo={extraInfo}
       >
         <Flex.Box x>
+          <Button.Button
+            onClick={onClear}
+            tooltip={`Will clear all stored data in the Console and reload the application.
+              This should only be done if the standard reload does not fix the issue.`}
+            tooltipLocation="bottom"
+          >
+            Clear storage and reload Console
+          </Button.Button>
           {onTryAgain != null && (
             <Button.Button variant="filled" onClick={onTryAgain}>
               Reload Console
             </Button.Button>
           )}
-          <Button.Button onClick={onClear}>
-            Clear storage and reload Console
-          </Button.Button>
         </Flex.Box>
       </Errors.Fallback>
     </Flex.Box>
