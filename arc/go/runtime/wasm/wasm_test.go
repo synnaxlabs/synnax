@@ -922,6 +922,368 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
+	Describe("Imperative Channel Writes", func() {
+		Describe("Writing to Non-Indexed Channels", func() {
+			It("Should write only data channel when index is not configured", func() {
+				resolver := symbol.MapResolver{
+					"output_ch": {
+						Name: "output_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   100,
+					},
+				}
+				g := singleFunctionGraph("write_test", types.I32(), `{
+					output_ch = 42
+					return 42
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 100, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "write_test")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(100).Series).To(HaveLen(1))
+				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](42))
+			})
+		})
+
+		Describe("Writing to Indexed Channels", func() {
+			It("Should write both data and index channel when index is configured", func() {
+				resolver := symbol.MapResolver{
+					"output_ch": {
+						Name: "output_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   100,
+					},
+				}
+				g := singleFunctionGraph("write_indexed", types.I32(), `{
+					output_ch = 99
+					return 99
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 100, Index: 101, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "write_indexed")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(100).Series).To(HaveLen(1))
+				Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[int32](99))
+				Expect(fr.Get(101).Series).To(HaveLen(1))
+				Expect(fr.Get(101).Series[0].Len()).To(Equal(int64(1)))
+				ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(101).Series[0])
+				Expect(ts[0]).To(BeNumerically(">", 0))
+			})
+
+			It("Should write timestamp that is approximately now", func() {
+				resolver := symbol.MapResolver{
+					"sensor_out": {
+						Name: "sensor_out",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   200,
+					},
+				}
+				g := singleFunctionGraph("write_ts", types.I32(), `{
+					sensor_out = 42
+					return 42
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 200, Index: 201, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				before := telem.Now()
+				h.Execute(ctx, "write_ts")
+				after := telem.Now()
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(201).Series).To(HaveLen(1))
+				ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(201).Series[0])
+				Expect(ts[0]).To(BeNumerically(">=", before))
+				Expect(ts[0]).To(BeNumerically("<=", after))
+			})
+
+			It("Should write to multiple indexed channels independently", func() {
+				resolver := symbol.MapResolver{
+					"ch_a": {
+						Name: "ch_a",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   10,
+					},
+					"ch_b": {
+						Name: "ch_b",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   20,
+					},
+				}
+				g := singleFunctionGraph("multi_write", types.I32(), `{
+					ch_a = 15
+					ch_b = 100
+					return 0
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 10, Index: 11, DataType: telem.Int32T},
+					{Key: 20, Index: 21, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "multi_write")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(10).Series).To(HaveLen(1))
+				Expect(fr.Get(10).Series[0]).To(telem.MatchSeriesDataV[int32](15))
+				Expect(fr.Get(11).Series).To(HaveLen(1))
+				Expect(fr.Get(20).Series).To(HaveLen(1))
+				Expect(fr.Get(20).Series[0]).To(telem.MatchSeriesDataV[int32](100))
+				Expect(fr.Get(21).Series).To(HaveLen(1))
+			})
+		})
+
+		Describe("Sequential Writes with Timestamps", func() {
+			It("Should produce increasing timestamps for sequential writes", func() {
+				resolver := symbol.MapResolver{
+					"counter_ch": {
+						Name: "counter_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   300,
+					},
+				}
+				g := singleFunctionGraph("seq_write", types.I32(), `{
+					count i32 $= 0
+					count = count + 1
+					counter_ch = count
+					return count
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 300, Index: 301, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				n := h.CreateNode(ctx, "seq_write")
+				timestamps := make([]telem.TimeStamp, 3)
+
+				for i := range 3 {
+					n.Reset()
+					n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+					fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+					Expect(changed).To(BeTrue())
+					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(301).Series[0])
+					timestamps[i] = ts[0]
+				}
+
+				Expect(timestamps[1]).To(BeNumerically(">=", timestamps[0]))
+				Expect(timestamps[2]).To(BeNumerically(">=", timestamps[1]))
+			})
+		})
+
+		Describe("Integer Type Channel Writes", func() {
+			It("Should write i32 with index", func() {
+				resolver := symbol.MapResolver{
+					"i32_ch": {
+						Name: "i32_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   700,
+					},
+				}
+				g := singleFunctionGraph("i32_write", types.I32(), `{
+					i32_ch = -50000
+					return -50000
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 700, Index: 701, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "i32_write")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(700).Series).To(HaveLen(1))
+				Expect(fr.Get(700).Series[0]).To(telem.MatchSeriesDataV[int32](-50000))
+				Expect(fr.Get(701).Series).To(HaveLen(1))
+			})
+
+			It("Should write u8 with index", func() {
+				resolver := symbol.MapResolver{
+					"u8_ch": {
+						Name: "u8_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.U8()),
+						ID:   800,
+					},
+				}
+				g := singleFunctionGraph("u8_write", types.U8(), `{
+					u8_ch = 255
+					return 255
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 800, Index: 801, DataType: telem.Uint8T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "u8_write")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(800).Series).To(HaveLen(1))
+				Expect(fr.Get(800).Series[0]).To(telem.MatchSeriesDataV[uint8](255))
+				Expect(fr.Get(801).Series).To(HaveLen(1))
+			})
+		})
+
+		Describe("Float Type Channel Writes", func() {
+			It("Should write f64 with index", func() {
+				resolver := symbol.MapResolver{
+					"f64_ch": {
+						Name: "f64_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   1100,
+					},
+				}
+				g := singleFunctionGraph("f64_write", types.F64(), `{
+					f64_ch = 3.14159
+					return 3.14159
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 1100, Index: 1101, DataType: telem.Float64T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "f64_write")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(1100).Series).To(HaveLen(1))
+				Expect(fr.Get(1100).Series[0]).To(telem.MatchSeriesDataV(3.14159))
+				Expect(fr.Get(1101).Series).To(HaveLen(1))
+			})
+
+			It("Should write f32 with index", func() {
+				resolver := symbol.MapResolver{
+					"f32_ch": {
+						Name: "f32_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   1200,
+					},
+				}
+				g := singleFunctionGraph("f32_write", types.F32(), `{
+					f32_ch = 2.718
+					return 2.718
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 1200, Index: 1201, DataType: telem.Float32T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "f32_write")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(1200).Series).To(HaveLen(1))
+				Expect(fr.Get(1200).Series[0]).To(telem.MatchSeriesDataV[float32](2.718))
+				Expect(fr.Get(1201).Series).To(HaveLen(1))
+			})
+		})
+
+		Describe("Edge Cases", func() {
+			It("Should handle empty flush when no writes occur", func() {
+				g := singleFunctionGraph("no_write", types.I32(), `{ return 42 }`)
+				h := newHarness(ctx, g, nil, nil)
+				defer h.Close()
+
+				h.Execute(ctx, "no_write")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeFalse())
+				Expect(fr.RawKeys()).To(BeEmpty())
+			})
+
+			It("Should handle channel with zero as index (no index)", func() {
+				resolver := symbol.MapResolver{
+					"no_idx_ch": {
+						Name: "no_idx_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   900,
+					},
+				}
+				g := singleFunctionGraph("zero_idx", types.I32(), `{
+					no_idx_ch = 123
+					return 123
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 900, Index: 0, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "zero_idx")
+
+				fr, changed := h.state.FlushWrites(telem.Frame[uint32]{})
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(900).Series).To(HaveLen(1))
+				Expect(fr.Get(0).Series).To(BeEmpty())
+			})
+		})
+
+		Describe("Comparison with Declarative Writes", func() {
+			It("Should produce same output structure as WriteChan for indexed channels", func() {
+				resolver := symbol.MapResolver{
+					"test_ch": {
+						Name: "test_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   1000,
+					},
+				}
+				g := singleFunctionGraph("imperative_vs_decl", types.I32(), `{
+					test_ch = 123
+					return 123
+				}`)
+
+				h := newHarness(ctx, g, resolver, []state.ChannelDigest{
+					{Key: 1000, Index: 1001, DataType: telem.Int32T},
+				})
+				defer h.Close()
+
+				h.Execute(ctx, "imperative_vs_decl")
+
+				fr, _ := h.state.FlushWrites(telem.Frame[uint32]{})
+				dataKeys := make(set.Set[uint32])
+				for _, key := range fr.RawKeys() {
+					dataKeys.Add(key)
+				}
+				Expect(dataKeys.Contains(1000)).To(BeTrue())
+				Expect(dataKeys.Contains(1001)).To(BeTrue())
+			})
+		})
+	})
+
 	Describe("Flow Expression Execution", func() {
 		It("Should execute every time for flow expression nodes", func() {
 			g := singleFunctionGraph("expression_0", types.I64(), `{

@@ -53,7 +53,7 @@ TEST(TelemFactoryTest, CreateSourceNode) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -83,7 +83,7 @@ TEST(TelemFactoryTest, CreateSinkNode) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("sink"));
@@ -108,7 +108,7 @@ TEST(TelemFactoryTest, UnknownNodeType) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("unknown"));
@@ -148,7 +148,7 @@ TEST(OnTest, NextReadsChannelData) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -202,7 +202,7 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{20, telem::INT32_T, 0}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -251,7 +251,7 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{999, telem::FLOAT32_T, 0}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -286,7 +286,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -351,7 +351,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -403,7 +403,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{30, telem::FLOAT64_T, 31}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -452,7 +452,7 @@ TEST(OnTest, NextCallsMarkChanged) {
     ir.nodes.push_back(ir_node);
 
     state::Config cfg{.ir = ir, .channels = {{10, telem::FLOAT32_T, 11}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto state_node = ASSERT_NIL_P(s.node("source"));
@@ -514,7 +514,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
@@ -585,7 +585,7 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
@@ -635,7 +635,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
@@ -696,7 +696,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     ir.edges.push_back(edge);
 
     state::Config cfg{.ir = ir, .channels = {{100, telem::FLOAT32_T, 101}}};
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
@@ -786,7 +786,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
         .ir = ir,
         .channels = {{1, telem::INT32_T, 2}, {3, telem::INT32_T, 4}}
     };
-    state::State s(cfg);
+    state::State s(cfg, arc::runtime::errors::noop_handler);
 
     io::Factory factory;
 

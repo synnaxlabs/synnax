@@ -84,10 +84,12 @@ TEST(ErrorTest, testParseErrorDisconnect) {
 }
 
 /// @brief it should map connection closed status to unreachable error.
-TEST(ErrorTest, testParseErrorConnectionClosed){ASSERT_OCCURRED_AS(
-    opc::errors::parse(UA_STATUSCODE_BADCONNECTIONCLOSED),
-    opc::errors::UNREACHABLE
-)}
+TEST(ErrorTest, testParseErrorConnectionClosed) {
+    ASSERT_OCCURRED_AS(
+        opc::errors::parse(UA_STATUSCODE_BADCONNECTIONCLOSED),
+        opc::errors::UNREACHABLE
+    );
+}
 
 /// @brief it should map out of range status to critical error.
 TEST(ErrorTest, testParseErrorNonConnectionError) {
@@ -110,5 +112,5 @@ TEST(ErrorTest, testParseErrorAccessDenied) {
     ASSERT_OCCURRED_AS(
         opc::errors::parse(UA_STATUSCODE_BADUSERACCESSDENIED),
         opc::errors::CRITICAL
-    )
+    );
 }
