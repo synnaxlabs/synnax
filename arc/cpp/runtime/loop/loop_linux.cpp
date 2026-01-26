@@ -26,6 +26,20 @@
 
 namespace arc::runtime::loop {
 
+bool has_rt_scheduling() {
+    struct sched_param param;
+    param.sched_priority = 1;
+    const int orig_policy = sched_getscheduler(0);
+    struct sched_param orig_param;
+    sched_getparam(0, &orig_param);
+
+    if (sched_setscheduler(0, SCHED_FIFO, &param) == 0) {
+        sched_setscheduler(0, orig_policy, &orig_param);
+        return true;
+    }
+    return false;
+}
+
 class LinuxLoop final : public Loop {
 public:
     explicit LinuxLoop(const Config &config): config_(config) {}
@@ -52,15 +66,14 @@ public:
                 this->high_rate_wait(breaker);
                 break;
             case ExecutionMode::RT_EVENT:
-                // RT_EVENT: True RT with indefinite blocking (relies on
-                // eventfd/timerfd)
-                this->event_driven_wait(breaker, /*blocking=*/true);
-                break;
-            case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(breaker, /*blocking=*/true);
+                this->event_driven_wait(breaker, true);
                 break;
             case ExecutionMode::HYBRID:
                 this->hybrid_wait(breaker);
+                break;
+            case ExecutionMode::AUTO:
+            case ExecutionMode::EVENT_DRIVEN:
+                this->event_driven_wait(breaker, true);
                 break;
         }
     }

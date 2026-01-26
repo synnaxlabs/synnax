@@ -20,6 +20,10 @@
 
 namespace arc::runtime::loop {
 
+bool has_rt_scheduling() {
+    return false;
+}
+
 class PollingLoop final : public Loop {
 public:
     explicit PollingLoop(const Config &config): config_(config) {
@@ -65,11 +69,11 @@ public:
                     case ExecutionMode::BUSY_WAIT:
                         this->busy_wait(remaining_ns, breaker);
                         break;
+                    case ExecutionMode::AUTO:
                     case ExecutionMode::HIGH_RATE:
                     case ExecutionMode::RT_EVENT:
                     case ExecutionMode::EVENT_DRIVEN:
                     case ExecutionMode::HYBRID:
-                    default:
                         this->timer_->wait(breaker);
                         break;
                 }

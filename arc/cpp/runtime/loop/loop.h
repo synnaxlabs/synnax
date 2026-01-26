@@ -10,11 +10,13 @@
 #pragma once
 
 #include <memory>
+#include <thread>
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
+#include "x/cpp/xjson/xjson.h"
 
 namespace arc::runtime::loop {
 
@@ -37,56 +39,137 @@ inline const telem::TimeSpan KQUEUE_TIMER_MIN = telem::MILLISECOND;
 /// @brief Threshold below which software timer (HIGH_RATE) is used for precision.
 /// Above this, OS timers (timerfd/kqueue/WaitableTimer) provide sufficient precision.
 inline const telem::TimeSpan SOFTWARE_TIMER_THRESHOLD = telem::MILLISECOND;
+
+/// @brief Threshold below which HIGH_RATE or RT_EVENT should be used.
+/// Intervals below 1ms require precise software timing.
+inline const telem::TimeSpan HIGH_RATE_THRESHOLD = telem::MILLISECOND;
+
+/// @brief Threshold below which HYBRID mode is beneficial.
+/// Intervals between 1-5ms benefit from spin-then-block approach.
+inline const telem::TimeSpan HYBRID_THRESHOLD = 5 * telem::MILLISECOND;
+
+/// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).
+/// Mid-range priority that preempts normal processes without starving system threads.
+constexpr int DEFAULT_RT_PRIORITY = 47;
+
+/// @brief Sentinel for auto CPU affinity. Pins to last core in RT_EVENT mode.
+constexpr int CPU_AFFINITY_AUTO = -1;
+
+/// @brief Sentinel for explicitly disabling CPU pinning.
+constexpr int CPU_AFFINITY_NONE = -2;
 }
 
 enum class ExecutionMode {
+    /// @brief Auto-select mode based on timing requirements and platform capabilities.
+    AUTO,
     /// @brief Continuous polling without sleeping. Lowest latency, 100% CPU.
-    /// Uses non-blocking event checks (epoll_wait timeout=0, kevent timeout=0).
     BUSY_WAIT,
-
-    /// @brief Tight polling loop with precise software timing via ::loop::Timer.
-    /// Achieves sub-millisecond precision. Lower latency than EVENT_DRIVEN,
-    /// higher CPU usage than HYBRID. Best for high-frequency control loops.
+    /// @brief Tight polling loop with precise software timing. Sub-millisecond
+    /// precision.
     HIGH_RATE,
-
-    /// @brief Real-time event-driven waiting with RT thread configuration.
-    /// On Linux: Uses SCHED_FIFO scheduling, CPU affinity, and memory locking.
-    /// On other platforms: Falls back to HIGH_RATE (no true RT support).
-    /// Uses indefinite blocking on events for deterministic behavior.
+    /// @brief Real-time event-driven with RT thread configuration (Linux SCHED_FIFO).
     RT_EVENT,
-
     /// @brief Spin briefly then block on events. Balanced for general-purpose systems.
-    /// Spin phase (default 100us) catches immediate data arrivals.
-    /// Block phase uses efficient OS primitives with timeout.
     HYBRID,
-
     /// @brief Block immediately on events. Lowest CPU usage, higher latency.
-    /// Uses indefinite blocking on multiplexer (epoll_wait/kevent).
-    /// Wakes on: data notification, timer expiry, or external watched notifiers.
     EVENT_DRIVEN,
 };
 
+inline std::ostream &operator<<(std::ostream &os, ExecutionMode mode) {
+    switch (mode) {
+        case ExecutionMode::AUTO:
+            return os << "AUTO";
+        case ExecutionMode::BUSY_WAIT:
+            return os << "BUSY_WAIT";
+        case ExecutionMode::HIGH_RATE:
+            return os << "HIGH_RATE";
+        case ExecutionMode::RT_EVENT:
+            return os << "RT_EVENT";
+        case ExecutionMode::HYBRID:
+            return os << "HYBRID";
+        case ExecutionMode::EVENT_DRIVEN:
+            return os << "EVENT_DRIVEN";
+        default:
+            return os << "UNKNOWN";
+    }
+}
+
+/// @brief Returns true if the platform supports real-time scheduling.
+/// Platform-specific implementation in loop_*.cpp files.
+bool has_rt_scheduling();
+
+/// @brief Auto-selects execution mode based on timing requirements and platform.
+/// Never returns BUSY_WAIT or AUTO.
+inline ExecutionMode
+select_mode(const telem::TimeSpan timing_interval, const bool has_intervals) {
+    if (!has_intervals) return ExecutionMode::EVENT_DRIVEN;
+    if (timing_interval < timing::HIGH_RATE_THRESHOLD)
+        return has_rt_scheduling() ? ExecutionMode::RT_EVENT : ExecutionMode::HIGH_RATE;
+    if (timing_interval < timing::HYBRID_THRESHOLD) return ExecutionMode::HYBRID;
+    return ExecutionMode::EVENT_DRIVEN;
+}
+
 struct Config {
-    /// @brief Execution mode determining wait behavior and CPU/latency tradeoffs.
-    ExecutionMode mode = ExecutionMode::EVENT_DRIVEN;
-
-    /// @brief Periodic timer interval. Zero disables the timer.
-    /// When enabled, wait() returns at least once per interval.
+    ExecutionMode mode = ExecutionMode::AUTO;
     telem::TimeSpan interval = telem::TimeSpan(0);
-
-    /// @brief Spin duration for HYBRID mode before blocking on events.
     telem::TimeSpan spin_duration = timing::HYBRID_SPIN_DEFAULT;
-
-    /// @brief Real-time priority for RT_EVENT mode (1-99 on Linux for SCHED_FIFO).
-    /// -1 means no priority change. Requires CAP_SYS_NICE capability on Linux.
-    int rt_priority = -1;
-
-    /// @brief CPU core to pin the loop thread to (-1 = no affinity).
-    int cpu_affinity = -1;
-
-    /// @brief Lock all memory pages to prevent page faults in RT path.
-    /// Requires CAP_IPC_LOCK capability on Linux. Ignored on other platforms.
+    int rt_priority = timing::DEFAULT_RT_PRIORITY;
+    int cpu_affinity = timing::CPU_AFFINITY_AUTO;
     bool lock_memory = false;
+
+    Config() = default;
+
+    explicit Config(xjson::Parser &parser) {
+        const auto mode_str = parser.field<std::string>("execution_mode", "AUTO");
+        if (mode_str == "AUTO")
+            mode = ExecutionMode::AUTO;
+        else if (mode_str == "BUSY_WAIT")
+            mode = ExecutionMode::BUSY_WAIT;
+        else if (mode_str == "HIGH_RATE")
+            mode = ExecutionMode::HIGH_RATE;
+        else if (mode_str == "RT_EVENT")
+            mode = ExecutionMode::RT_EVENT;
+        else if (mode_str == "HYBRID")
+            mode = ExecutionMode::HYBRID;
+        else if (mode_str == "EVENT_DRIVEN")
+            mode = ExecutionMode::EVENT_DRIVEN;
+        else {
+            parser.field_err(
+                "execution_mode",
+                "invalid execution mode: " + mode_str +
+                    " (must be AUTO, BUSY_WAIT, HIGH_RATE, RT_EVENT, HYBRID, "
+                    "or EVENT_DRIVEN)"
+            );
+            return;
+        }
+        rt_priority = parser.field<int>("rt_priority", timing::DEFAULT_RT_PRIORITY);
+        cpu_affinity = parser.field<int>("cpu_affinity", timing::CPU_AFFINITY_AUTO);
+        lock_memory = parser.field<bool>("lock_memory", false);
+    }
+
+    Config apply_defaults(const telem::TimeSpan timing_interval) const {
+        Config cfg = *this;
+        const bool has_intervals = timing_interval != telem::TimeSpan::max();
+        if (this->mode == ExecutionMode::AUTO)
+            cfg.mode = select_mode(timing_interval, has_intervals);
+        if (this->interval.nanoseconds() == 0 && has_intervals)
+            cfg.interval = timing_interval;
+        if (this->cpu_affinity == timing::CPU_AFFINITY_AUTO) {
+#ifdef SYNNAX_NILINUXRT
+            const bool should_pin = this->mode == ExecutionMode::RT_EVENT ||
+                                    this->mode == ExecutionMode::HIGH_RATE ||
+                                    this->mode == ExecutionMode::HYBRID;
+#else
+            const bool should_pin = this->mode == ExecutionMode::RT_EVENT;
+#endif
+            if (should_pin) {
+                const auto n = std::thread::hardware_concurrency();
+                cfg.cpu_affinity = n > 1 ? static_cast<int>(n - 1)
+                                         : timing::CPU_AFFINITY_NONE;
+            }
+        }
+        return cfg;
+    }
 };
 
 /// @brief Abstract event loop for the Arc runtime.

@@ -222,3 +222,70 @@ TEST(LoopTest, DifferentModes) {
         loop->stop();
     }
 }
+
+TEST(ModeSelectorTest, NoIntervals_SelectsEventDriven) {
+    EXPECT_EQ(select_mode(telem::TimeSpan(0), false), ExecutionMode::EVENT_DRIVEN);
+}
+
+TEST(ModeSelectorTest, ModerateRate_SelectsHybrid) {
+    EXPECT_EQ(select_mode(3 * telem::MILLISECOND, true), ExecutionMode::HYBRID);
+}
+
+TEST(ModeSelectorTest, LowRate_SelectsEventDriven) {
+    EXPECT_EQ(select_mode(10 * telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
+}
+
+TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
+    EXPECT_NE(select_mode(10 * telem::MICROSECOND, true), ExecutionMode::BUSY_WAIT);
+    EXPECT_NE(select_mode(telem::TimeSpan(0), true), ExecutionMode::BUSY_WAIT);
+}
+
+TEST(ModeSelectorTest, Boundary_AtOneMs_SelectsHybrid) {
+    EXPECT_EQ(select_mode(telem::MILLISECOND, true), ExecutionMode::HYBRID);
+}
+
+TEST(ModeSelectorTest, Boundary_AtFiveMs_SelectsEventDriven) {
+    EXPECT_EQ(select_mode(5 * telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
+}
+
+TEST(ConfigTest, ApplyDefaultsResolvesAuto) {
+    Config cfg;
+    EXPECT_EQ(cfg.mode, ExecutionMode::AUTO);
+    const auto resolved = cfg.apply_defaults(10 * telem::MILLISECOND);
+    EXPECT_NE(resolved.mode, ExecutionMode::AUTO);
+}
+
+TEST(ConfigTest, ApplyDefaultsSetsInterval) {
+    Config cfg;
+    EXPECT_EQ(cfg.interval.nanoseconds(), 0);
+    const auto resolved = cfg.apply_defaults(10 * telem::MILLISECOND);
+    EXPECT_EQ(resolved.interval, 10 * telem::MILLISECOND);
+}
+
+TEST(ConfigTest, DefaultRtPriority) {
+    Config cfg;
+    EXPECT_EQ(cfg.rt_priority, timing::DEFAULT_RT_PRIORITY);
+}
+
+TEST(ConfigTest, AutoCpuAffinityPinsForRTEvent) {
+    Config cfg;
+    cfg.mode = ExecutionMode::RT_EVENT;
+    EXPECT_EQ(cfg.cpu_affinity, timing::CPU_AFFINITY_AUTO);
+    const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
+    if (std::thread::hardware_concurrency() > 1) EXPECT_GE(resolved.cpu_affinity, 0);
+}
+
+TEST(ConfigTest, ExplicitCpuAffinityNotOverridden) {
+    Config cfg;
+    cfg.mode = ExecutionMode::RT_EVENT;
+    cfg.cpu_affinity = 0;
+    const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
+    EXPECT_EQ(resolved.cpu_affinity, 0);
+}
+
+TEST(ConfigTest, ExplicitModeNotOverridden) {
+    Config cfg;
+    cfg.mode = ExecutionMode::BUSY_WAIT;
+    const auto resolved = cfg.apply_defaults(10 * telem::MILLISECOND);
+    EXPECT_EQ(resolved.mode, ExecutionMode::BUSY_WAIT);
+}

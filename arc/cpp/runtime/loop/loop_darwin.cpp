@@ -27,6 +27,10 @@
 
 namespace arc::runtime::loop {
 
+bool has_rt_scheduling() {
+    return false;
+}
+
 static constexpr uintptr_t USER_EVENT_IDENT = 1;
 static constexpr uintptr_t TIMER_EVENT_IDENT = 2;
 
@@ -57,6 +61,10 @@ public:
         if (!this->running_.load(std::memory_order_acquire)) return;
 
         switch (this->config_.mode) {
+            case ExecutionMode::AUTO:
+            case ExecutionMode::EVENT_DRIVEN:
+                this->event_driven_wait(breaker);
+                break;
             case ExecutionMode::BUSY_WAIT:
                 this->busy_wait(breaker);
                 break;
@@ -67,11 +75,7 @@ public:
                 this->hybrid_wait(breaker);
                 break;
             case ExecutionMode::RT_EVENT:
-                // RT_EVENT falls back to HIGH_RATE on macOS (no true RT kernel)
                 this->high_rate_wait(breaker);
-                break;
-            case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(breaker);
                 break;
         }
     }
