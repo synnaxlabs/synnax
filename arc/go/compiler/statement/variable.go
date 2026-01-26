@@ -365,12 +365,13 @@ func compileAssignment(
 		ctx.Writer.WriteI32Const(int32(scope.ID))
 	}
 
-	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(varType))
+	targetType := varType.UnwrapChan()
+	exprType, err := expression.Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(targetType))
 	if err != nil {
 		return errors.Wrapf(err, "failed to compile assignment expression for '%s'", name)
 	}
-	if !types.Equal(varType, exprType) {
-		if err = expression.EmitCast(ctx, exprType, varType); err != nil {
+	if !types.Equal(targetType, exprType) {
+		if err = expression.EmitCast(ctx, exprType, targetType); err != nil {
 			return err
 		}
 	}
