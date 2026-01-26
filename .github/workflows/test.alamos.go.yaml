@@ -66,7 +66,7 @@ jobs:
         run:
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
           --randomize-suites --fail-on-pending --fail-on-empty --cover --coverpkg=./...
-          --keep-going --race --trace --github-output
+          --coverprofile=cover.out --keep-going --race --trace --github-output
         working-directory: alamos/go
 
       - name: Upload coverage
