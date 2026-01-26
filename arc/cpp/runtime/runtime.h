@@ -82,8 +82,10 @@ public:
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
+        // May fail on Windows (expected); handled via explicit notify_data() when 
+        // writin input frames.
         if (!this->loop->watch(this->inputs.notifier()))
-            LOG(ERROR) << "[runtime] Failed to watch input notifier";
+            LOG(WARNING) << "[runtime] Input notifier not watched; using explicit notification";
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
@@ -126,6 +128,9 @@ public:
     xerrors::Error write(telem::Frame frame) {
         if (!this->inputs.push(std::move(frame)))
             return xerrors::Error("runtime closed");
+        // Notify the event loop that data is available.
+        // Required on Windows where watch() doesn't support external notifiers.
+        this->loop->notify_data();
         return xerrors::NIL;
     }
 
