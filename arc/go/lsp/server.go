@@ -124,12 +124,12 @@ func New(cfgs ...Config) (*Server, error) {
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
-		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(_ context.Context, _ struct{}) {
+		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
 			s.republishMu.Lock()
 			if s.cancelRepublish != nil {
 				s.cancelRepublish()
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), s.cfg.RepublishTimeout)
+			ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
 			s.cancelRepublish = cancel
 			s.republishMu.Unlock()
 			go s.republishAllDiagnostics(ctx)
