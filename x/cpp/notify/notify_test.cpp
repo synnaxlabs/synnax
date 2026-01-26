@@ -46,7 +46,7 @@ TEST(NotifierTest, TimeoutExpires) {
     auto notifier = notify::create();
     const auto sw = telem::Stopwatch();
     EXPECT_FALSE(notifier->wait(telem::MILLISECOND * 50));
-    EXPECT_ELAPSED_GE(sw, 40 * telem::MILLISECOND);
+    EXPECT_GE(sw.elapsed(), 40 * telem::MILLISECOND);
 }
 
 /// @brief it should return false on poll when not signaled.
@@ -108,5 +108,5 @@ TEST(NotifierTest, ZeroTimeout) {
     auto notifier = notify::create();
     const auto sw = telem::Stopwatch();
     EXPECT_FALSE(notifier->wait(telem::TimeSpan(0)));
-    EXPECT_ELAPSED_LE(sw, 10 * telem::MILLISECOND);
+    EXPECT_LE(sw.elapsed(), 10 * telem::MILLISECOND);
 }

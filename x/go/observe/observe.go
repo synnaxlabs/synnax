@@ -94,16 +94,22 @@ var _ Observable[any] = Noop[any]{}
 // OnChange implements Observable.
 func (Noop[T]) OnChange(_ func(context.Context, T)) Disconnect { return func() {} }
 
-// Translator converts the emitted value of an observable using the given Translate
-// function. The new observable implements the Observable[O] interface.
+// Translator wraps an Observable and transforms its emitted values using the Translate
+// function. Translate returns the transformed value and a boolean indicating whether
+// to notify the handler. If the boolean is false, the handler is not called.
 type Translator[I any, O any] struct {
 	Observable[I]
-	Translate func(I) O
+	Translate func(context.Context, I) (O, bool)
 }
 
 var _ Observable[types.Nil] = Translator[any, types.Nil]{}
 
-// OnChange implements Observable.
 func (t Translator[I, O]) OnChange(handler func(context.Context, O)) Disconnect {
-	return t.Observable.OnChange(func(ctx context.Context, v I) { handler(ctx, t.Translate(v)) })
+	return t.Observable.OnChange(func(ctx context.Context, v I) {
+		result, ok := t.Translate(ctx, v)
+		if !ok {
+			return
+		}
+		handler(ctx, result)
+	})
 }

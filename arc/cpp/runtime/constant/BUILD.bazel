@@ -17,6 +17,7 @@ cc_test(
     srcs = ["constant_test.cpp"],
     deps = [
         ":constant",
+        "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
