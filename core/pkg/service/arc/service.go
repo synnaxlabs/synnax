@@ -101,17 +101,19 @@ func (s *Service) SymbolResolver() arc.SymbolResolver {
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
-	// Create a new LSP server instance for this connection with a no-op logger
-	// to avoid nil pointer panics
-	lspServer, err := lsp.New(lsp.Config{
+	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
 		GlobalResolver:  s.SymbolResolver(),
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.NewObservable(),
-			Translate:  func(gorp.TxReader[channel.Key, channel.Channel]) struct{} { return struct{}{} },
+			Translate: func(
+				ctx context.Context,
+				r gorp.TxReader[channel.Key, channel.Channel],
+			) (struct{}, bool) {
+				return struct{}{}, true
+			},
 		},
 	})
-	return lspServer, err
 }
 
 func (s *Service) Close() error {

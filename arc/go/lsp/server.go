@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -39,13 +40,16 @@ type Config struct {
 	// Synnax channels) changes. When this fires, the server will republish diagnostics
 	// for all open documents to ensure they reflect the current state.
 	OnExternalChange observe.Observable[struct{}]
+	// RepublishTimeout is the maximum time to wait for a republish operation to complete.
+	// If zero, defaults to 30 seconds.
+	RepublishTimeout time.Duration
 	// Instrumentation is used for logging, tracing, metrics, etc.
 	alamos.Instrumentation
 }
 
 var (
 	_             config.Config[Config] = &Config{}
-	DefaultConfig                       = Config{}
+	DefaultConfig                       = Config{RepublishTimeout: 30 * time.Second}
 )
 
 // Override implements config.Config.
@@ -53,6 +57,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GlobalResolver = override.Nil(c.GlobalResolver, other.GlobalResolver)
 	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
+	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	return c
 }
 
@@ -66,6 +71,8 @@ type Server struct {
 	documents                map[protocol.DocumentURI]*Document
 	cfg                      Config
 	mu                       sync.RWMutex
+	republishMu              sync.Mutex
+	cancelRepublish          context.CancelFunc
 	externalChangeDisconnect observe.Disconnect
 }
 
@@ -117,8 +124,15 @@ func New(cfgs ...Config) (*Server, error) {
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
 	if s.cfg.OnExternalChange != nil {
-		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
-			s.republishAllDiagnostics(ctx)
+		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(_ context.Context, _ struct{}) {
+			s.republishMu.Lock()
+			if s.cancelRepublish != nil {
+				s.cancelRepublish()
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), s.cfg.RepublishTimeout)
+			s.cancelRepublish = cancel
+			s.republishMu.Unlock()
+			go s.republishAllDiagnostics(ctx)
 		})
 	}
 }
@@ -171,6 +185,11 @@ func (s *Server) Shutdown(_ context.Context) error {
 	if s.externalChangeDisconnect != nil {
 		s.externalChangeDisconnect()
 	}
+	s.republishMu.Lock()
+	if s.cancelRepublish != nil {
+		s.cancelRepublish()
+	}
+	s.republishMu.Unlock()
 	return nil
 }
 
@@ -246,7 +265,6 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 
 	var pDiagnostics []protocol.Diagnostic
 	if doc.metadata.isFunctionBlock {
-		// Wrap content with {} for parsing - store wrapped content so AST positions match
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		doc.Content = wrappedContent
 		t, err := parser.ParseBlock(wrappedContent)
@@ -298,7 +316,6 @@ func (s *Server) republishAllDiagnostics(ctx context.Context) {
 		docs[uri] = doc.Content
 	}
 	s.mu.RUnlock()
-
 	for uri, content := range docs {
 		s.publishDiagnostics(ctx, uri, content)
 	}

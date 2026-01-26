@@ -165,7 +165,7 @@ var _ = Describe("External Change Notifications", func() {
 			Type: types.Chan(types.F32()),
 		}
 		observer.Notify(ctx, struct{}{})
-		Expect(client.Diagnostics).To(BeEmpty())
+		Eventually(func() []protocol.Diagnostic { return client.Diagnostics }).Should(BeEmpty())
 	})
 
 	It("Should show errors when a previously valid symbol is removed", func() {
@@ -178,7 +178,7 @@ var _ = Describe("External Change Notifications", func() {
 		Expect(client.Diagnostics).To(BeEmpty())
 		delete(resolver, "sensor")
 		observer.Notify(ctx, struct{}{})
-		Expect(client.Diagnostics).To(HaveLen(1))
+		Eventually(func() int { return len(client.Diagnostics) }).Should(Equal(1))
 		Expect(client.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: sensor"))
 	})
 
@@ -198,6 +198,6 @@ var _ = Describe("External Change Notifications", func() {
 			Type: types.Chan(types.I64()),
 		}
 		observer.Notify(ctx, struct{}{})
-		Expect(client.Diagnostics).To(BeEmpty())
+		Eventually(func() []protocol.Diagnostic { return client.Diagnostics }).Should(BeEmpty())
 	})
 })
