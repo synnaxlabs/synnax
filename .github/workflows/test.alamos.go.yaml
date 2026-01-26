@@ -63,17 +63,17 @@ jobs:
           working-directory: alamos/go
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
-          --randomize-suites --fail-on-pending --fail-on-empty --cover --coverprofile=cover.profile --keep-going --race
-          --trace --github-output
+        run:
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+          --randomize-suites --fail-on-pending --fail-on-empty --cover
+          --coverprofile=cover.out --keep-going --race --trace --github-output
         working-directory: alamos/go
 
       - name: Upload Coverage
         uses: codecov/codecov-action@v5
         with:
-          directory: ./alamos/go
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: cover.profile
+          files: ./alamos/go/cover.out
           name: alamos-go
           verbose: true
