@@ -21,3 +21,13 @@ coverage:
         target: 80%
         threshold: 0%
         informational: false
+ignore:
+  - "**/*_generated.go"
+  - "**/*.pb.go"
+  - "arc/go/parser/arc_lexer.go"
+  - "arc/go/parser/arc_parser.go"
+  - "arc/go/parser/arcparser_base_listener.go"
+  - "arc/go/parser/arcparser_base_visitor.go"
+  - "arc/go/parser/arcparser_listener.go"
+  - "arc/go/parser/arcparser_visitor.go"
+  - "**/*_string.go"
