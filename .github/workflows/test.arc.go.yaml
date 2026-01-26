@@ -104,6 +104,5 @@ jobs:
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          name: arc-go
           flags: arc-go
           directory: arc/go
