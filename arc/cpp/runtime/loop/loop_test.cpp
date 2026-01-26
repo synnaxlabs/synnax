@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
-#include <chrono>
 #include <sstream>
 #include <thread>
 
@@ -32,10 +31,12 @@ const auto SMALL_DELAY = 100 * telem::MICROSECOND;
 const auto TIMER_LOWER_BOUND = 5 * telem::MILLISECOND;
 /// @brief Expected timer bounds (upper, accounts for system jitter).
 const auto TIMER_UPPER_BOUND = 50 * telem::MILLISECOND;
-/// @brief Maximum wake latency on Linux/macOS.
-const auto WAKE_LATENCY_POSIX = telem::MILLISECOND;
-/// @brief Maximum wake latency on Windows (due to ~15ms scheduler time slice).
-const auto WAKE_LATENCY_WINDOWS = 50 * telem::MILLISECOND;
+/// @brief Maximum wake latency (Windows ~15ms scheduler time slice, POSIX ~1ms).
+#ifdef _WIN32
+const auto WAKE_LATENCY = 50 * telem::MILLISECOND;
+#else
+const auto WAKE_LATENCY = telem::MILLISECOND;
+#endif
 /// @brief Maximum time for breaker stop to take effect.
 const auto BREAKER_STOP_LATENCY = 10 * telem::MILLISECOND;
 /// @brief Maximum time for event-driven timeout (100ms + margin).
@@ -97,18 +98,15 @@ TEST(LoopTest, TimerExpiration) {
 
     breaker::Breaker breaker;
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     loop->wait(breaker);
-    const auto elapsed = std::chrono::steady_clock::now() - start;
 
-    // Should have waited approximately 10ms
-    // Allow some jitter
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                elapsed
-    )
-                                .count();
-    EXPECT_GE(elapsed_ms, test_timing::TIMER_LOWER_BOUND.milliseconds());
-    EXPECT_LE(elapsed_ms, test_timing::TIMER_UPPER_BOUND.milliseconds());
+    // Should have waited approximately 10ms (allow some jitter)
+    EXPECT_ELAPSED_BETWEEN(
+        sw,
+        test_timing::TIMER_LOWER_BOUND,
+        test_timing::TIMER_UPPER_BOUND
+    );
 }
 
 /// @brief Test BUSY_WAIT mode responds quickly to wake().
@@ -129,24 +127,11 @@ TEST(LoopTest, BusyWaitMode) {
 
     std::this_thread::sleep_for(test_timing::SMALL_DELAY.chrono());
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     loop->wake();
-
     waiter.join();
 
-    const auto latency = std::chrono::steady_clock::now() - start;
-    const auto latency_us = std::chrono::duration_cast<std::chrono::microseconds>(
-                                latency
-    )
-                                .count();
-
-    // Busy wait should have very low latency.
-    // Windows has ~15ms default scheduler time slice, so we allow more tolerance there.
-#ifdef _WIN32
-    EXPECT_LE(latency_us, test_timing::WAKE_LATENCY_WINDOWS.microseconds());
-#else
-    EXPECT_LE(latency_us, test_timing::WAKE_LATENCY_POSIX.microseconds());
-#endif
+    EXPECT_ELAPSED_LE(sw, test_timing::WAKE_LATENCY);
     ASSERT_TRUE(woke_up.load());
 }
 
@@ -160,18 +145,15 @@ TEST(LoopTest, HighRateMode) {
 
     breaker::Breaker breaker;
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     loop->wait(breaker);
-    const auto elapsed = std::chrono::steady_clock::now() - start;
-
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                elapsed
-    )
-                                .count();
 
     // Should wait approximately 10ms with high-rate timer
-    EXPECT_GE(elapsed_ms, test_timing::TIMER_LOWER_BOUND.milliseconds());
-    EXPECT_LE(elapsed_ms, test_timing::TIMER_UPPER_BOUND.milliseconds());
+    EXPECT_ELAPSED_BETWEEN(
+        sw,
+        test_timing::TIMER_LOWER_BOUND,
+        test_timing::TIMER_UPPER_BOUND
+    );
 }
 
 /// @brief Test HYBRID mode behavior.
@@ -503,15 +485,13 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
 
     breaker::Breaker breaker;
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     loop->wait(breaker);
-    const auto elapsed = std::chrono::steady_clock::now() - start;
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                elapsed
-    )
-                                .count();
-    EXPECT_GE(elapsed_ms, (25 * telem::MILLISECOND).milliseconds());
-    EXPECT_LE(elapsed_ms, test_timing::EVENT_DRIVEN_BOUND.milliseconds());
+    EXPECT_ELAPSED_BETWEEN(
+        sw,
+        25 * telem::MILLISECOND,
+        test_timing::EVENT_DRIVEN_BOUND
+    );
 
     std::atomic<bool> woke_up{false};
     std::thread waiter([&]() {
@@ -609,18 +589,12 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
 
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     breaker.stop();
     waiter.join();
-    const auto elapsed = std::chrono::steady_clock::now() - start;
 
     EXPECT_TRUE(woke_up.load());
-
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                elapsed
-    )
-                                .count();
-    EXPECT_LE(elapsed_ms, test_timing::BREAKER_STOP_LATENCY.milliseconds());
+    EXPECT_ELAPSED_LE(sw, test_timing::BREAKER_STOP_LATENCY);
 }
 
 /// @brief HYBRID mode should exit when breaker stops during spin or block phase.
@@ -643,18 +617,12 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
 
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     breaker.stop();
     waiter.join();
-    const auto elapsed = std::chrono::steady_clock::now() - start;
 
     EXPECT_TRUE(woke_up.load());
-
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                elapsed
-    )
-                                .count();
-    EXPECT_LE(elapsed_ms, test_timing::THREAD_STARTUP.milliseconds());
+    EXPECT_ELAPSED_LE(sw, test_timing::THREAD_STARTUP);
 }
 
 /// @brief EVENT_DRIVEN mode uses 100ms timeout; wait() returns within that window.
@@ -667,16 +635,11 @@ TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
 
     breaker::Breaker breaker;
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     loop->wait(breaker);
-    const auto elapsed = std::chrono::steady_clock::now() - start;
 
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                elapsed
-    )
-                                .count();
     // EVENT_DRIVEN uses 100ms timeout, allow some margin
-    EXPECT_LE(elapsed_ms, test_timing::EVENT_DRIVEN_BOUND.milliseconds());
+    EXPECT_ELAPSED_LE(sw, test_timing::EVENT_DRIVEN_BOUND);
 }
 
 /// @brief wake() should immediately unblock a waiting thread.
@@ -698,16 +661,10 @@ TEST(WakeTest, Wake_UnblocksWait) {
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     EXPECT_FALSE(woke_up.load());
 
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     loop->wake();
     waiter.join();
-    const auto elapsed = std::chrono::steady_clock::now() - start;
 
     EXPECT_TRUE(woke_up.load());
-
-    const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                elapsed
-    )
-                                .count();
-    EXPECT_LE(elapsed_ms, test_timing::THREAD_STARTUP.milliseconds());
+    EXPECT_ELAPSED_LE(sw, test_timing::THREAD_STARTUP);
 }
