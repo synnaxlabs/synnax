@@ -15,10 +15,11 @@
 #include <mutex>
 #include <vector>
 
-#include "arc/cpp/runtime/loop/loop.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/xerrors/errors.h"
+
+#include "arc/cpp/runtime/loop/loop.h"
 
 namespace arc::runtime::testutil {
 /// @brief Mock loop implementation for testing runtime lifecycle.
