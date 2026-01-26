@@ -16,7 +16,9 @@
 #include <vector>
 
 #include "x/cpp/telem/series.h"
+#include "x/cpp/xerrors/errors.h"
 
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "wasmtime.hh"
 
@@ -32,9 +34,22 @@ class Bindings {
     std::shared_ptr<state::State> state;
     wasmtime::Store *store;
     wasmtime::Memory *memory;
+    errors::Handler error_handler;
+    /// @brief Set when WASM panic is called, signals execution should stop.
+    bool has_panic = false;
 
 public:
-    Bindings(const std::shared_ptr<state::State> &state, wasmtime::Store *store);
+    Bindings(
+        const std::shared_ptr<state::State> &state,
+        wasmtime::Store *store,
+        errors::Handler error_handler = errors::noop_handler
+    );
+
+    /// @brief Returns true if a WASM panic has occurred.
+    [[nodiscard]] bool panic_occurred() const { return this->has_panic; }
+
+    /// @brief Resets the panic flag.
+    void reset_panic() { this->has_panic = false; }
 
 /// Channel operations use semantic C++ types. The MethodWrapper in bindings.cpp
 /// automatically converts to WASM-compatible types (i32, i64, f32, f64) at the

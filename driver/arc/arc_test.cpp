@@ -13,6 +13,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xtest/xtest.h"
 
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
@@ -159,8 +160,6 @@ TEST(ArcTests, testCalcDoubling) {
     auto parser = xjson::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
-
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<telem::Frame>>();
@@ -181,13 +180,8 @@ TEST(ArcTests, testCalcDoubling) {
 
     auto ctx = std::make_shared<task::MockContext>(client);
 
-    auto task = std::make_unique<arc::Task>(
-        task_meta,
-        ctx,
-        runtime,
-        task_cfg,
-        mock_writer,
-        mock_streamer
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
     task->start("test_start");
@@ -270,8 +264,6 @@ TEST(ArcTests, testBasicSequence) {
     auto parser = xjson::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
-
     // Setup mock writer to capture outputs
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
@@ -294,13 +286,8 @@ TEST(ArcTests, testBasicSequence) {
 
     auto ctx = std::make_shared<task::MockContext>(client);
 
-    auto task = std::make_unique<arc::Task>(
-        task_meta,
-        ctx,
-        runtime,
-        task_cfg,
-        mock_writer,
-        mock_streamer
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
     task->start("test_start");
@@ -393,8 +380,6 @@ TEST(ArcTests, testOneShotTruthiness) {
     auto parser = xjson::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
-
     // Setup mock writer to capture outputs
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
@@ -432,13 +417,8 @@ TEST(ArcTests, testOneShotTruthiness) {
 
     auto ctx = std::make_shared<task::MockContext>(client);
 
-    auto task = std::make_unique<arc::Task>(
-        task_meta,
-        ctx,
-        runtime,
-        task_cfg,
-        mock_writer,
-        mock_streamer
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
     task->start("test_start");
@@ -566,8 +546,6 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     auto parser = xjson::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
-
     // Setup mock writer to capture outputs
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
@@ -623,13 +601,8 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
 
     auto ctx = std::make_shared<task::MockContext>(client);
 
-    auto task = std::make_unique<arc::Task>(
-        task_meta,
-        ctx,
-        runtime,
-        task_cfg,
-        mock_writer,
-        mock_streamer
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
     task->start("test_start");
@@ -706,8 +679,6 @@ TEST(ArcTests, testRestartResetsState) {
     auto parser = xjson::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
-
     auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<telem::Frame>>();
@@ -728,13 +699,8 @@ TEST(ArcTests, testRestartResetsState) {
 
     auto ctx = std::make_shared<task::MockContext>(client);
 
-    auto task = std::make_unique<arc::Task>(
-        task_meta,
-        ctx,
-        runtime,
-        task_cfg,
-        mock_writer,
-        mock_streamer
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
     task->start("test_start_1");
@@ -768,13 +734,8 @@ TEST(ArcTests, testRestartResetsState) {
         input_frames_2
     );
 
-    auto task_2 = std::make_unique<arc::Task>(
-        task_meta,
-        ctx,
-        runtime,
-        task_cfg,
-        mock_writer,
-        mock_streamer_2
+    auto task_2 = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer_2)
     );
 
     ctx->statuses.clear();

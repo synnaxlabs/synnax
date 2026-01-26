@@ -546,6 +546,79 @@ TEST(WatchTest, WatchMultipleNotifiers) {
     EXPECT_TRUE(woke_up.load());
 }
 
+/// @brief watch() should be idempotent - calling twice with same notifier succeeds.
+TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+    EXPECT_TRUE(loop->watch(*notifier));
+    EXPECT_TRUE(loop->watch(*notifier)); // Should succeed, not fail with EEXIST
+}
+
+/// @brief watch() called twice should still allow notifier to wake wait().
+TEST(WatchTest, WatchSameNotifierTwice_StillWakes) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+    ASSERT_TRUE(loop->watch(*notifier)); // Re-register
+
+    std::atomic<bool> woke_up{false};
+    breaker::Breaker breaker;
+
+    std::thread waiter([&]() {
+        loop->wait(breaker);
+        woke_up.store(true);
+    });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    waiter.join();
+
+    EXPECT_TRUE(woke_up.load());
+}
+
+/// @brief Simulates runtime restart: watch, use, then watch again on same notifier.
+TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+
+    // First "run" - watch and use
+    ASSERT_TRUE(loop->watch(*notifier));
+    breaker::Breaker breaker1;
+    std::thread t1([&]() { loop->wait(breaker1); });
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    loop->wake();
+    t1.join();
+
+    // Second "run" - watch same notifier again (simulates restart scenario)
+    ASSERT_TRUE(loop->watch(*notifier));
+    breaker::Breaker breaker2;
+    std::atomic<bool> woke{false};
+    std::thread t2([&]() {
+        loop->wait(breaker2);
+        woke.store(true);
+    });
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    t2.join();
+
+    EXPECT_TRUE(woke.load());
+}
+
 #endif // defined(__linux__) || defined(__APPLE__)
 
 #if defined(_WIN32)

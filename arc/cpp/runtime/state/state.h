@@ -22,6 +22,7 @@
 #include "x/cpp/xmemory/local_shared.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
@@ -178,10 +179,16 @@ class State {
     std::unordered_map<uint64_t, std::string> var_string;
     std::unordered_map<uint64_t, telem::Series> var_series;
 
+    /// @brief Callback for reporting warnings (e.g., data drops).
+    errors::Handler error_handler;
+
 public:
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
     std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
-    explicit State(const Config &cfg);
+    explicit State(
+        const Config &cfg,
+        errors::Handler error_handler = errors::noop_handler
+    );
     std::pair<Node, xerrors::Error> node(const std::string &key);
     void ingest(const telem::Frame &frame);
     std::vector<std::pair<types::ChannelKey, Series>> flush();

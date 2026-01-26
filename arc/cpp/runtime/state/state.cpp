@@ -55,7 +55,8 @@ Series parse_default_value(
     return xmemory::make_local_shared<telem::Series>(data_type, 0);
 }
 
-State::State(const Config &cfg): cfg(cfg) {
+State::State(const Config &cfg, errors::Handler error_handler):
+    cfg(cfg), error_handler(std::move(error_handler)) {
     size_t total = 0;
     for (const auto &node: cfg.ir.nodes)
         total += node.outputs.size();
@@ -172,11 +173,15 @@ void State::ingest(const telem::Frame &frame) {
 }
 
 std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
-    for (auto &series_vec: reads | std::views::values) {
+    for (auto &[key, series_vec]: reads) {
         if (series_vec.size() <= 1) continue;
-        // Keep only the last series to preserve the latest value for each channel.
-        // This allows channel_read_* calls to return the most recent value even if
-        // new frames for that channel haven't arrived yet.
+        this->error_handler(
+            xerrors::Error(
+                errors::DATA_DROPPED,
+                "channel " + std::to_string(key) + ": dropped " +
+                    std::to_string(series_vec.size() - 1) + " frames"
+            )
+        );
         auto last = std::move(series_vec.back());
         series_vec.clear();
         series_vec.push_back(std::move(last));

@@ -16,3 +16,14 @@ cc_library(
         "//x/cpp/xthread",
     ],
 )
+
+cc_test(
+    name = "runtime_test",
+    srcs = ["runtime_test.cpp"],
+    deps = [
+        ":runtime",
+        "//x/cpp/telem",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)
