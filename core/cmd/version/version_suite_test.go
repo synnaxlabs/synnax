@@ -11,6 +11,7 @@ package version_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,7 @@ var expected string
 
 var _ = BeforeSuite(func() {
 	data := MustSucceed(os.ReadFile("../../pkg/version/VERSION"))
-	expected = "Synnax " + string(data)
+	expected = "Synnax " + strings.ReplaceAll(string(data), "\r\n", "\n")
 })
 
 func TestVersion(t *testing.T) {

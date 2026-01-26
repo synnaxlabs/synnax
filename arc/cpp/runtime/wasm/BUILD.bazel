@@ -46,6 +46,7 @@ cc_test(
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
     }),
+    tags = ["requires-core"],
     deps = [
         ":wasm",
         "//client/cpp:synnax",
@@ -63,6 +64,7 @@ cc_test(
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
     }),
+    tags = ["requires-core"],
     deps = [
         ":wasm",
         "//arc/cpp/ir",

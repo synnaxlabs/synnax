@@ -23,6 +23,9 @@
 #include "arc/cpp/runtime/node/node.h"
 
 namespace arc::runtime::scheduler {
+/// @brief Sentinel value indicating no valid index.
+static constexpr size_t NO_INDEX = ~size_t{0};
+
 /// @brief Reactive scheduler that executes nodes based on stratified dependencies.
 class Scheduler {
     /// @brief State for a single node including its implementation and edges.
@@ -46,7 +49,7 @@ class Scheduler {
         /// @brief Ordered list of stages in this sequence.
         std::vector<Stage> stages;
         /// @brief Index of the currently active stage, or npos if none.
-        size_t active_stage_idx = std::string::npos;
+        size_t active_stage_idx = NO_INDEX;
     };
 
     // Graph structure (immutable after construction)
@@ -77,9 +80,9 @@ class Scheduler {
     /// @brief Key of the currently executing node.
     std::string curr_node_key;
     /// @brief Index of the currently executing sequence, or npos if global.
-    size_t curr_seq_idx = std::string::npos;
+    size_t curr_seq_idx = NO_INDEX;
     /// @brief Index of the currently executing stage, or npos if none.
-    size_t curr_stage_idx = std::string::npos;
+    size_t curr_stage_idx = NO_INDEX;
 
 public:
     /// @brief Constructs a scheduler from an IR program and node implementations.
@@ -119,8 +122,8 @@ public:
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;
         // Reset execution context for global strata (no active sequence/stage)
-        this->curr_seq_idx = std::string::npos;
-        this->curr_stage_idx = std::string::npos;
+        this->curr_seq_idx = NO_INDEX;
+        this->curr_stage_idx = NO_INDEX;
         this->execute_strata(this->global_strata);
         this->exec_stages();
     }
@@ -155,7 +158,7 @@ private:
             for (this->curr_seq_idx = 0; this->curr_seq_idx < this->sequences.size();
                  this->curr_seq_idx++) {
                 auto &seq = this->sequences[this->curr_seq_idx];
-                if (seq.active_stage_idx == std::string::npos) continue;
+                if (seq.active_stage_idx == NO_INDEX) continue;
                 this->curr_stage_idx = seq.active_stage_idx;
                 this->execute_strata(seq.stages[this->curr_stage_idx].strata);
                 if (seq.active_stage_idx != this->curr_stage_idx) stable = false;
@@ -176,7 +179,7 @@ private:
                 this->changed.insert(edge.target.node);
             else if (this->curr_node().node->is_output_truthy(param)) {
                 // One-shot edge: fire only once per stage (or once ever in global)
-                auto &fired_set = this->curr_stage_idx == std::string::npos
+                auto &fired_set = this->curr_stage_idx == NO_INDEX
                                     ? this->global_fired_one_shots
                                     : this->curr_stage().fired_one_shots;
                 if (fired_set.insert(edge).second)
@@ -193,8 +196,8 @@ private:
 
     /// @brief Transitions to a new stage, deactivating the current one.
     void transition_stage() {
-        if (this->curr_seq_idx != std::string::npos)
-            this->sequences[this->curr_seq_idx].active_stage_idx = std::string::npos;
+        if (this->curr_seq_idx != NO_INDEX)
+            this->sequences[this->curr_seq_idx].active_stage_idx = NO_INDEX;
         const auto [target_seq_idx, target_stage_idx] = this->transitions
                                                             [this->curr_node_key];
         auto &target = this->sequences[target_seq_idx].stages[target_stage_idx];

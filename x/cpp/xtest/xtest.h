@@ -17,6 +17,7 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 
 /// @brief xtest is a testing utility package that extends Google Test with eventual
@@ -685,4 +686,58 @@ inline void eventually_true(
         (timeout),                                                                     \
         (interval)                                                                     \
     )
+
+/// @brief macro for expecting that elapsed time is less than or equal to a bound.
+/// @param stopwatch The telem::Stopwatch to check
+/// @param bound The upper bound as a telem::TimeSpan
+#define EXPECT_ELAPSED_LE(stopwatch, bound)                                            \
+    EXPECT_LE((stopwatch).elapsed().nanoseconds(), (bound).nanoseconds())              \
+        << "Elapsed: " << (stopwatch).elapsed() << ", Bound: " << (bound)
+
+/// @brief macro for expecting that elapsed time is greater than or equal to a bound.
+/// @param stopwatch The telem::Stopwatch to check
+/// @param bound The lower bound as a telem::TimeSpan
+#define EXPECT_ELAPSED_GE(stopwatch, bound)                                            \
+    EXPECT_GE((stopwatch).elapsed().nanoseconds(), (bound).nanoseconds())              \
+        << "Elapsed: " << (stopwatch).elapsed() << ", Bound: " << (bound)
+
+/// @brief macro for asserting that elapsed time is less than or equal to a bound.
+/// @param stopwatch The telem::Stopwatch to check
+/// @param bound The upper bound as a telem::TimeSpan
+#define ASSERT_ELAPSED_LE(stopwatch, bound)                                            \
+    ASSERT_LE((stopwatch).elapsed().nanoseconds(), (bound).nanoseconds())              \
+        << "Elapsed: " << (stopwatch).elapsed() << ", Bound: " << (bound)
+
+/// @brief macro for asserting that elapsed time is greater than or equal to a bound.
+/// @param stopwatch The telem::Stopwatch to check
+/// @param bound The lower bound as a telem::TimeSpan
+#define ASSERT_ELAPSED_GE(stopwatch, bound)                                            \
+    ASSERT_GE((stopwatch).elapsed().nanoseconds(), (bound).nanoseconds())              \
+        << "Elapsed: " << (stopwatch).elapsed() << ", Bound: " << (bound)
+
+/// @brief macro for expecting that elapsed time is within a range.
+/// @param stopwatch The telem::Stopwatch to check
+/// @param lower The lower bound as a telem::TimeSpan
+/// @param upper The upper bound as a telem::TimeSpan
+#define EXPECT_ELAPSED_BETWEEN(stopwatch, lower, upper)                                \
+    do {                                                                               \
+        const auto _elapsed = (stopwatch).elapsed();                                   \
+        EXPECT_GE(_elapsed.nanoseconds(), (lower).nanoseconds())                       \
+            << "Elapsed: " << _elapsed << ", Lower bound: " << (lower);                \
+        EXPECT_LE(_elapsed.nanoseconds(), (upper).nanoseconds())                       \
+            << "Elapsed: " << _elapsed << ", Upper bound: " << (upper);                \
+    } while (0)
+
+/// @brief macro for asserting that elapsed time is within a range.
+/// @param stopwatch The telem::Stopwatch to check
+/// @param lower The lower bound as a telem::TimeSpan
+/// @param upper The upper bound as a telem::TimeSpan
+#define ASSERT_ELAPSED_BETWEEN(stopwatch, lower, upper)                                \
+    do {                                                                               \
+        const auto _elapsed = (stopwatch).elapsed();                                   \
+        ASSERT_GE(_elapsed.nanoseconds(), (lower).nanoseconds())                       \
+            << "Elapsed: " << _elapsed << ", Lower bound: " << (lower);                \
+        ASSERT_LE(_elapsed.nanoseconds(), (upper).nanoseconds())                       \
+            << "Elapsed: " << _elapsed << ", Upper bound: " << (upper);                \
+    } while (0)
 }
