@@ -69,7 +69,7 @@ jobs:
           --coverprofile=cover.out --keep-going --race --trace --github-output
         working-directory: alamos/go
 
-      - name: Upload Coverage
+      - name: Upload coverage
         uses: codecov/codecov-action@v5
         if: matrix.lint
         with:
@@ -77,4 +77,3 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           name: alamos-go
           directory: alamos/go
-          verbose: true
