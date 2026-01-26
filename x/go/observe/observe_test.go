@@ -11,17 +11,11 @@ package observe_test
 
 import (
 	"context"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/observe"
 )
-
-func TestObserve(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Observe Suite")
-}
 
 var _ = Describe("Observer", func() {
 	It("Should notify all handlers", func() {

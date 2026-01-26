@@ -18,6 +18,7 @@
 #include "x/cpp/xjson/xjson.h"
 
 #include "arc/cpp/module/module.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -63,68 +64,6 @@ struct TaskConfig : common::BaseTaskConfig {
     }
 };
 
-/// @brief helper function to load the arc runtime.
-/// @param config the task configuration containing the module and loop config.
-/// @param client the Synnax client for channel retrieval.
-/// @returns a pair containing the runtime instance and any error that occurred.
-inline std::pair<std::shared_ptr<runtime::Runtime>, xerrors::Error>
-load_runtime(const TaskConfig &config, const std::shared_ptr<synnax::Synnax> &client) {
-    const runtime::Config runtime_cfg{
-        .mod = config.module,
-        .breaker = breaker::default_config("arc_runtime"),
-        .retrieve_channels = [client](const std::vector<types::ChannelKey> &keys)
-            -> std::pair<std::vector<runtime::state::ChannelDigest>, xerrors::Error> {
-            auto [channels, err] = client->channels.retrieve(keys);
-            if (err) return {{}, err};
-            std::vector<runtime::state::ChannelDigest> digests;
-            for (const auto &ch: channels) {
-                digests.push_back(
-                    runtime::state::ChannelDigest{
-                        .key = ch.key,
-                        .data_type = ch.data_type,
-                        .index = ch.index
-                    }
-                );
-            }
-            return {digests, xerrors::NIL};
-        },
-        .loop = config.loop,
-    };
-    return runtime::load(runtime_cfg);
-}
-
-/// @brief source that reads output data from the arc runtime and sends it to Synnax.
-class Source final : public pipeline::Source {
-    std::shared_ptr<runtime::Runtime> runtime;
-
-public:
-    explicit Source(const std::shared_ptr<runtime::Runtime> &runtime):
-        runtime(runtime) {}
-
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
-        this->runtime->read(data);
-        return xerrors::NIL;
-    }
-
-    void stopped_with_err(const xerrors::Error &err) override {
-        LOG(ERROR) << "[arc] runtime stopped with error: " << err.message();
-    }
-};
-
-/// @brief sink that receives input data from Synnax and sends it to the arc runtime.
-class Sink final : public pipeline::Sink {
-    std::shared_ptr<runtime::Runtime> runtime;
-
-public:
-    explicit Sink(const std::shared_ptr<runtime::Runtime> &runtime): runtime(runtime) {}
-
-    xerrors::Error write(telem::Frame &frame) override {
-        if (frame.empty()) return xerrors::NIL;
-        VLOG(1) << "[arc.sink] writing to runtime " << frame;
-        return this->runtime->write(std::move(frame));
-    }
-};
-
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
     std::shared_ptr<runtime::Runtime> runtime;
@@ -132,22 +71,84 @@ class Task final : public task::Task {
     std::unique_ptr<pipeline::Control> control;
     common::StatusHandler state;
 
+    /// @brief source that reads output data from the arc runtime.
+    class Source final : public pipeline::Source {
+        Task &task;
+
+    public:
+        explicit Source(Task &task): task(task) {}
+
+        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
+            if (!this->task.runtime->read(data))
+                return xerrors::Error("runtime closed");
+            return xerrors::NIL;
+        }
+
+        void stopped_with_err(const xerrors::Error &err) override {
+            this->task.stop(false);
+        }
+    };
+
+    /// @brief sink that receives input data from Synnax.
+    class Sink final : public pipeline::Sink {
+        Task &task;
+
+    public:
+        explicit Sink(Task &task): task(task) {}
+
+        xerrors::Error write(telem::Frame &frame) override {
+            if (frame.empty()) return xerrors::NIL;
+            return this->task.runtime->write(std::move(frame));
+        }
+    };
+
+    Task(const synnax::Task &task_meta, const std::shared_ptr<task::Context> &ctx):
+        state(ctx, task_meta) {}
+
 public:
-    explicit Task(
+    static std::pair<std::unique_ptr<Task>, xerrors::Error> create(
         const synnax::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx,
-        std::shared_ptr<runtime::Runtime> runtime,
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr
-    ):
-        runtime(std::move(runtime)), state(ctx, task_meta) {
-        this->runtime->set_error_handler([this](const xerrors::Error &err) {
-            this->state.error(err);
-            this->state.send_stop("");
-        });
-        auto source = std::make_unique<Source>(this->runtime);
-        auto sink = std::make_unique<Sink>(this->runtime);
+    ) {
+        auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
+
+        const runtime::Config runtime_cfg{
+            .mod = cfg.module,
+            .breaker = breaker::default_config("arc_runtime"),
+            .retrieve_channels =
+                [client = ctx->client](const std::vector<types::ChannelKey> &keys)
+                -> std::
+                    pair<std::vector<runtime::state::ChannelDigest>, xerrors::Error> {
+                        auto [channels, err] = client->channels.retrieve(keys);
+                        if (err) return {{}, err};
+                        std::vector<runtime::state::ChannelDigest> digests;
+                        for (const auto &ch: channels)
+                            digests.push_back({ch.key, ch.data_type, ch.index});
+                        return {digests, xerrors::NIL};
+                    },
+            .loop = cfg.loop,
+        };
+
+        auto [rt, err] = runtime::load(
+            runtime_cfg,
+            [task_ptr = task.get()](const xerrors::Error &err) {
+                if (err.matches(runtime::errors::WARNING))
+                    task_ptr->state.send_warning(err);
+                else {
+                    task_ptr->state.error(err);
+                    task_ptr->runtime->close_outputs();
+                }
+            }
+        );
+        if (err) return {nullptr, err};
+
+        task->runtime = std::move(rt);
+
+        auto source = std::make_unique<Source>(*task);
+        auto sink = std::make_unique<Sink>(*task);
         if (!writer_factory)
             writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
                 ctx->client
@@ -156,10 +157,10 @@ public:
             streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
                 ctx->client
             );
-        this->acquisition = std::make_unique<pipeline::Acquisition>(
+        task->acquisition = std::make_unique<pipeline::Acquisition>(
             writer_factory,
             synnax::WriterConfig{
-                .channels = this->runtime->write_channels,
+                .channels = task->runtime->write_channels,
                 .start = telem::TimeStamp::now(),
                 .mode = common::data_saving_writer_mode(cfg.data_saving),
             },
@@ -167,34 +168,29 @@ public:
             breaker::default_config("arc_acquisition"),
             "arc_acquisition"
         );
-        this->control = std::make_unique<pipeline::Control>(
+        task->control = std::make_unique<pipeline::Control>(
             streamer_factory,
-            synnax::StreamerConfig{.channels = this->runtime->read_channels},
+            synnax::StreamerConfig{.channels = task->runtime->read_channels},
             std::move(sink),
             breaker::default_config("arc_control"),
             "arc_control"
         );
+
+        return {std::move(task), xerrors::NIL};
     }
 
     bool start(const std::string &cmd_key) {
-        // Runtime
         const auto runtime_started = this->runtime->start();
-        // Outgoing telemetry
         const auto acq_started = this->acquisition->start();
-        // Incoming telemetry
         const auto control_started = this->control->start();
         this->state.send_start(cmd_key);
         return acq_started && control_started && runtime_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        // Incoming telemetry
         const auto control_stopped = this->control->stop();
-        // Close the output queue to unblock acquisition pipeline
         this->runtime->close_outputs();
-        // Outgoing telemetry (now unblocked)
         const auto acq_stopped = this->acquisition->stop();
-        // Runtime
         const auto runtime_stopped = this->runtime->stop();
         if (propagate_state) this->state.send_stop(cmd_key);
         return control_stopped && acq_stopped && runtime_stopped;
@@ -213,7 +209,6 @@ public:
         this->stop("", !will_reconfigure);
     }
 
-    /// @brief returns the name of the task.
     [[nodiscard]] std::string name() const override { return "Arc Runtime Task"; }
 };
 }
