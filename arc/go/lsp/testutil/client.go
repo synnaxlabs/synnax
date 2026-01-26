@@ -11,12 +11,20 @@ package testutil
 
 import (
 	"context"
+	"sync"
 
 	"go.lsp.dev/protocol"
 )
 
 type MockClient struct {
-	Diagnostics []protocol.Diagnostic
+	mu          sync.Mutex
+	diagnostics []protocol.Diagnostic
+}
+
+func (m *MockClient) Diagnostics() []protocol.Diagnostic {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.diagnostics
 }
 
 func (m *MockClient) ShowMessage(context.Context, *protocol.ShowMessageParams) error {
@@ -56,7 +64,9 @@ func (m *MockClient) ApplyEdit(context.Context, *protocol.ApplyWorkspaceEditPara
 }
 
 func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.PublishDiagnosticsParams) error {
-	m.Diagnostics = params.Diagnostics
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.diagnostics = params.Diagnostics
 	return nil
 }
 

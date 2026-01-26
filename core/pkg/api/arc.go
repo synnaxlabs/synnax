@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	arclsp "github.com/synnaxlabs/arc/lsp"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
@@ -173,17 +172,12 @@ type ArcLSPMessage = arctransport.JSONRPCMessage
 
 // LSP handles LSP protocol messages over a Freighter stream
 func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcLSPMessage, ArcLSPMessage]) error {
-	// Create a new LSP server instance for this connection with a no-op logger
-	// to avoid nil pointer panics
-	lspServer, err := arclsp.New(arclsp.Config{
-		Instrumentation: s.Child("arc").Child("lsp"),
-		GlobalResolver:  s.internal.SymbolResolver(),
-	})
+	lsp, err := s.internal.NewLSP()
 	if err != nil {
 		return err
 	}
 	return arctransport.ServeFreighter(ctx, arctransport.Config{
-		Server: lspServer,
+		Server: lsp,
 		Stream: stream,
 	})
 }
