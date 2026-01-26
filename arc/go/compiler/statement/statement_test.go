@@ -1013,18 +1013,14 @@ var _ = Describe("Statement Compiler", func() {
 	})
 
 	Describe("Channel Operations", func() {
-		// Helper to compile a block with a channel resolver
 		compileWithChannels := func(source string, resolver symbol.Resolver) ([]byte, *bindings.ImportIndex) {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, resolver)
-
-			// Set up function scope for imperative channel operations
 			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
 				Name: "testFunc",
 				Kind: symbol.KindFunction,
 			}))
 			Expect(fnScope).ToNot(BeNil())
-			// Initialize the Channels field for tracking channel reads/writes
 			fnScope.Channels = symbol.NewChannels()
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
@@ -1050,12 +1046,9 @@ var _ = Describe("Statement Compiler", func() {
 					source := "test_ch = " + valueCode
 					bytecode, imports := compileWithChannels(source, resolver)
 					writeIdx := imports.ChannelWrite[typeName]
-
-					// Expected bytecode: push channel ID, push value, call write
 					expected := []any{OpI32Const, int32(100)}
 					expected = append(expected, expectedValueOps...)
 					expected = append(expected, OpCall, uint64(writeIdx))
-
 					Expect(bytecode).To(MatchOpcodes(expected...))
 				},
 				Entry("i8", "i8", types.I8(), "42", OpI32Const, int32(42)),
