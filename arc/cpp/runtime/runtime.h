@@ -126,6 +126,9 @@ public:
     xerrors::Error write(telem::Frame frame) {
         if (!this->inputs.push(std::move(frame)))
             return xerrors::Error("runtime closed");
+        // Notify the event loop that data is available.
+        // Required on Windows where watch() doesn't support external notifiers.
+        this->loop->notify_data();
         return xerrors::NIL;
     }
 

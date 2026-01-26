@@ -137,11 +137,18 @@ class ArcClient:
         controls = self._get_controls()
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         pause_btn.wait_for(state="visible", timeout=5000)
-        self.console.notifications.close_all()
-        pause_btn.click()
-        controls.locator("text=Task stopped successfully").wait_for(
-            state="visible", timeout=15000
-        )
+        try:
+            self.console.notifications.close_all()
+            pause_btn.click()
+            controls.locator("text=Task stopped successfully").wait_for(
+                state="visible", timeout=10000
+            )
+        except Exception:
+            self.console.notifications.close_all()
+            pause_btn.click(force=True)
+            controls.locator("text=Task stopped successfully").wait_for(
+                state="visible", timeout=15000
+            )
 
     def is_running(self) -> bool:
         """Check if the Arc is currently running by looking for the pause button."""
