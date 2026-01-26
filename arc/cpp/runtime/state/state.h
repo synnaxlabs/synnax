@@ -136,6 +136,14 @@ public:
             last_value
         );
     }
+
+    /// @brief Resets accumulated input state for runtime restart.
+    void reset() {
+        for (auto &entry: this->accumulated) {
+            entry.last_timestamp = telem::TimeStamp(0);
+            entry.consumed = true;
+        }
+    }
 };
 
 class State {
@@ -177,6 +185,9 @@ public:
     std::pair<Node, xerrors::Error> node(const std::string &key);
     void ingest(const telem::Frame &frame);
     std::vector<std::pair<types::ChannelKey, Series>> flush();
+
+    /// @brief Clears all persistent state, resetting the runtime to initial conditions.
+    void reset();
 
     /// @brief Creates a string handle from raw memory pointer and length.
     uint32_t string_from_memory(const uint8_t *data, uint32_t len);

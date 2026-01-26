@@ -664,3 +664,129 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
 
     task->stop("test_stop", true);
 }
+
+TEST(ArcTests, testRestartResetsState) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx_name = make_unique_channel_name("restart_input_idx");
+    auto input_name = make_unique_channel_name("restart_input");
+    auto output_idx_name = make_unique_channel_name("restart_output_idx");
+    auto output_name = make_unique_channel_name("restart_output");
+
+    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    ASSERT_NIL(client->channels.create(output_idx));
+
+    auto input_ch = synnax::Channel(input_name, telem::INT64_T, input_idx.key, false);
+    auto
+        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::Arc arc_prog(make_unique_channel_name("restart_test"));
+    arc_prog.text = arc::text::Text(
+        "func counter(trigger i64) i64 {\n"
+        "    count $= 0\n"
+        "    count = count + trigger\n"
+        "    return count\n"
+        "}\n" +
+        input_name + " -> counter{} -> " + output_name + "\n"
+    );
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_restart_test_rack"))
+    );
+
+    synnax::Task task_meta(rack.key, "arc_restart_test", "arc_runtime", "");
+    nlohmann::json cfg{{"arc_key", arc_prog.key}};
+    task_meta.config = nlohmann::to_string(cfg);
+
+    auto parser = xjson::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto runtime = ASSERT_NIL_P(arc::load_runtime(task_cfg, client));
+
+    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+
+    auto input_frames = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame input_fr(2);
+    auto now = telem::TimeStamp::now();
+    auto input_idx_series = telem::Series(now);
+    input_idx_series.alignment = telem::Alignment(1, 0);
+    auto input_val_series = telem::Series(static_cast<int64_t>(1));
+    input_val_series.alignment = telem::Alignment(1, 0);
+    input_fr.emplace(input_idx.key, std::move(input_idx_series));
+    input_fr.emplace(input_ch.key, std::move(input_val_series));
+    input_frames->push_back(std::move(input_fr));
+
+    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames
+    );
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+
+    auto task = std::make_unique<arc::Task>(
+        task_meta,
+        ctx,
+        runtime,
+        task_cfg,
+        mock_writer,
+        mock_streamer
+    );
+
+    task->start("test_start_1");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+
+    auto &output_fr_1 = mock_writer->writes->at(0);
+    ASSERT_TRUE(output_fr_1.contains(output_ch.key));
+    auto output_val_1 = output_fr_1.at<int64_t>(output_ch.key, 0);
+    EXPECT_EQ(output_val_1, 1);
+
+    task->stop("test_stop_1", true);
+
+    mock_writer->writes->clear();
+    mock_writer->writer_opens = 0;
+
+    auto input_frames_2 = std::make_shared<std::vector<telem::Frame>>();
+    telem::Frame input_fr_2(2);
+    auto now_2 = telem::TimeStamp::now();
+    auto input_idx_series_2 = telem::Series(now_2);
+    input_idx_series_2.alignment = telem::Alignment(2, 0);
+    auto input_val_series_2 = telem::Series(static_cast<int64_t>(1));
+    input_val_series_2.alignment = telem::Alignment(2, 0);
+    input_fr_2.emplace(input_idx.key, std::move(input_idx_series_2));
+    input_fr_2.emplace(input_ch.key, std::move(input_val_series_2));
+    input_frames_2->push_back(std::move(input_fr_2));
+
+    auto mock_streamer_2 = pipeline::mock::simple_streamer_factory(
+        {input_idx.key, input_ch.key},
+        input_frames_2
+    );
+
+    auto task_2 = std::make_unique<arc::Task>(
+        task_meta,
+        ctx,
+        runtime,
+        task_cfg,
+        mock_writer,
+        mock_streamer_2
+    );
+
+    ctx->statuses.clear();
+    task_2->start("test_start_2");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+
+    auto &output_fr_2 = mock_writer->writes->at(0);
+    ASSERT_TRUE(output_fr_2.contains(output_ch.key));
+    auto output_val_2 = output_fr_2.at<int64_t>(output_ch.key, 0);
+    EXPECT_EQ(output_val_2, 1) << "State should be reset on restart, count should be 1";
+
+    task_2->stop("test_stop_2", true);
+}

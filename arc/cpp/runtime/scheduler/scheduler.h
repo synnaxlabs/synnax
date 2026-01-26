@@ -118,6 +118,22 @@ public:
     Scheduler(const Scheduler &) = delete;
     Scheduler &operator=(const Scheduler &) = delete;
 
+    /// @brief Resets all execution state for runtime restart.
+    void reset() {
+        this->changed.clear();
+        this->global_fired_one_shots.clear();
+        this->curr_node_key.clear();
+        this->curr_seq_idx = NO_INDEX;
+        this->curr_stage_idx = NO_INDEX;
+        for (auto &seq: this->sequences) {
+            seq.active_stage_idx = NO_INDEX;
+            for (auto &stage: seq.stages)
+                stage.fired_one_shots.clear();
+        }
+        for (auto &[key, node_state]: this->nodes)
+            node_state.node->reset();
+    }
+
     /// @brief Advances the scheduler by executing global and stage strata.
     void next(const telem::TimeSpan elapsed) {
         this->ctx.elapsed = elapsed;

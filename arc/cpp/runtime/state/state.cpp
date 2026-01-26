@@ -194,6 +194,27 @@ std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
     return result;
 }
 
+void State::reset() {
+    this->reads.clear();
+    this->writes.clear();
+    this->strings.clear();
+    this->series_handles.clear();
+    this->string_handle_counter = 1;
+    this->series_handle_counter = 1;
+    this->var_u8.clear();
+    this->var_u16.clear();
+    this->var_u32.clear();
+    this->var_u64.clear();
+    this->var_i8.clear();
+    this->var_i16.clear();
+    this->var_i32.clear();
+    this->var_i64.clear();
+    this->var_f32.clear();
+    this->var_f64.clear();
+    this->var_string.clear();
+    this->var_series.clear();
+}
+
 void State::write_channel(
     const types::ChannelKey key,
     const Series &data,

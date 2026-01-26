@@ -122,6 +122,8 @@ public:
 
     bool start() {
         if (this->breaker.running()) return false;
+        this->inputs.reset();
+        this->outputs.reset();
         this->breaker.start();
         this->run_thread = std::thread([this]() { this->run(); });
         return true;
@@ -137,6 +139,8 @@ public:
         this->run_thread.join();
         this->inputs.close();
         this->outputs.close();
+        this->state->reset();
+        this->scheduler->reset();
         return true;
     }
 
