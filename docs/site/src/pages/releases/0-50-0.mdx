@@ -1,0 +1,90 @@
+---
+title: "Version 0.50 Release Notes"
+---
+
+import Release from "@/components/releases/Release.astro";
+import { Image } from "@/components/Media";
+import { Divider, Flex } from "@synnaxlabs/pluto";
+import Diagram from "@/components/Diagram.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.50.0"
+    date="Jan 26, 2026"
+    title="Arc Automations"
+>
+
+Synnax v0.50 is the first release of the text-based version of our new programming
+language, Arc.
+
+{/* TODO: add image */}
+
+### Arc Sequences
+
+With the new release of Arc, you can now create sequences using a text-based editor in
+the Synnax Console, and deploy them directly onto a Synnax Core or Synnax Driver. The
+Synnax Console provides built-in documentation, syntax highlighting, and error checking,
+and Arc sequences will be deployed and run directly from hardware using the Core or
+Driver.
+
+<Divider.Divider x />
+
+### Views
+
+{/* TODO: add image */}
+
+Views are a new feature that allows you to save frequently used searches of ranges and
+statuses. You can create views by opening the Status Explorer or Range Explorer, editing
+the filters for given labels or other criteria, and then creating a new view. This view
+can then be saved and loaded later for quick access.
+
+### Documentation Refactor
+
+The Synnax documentation site has been refactored by consolidating the Python and
+TypeScript client documentations into a single section, with code snippets for each
+language. This should make it easier to find information by reducing the number of pages
+on the site, and leaving a single place where information is found about ranges, writing
+data, and more.
+
+<Divider.Divider x />
+
+### Windows Service
+
+The Synnax Core can now be installed and run as a Windows service. This allows the Core
+to boot up automatically when the PC boots, be run as a background process, and to be
+managed by the Windows Service Manager.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Console
+
+- Fix the Core login page
+- Fix CSV exporting with large amount of data
+- Improve the CSV exporting UI
+- Fix NI port allocation when duplicating channels on a task
+- Fix task form throwing an error on a channel name path
+- Add error boundaries to mosaic leafs
+
+#### Core
+
+- Remove Lua-based calculated channels
+- Add a downsampling option for iterators
+- Fix the embedded Driver logs truncating task names
+- Add a disk usage metric channel
+- Remove the `sy_calculation_status` channel and replace with a normal Synnax status
+- Group metrics channels into a single Metrics group in the Channel toolbar
+
+#### Driver
+
+- Fix task manager to allow for a task to fail while configuring
+- Fix a bug where devices would not be discovered if the location was changed
+
+#### Python Client
+
+- Fix the `__array__` signatures in the `Series` and `MultiSeries` classes
+
+</Release>
