@@ -148,9 +148,7 @@ public:
         this->timer_.reset();
 
         // Signal the data event to wake up any blocked wait() call before closing
-        if (this->data_event_ != NULL) {
-            SetEvent(this->data_event_);
-        }
+        if (this->data_event_ != NULL) { SetEvent(this->data_event_); }
 
         if (this->timer_event_ != NULL) {
             CancelWaitableTimer(this->timer_event_);

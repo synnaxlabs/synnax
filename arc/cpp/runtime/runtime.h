@@ -82,10 +82,12 @@ public:
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
-        // May fail on Windows (expected); handled via explicit notify_data() when 
+        // May fail on Windows (expected); handled via explicit notify_data() when
         // writin input frames.
         if (!this->loop->watch(this->inputs.notifier()))
-            LOG(WARNING) << "[runtime] Input notifier not watched; using explicit notification";
+            LOG(
+                WARNING
+            ) << "[runtime] Input notifier not watched; using explicit notification";
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
