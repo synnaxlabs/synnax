@@ -71,8 +71,9 @@ jobs:
       - name: Upload Coverage
         uses: codecov/codecov-action@v5
         with:
-          directory: alamos/go
+          directory: ./alamos/go
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./alamos/go/cover.profile
+          files: cover.profile
+          name: alamos-go
           verbose: true
