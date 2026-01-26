@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package httputil_test
+package leb128_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHTTPUtil(t *testing.T) {
+func TestLEB128(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HTTP Util Suite")
+	RunSpecs(t, "LEB128 Suite")
 }

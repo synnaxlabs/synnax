@@ -67,6 +67,16 @@ jobs:
       - name: Test
         run:
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
-          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --trace
-          --github-output
+          --randomize-suites --fail-on-pending --fail-on-empty --cover
+          --coverprofile=cover.out --keep-going --trace --github-output
         working-directory: cesium
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        if: matrix.lint
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          name: cesium
+          flags: cesium
+          directory: cesium

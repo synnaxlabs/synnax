@@ -94,6 +94,16 @@ jobs:
       - name: Test
         run:
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
-          --randomize-suites --fail-on-pending --fail-on-empty --keep-going --race
-          --trace --github-output
+          --randomize-suites --fail-on-pending --fail-on-empty --cover
+          --coverprofile=cover.out --keep-going --race --trace --github-output
         working-directory: arc/go
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        if: matrix.lint
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          name: arc-go
+          flags: arc-go
+          directory: arc/go
