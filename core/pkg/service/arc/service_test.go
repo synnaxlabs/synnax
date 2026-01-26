@@ -131,14 +131,14 @@ var _ = Describe("NewLSP", func() {
 
 		uri := protocol.DocumentURI("file:///test.arc")
 		testutil.OpenDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
-		Expect(client.Diagnostics).To(HaveLen(1))
-		Expect(client.Diagnostics[0].Message).To(ContainSubstring("undefined symbol"))
+		Expect(client.Diagnostics()).To(HaveLen(1))
+		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
 
 		ch := channel.Channel{Name: "test_lsp_channel", DataType: telem.Float32T, Virtual: true}
 		Expect(dist.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 
 		Eventually(func() int {
-			return len(client.Diagnostics)
+			return len(client.Diagnostics())
 		}).Should(Equal(0))
 	})
 })
