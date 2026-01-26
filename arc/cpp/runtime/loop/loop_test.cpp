@@ -102,11 +102,9 @@ TEST(LoopTest, TimerExpiration) {
     loop->wait(breaker);
 
     // Should have waited approximately 10ms (allow some jitter)
-    EXPECT_ELAPSED_BETWEEN(
-        sw,
-        test_timing::TIMER_LOWER_BOUND,
-        test_timing::TIMER_UPPER_BOUND
-    );
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
 }
 
 /// @brief Test BUSY_WAIT mode responds quickly to wake().
@@ -131,7 +129,7 @@ TEST(LoopTest, BusyWaitMode) {
     loop->wake();
     waiter.join();
 
-    EXPECT_ELAPSED_LE(sw, test_timing::WAKE_LATENCY);
+    EXPECT_LE(sw.elapsed(), test_timing::WAKE_LATENCY);
     ASSERT_TRUE(woke_up.load());
 }
 
@@ -149,11 +147,9 @@ TEST(LoopTest, HighRateMode) {
     loop->wait(breaker);
 
     // Should wait approximately 10ms with high-rate timer
-    EXPECT_ELAPSED_BETWEEN(
-        sw,
-        test_timing::TIMER_LOWER_BOUND,
-        test_timing::TIMER_UPPER_BOUND
-    );
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
 }
 
 /// @brief Test HYBRID mode behavior.
@@ -487,11 +483,9 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
 
     const auto sw = telem::Stopwatch();
     loop->wait(breaker);
-    EXPECT_ELAPSED_BETWEEN(
-        sw,
-        25 * telem::MILLISECOND,
-        test_timing::EVENT_DRIVEN_BOUND
-    );
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, 25 * telem::MILLISECOND);
+    EXPECT_LE(elapsed, test_timing::EVENT_DRIVEN_BOUND);
 
     std::atomic<bool> woke_up{false};
     std::thread waiter([&]() {
@@ -546,6 +540,79 @@ TEST(WatchTest, WatchMultipleNotifiers) {
     EXPECT_TRUE(woke_up.load());
 }
 
+/// @brief watch() should be idempotent - calling twice with same notifier succeeds.
+TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+    EXPECT_TRUE(loop->watch(*notifier));
+    EXPECT_TRUE(loop->watch(*notifier)); // Should succeed, not fail with EEXIST
+}
+
+/// @brief watch() called twice should still allow notifier to wake wait().
+TEST(WatchTest, WatchSameNotifierTwice_StillWakes) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+    ASSERT_TRUE(loop->watch(*notifier));
+    ASSERT_TRUE(loop->watch(*notifier)); // Re-register
+
+    std::atomic<bool> woke_up{false};
+    breaker::Breaker breaker;
+
+    std::thread waiter([&]() {
+        loop->wait(breaker);
+        woke_up.store(true);
+    });
+
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    waiter.join();
+
+    EXPECT_TRUE(woke_up.load());
+}
+
+/// @brief Simulates runtime restart: watch, use, then watch again on same notifier.
+TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
+    Config config;
+    config.mode = ExecutionMode::EVENT_DRIVEN;
+    config.interval = telem::TimeSpan(0);
+
+    const auto loop = ASSERT_NIL_P(create(config));
+
+    auto notifier = notify::create();
+
+    // First "run" - watch and use
+    ASSERT_TRUE(loop->watch(*notifier));
+    breaker::Breaker breaker1;
+    std::thread t1([&]() { loop->wait(breaker1); });
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    loop->wake();
+    t1.join();
+
+    // Second "run" - watch same notifier again (simulates restart scenario)
+    ASSERT_TRUE(loop->watch(*notifier));
+    breaker::Breaker breaker2;
+    std::atomic<bool> woke{false};
+    std::thread t2([&]() {
+        loop->wait(breaker2);
+        woke.store(true);
+    });
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
+    notifier->signal();
+    t2.join();
+
+    EXPECT_TRUE(woke.load());
+}
+
 #endif // defined(__linux__) || defined(__APPLE__)
 
 #if defined(_WIN32)
@@ -594,7 +661,7 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
     waiter.join();
 
     EXPECT_TRUE(woke_up.load());
-    EXPECT_ELAPSED_LE(sw, test_timing::BREAKER_STOP_LATENCY);
+    EXPECT_LE(sw.elapsed(), test_timing::BREAKER_STOP_LATENCY);
 }
 
 /// @brief HYBRID mode should exit when breaker stops during spin or block phase.
@@ -622,7 +689,7 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
     waiter.join();
 
     EXPECT_TRUE(woke_up.load());
-    EXPECT_ELAPSED_LE(sw, test_timing::THREAD_STARTUP);
+    EXPECT_LE(sw.elapsed(), test_timing::THREAD_STARTUP);
 }
 
 /// @brief EVENT_DRIVEN mode uses 100ms timeout; wait() returns within that window.
@@ -639,7 +706,7 @@ TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
     loop->wait(breaker);
 
     // EVENT_DRIVEN uses 100ms timeout, allow some margin
-    EXPECT_ELAPSED_LE(sw, test_timing::EVENT_DRIVEN_BOUND);
+    EXPECT_LE(sw.elapsed(), test_timing::EVENT_DRIVEN_BOUND);
 }
 
 /// @brief wake() should immediately unblock a waiting thread.
@@ -666,5 +733,5 @@ TEST(WakeTest, Wake_UnblocksWait) {
     waiter.join();
 
     EXPECT_TRUE(woke_up.load());
-    EXPECT_ELAPSED_LE(sw, test_timing::THREAD_STARTUP);
+    EXPECT_LE(sw.elapsed(), test_timing::THREAD_STARTUP);
 }

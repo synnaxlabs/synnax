@@ -169,42 +169,24 @@ TEST_F(XTestTest, TestEventuallyFalseWithCustomTimeout) {
     t.join();
 }
 
-/// @brief it should check elapsed time is less than or equal to a bound.
-TEST(ElapsedMacroTests, TestExpectElapsedLE) {
-    const auto sw = telem::Stopwatch();
-    EXPECT_ELAPSED_LE(sw, 100 * telem::MILLISECOND);
+/// @brief ASSERT_NIL should only evaluate the expression once.
+TEST_F(XTestTest, TestAssertNilSingleEvaluation) {
+    auto nil_with_side_effect = [this]() -> xerrors::Error {
+        inc_counter();
+        return xerrors::NIL;
+    };
+    ASSERT_NIL(nil_with_side_effect());
+    EXPECT_EQ(counter.load(), 1);
 }
 
-/// @brief it should check elapsed time is greater than or equal to a bound.
-TEST(ElapsedMacroTests, TestExpectElapsedGE) {
-    const auto sw = telem::Stopwatch();
-    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
-    EXPECT_ELAPSED_GE(sw, 10 * telem::MILLISECOND);
+/// @brief ASSERT_OCCURRED_AS should only evaluate the expression once.
+TEST_F(XTestTest, TestAssertOccurredAsSingleEvaluation) {
+    const auto expected = xerrors::Error("test error");
+    auto error_with_side_effect = [this, &expected]() -> xerrors::Error {
+        inc_counter();
+        return expected;
+    };
+    ASSERT_OCCURRED_AS(error_with_side_effect(), expected);
+    EXPECT_EQ(counter.load(), 1);
 }
 
-/// @brief it should assert elapsed time is less than or equal to a bound.
-TEST(ElapsedMacroTests, TestAssertElapsedLE) {
-    const auto sw = telem::Stopwatch();
-    ASSERT_ELAPSED_LE(sw, 100 * telem::MILLISECOND);
-}
-
-/// @brief it should assert elapsed time is greater than or equal to a bound.
-TEST(ElapsedMacroTests, TestAssertElapsedGE) {
-    const auto sw = telem::Stopwatch();
-    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
-    ASSERT_ELAPSED_GE(sw, 10 * telem::MILLISECOND);
-}
-
-/// @brief it should check elapsed time is within a range.
-TEST(ElapsedMacroTests, TestExpectElapsedBetween) {
-    const auto sw = telem::Stopwatch();
-    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
-    EXPECT_ELAPSED_BETWEEN(sw, 10 * telem::MILLISECOND, 50 * telem::MILLISECOND);
-}
-
-/// @brief it should assert elapsed time is within a range.
-TEST(ElapsedMacroTests, TestAssertElapsedBetween) {
-    const auto sw = telem::Stopwatch();
-    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
-    ASSERT_ELAPSED_BETWEEN(sw, 10 * telem::MILLISECOND, 50 * telem::MILLISECOND);
-}
