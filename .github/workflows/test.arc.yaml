@@ -135,12 +135,13 @@ jobs:
             --spawn_strategy=local \
             --jobs=1
 
-  test-cpp-macos:
-    name: Test C++ (macos-build-bot)
-    runs-on: macos-build-bot
-    if:
-      github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' ||
-      github.base_ref == 'main'
+  test-cpp:
+    name: Test C++ (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-build-bot, windows-build-bot]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -157,35 +158,15 @@ jobs:
           disk-cache: false
           repository-cache: false
 
-      - name: Test
+      - name: Test (macOS)
+        if: matrix.os == 'macos-build-bot'
         run: |
           bazel test --config=asan --test_output=all //arc/cpp/... \
             --test_tag_filters=-no-asan,-requires-core
         shell: bash
 
-  test-cpp-windows:
-    name: Test C++ (windows-build-bot)
-    runs-on: windows-build-bot
-    if:
-      github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' ||
-      github.base_ref == 'main'
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-        with:
-          clean: false
-
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
-        with:
-          bazelisk-cache: false
-          disk-cache: false
-          repository-cache: false
-
-      - name: Test
+      - name: Test (Windows)
+        if: matrix.os == 'windows-build-bot'
         run: |
           bazel --output_user_root=C:/tmp test --test_output=all //arc/cpp/... \
             --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
