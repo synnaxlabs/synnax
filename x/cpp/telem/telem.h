@@ -437,6 +437,30 @@ public:
     }
 };
 
+/// @brief A stopwatch for measuring elapsed time using a monotonic clock.
+/// This class provides a simple interface for timing code execution and returns
+/// results as telem::TimeSpan for consistency with other time-related utilities.
+class Stopwatch {
+    std::chrono::steady_clock::time_point start_;
+
+public:
+    /// @brief Constructs a Stopwatch and starts timing immediately.
+    Stopwatch(): start_(std::chrono::steady_clock::now()) {}
+
+    /// @brief Returns the elapsed time since construction or last reset.
+    [[nodiscard]] TimeSpan elapsed() const {
+        const auto now = std::chrono::steady_clock::now();
+        const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            now - this->start_
+        )
+                            .count();
+        return TimeSpan(ns);
+    }
+
+    /// @brief Resets the stopwatch to start timing from now.
+    void reset() { this->start_ = std::chrono::steady_clock::now(); }
+};
+
 class Rate {
     float value;
 

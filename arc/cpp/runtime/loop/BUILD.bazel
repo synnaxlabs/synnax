@@ -7,6 +7,11 @@
 # Source License, use of this software will be governed by the Apache License,
 # Version 2.0, included in the file licenses/APL.txt.
 
+config_setting(
+    name = "nilinuxrt",
+    values = {"define": "platform=nilinuxrt"},
+)
+
 cc_library(
     name = "loop",
     hdrs = ["loop.h"],
@@ -16,12 +21,18 @@ cc_library(
         "@platforms//os:windows": ["loop_windows.cpp"],
         "//conditions:default": ["loop_polling.cpp"],
     }),
+    defines = select({
+        ":nilinuxrt": ["SYNNAX_NILINUXRT"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//x/cpp/breaker",
         "//x/cpp/loop",
         "//x/cpp/notify",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
+        "//x/cpp/xjson",
+        "//x/cpp/xlog",
         "@glog",
     ],
     linkopts = select({
@@ -46,6 +57,7 @@ cc_test(
     deps = [
         ":loop",
         "//x/cpp/breaker",
+        "//x/cpp/notify",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],

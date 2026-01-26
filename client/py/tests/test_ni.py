@@ -10,6 +10,7 @@
 import json
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
 
@@ -626,6 +627,177 @@ class TestNITask:
             "auto_start": True,
         }
         sy.ni.DigitalWriteConfig.model_validate(data)
+
+    def test_analog_read_sample_rate_bounds(self):
+        """Test that sample rate validation works (1-1000000 Hz for NI)."""
+        # Valid sample rates
+        sy.ni.AnalogReadTaskConfig(
+            sample_rate=1,
+            stream_rate=1,
+            data_saving=False,
+            channels=[
+                sy.ni.AIVoltageChan(
+                    key="test",
+                    device="test-device",
+                    terminal_config="Cfg_Default",
+                    channel=1234,
+                    port=0,
+                    enabled=True,
+                    min_val=0,
+                    max_val=10,
+                    units="Volts",
+                )
+            ],
+        )
+        # Test max valid rate (1 MHz)
+        sy.ni.AnalogReadTaskConfig(
+            sample_rate=1000000,
+            stream_rate=50000,
+            data_saving=False,
+            channels=[
+                sy.ni.AIVoltageChan(
+                    key="test",
+                    device="test-device",
+                    terminal_config="Cfg_Default",
+                    channel=1234,
+                    port=0,
+                    enabled=True,
+                    min_val=0,
+                    max_val=10,
+                    units="Volts",
+                )
+            ],
+        )
+
+        # Invalid sample rate (exceeds 1 MHz)
+        with pytest.raises(ValidationError):
+            sy.ni.AnalogReadTaskConfig(
+                sample_rate=1000001,
+                stream_rate=50000,
+                data_saving=False,
+                channels=[
+                    sy.ni.AIVoltageChan(
+                        key="test",
+                        device="test-device",
+                        terminal_config="Cfg_Default",
+                        channel=1234,
+                        port=0,
+                        enabled=True,
+                        min_val=0,
+                        max_val=10,
+                        units="Volts",
+                    )
+                ],
+            )
+
+        # Invalid sample rate (negative)
+        with pytest.raises(ValidationError):
+            sy.ni.AnalogReadTaskConfig(
+                sample_rate=-1,
+                stream_rate=1,
+                data_saving=False,
+                channels=[
+                    sy.ni.AIVoltageChan(
+                        key="test",
+                        device="test-device",
+                        terminal_config="Cfg_Default",
+                        channel=1234,
+                        port=0,
+                        enabled=True,
+                        min_val=0,
+                        max_val=10,
+                        units="Volts",
+                    )
+                ],
+            )
+
+    def test_counter_read_sample_rate_bounds(self):
+        """Test that counter read sample rate validation works (1-1000000 Hz for NI)."""
+        # Valid max rate (1 MHz)
+        sy.ni.CounterReadConfig(
+            sample_rate=1000000,
+            stream_rate=50000,
+            data_saving=False,
+            channels=[
+                sy.ni.CIFrequencyChan(
+                    key="test",
+                    device="test-device",
+                    channel=1234,
+                    port=0,
+                    enabled=True,
+                    min_val=0,
+                    max_val=1000,
+                    units="Hz",
+                    edge="Rising",
+                    meas_method="LowFreq1Ctr",
+                    meas_time=0.001,
+                    divisor=4,
+                )
+            ],
+        )
+
+        # Invalid sample rate (exceeds 1 MHz)
+        with pytest.raises(ValidationError):
+            sy.ni.CounterReadConfig(
+                sample_rate=1000001,
+                stream_rate=50000,
+                data_saving=False,
+                channels=[
+                    sy.ni.CIFrequencyChan(
+                        key="test",
+                        device="test-device",
+                        channel=1234,
+                        port=0,
+                        enabled=True,
+                        min_val=0,
+                        max_val=1000,
+                        units="Hz",
+                        edge="Rising",
+                        meas_method="LowFreq1Ctr",
+                        meas_time=0.001,
+                        divisor=4,
+                    )
+                ],
+            )
+
+    def test_digital_read_sample_rate_bounds(self):
+        """Test that digital read sample rate validation works (1-1000000 Hz for NI)."""
+        # Valid max rate (1 MHz)
+        sy.ni.DigitalReadConfig(
+            device="test-device",
+            sample_rate=1000000,
+            stream_rate=50000,
+            data_saving=False,
+            channels=[
+                sy.ni.DIChan(
+                    key="test",
+                    type="digital_input",
+                    enabled=True,
+                    port=0,
+                    line=0,
+                    channel=1234,
+                )
+            ],
+        )
+
+        # Invalid sample rate (exceeds 1 MHz)
+        with pytest.raises(ValidationError):
+            sy.ni.DigitalReadConfig(
+                device="test-device",
+                sample_rate=1000001,
+                stream_rate=50000,
+                data_saving=False,
+                channels=[
+                    sy.ni.DIChan(
+                        key="test",
+                        type="digital_input",
+                        enabled=True,
+                        port=0,
+                        line=0,
+                        channel=1234,
+                    )
+                ],
+            )
 
 
 @pytest.mark.ni
