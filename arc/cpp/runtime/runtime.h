@@ -47,6 +47,9 @@ struct Config {
     loop::Config loop;
 };
 
+/// @brief callback invoked when a fatal error occurs in the runtime.
+using ErrorHandler = std::function<void(const xerrors::Error &)>;
+
 class Runtime {
     breaker::Breaker breaker;
     std::thread run_thread;
@@ -85,6 +88,11 @@ public:
         error_handler(std::move(error_handler)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
+
+    /// @brief sets the error handler callback invoked on fatal runtime errors.
+    void set_error_handler(ErrorHandler handler) {
+        this->error_handler_ = std::move(handler);
+    }
 
     void run() {
         this->start_time = telem::TimeStamp::now();
