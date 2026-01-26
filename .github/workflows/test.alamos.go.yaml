@@ -73,5 +73,6 @@ jobs:
         with:
           directory: alamos/go
           fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./alamos/go/cover.profile
           verbose: true
