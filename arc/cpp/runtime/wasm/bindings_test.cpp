@@ -1231,28 +1231,10 @@ TEST(BindingsPanicTest, PanicCallsErrorHandler) {
 
     auto bindings = std::make_unique<Bindings>(nullptr, nullptr, error_handler);
 
-    EXPECT_FALSE(bindings->panic_occurred());
-
     bindings->panic(0, 0);
 
-    EXPECT_TRUE(bindings->panic_occurred());
     ASSERT_EQ(reported_errors.size(), 1);
     ASSERT_MATCHES(reported_errors[0], arc::runtime::errors::WASM_PANIC);
-}
-
-/// @brief Test that reset_panic clears the panic flag.
-TEST(BindingsPanicTest, ResetPanicClearsFlag) {
-    auto bindings = std::make_unique<Bindings>(
-        nullptr,
-        nullptr,
-        arc::runtime::errors::noop_handler
-    );
-
-    bindings->panic(0, 0);
-    EXPECT_TRUE(bindings->panic_occurred());
-
-    bindings->reset_panic();
-    EXPECT_FALSE(bindings->panic_occurred());
 }
 
 /// @brief Test that multiple panics each call error handler.

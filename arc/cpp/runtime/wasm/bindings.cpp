@@ -484,7 +484,6 @@ uint64_t Bindings::len(const uint32_t handle) {
 }
 
 void Bindings::panic(const uint32_t ptr, const uint32_t len) {
-    this->has_panic = true;
     std::string message;
     if (!memory || !store) {
         message = "no memory available";
