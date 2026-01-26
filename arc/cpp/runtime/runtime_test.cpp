@@ -19,8 +19,10 @@ using namespace arc::runtime;
 
 namespace {
 /// @brief Creates a minimal Runtime for testing queue behavior.
-std::shared_ptr<Runtime>
-create_test_runtime(size_t input_capacity, arc::runtime::errors::Handler error_handler) {
+std::shared_ptr<Runtime> create_test_runtime(
+    size_t input_capacity,
+    arc::runtime::errors::Handler error_handler
+) {
     Config cfg{
         .mod = {},
         .breaker = breaker::Config{},
@@ -44,12 +46,11 @@ create_test_runtime(size_t input_capacity, arc::runtime::errors::Handler error_h
 }
 }
 
-/// @brief Test that write() calls error handler with QUEUE_FULL_INPUT when queue is full.
+/// @brief Test that write() calls error handler with QUEUE_FULL_INPUT when queue is
+/// full.
 TEST(RuntimeTest, WriteCallsErrorHandlerOnQueueFull) {
     std::vector<xerrors::Error> reported_errors;
-    auto runtime = create_test_runtime(
-        1,
-        [&](const xerrors::Error &err) {
+    auto runtime = create_test_runtime(1, [&](const xerrors::Error &err) {
         reported_errors.push_back(err);
     });
 
@@ -71,9 +72,7 @@ TEST(RuntimeTest, WriteCallsErrorHandlerOnQueueFull) {
 /// @brief Test that write() returns error and calls handler for each failed write.
 TEST(RuntimeTest, WriteReportsMultipleQueueFullErrors) {
     std::vector<xerrors::Error> reported_errors;
-    const auto runtime = create_test_runtime(
-        1,
-        [&](const xerrors::Error &err) {
+    const auto runtime = create_test_runtime(1, [&](const xerrors::Error &err) {
         reported_errors.push_back(err);
     });
 
@@ -83,16 +82,14 @@ TEST(RuntimeTest, WriteReportsMultipleQueueFullErrors) {
         runtime->write(telem::Frame(1, std::move(series)));
     }
     ASSERT_EQ(reported_errors.size(), 4);
-    for (const auto &err : reported_errors)
+    for (const auto &err: reported_errors)
         ASSERT_MATCHES(err, arc::runtime::errors::QUEUE_FULL_INPUT);
 }
 
 /// @brief Test that write() succeeds when queue has capacity.
 TEST(RuntimeTest, WriteSucceedsWithCapacity) {
     std::vector<xerrors::Error> reported_errors;
-    const auto runtime = create_test_runtime(
-        10,
-        [&](const xerrors::Error &err) {
+    const auto runtime = create_test_runtime(10, [&](const xerrors::Error &err) {
         reported_errors.push_back(err);
     });
     for (int i = 0; i < 5; i++) {

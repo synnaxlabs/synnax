@@ -102,11 +102,9 @@ TEST(LoopTest, TimerExpiration) {
     loop->wait(breaker);
 
     // Should have waited approximately 10ms (allow some jitter)
-    EXPECT_ELAPSED_BETWEEN(
-        sw,
-        test_timing::TIMER_LOWER_BOUND,
-        test_timing::TIMER_UPPER_BOUND
-    );
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
 }
 
 /// @brief Test BUSY_WAIT mode responds quickly to wake().
@@ -131,7 +129,7 @@ TEST(LoopTest, BusyWaitMode) {
     loop->wake();
     waiter.join();
 
-    EXPECT_ELAPSED_LE(sw, test_timing::WAKE_LATENCY);
+    EXPECT_LE(sw.elapsed(), test_timing::WAKE_LATENCY);
     ASSERT_TRUE(woke_up.load());
 }
 
@@ -149,11 +147,9 @@ TEST(LoopTest, HighRateMode) {
     loop->wait(breaker);
 
     // Should wait approximately 10ms with high-rate timer
-    EXPECT_ELAPSED_BETWEEN(
-        sw,
-        test_timing::TIMER_LOWER_BOUND,
-        test_timing::TIMER_UPPER_BOUND
-    );
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, test_timing::TIMER_LOWER_BOUND);
+    EXPECT_LE(elapsed, test_timing::TIMER_UPPER_BOUND);
 }
 
 /// @brief Test HYBRID mode behavior.
@@ -487,11 +483,9 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
 
     const auto sw = telem::Stopwatch();
     loop->wait(breaker);
-    EXPECT_ELAPSED_BETWEEN(
-        sw,
-        25 * telem::MILLISECOND,
-        test_timing::EVENT_DRIVEN_BOUND
-    );
+    const auto elapsed = sw.elapsed();
+    EXPECT_GE(elapsed, 25 * telem::MILLISECOND);
+    EXPECT_LE(elapsed, test_timing::EVENT_DRIVEN_BOUND);
 
     std::atomic<bool> woke_up{false};
     std::thread waiter([&]() {
@@ -667,7 +661,7 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
     waiter.join();
 
     EXPECT_TRUE(woke_up.load());
-    EXPECT_ELAPSED_LE(sw, test_timing::BREAKER_STOP_LATENCY);
+    EXPECT_LE(sw.elapsed(), test_timing::BREAKER_STOP_LATENCY);
 }
 
 /// @brief HYBRID mode should exit when breaker stops during spin or block phase.
@@ -695,7 +689,7 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
     waiter.join();
 
     EXPECT_TRUE(woke_up.load());
-    EXPECT_ELAPSED_LE(sw, test_timing::THREAD_STARTUP);
+    EXPECT_LE(sw.elapsed(), test_timing::THREAD_STARTUP);
 }
 
 /// @brief EVENT_DRIVEN mode uses 100ms timeout; wait() returns within that window.
@@ -712,7 +706,7 @@ TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
     loop->wait(breaker);
 
     // EVENT_DRIVEN uses 100ms timeout, allow some margin
-    EXPECT_ELAPSED_LE(sw, test_timing::EVENT_DRIVEN_BOUND);
+    EXPECT_LE(sw.elapsed(), test_timing::EVENT_DRIVEN_BOUND);
 }
 
 /// @brief wake() should immediately unblock a waiting thread.
@@ -739,5 +733,5 @@ TEST(WakeTest, Wake_UnblocksWait) {
     waiter.join();
 
     EXPECT_TRUE(woke_up.load());
-    EXPECT_ELAPSED_LE(sw, test_timing::THREAD_STARTUP);
+    EXPECT_LE(sw.elapsed(), test_timing::THREAD_STARTUP);
 }

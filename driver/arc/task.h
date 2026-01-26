@@ -64,44 +64,43 @@ struct TaskConfig : common::BaseTaskConfig {
     }
 };
 
-/// @brief source that reads output data from the arc runtime and sends it to Synnax.
-class Source final : public pipeline::Source {
-    std::shared_ptr<runtime::Runtime> runtime;
-
-public:
-    explicit Source(const std::shared_ptr<runtime::Runtime> &runtime):
-        runtime(runtime) {}
-
-    xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
-        this->runtime->read(data);
-        return xerrors::NIL;
-    }
-
-    void stopped_with_err(const xerrors::Error &err) override {
-        LOG(ERROR) << "[arc] runtime stopped with error: " << err.message();
-    }
-};
-
-/// @brief sink that receives input data from Synnax and sends it to the arc runtime.
-class Sink final : public pipeline::Sink {
-    std::shared_ptr<runtime::Runtime> runtime;
-
-public:
-    explicit Sink(const std::shared_ptr<runtime::Runtime> &runtime): runtime(runtime) {}
-
-    xerrors::Error write(telem::Frame &frame) override {
-        if (frame.empty()) return xerrors::NIL;
-        VLOG(1) << "[arc.sink] writing to runtime " << frame;
-        return this->runtime->write(std::move(frame));
-    }
-};
-
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
     std::shared_ptr<runtime::Runtime> runtime;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
     common::StatusHandler state;
+
+    /// @brief source that reads output data from the arc runtime.
+    class Source final : public pipeline::Source {
+        Task &task;
+
+    public:
+        explicit Source(Task &task): task(task) {}
+
+        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
+            if (!this->task.runtime->read(data))
+                return xerrors::Error("runtime closed");
+            return xerrors::NIL;
+        }
+
+        void stopped_with_err(const xerrors::Error &err) override {
+            this->task.stop(false);
+        }
+    };
+
+    /// @brief sink that receives input data from Synnax.
+    class Sink final : public pipeline::Sink {
+        Task &task;
+
+    public:
+        explicit Sink(Task &task): task(task) {}
+
+        xerrors::Error write(telem::Frame &frame) override {
+            if (frame.empty()) return xerrors::NIL;
+            return this->task.runtime->write(std::move(frame));
+        }
+    };
 
     Task(const synnax::Task &task_meta, const std::shared_ptr<task::Context> &ctx):
         state(ctx, task_meta) {}
@@ -140,7 +139,7 @@ public:
                     task_ptr->state.send_warning(err);
                 else {
                     task_ptr->state.error(err);
-                    task_ptr->state.send_stop("");
+                    task_ptr->runtime->close_outputs();
                 }
             }
         );
@@ -148,8 +147,8 @@ public:
 
         task->runtime = std::move(rt);
 
-        auto source = std::make_unique<Source>(task->runtime);
-        auto sink = std::make_unique<Sink>(task->runtime);
+        auto source = std::make_unique<Source>(*task);
+        auto sink = std::make_unique<Sink>(*task);
         if (!writer_factory)
             writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
                 ctx->client

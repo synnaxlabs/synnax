@@ -42,7 +42,7 @@ public:
     Bindings(
         const std::shared_ptr<state::State> &state,
         wasmtime::Store *store,
-        errors::Handler error_handler = errors::noop_handler
+        errors::Handler error_handler
     );
 
     /// @brief Returns true if a WASM panic has occurred.

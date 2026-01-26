@@ -89,11 +89,6 @@ public:
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
-    /// @brief sets the error handler callback invoked on fatal runtime errors.
-    void set_error_handler(ErrorHandler handler) {
-        this->error_handler_ = std::move(handler);
-    }
-
     void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
