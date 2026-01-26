@@ -82,8 +82,11 @@ public:
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
+        // watch() returns false on Windows where external notifiers aren't supported.
+        // This is handled via explicit notify_data() calls when writing input frames.
+        // Log as warning (not error) since Windows failure is expected behavior.
         if (!this->loop->watch(this->inputs.notifier()))
-            LOG(ERROR) << "[runtime] Failed to watch input notifier";
+            LOG(WARNING) << "[runtime] Input notifier not watched; using explicit notification";
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;

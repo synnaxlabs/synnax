@@ -29,10 +29,6 @@ class WindowsLoop final : public Loop {
 
 public:
     explicit WindowsLoop(const Config &config): config_(config) {
-        if (this->config_.rt_priority > 0 && this->config_.rt_priority > 31) {
-            LOG(WARNING) << "[loop] Windows priority range is 0-31, clamping";
-        }
-
         if (this->config_.lock_memory) {
             LOG(WARNING) << "[loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
