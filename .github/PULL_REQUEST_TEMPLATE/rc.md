@@ -235,38 +235,11 @@ I can successfully:
 
 I can successfully:
 
-- **Create Range Modal**
-  - [x] Create a new local range. (range/range_lifecycle.py)
-  - [x] Create a new persisted range. (range/range_lifecycle.py)
-  - [x] Create a range with a parent range. (range/range_lifecycle.py)
-  - [x] Add labels while creating a range. (range/range_lifecycle.py)
-  - [x] Update the start and end times through changing the stage of a range (range/range_lifecycle.py)
 - **Range Details**
-  - [x] Rename a range from the tab name. (range/range_lifecycle.py)
-  - [x] Rename a range. (range/range_lifecycle.py)
-  - [x] Navigate to a parent range from a range (range/range_lifecycle.py)
-  - [x] Copy Python code (range/range_lifecycle.py)
-  - [x] Copy TypeScript code (range/range_lifecycle.py)
-  - [x] Copy a link to the range (range/range_lifecycle.py)
-  - [x] Open and successfully download data as a CSV (range/range_lifecycle.py)
-  - [x] Favorite the range (range/range_lifecycle.py)
-  - [x] Unfavorite the range (range/range_lifecycle.py)
-  - [x] Change start and end times. (range/range_lifecycle.py)
-  - [x] Change start and end times via the stage (range/range_lifecycle.py)
-  - [x] Add labels. (range/range_lifecycle.py)
-  - [x] Remove labels. (range/range_lifecycle.py)
   - **Child Ranges**
-    - [x] Click and navigate to a child range (range/range_lifecycle.py)
-    - [x] Create child ranges (range/range_lifecycle.py)
-    - [x] Change the stage of a child range (range/range_lifecycle.py)
-    - [x] Favorite a child range (range/range_lifecycle.py)
-    - [x] Unfavorite a child range (range/range_lifecycle.py)
     - **Context Menu**
       - [ ] Rename a child range
-      - [ ] Create a child range
-      - [ ] Favorite a child range
       - [ ] Favorite multiple child ranges
-      - [ ] Unfavorite a child range
       - [ ] Unfavorite multiple child ranges
       - [ ] Copy the link to a range
       - [ ] Delete a child range
@@ -280,42 +253,23 @@ I can successfully:
   - **Snapshots**
     - [ ] Navigate to a snapshot by clicking on it
     - [ ] Remove a snapshot
-- **Search and Command Palette**
-  - [ ] Open an existing range layout window.
-  - [ ] Open the "Create Range" dialog.
-  - [x] Open the Range Explorer (range/range_lifecycle.py)
 - **Range Toolbar**
   - [ ] Open the "Create Range" modal from the toolbar.
   - [ ] Open the Range Explorer from the toolbar
-  - [x] Switch the active range by clicking it. (range/range_lifecycle.py)
   - **Context Menu**
-    - [ ] Open the "Create Range" modal.
-    - [ ] Open the range layout tab.
-    - [ ] Set an active range.
     - [ ] Remove an active range.
-    - [ ] Rename a range.
-    - [ ] Open the "Create Range" modal with a child range.
     - [ ] Add to the active line plot.
     - [ ] Add to a new line plot.
-    - [ ] Remove from favorites.
-    - [ ] Delete a persisted range.
-    - [ ] Copy a link to a persisted range.
     - [ ] Save a local range to Synnax.
 - **Range Explorer**
-  - [ ] Open the range overview dialog by clicking on a range.
   - [ ] Search ranges
   - [ ] Filter ranges by labels
-  - [x] Favorite and unfavorite ranges and see them added to the range toolbar (range/range_lifecycle.py)
-  - [ ] Change the stage of a range
   - **Context Menu**
-    - [x] Rename a range (range/range_lifecycle.py)
     - [ ] Create a child range
-    - [x] Favorite a range (range/range_lifecycle.py)
     - [ ] Favorite multiple ranges
     - [ ] Unfavorite a range
     - [ ] Unfavorite multiple ranges
     - [ ] Copy the link to a range
-    - [x] Delete a range (range/range_lifecycle.py)
     - [ ] Delete multiple ranges
 - [ ] Open a range from its link.
 - [ ] Rename a range and ensure synchronization across:
@@ -341,13 +295,9 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new schematic from the mosaic. (pages/open_close.py)
 - **Visualization**
   - [ ] Display live data on a value.
-  - [x] Actuate a valve. (set_output.py, simple_press_valves.py, setpoint_press_user.py)
-  - [x] Select and change the color of multiple elements. (edit_props.py)
   - [ ] View the list of writers in control on the schematic.
-  - [x] Acquire absolute control over a control sequence. (setpoint_press_user.py)
   - [ ] Copy a link.
   - [ ] Export a schematic.
 - **Resources Toolbar**
@@ -364,13 +314,7 @@ I can successfully:
     - [ ] Copy multiple schematics.
     - [ ] Copy a link to a schematic.
 - **Search and Command Palette**
-  - [x] Open an existing schematic. (pages/open_close.py)
-  - [x] Create a new schematic. (pages/open_close.py)
   - [ ] Import a schematic from a file.
-- [x] Rename a schematic and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Mosaic Tab
-  - [x] Resources Toolbar
-  - [x] Visualization Toolbar
 - [ ] Rename a schematic snapshot and ensure synchronization across:
   - Mosaic Tab
   - Resources Toolbar
@@ -408,7 +352,6 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new table from the mosaic. (pages/open_close.py)
 - [ ] Open a table from a link.
 - **Visualization**
   - [ ] Add rows and columns to a table.
@@ -419,19 +362,11 @@ I can successfully:
   - [ ] Double-click a table to load it.
   - [ ] Drag a table onto the mosaic to load it.
   - **Context Menu**
-    - [ ] Rename a table.
-    - [ ] Delete a table.
-    - [ ] Delete multiple tables.
     - [ ] Export a table.
     - [ ] Copy a link to a table.
 - **Search and Command Palette**
   - [ ] Open an existing table.
-  - [x] Create a new table. (pages/open_close.py)
   - [ ] Import a table from a file.
-- [x] Rename a table and ensure synchronization across: (pages/rename_synchronization.py)
-  - [x] Resources Toolbar
-  - [x] Mosaic Tab
-  - [x] Visualization Toolbar
 
 ### Tasks
 
@@ -478,20 +413,13 @@ I can successfully:
 I can successfully:
 
 - **Resources Toolbar**
-  - [ ] Open the "Assign Role" dialog for a user.
-  - [ ] Assign a role to a user.
   - [ ] Unassign a role from a user.
-  - [ ] View the roles assigned to a user.
   - [ ] Open the "Permissions" dialog.
   - [ ] Rename a user.
   - [ ] Delete a user.
   - [ ] Delete multiple users.
-- **Search and Command Palette**
-  - [x] Register a new user. (user_register.py)
-  - [x] Register a new user with a specific role assigned. (user_register.py)
 - [ ] Change a user's username and log in with the new username.
 - [ ] Change a user's role and verify their permissions change accordingly.
-- [ ] Log in as a user with a specific role and verify permission enforcement.
 
 ### Arc
 
@@ -554,34 +482,18 @@ I can successfully:
 
 I can successfully:
 
-- [x] Create a new workspace. (workspace.py)
 - [ ] Import a workspace by drag and dropping from a directory.
-- **Workspace Selector**
-  - [x] Create a new workspace. (workspace.py)
-  - [x] Switch workspaces in the selector. (workspace.py)
-  - [x] Clear workspaces from the selector. (workspace.py)
+
 - **Resources Toolbar**
-  - [x] Switch workspaces in the resources view. (workspace.py)
   - **Context Menu**
-    - [x] Rename a workspace. (workspace.py)
-    - [x] Delete a workspace. (workspace.py)
     - [ ] Export a workspace.
-    - [x] Create a new line plot in a workspace. (pages/open_close.py, plot/line_plot.py, layout/mosaic_operations.py, layout/keyboard_shortcuts.py)
-    - [x] Create a new log in a workspace. (pages/open_close.py, pages/snap_to_grid.py)
-    - [x] Create a new schematic in a workspace. (pages/open_close.py, schematic/alignment.py, schematic/edit_props.py)
-    - [x] Create a new table in a workspace. (pages/open_close.py)
     - [ ] Import a line plot.
     - [ ] Import a schematic.
     - [ ] Import a log.
     - [ ] Import a table.
 - [ ] Open a workspace from a link.
 - **Search and Command Palette**
-  - [x] Open the "Create Workspace" dialog. (workspace.py)
   - [ ] Import a workspace.
-  - [x] Open an existing workspace. (workspace.py)
-- [x] Rename a workspace and ensure synchronization across: (workspace.py)
-  - Resources Toolbar
-  - Workspace Selector
 - [ ] Create a workspace in a previous version of Synnax, add visualizations, and open it in the release candidate.
 
 ## Driver
@@ -732,31 +644,21 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable OPC UA integration when starting the server.
-- [x] Connect to an unencrypted OPC UA server. (opcua_read.py)
 - [ ] Connect to an encrypted OPC UA server.
-- [x] Create additional channels and move them to existing sampling groups. (opcua_read.py)
 - [ ] Move and rename channels.
 - **Read Task**
   - **Single Sampling**
-    - [x] Read from multiple channels. (opcua_read.py)
-    - [x] Autogenerate timestamps on the driver. (opcua_read.py)
     - [ ] Read timestamps from the OPC UA server.
-  - **Array Sampling**
-    - [x] Read from multiple channels. (opcua_read.py)
     - **Test the following array sizes:**
-      - [ ] 1
       - [ ] 10
       - [ ] 100
-    - [x] Autogenerate timestamps on the driver.
     - [ ] Read timestamps from the OPC UA server.
-    - [x] Avoid driver crashes when improper array sizes are specified. (opcua/server.py injects improper arrays)
   - [ ] Obtain recommended Synnax channels based on the configured OPC UA node.
   - [ ] Connect to and read data from a physical device.
   - [ ] Maintain Driver operation during device disconnection or channel removal while a task is running.
   - [ ] Enable and disable data saving.
 - **Write Task**
   - [ ] Perform control and verify changes on the connected OPC UA server.
-  - [ ] Stop, start, and reconfigure tasks.
   - [ ] Enable and disable data saving.
   - [ ] Perform a write operation on an encrypted server.
 
@@ -765,16 +667,10 @@ I can successfully:
 I can successfully:
 
 - [ ] Enable and disable Modbus integration when starting the server.
-- [x] Connect to a Modbus TCP server. (modbus_read.py)
-- [x] Configure connection parameters (IP address, port, unit ID). (modbus_task.py)
 - **Read Task**
-  - [x] Read holding registers from a Modbus server. (modbus_task.py)
-  - [x] Read input registers from a Modbus server. (modbus_task.py)
-  - [x] Read coils and discrete inputs from a Modbus server. (modbus_task.py)
   - [ ] Plot live data from Modbus registers.
   - [ ] Apply scaling to register values.
   - [ ] Enable and disable data saving.
-  - [ ] Stop, start, and reconfigure read tasks.
   - [ ] Handle device disconnection gracefully.
   - **Reliable data reading at the following sample rates:**
     - [ ] 1 Hz
@@ -785,8 +681,5 @@ I can successfully:
   - [ ] Write to coils on a Modbus server.
   - [ ] Perform control actions using a schematic.
   - [ ] Stop, start, and reconfigure write tasks.
-  - **Configure response time for specified state rates:**
-    - [ ] 1 Hz (visible delay)
-    - [ ] 20 Hz (near-instant response)
 - [ ] Run simultaneous read and write tasks on the same device.
 - [ ] Run tasks across multiple Modbus servers concurrently.

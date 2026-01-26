@@ -13,10 +13,108 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/xtest/xtest.h"
 
+#include "arc/cpp/runtime/loop/loop.h"
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/task.h"
+
+TEST(TaskConfigParsing, DefaultLoopConfig) {
+    nlohmann::json cfg{{"arc_key", "test-arc-key"}};
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(task_cfg.loop.mode, arc::runtime::loop::ExecutionMode::AUTO);
+    EXPECT_EQ(task_cfg.loop.rt_priority, arc::runtime::loop::DEFAULT_RT_PRIORITY);
+    EXPECT_EQ(task_cfg.loop.cpu_affinity, arc::runtime::loop::CPU_AFFINITY_AUTO);
+    EXPECT_FALSE(task_cfg.loop.lock_memory);
+}
+
+TEST(TaskConfigParsing, ExplicitExecutionMode) {
+    nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"execution_mode", "BUSY_WAIT"}};
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(task_cfg.loop.mode, arc::runtime::loop::ExecutionMode::BUSY_WAIT);
+}
+
+TEST(TaskConfigParsing, AllExecutionModes) {
+    std::vector<std::pair<std::string, arc::runtime::loop::ExecutionMode>> modes = {
+        {"AUTO", arc::runtime::loop::ExecutionMode::AUTO},
+        {"BUSY_WAIT", arc::runtime::loop::ExecutionMode::BUSY_WAIT},
+        {"HIGH_RATE", arc::runtime::loop::ExecutionMode::HIGH_RATE},
+        {"RT_EVENT", arc::runtime::loop::ExecutionMode::RT_EVENT},
+        {"HYBRID", arc::runtime::loop::ExecutionMode::HYBRID},
+        {"EVENT_DRIVEN", arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
+    };
+    for (const auto &[mode_str, expected_mode]: modes) {
+        nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"execution_mode", mode_str}};
+        auto parser = xjson::Parser(nlohmann::to_string(cfg));
+        arc::TaskConfig task_cfg(parser);
+        ASSERT_TRUE(parser.ok()) << "Failed to parse mode: " << mode_str;
+        EXPECT_EQ(task_cfg.loop.mode, expected_mode)
+            << "Mode mismatch for: " << mode_str;
+    }
+}
+
+TEST(TaskConfigParsing, InvalidExecutionMode) {
+    nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"execution_mode", "INVALID_MODE"}};
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    EXPECT_FALSE(parser.ok());
+}
+
+TEST(TaskConfigParsing, RtPriority) {
+    nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"rt_priority", 99}};
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(task_cfg.loop.rt_priority, 99);
+}
+
+TEST(TaskConfigParsing, CpuAffinity) {
+    nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"cpu_affinity", 3}};
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(task_cfg.loop.cpu_affinity, 3);
+}
+
+TEST(TaskConfigParsing, CpuAffinityNone) {
+    nlohmann::json cfg{
+        {"arc_key", "test-arc-key"},
+        {"cpu_affinity", arc::runtime::loop::CPU_AFFINITY_NONE}
+    };
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(task_cfg.loop.cpu_affinity, arc::runtime::loop::CPU_AFFINITY_NONE);
+}
+
+TEST(TaskConfigParsing, LockMemory) {
+    nlohmann::json cfg{{"arc_key", "test-arc-key"}, {"lock_memory", true}};
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_TRUE(task_cfg.loop.lock_memory);
+}
+
+TEST(TaskConfigParsing, FullLoopConfig) {
+    nlohmann::json cfg{
+        {"arc_key", "test-arc-key"},
+        {"execution_mode", "RT_EVENT"},
+        {"rt_priority", 80},
+        {"cpu_affinity", 7},
+        {"lock_memory", true}
+    };
+    auto parser = xjson::Parser(nlohmann::to_string(cfg));
+    arc::TaskConfig task_cfg(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(task_cfg.loop.mode, arc::runtime::loop::ExecutionMode::RT_EVENT);
+    EXPECT_EQ(task_cfg.loop.rt_priority, 80);
+    EXPECT_EQ(task_cfg.loop.cpu_affinity, 7);
+    EXPECT_TRUE(task_cfg.loop.lock_memory);
+}
 
 TEST(ArcTests, testCalcDoubling) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());

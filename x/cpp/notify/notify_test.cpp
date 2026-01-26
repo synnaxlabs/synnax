@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/notify/notify.h"
+#include "x/cpp/xtest/xtest.h"
 
 /// @brief it should create a notifier successfully.
 TEST(NotifierTest, Create) {
@@ -24,7 +25,7 @@ TEST(NotifierTest, SignalWait) {
     auto notifier = notify::create();
 
     std::thread signaler([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
         notifier->signal();
     });
 
@@ -43,13 +44,9 @@ TEST(NotifierTest, SignalBeforeWait) {
 /// @brief it should return false when timeout expires without signal.
 TEST(NotifierTest, TimeoutExpires) {
     auto notifier = notify::create();
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     EXPECT_FALSE(notifier->wait(telem::MILLISECOND * 50));
-    const auto elapsed = std::chrono::steady_clock::now() - start;
-    EXPECT_GE(
-        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(),
-        40
-    );
+    EXPECT_ELAPSED_GE(sw, 40 * telem::MILLISECOND);
 }
 
 /// @brief it should return false on poll when not signaled.
@@ -90,7 +87,7 @@ TEST(NotifierTest, ProducerConsumerPattern) {
 
     std::thread producer([&]() {
         for (int i = 0; i < num_signals; i++) {
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            std::this_thread::sleep_for((100 * telem::MICROSECOND).chrono());
             notifier->signal();
         }
     });
@@ -109,11 +106,7 @@ TEST(NotifierTest, ProducerConsumerPattern) {
 /// @brief it should return immediately with zero timeout.
 TEST(NotifierTest, ZeroTimeout) {
     auto notifier = notify::create();
-    const auto start = std::chrono::steady_clock::now();
+    const auto sw = telem::Stopwatch();
     EXPECT_FALSE(notifier->wait(telem::TimeSpan(0)));
-    const auto elapsed = std::chrono::steady_clock::now() - start;
-    EXPECT_LT(
-        std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count(),
-        10
-    );
+    EXPECT_ELAPSED_LE(sw, 10 * telem::MILLISECOND);
 }
