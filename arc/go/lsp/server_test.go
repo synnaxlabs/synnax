@@ -16,6 +16,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/observe"
 	"go.lsp.dev/protocol"
 )
 
@@ -129,5 +132,72 @@ var _ = Describe("Server Diagnostics", func() {
 			Expect(client.Diagnostics[0].RelatedInformation).To(HaveLen(1))
 			Expect(client.Diagnostics[0].RelatedInformation[0].Message).To(ContainSubstring("add(x i64, y i64) i64"))
 		})
+	})
+})
+
+var _ = Describe("External Change Notifications", func() {
+	var (
+		ctx      context.Context
+		server   *lsp.Server
+		uri      protocol.DocumentURI
+		client   *MockClient
+		resolver symbol.MapResolver
+		observer observe.Observer[struct{}]
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		resolver = make(symbol.MapResolver)
+		observer = observe.New[struct{}]()
+		server, uri, client = SetupTestServerWithClient(lsp.Config{
+			GlobalResolver:   resolver,
+			OnExternalChange: observer,
+		})
+	})
+
+	It("Should republish diagnostics when external state changes", func() {
+		OpenDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
+		Expect(client.Diagnostics).To(HaveLen(1))
+		Expect(client.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: my_channel"))
+		resolver["my_channel"] = symbol.Symbol{
+			Name: "my_channel",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+		}
+		observer.Notify(ctx, struct{}{})
+		Expect(client.Diagnostics).To(BeEmpty())
+	})
+
+	It("Should show errors when a previously valid symbol is removed", func() {
+		resolver["sensor"] = symbol.Symbol{
+			Name: "sensor",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F64()),
+		}
+		OpenDocument(server, ctx, uri, "func test() {\n\tx := sensor\n}")
+		Expect(client.Diagnostics).To(BeEmpty())
+		delete(resolver, "sensor")
+		observer.Notify(ctx, struct{}{})
+		Expect(client.Diagnostics).To(HaveLen(1))
+		Expect(client.Diagnostics[0].Message).To(ContainSubstring("undefined symbol: sensor"))
+	})
+
+	It("Should republish diagnostics for multiple open documents", func() {
+		uri2 := protocol.DocumentURI("file:///test2.arc")
+		OpenDocument(server, ctx, uri, "func test1() {\n\tx := channel_a\n}")
+		OpenDocument(server, ctx, uri2, "func test2() {\n\ty := channel_b\n}")
+		Expect(client.Diagnostics).To(HaveLen(1))
+		resolver["channel_a"] = symbol.Symbol{
+			Name: "channel_a",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.I32()),
+		}
+		resolver["channel_b"] = symbol.Symbol{
+			Name: "channel_b",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.I64()),
+		}
+		observer.Notify(ctx, struct{}{})
+		Expect(client.Diagnostics).To(BeEmpty())
 	})
 })

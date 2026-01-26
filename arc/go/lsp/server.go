@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
@@ -34,6 +35,10 @@ type Config struct {
 	// LSP auto-complete and type checking. Typically used to provide standard library
 	// variables and functions as well as channels.
 	GlobalResolver symbol.Resolver
+	// OnExternalChange is an observable that fires when external state (such as
+	// Synnax channels) changes. When this fires, the server will republish diagnostics
+	// for all open documents to ensure they reflect the current state.
+	OnExternalChange observe.Observable[struct{}]
 	// Instrumentation is used for logging, tracing, metrics, etc.
 	alamos.Instrumentation
 }
@@ -47,6 +52,7 @@ var (
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GlobalResolver = override.Nil(c.GlobalResolver, other.GlobalResolver)
+	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
 	return c
 }
 
@@ -55,11 +61,12 @@ func (c Config) Validate() error { return nil }
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
-	capabilities protocol.ServerCapabilities
-	client       protocol.Client
-	documents    map[protocol.DocumentURI]*Document
-	cfg          Config
-	mu           sync.RWMutex
+	capabilities             protocol.ServerCapabilities
+	client                   protocol.Client
+	documents                map[protocol.DocumentURI]*Document
+	cfg                      Config
+	mu                       sync.RWMutex
+	externalChangeDisconnect observe.Disconnect
 }
 
 var _ protocol.Server = (*Server)(nil)
@@ -109,6 +116,11 @@ func New(cfgs ...Config) (*Server, error) {
 // SetClient sets the LSP client for sending notifications
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
+	if s.cfg.OnExternalChange != nil {
+		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
+			s.republishAllDiagnostics(ctx)
+		})
+	}
 }
 
 // Logger returns the server's logger
@@ -156,6 +168,9 @@ func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error
 // Shutdown handles the shutdown request
 func (s *Server) Shutdown(_ context.Context) error {
 	s.cfg.L.Info("Shutting down server")
+	if s.externalChangeDisconnect != nil {
+		s.externalChangeDisconnect()
+	}
 	return nil
 }
 
@@ -271,6 +286,21 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 			zap.Error(err),
 			zap.String("uri", string(uri)),
 		)
+	}
+}
+
+// republishAllDiagnostics re-analyzes and publishes diagnostics for all open documents.
+// This is called when external state changes (e.g., channels are created or deleted).
+func (s *Server) republishAllDiagnostics(ctx context.Context) {
+	s.mu.RLock()
+	docs := make(map[protocol.DocumentURI]string, len(s.documents))
+	for uri, doc := range s.documents {
+		docs[uri] = doc.Content
+	}
+	s.mu.RUnlock()
+
+	for uri, content := range docs {
+		s.publishDiagnostics(ctx, uri, content)
 	}
 }
 
