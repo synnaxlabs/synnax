@@ -152,6 +152,41 @@ describe("analog read task", () => {
     });
   });
 
+  describe("sample rate limits", () => {
+    it("should accept sample rate at 1 MHz (max limit)", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 20000,
+          sampleRate: 1000000,
+          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should reject sample rate exceeding 1 MHz", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 20000,
+          sampleRate: 1000001,
+          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+        }).success,
+      ).toEqual(false);
+    });
+
+    it("should reject negative sample rate", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 1000,
+          sampleRate: -1,
+          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+        }).success,
+      ).toEqual(false);
+    });
+  });
+
   describe("analog write task", () => {
     it("should be able to parse a valid task", () => {
       expect(

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
@@ -917,5 +919,47 @@ TEST(ProtoConversionTests, testRoundTripString) {
     to_proto(original, &pb);
     const SampleValue result = from_proto(pb);
     ASSERT_EQ(std::get<std::string>(result), "test string");
+}
+
+/// @brief it should measure elapsed time from construction.
+TEST(StopwatchTests, testElapsedFromConstruction) {
+    const auto sw = Stopwatch();
+    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
+    const auto elapsed = sw.elapsed();
+    ASSERT_GE(elapsed, 10 * telem::MILLISECOND);
+    ASSERT_LE(elapsed, 50 * telem::MILLISECOND);
+}
+
+/// @brief it should reset and measure new elapsed time.
+TEST(StopwatchTests, testReset) {
+    auto sw = Stopwatch();
+    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
+    sw.reset();
+    const auto elapsed = sw.elapsed();
+    ASSERT_LT(elapsed, 5 * telem::MILLISECOND);
+}
+
+/// @brief it should return increasing elapsed times.
+TEST(StopwatchTests, testIncreasingElapsed) {
+    const auto sw = Stopwatch();
+    const auto elapsed1 = sw.elapsed();
+    std::this_thread::sleep_for((1 * telem::MILLISECOND).chrono());
+    const auto elapsed2 = sw.elapsed();
+    ASSERT_GT(elapsed2, elapsed1);
+}
+
+/// @brief it should measure sub-millisecond times.
+TEST(StopwatchTests, testSubMillisecondPrecision) {
+    const auto sw = Stopwatch();
+    const auto elapsed = sw.elapsed();
+    ASSERT_GE(elapsed.nanoseconds(), 0);
+    ASSERT_LT(elapsed, telem::MILLISECOND);
+}
+
+/// @brief it should return a TimeSpan with correct value.
+TEST(StopwatchTests, testReturnsTimeSpan) {
+    const auto sw = Stopwatch();
+    const TimeSpan elapsed = sw.elapsed();
+    ASSERT_GE(elapsed.nanoseconds(), 0);
 }
 }

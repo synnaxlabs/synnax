@@ -11,6 +11,7 @@ package cmd_test
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,7 @@ var version string
 
 var _ = BeforeSuite(func() {
 	data := MustSucceed(os.ReadFile("../pkg/version/VERSION"))
-	version = "Synnax " + string(data)
+	version = "Synnax " + strings.ReplaceAll(string(data), "\r\n", "\n")
 })
 
 func TestCmd(t *testing.T) {
