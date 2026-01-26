@@ -1,4 +1,4 @@
-name: Build - Synnax
+name: Build - Synnax (change to force build)
 
 run-name:
   ${{ github.event.inputs.RUN_NAME || format('Build Synnax - {0}', github.ref_name) }}
