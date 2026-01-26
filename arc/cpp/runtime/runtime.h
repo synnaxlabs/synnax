@@ -217,7 +217,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
+    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes, error_handler);
     auto [loop, err] = loop::create(cfg.loop.apply_defaults(time_factory->timing_base));
     if (err) return {nullptr, err};
     return {
