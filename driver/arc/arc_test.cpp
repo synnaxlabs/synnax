@@ -717,8 +717,9 @@ TEST(ArcTests, testRestartResetsState) {
 
     mock_writer->writes->clear();
     mock_writer->writer_opens = 0;
+    ctx->statuses.clear();
 
-    auto input_frames_2 = std::make_shared<std::vector<telem::Frame>>();
+    input_frames->clear();
     telem::Frame input_fr_2(2);
     auto now_2 = telem::TimeStamp::now();
     auto input_idx_series_2 = telem::Series(now_2);
@@ -727,19 +728,9 @@ TEST(ArcTests, testRestartResetsState) {
     input_val_series_2.alignment = telem::Alignment(2, 0);
     input_fr_2.emplace(input_idx.key, std::move(input_idx_series_2));
     input_fr_2.emplace(input_ch.key, std::move(input_val_series_2));
-    input_frames_2->push_back(std::move(input_fr_2));
+    input_frames->push_back(std::move(input_fr_2));
 
-    auto mock_streamer_2 = pipeline::mock::simple_streamer_factory(
-        {input_idx.key, input_ch.key},
-        input_frames_2
-    );
-
-    auto task_2 = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer_2)
-    );
-
-    ctx->statuses.clear();
-    task_2->start("test_start_2");
+    task->start("test_start_2");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens, 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
@@ -749,5 +740,5 @@ TEST(ArcTests, testRestartResetsState) {
     auto output_val_2 = output_fr_2.at<int64_t>(output_ch.key, 0);
     EXPECT_EQ(output_val_2, 1) << "State should be reset on restart, count should be 1";
 
-    task_2->stop("test_stop_2", true);
+    task->stop("test_stop_2", true);
 }

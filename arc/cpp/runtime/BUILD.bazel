@@ -22,6 +22,7 @@ cc_test(
     srcs = ["runtime_test.cpp"],
     deps = [
         ":runtime",
+        "//arc/cpp/runtime/testutil",
         "//x/cpp/telem",
         "//x/cpp/xtest",
         "@googletest//:gtest_main",
