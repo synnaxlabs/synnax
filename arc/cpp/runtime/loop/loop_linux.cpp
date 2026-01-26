@@ -72,11 +72,10 @@ public:
         if (this->epoll_fd_ != -1) return xerrors::NIL;
 
         this->epoll_fd_ = epoll_create1(0);
-        if (this->epoll_fd_ == -1) {
+        if (this->epoll_fd_ == -1)
             return xerrors::Error(
                 "Failed to create epoll: " + std::string(strerror(errno))
             );
-        }
 
         this->event_fd_ = eventfd(0, EFD_NONBLOCK);
         if (this->event_fd_ == -1) {
@@ -112,8 +111,8 @@ public:
 
                 const uint64_t interval_ns = this->config_.interval.nanoseconds();
                 struct itimerspec ts;
-                ts.it_interval.tv_sec = interval_ns / 1'000'000'000;
-                ts.it_interval.tv_nsec = interval_ns % 1'000'000'000;
+                ts.it_interval.tv_sec = interval_ns / telem::SECOND.nanoseconds();
+                ts.it_interval.tv_nsec = interval_ns % telem::SECOND.nanoseconds();
                 ts.it_value = ts.it_interval;
 
                 if (timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == -1) {
@@ -225,15 +224,19 @@ private:
         }
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) const {
+    void high_rate_wait(breaker::Breaker &breaker) {
         this->timer_->wait(breaker);
+        struct epoll_event events[2];
+        const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
+        if (n > 0) this->drain_events(events, n);
     }
 
     void event_driven_wait(bool blocking) {
         struct epoll_event events[2];
         // Use a short timeout to ensure we periodically check breaker.running()
         // in the caller's loop.
-        const int timeout_ms = blocking ? 100 : 10;
+        const int timeout_ms = blocking ? timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
+                                        : timing::POLL_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
 
         if (n > 0)
@@ -265,11 +268,31 @@ private:
         if (n > 0) this->consume_events(events, n);
     }
 
-    void consume_events(struct epoll_event *events, const int n) {
+    /// @brief Consumes events from epoll, returning total timer expirations.
+    uint64_t consume_events(struct epoll_event *events, const int n) {
+        uint64_t total_expirations = 0;
         for (int i = 0; i < n; i++) {
             uint64_t val;
             const ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
-            (void) ret;
+            if (ret == sizeof(val) && events[i].data.fd == this->timer_fd_) {
+                total_expirations += val;
+                if (val > 1)
+                    LOG(WARNING) << "[loop] timer drift detected: " << val
+                                 << " expirations in single read";
+            }
+        }
+        return total_expirations;
+    }
+
+    /// @brief Drains pending events without tracking expirations.
+    void drain_events(struct epoll_event *events, const int n) {
+        for (int i = 0; i < n; i++) {
+            uint64_t val;
+            [[maybe_unused]] const ssize_t ret = read(
+                events[i].data.fd,
+                &val,
+                sizeof(val)
+            );
         }
     }
 

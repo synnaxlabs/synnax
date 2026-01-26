@@ -87,11 +87,12 @@ public:
 
                 LARGE_INTEGER due_time;
                 const int64_t interval_100ns = this->config_.interval.nanoseconds() /
-                                               100;
+                                               timing::WINDOWS_TIMER_UNIT.nanoseconds();
                 due_time.QuadPart = -interval_100ns;
 
                 const LONG period_ms = static_cast<LONG>(
-                    this->config_.interval.nanoseconds() / 1'000'000
+                    this->config_.interval.nanoseconds() /
+                    telem::MILLISECOND.nanoseconds()
                 );
 
                 if (!SetWaitableTimer(
@@ -190,10 +191,12 @@ private:
         const DWORD count = this->build_handles(handles);
         if (count == 0) return;
 
-        // Use 100ms timeout to ensure we periodically check breaker.running()
+        // Use timeout to ensure we periodically check breaker.running()
         // in the caller's loop.
         const DWORD timeout_ms = blocking
-                                   ? 100
+                                   ? static_cast<DWORD>(
+                                         timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
+                                     )
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );

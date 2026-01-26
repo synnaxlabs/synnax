@@ -50,6 +50,15 @@ inline const telem::TimeSpan HIGH_RATE_THRESHOLD = telem::MILLISECOND;
 /// @brief Threshold below which HYBRID mode is beneficial.
 /// Intervals between 1-5ms benefit from spin-then-block approach.
 inline const telem::TimeSpan HYBRID_THRESHOLD = 5 * telem::MILLISECOND;
+
+/// @brief Timeout for event-driven wait to periodically check breaker.running().
+inline const telem::TimeSpan EVENT_DRIVEN_TIMEOUT = 100 * telem::MILLISECOND;
+
+/// @brief Shorter timeout for non-blocking/polling checks.
+inline const telem::TimeSpan POLL_TIMEOUT = 10 * telem::MILLISECOND;
+
+/// @brief Windows WaitableTimer uses 100-nanosecond units.
+inline const telem::TimeSpan WINDOWS_TIMER_UNIT = 100 * telem::NANOSECOND;
 }
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).

@@ -79,7 +79,7 @@ public:
             }
         } else {
             if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
-                std::this_thread::sleep_for(std::chrono::microseconds(1));
+                std::this_thread::sleep_for(telem::MICROSECOND.chrono());
             } else {
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
             }

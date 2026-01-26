@@ -22,6 +22,26 @@
 
 using namespace arc::runtime::loop;
 
+/// @brief Test timing constants.
+namespace test_timing {
+/// @brief Time to wait for a thread to start waiting before signaling.
+const auto THREAD_STARTUP = 50 * telem::MILLISECOND;
+/// @brief Small delay before wake to ensure thread is ready.
+const auto SMALL_DELAY = 100 * telem::MICROSECOND;
+/// @brief Expected timer bounds (lower).
+const auto TIMER_LOWER_BOUND = 5 * telem::MILLISECOND;
+/// @brief Expected timer bounds (upper, accounts for system jitter).
+const auto TIMER_UPPER_BOUND = 50 * telem::MILLISECOND;
+/// @brief Maximum wake latency on Linux/macOS.
+const auto WAKE_LATENCY_POSIX = telem::MILLISECOND;
+/// @brief Maximum wake latency on Windows (due to ~15ms scheduler time slice).
+const auto WAKE_LATENCY_WINDOWS = 50 * telem::MILLISECOND;
+/// @brief Maximum time for breaker stop to take effect.
+const auto BREAKER_STOP_LATENCY = 10 * telem::MILLISECOND;
+/// @brief Maximum time for event-driven timeout (100ms + margin).
+const auto EVENT_DRIVEN_BOUND = 150 * telem::MILLISECOND;
+}
+
 /// @brief Test that Loop can be created.
 TEST(LoopTest, Create) {
     Config config;
@@ -58,7 +78,7 @@ TEST(LoopTest, Wake_EventDriven) {
     });
 
     // Give the waiter time to start waiting
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
     // Wake should unblock immediately
     loop->wake();
@@ -82,13 +102,13 @@ TEST(LoopTest, TimerExpiration) {
     const auto elapsed = std::chrono::steady_clock::now() - start;
 
     // Should have waited approximately 10ms
-    // Allow some jitter (5-50ms range)
+    // Allow some jitter
     const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                 elapsed
     )
                                 .count();
-    EXPECT_GE(elapsed_ms, 5);
-    EXPECT_LE(elapsed_ms, 50);
+    EXPECT_GE(elapsed_ms, test_timing::TIMER_LOWER_BOUND.milliseconds());
+    EXPECT_LE(elapsed_ms, test_timing::TIMER_UPPER_BOUND.milliseconds());
 }
 
 /// @brief Test BUSY_WAIT mode responds quickly to wake().
@@ -107,7 +127,7 @@ TEST(LoopTest, BusyWaitMode) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::microseconds(100));
+    std::this_thread::sleep_for(test_timing::SMALL_DELAY.chrono());
 
     const auto start = std::chrono::steady_clock::now();
     loop->wake();
@@ -123,9 +143,9 @@ TEST(LoopTest, BusyWaitMode) {
     // Busy wait should have very low latency.
     // Windows has ~15ms default scheduler time slice, so we allow more tolerance there.
 #ifdef _WIN32
-    EXPECT_LE(latency_us, 50000); // 50ms on Windows (few scheduler slices)
+    EXPECT_LE(latency_us, test_timing::WAKE_LATENCY_WINDOWS.microseconds());
 #else
-    EXPECT_LE(latency_us, 1000); // 1ms on Linux/macOS
+    EXPECT_LE(latency_us, test_timing::WAKE_LATENCY_POSIX.microseconds());
 #endif
     ASSERT_TRUE(woke_up.load());
 }
@@ -150,8 +170,8 @@ TEST(LoopTest, HighRateMode) {
                                 .count();
 
     // Should wait approximately 10ms with high-rate timer
-    EXPECT_GE(elapsed_ms, 5);
-    EXPECT_LE(elapsed_ms, 50);
+    EXPECT_GE(elapsed_ms, test_timing::TIMER_LOWER_BOUND.milliseconds());
+    EXPECT_LE(elapsed_ms, test_timing::TIMER_UPPER_BOUND.milliseconds());
 }
 
 /// @brief Test HYBRID mode behavior.
@@ -171,7 +191,7 @@ TEST(LoopTest, HybridMode) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::microseconds(10));
+    std::this_thread::sleep_for((10 * telem::MICROSECOND).chrono());
     loop->wake();
 
     waiter.join();
@@ -426,7 +446,7 @@ TEST(WatchTest, WatchWakesWait_NotifierSignaled) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     EXPECT_FALSE(woke_up.load());
 
     notifier->signal();
@@ -454,7 +474,7 @@ TEST(WatchTest, WatchAndWake_BothWork) {
         wake_count.fetch_add(1);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     loop->wake();
     waiter1.join();
 
@@ -463,7 +483,7 @@ TEST(WatchTest, WatchAndWake_BothWork) {
         wake_count.fetch_add(1);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     notifier->signal();
     waiter2.join();
 
@@ -490,8 +510,8 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
                                 elapsed
     )
                                 .count();
-    EXPECT_GE(elapsed_ms, 25);
-    EXPECT_LE(elapsed_ms, 150);
+    EXPECT_GE(elapsed_ms, (25 * telem::MILLISECOND).milliseconds());
+    EXPECT_LE(elapsed_ms, test_timing::EVENT_DRIVEN_BOUND.milliseconds());
 
     std::atomic<bool> woke_up{false};
     std::thread waiter([&]() {
@@ -499,7 +519,7 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
     notifier->signal();
     waiter.join();
 
@@ -529,7 +549,7 @@ TEST(WatchTest, WatchMultipleNotifiers) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     notifier1->signal();
     waiter1.join();
     EXPECT_TRUE(woke_up.load());
@@ -540,7 +560,7 @@ TEST(WatchTest, WatchMultipleNotifiers) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     notifier2->signal();
     waiter2.join();
     EXPECT_TRUE(woke_up.load());
@@ -587,7 +607,7 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
     const auto start = std::chrono::steady_clock::now();
     breaker.stop();
@@ -600,7 +620,7 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
                                 elapsed
     )
                                 .count();
-    EXPECT_LE(elapsed_ms, 10);
+    EXPECT_LE(elapsed_ms, test_timing::BREAKER_STOP_LATENCY.milliseconds());
 }
 
 /// @brief HYBRID mode should exit when breaker stops during spin or block phase.
@@ -621,7 +641,7 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
     const auto start = std::chrono::steady_clock::now();
     breaker.stop();
@@ -634,7 +654,7 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
                                 elapsed
     )
                                 .count();
-    EXPECT_LE(elapsed_ms, 50);
+    EXPECT_LE(elapsed_ms, test_timing::THREAD_STARTUP.milliseconds());
 }
 
 /// @brief EVENT_DRIVEN mode uses 100ms timeout; wait() returns within that window.
@@ -656,7 +676,7 @@ TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
     )
                                 .count();
     // EVENT_DRIVEN uses 100ms timeout, allow some margin
-    EXPECT_LE(elapsed_ms, 150);
+    EXPECT_LE(elapsed_ms, test_timing::EVENT_DRIVEN_BOUND.milliseconds());
 }
 
 /// @brief wake() should immediately unblock a waiting thread.
@@ -675,7 +695,7 @@ TEST(WakeTest, Wake_UnblocksWait) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     EXPECT_FALSE(woke_up.load());
 
     const auto start = std::chrono::steady_clock::now();
@@ -689,5 +709,5 @@ TEST(WakeTest, Wake_UnblocksWait) {
                                 elapsed
     )
                                 .count();
-    EXPECT_LE(elapsed_ms, 50);
+    EXPECT_LE(elapsed_ms, test_timing::THREAD_STARTUP.milliseconds());
 }

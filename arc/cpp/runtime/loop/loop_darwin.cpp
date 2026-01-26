@@ -165,7 +165,7 @@ private:
             EVFILT_TIMER,
             EV_ADD | EV_ENABLE,
             0,
-            interval_ms > 0 ? interval_ms : 1,
+            interval_ms > 0 ? interval_ms : timing::KQUEUE_TIMER_MIN.milliseconds(),
             nullptr
         );
         if (kevent(this->kqueue_fd_, &kev, 1, nullptr, 0, nullptr) == -1)
@@ -264,9 +264,9 @@ private:
     /// @brief EVENT_DRIVEN: Block on kqueue events with timeout.
     void event_driven_wait() const {
         struct kevent events[8];
-        // Use 100ms timeout to ensure we periodically check breaker.running()
+        // Use timeout to ensure we periodically check breaker.running()
         // in the caller's loop.
-        const struct timespec timeout = {0, 100'000'000}; // 100ms
+        const struct timespec timeout = {0, timing::EVENT_DRIVEN_TIMEOUT.nanoseconds()};
         const int n = kevent(this->kqueue_fd_, nullptr, 0, events, 8, &timeout);
 
         if (n == -1 && errno != EINTR)
