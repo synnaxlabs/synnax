@@ -655,10 +655,11 @@ void expect_status(
 ) {
     EXPECT_EQ(status.variant, expected_variant);
     EXPECT_EQ(status.details.running, expected_running);
-    if (!message_contains.empty())
+    if (!message_contains.empty()) {
         EXPECT_TRUE(status.message.find(message_contains) != std::string::npos)
             << "Expected message to contain '" << message_contains
             << "' but got: " << status.message;
+    }
 }
 
 TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
