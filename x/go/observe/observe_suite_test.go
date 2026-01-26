@@ -20,4 +20,3 @@ func TestObserve(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Observe Suite")
 }
-
