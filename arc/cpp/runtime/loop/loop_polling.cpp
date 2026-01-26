@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
 #include <chrono>
 #include <thread>
 
@@ -45,14 +44,10 @@ public:
         }
     }
 
-    ~PollingLoop() override { this->stop(); }
-
-    void notify_data() override {
-        this->data_available_.store(true, std::memory_order_release);
-    }
+    ~PollingLoop() override { this->timer_.reset(); }
 
     void wait(breaker::Breaker &breaker) override {
-        if (!this->running_) return;
+        if (!this->started_) return;
 
         if (this->config_.interval.nanoseconds() > 0 && this->timer_) {
             const auto now = std::chrono::steady_clock::now();
@@ -89,27 +84,24 @@ public:
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
             }
         }
-
-        this->data_available_.store(false, std::memory_order_release);
     }
 
     xerrors::Error start() override {
-        if (this->running_) return xerrors::NIL;
+        if (this->started_) return xerrors::NIL;
 
         if (this->config_.interval.nanoseconds() > 0) {
             this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
         }
 
         this->last_tick_ = std::chrono::steady_clock::now();
-        this->running_ = true;
-        this->data_available_.store(false, std::memory_order_release);
+        this->started_ = true;
 
         return xerrors::NIL;
     }
 
-    void stop() override {
-        this->running_ = false;
-        this->timer_.reset();
+    void wake() override {
+        // Polling loop doesn't block on OS primitives, so wake() is a no-op.
+        // The breaker.running() check in the caller will handle shutdown.
     }
 
     bool watch(notify::Notifier &notifier) override {
@@ -126,7 +118,7 @@ public:
 private:
     void busy_wait(uint64_t duration_ns, breaker::Breaker &breaker) {
         const auto start = std::chrono::steady_clock::now();
-        while (!!breaker.running()) {
+        while (breaker.running()) {
             const auto now = std::chrono::steady_clock::now();
             const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
                                      now - start
@@ -139,8 +131,7 @@ private:
     Config config_;
     std::unique_ptr<::loop::Timer> timer_;
     std::chrono::steady_clock::time_point last_tick_;
-    std::atomic<bool> data_available_{false};
-    std::atomic<bool> running_{false};
+    bool started_ = false;
 };
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {

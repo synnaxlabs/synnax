@@ -12,6 +12,8 @@
 #include <memory>
 #include <thread>
 
+#include "glog/logging.h"
+
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/telem/telem.h"
@@ -155,6 +157,16 @@ struct Config {
             cfg.mode = select_mode(timing_interval, has_intervals);
         if (this->interval.nanoseconds() == 0 && has_intervals)
             cfg.interval = timing_interval;
+        // If HIGH_RATE or RT_EVENT is explicitly set without an interval, use a
+        // sensible default.
+        const bool needs_interval = cfg.mode == ExecutionMode::HIGH_RATE ||
+                                    cfg.mode == ExecutionMode::RT_EVENT;
+        if (cfg.interval.nanoseconds() == 0 && needs_interval) {
+            LOG(WARNING) << "[loop] " << cfg.mode
+                         << " mode requires an interval, defaulting to "
+                         << timing::HIGH_RATE_POLL_INTERVAL;
+            cfg.interval = timing::HIGH_RATE_POLL_INTERVAL;
+        }
         if (this->cpu_affinity == CPU_AFFINITY_AUTO) {
 #ifdef SYNNAX_NILINUXRT
             const bool should_pin = cfg.mode == ExecutionMode::RT_EVENT ||
@@ -194,17 +206,11 @@ struct Config {
 };
 
 /// @brief Abstract event loop for the Arc runtime.
-/// Provides platform-specific waiting on data notifications, timers, and external
-/// events.
+/// Provides platform-specific waiting on timers and external events.
 struct Loop {
     virtual ~Loop() = default;
 
-    /// @brief Signal that input data is available.
-    /// Thread-safe: may be called from any thread.
-    /// RT-safe: uses lock-free signaling (eventfd write, kqueue trigger, SetEvent).
-    virtual void notify_data() = 0;
-
-    /// @brief Block until data/timer/external event or breaker stops.
+    /// @brief Block until timer/external event or breaker stops.
     /// Must be called from the runtime thread only.
     /// @param breaker Controls loop termination; wait() returns when breaker stops.
     virtual void wait(breaker::Breaker &breaker) = 0;
@@ -214,18 +220,19 @@ struct Loop {
     /// @return Error if resource allocation fails.
     virtual xerrors::Error start() = 0;
 
-    /// @brief Release loop resources. Safe to call multiple times.
-    /// Signals any blocked wait() calls to return.
-    virtual void stop() = 0;
+    /// @brief Wake up any blocked wait() call.
+    /// Used during shutdown to unblock the run thread so it can check
+    /// breaker.running(). Thread-safe: may be called from any thread. Does NOT release
+    /// resources - that happens in the destructor.
+    virtual void wake() = 0;
 
     /// @brief Registers an external notifier for multiplexed waiting.
-    /// When the notifier is signaled, wait() will return.
+    /// When the notifier is signaled, wait() will return. This is the primary
+    /// mechanism for data notification - the caller should watch the input queue's
+    /// notifier rather than calling a separate notify method.
     /// Cleanup is automatic when the loop is destroyed (no unwatch needed).
-    /// @param notifier The notifier to watch (must have valid fd() on Linux/macOS).
-    /// @return true if registration succeeded, false if:
-    ///         - notifier.fd() returns -1 (no file descriptor)
-    ///         - Platform doesn't support multiplexed watching (Windows, Polling)
-    ///         - Registration failed (logged as ERROR)
+    /// @param notifier The notifier to watch.
+    /// @return true if registration succeeded, false if registration failed.
     virtual bool watch(notify::Notifier &notifier) = 0;
 };
 

@@ -142,6 +142,10 @@ public:
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr
     ):
         runtime(std::move(runtime)), state(ctx, task_meta) {
+        this->runtime->set_error_handler([this](const xerrors::Error &err) {
+            this->state.error(err);
+            this->state.send_stop("");
+        });
         auto source = std::make_unique<Source>(this->runtime);
         auto sink = std::make_unique<Sink>(this->runtime);
         if (!writer_factory)

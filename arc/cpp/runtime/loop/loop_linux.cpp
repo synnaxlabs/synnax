@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
 #include <chrono>
 #include <thread>
 
@@ -46,17 +45,8 @@ public:
 
     ~LinuxLoop() override { this->close_fds(); }
 
-    void notify_data() override {
-        if (!this->running_ || this->event_fd_ == -1) return;
-        const uint64_t val = 1;
-        if (write(this->event_fd_, &val, sizeof(val)) != sizeof(val)) {
-            LOG(ERROR) << "[loop] Failed to write to eventfd: " << strerror(errno);
-        }
-        this->data_available_.store(true, std::memory_order_release);
-    }
-
     void wait(breaker::Breaker &breaker) override {
-        if (!this->running_) return;
+        if (this->epoll_fd_ == -1) return;
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
@@ -66,20 +56,20 @@ public:
                 this->high_rate_wait(breaker);
                 break;
             case ExecutionMode::RT_EVENT:
-                this->event_driven_wait(breaker, true);
+                this->event_driven_wait(true);
                 break;
             case ExecutionMode::HYBRID:
                 this->hybrid_wait(breaker);
                 break;
             case ExecutionMode::AUTO:
             case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(breaker, true);
+                this->event_driven_wait(true);
                 break;
         }
     }
 
     xerrors::Error start() override {
-        if (this->running_) return xerrors::NIL;
+        if (this->epoll_fd_ != -1) return xerrors::NIL;
 
         this->epoll_fd_ = epoll_create1(0);
         if (this->epoll_fd_ == -1) {
@@ -171,26 +161,13 @@ public:
             }
         }
 
-        this->running_ = true;
-        this->data_available_.store(false, std::memory_order_release);
-
         return xerrors::NIL;
     }
 
-    void stop() override {
-        if (!this->running_) return;
-
-        // Signal the thread to stop by writing to eventfd and setting running_ to
-        // false. We intentionally do NOT close file descriptors here - that happens
-        // in close_fds() called by the destructor, after the thread has been joined.
-        // This avoids a race condition where closing fds before the thread exits
-        // could cause the eventfd wake-up signal to be lost.
-        if (this->event_fd_ != -1) {
-            const uint64_t val = 1;
-            [[maybe_unused]] auto _ = write(this->event_fd_, &val, sizeof(val));
-        }
-
-        this->running_ = false;
+    void wake() override {
+        if (this->event_fd_ == -1) return;
+        const uint64_t val = 1;
+        [[maybe_unused]] auto _ = write(this->event_fd_, &val, sizeof(val));
     }
 
     bool watch(notify::Notifier &notifier) override {
@@ -212,7 +189,6 @@ public:
 
 private:
     void close_fds() {
-        this->running_ = false;
         this->timer_.reset();
 
         if (this->timer_fd_ != -1) {
@@ -236,14 +212,10 @@ private:
     void busy_wait(breaker::Breaker &breaker) {
         struct epoll_event events[2];
 
-        while (!!breaker.running()) {
+        while (breaker.running()) {
             const int n = epoll_wait(this->epoll_fd_, events, 2, 0);
             if (n > 0) {
                 this->consume_events(events, n);
-                return;
-            }
-            if (this->data_available_.load(std::memory_order_acquire)) {
-                this->data_available_.store(false, std::memory_order_release);
                 return;
             }
             if (n == -1 && errno != EINTR) {
@@ -253,38 +225,24 @@ private:
         }
     }
 
-    void high_rate_wait(breaker::Breaker &breaker) {
-        if (this->timer_) {
-            this->timer_->wait(breaker);
-        } else {
-            std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
-        }
-        this->data_available_.store(false, std::memory_order_release);
+    void high_rate_wait(breaker::Breaker &breaker) const {
+        this->timer_->wait(breaker);
     }
 
-    void event_driven_wait(breaker::Breaker &breaker, bool blocking) {
+    void event_driven_wait(bool blocking) {
         struct epoll_event events[2];
-        // Use 100ms timeout instead of infinite blocking to handle shutdown race
-        // where the eventfd wake-up signal could be lost if fds are closed too
-        // quickly. This ensures we check running_ periodically.
+        // Use a short timeout to ensure we periodically check breaker.running()
+        // in the caller's loop.
         const int timeout_ms = blocking ? 100 : 10;
-        VLOG(1) << "[loop] epoll_wait entering with timeout_ms=" << timeout_ms;
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
-        VLOG(1) << "[loop] epoll_wait returned n=" << n;
 
-        if (n > 0) {
-            for (int i = 0; i < n; i++) {
-                VLOG(1) << "[loop] event[" << i << "] fd=" << events[i].data.fd;
-            }
+        if (n > 0)
             this->consume_events(events, n);
-        } else if (n == -1 && errno != EINTR) {
+        else if (n == -1 && errno != EINTR)
             LOG(ERROR) << "[loop] epoll_wait error: " << strerror(errno);
-        }
-
-        this->data_available_.store(false, std::memory_order_release);
     }
 
-    void hybrid_wait(breaker::Breaker &breaker) {
+    void hybrid_wait(const breaker::Breaker &breaker) {
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
@@ -300,17 +258,11 @@ private:
                 this->consume_events(events, n);
                 return;
             }
-            if (this->data_available_.load(std::memory_order_acquire)) {
-                this->data_available_.store(false, std::memory_order_release);
-                return;
-            }
         }
 
         const int timeout_ms = timing::HYBRID_BLOCK_TIMEOUT.milliseconds();
         const int n = epoll_wait(this->epoll_fd_, events, 2, timeout_ms);
         if (n > 0) this->consume_events(events, n);
-
-        this->data_available_.store(false, std::memory_order_release);
     }
 
     void consume_events(struct epoll_event *events, int n) {
@@ -366,8 +318,6 @@ private:
     int timer_fd_ = -1;
     bool timer_enabled_ = false;
     std::unique_ptr<::loop::Timer> timer_;
-    std::atomic<bool> data_available_{false};
-    std::atomic<bool> running_{false};
 };
 
 std::pair<std::unique_ptr<Loop>, xerrors::Error> create(const Config &cfg) {

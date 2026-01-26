@@ -46,6 +46,9 @@ struct Config {
     loop::Config loop;
 };
 
+/// @brief callback invoked when a fatal error occurs in the runtime.
+using ErrorHandler = std::function<void(const xerrors::Error &)>;
+
 class Runtime {
     breaker::Breaker breaker;
     std::thread run_thread;
@@ -57,6 +60,7 @@ class Runtime {
     queue::SPSC<telem::Frame> inputs;
     queue::SPSC<telem::Frame> outputs;
     telem::TimeStamp start_time = telem::TimeStamp(0);
+    ErrorHandler error_handler_;
 
 public:
     std::vector<types::ChannelKey> read_channels;
@@ -82,16 +86,21 @@ public:
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
+    /// @brief sets the error handler callback invoked on fatal runtime errors.
+    void set_error_handler(ErrorHandler handler) {
+        this->error_handler_ = std::move(handler);
+    }
+
     void run() {
         this->start_time = telem::TimeStamp::now();
         xthread::set_name("runtime");
         this->loop->start();
-        // May fail on Windows (expected); handled via explicit notify_data() when
-        // writin input frames.
-        if (!this->loop->watch(this->inputs.notifier()))
-            LOG(
-                WARNING
-            ) << "[runtime] Input notifier not watched; using explicit notification";
+        if (!this->loop->watch(this->inputs.notifier())) {
+            const auto err = xerrors::Error("failed to watch input notifier");
+            LOG(ERROR) << "[runtime] " << err.message();
+            if (this->error_handler_) this->error_handler_(err);
+            return;
+        }
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             telem::Frame frame;
@@ -124,7 +133,7 @@ public:
 
     bool stop() {
         if (!this->breaker.stop()) return false;
-        this->loop->stop();
+        this->loop->wake();
         this->run_thread.join();
         this->inputs.close();
         this->outputs.close();
@@ -134,9 +143,6 @@ public:
     xerrors::Error write(telem::Frame frame) {
         if (!this->inputs.push(std::move(frame)))
             return xerrors::Error("runtime closed");
-        // Notify the event loop that data is available.
-        // Required on Windows where watch() doesn't support external notifiers.
-        this->loop->notify_data();
         return xerrors::NIL;
     }
 
