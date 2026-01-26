@@ -120,8 +120,13 @@ TEST(LoopTest, BusyWaitMode) {
     )
                                 .count();
 
-    // Busy wait should have very low latency (< 1ms)
-    EXPECT_LE(latency_us, 1000);
+    // Busy wait should have very low latency.
+    // Windows has ~15ms default scheduler time slice, so we allow more tolerance there.
+#ifdef _WIN32
+    EXPECT_LE(latency_us, 50000); // 50ms on Windows (few scheduler slices)
+#else
+    EXPECT_LE(latency_us, 1000); // 1ms on Linux/macOS
+#endif
     ASSERT_TRUE(woke_up.load());
 }
 

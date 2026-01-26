@@ -98,48 +98,48 @@ public:
         }
 
         if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
-            if (this->timer_fd_ == -1) {
-                close(this->event_fd_);
-                close(this->epoll_fd_);
-                return xerrors::Error(
-                    "Failed to create timerfd: " + std::string(strerror(errno))
-                );
-            }
-
-            const uint64_t interval_ns = this->config_.interval.nanoseconds();
-            struct itimerspec ts;
-            ts.it_interval.tv_sec = interval_ns / 1'000'000'000;
-            ts.it_interval.tv_nsec = interval_ns % 1'000'000'000;
-            ts.it_value = ts.it_interval;
-
-            if (timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == -1) {
-                close(this->timer_fd_);
-                close(this->event_fd_);
-                close(this->epoll_fd_);
-                return xerrors::Error(
-                    "Failed to set timerfd interval: " + std::string(strerror(errno))
-                );
-            }
-
-            ev.events = EPOLLIN;
-            ev.data.fd = this->timer_fd_;
-            if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) == -1) {
-                close(this->timer_fd_);
-                close(this->event_fd_);
-                close(this->epoll_fd_);
-                return xerrors::Error(
-                    "Failed to add timerfd to epoll: " + std::string(strerror(errno))
-                );
-            }
-
-            this->timer_enabled_ = true;
-        }
-
-        if (this->config_.mode == ExecutionMode::HIGH_RATE ||
-            this->config_.mode == ExecutionMode::HYBRID) {
-            if (this->config_.interval.nanoseconds() > 0) {
+            if (this->config_.mode == ExecutionMode::HIGH_RATE)
                 this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+            else {
+                this->timer_fd_ = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+                if (this->timer_fd_ == -1) {
+                    close(this->event_fd_);
+                    close(this->epoll_fd_);
+                    return xerrors::Error(
+                        "Failed to create timerfd: " + std::string(strerror(errno))
+                    );
+                }
+
+                const uint64_t interval_ns = this->config_.interval.nanoseconds();
+                struct itimerspec ts;
+                ts.it_interval.tv_sec = interval_ns / 1'000'000'000;
+                ts.it_interval.tv_nsec = interval_ns % 1'000'000'000;
+                ts.it_value = ts.it_interval;
+
+                if (timerfd_settime(this->timer_fd_, 0, &ts, nullptr) == -1) {
+                    close(this->timer_fd_);
+                    close(this->event_fd_);
+                    close(this->epoll_fd_);
+                    return xerrors::Error(
+                        "Failed to set timerfd interval: " +
+                        std::string(strerror(errno))
+                    );
+                }
+
+                ev.events = EPOLLIN;
+                ev.data.fd = this->timer_fd_;
+                if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, this->timer_fd_, &ev) ==
+                    -1) {
+                    close(this->timer_fd_);
+                    close(this->event_fd_);
+                    close(this->epoll_fd_);
+                    return xerrors::Error(
+                        "Failed to add timerfd to epoll: " +
+                        std::string(strerror(errno))
+                    );
+                }
+
+                this->timer_enabled_ = true;
             }
         }
 
@@ -265,15 +265,15 @@ private:
         if (n > 0) this->consume_events(events, n);
     }
 
-    void consume_events(struct epoll_event *events, int n) {
+    void consume_events(struct epoll_event *events, const int n) {
         for (int i = 0; i < n; i++) {
             uint64_t val;
-            ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
+            const ssize_t ret = read(events[i].data.fd, &val, sizeof(val));
             (void) ret;
         }
     }
 
-    xerrors::Error set_rt_priority(int priority) {
+    xerrors::Error set_rt_priority(const int priority) {
         struct sched_param param;
         param.sched_priority = priority;
 

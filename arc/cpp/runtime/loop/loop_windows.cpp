@@ -71,44 +71,46 @@ public:
         }
 
         if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
-            if (this->timer_event_ == NULL) {
-                CloseHandle(this->wake_event_);
-                return xerrors::Error(
-                    "Failed to create waitable timer: " + std::to_string(GetLastError())
-                );
-            }
-
-            LARGE_INTEGER due_time;
-            const int64_t interval_100ns = this->config_.interval.nanoseconds() / 100;
-            due_time.QuadPart = -interval_100ns;
-
-            const LONG period_ms = static_cast<LONG>(
-                this->config_.interval.nanoseconds() / 1'000'000
-            );
-
-            if (!SetWaitableTimer(
-                    this->timer_event_,
-                    &due_time,
-                    period_ms,
-                    NULL,
-                    NULL,
-                    FALSE
-                )) {
-                CloseHandle(this->timer_event_);
-                CloseHandle(this->wake_event_);
-                return xerrors::Error(
-                    "Failed to set waitable timer: " + std::to_string(GetLastError())
-                );
-            }
-
-            this->timer_enabled_ = true;
-        }
-
-        if (this->config_.mode == ExecutionMode::HIGH_RATE ||
-            this->config_.mode == ExecutionMode::HYBRID) {
-            if (this->config_.interval.nanoseconds() > 0) {
+            if (this->config_.mode == ExecutionMode::HIGH_RATE) {
+                // HIGH_RATE uses precise software timer
                 this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+            } else {
+                // Other modes use WaitableTimer
+                this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
+                if (this->timer_event_ == NULL) {
+                    CloseHandle(this->wake_event_);
+                    return xerrors::Error(
+                        "Failed to create waitable timer: " +
+                        std::to_string(GetLastError())
+                    );
+                }
+
+                LARGE_INTEGER due_time;
+                const int64_t interval_100ns = this->config_.interval.nanoseconds() /
+                                               100;
+                due_time.QuadPart = -interval_100ns;
+
+                const LONG period_ms = static_cast<LONG>(
+                    this->config_.interval.nanoseconds() / 1'000'000
+                );
+
+                if (!SetWaitableTimer(
+                        this->timer_event_,
+                        &due_time,
+                        period_ms,
+                        NULL,
+                        NULL,
+                        FALSE
+                    )) {
+                    CloseHandle(this->timer_event_);
+                    CloseHandle(this->wake_event_);
+                    return xerrors::Error(
+                        "Failed to set waitable timer: " +
+                        std::to_string(GetLastError())
+                    );
+                }
+
+                this->timer_enabled_ = true;
             }
         }
 
