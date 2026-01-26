@@ -9,12 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-error-fallback__ {
+.pluto-error-fallback {
     padding: 2rem;
 
     .pluto-error-fallback__stack {
+        white-space: pre-wrap;
         max-height: 800px;
-        overflow: auto;
+        user-select: text !important;
+        -webkit-user-select: text !important;
+        overflow-y: auto;
     }
     & .synnax-logo {
         width: 150px;

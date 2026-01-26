@@ -22,6 +22,8 @@ import { Text } from "@/text";
 export interface FallbackProps extends PropsWithChildren {
   /** The error that was caught. */
   error: Error;
+  /** The React component stack trace from the error boundary. */
+  componentStack?: string | null;
   /** Function to reset the error boundary and retry rendering. */
   resetErrorBoundary: () => void;
   /** Variant of the fallback. */
@@ -47,6 +49,7 @@ export interface FallbackProps extends PropsWithChildren {
  */
 export const Fallback = ({
   error,
+  componentStack,
   resetErrorBoundary,
   variant = "compact",
   showLogo = false,
@@ -55,7 +58,7 @@ export const Fallback = ({
   const isCompact = variant === "compact";
   return (
     <Flex.Box
-      className={CSS.BE("error-fallback")}
+      className={CSS.B("error-fallback")}
       y
       grow
       gap={isCompact ? "small" : "medium"}
@@ -68,14 +71,13 @@ export const Fallback = ({
       <Text.Text level={isCompact ? "p" : "h3"} color="var(--pluto-gray-l8)">
         {error.message}
       </Text.Text>
-      {primitive.isNonZero(error.stack) && (
+      {primitive.isNonZero(componentStack) && (
         <Text.Text
           className={CSS.BE("error-fallback", "stack")}
           level="small"
-          style={{ whiteSpace: "pre-wrap" }}
           color="var(--pluto-gray-l6)"
         >
-          {error.stack}
+          {componentStack}
         </Text.Text>
       )}
       {children}

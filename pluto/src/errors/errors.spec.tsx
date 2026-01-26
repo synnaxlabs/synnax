@@ -72,6 +72,19 @@ describe("Error", () => {
       expect(c.getByText("Custom fallback")).toBeTruthy();
     });
 
+    it("should pass componentStack to FallbackComponent", () => {
+      const CustomFallback = ({ componentStack }: Errors.FallbackProps) => (
+        <div data-testid="stack">{componentStack}</div>
+      );
+      const c = render(
+        <Errors.Boundary FallbackComponent={CustomFallback}>
+          <ThrowingComponent shouldThrow />
+        </Errors.Boundary>,
+      );
+      const stack = c.getByTestId("stack");
+      expect(stack.textContent).toContain("ThrowingComponent");
+    });
+
     it("should reset when resetErrorBoundary is called", () => {
       let shouldThrow = true;
       const TestComponent = () => {
@@ -180,21 +193,36 @@ describe("Error", () => {
       });
     });
 
-    describe("error stack", () => {
-      it("should render the error stack when present", () => {
-        const errorWithStack = new Error("Test");
-        errorWithStack.stack = "Error: Test\n    at TestComponent";
+    describe("component stack", () => {
+      it("should render the component stack when present", () => {
         const c = render(
-          <Errors.Fallback error={errorWithStack} resetErrorBoundary={mockReset} />,
+          <Errors.Fallback
+            error={mockError}
+            componentStack={"    at ThrowingComponent\n    at Boundary"}
+            resetErrorBoundary={mockReset}
+          />,
         );
-        expect(c.getByText(/at TestComponent/)).toBeTruthy();
+        expect(c.getByText(/at ThrowingComponent/)).toBeTruthy();
       });
 
-      it("should not render stack section when stack is empty", () => {
-        const errorNoStack = new Error("Test");
-        errorNoStack.stack = "";
+      it("should not render stack section when componentStack is null", () => {
         const c = render(
-          <Errors.Fallback error={errorNoStack} resetErrorBoundary={mockReset} />,
+          <Errors.Fallback
+            error={mockError}
+            componentStack={null}
+            resetErrorBoundary={mockReset}
+          />,
+        );
+        expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeFalsy();
+      });
+
+      it("should not render stack section when componentStack is empty", () => {
+        const c = render(
+          <Errors.Fallback
+            error={mockError}
+            componentStack=""
+            resetErrorBoundary={mockReset}
+          />,
         );
         expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeFalsy();
       });
