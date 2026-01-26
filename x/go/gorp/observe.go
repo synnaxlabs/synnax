@@ -24,8 +24,8 @@ func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[iter.Seq[
 	lp := &lazyPrefix[K, E]{Tools: kvo}
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: kvo,
-		Translate: func(reader kv.TxReader) (TxReader[K, E], bool) {
-			pref := lp.prefix(context.Background())
+		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
+			pref := lp.prefix(ctx)
 			var matched []kv.Change
 			for ch := range reader {
 				if bytes.HasPrefix(ch.Key, pref) {
@@ -35,14 +35,13 @@ func Observe[K Key, E Entry[K]](kvo BaseObservable) observe.Observable[iter.Seq[
 			if len(matched) == 0 {
 				return nil, false
 			}
-			return wrapMatchedChanges[K, E](matched, kvo), true
+			return wrapMatchedChanges[K, E](ctx, matched, kvo), true
 		},
 	}
 }
 
-func wrapMatchedChanges[K Key, E Entry[K]](changes []kv.Change, tools Tools) TxReader[K, E] {
+func wrapMatchedChanges[K Key, E Entry[K]](ctx context.Context, changes []kv.Change, tools Tools) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {
-		ctx := context.Background()
 		for _, kvChange := range changes {
 			var op change.Change[K, E]
 			op.Variant = kvChange.Variant

@@ -99,14 +99,14 @@ func (Noop[T]) OnChange(_ func(context.Context, T)) Disconnect { return func() {
 // to notify the handler. If the boolean is false, the handler is not called.
 type Translator[I any, O any] struct {
 	Observable[I]
-	Translate func(I) (O, bool)
+	Translate func(context.Context, I) (O, bool)
 }
 
 var _ Observable[types.Nil] = Translator[any, types.Nil]{}
 
 func (t Translator[I, O]) OnChange(handler func(context.Context, O)) Disconnect {
 	return t.Observable.OnChange(func(ctx context.Context, v I) {
-		result, ok := t.Translate(v)
+		result, ok := t.Translate(ctx, v)
 		if !ok {
 			return
 		}

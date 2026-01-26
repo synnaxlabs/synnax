@@ -54,7 +54,7 @@ var _ = Describe("Translator", func() {
 		base := observe.New[int]()
 		translator := observe.Translator[int, string]{
 			Observable: base,
-			Translate: func(v int) (string, bool) {
+			Translate: func(ctx context.Context, v int) (string, bool) {
 				return "translated", true
 			},
 		}
@@ -70,7 +70,7 @@ var _ = Describe("Translator", func() {
 		base := observe.New[int]()
 		translator := observe.Translator[int, string]{
 			Observable: base,
-			Translate: func(v int) (string, bool) {
+			Translate: func(ctx context.Context, v int) (string, bool) {
 				return "", false
 			},
 		}
@@ -86,7 +86,7 @@ var _ = Describe("Translator", func() {
 		base := observe.New[int]()
 		translator := observe.Translator[int, int]{
 			Observable: base,
-			Translate: func(v int) (int, bool) {
+			Translate: func(ctx context.Context, v int) (int, bool) {
 				if v > 10 {
 					return v * 2, true
 				}

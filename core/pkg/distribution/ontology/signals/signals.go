@@ -35,7 +35,7 @@ func Publish(
 ) (io.Closer, error) {
 	resourceObserver := observe.Translator[iter.Seq[ontology.Change], []change.Change[[]byte, struct{}]]{
 		Observable: otg.ResourceObserver,
-		Translate: func(nexter iter.Seq[ontology.Change]) ([]change.Change[[]byte, struct{}], bool) {
+		Translate: func(ctx context.Context, nexter iter.Seq[ontology.Change]) ([]change.Change[[]byte, struct{}], bool) {
 			var (
 				out []change.Change[[]byte, struct{}]
 				key []byte
@@ -67,7 +67,7 @@ func Publish(
 	}
 	relationshipObserver := observe.Translator[gorp.TxReader[[]byte, ontology.Relationship], []change.Change[[]byte, struct{}]]{
 		Observable: otg.RelationshipObserver,
-		Translate: func(nexter gorp.TxReader[[]byte, ontology.Relationship]) ([]change.Change[[]byte, struct{}], bool) {
+		Translate: func(ctx context.Context, nexter gorp.TxReader[[]byte, ontology.Relationship]) ([]change.Change[[]byte, struct{}], bool) {
 			var out []change.Change[[]byte, struct{}]
 			for ch := range nexter {
 				out = append(out, change.Change[[]byte, struct{}]{
