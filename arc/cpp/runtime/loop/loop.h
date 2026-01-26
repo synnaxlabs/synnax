@@ -17,6 +17,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xerrors/errors.h"
 #include "x/cpp/xjson/xjson.h"
+#include "x/cpp/xlog/xlog.h"
 
 namespace arc::runtime::loop {
 
@@ -47,6 +48,7 @@ inline const telem::TimeSpan HIGH_RATE_THRESHOLD = telem::MILLISECOND;
 /// @brief Threshold below which HYBRID mode is beneficial.
 /// Intervals between 1-5ms benefit from spin-then-block approach.
 inline const telem::TimeSpan HYBRID_THRESHOLD = 5 * telem::MILLISECOND;
+}
 
 /// @brief Default RT priority for SCHED_FIFO on Linux (range 1-99).
 /// Mid-range priority that preempts normal processes without starving system threads.
@@ -57,7 +59,6 @@ constexpr int CPU_AFFINITY_AUTO = -1;
 
 /// @brief Sentinel for explicitly disabling CPU pinning.
 constexpr int CPU_AFFINITY_NONE = -2;
-}
 
 enum class ExecutionMode {
     /// @brief Auto-select mode based on timing requirements and platform capabilities.
@@ -113,8 +114,8 @@ struct Config {
     ExecutionMode mode = ExecutionMode::AUTO;
     telem::TimeSpan interval = telem::TimeSpan(0);
     telem::TimeSpan spin_duration = timing::HYBRID_SPIN_DEFAULT;
-    int rt_priority = timing::DEFAULT_RT_PRIORITY;
-    int cpu_affinity = timing::CPU_AFFINITY_AUTO;
+    int rt_priority = DEFAULT_RT_PRIORITY;
+    int cpu_affinity = CPU_AFFINITY_AUTO;
     bool lock_memory = false;
 
     Config() = default;
@@ -142,8 +143,8 @@ struct Config {
             );
             return;
         }
-        rt_priority = parser.field<int>("rt_priority", timing::DEFAULT_RT_PRIORITY);
-        cpu_affinity = parser.field<int>("cpu_affinity", timing::CPU_AFFINITY_AUTO);
+        rt_priority = parser.field<int>("rt_priority", DEFAULT_RT_PRIORITY);
+        cpu_affinity = parser.field<int>("cpu_affinity", CPU_AFFINITY_AUTO);
         lock_memory = parser.field<bool>("lock_memory", false);
     }
 
@@ -154,21 +155,41 @@ struct Config {
             cfg.mode = select_mode(timing_interval, has_intervals);
         if (this->interval.nanoseconds() == 0 && has_intervals)
             cfg.interval = timing_interval;
-        if (this->cpu_affinity == timing::CPU_AFFINITY_AUTO) {
+        if (this->cpu_affinity == CPU_AFFINITY_AUTO) {
 #ifdef SYNNAX_NILINUXRT
-            const bool should_pin = this->mode == ExecutionMode::RT_EVENT ||
-                                    this->mode == ExecutionMode::HIGH_RATE ||
-                                    this->mode == ExecutionMode::HYBRID;
+            const bool should_pin = cfg.mode == ExecutionMode::RT_EVENT ||
+                                    cfg.mode == ExecutionMode::HIGH_RATE ||
+                                    cfg.mode == ExecutionMode::HYBRID;
 #else
-            const bool should_pin = this->mode == ExecutionMode::RT_EVENT;
+            const bool should_pin = cfg.mode == ExecutionMode::RT_EVENT;
 #endif
             if (should_pin) {
                 const auto n = std::thread::hardware_concurrency();
-                cfg.cpu_affinity = n > 1 ? static_cast<int>(n - 1)
-                                         : timing::CPU_AFFINITY_NONE;
+                cfg.cpu_affinity = n > 1 ? static_cast<int>(n - 1) : CPU_AFFINITY_NONE;
             }
         }
         return cfg;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
+        os << "  " << xlog::SHALE() << "execution mode" << xlog::RESET() << ": "
+           << cfg.mode << "\n";
+        if (cfg.interval.nanoseconds() > 0)
+            os << "  " << xlog::SHALE() << "interval" << xlog::RESET() << ": "
+               << cfg.interval << "\n";
+        if (cfg.mode == ExecutionMode::HYBRID)
+            os << "  " << xlog::SHALE() << "spin duration" << xlog::RESET() << ": "
+               << cfg.spin_duration << "\n";
+        if (cfg.mode == ExecutionMode::RT_EVENT) {
+            os << "  " << xlog::SHALE() << "rt priority" << xlog::RESET() << ": "
+               << cfg.rt_priority << "\n";
+            os << "  " << xlog::SHALE() << "lock memory" << xlog::RESET() << ": "
+               << (cfg.lock_memory ? "yes" : "no") << "\n";
+        }
+        if (cfg.cpu_affinity >= 0)
+            os << "  " << xlog::SHALE() << "cpu affinity" << xlog::RESET() << ": "
+               << cfg.cpu_affinity << "\n";
+        return os;
     }
 };
 

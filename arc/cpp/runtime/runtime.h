@@ -143,7 +143,7 @@ public:
     bool read(telem::Frame &frame) { return this->outputs.pop(frame); }
 };
 
-inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(Config &cfg) {
+inline std::pair<std::shared_ptr<Runtime>, xerrors::Error> load(const Config &cfg) {
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.mod.nodes) {

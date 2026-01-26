@@ -32,6 +32,7 @@ cc_library(
         "//x/cpp/telem",
         "//x/cpp/xerrors",
         "//x/cpp/xjson",
+        "//x/cpp/xlog",
         "@glog",
     ],
     linkopts = select({

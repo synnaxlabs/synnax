@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <sstream>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -264,15 +265,27 @@ TEST(ConfigTest, ApplyDefaultsSetsInterval) {
 
 TEST(ConfigTest, DefaultRtPriority) {
     Config cfg;
-    EXPECT_EQ(cfg.rt_priority, timing::DEFAULT_RT_PRIORITY);
+    EXPECT_EQ(cfg.rt_priority, DEFAULT_RT_PRIORITY);
 }
 
 TEST(ConfigTest, AutoCpuAffinityPinsForRTEvent) {
     Config cfg;
     cfg.mode = ExecutionMode::RT_EVENT;
-    EXPECT_EQ(cfg.cpu_affinity, timing::CPU_AFFINITY_AUTO);
+    EXPECT_EQ(cfg.cpu_affinity, CPU_AFFINITY_AUTO);
     const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
-    if (std::thread::hardware_concurrency() > 1) EXPECT_GE(resolved.cpu_affinity, 0);
+    if (std::thread::hardware_concurrency() > 1) {
+        EXPECT_GE(resolved.cpu_affinity, 0);
+    }
+}
+
+TEST(ConfigTest, AutoModeResolvesToRTEventGetsCpuPinning) {
+    Config cfg;
+    cfg.mode = ExecutionMode::AUTO;
+    cfg.cpu_affinity = CPU_AFFINITY_AUTO;
+    const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
+    if (has_rt_scheduling() && std::thread::hardware_concurrency() > 1) {
+        EXPECT_GE(resolved.cpu_affinity, 0);
+    }
 }
 
 TEST(ConfigTest, ExplicitCpuAffinityNotOverridden) {
@@ -288,4 +301,87 @@ TEST(ConfigTest, ExplicitModeNotOverridden) {
     cfg.mode = ExecutionMode::BUSY_WAIT;
     const auto resolved = cfg.apply_defaults(10 * telem::MILLISECOND);
     EXPECT_EQ(resolved.mode, ExecutionMode::BUSY_WAIT);
+}
+
+TEST(ConfigOutputTest, OutputContainsMode) {
+    Config cfg;
+    cfg.mode = ExecutionMode::EVENT_DRIVEN;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_NE(os.str().find("execution mode"), std::string::npos);
+    EXPECT_NE(os.str().find("EVENT_DRIVEN"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, OutputContainsIntervalWhenSet) {
+    Config cfg;
+    cfg.mode = ExecutionMode::HIGH_RATE;
+    cfg.interval = 10 * telem::MILLISECOND;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_NE(os.str().find("interval"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, OutputOmitsIntervalWhenZero) {
+    Config cfg;
+    cfg.mode = ExecutionMode::EVENT_DRIVEN;
+    cfg.interval = telem::TimeSpan(0);
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_EQ(os.str().find("interval"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, HybridModeShowsSpinDuration) {
+    Config cfg;
+    cfg.mode = ExecutionMode::HYBRID;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_NE(os.str().find("spin duration"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, NonHybridModeOmitsSpinDuration) {
+    Config cfg;
+    cfg.mode = ExecutionMode::EVENT_DRIVEN;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_EQ(os.str().find("spin duration"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, RTEventShowsRtPriorityAndLockMemory) {
+    Config cfg;
+    cfg.mode = ExecutionMode::RT_EVENT;
+    cfg.rt_priority = 80;
+    cfg.lock_memory = true;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_NE(os.str().find("rt priority"), std::string::npos);
+    EXPECT_NE(os.str().find("80"), std::string::npos);
+    EXPECT_NE(os.str().find("lock memory"), std::string::npos);
+    EXPECT_NE(os.str().find("yes"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, NonRTEventOmitsRtPriority) {
+    Config cfg;
+    cfg.mode = ExecutionMode::EVENT_DRIVEN;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_EQ(os.str().find("rt priority"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, OutputContainsCpuAffinityWhenSet) {
+    Config cfg;
+    cfg.mode = ExecutionMode::HIGH_RATE;
+    cfg.cpu_affinity = 7;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_NE(os.str().find("cpu affinity"), std::string::npos);
+    EXPECT_NE(os.str().find("7"), std::string::npos);
+}
+
+TEST(ConfigOutputTest, OutputOmitsCpuAffinityWhenAuto) {
+    Config cfg;
+    cfg.mode = ExecutionMode::EVENT_DRIVEN;
+    cfg.cpu_affinity = CPU_AFFINITY_AUTO;
+    std::ostringstream os;
+    os << cfg;
+    EXPECT_EQ(os.str().find("cpu affinity"), std::string::npos);
 }
