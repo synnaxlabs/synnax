@@ -44,6 +44,9 @@ jobs:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
               'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
@@ -68,6 +71,7 @@ jobs:
           working-directory: core
 
       - name: Test
-        run: go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
+        run:
+          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
           --fail-on-pending --fail-on-empty --keep-going --trace --github-output
         working-directory: core
