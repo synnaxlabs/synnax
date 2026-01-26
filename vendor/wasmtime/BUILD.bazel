@@ -98,9 +98,10 @@ genrule(
             # Use cargo rustc to explicitly build as staticlib
             cd crates/c-api
             echo "=== Starting wasmtime cargo build ==="
+            # gc-null provides a null GC implementation (required since wasmtime v38+)
             cargo rustc --release --target x86_64-pc-windows-msvc \
                 --no-default-features \
-                --features wat,wasi,async,cranelift,threads \
+                --features wat,wasi,async,cranelift,threads,gc-null \
                 --crate-type staticlib 2>&1
             CARGO_EXIT_CODE=$$?
             echo "=== Cargo build finished with exit code: $$CARGO_EXIT_CODE ==="
