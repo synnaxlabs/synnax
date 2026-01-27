@@ -69,6 +69,9 @@ class ArcClient:
             editor.wait_for(state="visible", timeout=10000)
             editor.click()
             editor.locator(".cursor").wait_for(state="visible", timeout=5000)
+            editor.locator(".monaco-editor.focused").wait_for(
+                state="visible", timeout=5000
+            )
             self.page.keyboard.press("ControlOrMeta+a")
             self.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
             self.page.keyboard.press("ControlOrMeta+v")
