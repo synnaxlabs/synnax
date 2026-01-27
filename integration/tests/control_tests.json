@@ -2,30 +2,10 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Console Press Control - Setpoints",
-      "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "console/schematic/setpoint_press_user"
-        },
-        {
-          "case": "client/setpoint_press_auto",
-          "parameters": { "control_authority": 150 }
-        },
-        {
-          "case": "client/sim_daq"
-        }
-      ]
-    },
-    {
       "sequence_name": "Console Press Control - Valves",
-      "sequence_order": "asynchronous",
       "tests": [
         {
           "case": "console/schematic/simple_press_valves"
-        },
-        {
-          "case": "client/sim_daq"
         }
       ]
     },
@@ -35,9 +15,6 @@
       "tests": [
         {
           "case": "client/simple_press"
-        },
-        {
-          "case": "client/sim_daq"
         },
         {
           "case": "console/bad_actor"

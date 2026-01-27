@@ -144,3 +144,21 @@ class NotificationsClient:
             sy.sleep(0.1)
 
         return closed_count
+
+    def close_connection(self) -> bool:
+        """Close the 'Connected to...' notification if present.
+
+        Returns:
+            True if notification was found and closed, False otherwise.
+        """
+
+        notification = self.page.locator(".pluto-notification:has-text('Connected to')")
+        if notification.count() == 0:
+            return False
+
+        close_btn = notification.locator(".pluto-notification__silence")
+        if close_btn.count() > 0:
+            close_btn.click(force=True)
+            notification.wait_for(state="hidden", timeout=2000)
+            return True
+        return False
