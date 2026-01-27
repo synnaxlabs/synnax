@@ -12,8 +12,8 @@
 #include <memory>
 #include <string>
 
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/url/url.h"
+#include "x/cpp/errors/errors.h"
 
 namespace freighter {
 const std::string ERR_TYPE_UNREACHABLE = "freighter.unreachable";
@@ -154,7 +154,7 @@ public:
 template<typename RQ, typename RS>
 class MiddlewareCollector {
     /// @brief The middlewares in the chain.
-    std::vector<std::shared_ptr<freighter::Middleware>> middlewares;
+    std::vector<std::shared_ptr<Middleware>> middlewares;
 
 public:
     MiddlewareCollector() = default;
@@ -164,7 +164,7 @@ public:
     /// middleware before the finalizer.
     /// @implements UnaryClient::use
     /// @implements StreamClient::use
-    void use(std::shared_ptr<freighter::Middleware> middleware) {
+    void use(std::shared_ptr<Middleware> middleware) {
         this->middlewares.push_back(std::move(middleware));
     }
 
@@ -175,29 +175,26 @@ public:
     /// @param finalizer - A finalizer that represents the last middleware in the
     /// chain, and is responsible for executing the request.
     /// @param req - the request to execute.
-    std::pair<RS, x::errors::Error> exec(
-        const freighter::Context &context,
-        freighter::Finalizer<RQ, RS> *finalizer,
-        RQ &req
-    ) const {
+    std::pair<RS, x::errors::Error>
+    exec(const Context &context, Finalizer<RQ, RS> *finalizer, RQ &req) const {
         class NextImpl : public Next {
             std::size_t index;
             const MiddlewareCollector &collector;
             RQ req;
-            freighter::Finalizer<RQ, RS> *finalizer;
+            Finalizer<RQ, RS> *finalizer;
 
         public:
             RS res;
 
             NextImpl(
                 const MiddlewareCollector &collector,
-                freighter::Finalizer<RQ, RS> *finalizer,
+                Finalizer<RQ, RS> *finalizer,
                 RQ &req
             ):
                 index(0), collector(collector), req(req), finalizer(finalizer) {}
 
             std::pair<Context, x::errors::Error>
-            operator()(freighter::Context context) override {
+            operator()(Context context) override {
                 if (this->index >= this->collector.middlewares.size()) {
                     auto f_res = this->finalizer->operator()(context, req);
                     this->res = std::move(f_res.response);

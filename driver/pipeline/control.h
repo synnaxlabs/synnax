@@ -16,7 +16,7 @@
 
 #include "driver/pipeline/base.h"
 
-namespace driver::pipeline {
+namespace pipeline {
 /// @brief an object that writes data to an acquisition computer or other resource.
 class Sink {
 public:
@@ -25,7 +25,7 @@ public:
     /// acquisition pipeline will trigger a breaker (temporary backoff), and then
     /// retry the read operation. Any other error type will be considered a
     /// permanent error and the pipeline will exit.
-    virtual x::errors::Error write(x::telem::Frame &frame) = 0;
+    virtual x::errors::Error write(telem::Frame &frame) = 0;
 
     /// @brief communicates an error encountered by the control pipeline that
     /// occurred during shut down or occurred during a commanded shutdown.
@@ -49,7 +49,7 @@ public:
     /// will trigger a breaker (temporary backoff), and then retry the read
     /// operation. Any other error type will be considered a permanent error and the
     /// pipeline will exit.
-    virtual std::pair<x::telem::Frame, x::errors::Error> read() = 0;
+    virtual std::pair<telem::Frame, x::errors::Error> read() = 0;
 
     /// @brief closes the streamer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -78,34 +78,34 @@ public:
     /// retry until the configured number of maximum retries is exceeded. Any other
     /// error is considered permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Streamer>, x::errors::Error>
-    open_streamer(synnax::framer::StreamerConfig config) = 0;
+    open_streamer(synnax::StreamerConfig config) = 0;
 
     virtual ~StreamerFactory() = default;
 };
 
-/// @brief an implementation of the driver::pipeline::Streamer interface that is backed
+/// @brief an implementation of the pipeline::Streamer interface that is backed
 /// by a Synnax streamer that receives data from a cluster.
 class SynnaxStreamer final : public Streamer {
     /// @brief the wrapped synnax streamer.
-    synnax::framer::Streamer internal;
+    synnax::Streamer internal;
 
 public:
     /// @brief constructs a new Synnax streamer that wraps the given internal
     /// streamer.
-    explicit SynnaxStreamer(synnax::framer::Streamer internal);
+    explicit SynnaxStreamer(synnax::Streamer internal);
 
-    /// @brief implements driver::pipeline::Streamer to read the next frame from the
+    /// @brief implements pipeline::Streamer to read the next frame from the
     /// streamer.
-    std::pair<x::telem::Frame, x::errors::Error> read() override;
+    std::pair<telem::Frame, x::errors::Error> read() override;
 
-    /// @brief implements driver::pipeline::Streamer to close the streamer.
+    /// @brief implements pipeline::Streamer to close the streamer.
     x::errors::Error close() override;
 
-    /// @brief implements driver::pipeline::Streamer to close the streamer.
+    /// @brief implements pipeline::Streamer to close the streamer.
     void close_send() override;
 };
 
-/// @brief an implementation of the driver::pipeline::StreamerFactory interface that is
+/// @brief an implementation of the pipeline::StreamerFactory interface that is
 /// backed by an actual synnax client connected to a cluster.
 class SynnaxStreamerFactory final : public StreamerFactory {
     /// @brief the Synnax client to use for opening streamers.
@@ -116,9 +116,9 @@ public:
     /// client.
     explicit SynnaxStreamerFactory(const std::shared_ptr<synnax::Synnax> &client);
 
-    /// @brief implements driver::pipeline::StreamerFactory to open a Synnax streamer.
+    /// @brief implements pipeline::StreamerFactory to open a Synnax streamer.
     std::pair<std::unique_ptr<Streamer>, x::errors::Error>
-    open_streamer(synnax::framer::StreamerConfig config) override;
+    open_streamer(synnax::StreamerConfig config) override;
 };
 
 /// @brief A pipeline that reads incoming data over the network and writes to a
@@ -131,7 +131,7 @@ class Control final : public Base {
     /// This is typically backed by a Synnax client, but can be mocked.
     std::shared_ptr<StreamerFactory> factory;
     /// @brief the configuration for the Synnax streamer.
-    synnax::framer::StreamerConfig config;
+    synnax::StreamerConfig config;
     /// @brief the sink that the control pipeline will write frames to.
     std::shared_ptr<Sink> sink;
     /// @brief the current open streamer reading data from the network.
@@ -150,9 +150,9 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<synnax::Synnax> client,
-        synnax::framer::StreamerConfig streamer_config,
+        synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const x::breaker::Config &breaker_config,
+        const breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 
@@ -169,9 +169,9 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Control(
         std::shared_ptr<StreamerFactory> streamer_factory,
-        synnax::framer::StreamerConfig streamer_config,
+        synnax::StreamerConfig streamer_config,
         std::shared_ptr<Sink> sink,
-        const x::breaker::Config &breaker_config,
+        const breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 

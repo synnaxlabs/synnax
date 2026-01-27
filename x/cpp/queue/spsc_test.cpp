@@ -209,11 +209,10 @@ TEST(SPSCQueueTest, LockFreeStressTest) {
     EXPECT_EQ(items_received.load(), num_items);
     EXPECT_TRUE(queue.empty());
 }
-}
 
 /// @brief it should drain items and reopen after reset.
 TEST(SPSCQueueTest, ResetDrainsAndReopens) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
     EXPECT_TRUE(queue.push(1));
     EXPECT_TRUE(queue.push(2));
     EXPECT_TRUE(queue.push(3));
@@ -233,7 +232,7 @@ TEST(SPSCQueueTest, ResetDrainsAndReopens) {
 
 /// @brief it should allow multiple reset cycles.
 TEST(SPSCQueueTest, MultipleResetCycles) {
-    queue::SPSC<int> queue;
+    SPSC<int> queue;
 
     for (int cycle = 0; cycle < 3; cycle++) {
         EXPECT_TRUE(queue.push(cycle * 10 + 1));
@@ -248,4 +247,5 @@ TEST(SPSCQueueTest, MultipleResetCycles) {
     int value;
     EXPECT_TRUE(queue.pop(value));
     EXPECT_EQ(value, 100);
+}
 }

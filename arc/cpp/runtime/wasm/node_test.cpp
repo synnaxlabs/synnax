@@ -494,10 +494,10 @@ TEST(NodeTest, NoInputNodeExecutesOncePerStageEntry) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
     auto
-        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+        output_ch = synnax::Channel(output_name, x::telem::INT64_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -514,8 +514,8 @@ constant{} -> )" + output_name;
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels =
-                {{output_idx.key, telem::TIMESTAMP_T, 0},
-                 {output_ch.key, telem::INT64_T, output_idx.key}}
+                {{output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT64_T, output_idx.key}}
         },
         arc::runtime::errors::noop_handler
     );
@@ -557,15 +557,15 @@ TEST(NodeTest, NodeWithInputsExecutesNormally) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::Channel(input_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::INT64_T, input_idx.key, false);
+    auto input_ch = synnax::Channel(input_name, x::telem::INT64_T, input_idx.key, false);
     ASSERT_NIL(client.channels.create(input_ch));
     auto
-        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+        output_ch = synnax::Channel(output_name, x::telem::INT64_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -584,10 +584,10 @@ func double(val i64) i64 {
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels =
-                {{input_idx.key, telem::TIMESTAMP_T, 0},
-                 {input_ch.key, telem::INT64_T, input_idx.key},
-                 {output_idx.key, telem::TIMESTAMP_T, 0},
-                 {output_ch.key, telem::INT64_T, output_idx.key}}
+                {{input_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {input_ch.key, x::telem::INT64_T, input_idx.key},
+                 {output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT64_T, output_idx.key}}
         },
         arc::runtime::errors::noop_handler
     );
@@ -601,7 +601,7 @@ func double(val i64) i64 {
     on_node_state.output(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_data)
     );
-    auto on_time = telem::Series(telem::TimeStamp(1 * telem::MICROSECOND));
+    auto on_time = telem::Series(x::telem::TimeStamp(1 * telem::MICROSECOND));
     on_time.alignment = telem::Alignment(1, 0);
     on_node_state.output_time(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_time)
@@ -627,7 +627,7 @@ func double(val i64) i64 {
     on_node_state2.output(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_data2)
     );
-    auto on_time2 = telem::Series(telem::TimeStamp(2 * telem::MICROSECOND));
+    auto on_time2 = telem::Series(x::telem::TimeStamp(2 * telem::MICROSECOND));
     on_time2.alignment = telem::Alignment(2, 0);
     on_node_state2.output_time(0) = xmemory::make_local_shared<telem::Series>(
         std::move(on_time2)
@@ -644,10 +644,10 @@ TEST(NodeTest, FlowExpressionExecutesEveryTime) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
     auto
-        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+        output_ch = synnax::Channel(output_name, x::telem::INT64_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -665,8 +665,8 @@ counter{} -> )" + output_name;
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels =
-                {{output_idx.key, telem::TIMESTAMP_T, 0},
-                 {output_ch.key, telem::INT64_T, output_idx.key}}
+                {{output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT64_T, output_idx.key}}
         },
         arc::runtime::errors::noop_handler
     );
@@ -700,10 +700,10 @@ TEST(NodeTest, FlowExpressionContinuesAfterReset) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
     auto
-        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+        output_ch = synnax::Channel(output_name, x::telem::INT64_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -721,8 +721,8 @@ counter{} -> )" + output_name;
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels =
-                {{output_idx.key, telem::TIMESTAMP_T, 0},
-                 {output_ch.key, telem::INT64_T, output_idx.key}}
+                {{output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT64_T, output_idx.key}}
         },
         arc::runtime::errors::noop_handler
     );
@@ -758,10 +758,10 @@ TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
     auto
-        output_ch = synnax::Channel(output_name, telem::INT64_T, output_idx.key, false);
+        output_ch = synnax::Channel(output_name, x::telem::INT64_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
@@ -779,8 +779,8 @@ counter{} -> )" + output_name;
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels =
-                {{output_idx.key, telem::TIMESTAMP_T, 0},
-                 {output_ch.key, telem::INT64_T, output_idx.key}}
+                {{output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT64_T, output_idx.key}}
         },
         arc::runtime::errors::noop_handler
     );
@@ -813,15 +813,15 @@ TEST(NodeTest, ConfigParametersPassedToWasm) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::Channel(input_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
+    auto input_ch = synnax::Channel(input_name, x::telem::INT32_T, input_idx.key, false);
     ASSERT_NIL(client.channels.create(input_ch));
     auto
-        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+        output_ch = synnax::Channel(output_name, x::telem::INT32_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     // Function with config parameter 'x' and input parameter 'y'
@@ -842,10 +842,10 @@ func add_config{x i32}(y i32) i32 {
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels =
-                {{input_idx.key, telem::TIMESTAMP_T, 0},
-                 {input_ch.key, telem::INT32_T, input_idx.key},
-                 {output_idx.key, telem::TIMESTAMP_T, 0},
-                 {output_ch.key, telem::INT32_T, output_idx.key}}
+                {{input_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {input_ch.key, x::telem::INT32_T, input_idx.key},
+                 {output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT32_T, output_idx.key}}
         },
         arc::runtime::errors::noop_handler
     );
@@ -890,15 +890,15 @@ TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
     auto output_idx_name = random_name("output_idx");
     auto output_name = random_name("output");
 
-    auto input_idx = synnax::Channel(input_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto input_idx = synnax::Channel(input_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(input_idx));
-    auto output_idx = synnax::Channel(output_idx_name, telem::TIMESTAMP_T, 0, true);
+    auto output_idx = synnax::Channel(output_idx_name, x::telem::TIMESTAMP_T, 0, true);
     ASSERT_NIL(client.channels.create(output_idx));
 
-    auto input_ch = synnax::Channel(input_name, telem::INT32_T, input_idx.key, false);
+    auto input_ch = synnax::Channel(input_name, x::telem::INT32_T, input_idx.key, false);
     ASSERT_NIL(client.channels.create(input_ch));
     auto
-        output_ch = synnax::Channel(output_name, telem::INT32_T, output_idx.key, false);
+        output_ch = synnax::Channel(output_name, x::telem::INT32_T, output_idx.key, false);
     ASSERT_NIL(client.channels.create(output_ch));
 
     // Function with two config parameters 'a', 'b' and input parameter 'c'
@@ -918,10 +918,10 @@ func multi_config{a i32, b i32}(c i32) i32 {
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
             .channels =
-                {{input_idx.key, telem::TIMESTAMP_T, 0},
-                 {input_ch.key, telem::INT32_T, input_idx.key},
-                 {output_idx.key, telem::TIMESTAMP_T, 0},
-                 {output_ch.key, telem::INT32_T, output_idx.key}}
+                {{input_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {input_ch.key, x::telem::INT32_T, input_idx.key},
+                 {output_idx.key, x::telem::TIMESTAMP_T, 0},
+                 {output_ch.key, x::telem::INT32_T, output_idx.key}}
         },
         arc::runtime::errors::noop_handler
     );

@@ -20,7 +20,7 @@ std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
     return common::handle_config_err(ctx, task, configure(ctx, task));
 }
 
-std::pair<common::ConfigureResult, xerrors::Error> Factory::configure(
+std::pair<common::ConfigureResult, x::errors::Error> Factory::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
@@ -34,7 +34,7 @@ std::pair<common::ConfigureResult, xerrors::Error> Factory::configure(
 
     result.task = std::move(arc_task);
     result.auto_start = cfg.auto_start;
-    return {std::move(result), xerrors::NIL};
+    return {std::move(result), x::errors::NIL};
 }
 
 std::string Factory::name() {

@@ -1297,11 +1297,11 @@ TEST_F(SchedulerTest, testResetClearsState) {
 
     const auto scheduler = build(std::move(ir));
 
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 1);
     ASSERT_EQ(nodeA.reset_called, 1);
 
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeA.next_called, 2);
     ASSERT_EQ(nodeA.reset_called, 1);
 
@@ -1309,7 +1309,7 @@ TEST_F(SchedulerTest, testResetClearsState) {
 
     ASSERT_EQ(nodeA.reset_called, 2);
 
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeA.next_called, 3);
     ASSERT_EQ(nodeA.reset_called, 3);
 }
@@ -1331,15 +1331,15 @@ TEST_F(SchedulerTest, testResetClearsFiredOneShots) {
 
     const auto scheduler = build(std::move(ir));
 
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 1);
 
-    scheduler->next(telem::MILLISECOND * 2);
+    scheduler->next(x::telem::MILLISECOND * 2);
     ASSERT_EQ(nodeB.next_called, 1);
 
     scheduler->reset();
 
-    scheduler->next(telem::MILLISECOND);
+    scheduler->next(x::telem::MILLISECOND);
     ASSERT_EQ(nodeB.next_called, 2);
 }
 

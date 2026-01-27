@@ -14,7 +14,7 @@
 
 #include "driver/pipeline/base.h"
 
-namespace driver::pipeline {
+namespace pipeline {
 /// @brief an object that reads data from an acquisition computer or another source,
 /// returning data as frames.
 class Source {
@@ -29,7 +29,7 @@ public:
     /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as
     /// this improved traceability.
     [[nodiscard]] virtual x::errors::Error
-    read(x::breaker::Breaker &breaker, x::telem::Frame &data) = 0;
+    read(x::breaker::Breaker &breaker, telem::Frame &data) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that
     /// caused it to shut down or occurred during commanded shutdown. Note that this
@@ -52,7 +52,7 @@ public:
     /// @brief writes the given frame of telemetry to the writer. Returns a non-nil
     /// error if the write fails, at which point the acquisition pipeline will
     /// close the writer and conditionally trigger a retry (see the close method).
-    [[nodiscard]] virtual x::errors::Error write(const x::telem::Frame &fr) = 0;
+    [[nodiscard]] virtual x::errors::Error write(const telem::Frame &fr) = 0;
 
     /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -75,28 +75,28 @@ public:
     /// number of maximum retries is exceeded. Any other error will be considered
     /// permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Writer>, x::errors::Error>
-    open_writer(const synnax::framer::WriterConfig &config) = 0;
+    open_writer(const synnax::WriterConfig &config) = 0;
 
     virtual ~WriterFactory() = default;
 };
 
-/// @brief an implementation of the driver::pipeline::Writer interface that is backed
+/// @brief an implementation of the pipeline::Writer interface that is backed
 /// by a Synnax writer that writes data to a cluster.
-class SynnaxWriter final : public driver::pipeline::Writer {
+class SynnaxWriter final : public pipeline::Writer {
     /// @brief the internal Synnax writer that this writer wraps.
-    synnax::framer::Writer internal;
+    synnax::Writer internal;
 
 public:
-    explicit SynnaxWriter(synnax::framer::Writer internal);
+    explicit SynnaxWriter(synnax::Writer internal);
 
-    /// @brief implements driver::pipeline::Writer to write the frame to Synnax.
-    [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override;
+    /// @brief implements pipeline::Writer to write the frame to Synnax.
+    [[nodiscard]] x::errors::Error write(const telem::Frame &fr) override;
 
-    /// @brief implements driver::pipeline::Writer to close the writer.
+    /// @brief implements pipeline::Writer to close the writer.
     [[nodiscard]] x::errors::Error close() override;
 };
 
-/// @brief an implementation of the driver::pipeline::WriterFactory interface that is
+/// @brief an implementation of the pipeline::WriterFactory interface that is
 /// backed by an actual synnax client connected to a cluster.
 class SynnaxWriterFactory final : public WriterFactory {
     /// @brief the Synnax client to use for opening writers.
@@ -105,9 +105,9 @@ class SynnaxWriterFactory final : public WriterFactory {
 public:
     explicit SynnaxWriterFactory(std::shared_ptr<synnax::Synnax> client);
 
-    /// @brief implements driver::pipeline::WriterFactory to open a Synnax writer.
-    [[nodiscard]] std::pair<std::unique_ptr<driver::pipeline::Writer>, x::errors::Error>
-    open_writer(const synnax::framer::WriterConfig &config) override;
+    /// @brief implements pipeline::WriterFactory to open a Synnax writer.
+    [[nodiscard]] std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
+    open_writer(const synnax::WriterConfig &config) override;
 };
 
 /// @brief A pipeline that reads from a source and writes it's data to Synnax. The
@@ -123,7 +123,7 @@ class Acquisition final : public Base {
     /// new frames to synnax.
     const std::shared_ptr<Source> source;
     /// @brief the configuration for the Synnax writer.
-    synnax::framer::WriterConfig writer_config;
+    synnax::WriterConfig writer_config;
 
     /// @brief the run function passed to the pipeline thread. Automatically catches
     /// standard exceptions to ensure the pipeline does not cause the application to
@@ -146,9 +146,9 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
-        synnax::framer::WriterConfig writer_config,
+        synnax::WriterConfig writer_config,
         std::shared_ptr<Source> source,
-        const x::breaker::Config &breaker_config,
+        const breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 
@@ -167,9 +167,9 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<WriterFactory> factory,
-        synnax::framer::WriterConfig writer_config,
+        synnax::WriterConfig writer_config,
         std::shared_ptr<Source> source,
-        const x::breaker::Config &breaker_config,
+        const breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 };

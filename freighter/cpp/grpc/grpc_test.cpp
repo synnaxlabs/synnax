@@ -316,30 +316,30 @@ TEST(testGRPC, testPoolChannelReuse) {
     mock::stop_servers();
     s.join();
 }
-}
 
 /// @brief it should not crash when calling close_send on a dead connection.
 TEST(testGRPC, testCloseSendOnDeadConnection) {
-    auto pool = std::make_shared<fgrpc::Pool>();
-    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, "localhost:9999");
-    auto streamer = ASSERT_NIL_P(client.stream(""));
+    const auto pool = std::make_shared<Pool>();
+    auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, "localhost:9999");
+    const auto streamer = ASSERT_NIL_P(client.stream(""));
     auto mes = test::Message();
     mes.set_payload("test");
     streamer->send(mes);
-    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::UNREACHABLE);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::ERR_UNREACHABLE);
     streamer->close_send();
 }
 
 /// @brief it should safely call close_send multiple times.
 TEST(testGRPC, testCloseSendIdempotent) {
     std::string target("localhost:8080");
-    std::thread s(server, target);
+    std::thread s(mock::server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    auto pool = std::make_shared<fgrpc::Pool>();
-    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
-    auto streamer = ASSERT_NIL_P(client.stream(""));
+    const auto pool = std::make_shared<Pool>();
+    auto client = StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
+    const auto streamer = ASSERT_NIL_P(client.stream(""));
     streamer->close_send();
     streamer->close_send();
-    stop_servers();
+    mock::stop_servers();
     s.join();
+}
 }

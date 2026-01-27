@@ -558,10 +558,10 @@ TEST(StateTest, ReadChannel_UnknownChannel) {
 TEST(StateTest, Reset_ClearsReadsAndWrites) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(telem::FLOAT32_T, 2);
+    auto series = telem::Series(x::telem::FLOAT32_T, 2);
     series.write(1.0f);
     series.write(2.0f);
-    s.ingest(telem::Frame(10, std::move(series)));
+    s.ingest(x::telem::Frame(10, std::move(series)));
 
     auto [data_before, ok_before] = s.read_channel(10);
     ASSERT_TRUE(ok_before);
@@ -621,8 +621,8 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
 

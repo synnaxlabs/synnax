@@ -200,7 +200,7 @@ class Stream final
     /// @brief the RPC stub used to instantiate the connection.
     const std::unique_ptr<typename RPC::Stub> stub;
     /// @brief stored to check connection state.
-    std::shared_ptr<grpc::Channel> channel;
+    std::shared_ptr<::grpc::Channel> channel;
 
     /// @brief set to true when the stream is closed.
     bool closed = false;

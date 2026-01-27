@@ -13,27 +13,28 @@
 @pb
 
 Kind enum {
-    invalid          = 0
-    u8               = 1
-    u16              = 2
-    u32              = 3
-    u64              = 4
-    i8               = 5
-    i16              = 6
-    i32              = 7
-    i64              = 8
-    f32              = 9
-    f64              = 10
-    string           = 11
-    chan             = 14
-    series           = 15
-    variable         = 16
-    numeric_constant = 17
-    integer_constant = 18
-    float_constant   = 19
-    function         = 20
-    sequence         = 21
-    stage            = 22
+    invalid                      = 0
+    u8                           = 1
+    u16                          = 2
+    u32                          = 3
+    u64                          = 4
+    i8                           = 5
+    i16                          = 6
+    i32                          = 7
+    i64                          = 8
+    f32                          = 9
+    f64                          = 10
+    string                       = 11
+    chan                         = 14
+    series                       = 15
+    variable                     = 16
+    numeric_constant             = 17
+    integer_constant             = 18
+    float_constant               = 19
+    exact_integer_float_constant = 20
+    function                     = 21
+    sequence                     = 22
+    stage                        = 23
 
     @doc value """
         is the type category for Arc's type system, including primitives, compound

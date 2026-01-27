@@ -208,7 +208,7 @@ TEST(LoopTest, DifferentModes) {
 }
 
 TEST(ModeSelectorTest, NoIntervals_SelectsEventDriven) {
-    EXPECT_EQ(select_mode(telem::TimeSpan(0), false), ExecutionMode::EVENT_DRIVEN);
+    EXPECT_EQ(select_mode(x::telem::TimeSpan(0), false), ExecutionMode::EVENT_DRIVEN);
 }
 
 TEST(ModeSelectorTest, ModerateRate_SelectsHybrid) {
@@ -221,11 +221,11 @@ TEST(ModeSelectorTest, LowRate_SelectsEventDriven) {
 
 TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
     EXPECT_NE(select_mode(10 * telem::MICROSECOND, true), ExecutionMode::BUSY_WAIT);
-    EXPECT_NE(select_mode(telem::TimeSpan(0), true), ExecutionMode::BUSY_WAIT);
+    EXPECT_NE(select_mode(x::telem::TimeSpan(0), true), ExecutionMode::BUSY_WAIT);
 }
 
 TEST(ModeSelectorTest, Boundary_AtOneMs_SelectsHybrid) {
-    EXPECT_EQ(select_mode(telem::MILLISECOND, true), ExecutionMode::HYBRID);
+    EXPECT_EQ(select_mode(x::telem::MILLISECOND, true), ExecutionMode::HYBRID);
 }
 
 TEST(ModeSelectorTest, Boundary_AtFiveMs_SelectsEventDriven) {
@@ -290,7 +290,7 @@ TEST(ConfigTest, HighRateModeWithoutIntervalGetsDefault) {
     Config cfg;
     cfg.mode = ExecutionMode::HIGH_RATE;
     cfg.interval = telem::TimeSpan(0);
-    const auto resolved = cfg.apply_defaults(telem::TimeSpan::max());
+    const auto resolved = cfg.apply_defaults(x::telem::TimeSpan::max());
     EXPECT_EQ(resolved.interval, timing::HIGH_RATE_POLL_INTERVAL);
 }
 
@@ -298,7 +298,7 @@ TEST(ConfigTest, RTEventModeWithoutIntervalGetsDefault) {
     Config cfg;
     cfg.mode = ExecutionMode::RT_EVENT;
     cfg.interval = telem::TimeSpan(0);
-    const auto resolved = cfg.apply_defaults(telem::TimeSpan::max());
+    const auto resolved = cfg.apply_defaults(x::telem::TimeSpan::max());
     EXPECT_EQ(resolved.interval, timing::HIGH_RATE_POLL_INTERVAL);
 }
 
@@ -306,7 +306,7 @@ TEST(ConfigTest, HighRateModeWithExplicitIntervalNotOverridden) {
     Config cfg;
     cfg.mode = ExecutionMode::HIGH_RATE;
     cfg.interval = 500 * telem::MICROSECOND;
-    const auto resolved = cfg.apply_defaults(telem::TimeSpan::max());
+    const auto resolved = cfg.apply_defaults(x::telem::TimeSpan::max());
     EXPECT_EQ(resolved.interval, 500 * telem::MICROSECOND);
 }
 

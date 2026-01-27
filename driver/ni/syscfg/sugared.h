@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "x/cpp/lib/lib.h"
+#include "x/cpp/xlib/xlib.h"
 
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/nisyscfg.h"

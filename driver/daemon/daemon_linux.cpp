@@ -18,13 +18,13 @@
 #include <sys/stat.h>
 #include <systemd/sd-daemon.h>
 
-#include "x/cpp/thread/thread.h"
+#include "x/cpp/xthread/xthread.h"
 
 #include "driver/daemon/daemon.h"
 
 namespace fs = std::filesystem;
 
-namespace driver::daemon {
+namespace daemond {
 const std::string BINARY_INSTALL_DIR = "/usr/local/bin";
 const std::string BINARY_NAME = "synnax-driver";
 const std::string SYSTEMD_SERVICE_PATH = "/etc/systemd/system/synnax-driver.service";
@@ -103,13 +103,10 @@ x::errors::Error install_binary() {
     std::error_code ec;
     const fs::path curr_bin_path = fs::read_symlink("/proc/self/exe", ec);
     if (ec)
-        return x::errors::Error(
-            "Failed to get current executable path: " + ec.message()
-        );
+        return x::errors::Error("Failed to get current executable path: " + ec.message());
 
     fs::create_directories(BINARY_INSTALL_DIR, ec);
-    if (ec)
-        return x::errors::Error("Failed to create binary directory: " + ec.message());
+    if (ec) return x::errors::Error("Failed to create binary directory: " + ec.message());
 
     // Copy the binary
     const fs::path target_path = "/usr/local/bin/synnax-driver";
@@ -216,7 +213,7 @@ void run(const Config &config, int argc, char *argv[]) {
 
     // Start watchdog thread
     std::thread watchdog([&]() {
-        x::thread::set_name("watchdog");
+        xthread::set_name("watchdog");
         while (!should_stop) {
             notify_watchdog();
             std::this_thread::sleep_for(std::chrono::seconds(config.watchdog_interval));

@@ -69,7 +69,7 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->epoll_fd_ != -1) return xerrors::NIL;
+        if (this->epoll_fd_ != -1) return x::errors::NIL;
 
         this->epoll_fd_ = epoll_create1(0);
         if (this->epoll_fd_ == -1)

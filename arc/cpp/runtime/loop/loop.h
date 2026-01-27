@@ -18,7 +18,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/notify/notify.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/xjson/xjson.h"
 #include "x/cpp/xlog/xlog.h"
 

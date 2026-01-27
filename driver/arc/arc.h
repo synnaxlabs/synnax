@@ -28,7 +28,7 @@ const std::string TASK_TYPE = INTEGRATION_NAME;
 /// @brief factory for creating arc runtime tasks.
 class Factory final : public task::Factory {
     /// @brief configures an arc runtime task.
-    std::pair<common::ConfigureResult, xerrors::Error>
+    std::pair<common::ConfigureResult, x::errors::Error>
     configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
 public:

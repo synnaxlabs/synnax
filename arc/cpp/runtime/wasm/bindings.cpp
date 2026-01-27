@@ -500,7 +500,7 @@ void Bindings::panic(const uint32_t ptr, const uint32_t len) {
             message = std::string(reinterpret_cast<const char *>(mem_data + ptr), len);
     }
     std::fprintf(stderr, "WASM panic: %s\n", message.c_str());
-    this->error_handler(xerrors::Error(errors::WASM_PANIC, message));
+    this->error_handler(x::errors::Error(errors::WASM_PANIC, message));
 }
 
 template<typename T>

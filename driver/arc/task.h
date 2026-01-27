@@ -50,7 +50,7 @@ struct TaskConfig : common::BaseTaskConfig {
         arc_key(parser.field<std::string>("arc_key")),
         loop(parser) {}
 
-    static std::pair<TaskConfig, xerrors::Error>
+    static std::pair<TaskConfig, x::errors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, xjson::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
@@ -60,7 +60,7 @@ struct TaskConfig : common::BaseTaskConfig {
         );
         if (arc_err) return {std::move(cfg), arc_err};
         cfg.module = module::Module(arc_data.module);
-        return {std::move(cfg), xerrors::NIL};
+        return {std::move(cfg), x::errors::NIL};
     }
 };
 
@@ -78,13 +78,13 @@ class Task final : public task::Task {
     public:
         explicit Source(Task &task): task(task) {}
 
-        xerrors::Error read(breaker::Breaker &breaker, telem::Frame &data) override {
+        x::errors::Error read(x::breaker::Breaker &breaker, telem::Frame &data) override {
             if (!this->task.runtime->read(data))
-                return xerrors::Error("runtime closed");
-            return xerrors::NIL;
+                return x::errors::Error("runtime closed");
+            return x::errors::NIL;
         }
 
-        void stopped_with_err(const xerrors::Error &err) override {
+        void stopped_with_err(const x::errors::Error &err) override {
             this->task.stop(false);
         }
     };
@@ -96,8 +96,8 @@ class Task final : public task::Task {
     public:
         explicit Sink(Task &task): task(task) {}
 
-        xerrors::Error write(telem::Frame &frame) override {
-            if (frame.empty()) return xerrors::NIL;
+        x::errors::Error write(telem::Frame &frame) override {
+            if (frame.empty()) return x::errors::NIL;
             return this->task.runtime->write(std::move(frame));
         }
     };
@@ -106,7 +106,7 @@ class Task final : public task::Task {
         state(ctx, task_meta) {}
 
 public:
-    static std::pair<std::unique_ptr<Task>, xerrors::Error> create(
+    static std::pair<std::unique_ptr<Task>, x::errors::Error> create(
         const synnax::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx,
         const TaskConfig &cfg,
@@ -121,20 +121,20 @@ public:
             .retrieve_channels =
                 [client = ctx->client](const std::vector<types::ChannelKey> &keys)
                 -> std::
-                    pair<std::vector<runtime::state::ChannelDigest>, xerrors::Error> {
+                    pair<std::vector<runtime::state::ChannelDigest>, x::errors::Error> {
                         auto [channels, err] = client->channels.retrieve(keys);
                         if (err) return {{}, err};
                         std::vector<runtime::state::ChannelDigest> digests;
                         for (const auto &ch: channels)
                             digests.push_back({ch.key, ch.data_type, ch.index});
-                        return {digests, xerrors::NIL};
+                        return {digests, x::errors::NIL};
                     },
             .loop = cfg.loop,
         };
 
         auto [rt, err] = runtime::load(
             runtime_cfg,
-            [task_ptr = task.get()](const xerrors::Error &err) {
+            [task_ptr = task.get()](const x::errors::Error &err) {
                 if (err.matches(runtime::errors::WARNING))
                     task_ptr->state.send_warning(err);
                 else {
@@ -181,7 +181,7 @@ public:
             "arc_control"
         );
 
-        return {std::move(task), xerrors::NIL};
+        return {std::move(task), x::errors::NIL};
     }
 
     bool start(const std::string &cmd_key) {

@@ -12,7 +12,7 @@
 #include <string>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/lib/lib.h"
+#include "x/cpp/xlib/xlib.h"
 
 namespace driver {
 const x::errors::Error BASE_ERROR = x::errors::SY.sub("driver");
@@ -34,7 +34,7 @@ inline x::errors::Error missing_lib(const LibraryInfo &lib) {
         message += " Download here: " + lib.url +
                    ". Restart Driver after installation.";
     }
-    return x::errors::Error(x::lib::ERR_LOAD, message);
+    return x::errors::Error(xlib::LOAD_ERROR, message);
 }
 
 /// @brief wraps an error with channel name and hardware location context for easier

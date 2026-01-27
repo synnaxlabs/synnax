@@ -37,7 +37,7 @@ public:
 
     ~WindowsLoop() override { this->close_handles(); }
 
-    void wait(breaker::Breaker &breaker) override {
+    void wait(x::breaker::Breaker &breaker) override {
         if (this->wake_event_ == NULL) return;
 
         switch (this->config_.mode) {
@@ -61,7 +61,7 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->wake_event_ != NULL) return xerrors::NIL;
+        if (this->wake_event_ != NULL) return x::errors::NIL;
 
         this->wake_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
         if (this->wake_event_ == NULL) {

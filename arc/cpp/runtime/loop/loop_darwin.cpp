@@ -68,7 +68,7 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->kqueue_fd_ != -1) return xerrors::NIL;
+        if (this->kqueue_fd_ != -1) return x::errors::NIL;
 
         // Handle RT_EVENT fallback on macOS
         if (this->config_.mode == ExecutionMode::RT_EVENT) {

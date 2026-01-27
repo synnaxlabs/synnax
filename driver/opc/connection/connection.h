@@ -20,9 +20,9 @@
 
 /// module
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/json.h"
+#include "x/cpp/xjson/xjson.h"
 
-namespace driver::opc::connection {
+namespace opc::connection {
 /// @brief the configuration for an OPC UA connection.
 struct Config {
     /// @brief the endpoint of the OPC UA server.
@@ -55,7 +55,7 @@ struct Config {
 
     Config() = default;
 
-    explicit Config(x::json::Parser parser):
+    explicit Config(xjson::Parser parser):
         endpoint(parser.field<std::string>("endpoint")),
         username(parser.field<std::string>("username", "")),
         password(parser.field<std::string>("password", "")),
@@ -70,7 +70,7 @@ struct Config {
         session_timeout_ms(parser.field<uint32_t>("session_timeout_ms", 0)),
         client_timeout_ms(parser.field<uint32_t>("client_timeout_ms", 0)) {}
 
-    x::json::json to_json() const {
+    json to_json() const {
         return {
             {"endpoint", endpoint},
             {"username", username},

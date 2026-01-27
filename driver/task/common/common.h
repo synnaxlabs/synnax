@@ -13,7 +13,7 @@
 
 #include "driver/task/task.h"
 
-namespace driver::task::common {
+namespace common {
 /// @brief a common base configuration for tasks.
 struct BaseTaskConfig {
     /// @brief whether data saving is enabled for the task.
@@ -28,7 +28,7 @@ struct BaseTaskConfig {
     BaseTaskConfig(const BaseTaskConfig &other) = delete;
     const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
 
-    explicit BaseTaskConfig(x::json::Parser &parser):
+    explicit BaseTaskConfig(xjson::Parser &parser):
         data_saving(parser.field<bool>("data_saving", true)),
         auto_start(parser.field<bool>("auto_start", false)) {}
 };
@@ -38,14 +38,14 @@ struct BaseTaskConfig {
 struct ConfigureResult {
     /// @brief the task instantiated by a specific task driver. Should be null if error
     /// is not x::errors::NIL.
-    std::unique_ptr<driver::task::Task> task;
+    std::unique_ptr<task::Task> task;
     /// @brief whether to auto-start the task if no error occurred.
     bool auto_start = false;
 };
 
 /// @brief converts a data_saving boolean to the appropriate WriterMode.
-inline synnax::framer::WriterMode data_saving_writer_mode(const bool data_saving) {
-    if (data_saving) return synnax::framer::WriterMode::PersistStream;
-    return synnax::framer::WriterMode::StreamOnly;
+inline synnax::WriterMode data_saving_writer_mode(const bool data_saving) {
+    if (data_saving) return synnax::WriterMode::PersistStream;
+    return synnax::WriterMode::StreamOnly;
 }
 }

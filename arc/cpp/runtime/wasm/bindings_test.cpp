@@ -11,7 +11,7 @@
 
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
@@ -1224,8 +1224,8 @@ TEST(BindingsNullStateTest, ChannelWriteWithNullStateDoesNotCrash) {
 
 /// @brief Test that panic calls error handler with WASM_PANIC error.
 TEST(BindingsPanicTest, PanicCallsErrorHandler) {
-    std::vector<xerrors::Error> reported_errors;
-    auto error_handler = [&reported_errors](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    auto error_handler = [&reported_errors](const x::errors::Error &err) {
         reported_errors.push_back(err);
     };
 
@@ -1239,8 +1239,8 @@ TEST(BindingsPanicTest, PanicCallsErrorHandler) {
 
 /// @brief Test that multiple panics each call error handler.
 TEST(BindingsPanicTest, MultiplePanicsCallErrorHandlerMultipleTimes) {
-    std::vector<xerrors::Error> reported_errors;
-    auto error_handler = [&reported_errors](const xerrors::Error &err) {
+    std::vector<x::errors::Error> reported_errors;
+    auto error_handler = [&reported_errors](const x::errors::Error &err) {
         reported_errors.push_back(err);
     };
 

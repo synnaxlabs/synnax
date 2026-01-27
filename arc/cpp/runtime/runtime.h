@@ -48,7 +48,7 @@ struct Config {
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
-using ErrorHandler = std::function<void(const xerrors::Error &)>;
+using ErrorHandler = std::function<void(const x::errors::Error &)>;
 
 class Runtime {
     x::breaker::Breaker breaker;
@@ -95,7 +95,7 @@ public:
         this->loop->start();
         if (!this->loop->watch(this->inputs.notifier())) {
             LOG(ERROR) << "[runtime] failed to watch input notifier";
-            this->error_handler(xerrors::Error("failed to watch input notifier"));
+            this->error_handler(x::errors::Error("failed to watch input notifier"));
             return;
         }
         while (this->breaker.running()) {
@@ -142,13 +142,13 @@ public:
         return true;
     }
 
-    x::errors::Error write(telem::Frame frame) {
+    x::errors::Error write(x::telem::Frame frame) {
         if (this->inputs.closed()) return x::errors::Error("runtime closed");
         if (!this->inputs.push(std::move(frame))) {
             this->error_handler(errors::QUEUE_FULL_INPUT);
             return errors::QUEUE_FULL_INPUT;
         }
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     bool read(x::telem::Frame &frame) { return this->outputs.pop(frame); }

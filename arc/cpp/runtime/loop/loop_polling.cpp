@@ -79,7 +79,7 @@ public:
             }
         } else {
             if (this->config_.mode == ExecutionMode::BUSY_WAIT) {
-                std::this_thread::sleep_for(telem::MICROSECOND.chrono());
+                std::this_thread::sleep_for(x::telem::MICROSECOND.chrono());
             } else {
                 std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
             }
@@ -87,7 +87,7 @@ public:
     }
 
     x::errors::Error start() override {
-        if (this->started_) return xerrors::NIL;
+        if (this->started_) return x::errors::NIL;
 
         if (this->config_.interval.nanoseconds() > 0) {
             this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);

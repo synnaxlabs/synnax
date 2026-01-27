@@ -1226,8 +1226,7 @@ public:
         int32 channelTypeArray[],
         uInt32 *arraySize
     );
-    x::errors::Error
-    GetArmStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
+    x::errors::Error GetArmStartTrigTimestampVal(TaskHandle task, CVIAbsoluteTime *data);
     x::errors::Error GetArmStartTrigTrigWhen(TaskHandle task, CVIAbsoluteTime *data);
     x::errors::Error
     GetAutoConfiguredCDAQSyncConnections(char portList[], uInt32 portListSize);
@@ -2043,12 +2042,10 @@ public:
     x::errors::Error
     SetExportedSignalAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
     x::errors::Error SetFirstSampClkWhen(TaskHandle task, CVIAbsoluteTime data);
-    x::errors::Error
-    SetReadAttributeBool(TaskHandle task, int32 attribute, bool32 value);
+    x::errors::Error SetReadAttributeBool(TaskHandle task, int32 attribute, bool32 value);
     x::errors::Error
     SetReadAttributeDouble(TaskHandle task, int32 attribute, float64 value);
-    x::errors::Error
-    SetReadAttributeInt32(TaskHandle task, int32 attribute, int32 value);
+    x::errors::Error SetReadAttributeInt32(TaskHandle task, int32 attribute, int32 value);
     x::errors::Error
     SetReadAttributeString(TaskHandle task, int32 attribute, const char value[]);
     x::errors::Error
@@ -2143,8 +2140,7 @@ public:
     SetTimingAttributeUInt32(TaskHandle task, int32 attribute, uInt32 value);
     x::errors::Error
     SetTimingAttributeUInt64(TaskHandle task, int32 attribute, uInt64 value);
-    x::errors::Error
-    SetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 value);
+    x::errors::Error SetTrigAttributeBool(TaskHandle task, int32 attribute, bool32 value);
     x::errors::Error
     SetTrigAttributeDouble(TaskHandle task, int32 attribute, float64 value);
     x::errors::Error SetTrigAttributeDoubleArray(
@@ -2153,8 +2149,7 @@ public:
         const float64 value[],
         uInt32 size
     );
-    x::errors::Error
-    SetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 value);
+    x::errors::Error SetTrigAttributeInt32(TaskHandle task, int32 attribute, int32 value);
     x::errors::Error SetTrigAttributeInt32Array(
         TaskHandle task,
         int32 attribute,
@@ -2423,7 +2418,6 @@ public:
     x::errors::Error SetReadRelativeTo(TaskHandle taskHandle, int32 data);
     x::errors::Error SetReadOffset(TaskHandle taskHandle, int32 data);
     x::errors::Error SetReadOverWrite(TaskHandle taskHandle, int32 data);
-    x::errors::Error
-    GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data);
+    x::errors::Error GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data);
 };
 }
