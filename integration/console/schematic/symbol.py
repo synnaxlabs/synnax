@@ -136,6 +136,7 @@ class Symbol(ABC):
         pass
 
     def _disable_edit_mode(self) -> None:
+        self.console.notifications.close_all()
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
