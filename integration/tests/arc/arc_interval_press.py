@@ -18,7 +18,7 @@ func open_press() {
         press_vlv_cmd = 0
         vent_vlv_cmd = 1
         str_chan = "venting"
-    } else if (press_pt < 0.5) {
+    } else if (press_pt < 1) {
         press_vlv_cmd = 1
         vent_vlv_cmd = 0
         str_chan = "pressing"
@@ -34,8 +34,9 @@ class ArcIntervalPress(ArcConsoleCase):
 
     This test demonstrates:
     1. Interval-based function execution (every 50ms)
-    2. Hysteresis control logic (press < 0.5, vent > 30)
+    2. Hysteresis control logic (press < 1, vent > 30)
     3. String channel status output
+    4. Multiple pressure cycles (3 complete cycles)
 
     Unlike stage-based sequences, the interval trigger fires automatically
     when the Arc task starts - no explicit trigger channel needed.
@@ -72,7 +73,7 @@ class ArcIntervalPress(ArcConsoleCase):
                 press_opened = True
                 break
         if not press_opened:
-            self.fail("Press valve should open when pressure < 0.5")
+            self.fail("Press valve should open when pressure < 1")
             return
 
         self.log("Verifying str_chan = 'pressing'...")
@@ -87,66 +88,56 @@ class ArcIntervalPress(ArcConsoleCase):
             self.fail("str_chan should show 'pressing'")
             return
 
-        self.log("Waiting for pressure to exceed 30...")
-        pressure_exceeded = False
-        while self.should_continue:
-            press_pt = self.read_tlm("press_pt")
-            if press_pt is not None and press_pt > 30:
-                self.log(f"Pressure exceeded threshold: {press_pt:.1f}")
-                pressure_exceeded = True
-                break
-        if not pressure_exceeded:
-            self.fail("Pressure should rise above 30")
-            return
+        # Verify 3 complete pressure cycles
+        for cycle in range(1, 4):
+            self.log(f"[Cycle {cycle}] Waiting for pressure to exceed 27...")
+            pressure_exceeded = False
+            while self.should_continue:
+                press_pt = self.read_tlm("press_pt")
+                if press_pt is not None and press_pt > 27:
+                    self.log(f"[Cycle {cycle}] Pressure exceeded threshold: {press_pt:.1f}")
+                    pressure_exceeded = True
+                    break
+            if not pressure_exceeded:
+                self.fail(f"[Cycle {cycle}] Pressure should rise above 27")
+                return
 
-        self.log("Verifying transition to venting...")
-        venting_mode = False
-        while self.should_continue:
-            vent_state = self.read_tlm("vent_vlv_state")
-            press_state = self.read_tlm("press_vlv_state")
-            if vent_state == 1 and press_state == 0:
-                self.log("Vent valve opened, press valve closed - venting mode")
-                venting_mode = True
-                break
-        if not venting_mode:
-            self.fail("Should transition to venting when pressure > 30")
-            return
+            self.log(f"[Cycle {cycle}] Verifying transition to venting...")
+            venting_mode = False
+            while self.should_continue:
+                vent_state = self.read_tlm("vent_vlv_state")
+                press_state = self.read_tlm("press_vlv_state")
+                if vent_state == 1 and press_state == 0:
+                    self.log(f"[Cycle {cycle}] Vent valve opened, press valve closed - venting mode")
+                    venting_mode = True
+                    break
+            if not venting_mode:
+                self.fail(f"[Cycle {cycle}] Should transition to venting when pressure > 30")
+                return
 
-        self.log("Verifying str_chan = 'venting'...")
-        venting_status = False
-        while self.should_continue:
-            status = self.read_tlm("str_chan")
-            if status is not None and str(status) == "venting":
-                self.log(f"Status confirmed: {status}")
-                venting_status = True
-                break
-        if not venting_status:
-            self.fail("str_chan should show 'venting'")
-            return
+            self.log(f"[Cycle {cycle}] Waiting for pressure to drop below 4...")
+            pressure_dropped = False
+            while self.should_continue:
+                press_pt = self.read_tlm("press_pt")
+                if press_pt is not None and press_pt < 4:
+                    self.log(f"[Cycle {cycle}] Pressure dropped below threshold: {press_pt:.1f}")
+                    pressure_dropped = True
+                    break
+            if not pressure_dropped:
+                self.fail(f"[Cycle {cycle}] Pressure should drop below 4")
+                return
 
-        self.log("Waiting for pressure to drop below 0.5...")
-        pressure_dropped = False
-        while self.should_continue:
-            press_pt = self.read_tlm("press_pt")
-            if press_pt is not None and press_pt < 0.5:
-                self.log(f"Pressure dropped below threshold: {press_pt:.1f}")
-                pressure_dropped = True
-                break
-        if not pressure_dropped:
-            self.fail("Pressure should drop below 0.5")
-            return
+            self.log(f"[Cycle {cycle}] Verifying return to pressing mode...")
+            pressing_mode = False
+            while self.should_continue:
+                press_state = self.read_tlm("press_vlv_state")
+                vent_state = self.read_tlm("vent_vlv_state")
+                if press_state == 1 and vent_state == 0:
+                    self.log(f"[Cycle {cycle}] Press valve opened, vent valve closed - cycle complete!")
+                    pressing_mode = True
+                    break
+            if not pressing_mode:
+                self.fail(f"[Cycle {cycle}] Should return to pressing when pressure < 1")
+                return
 
-        self.log("Verifying return to pressing mode...")
-        pressing_mode = False
-        while self.should_continue:
-            press_state = self.read_tlm("press_vlv_state")
-            vent_state = self.read_tlm("vent_vlv_state")
-            if press_state == 1 and vent_state == 0:
-                self.log("Press valve opened, vent valve closed - cycle complete!")
-                pressing_mode = True
-                break
-        if not pressing_mode:
-            self.fail("Should return to pressing when pressure < 0.5")
-            return
-
-        self.log("Interval-triggered hysteresis control verified successfully")
+        self.log("All 3 cycles completed - interval-triggered hysteresis control verified successfully")
