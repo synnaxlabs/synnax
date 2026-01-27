@@ -111,10 +111,13 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         self.fail("Exited without venting")
 
     def assert_states(self, press_state: int, vent_state: int) -> None:
-        sy.sleep(1)
-        press_vlv_state = self.client.read_latest("press_vlv_state")
-        vent_vlv_state = self.client.read_latest("vent_vlv_state")
-        assert (
-            press_vlv_state == press_state
-        ), f"Press valve state should be {press_state}"
-        assert vent_vlv_state == vent_state, f"Vent valve state should be {vent_state}"
+        """Wait for valve states to match expected values."""
+        while self.should_continue:
+            press_vlv_state = self.client.read_latest("press_vlv_state")
+            vent_vlv_state = self.client.read_latest("vent_vlv_state")
+            if press_vlv_state == press_state and vent_vlv_state == vent_state:
+                return
+        self.fail(
+            f"Valve state mismatch: press={press_vlv_state} (expected {press_state}), "
+            f"vent={vent_vlv_state} (expected {vent_state})"
+        )
