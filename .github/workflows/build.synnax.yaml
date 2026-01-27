@@ -197,10 +197,10 @@ jobs:
           go build main.go
 
       - name: Test trusted-signing-cli
-        run: |
+        run:
           trusted-signing-cli -e https://wcus.codesigning.azure.net -a
-          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Signing Test"
-          main.exe
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Signing
+          Test" main.exe
 
   build:
     name: Build (${{ matrix.os }})
@@ -740,11 +740,8 @@ jobs:
 
       - name: Build Console Tauri (Unsigned)
         if: ${{ !inputs.sign_binaries }}
-        env:
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         working-directory: console
-        run: pnpm build
+        run: pnpm build --no-sign
 
       - name: Upload Console App as Artifact
         uses: actions/upload-artifact@v6
