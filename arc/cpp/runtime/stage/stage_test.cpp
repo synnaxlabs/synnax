@@ -59,7 +59,10 @@ TEST(StageFactoryTest, RejectsOtherTypes) {
 /// @brief Verify factory creates a valid StageEntry node.
 TEST(StageFactoryTest, CreatesStageEntryNode) {
     auto ir = build_ir();
-    state::State state(state::Config{.ir = ir, .channels = {}});
+    state::State state(
+        state::Config{.ir = ir, .channels = {}},
+        arc::runtime::errors::noop_handler
+    );
     auto state_node = ASSERT_NIL_P(state.node("entry"));
 
     stage::Factory factory;

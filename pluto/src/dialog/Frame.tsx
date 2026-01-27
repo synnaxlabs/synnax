@@ -241,7 +241,7 @@ export const Frame = ({
     if (typeof maxHeight === "number") style.maxHeight = maxHeight;
     if (visible) style.zIndex = zIndex;
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
-  }, [propsLocation, variant]);
+  }, [propsLocation, variant, setVisible]);
 
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);

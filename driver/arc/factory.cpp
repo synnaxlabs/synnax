@@ -29,10 +29,10 @@ std::pair<common::ConfigureResult, xerrors::Error> Factory::configure(
     auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
     if (cfg_err) return {std::move(result), cfg_err};
 
-    auto [runtime, rt_err] = load_runtime(cfg, ctx->client);
-    if (rt_err) return {std::move(result), rt_err};
+    auto [arc_task, task_err] = Task::create(task, ctx, cfg);
+    if (task_err) return {std::move(result), task_err};
 
-    result.task = std::make_unique<Task>(task, ctx, std::move(runtime), cfg);
+    result.task = std::move(arc_task);
     result.auto_start = cfg.auto_start;
     return {std::move(result), xerrors::NIL};
 }

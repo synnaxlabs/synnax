@@ -35,6 +35,7 @@ cc_test(
     deps = [
         ":wasm",
         "//x/cpp/telem",
+        "//x/cpp/xtest",
         "@googletest//:gtest_main",
     ],
 )
@@ -68,6 +69,7 @@ cc_test(
     deps = [
         ":wasm",
         "//arc/cpp/ir",
+        "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
