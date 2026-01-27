@@ -143,13 +143,12 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
       <Nav.Bar
         location="top"
         size="6.5rem"
-        className="console-main-nav-top"
         bordered
         data-tauri-drag-region
+        background={2}
       >
-        <Nav.Bar.Start className="console-main-nav-top__start">
+        <Nav.Bar.Start>
           <OS.Controls
-            className="console-controls--macos"
             visibleIfOS="macOS"
             forceOS={os}
             onClose={() => {
@@ -166,9 +165,8 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
             <Logo className="console-main-nav-top__logo" variant="icon" />
           )}
         </Nav.Bar.Start>
-        <Nav.Bar.End className="console-main-nav-top__end" justify="end">
+        <Nav.Bar.End justify="end">
           <OS.Controls
-            className="console-controls--windows"
             visibleIfOS="Windows"
             forceOS={os}
             contrast={0}
@@ -184,7 +182,6 @@ const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown
           />
         </Nav.Bar.End>
       </Nav.Bar>
-
       <Errors.Fallback
         error={error}
         resetErrorBoundary={resetErrorBoundary}
