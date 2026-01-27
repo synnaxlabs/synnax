@@ -51,7 +51,7 @@ uv run python -m examples.simulators.tpc --help
 To create a custom simulator, extend the `SimDAQ` base class:
 
 ```python
-from examples.simulators.base import SimDAQ
+from examples.simulators import SimDAQ
 import synnax as sy
 
 class MySimDAQ(SimDAQ):

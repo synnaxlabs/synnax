@@ -13,9 +13,10 @@ from examples.simulators import PressSimDAQ
 from console.case import ConsoleCase
 from console.schematic import Button, Valve
 from console.schematic.schematic import Schematic
+from framework.sim_daq_case import SimDaqTestCase
 
 
-class SimplePressValves(ConsoleCase):
+class SimplePressValves(SimDaqTestCase, ConsoleCase):
     """
     Test a basic press control sequence using valves and buttons
     """

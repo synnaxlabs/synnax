@@ -84,18 +84,22 @@ class SimDAQ(ABC):
     def main(cls) -> None:
         """Standalone execution entry point. Call from if __name__ == '__main__'."""
         parser = argparse.ArgumentParser(description=cls.description)
-        parser.add_argument("--host", default="localhost")
-        parser.add_argument("--port", type=int, default=9090)
-        parser.add_argument("--username", default="synnax")
-        parser.add_argument("--password", default="seldon")
+        parser.add_argument("--host", default="", help="Synnax server host")
+        parser.add_argument("--port", type=int, default=0, help="Synnax server port")
+        parser.add_argument("--username", default="", help="Synnax username")
+        parser.add_argument("--password", default="", help="Synnax password")
         args = parser.parse_args()
 
-        client = sy.Synnax(
-            host=args.host,
-            port=args.port,
-            username=args.username,
-            password=args.password,
-        )
+        # Use saved credentials if no host provided, otherwise use CLI args
+        if args.host:
+            client = sy.Synnax(
+                host=args.host,
+                port=args.port,
+                username=args.username,
+                password=args.password,
+            )
+        else:
+            client = sy.Synnax()
 
         print(f"Starting {cls.__name__} (Ctrl+C to stop)...")
         sim = cls(client, verbose=True)

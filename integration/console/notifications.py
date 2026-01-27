@@ -145,7 +145,7 @@ class NotificationsClient:
 
         return closed_count
 
-    def close_connection_notification(self) -> bool:
+    def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.
 
         Returns:

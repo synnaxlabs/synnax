@@ -9,7 +9,6 @@
 
 from typing import TYPE_CHECKING
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
 
 if TYPE_CHECKING:
@@ -49,31 +48,30 @@ class ArcClient:
 
         add_btn = self.page.locator(f"{self.TOOLBAR_CLASS} button").first
         add_btn.click()
-        sy.sleep(0.5)
 
         name_input = self.page.locator("input[placeholder='Automation Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
-        sy.sleep(0.5)
 
         mode_btn = self.page.locator(
             f".console-arc-create-modal__mode-select-button:has-text('{mode}')"
         )
+        mode_btn.wait_for(state="visible", timeout=5000)
         mode_btn.click()
-        sy.sleep(0.5)
 
         create_btn = self.page.get_by_role("button", name="Create", exact=True)
+        create_btn.wait_for(state="visible", timeout=5000)
         create_btn.click()
-        sy.sleep(0.5)
+        name_input.wait_for(state="hidden", timeout=10000)
 
         if mode == "Text":
             editor = self.page.locator("[data-mode-id='arc']")
             editor.wait_for(state="visible", timeout=10000)
             editor.click()
+            editor.locator(".cursor").wait_for(state="visible", timeout=5000)
             self.page.keyboard.press("ControlOrMeta+a")
             self.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
             self.page.keyboard.press("ControlOrMeta+v")
-        sy.sleep(0.5)
 
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name."""
@@ -155,11 +153,12 @@ class ArcClient:
     def delete(self, name: str) -> None:
         """Delete an Arc via context menu."""
         self._show_arc_panel()
-        sy.sleep(0.5)
         item = self.get_item(name)
+        item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        self.page.get_by_text("Delete", exact=True).click(timeout=2000)
+        context_delete = self.page.get_by_text("Delete", exact=True)
+        context_delete.wait_for(state="visible", timeout=3000)
+        context_delete.click()
         delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=3000)
         delete_btn.click()
-        sy.sleep(0.5)

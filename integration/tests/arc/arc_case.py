@@ -12,10 +12,11 @@ from abc import abstractmethod
 import synnax as sy
 
 from console.case import ConsoleCase
+from framework.sim_daq_case import SimDaqTestCase
 from framework.utils import get_random_name
 
 
-class ArcConsoleCase(ConsoleCase):
+class ArcConsoleCase(SimDaqTestCase, ConsoleCase):
     """Base class for Arc Console integration tests."""
 
     arc_source: str
@@ -34,7 +35,6 @@ class ArcConsoleCase(ConsoleCase):
             "start_cmd_channel",
             "end_cmd_channel",
             "subscribe_channels",
-            "sim_daq_class",
         ]
         for attr in required:
             if not hasattr(self, attr):
@@ -100,14 +100,14 @@ class ArcConsoleCase(ConsoleCase):
             try:
                 self.console.arc.stop()
             except Exception as e:
-                self.log(f"Warning: Failed to stop Arc task: {e}")
+                self.fail(f"Failed to stop Arc task: {e}")
 
         if self._arc_created:
             self.log("Deleting Arc program")
             try:
                 self.console.arc.delete(self.arc_name)
             except Exception as e:
-                self.log(f"Warning: Failed to delete Arc program: {e}")
+                self.fail(f"Failed to delete Arc program: {e}")
 
         if hasattr(self, "end_cmd_channel") and self.end_cmd_channel:
             self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
@@ -117,7 +117,7 @@ class ArcConsoleCase(ConsoleCase):
                 ) as w:
                     w.write(self.end_cmd_channel, 1)
             except Exception as e:
-                self.log(f"Warning: Failed to signal simulator stop: {e}")
+                self.fail(f"Failed to signal simulator stop: {e}")
 
         super().teardown()
 

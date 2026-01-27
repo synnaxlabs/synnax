@@ -34,11 +34,6 @@ import synnax as sy
 from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
 from framework.utils import is_ci, validate_and_sanitize_name
 
-# Add client/py to path so tests can import from examples.simulators
-_client_py_path = Path(__file__).parent.parent.parent / "client" / "py"
-if str(_client_py_path) not in sys.path:
-    sys.path.insert(0, str(_client_py_path))
-
 
 class STATE(Enum):
     """Test conductor execution states."""
