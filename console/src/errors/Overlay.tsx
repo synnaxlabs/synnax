@@ -40,17 +40,25 @@ import { useSelectVersion } from "@/version/selectors";
 
 export interface OverlayProps extends PropsWithChildren {}
 
-const useExtraErrorInfo = (): record.Unknown => {
+interface ExtraErrorInfo extends record.Unknown {
+  consoleVersion: string;
+  coreVersion: string;
+}
+
+const useExtraErrorInfo = (): ExtraErrorInfo => {
   // These hooks must be called unconditionally per React rules.
   // If they throw, the error bubbles to OverlayWithoutStore which is fine.
   // We use optional chaining when building extraInfo to handle undefined values.
   const consoleVersion = useSelectVersion();
   const connectionState = Synnax.useConnectionState();
 
-  const extraInfo: record.Unknown = {};
-  if (consoleVersion) extraInfo.consoleVersion = consoleVersion;
-  if (connectionState?.nodeVersion)
-    extraInfo.serverVersion = connectionState.nodeVersion;
+  const extraInfo: ExtraErrorInfo = {
+    consoleVersion: "unknown",
+    coreVersion: "unknown",
+  };
+  if (consoleVersion != null) extraInfo.consoleVersion = consoleVersion;
+  if (connectionState?.nodeVersion != null)
+    extraInfo.coreVersion = connectionState.nodeVersion;
   return extraInfo;
 };
 
@@ -66,7 +74,7 @@ const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement 
   }, [dispatch]);
 
   return (
-    <FallBackRenderContent
+    <FallBackRenderContent<ExtraErrorInfo>
       onClear={handleClear}
       onTryAgain={handleTryAgain}
       error={error}
@@ -83,8 +91,9 @@ const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactEleme
     void getVersion().then(setConsoleVersion);
   }, []);
 
-  const extraInfo: record.Unknown = {
-    ...(consoleVersion != null && { consoleVersion }),
+  const extraInfo: ExtraErrorInfo = {
+    consoleVersion: consoleVersion ?? "unknown",
+    coreVersion: "unknown",
   };
 
   return (
@@ -96,19 +105,21 @@ const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactEleme
   );
 };
 
-interface FallbackRenderContentProps {
+interface FallbackRenderContentProps<
+  ExtraInfo extends record.Unknown = record.Unknown,
+> {
   error: Error;
   onTryAgain?: () => void;
   onClear: () => void;
-  extraInfo?: record.Unknown;
+  extraInfo?: ExtraInfo;
 }
 
-const FallBackRenderContent = ({
+const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown>({
   onTryAgain,
   onClear,
   error,
   extraInfo,
-}: FallbackRenderContentProps): ReactElement => {
+}: FallbackRenderContentProps<ExtraInfo>): ReactElement => {
   const os = OS.use();
   useEffect(() => {
     try {
