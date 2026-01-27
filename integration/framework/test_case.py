@@ -210,7 +210,7 @@ class TestCase(ABC):
                 name=self.name,
             )
 
-            while self.loop.wait() and not self.should_stop:
+            while not self.should_stop:
                 """
                 # Update telemetry
                 """
@@ -613,6 +613,7 @@ class TestCase(ABC):
 
     @property
     def should_stop(self) -> bool:
+        self.loop.wait()  # Rate limit checks to avoid busy loops
         condition_1 = self._manual_timeout >= 0 and self.uptime > self._manual_timeout
         condition_2 = self._should_stop
 
@@ -632,7 +633,7 @@ class TestCase(ABC):
         # Buffer to store the last n vals arrays
         vals_buffer: deque[Any] = deque(maxlen=buffer_size)
 
-        while self.loop.wait() and self.should_continue:
+        while self.should_continue:
             vals_now = []
             for ch in self.subscribed_channels:
                 vals_now.append(self.read_tlm(ch))
