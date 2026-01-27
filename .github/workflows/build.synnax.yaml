@@ -299,7 +299,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
-      - name: Sign macOS Driver Binary
+      - name: Sign Driver (macOS)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
         run: |
           cat > driver-entitlements.plist << 'EOF'
@@ -338,7 +338,7 @@ jobs:
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
         run: cargo install trusted-signing-cli
 
-      - name: Sign Windows Driver Binary
+      - name: Sign Driver (Windows)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
         env:
