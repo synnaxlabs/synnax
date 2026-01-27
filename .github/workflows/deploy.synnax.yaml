@@ -35,7 +35,6 @@ on:
       - pluto/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
-      - relic.conf
       - scripts/EnVar.dll
       - turbo.json
       - vendor/**
@@ -214,16 +213,8 @@ jobs:
         run: |
           Move-Item -Force scripts/synnax-v${{ needs.setup.outputs.VERSION }}.exe scripts/synnax-server.exe
 
-      - name: Download relic for signing
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
-
-      - name: Add relic to PATH
-        shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path relic-bin
-          Move-Item -Force relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Download trusted-signing-cli for signing
+        run: cargo install trusted-signing-cli
 
       - name: Build Windows Installer
         shell: powershell
@@ -239,8 +230,10 @@ jobs:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core
+          Installer" .\scripts\synnax-setup-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Upload Windows Installer
         run: |
