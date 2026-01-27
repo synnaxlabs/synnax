@@ -184,9 +184,7 @@ jobs:
           rustc -vV
 
       - name: Install signing tools
-        run: |
-          cargo install trusted-signing-cli
-          winget install --exact --id Microsoft.AzureCLI
+        run: cargo install trusted-signing-cli
 
       - name: Write dead-simple Go program
         shell: bash
@@ -562,63 +560,63 @@ jobs:
   #       run: |
   #         gh release upload --clobber synnax-v${{ needs.setup.outputs.VERSION }} core/synnax-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-  docker:
-    name: Build Docker Image
-    needs: setup
-    if: inputs.docker
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
+  # docker:
+  #   name: Build Docker Image
+  #   needs: setup
+  #   if: inputs.docker
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #     packages: write
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v6
 
-      - name: Update Submodules
-        run: git submodule update --init --recursive
+  #     - name: Update Submodules
+  #       run: git submodule update --init --recursive
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
-        if: inputs.upload_to_release
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+  #     - name: Login to Docker Hub
+  #       if: inputs.upload_to_release
+  #       uses: docker/login-action@v3
+  #       with:
+  #         username: ${{ secrets.DOCKER_USERNAME }}
+  #         password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Login to Github Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
+  #     - name: Login to Github Container Registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ghcr.io
+  #         username: ${{ github.actor }}
+  #         password: ${{ github.token }}
 
-      - name: Build and Push Docker Images
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./core/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ !inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
-            ${{ inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
-            ${{ inputs.upload_to_release && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
-            ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
-          cache-from: type=gha,scope=synnax-docker-cache
-          cache-to: type=gha,mode=min,scope=synnax-docker-cache
-          sbom: ${{ inputs.upload_to_release }}
-          provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
-          build-args: |
-            DRIVER_ENABLED=${{ inputs.driver }}
-            CONSOLE_ENABLED=${{ inputs.console }}
-            VERSION=${{ needs.setup.outputs.VERSION }}
-            GIT_COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ github.event.repository.updated_at }}
+  #     - name: Build and Push Docker Images
+  #       uses: docker/build-push-action@v6
+  #       with:
+  #         context: .
+  #         file: ./core/Dockerfile
+  #         platforms: linux/amd64
+  #         push: true
+  #         tags: |
+  #           ${{ !inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', github.sha) || '' }}
+  #           ${{ inputs.upload_to_release && format('ghcr.io/synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+  #           ${{ inputs.upload_to_release && format('synnaxlabs/synnax:{0}', needs.setup.outputs.VERSION) || '' }}
+  #           ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'ghcr.io/synnaxlabs/synnax:latest' || '' }}
+  #           ${{ inputs.upload_to_release && github.ref == 'refs/heads/main' && 'synnaxlabs/synnax:latest' || '' }}
+  #           ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'ghcr.io/synnaxlabs/synnax:rc' || '' }}
+  #           ${{ inputs.upload_to_release && github.ref == 'refs/heads/rc' && 'synnaxlabs/synnax:rc' || '' }}
+  #         cache-from: type=gha,scope=synnax-docker-cache
+  #         cache-to: type=gha,mode=min,scope=synnax-docker-cache
+  #         sbom: ${{ inputs.upload_to_release }}
+  #         provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
+  #         build-args: |
+  #           DRIVER_ENABLED=${{ inputs.driver }}
+  #           CONSOLE_ENABLED=${{ inputs.console }}
+  #           VERSION=${{ needs.setup.outputs.VERSION }}
+  #           GIT_COMMIT=${{ github.sha }}
+  #           BUILD_DATE=${{ github.event.repository.updated_at }}
 
   # build-console-tauri:
   #   name: Build Console App
