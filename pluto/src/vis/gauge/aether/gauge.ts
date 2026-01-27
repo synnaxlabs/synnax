@@ -199,7 +199,7 @@ export class Gauge
       align: "middle",
       justify: "center",
       code: true,
-      useAtlas: true,
+      useAtlas: false,
     });
 
     // Add min/max labels at the gap endpoints
