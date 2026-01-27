@@ -76,11 +76,9 @@ class SetpointPressAuto(TestCase):
             write=ctrl_valves,
             read=read_chans,
         ) as ctrl:
-            # Define loop and stop conditions
-            loop = sy.Loop(sy.Rate.HZ * 100)
 
             def test_active() -> bool:
-                return all([loop.wait(), self.should_continue])
+                return not self.should_stop
 
             ctrl.wait_until(lambda c: c.get("test_flag_cmd", 0) == 1, timeout=3)
 

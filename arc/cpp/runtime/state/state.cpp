@@ -173,15 +173,11 @@ void State::ingest(const telem::Frame &frame) {
 }
 
 std::vector<std::pair<types::ChannelKey, Series>> State::flush() {
-    for (auto &[key, series_vec]: reads) {
+    for (auto &series_vec: reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
-        this->error_handler(
-            xerrors::Error(
-                errors::DATA_DROPPED,
-                "channel " + std::to_string(key) + ": dropped " +
-                    std::to_string(series_vec.size() - 1) + " frames"
-            )
-        );
+        // Keep only the last series to preserve the latest value for each channel.
+        // This allows channel_read_* calls to return the most recent value even if
+        // new frames for that channel haven't arrived yet.
         auto last = std::move(series_vec.back());
         series_vec.clear();
         series_vec.push_back(std::move(last));

@@ -162,6 +162,11 @@ public:
             synnax::WriterConfig{
                 .channels = task->runtime->write_channels,
                 .start = telem::TimeStamp::now(),
+                .subject =
+                    telem::ControlSubject{
+                        .name = task_meta.name,
+                        .key = std::to_string(task_meta.key),
+                    },
                 .mode = common::data_saving_writer_mode(cfg.data_saving),
             },
             std::move(source),
