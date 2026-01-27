@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/samber/lo"
@@ -44,6 +45,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
 	xsignal "github.com/synnaxlabs/x/signal"
@@ -180,8 +182,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	workDir, err := resolveWorkDir()
-	if err != nil {
+	workDir, closeWorkDir, err := openWorkDir()
+	if !ok(err, closeWorkDir) {
 		return errors.Wrapf(err, "failed to resolve working directory")
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
@@ -335,12 +337,22 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	return err
 }
 
-func resolveWorkDir() (string, error) {
+func openWorkDir() (string, io.Closer, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return filepath.Join(cacheDir, "synnax", "core", "workdir"), nil
+	dir := filepath.Join(
+		cacheDir,
+		"synnax",
+		"core",
+		"workdir",
+		strconv.Itoa(os.Getpid()),
+	)
+	if err = os.MkdirAll(dir, xfs.UserRWX); err != nil {
+		return "", nil, err
+	}
+	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
 }
 
 func runStartupSearchIndexing(
