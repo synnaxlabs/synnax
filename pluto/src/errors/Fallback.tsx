@@ -24,7 +24,8 @@ import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { Nav } from "@/nav";
+// NOTE: Import Bar directly to avoid circular dependency (Nav.Drawer -> Errors -> Fallback)
+import { Bar } from "@/nav/Bar";
 import { Text } from "@/text";
 
 /** Props for the error fallback component. */
@@ -93,8 +94,8 @@ export const Fallback = ({
         borderColor={5}
         empty
       >
-        <Nav.Bar location="top" bordered size="6rem">
-          <Nav.Bar.Start className={CSS.BE("error-fallback", "nav-start")}>
+        <Bar location="top" bordered size="6rem">
+          <Bar.Start className={CSS.BE("error-fallback", "nav-start")}>
             <Breadcrumb.Breadcrumb gap="tiny">
               <Breadcrumb.Segment color={9}>
                 <Icon.Err />
@@ -106,11 +107,11 @@ export const Fallback = ({
                 Something went wrong
               </Breadcrumb.Segment>
             </Breadcrumb.Breadcrumb>
-          </Nav.Bar.Start>
-          <Nav.Bar.End className={CSS.BE("error-fallback", "nav-end")}>
+          </Bar.Start>
+          <Bar.End className={CSS.BE("error-fallback", "nav-end")}>
             <Logo variant="icon" />
-          </Nav.Bar.End>
-        </Nav.Bar>
+          </Bar.End>
+        </Bar>
         <Flex.Box className={CSS.BE("error-fallback", "body")}>
           <Flex.Box>
             <Text.Text
