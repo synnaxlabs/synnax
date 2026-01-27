@@ -178,6 +178,16 @@ public:
         ev.data.fd = fd;
 
         if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, fd, &ev) == -1) {
+            if (errno == EEXIST) {
+                // fd already registered (e.g., from a previous run after restart).
+                // Update the registration instead - this makes watch() idempotent.
+                if (epoll_ctl(this->epoll_fd_, EPOLL_CTL_MOD, fd, &ev) == -1) {
+                    LOG(ERROR) << "[loop] Failed to modify watched fd " << fd << ": "
+                               << strerror(errno);
+                    return false;
+                }
+                return true;
+            }
             LOG(ERROR) << "[loop] Failed to watch notifier fd " << fd << ": "
                        << strerror(errno);
             return false;

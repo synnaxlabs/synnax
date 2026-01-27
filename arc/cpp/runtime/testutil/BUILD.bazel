@@ -1,0 +1,13 @@
+cc_library(
+    name = "testutil",
+    hdrs = [
+        "mock_loop.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/runtime/loop",
+        "//x/cpp/breaker",
+        "//x/cpp/notify",
+        "//x/cpp/xerrors",
+    ],
+)

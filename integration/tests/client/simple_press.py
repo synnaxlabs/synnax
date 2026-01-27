@@ -8,14 +8,17 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from examples.simulators import PressSimDAQ
 
-from framework.test_case import TestCase
+from framework.sim_daq_case import SimDaqTestCase
 
 
-class SimplePress(TestCase):
+class SimplePress(SimDaqTestCase):
     """
     Test a basic press control sequence
     """
+
+    sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(30)

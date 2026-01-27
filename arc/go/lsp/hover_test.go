@@ -531,8 +531,8 @@ func add(a i32, b i32) i32 {
 			Entry("gt >", "x > y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("leq <=", "x <= y", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("geq >=", "x >= y", uint32(lsp.SemanticTokenTypeOperator)),
-			Entry("and", "x and y", uint32(lsp.SemanticTokenTypeOperator)),
-			Entry("or", "x or y", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("and", "x and y", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("or", "x or y", uint32(lsp.SemanticTokenTypeKeyword)),
 		)
 
 		DescribeTable("Single token types",
@@ -543,7 +543,7 @@ func add(a i32, b i32) i32 {
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
 				Expect(tokens.Data[3]).To(Equal(expectedType))
 			},
-			Entry("not operator", "not x", uint32(lsp.SemanticTokenTypeOperator)),
+			Entry("not keyword", "not x", uint32(lsp.SemanticTokenTypeKeyword)),
 			Entry("variable", "myVariable", uint32(lsp.SemanticTokenTypeVariable)),
 			Entry("string literal", `"hello world"`, uint32(lsp.SemanticTokenTypeString)),
 			Entry("integer", "42", uint32(lsp.SemanticTokenTypeNumber)),

@@ -15,6 +15,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/constant/constant.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 
 using namespace arc::runtime;
@@ -34,7 +35,11 @@ struct TestSetup {
     state::State state;
 
     TestSetup(const arc::types::Kind kind, const telem::SampleValue &value):
-        ir(build_ir(kind, value)), state(state::Config{.ir = ir, .channels = {}}) {}
+        ir(build_ir(kind, value)),
+        state(
+            state::Config{.ir = ir, .channels = {}},
+            arc::runtime::errors::noop_handler
+        ) {}
 
     state::Node make_node() { return ASSERT_NIL_P(state.node("const")); }
 

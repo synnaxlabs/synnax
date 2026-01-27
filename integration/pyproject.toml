@@ -35,6 +35,10 @@ strict = true
 module = "synnax.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "examples.*"
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_types = true

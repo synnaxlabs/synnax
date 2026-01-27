@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
@@ -72,6 +72,19 @@ describe("Error", () => {
       expect(c.getByText("Custom fallback")).toBeTruthy();
     });
 
+    it("should pass componentStack to FallbackComponent", () => {
+      const CustomFallback = ({ componentStack }: Errors.FallbackProps) => (
+        <div data-testid="stack">{componentStack}</div>
+      );
+      const c = render(
+        <Errors.Boundary FallbackComponent={CustomFallback}>
+          <ThrowingComponent shouldThrow />
+        </Errors.Boundary>,
+      );
+      const stack = c.getByTestId("stack");
+      expect(stack.textContent).toContain("ThrowingComponent");
+    });
+
     it("should reset when resetErrorBoundary is called", () => {
       let shouldThrow = true;
       const TestComponent = () => {
@@ -91,7 +104,7 @@ describe("Error", () => {
   });
 
   describe("Fallback", () => {
-    const mockError = new Error("Something went wrong");
+    const mockError = new Error("Test error message");
     mockError.name = "TestError";
     const mockReset = vi.fn();
 
@@ -106,7 +119,7 @@ describe("Error", () => {
       const c = render(
         <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
-      expect(c.getByText("Something went wrong")).toBeTruthy();
+      expect(c.getByText("Test error message")).toBeTruthy();
     });
 
     it("should render the default reload button", () => {
@@ -138,65 +151,162 @@ describe("Error", () => {
       expect(customAction).toHaveBeenCalled();
     });
 
-    it("should render the logo when showLogo is true", () => {
-      const c = render(
-        <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} showLogo />,
-      );
-      expect(c.container.querySelector("svg")).toBeTruthy();
-    });
-
-    it("should not render the logo by default", () => {
+    it("should render the logo in the navbar", () => {
       const c = render(
         <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
       );
-      expect(c.container.querySelector("svg")).not.toBeTruthy();
+      expect(c.container.querySelector(".synnax-logo")).toBeTruthy();
     });
 
-    describe("compact variant", () => {
-      it("should use smaller text sizes", () => {
+    describe("component stack", () => {
+      it("should render the component stack when present", () => {
         const c = render(
           <Errors.Fallback
             error={mockError}
+            componentStack={"    at ThrowingComponent\n    at Boundary"}
             resetErrorBoundary={mockReset}
-            variant="compact"
           />,
         );
-        const errorName = c.getByText("TestError");
-        expect(errorName.className).toContain("h3");
+        expect(c.getByText(/at ThrowingComponent/)).toBeTruthy();
       });
-    });
 
-    describe("full variant", () => {
-      it("should use larger text sizes", () => {
+      it("should fall back to error.stack when componentStack is null", () => {
         const c = render(
           <Errors.Fallback
             error={mockError}
+            componentStack={null}
             resetErrorBoundary={mockReset}
-            variant="full"
           />,
         );
-        const errorName = c.getByText("TestError");
-        expect(errorName.className).toContain("h1");
+        expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeTruthy();
+      });
+
+      it("should fall back to error.stack when componentStack is empty", () => {
+        const c = render(
+          <Errors.Fallback
+            error={mockError}
+            componentStack=""
+            resetErrorBoundary={mockReset}
+          />,
+        );
+        expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeTruthy();
+      });
+
+      it("should not render stack section when both componentStack and error.stack are empty", () => {
+        const errorWithoutStack = new Error("No stack");
+        errorWithoutStack.stack = "";
+        const c = render(
+          <Errors.Fallback
+            error={errorWithoutStack}
+            componentStack=""
+            resetErrorBoundary={mockReset}
+          />,
+        );
+        expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeFalsy();
       });
     });
 
-    describe("error stack", () => {
-      it("should render the error stack when present", () => {
-        const errorWithStack = new Error("Test");
-        errorWithStack.stack = "Error: Test\n    at TestComponent";
+    describe("copy diagnostics", () => {
+      let writeTextMock: ReturnType<typeof vi.fn>;
+
+      beforeEach(() => {
+        writeTextMock = vi.fn().mockResolvedValue(undefined);
+        Object.assign(navigator, {
+          clipboard: { writeText: writeTextMock },
+        });
+      });
+
+      it("should copy error name and message to clipboard", async () => {
+        const c = render(
+          <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+        );
+        fireEvent.click(c.getByText("Copy diagnostics"));
+        await waitFor(() => {
+          expect(writeTextMock).toHaveBeenCalled();
+        });
+        const copiedText = writeTextMock.mock.calls[0][0];
+        expect(copiedText).toContain("Error: TestError");
+        expect(copiedText).toContain("Message: Test error message");
+      });
+
+      it("should include error stack trace in copied content", async () => {
+        const errorWithStack = new Error("Stack test");
+        errorWithStack.name = "StackError";
+        errorWithStack.stack = "Error: Stack test\n    at TestFunction (test.js:1:1)";
         const c = render(
           <Errors.Fallback error={errorWithStack} resetErrorBoundary={mockReset} />,
         );
-        expect(c.getByText(/at TestComponent/)).toBeTruthy();
+        fireEvent.click(c.getByText("Copy diagnostics"));
+        await waitFor(() => {
+          expect(writeTextMock).toHaveBeenCalled();
+        });
+        const copiedText = writeTextMock.mock.calls[0][0];
+        expect(copiedText).toContain("Stack Trace:");
+        expect(copiedText).toContain("at TestFunction");
       });
 
-      it("should not render stack section when stack is empty", () => {
-        const errorNoStack = new Error("Test");
-        errorNoStack.stack = "";
+      it("should include component stack in copied content", async () => {
         const c = render(
-          <Errors.Fallback error={errorNoStack} resetErrorBoundary={mockReset} />,
+          <Errors.Fallback
+            error={mockError}
+            componentStack={"    at MyComponent\n    at App"}
+            resetErrorBoundary={mockReset}
+          />,
         );
-        expect(c.container.querySelector(".pluto-error-fallback__stack")).toBeFalsy();
+        fireEvent.click(c.getByText("Copy diagnostics"));
+        await waitFor(() => {
+          expect(writeTextMock).toHaveBeenCalled();
+        });
+        const copiedText = writeTextMock.mock.calls[0][0];
+        expect(copiedText).toContain("Component Stack:");
+        expect(copiedText).toContain("at MyComponent");
+      });
+
+      it("should include extraInfo in copied content", async () => {
+        const c = render(
+          <Errors.Fallback
+            error={mockError}
+            resetErrorBoundary={mockReset}
+            extraInfo={{ version: "1.0.0", userId: "123" }}
+          />,
+        );
+        fireEvent.click(c.getByText("Copy diagnostics"));
+        await waitFor(() => {
+          expect(writeTextMock).toHaveBeenCalled();
+        });
+        const copiedText = writeTextMock.mock.calls[0][0];
+        expect(copiedText).toContain("Additional Info:");
+        expect(copiedText).toContain('"version": "1.0.0"');
+        expect(copiedText).toContain('"userId": "123"');
+      });
+
+      it("should not include extraInfo section when extraInfo is empty", async () => {
+        const c = render(
+          <Errors.Fallback
+            error={mockError}
+            resetErrorBoundary={mockReset}
+            extraInfo={{}}
+          />,
+        );
+        fireEvent.click(c.getByText("Copy diagnostics"));
+        await waitFor(() => {
+          expect(writeTextMock).toHaveBeenCalled();
+        });
+        const copiedText = writeTextMock.mock.calls[0][0];
+        expect(copiedText).not.toContain("Additional Info:");
+      });
+
+      it("should show check icon after copying", async () => {
+        const c = render(
+          <Errors.Fallback error={mockError} resetErrorBoundary={mockReset} />,
+        );
+        expect(c.container.querySelector(".pluto-icon--copy")).toBeTruthy();
+        expect(c.container.querySelector(".pluto-icon--check")).toBeFalsy();
+        fireEvent.click(c.getByText("Copy diagnostics"));
+        await waitFor(() => {
+          expect(c.container.querySelector(".pluto-icon--check")).toBeTruthy();
+        });
+        expect(c.container.querySelector(".pluto-icon--copy")).toBeFalsy();
       });
     });
   });

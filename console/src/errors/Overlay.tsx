@@ -10,13 +10,25 @@
 import "@/errors/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, CSS as PCSS, Errors, Flex, Nav, OS, Theming } from "@synnaxlabs/pluto";
+import {
+  Button,
+  CSS as PCSS,
+  Errors,
+  Flex,
+  Nav,
+  OS,
+  Synnax,
+  Theming,
+} from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
+import { getVersion } from "@tauri-apps/api/app";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
   useEffect,
+  useState,
 } from "react";
 import { useDispatch } from "react-redux";
 
@@ -24,41 +36,90 @@ import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 import { Runtime } from "@/runtime";
+import { useSelectVersion } from "@/version/selectors";
 
 export interface OverlayProps extends PropsWithChildren {}
 
+interface ExtraErrorInfo extends record.Unknown {
+  consoleVersion: string;
+  coreVersion: string;
+}
+
+const useExtraErrorInfo = (): ExtraErrorInfo => {
+  // These hooks must be called unconditionally per React rules.
+  // If they throw, the error bubbles to OverlayWithoutStore which is fine.
+  // We use optional chaining when building extraInfo to handle undefined values.
+  const consoleVersion = useSelectVersion();
+  const connectionState = Synnax.useConnectionState();
+
+  const extraInfo: ExtraErrorInfo = {
+    consoleVersion: "unknown",
+    coreVersion: "unknown",
+  };
+  if (consoleVersion != null) extraInfo.consoleVersion = consoleVersion;
+  if (connectionState?.nodeVersion != null)
+    extraInfo.coreVersion = connectionState.nodeVersion;
+  return extraInfo;
+};
+
 const FallbackRenderWithStore = ({ error }: Errors.FallbackProps): ReactElement => {
   const dispatch = useDispatch();
+  const extraInfo = useExtraErrorInfo();
+
   const handleTryAgain = useCallback((): void => {
     dispatch(REVERT_STATE);
   }, [dispatch]);
   const handleClear = useCallback((): void => {
     dispatch(CLEAR_STATE);
   }, [dispatch]);
+
   return (
-    <FallBackRenderContent
+    <FallBackRenderContent<ExtraErrorInfo>
       onClear={handleClear}
       onTryAgain={handleTryAgain}
       error={error}
+      extraInfo={extraInfo}
     />
   );
 };
 
-const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactElement => (
-  <FallBackRenderContent onClear={Persist.hardClearAndReload} error={error} />
-);
+const FallbackRenderWithoutStore = ({ error }: Errors.FallbackProps): ReactElement => {
+  const [consoleVersion, setConsoleVersion] = useState<string | undefined>();
 
-interface FallbackRenderContentProps {
+  useEffect(() => {
+    if (Runtime.ENGINE !== "tauri") return;
+    void getVersion().then(setConsoleVersion);
+  }, []);
+
+  const extraInfo: ExtraErrorInfo = {
+    consoleVersion: consoleVersion ?? "unknown",
+    coreVersion: "unknown",
+  };
+
+  return (
+    <FallBackRenderContent
+      onClear={Persist.hardClearAndReload}
+      error={error}
+      extraInfo={extraInfo}
+    />
+  );
+};
+
+interface FallbackRenderContentProps<
+  ExtraInfo extends record.Unknown = record.Unknown,
+> {
   error: Error;
   onTryAgain?: () => void;
   onClear: () => void;
+  extraInfo?: ExtraInfo;
 }
 
-const FallBackRenderContent = ({
+const FallBackRenderContent = <ExtraInfo extends record.Unknown = record.Unknown>({
   onTryAgain,
   onClear,
   error,
-}: FallbackRenderContentProps): ReactElement => {
+  extraInfo,
+}: FallbackRenderContentProps<ExtraInfo>): ReactElement => {
   const os = OS.use();
   useEffect(() => {
     try {
@@ -82,13 +143,12 @@ const FallBackRenderContent = ({
       <Nav.Bar
         location="top"
         size="6.5rem"
-        className="console-main-nav-top"
         bordered
         data-tauri-drag-region
+        background={2}
       >
-        <Nav.Bar.Start className="console-main-nav-top__start">
+        <Nav.Bar.Start>
           <OS.Controls
-            className="console-controls--macos"
             visibleIfOS="macOS"
             forceOS={os}
             onClose={() => {
@@ -105,9 +165,8 @@ const FallBackRenderContent = ({
             <Logo className="console-main-nav-top__logo" variant="icon" />
           )}
         </Nav.Bar.Start>
-        <Nav.Bar.End className="console-main-nav-top__end" justify="end">
+        <Nav.Bar.End justify="end">
           <OS.Controls
-            className="console-controls--windows"
             visibleIfOS="Windows"
             forceOS={os}
             contrast={0}
@@ -123,22 +182,25 @@ const FallBackRenderContent = ({
           />
         </Nav.Bar.End>
       </Nav.Bar>
-
       <Errors.Fallback
         error={error}
         resetErrorBoundary={resetErrorBoundary}
-        variant="full"
-        showLogo
+        extraInfo={extraInfo}
       >
         <Flex.Box x>
+          <Button.Button
+            onClick={onClear}
+            tooltip={`Will clear all stored data in the Console and reload the application.
+              This should only be done if the standard reload does not fix the issue.`}
+            tooltipLocation="bottom"
+          >
+            Clear storage and reload Console
+          </Button.Button>
           {onTryAgain != null && (
             <Button.Button variant="filled" onClick={onTryAgain}>
               Reload Console
             </Button.Button>
           )}
-          <Button.Button onClick={onClear}>
-            Clear storage and reload Console
-          </Button.Button>
         </Flex.Box>
       </Errors.Fallback>
     </Flex.Box>

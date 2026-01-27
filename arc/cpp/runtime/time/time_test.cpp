@@ -12,6 +12,7 @@
 #include "x/cpp/xtest/xtest.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/time/time.h"
 
@@ -33,7 +34,10 @@ struct TestSetup {
 
     TestSetup(const std::string &type, const std::string &param_name, const int64_t ns):
         ir(build_ir(type, param_name, ns)),
-        state(state::Config{.ir = ir, .channels = {}}) {}
+        state(
+            state::Config{.ir = ir, .channels = {}},
+            arc::runtime::errors::noop_handler
+        ) {}
 
     state::Node make_node() { return ASSERT_NIL_P(state.node("timer")); }
 
