@@ -54,37 +54,45 @@ class ArcPressSequence(ArcConsoleCase):
 
     def verify_sequence_execution(self) -> None:
         self.log("Verifying press stage - valve opens...")
+        press_opened = False
         while self.should_continue:
             if self.read_tlm("press_vlv_state") == 1:
                 self.log("Press valve opened")
+                press_opened = True
                 break
-            if self.should_stop:
-                self.fail("Press valve should open")
-                return
+        if not press_opened:
+            self.fail("Press valve should open")
+            return
 
         self.log("Verifying maintain stage - press valve closes...")
+        press_closed = False
         while self.should_continue:
             if self.read_tlm("press_vlv_state") == 0:
                 self.log("Maintain stage reached - press valve closed")
+                press_closed = True
                 break
-            if self.should_stop:
-                self.fail("Press valve should close in maintain stage")
-                return
+        if not press_closed:
+            self.fail("Press valve should close in maintain stage")
+            return
 
         self.log("Verifying vent stage - vent valve opens...")
+        vent_opened = False
         while self.should_continue:
             if self.read_tlm("vent_vlv_state") == 1:
                 self.log("Vent stage reached - vent valve opened")
+                vent_opened = True
                 break
-            if self.should_stop:
-                self.fail("Vent valve should open")
-                return
+        if not vent_opened:
+            self.fail("Vent valve should open")
+            return
 
         self.log("Verifying complete stage - vent valve closes...")
+        vent_closed = False
         while self.should_continue:
             if self.read_tlm("vent_vlv_state") == 0:
                 self.log("Complete stage reached - sequence finished!")
+                vent_closed = True
                 break
-            if self.should_stop:
-                self.fail("Vent valve should close in complete stage")
-                return
+        if not vent_closed:
+            self.fail("Vent valve should close in complete stage")
+            return

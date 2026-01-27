@@ -250,6 +250,7 @@ class ArcTPCColdFlow(ArcConsoleCase):
         current_phase = 0
         current_status = ""
         observed_statuses: set[str] = set()
+        sequence_complete = False
 
         self.log("Monitoring phase transitions and pressure status...")
         while self.should_continue:
@@ -266,6 +267,7 @@ class ArcTPCColdFlow(ArcConsoleCase):
 
                     if new_phase == 8:
                         self.log("Sequence complete - reached Safe phase")
+                        sequence_complete = True
                         break
 
             if new_status is not None and str(new_status) != current_status:
@@ -274,9 +276,9 @@ class ArcTPCColdFlow(ArcConsoleCase):
                 ox_pt = self.read_tlm("ox_pt_1")
                 self.log(f"Pressure status: {current_status} (ox_pt_1={ox_pt:.1f})")
 
-            if self.should_stop:
-                self.fail(f"Test stopped unexpectedly in phase {current_phase}")
-                return
+        if not sequence_complete:
+            self.fail(f"Test stopped unexpectedly in phase {current_phase}")
+            return
 
         self.log(f"Observed status values: {observed_statuses}")
 

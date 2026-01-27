@@ -141,6 +141,7 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
             self.log(f"Target pressure: {target}")
             setpoint.set_value(target)
 
+            target_reached = False
             while self.should_continue:
                 pressure_value = self.get_value("press_pt")
                 if pressure_value is not None:
@@ -148,12 +149,13 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
                     if delta < 0.5:
                         self.log(f"Target pressure reached: {pressure_value:.2f}")
                         sy.sleep(1)
+                        target_reached = True
                         break
 
-                if self.should_stop:
-                    self.console.screenshot("setpoint_press_user_failed")
-                    self.fail("Exiting on timeout.")
-                    return
+            if not target_reached:
+                self.console.screenshot("setpoint_press_user_failed")
+                self.fail("Exiting on timeout.")
+                return
 
         end_cmd.press()
         self.console.screenshot("setpoint_press_user_passed")

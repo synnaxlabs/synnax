@@ -154,33 +154,39 @@ class ArcThermalMonitor(ArcConsoleCase):
         self.log("Verifying thermal cycling behavior...")
 
         self.log("Waiting for heater to turn on (heating stage)...")
+        heater_on = False
         while self.should_continue:
             if self.read_tlm("heater_state") == 1:
                 self.log("Heater ON - heating stage active")
+                heater_on = True
                 break
-            if self.should_stop:
-                self.fail("Heater should turn on")
-                return
+        if not heater_on:
+            self.fail("Heater should turn on")
+            return
 
         self.log("Waiting for temp to rise and heater to turn off (cooling stage)...")
+        heater_off = False
         while self.should_continue:
             if self.read_tlm("heater_state") == 0:
                 temp = self.read_tlm("temp_sensor")
                 self.log(f"Heater OFF at temp={temp:.1f} - cooling stage active")
+                heater_off = True
                 break
-            if self.should_stop:
-                self.fail("Heater should turn off when temp > 60")
-                return
+        if not heater_off:
+            self.fail("Heater should turn off when temp > 60")
+            return
 
         self.log("Waiting for heater to turn back on (looping back to heating)...")
+        heater_back_on = False
         while self.should_continue:
             if self.read_tlm("heater_state") == 1:
                 temp = self.read_tlm("temp_sensor")
                 self.log(f"Heater ON again at temp={temp:.1f} - loop confirmed")
+                heater_back_on = True
                 break
-            if self.should_stop:
-                self.fail("Heater should turn back on when temp < 40")
-                return
+        if not heater_back_on:
+            self.fail("Heater should turn back on when temp < 40")
+            return
 
     def _verify_stateful_variables(self) -> None:
         self.log("Verifying stateful variable behavior...")
@@ -218,16 +224,19 @@ class ArcThermalMonitor(ArcConsoleCase):
             w.write("force_overheat_cmd", 1)
 
         self.log("Waiting for temp to exceed 80...")
+        temp_exceeded = False
         while self.should_continue:
             temp = self.read_tlm("temp_sensor")
             if temp is not None and temp > 80:
                 self.log(f"Temperature exceeded 80: {temp:.1f}")
+                temp_exceeded = True
                 break
-            if self.should_stop:
-                self.fail("Temperature should exceed 80 during force overheat")
-                return
+        if not temp_exceeded:
+            self.fail("Temperature should exceed 80 during force overheat")
+            return
 
         self.log("Waiting for abort sequence (heater off, alarm active)...")
+        abort_confirmed = False
         log_counter = 0
         while self.should_continue:
             heater = self.read_tlm("heater_state")
@@ -237,12 +246,15 @@ class ArcThermalMonitor(ArcConsoleCase):
                 self.log(f"Checking abort: heater={heater}, alarm={alarm}")
             if heater == 0 and alarm == 1:
                 self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
+                abort_confirmed = True
                 break
-            if self.should_stop:
-                self.fail(
-                    f"Abort sequence should activate (heater={heater}, alarm={alarm})"
-                )
-                return
+        if not abort_confirmed:
+            heater = self.read_tlm("heater_state")
+            alarm = self.read_tlm("alarm_active")
+            self.fail(
+                f"Abort sequence should activate (heater={heater}, alarm={alarm})"
+            )
+            return
 
         with self.client.open_writer(sy.TimeStamp.now(), "force_overheat_cmd") as w:
             w.write("force_overheat_cmd", 0)

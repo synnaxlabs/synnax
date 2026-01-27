@@ -76,6 +76,7 @@ class SetpointPressAuto(TestCase):
             write=ctrl_valves,
             read=read_chans,
         ) as ctrl:
+
             def test_active() -> bool:
                 return not self.should_stop
 

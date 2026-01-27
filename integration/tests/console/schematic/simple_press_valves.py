@@ -77,13 +77,15 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
             self.log(f"Target pressure: {target_Pressure}")
             press_valve.press()
             self.assert_states(press_state=1, vent_state=0)
+            pressure_reached = False
             while self.should_continue:
                 pressure_value = self.get_value(PRESSURE)
                 if pressure_value is not None and pressure_value > target_Pressure:
+                    pressure_reached = True
                     break
-                elif self.should_stop:
-                    self.fail("Exiting on timeout.")
-                    return
+            if not pressure_reached:
+                self.fail("Exiting on timeout.")
+                return
 
             # Configure next cycle
             self.log("Closing press valve")
