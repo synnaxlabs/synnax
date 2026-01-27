@@ -40,7 +40,7 @@ import {
   ZERO_OUTPUT_CHANNELS,
   ZERO_WRITE_PAYLOAD,
 } from "@/hardware/modbus/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const WRITE_LAYOUT = {
   ...Common.Task.LAYOUT,
@@ -49,12 +49,11 @@ export const WRITE_LAYOUT = {
   icon: "Logo.Modbus",
 } as const satisfies Common.Task.Layout;
 
-export const WRITE_SELECTABLE = {
-  key: WRITE_TYPE,
+export const WriteSelectable = Selector.createSimpleItem({
   title: "Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
-  create: async ({ layoutKey }) => ({ ...WRITE_LAYOUT, key: layoutKey }),
-} as const satisfies Selector.Selectable;
+  layout: WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>

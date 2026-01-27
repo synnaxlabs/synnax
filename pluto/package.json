@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.49.0",
+  "version": "0.50.0",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -22,6 +22,7 @@
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/freighter": "workspace:*",
+    "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
     "@tanstack/react-virtual": "3.13.6",
     "@xyflow/react": "^12.10.0",

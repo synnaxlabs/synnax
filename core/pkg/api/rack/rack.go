@@ -118,7 +118,7 @@ func (svc *Service) Retrieve(
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.WhereNames(req.Names)
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)

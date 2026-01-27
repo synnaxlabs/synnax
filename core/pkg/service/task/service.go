@@ -95,6 +95,7 @@ type Service struct {
 	shutdownSignals               io.Closer
 	disconnectSuspectRackObserver observe.Disconnect
 	group                         group.Group
+	commandChannelKey             channel.Key
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -113,14 +114,20 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	if cfg.Channel != nil {
-		if err = cfg.Channel.Create(ctx, &channel.Channel{
+		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",
 			DataType: telem.JSONT,
 			Virtual:  true,
 			Internal: true,
-		}, channel.RetrieveIfNameExists()); err != nil {
+		}
+		if err = cfg.Channel.Create(
+			ctx,
+			&cmdCh,
+			channel.RetrieveIfNameExists(),
+		); err != nil {
 			return nil, err
 		}
+		s.commandChannelKey = cmdCh.Key()
 	}
 	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
 	if cfg.Signals == nil {
@@ -134,6 +141,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 		return nil, err
 	}
 	return s, nil
+}
+
+func (s *Service) CommandChannelKey() channel.Key {
+	return s.commandChannelKey
 }
 
 // cleanupInternalOntologyResources purges existing internal task resources from the ontology.

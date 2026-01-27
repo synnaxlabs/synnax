@@ -158,6 +158,13 @@ public:
         return this->is_closed.load(std::memory_order_acquire);
     }
 
+    /// @brief Drains all items and reopens a closed queue.
+    void reset() {
+        T value;
+        while (this->buffer.try_pop(value)) {}
+        this->is_closed.store(false, std::memory_order_release);
+    }
+
     [[nodiscard]] notify::Notifier &notifier() { return *this->notif; }
 };
 

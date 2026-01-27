@@ -14,9 +14,10 @@
 
 #include "x/cpp/mem/local_shared.h"
 
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/types/types.h"
 #include "bindings.h"
-#include "wasmtime.hh" // For Wasmtime C++ API
+#include "wasmtime.hh"
 
 namespace arc::runtime::wasm {
 
@@ -63,8 +64,15 @@ auto wrap(C *obj, R (C::*fn)(Args...)) {
     return MethodWrapper<C, R, Args...>{obj, fn};
 }
 
-Bindings::Bindings(const std::shared_ptr<state::State> &state, wasmtime::Store *store):
-    state(state), store(store), memory(nullptr) {}
+Bindings::Bindings(
+    const std::shared_ptr<state::State> &state,
+    wasmtime::Store *store,
+    errors::Handler error_handler
+):
+    state(state),
+    store(store),
+    memory(nullptr),
+    error_handler(std::move(error_handler)) {}
 
 #define IMPL_CHANNEL_OPS(suffix, cpptype, default_val, data_type_const)                \
     cpptype Bindings::channel_read_##suffix(uint32_t channel_id) {                     \
@@ -328,6 +336,27 @@ std::string Bindings::string_get(const uint32_t handle) const {
         auto result = value / *s;                                                      \
         return this->state->series_store(std::move(result));                           \
     }                                                                                  \
+    uint32_t Bindings::series_element_radd_##suffix(cpptype value, uint32_t handle) {  \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value + *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
+    }                                                                                  \
+    uint32_t Bindings::series_element_rmul_##suffix(cpptype value, uint32_t handle) {  \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value * *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
+    }                                                                                  \
+    uint32_t Bindings::series_element_rmod_##suffix(cpptype value, uint32_t handle) {  \
+        if (this->state == nullptr) return 0;                                          \
+        auto *s = this->state->series_get(handle);                                     \
+        if (s == nullptr) return 0;                                                    \
+        auto result = value % *s;                                                      \
+        return this->state->series_store(std::move(result));                           \
+    }                                                                                  \
     uint32_t Bindings::series_element_mod_##suffix(uint32_t handle, cpptype value) {   \
         if (this->state == nullptr) return 0;                                          \
         auto *s = this->state->series_get(handle);                                     \
@@ -458,34 +487,20 @@ uint64_t Bindings::len(const uint32_t handle) {
 }
 
 void Bindings::panic(const uint32_t ptr, const uint32_t len) {
+    std::string message;
     if (!memory || !store) {
-        std::fprintf(
-            stderr,
-            "WASM panic: ptr=%u, len=%u (no memory or store available to read message)\n",
-            ptr,
-            len
-        );
-        throw std::runtime_error("WASM panic (no memory available)");
+        message = "no memory available";
+    } else {
+        const auto mem_span = memory->data(*store);
+        const uint8_t *mem_data = mem_span.data();
+        const size_t mem_size = mem_span.size();
+        if (ptr + len > mem_size)
+            message = "out of bounds";
+        else
+            message = std::string(reinterpret_cast<const char *>(mem_data + ptr), len);
     }
-
-    const auto mem_span = memory->data(*store);
-    const uint8_t *mem_data = mem_span.data();
-    const size_t mem_size = mem_span.size();
-
-    if (ptr + len > mem_size) {
-        std::fprintf(
-            stderr,
-            "WASM panic: ptr=%u, len=%u (out of bounds, memory size=%zu)\n",
-            ptr,
-            len,
-            mem_size
-        );
-        throw std::runtime_error("WASM panic (out of bounds)");
-    }
-
-    const std::string message(reinterpret_cast<const char *>(mem_data + ptr), len);
     std::fprintf(stderr, "WASM panic: %s\n", message.c_str());
-    throw std::runtime_error("WASM panic: " + message);
+    this->error_handler(xerrors::Error(errors::WASM_PANIC, message));
 }
 
 template<typename T>
@@ -622,6 +637,24 @@ create_imports(wasmtime::Store &store, std::shared_ptr<Bindings> runtime) {
         wasmtime::Func::wrap(                                                          \
             store,                                                                     \
             wrap(runtime.get(), &Bindings::series_element_rdiv_##suffix)               \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::series_element_radd_##suffix)               \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::series_element_rmul_##suffix)               \
+        )                                                                              \
+    );                                                                                 \
+    imports.push_back(                                                                 \
+        wasmtime::Func::wrap(                                                          \
+            store,                                                                     \
+            wrap(runtime.get(), &Bindings::series_element_rmod_##suffix)               \
         )                                                                              \
     );                                                                                 \
     imports.push_back(                                                                 \

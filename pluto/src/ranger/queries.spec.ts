@@ -324,6 +324,45 @@ describe("queries", () => {
       expect(retrievedRange?.color).toEqual(color.construct("#E774D0"));
     });
 
+    it("should update range when a label is deleted", async () => {
+      const label1 = await client.labels.create({
+        name: "labelToDelete",
+        color: "#FF0000",
+      });
+      const label2 = await client.labels.create({
+        name: "labelToKeep",
+        color: "#00FF00",
+      });
+      const testRange = await client.ranges.create({
+        name: "rangeWithLabels",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.labels.label(ranger.ontologyID(testRange.key), [
+        label1.key,
+        label2.key,
+      ]);
+
+      const { result } = renderHook(() => Ranger.useList(), {
+        wrapper,
+      });
+      act(() => {
+        result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+
+      const rangeBeforeDelete = result.current.getItem(testRange.key);
+      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label1.key);
+      expect(rangeBeforeDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+
+      await client.labels.remove(testRange.ontologyID, [label1.key]);
+
+      await waitFor(() => {
+        const rangeAfterDelete = result.current.getItem(testRange.key);
+        expect(rangeAfterDelete?.labels?.map((l) => l.key)).not.toContain(label1.key);
+        expect(rangeAfterDelete?.labels?.map((l) => l.key)).toContain(label2.key);
+      });
+    });
+
     it("should handle ranges with different time spans", async () => {
       const shortRange = await client.ranges.create({
         name: "shortRange",

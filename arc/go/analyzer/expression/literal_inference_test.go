@@ -58,7 +58,16 @@ var _ = Describe("Literal Type Inference", func() {
 			`, nil)
 		})
 
-		It("Should allow comparison of i32 variable with float literal", func() {
+		It("Should reject comparison of i32 variable with non-exact-integer float literal", func() {
+			expectFailure(`
+				func testFunc() {
+					x i32 := 10
+					z := x > 5.5
+				}
+			`, nil, "type mismatch")
+		})
+
+		It("Should allow comparison of i32 variable with exact-integer float literal", func() {
 			expectSuccess(`
 				func testFunc() {
 					x i32 := 10
@@ -138,11 +147,12 @@ var _ = Describe("Literal Type Inference", func() {
 				}
 			`))
 			ctx := acontext.CreateRoot(bCtx, program, testResolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeFalse())
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			errorMsg := ctx.Diagnostics.Error()
 			Expect(errorMsg).To(Or(
-				ContainSubstring("f64 and i8"),
-				ContainSubstring("i8 and f64"),
+				ContainSubstring("is not compatible with"),
+				ContainSubstring("type mismatch"),
 			))
 		})
 

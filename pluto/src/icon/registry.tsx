@@ -91,11 +91,14 @@ import {
   MdCalendarToday,
   MdComment,
   MdCommit,
+  MdContentCut,
+  MdContentPaste,
   MdDarkMode,
   MdDataArray,
   MdDataObject,
   MdEdit,
   MdEditOff,
+  MdError,
   MdFeedback,
   MdFiberManualRecord,
   MdFilterCenterFocus,
@@ -237,6 +240,8 @@ export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
 export const Add = wrapSVGIcon(HiOutlinePlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
+export const Cut = wrapSVGIcon(MdContentCut, "cut");
+export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Close = wrapSVGIcon(AiOutlineClose, "close");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
@@ -466,6 +471,7 @@ export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
 export const Logout = wrapSVGIcon(MdLogout, "logout");
+export const Err = wrapSVGIcon(MdError, "error");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -484,6 +490,8 @@ const icons = {
   Add,
   Subtract,
   Copy,
+  Cut,
+  Paste,
   Close,
   Info,
   Warning,
@@ -625,6 +633,7 @@ const icons = {
   FillColor,
   StrokeColor,
   Logout,
+  Err,
 };
 
 export const resolve = ((

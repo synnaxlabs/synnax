@@ -27,16 +27,26 @@ const (
 	KindCompatible
 )
 
+// TypeOrigin tracks where a type was inferred for error reporting.
+type TypeOrigin struct {
+	// Source is the AST node where inference occurred.
+	Source antlr.ParserRuleContext
+	// SymbolName is the variable or parameter name, if applicable.
+	SymbolName string
+	// InferredAs is a human-readable description of the inferred type.
+	InferredAs string
+}
+
 // Constraint represents a type relationship that must hold for successful type checking.
 type Constraint struct {
 	// Left is the first type in the relationship.
 	Left types.Type
 	// Right is the second type in the relationship.
 	Right types.Type
-	// Source is the AST node that generated this constraint for error reporting.
-	Source antlr.ParserRuleContext
-	// Reason describes why this constraint exists for debugging.
-	Reason string
+	// LeftOrigin tracks where the left type was inferred.
+	LeftOrigin *TypeOrigin
+	// RightOrigin tracks where the right type was inferred.
+	RightOrigin *TypeOrigin
 	// Kind classifies the constraint as equality or compatibility.
 	Kind Kind
 }
@@ -61,37 +71,51 @@ func New() *System {
 }
 
 // AddEquality adds an equality constraint requiring left and right to unify to the
-// same type.
+// same type. It immediately attempts unification and returns an error if the types
+// are incompatible. If unification fails, the constraint is not added to avoid
+// duplicate errors during batch unification.
 func (s *System) AddEquality(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
-) {
+) error {
 	s.recordTypeVars(left, right)
-	s.Constraints = append(s.Constraints, Constraint{
+	constraint := Constraint{
 		Kind:   KindEquality,
 		Left:   left,
 		Right:  right,
 		Source: source,
 		Reason: reason,
-	})
+	}
+	if err := s.UnifyConstraint(constraint); err != nil {
+		return err
+	}
+	s.Constraints = append(s.Constraints, constraint)
+	return nil
 }
 
 // AddCompatible adds a compatibility constraint allowing numeric promotion between
-// left and right.
+// left and right. It immediately attempts unification and returns an error if the
+// types are incompatible. If unification fails, the constraint is not added to avoid
+// duplicate errors during batch unification.
 func (s *System) AddCompatible(
 	left, right types.Type,
 	source antlr.ParserRuleContext,
 	reason string,
-) {
+) error {
 	s.recordTypeVars(left, right)
-	s.Constraints = append(s.Constraints, Constraint{
+	constraint := Constraint{
 		Kind:   KindCompatible,
 		Left:   left,
 		Right:  right,
 		Source: source,
 		Reason: reason,
-	})
+	}
+	if err := s.UnifyConstraint(constraint); err != nil {
+		return err
+	}
+	s.Constraints = append(s.Constraints, constraint)
+	return nil
 }
 
 func (s *System) recordTypeVars(toRecord ...types.Type) {

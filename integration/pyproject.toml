@@ -1,6 +1,6 @@
 [project]
 name = "synnax-test-framework"
-version = "0.49.0"
+version = "0.0.0"
 description = "Integration test framework for Synnax Labs"
 authors = [{ name = "Nico Alba", email = "nico@synnaxlabs.com" }]
 requires-python = ">=3.12,<3.14"
@@ -33,6 +33,10 @@ strict = true
 
 [[tool.mypy.overrides]]
 module = "synnax.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "examples.*"
 ignore_missing_imports = true
 
 [tool.pydantic-mypy]

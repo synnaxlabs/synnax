@@ -466,17 +466,17 @@ auto assert_occurred_as_p(
 /// @brief macro asserting that the provided errors::Error is NIL.
 #define ASSERT_NIL(expr)                                                               \
     do {                                                                               \
-        auto _assert_nil_result = (expr);                                              \
-        ASSERT_FALSE(_assert_nil_result) << _assert_nil_result;                        \
+        const auto _xtest_err = (expr);                                                \
+        ASSERT_FALSE(_xtest_err) << _xtest_err;                                        \
     } while (0)
 
 /// @brief macro asserting that the provided errors::Error is the same as the provided
 /// error.
 #define ASSERT_OCCURRED_AS(expr, err)                                                  \
     do {                                                                               \
-        auto _assert_occurred_as_result = (expr);                                      \
-        ASSERT_TRUE(_assert_occurred_as_result) << _assert_occurred_as_result;         \
-        ASSERT_MATCHES(_assert_occurred_as_result, err);                               \
+        const auto _xtest_err = (expr);                                                \
+        ASSERT_TRUE(_xtest_err) << _xtest_err;                                         \
+        ASSERT_MATCHES(_xtest_err, err);                                               \
     } while (0)
 
 /// @brief macro asserting that the error return as the second item in the pair is the
@@ -692,4 +692,5 @@ inline void eventually_true(
         (timeout),                                                                     \
         (interval)                                                                     \
     )
+
 }

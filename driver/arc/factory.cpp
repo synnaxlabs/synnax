@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <sys/stat.h>
-
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
+#include "driver/task/common/status.h"
 
 namespace arc {
 std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
@@ -18,41 +17,24 @@ std::pair<std::unique_ptr<driver::task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task
 ) {
     if (task.type != TASK_TYPE) return {nullptr, false};
-    synnax::task::Status stat{
-        .key = synnax::task::status_key(task),
-        .name = task.name,
-        .variant = "error",
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = false,
-        },
-    };
-
-    auto parser = x::json::Parser(task.config);
-    auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
-    if (cfg_err) {
-        stat.message = "Failed to configure";
-        stat.description = cfg_err.message();
-        ctx->set_status(stat);
-        return {nullptr, true};
-    }
-
-    auto [runtime, rt_err] = load_runtime(cfg, ctx->client);
-    if (rt_err) {
-        stat.message = "Failed to configure";
-        stat.description = rt_err.message();
-        ctx->set_status(stat);
-        return {nullptr, true};
-    }
-    return {std::make_unique<Task>(task, ctx, std::move(runtime), cfg), true};
+    return common::handle_config_err(ctx, task, configure(ctx, task));
 }
 
-std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
-Factory::configure_initial_tasks(
-    const std::shared_ptr<driver::task::Context> &ctx,
-    const synnax::rack::Rack &rack
+std::pair<common::ConfigureResult, xerrors::Error> Factory::configure(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task &task
 ) {
-    return {};
+    common::ConfigureResult result;
+    auto parser = xjson::Parser(task.config);
+    auto [cfg, cfg_err] = TaskConfig::parse(ctx->client, parser);
+    if (cfg_err) return {std::move(result), cfg_err};
+
+    auto [arc_task, task_err] = Task::create(task, ctx, cfg);
+    if (task_err) return {std::move(result), task_err};
+
+    result.task = std::move(arc_task);
+    result.auto_start = cfg.auto_start;
+    return {std::move(result), xerrors::NIL};
 }
 
 std::string Factory::name() {

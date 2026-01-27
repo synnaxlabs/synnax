@@ -23,7 +23,7 @@
 
 namespace arc::runtime::wasm {
 
-/// Convert SampleValue to wasmtime::Val for WASM function calls
+/// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
 inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
     return std::visit(
         []<typename T0>(T0 &&arg) -> wasmtime::Val {
@@ -39,16 +39,31 @@ inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
             } else if constexpr (std::is_same_v<T, x::telem::TimeStamp>) {
                 return wasmtime::Val(static_cast<int64_t>(arg.nanoseconds()));
             } else if constexpr (std::is_same_v<T, std::string>) {
-                // Strings are passed as handles (uint32_t) which should already be
-                // converted
                 return wasmtime::Val(0);
             } else {
-                // int32_t, int16_t, int8_t, uint32_t, uint16_t, uint8_t
                 return wasmtime::Val(static_cast<int32_t>(arg));
             }
         },
         val
     );
+}
+
+/// @brief Convert SampleValue to wasmtime::Val using the declared type.
+/// @note Needed because protobuf stores all numbers as double.
+inline wasmtime::Val
+sample_to_wasm(const telem::SampleValue &val, const types::Type &type) {
+    const auto as_double = telem::cast<double>(val);
+    switch (type.kind) {
+        case types::Kind::F64:
+            return wasmtime::Val(as_double);
+        case types::Kind::F32:
+            return wasmtime::Val(static_cast<float>(as_double));
+        case types::Kind::I64:
+        case types::Kind::U64:
+            return wasmtime::Val(static_cast<int64_t>(as_double));
+        default:
+            return wasmtime::Val(static_cast<int32_t>(as_double));
+    }
 }
 
 /// Convert wasmtime::Val to SampleValue after WASM function returns
@@ -232,29 +247,39 @@ public:
     Module &operator=(const Module &) = delete;
 
     class Function {
+    public:
+        struct Result {
+            telem::SampleValue value;
+            bool changed = false;
+        };
+
+    private:
         Module &module;
         wasmtime::Func fn;
         types::Params outputs;
+        size_t config_count;
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
-        struct Result {
-            x::telem::SampleValue value;
-            bool changed = false;
-        };
-        std::vector<Result> output_values;
 
     public:
         Function(
             Module &module,
             wasmtime::Func fn,
             const types::Params &outputs,
+            const types::Params &config,
             const types::Params &inputs,
             const uint32_t base
         ):
-            module(module), fn(std::move(fn)), outputs(outputs), base(base) {
-            this->output_values.resize(outputs.size(), Result{});
-            this->args.resize(inputs.size(), wasmtime::Val(0));
+            module(module),
+            fn(std::move(fn)),
+            outputs(outputs),
+            config_count(config.size()),
+            base(base) {
+            this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
+            for (size_t i = 0; i < config.size(); i++)
+                if (config[i].value.has_value())
+                    this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
@@ -262,31 +287,31 @@ public:
             }
         }
 
-        std::pair<std::vector<Result>, x::errors::Error>
-        call(const std::vector<x::telem::SampleValue> &params) {
-            for (auto &[_, changed]: this->output_values)
-                changed = false;
+        x::errors::Error call(
+            const std::vector<telem::SampleValue> &input_vals,
+            std::vector<Result> &output_vals
+        ) {
+            output_vals.assign(this->outputs.size(), Result{});
 
-            for (size_t i = 0; i < params.size(); i++)
-                this->args[i] = sample_to_wasm(params[i]);
+            for (size_t i = 0; i < input_vals.size(); i++)
+                this->args[this->config_count + i] = sample_to_wasm(input_vals[i]);
 
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
                 auto trap = result.err();
                 auto msg = trap.message();
                 std::string trap_msg(msg.data(), msg.size());
-                std::fprintf(stderr, "WASM trap: %s\n", trap_msg.c_str());
-                return {{}, x::errors::Error("WASM execution failed: " + trap_msg)};
+                return x::errors::Error("WASM execution failed: " + trap_msg);
             }
 
             const auto results = result.ok();
             if (this->base == 0) {
-                if (!this->output_values.empty() && !results.empty())
-                    this->output_values[0] = Result{
+                if (!output_vals.empty() && !results.empty())
+                    output_vals[0] = Result{
                         .value = sample_from_wasm(results[0], this->outputs[0].type),
                         .changed = true
                     };
-                return {this->output_values, x::errors::NIL};
+                return x::errors::NIL;
             }
 
             const auto mem_span = this->module.memory.data(this->module.store);
@@ -294,7 +319,7 @@ public:
             const size_t mem_size = mem_span.size();
 
             if (this->base + sizeof(uint64_t) > mem_size)
-                return {{}, x::errors::Error("base address out of memory bounds")};
+                return x::errors::Error("base address out of memory bounds");
 
             uint64_t dirty_flags = 0;
             memcpy(&dirty_flags, mem_data + base, sizeof(uint64_t));
@@ -305,13 +330,13 @@ public:
                 if (offset + output.type.density() > mem_size) continue;
                 uint64_t raw_value = 0;
                 memcpy(&raw_value, mem_data + offset, output.type.density());
-                this->output_values[i] = Result{
+                output_vals[i] = Result{
                     .value = sample_from_bits(raw_value, output.type),
                     .changed = true
                 };
             }
 
-            return {this->output_values, x::errors::NIL};
+            return x::errors::NIL;
         }
     };
 
@@ -321,9 +346,14 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    std::pair<Function, x::errors::Error> func(const std::string &name) {
+    /// @brief Returns a WASM function wrapper for the given function name.
+    /// @param name The function name.
+    /// @param node_config The node's config params with values. If empty, uses the
+    /// function's config.
+    std::pair<Function, x::errors::Error>
+    func(const std::string &name, const types::Params &node_config = {}) {
         const auto export_opt = this->instance.get(this->store, name);
-        const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
+        const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
         if (!export_opt) return {zero_func, x::errors::NOT_FOUND};
 
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
@@ -341,8 +371,9 @@ public:
             base = base_it->second;
         }
 
+        const auto &config_to_use = node_config.empty() ? func.config : node_config;
         return {
-            Function(*this, *func_ptr, func.outputs, func.inputs, base),
+            Function(*this, *func_ptr, func.outputs, config_to_use, func.inputs, base),
             x::errors::NIL
         };
     }

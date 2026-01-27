@@ -82,8 +82,8 @@ jobs:
           build-args: |
             DRIVER_ENABLED=false
 
-  test-cpp:
-    name: Test C++
+  test-cpp-linux:
+    name: Test C++ (ubuntu-build-bot)
     runs-on: ubuntu-build-bot
     needs: [server]
     services:
@@ -134,3 +134,41 @@ jobs:
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
             --jobs=1
+
+  test-cpp:
+    name: Test C++ (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-build-bot, windows-build-bot]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          clean: false
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
+
+      - name: Test (macOS)
+        if: matrix.os == 'macos-build-bot'
+        run: |
+          bazel test --config=asan --test_output=all //arc/cpp/... \
+            --test_tag_filters=-no-asan,-requires-core
+        shell: bash
+
+      - name: Test (Windows)
+        if: matrix.os == 'windows-build-bot'
+        run: |
+          bazel --output_user_root=C:/tmp test --test_output=all //arc/cpp/... \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+            --test_tag_filters=-requires-core
+        shell: bash

@@ -1276,4 +1276,71 @@ TEST_F(SchedulerTest, testEmptySequence) {
     ASSERT_EQ(mocks_["A"]->next_called, 1);
 }
 
+/// @brief it should reset all execution state including nodes
+TEST_F(SchedulerTest, testResetClearsState) {
+    auto &trigger = mock("trigger");
+    auto &entry = mock("entry_seq_stage");
+    auto &nodeA = mock("A");
+
+    trigger.mark_on_next("activate");
+    trigger.param_truthy["activate"] = true;
+    entry.activate_on_next();
+
+    auto ir = ir::testutil::Builder()
+                  .node("trigger")
+                  .node("entry_seq_stage")
+                  .node("A")
+                  .oneshot("trigger", "activate", "entry_seq_stage", "input")
+                  .strata({{"trigger"}, {"entry_seq_stage"}})
+                  .sequence("seq", {{"stage", {{"A"}}}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    scheduler->next(telem::MILLISECOND);
+    ASSERT_EQ(nodeA.next_called, 1);
+    ASSERT_EQ(nodeA.reset_called, 1);
+
+    scheduler->next(telem::MILLISECOND * 2);
+    ASSERT_EQ(nodeA.next_called, 2);
+    ASSERT_EQ(nodeA.reset_called, 1);
+
+    scheduler->reset();
+
+    ASSERT_EQ(nodeA.reset_called, 2);
+
+    scheduler->next(telem::MILLISECOND);
+    ASSERT_EQ(nodeA.next_called, 3);
+    ASSERT_EQ(nodeA.reset_called, 3);
+}
+
+/// @brief it should reset fired one-shots after reset
+TEST_F(SchedulerTest, testResetClearsFiredOneShots) {
+    auto &nodeA = mock("A");
+    const auto &nodeB = mock("B");
+
+    nodeA.mark_on_next("output");
+    nodeA.param_truthy["output"] = true;
+
+    auto ir = ir::testutil::Builder()
+                  .node("A")
+                  .node("B")
+                  .oneshot("A", "output", "B", "input")
+                  .strata({{"A"}, {"B"}})
+                  .build();
+
+    const auto scheduler = build(std::move(ir));
+
+    scheduler->next(telem::MILLISECOND);
+    ASSERT_EQ(nodeB.next_called, 1);
+
+    scheduler->next(telem::MILLISECOND * 2);
+    ASSERT_EQ(nodeB.next_called, 1);
+
+    scheduler->reset();
+
+    scheduler->next(telem::MILLISECOND);
+    ASSERT_EQ(nodeB.next_called, 2);
+}
+
 }

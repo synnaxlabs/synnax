@@ -197,6 +197,15 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 		funcName := primary.IDENTIFIER().GetText()
 		// Exclude boolean literals and check if it's a function
 		if funcName != "true" && funcName != "false" {
+			// Check if this is a builtin function FIRST
+			resultType, handled, err := compileBuiltinCall(ctx, funcName, funcCalls[0])
+			if err != nil {
+				return types.Type{}, err
+			}
+			if handled {
+				return resultType, nil
+			}
+
 			scope, err := ctx.Scope.Resolve(ctx, funcName)
 			if err == nil && scope.Kind == symbol.KindFunction {
 				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
@@ -438,4 +447,55 @@ func emitDefaultValue[T antlr.ParserRuleContext](
 		return errors.Newf("unsupported default value type: %s", paramType)
 	}
 	return nil
+}
+
+// compileBuiltinCall handles calls to built-in functions like len() and now().
+// Returns the result type, whether the call was handled, and any error.
+func compileBuiltinCall(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	funcName string,
+	funcCall parser.IFunctionCallSuffixContext,
+) (types.Type, bool, error) {
+	switch funcName {
+	case "len":
+		return compileBuiltinLen(ctx, funcCall)
+	case "now":
+		return compileBuiltinNow(ctx)
+	default:
+		return types.Type{}, false, nil
+	}
+}
+
+func compileBuiltinLen(
+	ctx context.Context[parser.IPostfixExpressionContext],
+	funcCall parser.IFunctionCallSuffixContext,
+) (types.Type, bool, error) {
+	var args []parser.IExpressionContext
+	if argList := funcCall.ArgumentList(); argList != nil {
+		args = argList.AllExpression()
+	}
+	if len(args) != 1 {
+		return types.Type{}, true, errors.Newf("len() requires exactly 1 argument, got %d", len(args))
+	}
+
+	argType, err := Compile(context.Child(ctx, args[0]))
+	if err != nil {
+		return types.Type{}, true, errors.Wrap(err, "argument 1 of len")
+	}
+
+	switch argType.Kind {
+	case types.KindSeries:
+		ctx.Writer.WriteCall(ctx.Imports.SeriesLen)
+		return types.I64(), true, nil
+	case types.KindString:
+		ctx.Writer.WriteCall(ctx.Imports.StringLen)
+		return types.I32(), true, nil
+	default:
+		return types.Type{}, true, errors.Newf("argument 1 of len: expected series or str, got %s", argType)
+	}
+}
+
+func compileBuiltinNow(ctx context.Context[parser.IPostfixExpressionContext]) (types.Type, bool, error) {
+	ctx.Writer.WriteCall(ctx.Imports.Now)
+	return types.TimeStamp(), true, nil
 }

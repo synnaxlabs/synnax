@@ -12,6 +12,16 @@ __version__ = "0.3.0"
 from synnax import group, labjack, modbus, ni, ontology, opcua, sequence, status
 from synnax.access.policy import Policy
 from synnax.access.role import Role
+from synnax.arc import (
+    Arc,
+    ArcTask,
+    Edge,
+    Graph,
+    GraphNode,
+    Handle,
+    Position,
+    Text,
+)
 from synnax.channel import Channel
 from synnax.control import Controller
 from synnax.device import Device
@@ -76,12 +86,15 @@ from synnax.user.payload import User
 
 __all__ = [
     "Alignment",
+    "Arc",
+    "ArcTask",
     "AUTO_SPAN",
     "AuthError",
     "Authority",
     "Controller",
     "Bounds",
     "Channel",
+    "Edge",
     "ConfigurationError",
     "ContiguityError",
     "ControlError",
@@ -100,12 +113,16 @@ __all__ = [
     "ExpiredToken",
     "PathError",
     "Frame",
+    "Graph",
+    "GraphNode",
+    "Handle",
     "Iterator",
     "InvalidToken",
     "Loop",
     "MultipleFoundError",
     "NotFoundError",
     "Policy",
+    "Position",
     "QueryError",
     "Rack",
     "Range",
@@ -122,6 +139,7 @@ __all__ = [
     "Task",
     "TaskStatus",
     "TaskStatusDetails",
+    "Text",
     "Timer",
     "TimeRange",
     "TimeSpan",

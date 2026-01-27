@@ -167,7 +167,7 @@ const Internal = ({
   if (!visible) return null;
   return createPortal(
     <Flex.Box
-      className={CSS(CONTEXT_MENU_CLASS, CSS.bordered())}
+      className={CSS(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
       ref={ref}
       style={{ ...xy.css(position), ...style }}
       onClick={(e) => {

@@ -209,8 +209,7 @@ jobs:
           sudo apt-get install -y libsystemd-dev autoconf automake libtool
 
       - name: Install Deps on macOS
-        # TODO: Revert to: if: matrix.os == 'macos-build-bot' with run: brew install autoconf automake libtool 2>/dev/null
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-build-bot'
         run: brew install autoconf automake libtool
 
       - name: Setup Bazel
@@ -236,7 +235,7 @@ jobs:
             --config=opt-windows //driver
 
       - name: Build Driver (macOS)
-        if: inputs.driver && matrix.os == 'macos-latest'
+        if: inputs.driver && matrix.os == 'macos-build-bot'
         run: |
           bazel build $BAZEL_BUILD_FLAGS \
             --config=opt-unix --config=hide_symbols //driver
@@ -280,7 +279,7 @@ jobs:
             --config=opt-unix --config=hide_symbols //driver
 
       - name: Import Apple Developer Certificate
-        if: inputs.sign_binaries && matrix.os == 'macos-latest'
+        if: inputs.sign_binaries && matrix.os == 'macos-build-bot'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -301,7 +300,7 @@ jobs:
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
       - name: Sign macOS Driver Binary
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-latest'
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
         run: |
           cat > driver-entitlements.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
@@ -320,7 +319,7 @@ jobs:
           codesign --verify --verbose bazel-bin/driver/driver
 
       - name: Notarize macOS Driver Binary
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-latest'
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
@@ -401,13 +400,13 @@ jobs:
       - name: Copy Driver to Assets
         if: inputs.driver && inputs.core && matrix.os != 'windows-build-bot'
         run: |
-          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/service/driver/assets/driver${{ matrix.executable }}
+          cp bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }} core/pkg/driver/assets/driver${{ matrix.executable }}
 
       - name: Copy Driver to Assets (Windows)
         if: inputs.driver && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/service/driver/assets/driver.exe
+          Copy-Item -Force bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}.exe core/pkg/driver/assets/driver.exe
 
       - name: Set up pnpm
         if: inputs.console
@@ -443,13 +442,13 @@ jobs:
 
       - name: Copy Console to Assets
         if: inputs.console && inputs.core && matrix.os != 'windows-build-bot'
-        run: cp -r console/dist/* core/pkg/service/console/dist/
+        run: cp -r console/dist/* core/pkg/console/dist/
 
       - name: Copy Console to Assets (Windows)
         if: inputs.console && inputs.core && matrix.os == 'windows-build-bot'
         shell: powershell
         run: |
-          Copy-Item -Recurse -Force console/dist/* core/pkg/service/console/dist/
+          Copy-Item -Recurse -Force console/dist/* core/pkg/console/dist/
 
       - name: Set up Go
         if: inputs.core
@@ -472,7 +471,7 @@ jobs:
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
       - name: Sign macOS Server Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-latest'
+        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
         working-directory: core
         run: |
           cat > server-entitlements.plist << 'EOF'
@@ -494,7 +493,7 @@ jobs:
           codesign --verify --verbose ./synnax-v${{ needs.setup.outputs.VERSION }}
 
       - name: Notarize macOS Core Binary
-        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-latest'
+        if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
         working-directory: core
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -653,7 +652,7 @@ jobs:
         working-directory: console
         shell: bash
         run: |
-          CONSOLE_VERSION=$(node -p "require('./package.json').version")
+          CONSOLE_VERSION=$(node -p "require('./src-tauri/tauri.conf.json').version")
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT

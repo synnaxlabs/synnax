@@ -317,3 +317,29 @@ TEST(testGRPC, testPoolChannelReuse) {
     s.join();
 }
 }
+
+/// @brief it should not crash when calling close_send on a dead connection.
+TEST(testGRPC, testCloseSendOnDeadConnection) {
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, "localhost:9999");
+    auto streamer = ASSERT_NIL_P(client.stream(""));
+    auto mes = test::Message();
+    mes.set_payload("test");
+    streamer->send(mes);
+    ASSERT_OCCURRED_AS_P(streamer->receive(), freighter::UNREACHABLE);
+    streamer->close_send();
+}
+
+/// @brief it should safely call close_send multiple times.
+TEST(testGRPC, testCloseSendIdempotent) {
+    std::string target("localhost:8080");
+    std::thread s(server, target);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
+    auto streamer = ASSERT_NIL_P(client.stream(""));
+    streamer->close_send();
+    streamer->close_send();
+    stop_servers();
+    s.join();
+}

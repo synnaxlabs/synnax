@@ -17,7 +17,7 @@ namespace x::notify {
 
 class PollingNotifier final : public Notifier {
     std::atomic<bool> signaled{false};
-    static constexpr int64_t POLL_INTERVAL_US = 100;
+    static inline const telem::TimeSpan POLL_INTERVAL = 100 * telem::MICROSECOND;
 
 public:
     PollingNotifier() = default;
@@ -38,7 +38,7 @@ public:
         const bool indefinite = (timeout == telem::TimeSpan::max());
 
         while (true) {
-            std::this_thread::sleep_for(std::chrono::microseconds(POLL_INTERVAL_US));
+            std::this_thread::sleep_for(POLL_INTERVAL.chrono());
             if (this->signaled.exchange(false, std::memory_order_acquire)) return true;
 
             if (!indefinite) {

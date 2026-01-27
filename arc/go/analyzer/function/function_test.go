@@ -180,7 +180,7 @@ var _ = Describe("Function Analyzer", func() {
 					func dog() {}
 					func dog() {}
 				`, nil, ContainSubstring("name dog conflicts with existing symbol"))
-				Expect((*ctx.Diagnostics)[0].Line).To(Equal(3))
+				Expect((*ctx.Diagnostics)[0].Start.Line).To(Equal(3))
 			})
 
 			It("should diagnose duplicate parameter names", func() {
@@ -224,8 +224,8 @@ var _ = Describe("Function Analyzer", func() {
 			It("should bind config, input, and output types correctly", func() {
 				ctx := analyzeExpectSuccess(`
 					func controller{
-						setpoint f64
-						sensor chan f64
+						setpoint f64,
+						sensor chan f64,
 						actuator chan f64
 					} (enable u8) f64 {
 						return 1.0
@@ -262,7 +262,7 @@ var _ = Describe("Function Analyzer", func() {
 			It("should diagnose duplicate config parameter names", func() {
 				analyzeExpectError(`
 					func controller{
-						gain f64
+						gain f64,
 						gain f64
 					} () {}
 				`, nil, ContainSubstring("name gain conflicts with existing symbol"))
@@ -287,16 +287,16 @@ var _ = Describe("Function Analyzer", func() {
 				}
 				analyzeExpectSuccess(`
 					func pid{
-						kp f32
-						ki f32
-						kd f32
+						kp f32,
+						ki f32,
+						kd f32,
 						setpoint f32
 					} (input u8) f64 {
 						error := setpoint - measurement
 						p := kp * error
 						last_measurement_time $= measurement_time
 						dt := measurement_time - last_measurement_time
-						integral $= 0
+						integral f32 $= 0
 						integral = integral + error * f32(dt)
 						i := ki * integral
 						last_error $= error
@@ -325,12 +325,12 @@ var _ = Describe("Function Analyzer", func() {
 			func(src string, msgMatcher OmegaMatcher) {
 				analyzeExpectError(src, nil, msgMatcher)
 			},
-			Entry("float literal on integer return",
-				`func dog() i32 { return 1.0 }`,
-				ContainSubstring("does not satisfy float constraint")),
+			Entry("non-exact-integer float literal on integer return",
+				`func dog() i32 { return 1.5 }`,
+				ContainSubstring("is not compatible with")),
 			Entry("return value in void function",
 				`func dog() { return 5 }`,
-				ContainSubstring("unexpected return value in function/func with void return type")),
+				ContainSubstring("cannot return a value from a function with no return type")),
 			Entry("missing return in function with return type",
 				`func dog() f64 {}`,
 				Equal("function 'dog' must return a value of type f64 on all paths")),

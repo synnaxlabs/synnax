@@ -46,19 +46,19 @@ func Analyze(
 			AST:  fn.Body.AST,
 		})
 		if err != nil {
-			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
 		if err = bindParams(aCtx, funcScope, fn.Config, symbol.KindConfig); err != nil {
-			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
 		if err = bindParams(aCtx, funcScope, fn.Inputs, symbol.KindInput); err != nil {
-			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
 		if err = bindParams(aCtx, funcScope, fn.Outputs, symbol.KindOutput); err != nil {
-			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
 	}
@@ -67,17 +67,19 @@ func Analyze(
 	for i, fn := range g.Functions {
 		funcScope, err := aCtx.Scope.GetChildByParserRule(fn.Body.AST)
 		if err != nil {
-			aCtx.Diagnostics.AddError(err, fn.Body.AST)
+			aCtx.Diagnostics.Add(diagnostics.Error(err, fn.Body.AST))
 			return ir.IR{}, aCtx.Diagnostics
 		}
 		funcScope.AccumulateReadChannels()
 		if fn.Body.Raw != "" {
 			blockCtx, ok := fn.Body.AST.(parser.IBlockContext)
 			if !ok {
-				aCtx.Diagnostics.AddError(errors.New("function body must be a block"), fn.Body.AST)
+				aCtx.Diagnostics.Add(diagnostics.Errorf(
+					fn.Body.AST, "function body must be a block"))
 				return ir.IR{}, aCtx.Diagnostics
 			}
-			if !analyzer.AnalyzeBlock(acontext.Child(aCtx, blockCtx).WithScope(funcScope)) {
+			analyzer.AnalyzeBlock(acontext.Child(aCtx, blockCtx).WithScope(funcScope))
+			if !aCtx.Diagnostics.Ok() {
 				return ir.IR{}, aCtx.Diagnostics
 			}
 		}
@@ -91,7 +93,7 @@ func Analyze(
 	for i, n := range g.Nodes {
 		fnSym, err := aCtx.Scope.Resolve(aCtx, n.Type)
 		if err != nil {
-			aCtx.Diagnostics.AddError(err, nil)
+			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
 		}
 		freshFuncTypes[n.Key] = types.Freshen(fnSym.Type, n.Key)
@@ -124,7 +126,7 @@ func Analyze(
 						nil,
 						"",
 					); err != nil {
-						aCtx.Diagnostics.AddError(err, nil)
+						aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 						return ir.IR{}, aCtx.Diagnostics
 					}
 					node.Channels.Read[k] = ""
@@ -137,14 +139,13 @@ func Analyze(
 		// Validate all required config parameters are provided
 		for _, configParam := range freshType.Config {
 			if configParam.Value == nil {
-				aCtx.Diagnostics.AddError(
-					errors.Wrapf(
-						query.ErrNotFound,
-						"node '%s' (%s) missing required config parameter '%s'",
-						n.Key,
-						n.Type,
-						configParam.Name,
-					), nil)
+				aCtx.Diagnostics.Add(diagnostics.Errorf(
+					nil,
+					"node '%s' (%s) missing required config parameter '%s'",
+					n.Key,
+					n.Type,
+					configParam.Name,
+				))
 			}
 		}
 	}
@@ -163,12 +164,11 @@ func Analyze(
 			connectedInputs[edge.Target.Node] = make(map[string]bool)
 		}
 		if connectedInputs[edge.Target.Node][edge.Target.Param] {
-			aCtx.Diagnostics.AddError(
-				errors.Newf(
-					"multiple edges target node '%s' parameter '%s'",
-					edge.Target.Node,
-					edge.Target.Param,
-				), nil)
+			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
+				"multiple edges target node '%s' parameter '%s'",
+				edge.Target.Node,
+				edge.Target.Param,
+			))
 		}
 		connectedInputs[edge.Target.Node][edge.Target.Param] = true
 	}
@@ -188,14 +188,13 @@ func Analyze(
 				// Check if this parameter has a default value (is optional)
 				if inputParam.Value == nil {
 					// Required parameter is missing
-					aCtx.Diagnostics.AddError(
-						errors.Wrapf(
-							query.ErrNotFound,
-							"node '%s' (%s) missing required input '%s'",
-							n.Key,
-							n.Type,
-							inputParam.Name,
-						), nil)
+					aCtx.Diagnostics.Add(diagnostics.Errorf(
+						nil,
+						"node '%s' (%s) missing required input '%s'",
+						n.Key,
+						n.Type,
+						inputParam.Name,
+					))
 				}
 			}
 		}
@@ -206,7 +205,7 @@ func Analyze(
 
 	// Step 6: Unify Type Constraints
 	if err := aCtx.Constraints.Unify(); err != nil {
-		aCtx.Diagnostics.AddError(err, nil)
+		aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
@@ -275,46 +274,42 @@ func validateEdge(
 ) bool {
 	sourceNode, ok := nodes.Find(edge.Source.Node)
 	if !ok {
-		ctx.Diagnostics.AddError(
-			errors.Wrapf(query.ErrNotFound, "edge source node '%s' not found", edge.Source.Node),
-			nil,
-		)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			nil, "edge source node '%s' not found", edge.Source.Node,
+		))
 		return false
 	}
 	targetNode, ok := nodes.Find(edge.Target.Node)
 	if !ok {
-		ctx.Diagnostics.AddError(
-			errors.Wrapf(query.ErrNotFound, "edge target node '%s' not found", edge.Target.Node),
-			nil,
-		)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			nil, "edge target node '%s' not found", edge.Target.Node,
+		))
 		return false
 	}
 
 	sourceFunc := freshFuncTypes[sourceNode.Key]
 	sourceParam, ok := sourceFunc.Outputs.Get(edge.Source.Param)
 	if !ok {
-		ctx.Diagnostics.AddError(
-			errors.Wrapf(
-				query.ErrNotFound,
-				"output '%s' not found in node '%s' (%s)",
-				edge.Source.Param,
-				edge.Source.Node,
-				sourceNode.Type,
-			), nil)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			nil,
+			"output '%s' not found in node '%s' (%s)",
+			edge.Source.Param,
+			edge.Source.Node,
+			sourceNode.Type,
+		))
 		return false
 	}
 
 	targetFunc := freshFuncTypes[targetNode.Key]
 	targetParam, ok := targetFunc.Inputs.Get(edge.Target.Param)
 	if !ok {
-		ctx.Diagnostics.AddError(
-			errors.Wrapf(
-				query.ErrNotFound,
-				"input '%s' not found in node '%s' (%s)",
-				edge.Target.Param,
-				edge.Target.Node,
-				targetNode.Type,
-			), nil)
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			nil,
+			"input '%s' not found in node '%s' (%s)",
+			edge.Target.Param,
+			edge.Target.Node,
+			targetNode.Type,
+		))
 		return false
 	}
 
@@ -325,7 +320,7 @@ func validateEdge(
 		nil,
 		"",
 	); err != nil {
-		ctx.Diagnostics.AddError(err, nil)
+		ctx.Diagnostics.Add(diagnostics.Error(err, nil))
 		return false
 	}
 	return true

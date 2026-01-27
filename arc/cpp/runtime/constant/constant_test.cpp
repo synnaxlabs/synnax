@@ -15,6 +15,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/constant/constant.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 
 using namespace arc::runtime;
@@ -34,7 +35,11 @@ struct TestSetup {
     state::State state;
 
     TestSetup(const arc::types::Kind kind, const x::json::json &value):
-        ir(build_ir(kind, value)), state(state::Config{.ir = ir, .channels = {}}) {}
+        ir(build_ir(kind, value)),
+        state(
+            state::Config{.ir = ir, .channels = {}},
+            arc::runtime::errors::noop_handler
+        ) {}
 
     state::Node make_node() { return ASSERT_NIL_P(state.node("const")); }
 
@@ -75,7 +80,7 @@ TEST(ConstantFactoryTest, ReturnsNotFoundForWrongType) {
 
     constant::Factory factory;
     ASSERT_OCCURRED_AS_P(
-        factory.create(node::Config(ir_node, setup.make_node())),
+        factory.create(node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
     );
 }
@@ -85,7 +90,7 @@ TEST(ConstantFactoryTest, CreatesConstantNode) {
     TestSetup setup(arc::types::Kind::F32, 42.5f);
     constant::Factory factory;
     auto node = ASSERT_NIL_P(
-        factory.create(node::Config(setup.ir.nodes[0], setup.make_node()))
+        factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
     ASSERT_NE(node, nullptr);
 }

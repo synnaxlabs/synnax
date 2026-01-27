@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/compiler/bindings"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/statement"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
@@ -27,7 +28,8 @@ import (
 func compile(source string) []byte {
 	stmt := MustSucceed(parser.ParseStatement(source))
 	aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-	Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+	analyzer.AnalyzeStatement(aCtx)
+	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
 	Expect(MustSucceed(statement.Compile(context.Child(ctx, stmt)))).To(BeFalse())
 	return ctx.Writer.Bytes()
@@ -36,7 +38,8 @@ func compile(source string) []byte {
 func compileBlock(source string) []byte {
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 	aCtx := acontext.CreateRoot(bCtx, block, nil)
-	Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+	analyzer.AnalyzeBlock(aCtx)
+	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 	ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, true)
 	diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 	Expect(diverged).To(BeFalse())
@@ -93,7 +96,8 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable declaration with explicit type", func() {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+			analyzer.AnalyzeStatement(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
@@ -111,7 +115,8 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable declaration with inferred type", func() {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+			analyzer.AnalyzeStatement(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
@@ -132,7 +137,8 @@ var _ = Describe("Statement Compiler", func() {
 				count = 5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -162,7 +168,8 @@ var _ = Describe("Statement Compiler", func() {
 				x i64 := count + 1
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -193,7 +200,8 @@ var _ = Describe("Statement Compiler", func() {
 				c i64 := a + b
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -229,7 +237,8 @@ var _ = Describe("Statement Compiler", func() {
 		It("Should compile stateful variable with different types", func() {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
 			aCtx := acontext.CreateRoot(bCtx, stmt, nil)
-			Expect(analyzer.AnalyzeStatement(aCtx)).To(BeTrue())
+			analyzer.AnalyzeStatement(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
 			Expect(diverged).To(BeFalse())
@@ -250,7 +259,8 @@ var _ = Describe("Statement Compiler", func() {
 				count += 5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -281,7 +291,8 @@ var _ = Describe("Statement Compiler", func() {
 				value -= 25.5
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -313,7 +324,8 @@ var _ = Describe("Statement Compiler", func() {
 				n *= 3
 			}`))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -676,7 +688,8 @@ var _ = Describe("Statement Compiler", func() {
 		compileStr := func(source string) []byte {
 			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
 			aCtx := acontext.CreateRoot(bCtx, block, nil)
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
@@ -850,7 +863,8 @@ var _ = Describe("Statement Compiler", func() {
 			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
 			aCtx.Scope = fn
 
-			Expect(analyzer.AnalyzeBlock(aCtx)).To(BeTrue(), aCtx.Diagnostics.String())
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
 
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
@@ -868,6 +882,538 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(bytecode).To(ContainSubstring(string([]byte{byte(OpLocalGet)})))
 			Expect(seriesCreateIdx).ToNot(Equal(uint32(0)))
 			Expect(seriesSetElementIdx).ToNot(Equal(uint32(0)))
+		})
+	})
+
+	Describe("Series Literals with Inferred Variables and Literal Coercion", func() {
+		It("Should compile inferred int variable with exact-integer float literal", func() {
+			// a := 5 creates an i64 variable
+			// 12.0 is an exact integer float that should coerce to i64
+			// Result: series[i64] with elements [5, 12]
+			block := MustSucceed(parser.ParseBlock(`{
+				a := 5
+				x := [a, 12.0]
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
+			seriesSetIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// a := 5
+				OpI64Const, int64(5),
+				OpLocalSet, 0,
+				// x := [a, 12.0] - create series[i64] with 2 elements
+				OpI32Const, int32(2),
+				OpCall, uint64(seriesCreateIdx),
+				// set element 0 = a
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(seriesSetIdx),
+				// set element 1 = 12 (12.0 coerced to i64)
+				OpI32Const, int32(1),
+				OpI64Const, int64(12),
+				OpCall, uint64(seriesSetIdx),
+				// store series in x
+				OpLocalSet, 1,
+			))
+		})
+
+		It("Should compile inferred float variable with int literal", func() {
+			// a := 12.0 creates an f64 variable
+			// 5 is an int literal that should coerce to f64
+			// Result: series[f64] with elements [12.0, 5.0]
+			block := MustSucceed(parser.ParseBlock(`{
+				a := 12.0
+				x := [a, 5]
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.F64().String()]
+			seriesSetIdx := ctx.Imports.SeriesSetElement[types.F64().String()]
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// a := 12.0
+				OpF64Const, float64(12.0),
+				OpLocalSet, 0,
+				// x := [a, 5] - create series[f64] with 2 elements
+				OpI32Const, int32(2),
+				OpCall, uint64(seriesCreateIdx),
+				// set element 0 = a
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(seriesSetIdx),
+				// set element 1 = 5.0 (5 coerced to f64)
+				OpI32Const, int32(1),
+				OpF64Const, float64(5),
+				OpCall, uint64(seriesSetIdx),
+				// store series in x
+				OpLocalSet, 1,
+			))
+		})
+
+		It("Should compile multiple inferred variables with mixed literals", func() {
+			// a := 5, b := 10 creates i64 variables
+			// 15.0 is an exact integer float that should coerce to i64
+			// Result: series[i64] with elements [5, 10, 15]
+			block := MustSucceed(parser.ParseBlock(`{
+				a := 5
+				b := 10
+				x := [a, b, 15.0]
+			}`))
+			aCtx := acontext.CreateRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+
+			seriesCreateIdx := ctx.Imports.SeriesCreateEmpty[types.I64().String()]
+			seriesSetIdx := ctx.Imports.SeriesSetElement[types.I64().String()]
+
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(
+				// a := 5
+				OpI64Const, int64(5),
+				OpLocalSet, 0,
+				// b := 10
+				OpI64Const, int64(10),
+				OpLocalSet, 1,
+				// x := [a, b, 15.0] - create series[i64] with 3 elements
+				OpI32Const, int32(3),
+				OpCall, uint64(seriesCreateIdx),
+				// set element 0 = a
+				OpI32Const, int32(0),
+				OpLocalGet, 0,
+				OpCall, uint64(seriesSetIdx),
+				// set element 1 = b
+				OpI32Const, int32(1),
+				OpLocalGet, 1,
+				OpCall, uint64(seriesSetIdx),
+				// set element 2 = 15 (15.0 coerced to i64)
+				OpI32Const, int32(2),
+				OpI64Const, int64(15),
+				OpCall, uint64(seriesSetIdx),
+				// store series in x
+				OpLocalSet, 2,
+			))
+		})
+	})
+
+	Describe("Channel Operations", func() {
+		compileWithChannels := func(source string, resolver symbol.Resolver) ([]byte, *bindings.ImportIndex) {
+			block := MustSucceed(parser.ParseBlock("{" + source + "}"))
+			aCtx := acontext.CreateRoot(bCtx, block, resolver)
+			fnScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "testFunc",
+				Kind: symbol.KindFunction,
+			}))
+			Expect(fnScope).ToNot(BeNil())
+			fnScope.Channels = symbol.NewChannels()
+			fn := MustSucceed(aCtx.Scope.Resolve(aCtx, "testFunc"))
+			aCtx.Scope = fn
+			analyzer.AnalyzeBlock(aCtx)
+			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, false)
+			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
+			Expect(diverged).To(BeFalse())
+			return ctx.Writer.Bytes(), ctx.Imports
+		}
+
+		Describe("Channel Writes", func() {
+			DescribeTable("Should compile channel write for numeric types",
+				func(typeName string, arcType types.Type, valueCode string, expectedValueOps ...any) {
+					resolver := symbol.MapResolver{
+						"test_ch": {
+							Name: "test_ch",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(arcType),
+							ID:   100,
+						},
+					}
+					source := "test_ch = " + valueCode
+					bytecode, imports := compileWithChannels(source, resolver)
+					writeIdx := imports.ChannelWrite[typeName]
+					expected := []any{OpI32Const, int32(100)}
+					expected = append(expected, expectedValueOps...)
+					expected = append(expected, OpCall, uint64(writeIdx))
+					Expect(bytecode).To(MatchOpcodes(expected...))
+				},
+				Entry("i8", "i8", types.I8(), "42", OpI32Const, int32(42)),
+				Entry("i16", "i16", types.I16(), "42", OpI32Const, int32(42)),
+				Entry("i32", "i32", types.I32(), "42", OpI32Const, int32(42)),
+				Entry("i64", "i64", types.I64(), "42", OpI64Const, int64(42)),
+				Entry("u8", "u8", types.U8(), "42", OpI32Const, int32(42)),
+				Entry("u16", "u16", types.U16(), "42", OpI32Const, int32(42)),
+				Entry("u32", "u32", types.U32(), "42", OpI32Const, int32(42)),
+				Entry("u64", "u64", types.U64(), "42", OpI64Const, int64(42)),
+				Entry("f32", "f32", types.F32(), "3.14", OpF32Const, float32(3.14)),
+				Entry("f64", "f64", types.F64(), "3.14159", OpF64Const, float64(3.14159)),
+			)
+
+			It("Should compile f64 channel write with float literal", func() {
+				resolver := symbol.MapResolver{
+					"f64_ch": {
+						Name: "f64_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   200,
+					},
+				}
+				bytecode, imports := compileWithChannels("f64_ch = 3.14159", resolver)
+				writeIdx := imports.ChannelWrite["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(200), // channel ID
+					OpF64Const, float64(3.14159), // value
+					OpCall, uint64(writeIdx), // channel_write_f64
+				))
+			})
+
+			It("Should compile f32 channel write with float literal", func() {
+				resolver := symbol.MapResolver{
+					"f32_ch": {
+						Name: "f32_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   300,
+					},
+				}
+				bytecode, imports := compileWithChannels("f32_ch = 2.718", resolver)
+				writeIdx := imports.ChannelWrite["f32"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(300), // channel ID
+					OpF32Const, float32(2.718), // value
+					OpCall, uint64(writeIdx), // channel_write_f32
+				))
+			})
+
+			It("Should compile channel write with variable value", func() {
+				resolver := symbol.MapResolver{
+					"output_ch": {
+						Name: "output_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   400,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					x i32 := 42
+					output_ch = x
+				`, resolver)
+				writeIdx := imports.ChannelWrite["i32"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// x := 42
+					OpI32Const, int32(42),
+					OpLocalSet, 0,
+					// output_ch = x
+					OpI32Const, int32(400), // channel ID
+					OpLocalGet, 0, // get x
+					OpCall, uint64(writeIdx), // channel_write_i32
+				))
+			})
+
+			It("Should compile channel write with expression value", func() {
+				resolver := symbol.MapResolver{
+					"result_ch": {
+						Name: "result_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I64()),
+						ID:   500,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					a i64 := 10
+					b i64 := 20
+					result_ch = a + b
+				`, resolver)
+				writeIdx := imports.ChannelWrite["i64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// a := 10
+					OpI64Const, int64(10),
+					OpLocalSet, 0,
+					// b := 20
+					OpI64Const, int64(20),
+					OpLocalSet, 1,
+					// result_ch = a + b
+					OpI32Const, int32(500), // channel ID pushed first
+					OpLocalGet, 0, // a
+					OpLocalGet, 1, // b
+					OpI64Add,                 // a + b
+					OpCall, uint64(writeIdx), // channel_write_i64
+				))
+			})
+
+			It("Should compile multiple channel writes", func() {
+				resolver := symbol.MapResolver{
+					"ch1": {
+						Name: "ch1",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   600,
+					},
+					"ch2": {
+						Name: "ch2",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   700,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					ch1 = 100
+					ch2 = 3.14
+				`, resolver)
+				writeI32Idx := imports.ChannelWrite["i32"]
+				writeF64Idx := imports.ChannelWrite["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// ch1 = 100
+					OpI32Const, int32(600),
+					OpI32Const, int32(100),
+					OpCall, uint64(writeI32Idx),
+					// ch2 = 3.14
+					OpI32Const, int32(700),
+					OpF64Const, float64(3.14),
+					OpCall, uint64(writeF64Idx),
+				))
+			})
+		})
+
+		Describe("Channel Reads", func() {
+			It("Should compile channel read in variable declaration", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					x f64 := sensor
+				`, resolver)
+				readIdx := imports.ChannelRead["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(100), // channel ID
+					OpCall, uint64(readIdx), // channel_read_f64
+					OpLocalSet, 0, // store in x
+				))
+			})
+
+			DescribeTable("Should compile channel read for numeric types",
+				func(typeName string, arcType types.Type) {
+					resolver := symbol.MapResolver{
+						"test_ch": {
+							Name: "test_ch",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(arcType),
+							ID:   100,
+						},
+					}
+					source := "x " + typeName + " := test_ch"
+					bytecode, imports := compileWithChannels(source, resolver)
+					readIdx := imports.ChannelRead[typeName]
+
+					Expect(bytecode).To(MatchOpcodes(
+						OpI32Const, int32(100), // channel ID
+						OpCall, uint64(readIdx), // channel_read_<type>
+						OpLocalSet, 0, // store in local
+					))
+				},
+				Entry("i8", "i8", types.I8()),
+				Entry("i16", "i16", types.I16()),
+				Entry("i32", "i32", types.I32()),
+				Entry("i64", "i64", types.I64()),
+				Entry("u8", "u8", types.U8()),
+				Entry("u16", "u16", types.U16()),
+				Entry("u32", "u32", types.U32()),
+				Entry("u64", "u64", types.U64()),
+				Entry("f32", "f32", types.F32()),
+				Entry("f64", "f64", types.F64()),
+			)
+
+			It("Should compile channel read in expression", func() {
+				resolver := symbol.MapResolver{
+					"pressure": {
+						Name: "pressure",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   200,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					threshold f64 := 100.0
+					result f64 := pressure * 2.0
+				`, resolver)
+				readIdx := imports.ChannelRead["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// threshold := 100.0
+					OpF64Const, float64(100.0),
+					OpLocalSet, 0,
+					// result := pressure * 2.0
+					OpI32Const, int32(200), // channel ID
+					OpCall, uint64(readIdx), // channel_read_f64
+					OpF64Const, float64(2.0),
+					OpF64Mul,
+					OpLocalSet, 1,
+				))
+			})
+
+			It("Should compile channel read in comparison", func() {
+				resolver := symbol.MapResolver{
+					"temp": {
+						Name: "temp",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   300,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					x i32 := 0
+					if temp > 100 {
+						x = 1
+					}
+				`, resolver)
+				readIdx := imports.ChannelRead["i32"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// x := 0
+					OpI32Const, int32(0),
+					OpLocalSet, 0,
+					// if temp > 100
+					OpI32Const, int32(300), // channel ID
+					OpCall, uint64(readIdx), // channel_read_i32
+					OpI32Const, int32(100),
+					OpI32GtS,
+					OpIf, BlockTypeEmpty,
+					// x = 1
+					OpI32Const, int32(1),
+					OpLocalSet, 0,
+					OpEnd,
+				))
+			})
+
+			It("Should compile multiple channel reads", func() {
+				resolver := symbol.MapResolver{
+					"ch1": {
+						Name: "ch1",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   400,
+					},
+					"ch2": {
+						Name: "ch2",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   500,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					sum i32 := ch1 + ch2
+				`, resolver)
+				readIdx := imports.ChannelRead["i32"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(400), // ch1 ID
+					OpCall, uint64(readIdx), // channel_read_i32
+					OpI32Const, int32(500), // ch2 ID
+					OpCall, uint64(readIdx), // channel_read_i32
+					OpI32Add,
+					OpLocalSet, 0,
+				))
+			})
+		})
+
+		Describe("Channel Read and Write Combined", func() {
+			It("Should compile reading from one channel and writing to another", func() {
+				resolver := symbol.MapResolver{
+					"input_ch": {
+						Name: "input_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   100,
+					},
+					"output_ch": {
+						Name: "output_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   200,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					output_ch = input_ch * 2.0
+				`, resolver)
+				readIdx := imports.ChannelRead["f64"]
+				writeIdx := imports.ChannelWrite["f64"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// Push output channel ID first (before expression)
+					OpI32Const, int32(200),
+					// Read from input_ch
+					OpI32Const, int32(100),
+					OpCall, uint64(readIdx),
+					// Multiply by 2.0
+					OpF64Const, float64(2.0),
+					OpF64Mul,
+					// Write to output_ch
+					OpCall, uint64(writeIdx),
+				))
+			})
+
+			It("Should compile conditional channel write based on channel read", func() {
+				resolver := symbol.MapResolver{
+					"sensor": {
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   100,
+					},
+					"alarm": {
+						Name: "alarm",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.I32()),
+						ID:   200,
+					},
+				}
+				bytecode, imports := compileWithChannels(`
+					if sensor > 50 {
+						alarm = 1
+					}
+				`, resolver)
+				readIdx := imports.ChannelRead["i32"]
+				writeIdx := imports.ChannelWrite["i32"]
+
+				Expect(bytecode).To(MatchOpcodes(
+					// if sensor > 50
+					OpI32Const, int32(100),
+					OpCall, uint64(readIdx),
+					OpI32Const, int32(50),
+					OpI32GtS,
+					OpIf, BlockTypeEmpty,
+					// alarm = 1
+					OpI32Const, int32(200),
+					OpI32Const, int32(1),
+					OpCall, uint64(writeIdx),
+					OpEnd,
+				))
+			})
 		})
 	})
 })

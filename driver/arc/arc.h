@@ -16,26 +16,25 @@
 
 #include "client/cpp/synnax.h"
 
+#include "driver/task/common/common.h"
 #include "driver/task/task.h"
 
-namespace arc {
+namespace driver::arc {
 /// @brief integration name for arc runtime.
 const std::string INTEGRATION_NAME = "arc";
 /// @brief task type for arc runtime tasks.
 const std::string TASK_TYPE = INTEGRATION_NAME;
 
 /// @brief factory for creating arc runtime tasks.
-class Factory final : public driver::task::Factory {
-public:
-    std::pair<std::unique_ptr<driver::task::Task>, bool> configure_task(
-        const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::task::Task &task
-    ) override;
+class Factory final : public task::Factory {
+    /// @brief configures an arc runtime task.
+    std::pair<common::ConfigureResult, xerrors::Error>
+    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
 
-    std::vector<std::pair<synnax::task::Task, std::unique_ptr<driver::task::Task>>>
-    configure_initial_tasks(
-        const std::shared_ptr<driver::task::Context> &ctx,
-        const synnax::rack::Rack &rack
+public:
+    std::pair<std::unique_ptr<task::Task>, bool> configure_task(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
     ) override;
 
     [[nodiscard]] std::string name() override;

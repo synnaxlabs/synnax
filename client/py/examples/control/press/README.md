@@ -11,12 +11,12 @@ this example.
 
 ## Files
 
-This directory contains two files:
+This directory contains:
 
 - `control_sequence.py`: The control sequence that runs the pressurization and venting
   process.
-- `simulated_daq.py`: A data acquisition computer that simulates how a real
-  pressurization system would respond to the commands issued by the control sequence.
+
+The simulator for this example is located in `examples/simulators/press.py`.
 
 ## Running the Example
 
@@ -38,17 +38,18 @@ If you are using the Console, you can use a combination of
 [Line Plots](https://docs.synnaxlabs.com/reference/console/line-plots) to visualize the
 state of the system over time.
 
-Once you have a Synnax cluster running, start the simulated DAQ by running the following
-command:
+Once you have a Synnax cluster running, start the simulator in one terminal:
 
 ```bash
-python simulated_daq.py
+cd client/py
+uv run python -m examples.simulators.press
 ```
 
-Then, run the control sequence by running the following command:
+Then, run the control sequence in another terminal:
 
 ```bash
-python control_sequence.py
+cd client/py
+uv run python -m examples.control.press.control_sequence
 ```
 
 The control sequence will run and you should see the pressure in the system increase and

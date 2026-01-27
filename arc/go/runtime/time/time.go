@@ -15,14 +15,17 @@ package time
 import (
 	"context"
 	"math"
+	"reflect"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -101,7 +104,6 @@ func (w *Wait) Next(ctx node.Context) {
 		return
 	}
 
-	// Initialize start time on first tick
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
@@ -111,15 +113,14 @@ func (w *Wait) Next(ctx node.Context) {
 		return
 	}
 
-	// Fire!
 	w.fired = true
-	ctx.MarkChanged(ir.DefaultOutputParam)
 	output := w.Output(0)
 	outputTime := w.OutputTime(0)
 	output.Resize(1)
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
+	ctx.MarkChanged(ir.DefaultOutputParam)
 }
 
 // Reset resets the timer so it can fire again.
@@ -151,7 +152,10 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		if !ok {
 			return nil, query.ErrNotFound
 		}
-		period := telem.TimeSpan(toInt64(periodParam.Value))
+		period, err := parseTime(periodParam.Value, periodParam.Name)
+		if err != nil {
+			return nil, err
+		}
 		f.updateTimingBase(period)
 		return &Interval{
 			Node:      cfg.State,
@@ -164,7 +168,10 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 		if !ok {
 			return nil, query.ErrNotFound
 		}
-		duration := telem.TimeSpan(toInt64(durationParam.Value))
+		duration, err := parseTime(durationParam.Value, durationParam.Name)
+		if err != nil {
+			return nil, err
+		}
 		f.updateTimingBase(duration)
 		return &Wait{
 			Node:      cfg.State,
@@ -195,18 +202,15 @@ func gcd(a, b int64) int64 {
 	return a
 }
 
-// toInt64 converts various numeric types to int64.
-func toInt64(v any) int64 {
-	switch val := v.(type) {
-	case int64:
-		return val
-	case int:
-		return int64(val)
-	case int32:
-		return int64(val)
-	case float64:
-		return int64(val)
-	default:
-		return 0
+func parseTime(v any, name string) (telem.TimeSpan, error) {
+	span, ok := v.(telem.TimeSpan)
+	if !ok {
+		return 0, errors.Wrapf(
+			validate.ErrValidation,
+			"configuration parameter %s has invalid type, expected type telem.TimeSpan, received %s",
+			name,
+			reflect.TypeOf(v).Name(),
+		)
 	}
+	return span, nil
 }

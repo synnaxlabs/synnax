@@ -106,7 +106,7 @@ class Abcd(Latency):
         """
         self.log("Starting run()")
         if self.mode == "a":
-            while self.loop.wait() and self.should_continue:
+            while self.should_continue:
                 td = self.read_tlm("t_c", None)
                 if td is not None:
                     self.write_tlm("t_d", td)
@@ -114,13 +114,13 @@ class Abcd(Latency):
                 self.write_tlm("t_a", sy.TimeStamp.now())
 
         elif self.mode == "b":
-            while self.loop.wait() and self.should_continue:
+            while self.should_continue:
                 t_b = self.read_tlm("t_a", None)
                 if t_b is not None:
                     self.write_tlm("t_b", t_b)
 
         elif self.mode == "c":
-            while self.loop.wait() and self.should_continue:
+            while self.should_continue:
                 t_c = self.read_tlm("t_b", None)
                 if t_c is not None:
                     self.write_tlm("t_c", t_c)
@@ -133,7 +133,7 @@ class Abcd(Latency):
             delta_d_a = np.zeros(1000 * self._manual_timeout)
             idx = 0
 
-            while self.loop.wait() and self.should_continue:
+            while self.should_continue:
                 # Just assume we'll never exceed
                 # the 20 second limit for the np arrays
                 t_a = self.read_tlm("t_a")

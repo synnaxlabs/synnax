@@ -33,6 +33,9 @@ type ImportIndex struct {
 	SeriesCompareNEScalar map[string]uint32
 	SeriesElementRSub     map[string]uint32
 	SeriesElementRDiv     map[string]uint32
+	SeriesElementRAdd     map[string]uint32
+	SeriesElementRMul     map[string]uint32
+	SeriesElementRMod     map[string]uint32
 	SeriesSeriesAdd       map[string]uint32
 	SeriesSeriesMul       map[string]uint32
 	SeriesSeriesSub       map[string]uint32
@@ -92,6 +95,9 @@ func NewImportIndex() *ImportIndex {
 		SeriesElementMod:      make(map[string]uint32),
 		SeriesElementRSub:     make(map[string]uint32),
 		SeriesElementRDiv:     make(map[string]uint32),
+		SeriesElementRAdd:     make(map[string]uint32),
+		SeriesElementRMul:     make(map[string]uint32),
+		SeriesElementRMod:     make(map[string]uint32),
 		SeriesSeriesAdd:       make(map[string]uint32),
 		SeriesSeriesMul:       make(map[string]uint32),
 		SeriesSeriesSub:       make(map[string]uint32),
@@ -219,6 +225,9 @@ func setupSeriesArithmetic(m *wasm.Module, idx *ImportIndex, typ types.Type, was
 	}{
 		{name: "rsub", idx: &idx.SeriesElementRSub},
 		{name: "rdiv", idx: &idx.SeriesElementRDiv},
+		{name: "radd", idx: &idx.SeriesElementRAdd},
+		{name: "rmul", idx: &idx.SeriesElementRMul},
+		{name: "rmod", idx: &idx.SeriesElementRMod},
 	}
 
 	for _, op := range reverseOps {

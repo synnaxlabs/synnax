@@ -13,6 +13,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -27,9 +28,9 @@ type Resolver interface {
 	// Resolve looks up a symbol by exact name match. Returns query.ErrNotFound error
 	// if the symbol does not exist.
 	Resolve(ctx context.Context, name string) (Symbol, error)
-	// ResolvePrefix returns all symbols whose names start with the given prefix.
-	// Used for completion and symbol browsing. Returns empty slice if no matches.
-	ResolvePrefix(ctx context.Context, prefix string) ([]Symbol, error)
+	// Search returns symbols matching the given search term. Implementations should
+	// support fuzzy matching. Used for completion and "did you mean" suggestions.
+	Search(ctx context.Context, term string) ([]Symbol, error)
 }
 
 // MapResolver is a simple map-based resolver for static symbol sets.
@@ -45,11 +46,17 @@ func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	return Symbol{}, errors.Wrapf(query.ErrNotFound, "symbol %s not found", name)
 }
 
-// ResolvePrefix returns all symbols whose names start with the given prefix.
-func (m MapResolver) ResolvePrefix(_ context.Context, prefix string) ([]Symbol, error) {
+// Search returns symbols matching the search term using prefix matching and fuzzy matching.
+func (m MapResolver) Search(_ context.Context, term string) ([]Symbol, error) {
 	var symbols []Symbol
 	for name, sym := range m {
-		if strings.HasPrefix(name, prefix) {
+		// Prefix match
+		if strings.HasPrefix(name, term) {
+			symbols = append(symbols, sym)
+			continue
+		}
+		// Fuzzy match using Levenshtein distance
+		if len(term) > 2 && compare.LevenshteinDistance(name, term) <= 2 {
 			symbols = append(symbols, sym)
 		}
 	}
@@ -76,22 +83,19 @@ func (c CompoundResolver) Resolve(ctx context.Context, name string) (Symbol, err
 	return symbol, err
 }
 
-// ResolvePrefix collects symbols from all resolvers, deduplicating by name.
-// The first resolver's symbol wins when multiple resolvers provide the same name.
-// Returns the last error encountered, if any, even if some symbols were found.
-func (c CompoundResolver) ResolvePrefix(ctx context.Context, prefix string) ([]Symbol, error) {
+func (c CompoundResolver) Search(ctx context.Context, term string) ([]Symbol, error) {
 	var (
 		seen           = make(map[string]bool)
 		symbols        []Symbol
 		accumulatedErr error
 	)
 	for _, resolver := range c {
-		prefixSymbols, err := resolver.ResolvePrefix(ctx, prefix)
+		results, err := resolver.Search(ctx, term)
 		if err != nil {
 			accumulatedErr = err
 			continue
 		}
-		for _, sym := range prefixSymbols {
+		for _, sym := range results {
 			if !seen[sym.Name] {
 				symbols = append(symbols, sym)
 				seen[sym.Name] = true

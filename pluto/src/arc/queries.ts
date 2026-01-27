@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError } from "@synnaxlabs/client";
-import { primitive } from "@synnaxlabs/x";
+import { arc, ontology, type rack, task } from "@synnaxlabs/client";
+import { primitive, status } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { state } from "@/state";
-import { Status } from "@/status";
+import { type Status } from "@/status";
+import { Task } from "@/task";
 
 export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
 
@@ -22,7 +23,7 @@ export const FLUX_STORE_KEY = "arcs";
 const RESOURCE_NAME = "Arc";
 const PLURAL_RESOURCE_NAME = "Arcs";
 
-export interface FluxSubStore extends Status.FluxSubStore {
+export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
@@ -57,19 +58,6 @@ const retrieveSingle = async ({
   query,
   store,
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  if ("key" in query) {
-    const cached = store.arcs.get(query.key);
-    if (cached != null) {
-      const status = await Status.retrieveSingle<typeof arc.statusDetailsZ>({
-        store,
-        client,
-        query: { key: cached.key },
-        detailsSchema: arc.statusDetailsZ,
-      });
-      if (status != null) cached.status = status;
-      return cached;
-    }
-  }
   const a = await client.arcs.retrieve({
     ...query,
     includeStatus: query.includeStatus ?? true,
@@ -84,17 +72,11 @@ export interface ListQuery extends List.PagerParams {
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) => {
-    const res = store.arcs.get((a) => {
+  retrieveCached: ({ store, query }) =>
+    store.arcs.get((a) => {
       if (primitive.isNonZero(query.keys)) return query.keys.includes(a.key);
       return true;
-    });
-    res.forEach((r) => {
-      const status = store.statuses.get(r.key);
-      if (status != null) r.status = arc.statusZ.parse(status);
-    });
-    return res;
-  },
+    }),
   retrieve: async ({ client, query }) =>
     await client.arcs.retrieve({
       ...query,
@@ -108,19 +90,8 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore
     return arc;
   },
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.arcs.onSet((arc) =>
-      onChange(arc.key, (p) => {
-        if (p == null) return arc;
-        return { ...arc, status: arc.status ?? p.status };
-      }),
-    ),
+    store.arcs.onSet((arc) => onChange(arc.key, arc)),
     store.arcs.onDelete(onDelete),
-    store.statuses.onSet((status) =>
-      onChange(status.key, (p) => {
-        if (p == null) return p;
-        return { ...p, status: arc.statusZ.parse(status) };
-      }),
-    ),
   ],
 });
 
@@ -151,7 +122,6 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
     functions: [],
   },
   text: { raw: "" },
-  deploy: true,
 };
 
 export const useForm = Flux.createForm<
@@ -173,34 +143,94 @@ export const useForm = Flux.createForm<
   },
 });
 
-export const { useUpdate: useCreate } = Flux.createUpdate<arc.New, FluxSubStore>({
+export interface CreateParams extends arc.New {
+  rack?: rack.Key;
+}
+
+export const taskStatusDataZ = z.null().or(z.undefined());
+export type TaskStatusData = z.infer<typeof taskStatusDataZ>;
+const TASK_TYPE = "arc";
+export const taskTypeZ = z.literal(TASK_TYPE);
+export type TaskType = z.infer<typeof taskTypeZ>;
+export const taskConfigZ = z.object({
+  arcKey: z.string(),
+});
+
+export interface TaskConfig extends z.infer<typeof taskConfigZ> {}
+
+const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
+  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
+    key: task.statusKey(taskKey),
+    name: "Configuring task",
+    variant: "loading",
+    message: "Configuring task...",
+    details: {
+      task: taskKey,
+      running: false,
+      data: undefined,
+    },
+  });
+
+const TASK_SCHEMAS: task.Schemas<
+  typeof taskTypeZ,
+  typeof taskConfigZ,
+  typeof taskStatusDataZ
+> = {
+  typeSchema: taskTypeZ,
+  configSchema: taskConfigZ,
+  statusDataSchema: taskStatusDataZ,
+};
+
+export const { useUpdate: useCreate } = Flux.createUpdate<
+  CreateParams,
+  FluxSubStore,
+  arc.Arc
+>({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const arc = await client.arcs.create(data);
-    try {
-      const task = await client.tasks.retrieve({ name: arc.key });
-      await client.tasks.create({
-        ...task.payload,
-        config: {
-          arcKey: arc.key,
-        },
-      });
-    } catch (error) {
-      if (NotFoundError.matches(error)) {
-        const rack = await client.racks.retrieve({ key: 65538 });
-        await rack.createTask({
-          name: arc.key,
-          type: "arc",
-          config: {
-            arcKey: arc.key,
-          },
-        });
+    const { rack } = data;
+    let taskKey: task.Key | undefined;
+    // If the caller selected a rack to deploy the arc on, we need to create a task
+    // for it.
+    if (rack != null) {
+      taskKey = task.newKey(rack, 0);
+      if (data.key != null) {
+        const tsk = await retrieveTask({ client, store, query: { arcKey: data.key } });
+        if (tsk != null)
+          if (task.rackKey(tsk.key) != rack) {
+            // This means a previous task was created for a different rack, and we need
+            // to delete it.
+            rollbacks.push(store.tasks.delete(tsk.key));
+            rollbacks.push(
+              store.relationships.delete(
+                ontology.relationshipToString({
+                  from: arc.ontologyID(data.key),
+                  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+                  to: task.ontologyID(tsk.key),
+                }),
+              ),
+            );
+            await client.tasks.delete([tsk.key]);
+          } else taskKey = tsk.key;
       }
     }
-
-    rollbacks.push(store.arcs.set(arc));
-    return data;
+    const prog = await client.arcs.create(data);
+    rollbacks.push(store.arcs.set(prog));
+    const { key, name } = prog;
+    if (taskKey == null) return prog;
+    const newTsk = await client.tasks.create(
+      {
+        key: taskKey,
+        name,
+        type: TASK_TYPE,
+        config: { arcKey: key },
+        status: configuringStatus(taskKey),
+      },
+      TASK_SCHEMAS,
+    );
+    await client.ontology.addChildren(arc.ontologyID(key), task.ontologyID(newTsk.key));
+    return prog;
   },
 });
 
@@ -217,24 +247,22 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   },
 });
 
-export const { useUpdate: useToggleDeploy } = Flux.createUpdate<arc.Key, FluxSubStore>({
-  name: RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
-  update: async ({ client, store, data: key, rollbacks }) => {
-    const arc = await retrieveSingle({ client, store, query: { key } });
-    const updated = await client.arcs.create({ ...arc, deploy: !arc.deploy });
-    rollbacks.push(store.arcs.set(updated));
-    return key;
-  },
-});
-
 export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, store, data: { key, name }, rollbacks }) => {
+  update: async (params) => {
+    const {
+      client,
+      store,
+      data: { key, name },
+      rollbacks,
+    } = params;
     const arc = await retrieveSingle({ client, store, query: { key } });
+    const task = await retrieveTask({ client, store, query: { arcKey: key } });
+    if (task != null) await Task.rename({ ...params, data: { key: task.key, name } });
+
     rollbacks.push(
       store.arcs.set(
         key,
@@ -243,5 +271,127 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     );
     await client.arcs.create({ ...arc, name });
     return { key, name };
+  },
+});
+
+export interface RetrieveTaskParams {
+  arcKey: arc.Key;
+}
+
+export const retrieveTask = async ({
+  client,
+  query,
+  store,
+}: Flux.RetrieveParams<RetrieveTaskParams, FluxSubStore>): Promise<
+  task.Task | undefined
+> => {
+  const arcOntologyID = arc.ontologyID(query.arcKey);
+  const cachedChild = store.relationships.get((r) =>
+    ontology.matchRelationship(r, {
+      from: arcOntologyID,
+      type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+      to: { type: "task" },
+    }),
+  )[0];
+
+  let taskKey = cachedChild?.to.key;
+
+  if (taskKey == null) {
+    const children = await client.ontology.retrieveChildren(arcOntologyID, {
+      types: ["task"],
+    });
+    children.forEach((c) => {
+      const rel: ontology.Relationship = {
+        from: arcOntologyID,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: c.id,
+      };
+      store.relationships.set(ontology.relationshipToString(rel), rel);
+    });
+    if (children.length === 0) return undefined;
+    taskKey = children[0].id.key;
+  }
+
+  return await Task.retrieveSingle({
+    store,
+    client,
+    query: { key: taskKey },
+  });
+};
+
+export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
+  RetrieveTaskParams,
+  task.Task | undefined,
+  FluxSubStore
+>({
+  name: "Task",
+  retrieve: retrieveTask,
+  mountListeners: ({ store, query, onChange, client }) => {
+    if (!("arcKey" in query) || primitive.isZero(query.arcKey)) return [];
+    const arcOntologyID = arc.ontologyID(query.arcKey);
+
+    return [
+      store.relationships.onSet(async (rel) => {
+        const isTaskChild = ontology.matchRelationship(rel, {
+          from: arcOntologyID,
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: { type: "task" },
+        });
+        if (!isTaskChild) return;
+        const tsk = await Task.retrieveSingle({
+          store,
+          client,
+          query: { key: rel.to.key },
+        });
+        onChange(tsk);
+      }),
+
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        const isTaskChild = ontology.matchRelationship(rel, {
+          from: arcOntologyID,
+          type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+          to: { type: "task" },
+        });
+        if (!isTaskChild) return;
+        onChange(undefined);
+      }),
+
+      store.tasks.onSet(async (tsk) => {
+        const isChild =
+          store.relationships.get((r) =>
+            ontology.matchRelationship(r, {
+              from: arcOntologyID,
+              type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+              to: task.ontologyID(tsk.key),
+            }),
+          ).length > 0;
+        if (isChild)
+          onChange((prev) => {
+            if (prev == null) return tsk as task.Task;
+            return client.tasks.sugar({ ...tsk.payload, status: prev.status });
+          });
+      }),
+
+      store.statuses.onSet(async (status) => {
+        if (!status.key.startsWith("task")) return;
+        const cachedRel = store.relationships.get((r) =>
+          ontology.matchRelationship(r, {
+            from: arcOntologyID,
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            to: { type: "task" },
+          }),
+        )[0];
+        if (cachedRel == null) return;
+        const taskStatusKey = task.statusKey(cachedRel.to.key);
+        if (status.key !== taskStatusKey) return;
+        const parsed = task.statusZ(z.null().or(z.undefined())).safeParse(status);
+        if (!parsed.success) return;
+        onChange((prev) => {
+          if (prev == null) return prev;
+          return client.tasks.sugar({ ...prev.payload, status: parsed.data });
+        });
+      }),
+    ];
   },
 });

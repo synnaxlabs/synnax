@@ -7,12 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <atomic>
 #include <chrono>
-#include <mutex>
 #include <thread>
-#include <unordered_map>
-#include <vector>
 
 #include "glog/logging.h"
 #include <windows.h>
@@ -24,35 +20,25 @@
 
 namespace arc::runtime::loop {
 
+bool has_rt_scheduling() {
+    return false;
+}
+
 class WindowsLoop final : public Loop {
     static constexpr DWORD MAX_HANDLES = MAXIMUM_WAIT_OBJECTS;
 
 public:
     explicit WindowsLoop(const Config &config): config_(config) {
-        if (this->config_.rt_priority > 0 && this->config_.rt_priority > 31) {
-            LOG(WARNING) << "[loop] Windows priority range is 0-31, clamping";
-        }
-
         if (this->config_.lock_memory) {
             LOG(WARNING) << "[loop] Memory locking on Windows requires "
                          << "VirtualLock API (not implemented)";
         }
     }
 
-    ~WindowsLoop() override { this->stop(); }
+    ~WindowsLoop() override { this->close_handles(); }
 
-    void notify_data() override {
-        if (!this->running_ || this->data_event_ == NULL) return;
-
-        if (!SetEvent(this->data_event_)) {
-            LOG(ERROR) << "[loop] Failed to set data event: " << GetLastError();
-        }
-
-        this->data_available_.store(true, std::memory_order_release);
-    }
-
-    void wait(x::breaker::Breaker &breaker) override {
-        if (!this->running_) return;
+    void wait(breaker::Breaker &breaker) override {
+        if (this->wake_event_ == NULL) return;
 
         switch (this->config_.mode) {
             case ExecutionMode::BUSY_WAIT:
@@ -62,67 +48,70 @@ public:
                 this->high_rate_wait(breaker);
                 break;
             case ExecutionMode::RT_EVENT:
-            case ExecutionMode::EVENT_DRIVEN:
-                this->event_driven_wait(
-                    breaker,
-                    this->config_.mode == ExecutionMode::EVENT_DRIVEN
-                );
+                this->event_driven_wait(false);
                 break;
             case ExecutionMode::HYBRID:
                 this->hybrid_wait(breaker);
+                break;
+            case ExecutionMode::AUTO:
+            case ExecutionMode::EVENT_DRIVEN:
+                this->event_driven_wait(true);
                 break;
         }
     }
 
     x::errors::Error start() override {
-        if (this->running_) return x::errors::NIL;
+        if (this->wake_event_ != NULL) return xerrors::NIL;
 
-        this->data_event_ = CreateEvent(NULL, TRUE, FALSE, NULL);
-        if (this->data_event_ == NULL) {
+        this->wake_event_ = CreateEvent(NULL, FALSE, FALSE, NULL);
+        if (this->wake_event_ == NULL) {
             return x::errors::Error(
-                "Failed to create data event: " + std::to_string(GetLastError())
+                "Failed to create wake event: " + std::to_string(GetLastError())
             );
         }
 
         if (this->config_.interval.nanoseconds() > 0) {
-            this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
-            if (this->timer_event_ == NULL) {
-                CloseHandle(this->data_event_);
-                return x::errors::Error(
-                    "Failed to create waitable timer: " + std::to_string(GetLastError())
+            if (this->config_.mode == ExecutionMode::HIGH_RATE) {
+                // HIGH_RATE uses precise software timer
+                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+            } else {
+                // Other modes use WaitableTimer
+                this->timer_event_ = CreateWaitableTimer(NULL, FALSE, NULL);
+                if (this->timer_event_ == NULL) {
+                    CloseHandle(this->wake_event_);
+                    return x::errors::Error(
+                        "Failed to create waitable timer: " +
+                        std::to_string(GetLastError())
+                    );
+                }
+
+                LARGE_INTEGER due_time;
+                const int64_t interval_100ns = this->config_.interval.nanoseconds() /
+                                               timing::WINDOWS_TIMER_UNIT.nanoseconds();
+                due_time.QuadPart = -interval_100ns;
+
+                const LONG period_ms = static_cast<LONG>(
+                    this->config_.interval.nanoseconds() /
+                    telem::MILLISECOND.nanoseconds()
                 );
-            }
 
-            LARGE_INTEGER due_time;
-            const int64_t interval_100ns = this->config_.interval.nanoseconds() / 100;
-            due_time.QuadPart = -interval_100ns;
+                if (!SetWaitableTimer(
+                        this->timer_event_,
+                        &due_time,
+                        period_ms,
+                        NULL,
+                        NULL,
+                        FALSE
+                    )) {
+                    CloseHandle(this->timer_event_);
+                    CloseHandle(this->wake_event_);
+                    return x::errors::Error(
+                        "Failed to set waitable timer: " +
+                        std::to_string(GetLastError())
+                    );
+                }
 
-            const LONG period_ms = static_cast<LONG>(
-                this->config_.interval.nanoseconds() / 1'000'000
-            );
-
-            if (!SetWaitableTimer(
-                    this->timer_event_,
-                    &due_time,
-                    period_ms,
-                    NULL,
-                    NULL,
-                    FALSE
-                )) {
-                CloseHandle(this->timer_event_);
-                CloseHandle(this->data_event_);
-                return x::errors::Error(
-                    "Failed to set waitable timer: " + std::to_string(GetLastError())
-                );
-            }
-
-            this->timer_enabled_ = true;
-        }
-
-        if (this->config_.mode == ExecutionMode::HIGH_RATE ||
-            this->config_.mode == ExecutionMode::HYBRID) {
-            if (this->config_.interval.nanoseconds() > 0) {
-                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
+                this->timer_enabled_ = true;
             }
         }
 
@@ -139,16 +128,30 @@ public:
             }
         }
 
-        this->running_ = true;
-        this->data_available_.store(false, std::memory_order_release);
-
         return x::errors::NIL;
     }
 
-    void stop() override {
-        if (!this->running_) return;
+    void wake() override {
+        if (this->wake_event_ == NULL) return;
+        SetEvent(this->wake_event_);
+    }
 
-        this->running_ = false;
+    bool watch(notify::Notifier &notifier) override {
+        auto *handle = static_cast<HANDLE>(notifier.native_handle());
+        if (handle == nullptr) {
+            LOG(ERROR) << "[loop] Notifier has no native handle";
+            return false;
+        }
+        if (this->watched_handle_ != NULL) {
+            LOG(ERROR) << "[loop] Only one external notifier can be watched";
+            return false;
+        }
+        this->watched_handle_ = handle;
+        return true;
+    }
+
+private:
+    void close_handles() {
         this->timer_.reset();
 
         if (this->timer_event_ != NULL) {
@@ -157,51 +160,22 @@ public:
             this->timer_event_ = NULL;
         }
 
-        if (this->data_event_ != NULL) {
-            CloseHandle(this->data_event_);
-            this->data_event_ = NULL;
+        if (this->wake_event_ != NULL) {
+            CloseHandle(this->wake_event_);
+            this->wake_event_ = NULL;
         }
 
         this->timer_enabled_ = false;
     }
 
-    bool watch(x::notify::Notifier &notifier) override {
-        static bool warned = false;
-        if (!warned) {
-            LOG(WARNING) << "[loop] watch() not supported on Windows; "
-                         << "external notifiers will not wake wait()";
-            warned = true;
-        }
-        (void) notifier;
-        return false;
-    }
-
-private:
     void busy_wait(x::breaker::Breaker &breaker) {
-        HANDLE handles[2];
-        DWORD count = 1;
-        handles[0] = this->data_event_;
+        HANDLE handles[3];
+        const DWORD count = this->build_handles(handles);
+        if (count == 0) return;
 
-        if (this->timer_enabled_) {
-            handles[1] = this->timer_event_;
-            count = 2;
-        }
-
-        while (!!breaker.running()) {
+        while (breaker.running()) {
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
-
-            if (result < WAIT_OBJECT_0 + count) {
-                ResetEvent(this->data_event_);
-                this->data_available_.store(false, std::memory_order_release);
-                return;
-            }
-
-            if (this->data_available_.load(std::memory_order_acquire)) {
-                ResetEvent(this->data_event_);
-                this->data_available_.store(false, std::memory_order_release);
-                return;
-            }
-
+            if (result < WAIT_OBJECT_0 + count) return;
             if (result == WAIT_FAILED) {
                 LOG(ERROR) << "[loop] WaitForMultipleObjects failed: "
                            << GetLastError();
@@ -210,84 +184,49 @@ private:
         }
     }
 
-    void high_rate_wait(x::breaker::Breaker &breaker) {
-        if (this->timer_) {
-            this->timer_->wait(breaker);
-        } else {
-            std::this_thread::sleep_for(timing::HIGH_RATE_POLL_INTERVAL.chrono());
-        }
+    void high_rate_wait(x::breaker::Breaker &breaker) { this->timer_->wait(breaker); }
 
-        ResetEvent(this->data_event_);
-        this->data_available_.store(false, std::memory_order_release);
-    }
+    void event_driven_wait(bool blocking) {
+        HANDLE handles[3];
+        const DWORD count = this->build_handles(handles);
+        if (count == 0) return;
 
-    void event_driven_wait(x::breaker::Breaker &breaker, bool blocking) {
-        HANDLE handles[2];
-        DWORD count = 1;
-        handles[0] = this->data_event_;
-
-        if (this->timer_enabled_) {
-            handles[1] = this->timer_event_;
-            count = 2;
-        }
-
+        // Use timeout to ensure we periodically check breaker.running()
+        // in the caller's loop.
         const DWORD timeout_ms = blocking
-                                   ? INFINITE
+                                   ? static_cast<DWORD>(
+                                         timing::EVENT_DRIVEN_TIMEOUT.milliseconds()
+                                     )
                                    : static_cast<DWORD>(
                                          timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
                                      );
 
         const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
-
-        if (result < WAIT_OBJECT_0 + count) {
-            ResetEvent(this->data_event_);
-        } else if (result == WAIT_FAILED) {
+        if (result == WAIT_FAILED)
             LOG(ERROR) << "[loop] WaitForMultipleObjects failed: " << GetLastError();
-        }
-
-        this->data_available_.store(false, std::memory_order_release);
     }
 
     void hybrid_wait(x::breaker::Breaker &breaker) {
+        HANDLE handles[3];
+        const DWORD count = this->build_handles(handles);
+        if (count == 0) return;
+
         const auto spin_start = std::chrono::steady_clock::now();
         const auto spin_duration = std::chrono::nanoseconds(
             this->config_.spin_duration.nanoseconds()
         );
 
-        HANDLE handles[2];
-        DWORD count = 1;
-        handles[0] = this->data_event_;
-
-        if (this->timer_enabled_) {
-            handles[1] = this->timer_event_;
-            count = 2;
-        }
-
         while (std::chrono::steady_clock::now() - spin_start < spin_duration) {
             if (!breaker.running()) return;
 
             const DWORD result = WaitForMultipleObjects(count, handles, FALSE, 0);
-
-            if (result < WAIT_OBJECT_0 + count) {
-                ResetEvent(this->data_event_);
-                this->data_available_.store(false, std::memory_order_release);
-                return;
-            }
-
-            if (this->data_available_.load(std::memory_order_acquire)) {
-                ResetEvent(this->data_event_);
-                this->data_available_.store(false, std::memory_order_release);
-                return;
-            }
+            if (result < WAIT_OBJECT_0 + count) return;
         }
 
         const DWORD timeout_ms = static_cast<DWORD>(
             timing::HYBRID_BLOCK_TIMEOUT.milliseconds()
         );
-        const DWORD result = WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
-        if (result < WAIT_OBJECT_0 + count) { ResetEvent(this->data_event_); }
-
-        this->data_available_.store(false, std::memory_order_release);
+        WaitForMultipleObjects(count, handles, FALSE, timeout_ms);
     }
 
     x::errors::Error set_thread_priority(int priority) {
@@ -323,13 +262,20 @@ private:
         return x::errors::NIL;
     }
 
+    DWORD build_handles(HANDLE *handles) const {
+        DWORD count = 0;
+        if (this->wake_event_ != NULL) handles[count++] = this->wake_event_;
+        if (this->watched_handle_ != NULL) handles[count++] = this->watched_handle_;
+        if (this->timer_enabled_) handles[count++] = this->timer_event_;
+        return count;
+    }
+
     Config config_;
-    HANDLE data_event_ = NULL;
+    HANDLE wake_event_ = NULL;
     HANDLE timer_event_ = NULL;
+    HANDLE watched_handle_ = NULL;
     bool timer_enabled_ = false;
-    std::unique_ptr<::x::loop::Timer> timer_;
-    std::atomic<bool> data_available_{false};
-    std::atomic<bool> running_{false};
+    std::unique_ptr<x::loop::Timer> timer_;
 };
 
 std::pair<std::unique_ptr<Loop>, x::errors::Error> create(const Config &cfg) {

@@ -49,10 +49,22 @@ func compileWithCtx(ctx ccontext.Context[antlr.ParserRuleContext], source string
 	return ctx.Writer.Bytes(), exprType
 }
 
+func compileWithCtxAndHint(ctx ccontext.Context[antlr.ParserRuleContext], source string, hint types.Type) ([]byte, types.Type) {
+	expr := MustSucceedWithOffset[parser.IExpressionContext](2)(parser.ParseExpression(source))
+	if hint.Kind == types.KindSeries {
+		if lit := parser.GetLiteral(expr); lit != nil {
+			ctx.TypeMap[lit] = hint
+		}
+	}
+	exprType := MustSucceedWithOffset[types.Type](2)(expression.Compile(ccontext.Child(ctx, expr)))
+	return ctx.Writer.Bytes(), exprType
+}
+
 func compileWithAnalyzer(exprSource string, resolver symbol.Resolver) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
 	analyzerCtx := acontext.CreateRoot(bCtx, expr, resolver)
-	Expect(aexpression.Analyze(analyzerCtx)).To(BeTrue(), analyzerCtx.Diagnostics.String())
+	aexpression.Analyze(analyzerCtx)
+	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
 	if analyzerCtx.Constraints.HasTypeVariables() {
 		Expect(analyzerCtx.Constraints.Unify()).To(Succeed())
 		for node, typ := range analyzerCtx.TypeMap {
@@ -107,6 +119,70 @@ func seriesReverseArithmeticIdx(op string, elemType types.Type) uint32 {
 // seriesComparisonIdx returns the function index for series-series comparison operations
 func seriesComparisonIdx(op string, elemType types.Type) uint32 {
 	return MustSucceed(testImports.GetSeriesComparison(op, elemType))
+}
+
+func seriesCreateEmptyIdx(elemType types.Type) uint32 {
+	return MustSucceed(testImports.GetSeriesCreateEmpty(elemType))
+}
+
+func seriesSetElementIdx(elemType types.Type) uint32 {
+	return MustSucceed(testImports.GetSeriesSetElement(elemType))
+}
+
+func scalarSymbol(name string, t types.Type, id int) symbol.Symbol {
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindVariable,
+		Type: t,
+		ID:   id,
+	}
+}
+
+func expectSeriesWithFunctions(
+	expr string,
+	funcIndices map[string]uint32,
+	funcSymbols []symbol.Symbol,
+	hint types.Type,
+	expectedOpcodes ...any,
+) {
+	ctx := NewContext(bCtx)
+	ctx.FunctionIndices = funcIndices
+	for _, sym := range funcSymbols {
+		MustSucceed(ctx.Scope.Add(ctx, sym))
+	}
+	bytecode, exprType := compileWithCtxAndHint(ctx, expr, hint)
+	Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
+	Expect(exprType).To(Equal(hint))
+}
+
+func expectSeriesLiteralWithHint(
+	expr string,
+	resolver symbol.Resolver,
+	hint types.Type,
+	expectedOpcodes ...any,
+) {
+	parsedExpr := MustSucceed(parser.ParseExpression(expr))
+	analyzerCtx := acontext.CreateRoot(bCtx, parsedExpr, resolver)
+	aexpression.Analyze(analyzerCtx)
+	Expect(analyzerCtx.Diagnostics.Ok()).To(BeTrue(), analyzerCtx.Diagnostics.String())
+
+	if analyzerCtx.Constraints.HasTypeVariables() {
+		Expect(analyzerCtx.Constraints.Unify()).To(Succeed())
+		for node, typ := range analyzerCtx.TypeMap {
+			analyzerCtx.TypeMap[node] = analyzerCtx.Constraints.ApplySubstitutions(typ)
+		}
+	}
+
+	if hint.IsValid() && hint.Kind == types.KindSeries {
+		if lit := parser.GetLiteral(parsedExpr); lit != nil {
+			analyzerCtx.TypeMap[lit] = hint
+		}
+	}
+
+	compilerCtx := ccontext.CreateRoot(bCtx, analyzerCtx.Scope, analyzerCtx.TypeMap, false)
+	exprType := MustSucceed(expression.Compile(ccontext.Child(compilerCtx, parsedExpr)))
+	Expect(compilerCtx.Writer.Bytes()).To(MatchOpcodes(expectedOpcodes...))
+	Expect(exprType).To(Equal(hint))
 }
 
 func TestExpression(t *testing.T) {

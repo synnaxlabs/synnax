@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	arclsp "github.com/synnaxlabs/arc/lsp"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	arctext "github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/freighter"
@@ -150,21 +149,6 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 		}
 	}
 
-	if req.IncludeStatus {
-		statuses := make([]status.Status[arc.StatusDetails], 0, len(res.Arcs))
-		uuidStrings := lo.Map(res.Arcs, func(a Arc, _ int) string {
-			return a.Key.String()
-		})
-		if err = status.NewRetrieve[arc.StatusDetails](s.status).
-			WhereKeys(uuidStrings...).
-			Entries(&statuses).
-			Exec(ctx, nil); err != nil {
-			return RetrieveResponse{}, err
-		}
-		for i, stat := range statuses {
-			res.Arcs[i].Status = &stat
-		}
-	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
@@ -179,17 +163,15 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP handles LSP protocol messages over a Freighter stream
-func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMessage, LSPMessage]) error {
-	// Create a new LSP server instance for this connection with a no-op logger
-	// to avoid nil pointer panics
-	lspServer, err := arclsp.New(arclsp.Config{
-		Instrumentation: s.Child("arc").Child("lsp"),
-		GlobalResolver:  s.internal.SymbolResolver(),
-	})
+func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcLSPMessage, ArcLSPMessage]) error {
+	lsp, err := s.internal.NewLSP()
 	if err != nil {
 		return err
 	}
-	return arctransport.ServeFreighter(ctx, lspServer, stream)
+	return arctransport.ServeFreighter(ctx, arctransport.Config{
+		Server: lsp,
+		Stream: stream,
+	})
 }
 
 // compileArc compiles the Arc text to a module containing IR and WASM bytecode.

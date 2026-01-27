@@ -161,7 +161,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 
 	// Check if a v1 rack exists.
 	v1RackName := fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
-	err := s.NewRetrieve().WhereNames(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
+	err := s.NewRetrieve().WhereName(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
 	isNotFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !isNotFound {
 		return err

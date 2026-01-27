@@ -14,11 +14,14 @@
 #include <set>
 #include <utility>
 
+#include "glog/logging.h"
+
 #include "x/cpp/queue/spsc.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/thread/thread.h"
 
 #include "arc/cpp/runtime/constant/constant.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/scheduler/scheduler.h"
@@ -40,7 +43,12 @@ struct Config {
         retrieve_channels;
     size_t input_queue_capacity = 256;
     size_t output_queue_capacity = 1024;
+    /// @brief Loop configuration. Fields with default values are auto-selected.
+    loop::Config loop;
 };
+
+/// @brief callback invoked when a fatal error occurs in the runtime.
+using ErrorHandler = std::function<void(const xerrors::Error &)>;
 
 class Runtime {
     x::breaker::Breaker breaker;
@@ -52,7 +60,8 @@ class Runtime {
     std::unique_ptr<loop::Loop> loop;
     x::queue::SPSC<x::telem::Frame> inputs;
     x::queue::SPSC<x::telem::Frame> outputs;
-    x::telem::TimeStamp start_time = x::telem::TimeStamp(0);
+    x::telem::TimeStamp start_time = telem::TimeStamp(0);
+    errors::Handler error_handler;
 
 public:
     std::vector<types::ChannelKey> read_channels;
@@ -65,7 +74,8 @@ public:
         std::unique_ptr<scheduler::Scheduler> scheduler,
         std::unique_ptr<loop::Loop> loop,
         const std::vector<types::ChannelKey> &read_channels,
-        std::vector<types::ChannelKey> write_channels
+        std::vector<types::ChannelKey> write_channels,
+        errors::Handler error_handler = errors::noop_handler
     ):
         breaker(cfg.breaker),
         mod(std::move(mod)),
@@ -75,6 +85,7 @@ public:
         loop(std::move(loop)),
         inputs(x::queue::SPSC<x::telem::Frame>(cfg.input_queue_capacity)),
         outputs(x::queue::SPSC<x::telem::Frame>(cfg.output_queue_capacity)),
+        error_handler(std::move(error_handler)),
         read_channels(read_channels),
         write_channels(std::move(write_channels)) {}
 
@@ -82,8 +93,11 @@ public:
         this->start_time = x::telem::TimeStamp::now();
         x::thread::set_name("runtime");
         this->loop->start();
-        if (!this->loop->watch(this->inputs.notifier()))
-            LOG(ERROR) << "[runtime] Failed to watch input notifier";
+        if (!this->loop->watch(this->inputs.notifier())) {
+            LOG(ERROR) << "[runtime] failed to watch input notifier";
+            this->error_handler(xerrors::Error("failed to watch input notifier"));
+            return;
+        }
         while (this->breaker.running()) {
             this->loop->wait(this->breaker);
             x::telem::Frame frame;
@@ -97,7 +111,8 @@ public:
                     x::telem::Frame out_frame(writes.size());
                     for (auto &[key, series]: writes)
                         out_frame.emplace(key, series->deep_copy());
-                    this->outputs.push(std::move(out_frame));
+                    if (!this->outputs.push(std::move(out_frame)))
+                        this->error_handler(errors::QUEUE_FULL_OUTPUT);
                 }
             }
         }
@@ -105,6 +120,8 @@ public:
 
     bool start() {
         if (this->breaker.running()) return false;
+        this->inputs.reset();
+        this->outputs.reset();
         this->breaker.start();
         this->run_thread = std::thread([this]() { this->run(); });
         return true;
@@ -116,23 +133,29 @@ public:
 
     bool stop() {
         if (!this->breaker.stop()) return false;
-        this->loop->stop();
+        this->loop->wake();
         this->run_thread.join();
         this->inputs.close();
         this->outputs.close();
+        this->state->reset();
+        this->scheduler->reset();
         return true;
     }
 
-    x::errors::Error write(x::telem::Frame frame) {
-        if (!this->inputs.push(std::move(frame)))
-            return x::errors::Error("runtime closed");
-        return x::errors::NIL;
+    x::errors::Error write(telem::Frame frame) {
+        if (this->inputs.closed()) return x::errors::Error("runtime closed");
+        if (!this->inputs.push(std::move(frame))) {
+            this->error_handler(errors::QUEUE_FULL_INPUT);
+            return errors::QUEUE_FULL_INPUT;
+        }
+        return xerrors::NIL;
     }
 
     bool read(x::telem::Frame &frame) { return this->outputs.pop(frame); }
 };
 
-inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &cfg) {
+inline std::pair<std::shared_ptr<Runtime>, x::errors::Error>
+load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     std::set<types::ChannelKey> reads;
     std::set<types::ChannelKey> writes;
     for (const auto &n: cfg.mod.nodes) {
@@ -154,8 +177,12 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &
     }
 
     state::Config state_cfg{.ir = (static_cast<ir::IR>(cfg.mod)), .channels = digests};
-    auto state = std::make_shared<state::State>(state_cfg);
-    auto bindings_runtime = std::make_shared<wasm::Bindings>(state, nullptr);
+    auto state = std::make_shared<state::State>(state_cfg, error_handler);
+    auto bindings_runtime = std::make_shared<wasm::Bindings>(
+        state,
+        nullptr,
+        error_handler
+    );
 
     wasm::ModuleConfig module_cfg{
         .module = cfg.mod,
@@ -180,34 +207,19 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &
     );
 
     std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
-    for (const auto &n: cfg.mod.nodes) {
-        auto [node_state, node_state_err] = state->node(n.key);
+    const ir::IR prog = static_cast<ir::IR>(cfg.mod);
+    for (const auto &mod_node: cfg.mod.nodes) {
+        auto [node_state, node_state_err] = state->node(mod_node.key);
         if (node_state_err) return {nullptr, node_state_err};
-        auto [node, err] = fact.create(node::Config(n, std::move(node_state)));
+        auto [node, err] = fact.create(
+            node::Config(prog, mod_node, std::move(node_state))
+        );
         if (err) return {nullptr, err};
-        nodes[n.key] = std::move(node);
+        nodes[mod_node.key] = std::move(node);
     }
-
-    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes);
-
-    auto timing_interval = time_factory->timing_base;
-    const bool has_intervals = timing_interval.nanoseconds() !=
-                               std::numeric_limits<int64_t>::max();
-
-    auto mode = loop::ExecutionMode::EVENT_DRIVEN;
-    if (has_intervals && timing_interval < loop::timing::SOFTWARE_TIMER_THRESHOLD)
-        mode = loop::ExecutionMode::HIGH_RATE;
-
-    auto [loop, err] = loop::create(
-        loop::Config{
-            .mode = mode,
-            .interval = has_intervals ? timing_interval : x::telem::TimeSpan(0),
-            .rt_priority = 47,
-            .cpu_affinity = -1,
-        }
-    );
+    auto sched = std::make_unique<scheduler::Scheduler>(cfg.mod, nodes, error_handler);
+    auto [loop, err] = loop::create(cfg.loop.apply_defaults(time_factory->timing_base));
     if (err) return {nullptr, err};
-
     return {
         std::make_shared<Runtime>(
             cfg,
@@ -217,7 +229,8 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(const Config &
             std::move(sched),
             std::move(loop),
             std::vector(reads.begin(), reads.end()),
-            std::vector(writes.begin(), writes.end())
+            std::vector(writes.begin(), writes.end()),
+            std::move(error_handler)
         ),
         x::errors::NIL
     };

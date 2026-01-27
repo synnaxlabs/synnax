@@ -22,6 +22,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
@@ -136,6 +137,14 @@ public:
             last_value
         );
     }
+
+    /// @brief Resets accumulated input state for runtime restart.
+    void reset() {
+        for (auto &entry: this->accumulated) {
+            entry.last_timestamp = telem::TimeStamp(0);
+            entry.consumed = true;
+        }
+    }
 };
 
 class State {
@@ -170,13 +179,22 @@ class State {
     std::unordered_map<uint64_t, std::string> var_string;
     std::unordered_map<uint64_t, x::telem::Series> var_series;
 
+    /// @brief Callback for reporting warnings (e.g., data drops).
+    errors::Handler error_handler;
+
 public:
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
     std::pair<x::telem::MultiSeries, bool> read_channel(types::ChannelKey key);
-    explicit State(const Config &cfg);
+    explicit State(
+        const Config &cfg,
+        errors::Handler error_handler = errors::noop_handler
+    );
     std::pair<Node, x::errors::Error> node(const std::string &key);
     void ingest(const x::telem::Frame &frame);
     std::vector<std::pair<types::ChannelKey, Series>> flush();
+
+    /// @brief Clears all persistent state, resetting the runtime to initial conditions.
+    void reset();
 
     /// @brief Creates a string handle from raw memory pointer and length.
     uint32_t string_from_memory(const uint8_t *data, uint32_t len);

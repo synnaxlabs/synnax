@@ -19,7 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -40,20 +42,45 @@ var _ = BeforeSuite(func() {
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 	}))
+	DeferCleanup(func() {
+		Expect(labelSvc.Close()).To(Succeed())
+	})
 	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
-		Label:    labelSvc,
-		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Ontology: dist.Ontology,
+		Label:    labelSvc,
 	}))
+	DeferCleanup(func() {
+		Expect(statusSvc.Close()).To(Succeed())
+	})
+	rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:           dist.DB,
+		Ontology:     dist.Ontology,
+		Group:        dist.Group,
+		HostProvider: mock.StaticHostKeyProvider(1),
+		Status:       statusSvc,
+	}))
+	DeferCleanup(func() {
+		Expect(rackService.Close()).To(Succeed())
+	})
+	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: dist.Ontology,
+		Group:    dist.Group,
+		Rack:     rackService,
+		Status:   statusSvc,
+	}))
+	DeferCleanup(func() {
+		Expect(taskSvc.Close()).To(Succeed())
+	})
 	arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
-		Framer:   dist.Framer,
-		Status:   statusSvc,
 		Signals:  dist.Signals,
+		Task:     taskSvc,
 	}))
 })
 

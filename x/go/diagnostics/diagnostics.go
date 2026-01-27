@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package diagnostics provides error, warning, and hint reporting for language analysis.
+// Package diagnostics provides error, warning, and hint reporting for Arc language analysis.
 package diagnostics
 
 import (
@@ -20,9 +20,14 @@ import (
 // Severity represents the importance level of a diagnostic message.
 type Severity int
 
+type Position struct {
+	Line int
+	Col  int
+}
+
 //go:generate stringer -type=Severity
 const (
-	// SeverityError indicates a critical issue that prevents compilation/code generation.
+	// SeverityError indicates a critical issue that prevents compilation.
 	SeverityError Severity = iota
 	// SeverityWarning indicates a potential problem that doesn't prevent compilation.
 	SeverityWarning
@@ -47,14 +52,104 @@ func (s Severity) String() string {
 	}
 }
 
-// Diagnostic represents a single issue found during analysis.
+// Note provides supplementary context for a diagnostic, such as where a type was inferred.
+type Note struct {
+	Message string   `json:"message"`
+	Start   Position `json:"start,omitempty"`
+}
+
+// HintProvider is implemented by errors that include a hint for fixing the issue.
+type HintProvider interface {
+	GetHint() string
+}
+
+// Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
-	Key      string   `json:"key"`
-	Message  string   `json:"message"`
-	File     string   `json:"file,omitempty"`
-	Severity Severity `json:"severity"`
-	Line     int      `json:"line"`
-	Column   int      `json:"column"`
+	Key      string    `json:"key"`
+	Code     ErrorCode `json:"code,omitempty"`
+	Message  string    `json:"message"`
+	Severity Severity  `json:"severity"`
+	Start    Position  `json:"start"`
+	End      Position  `json:"end"`
+	Notes    []Note    `json:"notes,omitempty"`
+}
+
+// SetRange sets the Start and End positions from an ANTLR parser rule context.
+func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
+	if ctx == nil {
+		return
+	}
+	start := ctx.GetStart()
+	stop := ctx.GetStop()
+	d.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
+	if stop != nil {
+		d.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
+	} else {
+		d.End = Position{Line: d.Start.Line, Col: d.Start.Col + len(start.GetText())}
+	}
+}
+
+// Error creates an error diagnostic from an existing error. If the error implements
+// HintProvider, the hint is automatically extracted and added as a note.
+func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
+	d := Diagnostic{Severity: SeverityError, Message: err.Error()}
+	d.SetRange(ctx)
+	if hp, ok := err.(HintProvider); ok {
+		if hint := hp.GetHint(); hint != "" {
+			d.Notes = append(d.Notes, Note{Message: hint})
+		}
+	}
+	return d
+}
+
+// Errorf creates an error diagnostic with a formatted message.
+func Errorf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityError, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// Warningf creates a warning diagnostic with a formatted message.
+func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityWarning, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// Infof creates an info diagnostic with a formatted message.
+func Infof(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityInfo, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// Hintf creates a hint diagnostic with a formatted message.
+func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+	d := Diagnostic{Severity: SeverityHint, Message: fmt.Sprintf(format, args...)}
+	d.SetRange(ctx)
+	return d
+}
+
+// WithCode returns a copy of the diagnostic with the given error code.
+func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
+	d.Code = code
+	return d
+}
+
+// WithNote returns a copy of the diagnostic with an additional note.
+func (d Diagnostic) WithNote(note string) Diagnostic {
+	if note != "" {
+		d.Notes = append(d.Notes, Note{Message: note})
+	}
+	return d
+}
+
+// WithNoteAt returns a copy of the diagnostic with an additional note at the given position.
+func (d Diagnostic) WithNoteAt(note string, pos Position) Diagnostic {
+	if note != "" {
+		d.Notes = append(d.Notes, Note{Message: note, Start: pos})
+	}
+	return d
 }
 
 // Diagnostics is a collection of diagnostic messages.
@@ -62,137 +157,47 @@ type Diagnostics []Diagnostic
 
 var _ error = (*Diagnostics)(nil)
 
-// Ok returns true if there are no diagnostics. This is Arc's semantics - an empty
-// collection is considered "ok".
+// Ok returns true if there are no error-level diagnostics.
+// Warnings, info, and hints are allowed.
 func (d Diagnostics) Ok() bool {
-	return len(d) == 0
-}
-
-// HasErrors returns true if there are any error-level diagnostics.
-func (d Diagnostics) HasErrors() bool {
 	for _, diag := range d {
 		if diag.Severity == SeverityError {
-			return true
+			return false
 		}
 	}
-	return false
+	return true
 }
 
-// Empty returns true if there are no diagnostics at all.
-func (d Diagnostics) Empty() bool {
-	return len(d) == 0
-}
-
-// SeverityError implements the error interface.
+// Error implements the error interface.
 func (d Diagnostics) Error() string { return d.String() }
 
-// Add adds a diagnostic to the collection.
 func (d *Diagnostics) Add(diag Diagnostic) {
-	*d = append(*d, diag)
-}
-
-// AddError adds an error-level diagnostic with the given message and source location.
-// The file parameter is optional for backwards compatibility with Arc.
-func (d *Diagnostics) AddError(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: SeverityError, Message: err.Error()}
-	if len(file) > 0 {
-		diag.File = file[0]
-	}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
+	for _, idx := range d.AtLocation(diag.Start) {
+		existing := (*d)[idx]
+		if existing.Message == diag.Message {
+			if diag.Severity < existing.Severity {
+				(*d)[idx] = diag
+			}
+			return
+		}
 	}
 	*d = append(*d, diag)
 }
 
-// AddErrorf adds an error-level diagnostic with a formatted message.
-func (d *Diagnostics) AddErrorf(
-	ctx antlr.ParserRuleContext,
-	file string,
-	format string,
-	args ...interface{},
-) {
-	diag := Diagnostic{
-		Severity: SeverityError,
-		Message:  fmt.Sprintf(format, args...),
-		File:     file,
+// AtLocation returns the indices of all diagnostics at the given position.
+func (d *Diagnostics) AtLocation(start Position) []int {
+	var indices []int
+	for i, diag := range *d {
+		if diag.Start == start {
+			indices = append(indices, i)
+		}
 	}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
-	}
-	*d = append(*d, diag)
+	return indices
 }
 
-// AddWarning adds a warning-level diagnostic with the given message and source location.
-// The file parameter is optional for backwards compatibility with Arc.
-func (d *Diagnostics) AddWarning(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: SeverityWarning, Message: err.Error()}
-	if len(file) > 0 {
-		diag.File = file[0]
-	}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
-	}
-	*d = append(*d, diag)
-}
-
-// AddWarningf adds a warning-level diagnostic with a formatted message.
-func (d *Diagnostics) AddWarningf(
-	ctx antlr.ParserRuleContext,
-	file string,
-	format string,
-	args ...interface{},
-) {
-	diag := Diagnostic{
-		Severity: SeverityWarning,
-		Message:  fmt.Sprintf(format, args...),
-		File:     file,
-	}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
-	}
-	*d = append(*d, diag)
-}
-
-// AddInfo adds an info-level diagnostic with the given message and source location.
-// The file parameter is optional for backwards compatibility with Arc.
-func (d *Diagnostics) AddInfo(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: SeverityInfo, Message: err.Error()}
-	if len(file) > 0 {
-		diag.File = file[0]
-	}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
-	}
-	*d = append(*d, diag)
-}
-
-// AddHint adds a hint-level diagnostic with the given message and source location.
-// The file parameter is optional for backwards compatibility with Arc.
-func (d *Diagnostics) AddHint(err error, ctx antlr.ParserRuleContext, file ...string) {
-	diag := Diagnostic{Severity: SeverityHint, Message: err.Error()}
-	if len(file) > 0 {
-		diag.File = file[0]
-	}
-	if ctx != nil {
-		diag.Line = ctx.GetStart().GetLine()
-		diag.Column = ctx.GetStart().GetColumn()
-	}
-	*d = append(*d, diag)
-}
-
-// Merge adds all diagnostics from another Diagnostics collection.
-func (d *Diagnostics) Merge(other Diagnostics) {
-	*d = append(*d, other...)
-}
-
-// Errors returns only the error-level diagnostics.
-func (d Diagnostics) Errors() Diagnostics {
-	var errors Diagnostics
+// Errors returns only error-level diagnostics.
+func (d Diagnostics) Errors() []Diagnostic {
+	var errors []Diagnostic
 	for _, diag := range d {
 		if diag.Severity == SeverityError {
 			errors = append(errors, diag)
@@ -201,9 +206,9 @@ func (d Diagnostics) Errors() Diagnostics {
 	return errors
 }
 
-// Warnings returns only the warning-level diagnostics.
-func (d Diagnostics) Warnings() Diagnostics {
-	var warnings Diagnostics
+// Warnings returns only warning-level diagnostics.
+func (d Diagnostics) Warnings() []Diagnostic {
+	var warnings []Diagnostic
 	for _, diag := range d {
 		if diag.Severity == SeverityWarning {
 			warnings = append(warnings, diag)
@@ -212,16 +217,7 @@ func (d Diagnostics) Warnings() Diagnostics {
 	return warnings
 }
 
-// FromError creates a Diagnostics with a single error from an error value.
-func FromError(err error) *Diagnostics {
-	d := &Diagnostics{}
-	d.Add(Diagnostic{Severity: SeverityError, Message: err.Error()})
-	return d
-}
-
-// String formats all diagnostics as a human-readable string.
-// Format: file:line:column severity: message (when File is set)
-// Format: line:column severity: message (when File is empty)
+// String formats all diagnostics as a human-readable string with line:column severity: message format.
 func (d Diagnostics) String() string {
 	if len(d) == 0 {
 		return "analysis successful"
@@ -231,23 +227,31 @@ func (d Diagnostics) String() string {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
-		if diag.File != "" {
+		if diag.Code != "" {
 			sb.WriteString(fmt.Sprintf(
-				"%s:%d:%d %s: %s",
-				diag.File,
-				diag.Line,
-				diag.Column,
+				"%d:%d %s [%s]: %s",
+				diag.Start.Line,
+				diag.Start.Col,
 				diag.Severity.String(),
+				diag.Code,
 				diag.Message,
 			))
 		} else {
 			sb.WriteString(fmt.Sprintf(
 				"%d:%d %s: %s",
-				diag.Line,
-				diag.Column,
+				diag.Start.Line,
+				diag.Start.Col,
 				diag.Severity.String(),
 				diag.Message,
 			))
+		}
+		for _, note := range diag.Notes {
+			sb.WriteString("\n")
+			if note.Start.Line > 0 {
+				sb.WriteString(fmt.Sprintf("  %d:%d note: %s", note.Start.Line, note.Start.Col, note.Message))
+			} else {
+				sb.WriteString(fmt.Sprintf("  note: %s", note.Message))
+			}
 		}
 	}
 	return sb.String()

@@ -11,12 +11,16 @@ package types
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/diagnostics"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
+	"go.uber.org/zap"
 )
 
 // InferFromExpression determines the type of an Arc expression through recursive descent.
@@ -221,7 +225,10 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 		}
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
-				return varScope.Type
+				// When a variable is referenced, resolve literal constraints to concrete types.
+				// This ensures `x := 10; x + 3.2` fails (x becomes i64, can't add float to int),
+				// while `2 + 3.2` (both fresh literals) can still promote to float.
+				return resolveLiteralConstraint(varScope.Type)
 			}
 		}
 		return types.Type{}
@@ -245,6 +252,9 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	if numLit := ctx.AST.NumericLiteral(); numLit != nil {
 		return inferNumericLiteralType(ctx, numLit)
 	}
+	if seriesLit := ctx.AST.SeriesLiteral(); seriesLit != nil {
+		return inferSeriesLiteralType(context.Child(ctx, seriesLit))
+	}
 	text := ctx.AST.GetText()
 	if len(text) > 0 && (text[0] == '"' || text[0] == '\'') {
 		t := types.String()
@@ -257,6 +267,159 @@ func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
 	return t
 }
 
+func inferSeriesLiteralType(ctx context.Context[parser.ISeriesLiteralContext]) types.Type {
+	exprList := ctx.AST.ExpressionList()
+	if exprList == nil {
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
+		constraint := types.NumericConstraint()
+		elemType := types.Variable(tvName, &constraint)
+		t := types.Series(elemType)
+		ctx.TypeMap[ctx.AST] = t
+		return t
+	}
+
+	exprs := exprList.AllExpression()
+	if len(exprs) == 0 {
+		line := ctx.AST.GetStart().GetLine()
+		col := ctx.AST.GetStart().GetColumn()
+		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
+		constraint := types.NumericConstraint()
+		elemType := types.Variable(tvName, &constraint)
+		t := types.Series(elemType)
+		ctx.TypeMap[ctx.AST] = t
+		return t
+	}
+
+	firstExpr := exprs[0]
+	elemType := InferFromExpression(context.Child(ctx, firstExpr))
+	allLiterals := parser.IsNumericLiteral(firstExpr)
+
+	for i := 1; i < len(exprs); i++ {
+		nextType := InferFromExpression(context.Child(ctx, exprs[i]))
+		thisIsLiteral := parser.IsNumericLiteral(exprs[i])
+		// Literals can unify across int/float (like Go), but variables cannot
+		if allLiterals && thisIsLiteral {
+			if !literalsCompatible(elemType, nextType) {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					exprs[i],
+					"series element %d has incompatible type %s, expected %s",
+					i+1,
+					nextType,
+					elemType,
+				))
+			}
+		} else {
+			allLiterals = false
+			if !seriesElementCompatible(elemType, nextType) {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					exprs[i],
+					"series element %d has incompatible type %s, expected %s", i+1,
+					nextType,
+					elemType,
+				))
+			}
+		}
+		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {
+			elemType = nextType
+		}
+	}
+
+	t := types.Series(elemType)
+	ctx.TypeMap[ctx.AST] = t
+	return t
+}
+
+// seriesElementCompatible checks if two types are compatible for use in the same series literal.
+func seriesElementCompatible(t1, t2 types.Type) bool {
+	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
+		return false
+	}
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable {
+		if t1.Constraint == nil || t2.Constraint == nil {
+			return true
+		}
+		// Check if constraints are compatible. IntegerConstraint and FloatConstraint
+		// are NOT compatible with each other - mixing inferred int and float variables
+		// should be rejected, just like mixing explicit i32 and f64.
+		return numericConstraintsCompatible(t1.Constraint.Kind, t2.Constraint.Kind)
+	}
+	if t1.Kind == types.KindVariable {
+		return constraintAccepts(t1.Constraint, t2)
+	}
+	if t2.Kind == types.KindVariable {
+		return constraintAccepts(t2.Constraint, t1)
+	}
+	return Compatible(t1, t2)
+}
+
+// literalsCompatible checks if two literal types can coexist in a series (int/float can mix).
+func literalsCompatible(t1, t2 types.Type) bool {
+	if t1.Kind == types.KindInvalid || t2.Kind == types.KindInvalid {
+		return false
+	}
+	if t1.Kind == types.KindVariable && t2.Kind == types.KindVariable {
+		if t1.Constraint == nil || t2.Constraint == nil {
+			return true
+		}
+		return isNumericConstraint(t1.Constraint.Kind) && isNumericConstraint(t2.Constraint.Kind)
+	}
+	if t1.Kind == types.KindVariable {
+		return constraintAccepts(t1.Constraint, t2)
+	}
+	if t2.Kind == types.KindVariable {
+		return constraintAccepts(t2.Constraint, t1)
+	}
+	return Compatible(t1, t2)
+}
+
+// isNumericConstraint returns true if the kind is a numeric constraint kind.
+func isNumericConstraint(kind types.Kind) bool {
+	return kind == types.KindNumericConstant ||
+		kind == types.KindIntegerConstant ||
+		kind == types.KindFloatConstant ||
+		kind == types.KindExactIntegerFloatConstant
+}
+
+// numericConstraintsCompatible checks if two constraint kinds are compatible for series elements.
+// IntegerConstraint and FloatConstraint are NOT compatible - you cannot mix inferred int and
+// float variables in a series literal, consistent with how explicit i32 and f64 are rejected.
+// NumericConstant and ExactIntegerFloatConstant are compatible with both since they can adapt.
+func numericConstraintsCompatible(k1, k2 types.Kind) bool {
+	// Same constraint kind is always compatible
+	if k1 == k2 {
+		return true
+	}
+	// NumericConstant is compatible with any numeric constraint
+	if k1 == types.KindNumericConstant || k2 == types.KindNumericConstant {
+		return isNumericConstraint(k1) && isNumericConstraint(k2)
+	}
+	if k1 == types.KindExactIntegerFloatConstant || k2 == types.KindExactIntegerFloatConstant {
+		return isNumericConstraint(k1) && isNumericConstraint(k2)
+	}
+	// IntegerConstraint and FloatConstraint are NOT compatible with each other
+	if isNumericConstraint(k1) && isNumericConstraint(k2) {
+		return false
+	}
+	// Non-numeric constraints must match exactly
+	return k1 == k2
+}
+
+func constraintAccepts(constraint *types.Type, concreteType types.Type) bool {
+	if constraint == nil {
+		return true
+	}
+	switch constraint.Kind {
+	case types.KindNumericConstant, types.KindIntegerConstant, types.KindExactIntegerFloatConstant:
+		return concreteType.IsNumeric()
+	case types.KindFloatConstant:
+		return concreteType.IsFloat()
+	default:
+		return types.Equal(*constraint, concreteType)
+	}
+}
+
 func inferNumericLiteralType(
 	ctx context.Context[parser.ILiteralContext],
 	numLit parser.INumericLiteralContext,
@@ -264,13 +427,26 @@ func inferNumericLiteralType(
 	// Determine constraint based on literal form (integer vs float)
 	// This applies to both plain numeric literals AND unit literals
 	var (
-		isFloat    = numLit.FLOAT_LITERAL() != nil
-		line       = ctx.AST.GetStart().GetLine()
-		col        = ctx.AST.GetStart().GetColumn()
-		tvName     = fmt.Sprintf("lit_%d_%d", line, col)
-		constraint = lo.Ternary(isFloat, types.FloatConstraint(), types.IntegerConstraint())
-		tv         = types.Variable(tvName, &constraint)
+		floatLit = numLit.FLOAT_LITERAL()
+		isFloat  = floatLit != nil
+		line     = ctx.AST.GetStart().GetLine()
+		col      = ctx.AST.GetStart().GetColumn()
+		tvName   = fmt.Sprintf("lit_%d_%d", line, col)
 	)
+
+	var constraint types.Type
+	if isFloat {
+		floatText := floatLit.GetText()
+		floatValue, err := strconv.ParseFloat(floatText, 64)
+		if err == nil && literal.IsExactInteger(floatValue) {
+			constraint = types.ExactIntegerFloatConstraint()
+		} else {
+			constraint = types.FloatConstraint()
+		}
+	} else {
+		constraint = types.IntegerConstraint()
+	}
+	tv := types.Variable(tvName, &constraint)
 
 	// Check for unit suffix (e.g., 5psi, 3s, 100Hz)
 	if unitID := numLit.IDENTIFIER(); unitID != nil {
@@ -280,7 +456,36 @@ func inferNumericLiteralType(
 		}
 	}
 
-	ctx.Constraints.AddEquality(tv, tv, ctx.AST, "literal type variable")
+	if err := ctx.Constraints.AddEquality(
+		tv,
+		tv,
+		ctx.AST,
+		"literal type variable",
+	); err != nil {
+		zap.S().DPanicf("unexpected error registering type variable with itself: %v", err)
+	}
 	ctx.TypeMap[ctx.AST] = tv
 	return tv
+}
+
+// resolveLiteralConstraint converts a type variable with a literal constraint to a concrete type.
+// This is used when a variable is referenced in an expression to distinguish between:
+// - Direct literals (2 + 3.2) which can be promoted
+// - Variable references (x := 10; x + 3.2) which should fail
+func resolveLiteralConstraint(t types.Type) types.Type {
+	if t.Kind != types.KindVariable || t.Constraint == nil {
+		return t
+	}
+	switch t.Constraint.Kind {
+	case types.KindIntegerConstant:
+		result := types.I64()
+		result.Unit = t.Unit
+		return result
+	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+		result := types.F64()
+		result.Unit = t.Unit
+		return result
+	default:
+		return t
+	}
 }

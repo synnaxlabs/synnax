@@ -18,7 +18,7 @@ import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
 import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -111,13 +111,25 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Log",
-  icon: <Icon.Log />,
-  useVisible: () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID),
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const visible = Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
+  const handleClick = useCallback(() => {
+    onPlace(create({ key: layoutKey }));
+  }, [onPlace, layoutKey]);
+
+  if (!visible) return null;
+
+  return (
+    <Selector.Item
+      key={LAYOUT_TYPE}
+      title="Log"
+      icon={<Icon.Log />}
+      onClick={handleClick}
+    />
+  );
 };
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(log.TYPE_ONTOLOGY_ID);
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 

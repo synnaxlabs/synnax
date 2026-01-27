@@ -34,8 +34,10 @@ import { Lua } from "@/code/lua";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
-import { Error } from "@/error";
+import { Errors } from "@/errors";
+import { EXTRACTORS } from "@/extractors";
 import { Hardware } from "@/hardware";
+import { FILE_INGESTORS } from "@/ingestors";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
@@ -129,9 +131,12 @@ const useBlockDefaultDropBehavior = (): void =>
 
 const ArcLSPClientSetter = ({ children }: { children: ReactElement }): ReactElement => {
   const client = Synnax.use();
+  const monaco = Code.useMonaco();
   useEffect(() => {
-    if (client != null) ArcCode.setSynnaxClient(client);
-  }, [client]);
+    // Only start LSP when Monaco is initialized and client is available
+    if (monaco == null) return;
+    void ArcCode.setSynnaxClient(client);
+  }, [client, monaco]);
   return children;
 };
 
@@ -154,34 +159,35 @@ const MainUnderContext = (): ReactElement => {
       color={{ useState: useColorContextState }}
       alamos={{ level: "info" }}
     >
-      <ArcLSPClientSetter>
-        <Code.Provider
-          importExtensions={monacoExtensions}
-          initServices={monacoServices}
-        >
+      <Code.Provider importExtensions={monacoExtensions} initServices={monacoServices}>
+        <ArcLSPClientSetter>
           <Vis.Canvas>
             <Layout.Window />
           </Vis.Canvas>
-        </Code.Provider>
-      </ArcLSPClientSetter>
+        </ArcLSPClientSetter>
+      </Code.Provider>
     </Pluto.Provider>
   );
 };
 
 export const Console = (): ReactElement => (
-  <Error.OverlayWithoutStore>
+  <Errors.OverlayWithoutStore>
     <Provider store={store}>
-      <Error.OverlayWithStore>
+      <Errors.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
           <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
             <Ontology.ServicesProvider services={SERVICES}>
-              <Palette.CommandProvider commands={COMMANDS}>
+              <Palette.CommandProvider
+                commands={COMMANDS}
+                fileIngestors={FILE_INGESTORS}
+                extractors={EXTRACTORS}
+              >
                 <MainUnderContext />
               </Palette.CommandProvider>
             </Ontology.ServicesProvider>
           </Layout.ContextMenuProvider>
         </Layout.RendererProvider>
-      </Error.OverlayWithStore>
+      </Errors.OverlayWithStore>
     </Provider>
-  </Error.OverlayWithoutStore>
+  </Errors.OverlayWithoutStore>
 );

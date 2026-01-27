@@ -15,6 +15,7 @@ from freighter import URL
 from synnax.access import Client as AccessClient
 from synnax.access.policy.client import PolicyClient
 from synnax.access.role.client import RoleClient
+from synnax.arc import ArcClient
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
@@ -76,6 +77,7 @@ class Synnax(Client):
     kv: KVClient
     aliases: AliasClient
     groups: GroupClient
+    arcs: ArcClient
 
     _transport: Transport
 
@@ -170,6 +172,7 @@ class Synnax(Client):
         self.control = ControlClient(self, ch_retriever)
         self.user = UserClient(self._transport.unary)
         self.statuses = StatusClient(self._transport.unary)
+        self.arcs = ArcClient(self._transport.unary)
         self.access = AccessClient(
             roles=RoleClient(self._transport.unary, instrumentation),
             policies=PolicyClient(self._transport.unary, instrumentation),
