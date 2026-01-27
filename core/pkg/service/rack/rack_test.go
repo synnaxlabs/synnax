@@ -477,7 +477,13 @@ var _ = Describe("Migration", func() {
 	}
 
 	It("Should create unknown statuses for racks missing them", func() {
-		svc := openService()
+		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       stat,
+		}))
 		r := &rack.Rack{Name: "test rack"}
 		Expect(svc.NewWriter(nil).Create(ctx, r)).To(Succeed())
 		Expect(status.NewWriter[rack.StatusDetails](stat, nil).Delete(ctx, rack.OntologyID(r.Key).String())).To(Succeed())
