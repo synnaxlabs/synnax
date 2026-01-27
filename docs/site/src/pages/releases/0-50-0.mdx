@@ -28,14 +28,16 @@ them directly onto a Synnax Core or Driver. The Console provides built-in docume
 syntax highlighting, and error checking to help you write automations quickly and
 correctly.
 
-Arc's sequence system lets you define complex multi-stage automation
-workflows—pressurization sequences, test procedures, and safety interlocks—that
-automatically transition between stages based on real-time sensor conditions. The
-reactive execution model means your control logic responds to sensor changes without
-writing polling loops; values flow through your automation, and downstream calculations
-update instantly when inputs change. Arc also handles the complexity of stateful
-automations for you—hold timers, counters, integrators, and PID controllers all maintain
-their state across execution cycles without manual bookkeeping.
+Arc's sequence system lets you define complex multi-stage automation workflows, including
+pressurization sequences, test procedures, and safety interlocks, that automatically
+transition between stages based on real-time sensor conditions. The reactive execution
+model means your control logic responds to sensor changes without writing polling loops;
+values flow through your automation, and downstream calculations update instantly when
+inputs change.
+
+Arc also handles the complexity of stateful automations for you. Hold timers, counters,
+integrators, and PID controllers all maintain their state across execution cycles without
+manual bookkeeping.
 
 Arc automations run in real-time on supported operating systems such as Ubuntu 24.04 Pro
 and NI Linux RT, enabling precise, accurately timed control algorithms for the most
