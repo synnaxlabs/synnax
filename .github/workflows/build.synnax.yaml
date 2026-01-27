@@ -179,7 +179,9 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install Rust
-        run: rustup update
+        run: |
+          rustup update
+          rustc -vV
 
       - name: Install signing tools
         run: |
