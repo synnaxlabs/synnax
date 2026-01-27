@@ -181,8 +181,10 @@ jobs:
       - name: Install Rust
         run: rustup update
 
-      - name: Install trusted-signing-cli
-        run: cargo install trusted-signing-cli
+      - name: Install signing tools
+        run: |
+          cargo install trusted-signing-cli
+          winget install --exact --id Microsoft.AzureCLI
 
       - name: Write dead-simple Go program
         shell: bash
@@ -369,9 +371,11 @@ jobs:
             --wait
           rm driver-notarize.zip
 
-      - name: Download trusted-signing-cli for Windows signing
+      - name: Download signing tools for Windows signing
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        run: cargo install trusted-signing-cli
+        run: |
+          cargo install trusted-signing-cli
+          winget install --exact --id Microsoft.AzureCLI
 
       - name: Sign Windows Driver Binary
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
