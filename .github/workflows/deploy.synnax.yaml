@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - rc
-      # - sy-3628-fix-windows-code-signing-issues
+      - sy-3628-fix-windows-code-signing-issues
     paths:
       - .bazeliskrc
       - .bazelrc
