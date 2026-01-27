@@ -171,6 +171,37 @@ jobs:
           if [ -n "$TAGS" ]; then TAGS="-tags $TAGS"; fi
           echo "GO_BUILD_TAGS=$TAGS" >> $GITHUB_OUTPUT
 
+  test-signing:
+    name: Test Signing (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust
+        run: rustup update
+
+      - name: Install trusted-signing-cli
+        run: cargo install trusted-signing-cli
+
+      - name: Write dead-simple Go program
+        shell: bash
+        run: |
+          cat > main.go <<'EOF'
+          package main
+          import "fmt"
+          func main() {
+            fmt.Println("hello from synnax signing test")
+          }
+          EOF
+          go build main.go
+
+      - name: Test trusted-signing-cli
+        run: |
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Signing Test"
+          main.exe
+
   build:
     name: Build (${{ matrix.os }})
     needs: setup
