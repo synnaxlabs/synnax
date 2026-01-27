@@ -19,26 +19,40 @@ export const components = mdxOverrides;
 Synnax v0.50 is the first release of the text-based version of our new programming
 language, Arc.
 
-{/* TODO: add image */}
+<Image client:only="react" id="releases/0-50-0/thumbnail" themed={false} />
 
 ### Arc Sequences
 
-With the new release of Arc, you can now create sequences using a text-based editor in
-the Synnax Console, and deploy them directly onto a Synnax Core or Synnax Driver. The
-Synnax Console provides built-in documentation, syntax highlighting, and error checking,
-and Arc sequences will be deployed and run directly from hardware using the Core or
-Driver.
+Arc lets you create sequences using a text-based editor in the Synnax Console and deploy
+them directly onto a Synnax Core or Driver. The Console provides built-in documentation,
+syntax highlighting, and error checking to help you write automations quickly and
+correctly.
+
+Arc's sequence system lets you define complex multi-stage automation
+workflows—pressurization sequences, test procedures, and safety interlocks—that
+automatically transition between stages based on real-time sensor conditions. The
+reactive execution model means your control logic responds to sensor changes without
+writing polling loops; values flow through your automation, and downstream calculations
+update instantly when inputs change. Arc also handles the complexity of stateful
+automations for you—hold timers, counters, integrators, and PID controllers all maintain
+their state across execution cycles without manual bookkeeping.
+
+Arc automations run in real-time on supported operating systems such as Ubuntu 24.04 Pro
+and NI Linux RT, enabling precise, accurately timed control algorithms for the most
+demanding tasks.
 
 <Divider.Divider x />
 
 ### Views
 
-<Image client:only="react" id="releases/0-50-0/views" themed={false} />
+<Diagram preview style="padding: 0rem 9rem">
+  <Image client:only="react" id="releases/0-50-0/views" themed={false} />
+</Diagram>
 
-Views are a new feature that allows you to save frequently used searches of ranges and
-statuses. You can create views by opening the Status Explorer or Range Explorer, editing
-the filters for given labels or other criteria, and then creating a new view. This view
-can then be saved and loaded later for quick access.
+Views allow you to save frequently used searches of ranges and statuses. You can create
+views by opening the Status Explorer or Range Explorer, editing the filters for given
+labels or other criteria, and then creating a new view. This view can then be saved and
+loaded later for quick access.
 
 <Divider.Divider x />
 
@@ -55,8 +69,11 @@ data, and more.
 ### Windows Service
 
 The Synnax Core can now be installed and run as a Windows service. This allows the Core
-to boot up automatically when the PC boots, be run as a background process, and to be
-managed by the Windows Service Manager.
+to start automatically when the PC boots, run as a background process, and be managed by
+the Windows Service Manager.
+
+To see how to deploy Synnax as a Windows service, see the
+[Core CLI Reference](/reference/core/cli-reference#service-windows-only).
 
 <Divider.Divider x />
 
@@ -69,7 +86,7 @@ managed by the Windows Service Manager.
 - Improve the CSV exporting UI
 - Fix NI port allocation when duplicating channels on a task
 - Fix task form throwing an error on a channel name path
-- Add error boundaries to mosaic leafs
+- Add error boundaries to mosaic leaves
 
 #### Core
 
@@ -77,7 +94,8 @@ managed by the Windows Service Manager.
 - Add a downsampling option for iterators
 - Fix the embedded Driver logs truncating task names
 - Add a disk usage metric channel
-- Remove the `sy_calculation_status` channel and replace with a normal Synnax status
+- Remove the `sy_calculation_status` channel and replace it with a standard Synnax
+  status channel
 - Group metrics channels into a single Metrics group in the Channel toolbar
 
 #### Driver
