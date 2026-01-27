@@ -29,7 +29,7 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
         self.set_manual_timeout(60)
         self.subscribe(
             [
-                "test_flag_cmd",
+                "test_flag_cmd",  # virtual channel
                 "press_vlv_state",
                 "vent_vlv_state",
                 "end_test_cmd",
@@ -105,13 +105,8 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
         press_valve.press()  # Set True
         vent_valve.press()  # Set True
 
-        # Assertions 2
-        start_flag_val = self.read_tlm("test_flag_cmd")
-        press_vlv_state = self.read_tlm("press_vlv_state")
-        vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == 1, "Start flag should be 1 after press"
-        assert press_vlv_state == 1, "Press valve should be 1 after first press"
-        assert vent_vlv_state == 1, "Vent valve should be 1 after first press"
+        # Wait for states to propagate
+        self.assert_states(press_state=1, vent_state=1, start_flag_state=1)
 
         press_valve.press()  # Set False
         vent_valve.press()  # Set False
@@ -123,13 +118,8 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
         # Check we can control something again
         start_cmd.press()  # Set False
 
-        # Assertions 3
-        start_flag_val = self.read_tlm("test_flag_cmd")
-        press_vlv_state = self.read_tlm("press_vlv_state")
-        vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == 0, "Start flag should be 0 after reset"
-        assert press_vlv_state == 0, "Press valve should be 0 after reset"
-        assert vent_vlv_state == 0, "Vent valve should be 0 after reset"
+        # Wait for states to propagate
+        self.assert_states(press_state=0, vent_state=0, start_flag_state=0)
 
         # ------------- Test 2: Basic Control --------------
         self.log("Starting Basic Control Test (2/2)")
@@ -159,3 +149,23 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
 
         end_cmd.press()
         self.console.screenshot("setpoint_press_user_passed")
+
+    def assert_states(
+        self, press_state: int, vent_state: int, start_flag_state: int
+    ) -> None:
+        """Wait for valve states to match expected values."""
+        while self.should_continue:
+            press_vlv_state = self.get_value("press_vlv_state")
+            vent_vlv_state = self.get_value("vent_vlv_state")
+            start_flag_val = self.read_tlm("test_flag_cmd")  # virtual channel
+            if (
+                press_vlv_state == press_state
+                and vent_vlv_state == vent_state
+                and start_flag_val == start_flag_state
+            ):
+                return
+        self.fail(
+            f"State mismatch: press={press_vlv_state} (expected {press_state}), "
+            f"vent={vent_vlv_state} (expected {vent_state}), "
+            f"start_flag={start_flag_val} (expected {start_flag_state})"
+        )

@@ -113,8 +113,8 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
     def assert_states(self, press_state: int, vent_state: int) -> None:
         """Wait for valve states to match expected values."""
         while self.should_continue:
-            press_vlv_state = self.client.read_latest("press_vlv_state")
-            vent_vlv_state = self.client.read_latest("vent_vlv_state")
+            press_vlv_state = self.get_value("press_vlv_state")
+            vent_vlv_state = self.get_value("vent_vlv_state")
             if press_vlv_state == press_state and vent_vlv_state == vent_state:
                 return
         self.fail(
