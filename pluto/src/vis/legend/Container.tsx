@@ -50,7 +50,6 @@ export const Container = memo(
       onChange,
       initial,
     });
-
     const positionRef = useRef<sticky.XY>(position);
     const disabled = useSyncedRef(draggable === false);
     const ref = useRef<HTMLDivElement | null>(null);
@@ -97,16 +96,22 @@ export const Container = memo(
           container: box.construct(ref.current.parentElement),
         });
       }, []),
-      onMove: useCallback((box: box.Box) => {
-        if (disabled.current) return;
-        const pos = calculatePosition(box);
-        if (pos !== null) setPosition(pos);
-      }, []),
-      onEnd: useCallback((box: box.Box) => {
-        if (disabled.current) return;
-        const pos = calculatePosition(box);
-        if (pos !== null) positionRef.current = pos;
-      }, []),
+      onMove: useCallback(
+        (box: box.Box) => {
+          if (disabled.current) return;
+          const pos = calculatePosition(box);
+          if (pos !== null) setPosition(pos);
+        },
+        [calculatePosition, setPosition],
+      ),
+      onEnd: useCallback(
+        (box: box.Box) => {
+          if (disabled.current) return;
+          const pos = calculatePosition(box);
+          if (pos !== null) positionRef.current = pos;
+        },
+        [calculatePosition],
+      ),
     });
 
     return (

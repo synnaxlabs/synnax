@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -165,47 +164,3 @@ func (k *Iterator[E]) Valid() bool {
 }
 
 type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]
-
-// WrapTxReader wraps the given key-value reader to provide a strongly
-// typed interface for iterating over a transactions operations in order. The given
-// tools are used to implement gorp-specific functionality, such as
-// decoding. Typically, the Tools interface is satisfied by a gorp.Tx
-// or a gorp.Db. The following example reads from a tx;
-//
-//	tx := db.OpenTx()
-//	defer tx.Close()
-//
-//	r := gor.WrapTxReader[MyKey, MyEntry](tx.NewReader(), tx)
-//
-//	for op := range r {
-//	    // process op
-//	}
-func WrapTxReader[K Key, E Entry[K]](reader kv.TxReader, tools Tools) TxReader[K, E] {
-	prefix := &lazyPrefix[K, E]{Tools: tools}
-	return func(yield func(change.Change[K, E]) bool) {
-		ctx := context.TODO()
-		pref := prefix.prefix(ctx)
-		for kvChange := range reader {
-			if !bytes.HasPrefix(kvChange.Key, pref) {
-				continue
-			}
-			var op change.Change[K, E]
-			var err error
-			if op.Key, err = decodeKey[K](ctx, tools, pref, kvChange.Key); err != nil {
-				panic(err)
-			}
-			op.Variant = kvChange.Variant
-			if op.Variant == change.VariantSet {
-				// Panicking in development here right now. Don't want to extend the
-				// footprint of TxReader to NexterCloser.
-				if err := tools.Decode(ctx, kvChange.Value, &op.Value); err != nil {
-					panic(err)
-				}
-				op.Key = op.Value.GorpKey()
-			}
-			if !yield(op) {
-				return
-			}
-		}
-	}
-}

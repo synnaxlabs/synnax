@@ -19,6 +19,7 @@ from playwright.sync_api import Locator, Page
 from framework.utils import get_results_path
 
 from .access import AccessClient
+from .arc import ArcClient
 from .channels import ChannelClient
 from .devices import DevicesClient
 from .docs import DocsClient
@@ -58,6 +59,7 @@ class Console:
     """
 
     access: AccessClient
+    arc: ArcClient
     channels: ChannelClient
     devices: DevicesClient
     docs: DocsClient
@@ -73,6 +75,7 @@ class Console:
         # Playwright
         self.page = page
         self.access = AccessClient(page, self)
+        self.arc = ArcClient(page, self)
         self.channels = ChannelClient(page, self)
         self.devices = DevicesClient(page, self)
         self.docs = DocsClient(page, self)

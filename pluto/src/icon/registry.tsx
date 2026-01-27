@@ -98,6 +98,7 @@ import {
   MdDataObject,
   MdEdit,
   MdEditOff,
+  MdError,
   MdFeedback,
   MdFiberManualRecord,
   MdFilterCenterFocus,
@@ -470,6 +471,7 @@ export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
 export const Logout = wrapSVGIcon(MdLogout, "logout");
+export const Err = wrapSVGIcon(MdError, "error");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -631,6 +633,7 @@ const icons = {
   FillColor,
   StrokeColor,
   Logout,
+  Err,
 };
 
 export const resolve = ((

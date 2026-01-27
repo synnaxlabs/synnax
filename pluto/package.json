@@ -37,7 +37,6 @@
     "proxy-memoize": "catalog:",
     "react": "catalog:",
     "react-color": "^2.19.3",
-    "react-error-boundary": "^6.0.0",
     "react-icons": "catalog:",
     "zod": "catalog:"
   },

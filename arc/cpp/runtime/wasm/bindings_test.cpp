@@ -11,6 +11,7 @@
 
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
+#include "x/cpp/xtest/xtest.h"
 
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/bindings.h"
@@ -21,8 +22,8 @@ class BindingsTest : public testing::Test {
 protected:
     void SetUp() override {
         state::Config cfg{.ir = ir::IR{}, .channels = {}};
-        state = std::make_shared<state::State>(cfg);
-        bindings = std::make_unique<Bindings>(state, nullptr);
+        state = std::make_shared<state::State>(cfg, errors::noop_handler);
+        bindings = std::make_unique<Bindings>(state, nullptr, errors::noop_handler);
     }
 
     std::shared_ptr<state::State> state;
@@ -1078,10 +1079,9 @@ TEST_F(BindingsTest, MultipleClearCycles) {
 class BindingsChannelTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        // Create a minimal State configuration
         state::Config cfg{.ir = ir::IR{}, .channels = {}};
-        state = std::make_shared<state::State>(cfg);
-        bindings = std::make_unique<Bindings>(state, nullptr);
+        state = std::make_shared<state::State>(cfg, errors::noop_handler);
+        bindings = std::make_unique<Bindings>(state, nullptr, errors::noop_handler);
     }
 
     std::shared_ptr<state::State> state;
@@ -1199,7 +1199,11 @@ TEST_F(BindingsChannelTest, ChannelWriteStr) {
 }
 
 TEST(BindingsNullStateTest, ChannelReadWithNullStateReturnsDefault) {
-    const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
+    const auto bindings = std::make_unique<Bindings>(
+        nullptr,
+        nullptr,
+        arc::runtime::errors::noop_handler
+    );
 
     EXPECT_EQ(bindings->channel_read_f64(1), 0.0);
     EXPECT_EQ(bindings->channel_read_i32(1), 0);
@@ -1207,11 +1211,48 @@ TEST(BindingsNullStateTest, ChannelReadWithNullStateReturnsDefault) {
 }
 
 TEST(BindingsNullStateTest, ChannelWriteWithNullStateDoesNotCrash) {
-    const auto bindings = std::make_unique<Bindings>(nullptr, nullptr);
+    const auto bindings = std::make_unique<Bindings>(
+        nullptr,
+        nullptr,
+        arc::runtime::errors::noop_handler
+    );
 
     bindings->channel_write_f64(1, 123.0);
     bindings->channel_write_i32(2, 456);
     bindings->channel_write_str(3, 0);
+}
+
+/// @brief Test that panic calls error handler with WASM_PANIC error.
+TEST(BindingsPanicTest, PanicCallsErrorHandler) {
+    std::vector<xerrors::Error> reported_errors;
+    auto error_handler = [&reported_errors](const xerrors::Error &err) {
+        reported_errors.push_back(err);
+    };
+
+    auto bindings = std::make_unique<Bindings>(nullptr, nullptr, error_handler);
+
+    bindings->panic(0, 0);
+
+    ASSERT_EQ(reported_errors.size(), 1);
+    ASSERT_MATCHES(reported_errors[0], arc::runtime::errors::WASM_PANIC);
+}
+
+/// @brief Test that multiple panics each call error handler.
+TEST(BindingsPanicTest, MultiplePanicsCallErrorHandlerMultipleTimes) {
+    std::vector<xerrors::Error> reported_errors;
+    auto error_handler = [&reported_errors](const xerrors::Error &err) {
+        reported_errors.push_back(err);
+    };
+
+    auto bindings = std::make_unique<Bindings>(nullptr, nullptr, error_handler);
+
+    bindings->panic(0, 0);
+    bindings->panic(0, 0);
+    bindings->panic(0, 0);
+
+    ASSERT_EQ(reported_errors.size(), 3);
+    for (const auto &err: reported_errors)
+        ASSERT_MATCHES(err, arc::runtime::errors::WASM_PANIC);
 }
 
 }
