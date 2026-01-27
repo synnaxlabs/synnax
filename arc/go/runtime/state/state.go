@@ -403,7 +403,8 @@ func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
 }
 
 // WriteChannelValue writes a single value to a channel (for WASM runtime bindings).
-// For channels with an index, you should also write the timestamp.
+// For channels with an index, it auto-generates a timestamp using telem.Now() and writes
+// to both the data channel and its index channel, matching the behavior of writeChannel.
 func (s *State) WriteChannelValue(key uint32, value telem.Series) {
-	s.channel.writes[key] = value
+	s.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
 }

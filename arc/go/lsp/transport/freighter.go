@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sync"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/freighter"
@@ -44,18 +44,18 @@ const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
 
 var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
 
+// streamAdapter wraps a freighter stream to implement io.ReadWriteCloser for jsonrpc2.
+// Thread safety is handled by jsonrpc2.Conn which serializes writes via writeMu and
+// uses a single goroutine for reads. We only need an atomic for the closed flag.
 type streamAdapter struct {
 	stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
 	buffer           []byte
 	writeBuffer      []byte
-	mu               sync.Mutex
-	closed           bool
+	closed           atomic.Bool
 	maxContentLength int
 }
 
 func (s *streamAdapter) Read(p []byte) (n int, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if len(s.buffer) > 0 {
 		n = copy(p, s.buffer)
 		s.buffer = s.buffer[n:]
@@ -81,9 +81,7 @@ func (s *streamAdapter) Read(p []byte) (n int, err error) {
 }
 
 func (s *streamAdapter) Write(p []byte) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.closed {
+	if s.closed.Load() {
 		return 0, io.ErrClosedPipe
 	}
 	s.writeBuffer = append(s.writeBuffer, p...)
@@ -141,9 +139,7 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 }
 
 func (s *streamAdapter) Close() error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.closed = true
+	s.closed.Store(true)
 	return nil
 }
 
@@ -174,10 +170,7 @@ func (c Config) Override(other Config) Config {
 
 var DefaultConfig = Config{MaxContentLength: DefaultMaxContentLength}
 
-func ServeFreighter(
-	ctx context.Context,
-	cfgs ...Config,
-) error {
+func ServeFreighter(ctx context.Context, cfgs ...Config) error {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return err
@@ -187,8 +180,12 @@ func ServeFreighter(
 		conn    = jsonrpc2.NewConn(jsonrpc2.NewStream(adapter))
 		client  = protocol.ClientDispatcher(conn, cfg.Server.Logger())
 	)
+	defer func() {
+		err = errors.Combine(err, conn.Close())
+	}()
 	cfg.Server.SetClient(client)
 	conn.Go(ctx, protocol.ServerHandler(cfg.Server, nil))
 	<-conn.Done()
-	return conn.Err()
+	err = conn.Err()
+	return err
 }

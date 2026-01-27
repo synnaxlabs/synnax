@@ -12,6 +12,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/xtest/xtest.h"
 
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 
 using namespace arc::runtime::state;
@@ -30,7 +31,7 @@ TEST(StateTest, CreateStateAndGetNode) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto state = ASSERT_NIL_P(s.node("test"));
 }
@@ -70,7 +71,7 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
 
@@ -88,8 +89,7 @@ TEST(StateTest, RefreshInputs_BasicAlignment) {
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
-    bool triggered = consumer_node.refresh_inputs();
-    ASSERT_TRUE(triggered);
+    ASSERT_TRUE(consumer_node.refresh_inputs());
 
     EXPECT_EQ(consumer_node.input(0)->size(), 3);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 1.0f);
@@ -132,11 +132,10 @@ TEST(StateTest, RefreshInputs_NoTriggerOnEmpty) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
-    bool triggered = consumer_node.refresh_inputs();
-    ASSERT_FALSE(triggered);
+    ASSERT_FALSE(consumer_node.refresh_inputs());
 }
 
 /// @brief Test that watermark tracking prevents reprocessing the same data
@@ -174,7 +173,7 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
@@ -189,20 +188,17 @@ TEST(StateTest, RefreshInputs_WatermarkTracking) {
     o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
     o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
 
-    bool triggered1 = consumer_node.refresh_inputs();
-    ASSERT_TRUE(triggered1);
+    ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
 
-    bool triggered2 = consumer_node.refresh_inputs();
-    ASSERT_FALSE(triggered2);
+    ASSERT_FALSE(consumer_node.refresh_inputs());
 
     o->resize(3);
     o->set(2, 3.0f);
     o_time->resize(3);
     o_time->set(2, telem::TimeStamp(3 * telem::MICROSECOND));
 
-    bool triggered3 = consumer_node.refresh_inputs();
-    ASSERT_TRUE(triggered3);
+    ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 3);
 }
 
@@ -262,7 +258,7 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer1_node = ASSERT_NIL_P(s.node("producer1"));
     auto producer2_node = ASSERT_NIL_P(s.node("producer2"));
@@ -278,8 +274,7 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
     o1_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
     o1_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
 
-    bool triggered1 = consumer_node.refresh_inputs();
-    ASSERT_FALSE(triggered1);
+    ASSERT_FALSE(consumer_node.refresh_inputs());
 
     auto &o2 = producer2_node.output(0);
     o2->resize(2);
@@ -291,8 +286,7 @@ TEST(StateTest, RefreshInputs_MultipleInputs) {
     o2_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
     o2_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
 
-    bool triggered2 = consumer_node.refresh_inputs();
-    ASSERT_TRUE(triggered2);
+    ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
     EXPECT_EQ(consumer_node.input(1)->size(), 2);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 1.0f);
@@ -319,19 +313,17 @@ TEST(StateTest, OptionalInput_UseDefault) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
     // First refresh triggers because default values are unconsumed
-    bool triggered = consumer_node.refresh_inputs();
-    ASSERT_TRUE(triggered);
+    ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 1);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 42.0f);
 
     // Second refresh should NOT trigger because default was consumed
-    bool triggered2 = consumer_node.refresh_inputs();
-    ASSERT_FALSE(triggered2);
+    ASSERT_FALSE(consumer_node.refresh_inputs());
 }
 
 /// @brief Test that connected input overrides default value
@@ -370,7 +362,7 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
     ir.functions.push_back(fn);
 
     Config cfg{.ir = ir, .channels = {}};
-    State s(cfg);
+    State s(cfg, arc::runtime::errors::noop_handler);
 
     auto producer_node = ASSERT_NIL_P(s.node("producer"));
 
@@ -386,8 +378,7 @@ TEST(StateTest, OptionalInput_OverrideDefault) {
 
     auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
 
-    bool triggered = consumer_node.refresh_inputs();
-    ASSERT_TRUE(triggered);
+    ASSERT_TRUE(consumer_node.refresh_inputs());
     EXPECT_EQ(consumer_node.input(0)->size(), 2);
     EXPECT_EQ(consumer_node.input(0)->at<float>(0), 100.0f);
     EXPECT_EQ(consumer_node.input(0)->at<float>(1), 200.0f);
@@ -407,7 +398,7 @@ State create_minimal_state() {
     ir.functions.push_back(fn);
 
     const Config cfg{.ir = ir, .channels = {}};
-    return State(cfg);
+    return State(cfg, arc::runtime::errors::noop_handler);
 }
 
 TEST(StateTest, ClearReads_PreservesLatestSeries) {
@@ -561,4 +552,83 @@ TEST(StateTest, ReadChannel_UnknownChannel) {
     auto [data, ok] = s.read_channel(99);
     ASSERT_FALSE(ok);
     EXPECT_TRUE(data.series.empty());
+}
+
+/// @brief Test that State::reset clears reads and writes
+TEST(StateTest, Reset_ClearsReadsAndWrites) {
+    State s = create_minimal_state();
+
+    auto series = telem::Series(telem::FLOAT32_T, 2);
+    series.write(1.0f);
+    series.write(2.0f);
+    s.ingest(telem::Frame(10, std::move(series)));
+
+    auto [data_before, ok_before] = s.read_channel(10);
+    ASSERT_TRUE(ok_before);
+    ASSERT_EQ(data_before.series.size(), 1);
+
+    s.reset();
+
+    auto [data_after, ok_after] = s.read_channel(10);
+    ASSERT_FALSE(ok_after);
+    EXPECT_TRUE(data_after.series.empty());
+}
+
+/// @brief Test that Node::reset clears watermark tracking
+TEST(StateTest, NodeReset_ClearsWatermarks) {
+    arc::ir::Param output_param;
+    output_param.name = "output";
+    output_param.type = arc::types::Type(arc::types::Kind::F32);
+
+    arc::ir::Param input_param;
+    input_param.name = "input";
+    input_param.type = arc::types::Type(arc::types::Kind::F32);
+
+    arc::ir::Node producer;
+    producer.key = "producer";
+    producer.type = "producer";
+    producer.outputs.params.push_back(output_param);
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.params.push_back(input_param);
+
+    arc::ir::Edge edge(
+        arc::ir::Handle("producer", "output"),
+        arc::ir::Handle("consumer", "input")
+    );
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(producer);
+    ir.nodes.push_back(consumer);
+    ir.edges.push_back(edge);
+    ir.functions.push_back(fn);
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    auto producer_node = ASSERT_NIL_P(s.node("producer"));
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
+
+    auto &o = producer_node.output(0);
+    o->resize(2);
+    o->set(0, 1.0f);
+    o->set(1, 2.0f);
+
+    auto &o_time = producer_node.output_time(0);
+    o_time->resize(2);
+    o_time->set(0, telem::TimeStamp(1 * telem::MICROSECOND));
+    o_time->set(1, telem::TimeStamp(2 * telem::MICROSECOND));
+
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+
+    ASSERT_FALSE(consumer_node.refresh_inputs());
+
+    consumer_node.reset();
+
+    ASSERT_TRUE(consumer_node.refresh_inputs());
 }

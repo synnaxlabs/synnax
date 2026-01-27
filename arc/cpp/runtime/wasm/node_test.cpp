@@ -17,6 +17,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/xtest/xtest.h"
 
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
@@ -108,7 +109,8 @@ func double(val f32) f32 {
     fake_node.type = "nonexistent";
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}}
+        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(mod.nodes[0].key));
 
@@ -138,7 +140,8 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}}
+        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
 
@@ -167,7 +170,8 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}}
+        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
@@ -223,13 +227,13 @@ func double(val f32) f32 {
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {input_idx.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::FLOAT32_T, input_idx.key},
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::FLOAT32_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{input_idx.key, telem::TIMESTAMP_T, 0},
+                 {input_ch.key, telem::FLOAT32_T, input_idx.key},
+                 {output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::FLOAT32_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     // Find the 'on' node that reads from the input channel
@@ -313,12 +317,12 @@ func divide_by_zero(val i32) i32 {
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {index_ch.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::INT32_T, index_ch.key},
-                {output_ch.key, telem::INT32_T, index_ch.key}
-            }
-        }
+            .channels =
+                {{index_ch.key, telem::TIMESTAMP_T, 0},
+                 {input_ch.key, telem::INT32_T, index_ch.key},
+                 {output_ch.key, telem::INT32_T, index_ch.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     // Find the 'on' node and set its outputs
@@ -371,7 +375,8 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}}
+        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
@@ -412,12 +417,12 @@ func passthrough(val f32) f32 {
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {index_ch.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::FLOAT32_T, index_ch.key},
-                {output_ch.key, telem::FLOAT32_T, index_ch.key}
-            }
-        }
+            .channels =
+                {{index_ch.key, telem::TIMESTAMP_T, 0},
+                 {input_ch.key, telem::FLOAT32_T, index_ch.key},
+                 {output_ch.key, telem::FLOAT32_T, index_ch.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     // Find the 'on' node and set its outputs
@@ -473,11 +478,11 @@ constant{} -> )" + output_name;
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::INT64_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::INT64_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
     auto func = ASSERT_NIL_P(wasm_mod->func("constant"));
@@ -543,13 +548,13 @@ func double(val i64) i64 {
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {input_idx.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::INT64_T, input_idx.key},
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::INT64_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{input_idx.key, telem::TIMESTAMP_T, 0},
+                 {input_ch.key, telem::INT64_T, input_idx.key},
+                 {output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::INT64_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     const auto *on_node = find_node_by_type(mod, "on");
@@ -624,11 +629,11 @@ counter{} -> )" + output_name;
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::INT64_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::INT64_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -680,11 +685,11 @@ counter{} -> )" + output_name;
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::INT64_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::INT64_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -738,11 +743,11 @@ counter{} -> )" + output_name;
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::INT64_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::INT64_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -801,13 +806,13 @@ func add_config{x i32}(y i32) i32 {
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {input_idx.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::INT32_T, input_idx.key},
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::INT32_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{input_idx.key, telem::TIMESTAMP_T, 0},
+                 {input_ch.key, telem::INT32_T, input_idx.key},
+                 {output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::INT32_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     // Find and set up the 'on' node that reads from the input channel
@@ -877,13 +882,13 @@ func multi_config{a i32, b i32}(c i32) i32 {
     state::State state(
         state::Config{
             .ir = (static_cast<arc::ir::IR>(mod)),
-            .channels = {
-                {input_idx.key, telem::TIMESTAMP_T, 0},
-                {input_ch.key, telem::INT32_T, input_idx.key},
-                {output_idx.key, telem::TIMESTAMP_T, 0},
-                {output_ch.key, telem::INT32_T, output_idx.key}
-            }
-        }
+            .channels =
+                {{input_idx.key, telem::TIMESTAMP_T, 0},
+                 {input_ch.key, telem::INT32_T, input_idx.key},
+                 {output_idx.key, telem::TIMESTAMP_T, 0},
+                 {output_ch.key, telem::INT32_T, output_idx.key}}
+        },
+        arc::runtime::errors::noop_handler
     );
 
     const auto *on_node = find_node_by_type(mod, "on");
