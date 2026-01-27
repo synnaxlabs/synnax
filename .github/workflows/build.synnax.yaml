@@ -173,7 +173,7 @@ jobs:
 
   test-signing:
     name: Test Signing (Windows)
-    runs-on: windows-latest
+    runs-on: windows-build-bot
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
