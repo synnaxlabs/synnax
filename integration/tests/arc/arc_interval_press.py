@@ -95,7 +95,9 @@ class ArcIntervalPress(ArcConsoleCase):
             while self.should_continue:
                 press_pt = self.read_tlm("press_pt")
                 if press_pt is not None and press_pt > 27:
-                    self.log(f"[Cycle {cycle}] Pressure exceeded threshold: {press_pt:.1f}")
+                    self.log(
+                        f"[Cycle {cycle}] Pressure exceeded threshold: {press_pt:.1f}"
+                    )
                     pressure_exceeded = True
                     break
             if not pressure_exceeded:
@@ -108,11 +110,15 @@ class ArcIntervalPress(ArcConsoleCase):
                 vent_state = self.read_tlm("vent_vlv_state")
                 press_state = self.read_tlm("press_vlv_state")
                 if vent_state == 1 and press_state == 0:
-                    self.log(f"[Cycle {cycle}] Vent valve opened, press valve closed - venting mode")
+                    self.log(
+                        f"[Cycle {cycle}] Vent valve opened, press valve closed - venting mode"
+                    )
                     venting_mode = True
                     break
             if not venting_mode:
-                self.fail(f"[Cycle {cycle}] Should transition to venting when pressure > 30")
+                self.fail(
+                    f"[Cycle {cycle}] Should transition to venting when pressure > 30"
+                )
                 return
 
             self.log(f"[Cycle {cycle}] Waiting for pressure to drop below 4...")
@@ -120,7 +126,9 @@ class ArcIntervalPress(ArcConsoleCase):
             while self.should_continue:
                 press_pt = self.read_tlm("press_pt")
                 if press_pt is not None and press_pt < 4:
-                    self.log(f"[Cycle {cycle}] Pressure dropped below threshold: {press_pt:.1f}")
+                    self.log(
+                        f"[Cycle {cycle}] Pressure dropped below threshold: {press_pt:.1f}"
+                    )
                     pressure_dropped = True
                     break
             if not pressure_dropped:
@@ -133,11 +141,17 @@ class ArcIntervalPress(ArcConsoleCase):
                 press_state = self.read_tlm("press_vlv_state")
                 vent_state = self.read_tlm("vent_vlv_state")
                 if press_state == 1 and vent_state == 0:
-                    self.log(f"[Cycle {cycle}] Press valve opened, vent valve closed - cycle complete!")
+                    self.log(
+                        f"[Cycle {cycle}] Press valve opened, vent valve closed - cycle complete!"
+                    )
                     pressing_mode = True
                     break
             if not pressing_mode:
-                self.fail(f"[Cycle {cycle}] Should return to pressing when pressure < 1")
+                self.fail(
+                    f"[Cycle {cycle}] Should return to pressing when pressure < 1"
+                )
                 return
 
-        self.log("All 3 cycles completed - interval-triggered hysteresis control verified successfully")
+        self.log(
+            "All 3 cycles completed - interval-triggered hysteresis control verified successfully"
+        )
