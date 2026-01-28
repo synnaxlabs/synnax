@@ -28,6 +28,7 @@ profile = "black"
 [tool.mypy]
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
+strict = true
 
 [[tool.mypy.overrides]]
 module = "synnax.*"
