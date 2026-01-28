@@ -44,42 +44,42 @@ on:
       - x/go/**
       - x/media/**
       - x/ts/**
-  pull_request:
-    paths:
-      - .bazeliskrc
-      - .bazelrc
-      - .github/workflows/deploy.synnax.yaml
-      - .github/workflows/build.synnax.yaml
-      - alamos/go/**
-      - alamos/ts/**
-      - arc/cpp/**
-      - aspen/**
-      - cesium/**
-      - client/cpp/**
-      - client/ts/**
-      - configs/ts/**
-      - configs/vite/**
-      - console/**
-      - core/**
-      - drift/**
-      - driver/**
-      - freighter/cpp/**
-      - freighter/go/**
-      - freighter/ts/**
-      - go.work
-      - go.work.sum
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - package.json
-      - pluto/**
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - vendor/**
-      - vendor/lua-language-server/**
-      - x/cpp/**
-      - x/go/**
-      - x/ts/**
+  # pull_request:
+  #   paths:
+  #     - .bazeliskrc
+  #     - .bazelrc
+  #     - .github/workflows/deploy.synnax.yaml
+  #     - .github/workflows/build.synnax.yaml
+  #     - alamos/go/**
+  #     - alamos/ts/**
+  #     - arc/cpp/**
+  #     - aspen/**
+  #     - cesium/**
+  #     - client/cpp/**
+  #     - client/ts/**
+  #     - configs/ts/**
+  #     - configs/vite/**
+  #     - console/**
+  #     - core/**
+  #     - drift/**
+  #     - driver/**
+  #     - freighter/cpp/**
+  #     - freighter/go/**
+  #     - freighter/ts/**
+  #     - go.work
+  #     - go.work.sum
+  #     - MODULE.bazel
+  #     - MODULE.bazel.lock
+  #     - package.json
+  #     - pluto/**
+  #     - pnpm-lock.yaml
+  #     - pnpm-workspace.yaml
+  #     - turbo.json
+  #     - vendor/**
+  #     - vendor/lua-language-server/**
+  #     - x/cpp/**
+  #     - x/go/**
+  #     - x/ts/**
   workflow_dispatch:
 
 concurrency:
