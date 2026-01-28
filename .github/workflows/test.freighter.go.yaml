@@ -6,6 +6,7 @@ on:
       - .github/workflows/test.freighter.go.yaml
       - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - freighter/go/**
       - go.work
       - go.work.sum
@@ -19,6 +20,7 @@ on:
       - .github/workflows/test.freighter.go.yaml
       - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - freighter/go/**
       - go.work
       - go.work.sum

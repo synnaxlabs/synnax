@@ -9,6 +9,7 @@ on:
       - arc/go/**
       - aspen/**
       - cesium/**
+      - codecov.yaml
       - core/**
       - freighter/go/**
       - go.work
@@ -26,6 +27,7 @@ on:
       - arc/go/**
       - aspen/**
       - cesium/**
+      - codecov.yaml
       - core/**
       - freighter/go/**
       - go.work

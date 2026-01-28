@@ -6,6 +6,7 @@ on:
       - .github/workflows/test.freighter.integration.yaml
       - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - freighter/go/**
       - freighter/integration/**
       - go.work
@@ -20,6 +21,7 @@ on:
       - .github/workflows/test.freighter.integration.yaml
       - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - freighter/go/**
       - freighter/integration/**
       - go.work

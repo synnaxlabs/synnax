@@ -11,6 +11,7 @@ on:
       - arc/cpp/**
       - arc/go/**
       - arc/scripts/validate_bindings.sh
+      - codecov.yaml
       - freighter/go/**
       - go.work
       - go.work.sum
@@ -33,6 +34,7 @@ on:
       - arc/cpp/**
       - arc/go/**
       - arc/scripts/validate_bindings.sh
+      - codecov.yaml
       - freighter/go/**
       - go.work
       - go.work.sum
