@@ -382,6 +382,8 @@ jobs:
         shell: powershell
         run: |
           Copy-Item -Force bazel-bin/driver/driver.exe driver-for-signing.exe
+          # Remove read-only attribute set by Bazel to allow signing
+          Set-ItemProperty -Path driver-for-signing.exe -Name IsReadOnly -Value $false
 
       - name: Sign Driver (Windows)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
