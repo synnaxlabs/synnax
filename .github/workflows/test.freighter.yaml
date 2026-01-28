@@ -141,9 +141,23 @@ jobs:
           cache-to: type=inline
 
   integration:
-    name: Test - Integration
+    name: Test - Integration (${{ matrix.os }})
     needs: changes
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            lint: true
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
     if: needs.changes.outputs.integration == 'true'
     steps:
       - name: Checkout Repository
@@ -158,12 +172,29 @@ jobs:
             **/go.sum
 
       - name: Check Formatting
+        if: matrix.lint
         run: scripts/check_gofmt.sh freighter/integration
 
       - name: Lint
+        if: matrix.lint
         uses: golangci/golangci-lint-action@v9
         with:
           working-directory: freighter/integration
+
+      - name: Test
+        run:
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+          --randomize-suites --fail-on-pending --cover --coverprofile=cover.out
+          --keep-going --race --trace --github-output
+        working-directory: freighter/integration
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: freighter-integration
+          directory: freighter/integration
 
   py:
     name: Test - Python
