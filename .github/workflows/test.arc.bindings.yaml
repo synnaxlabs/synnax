@@ -3,35 +3,28 @@ name: Test - Arc Bindings
 on:
   pull_request:
     paths:
-      - .bazeliskrc
-      - .bazelrc
       - .github/workflows/test.arc.bindings.yaml
+      - alamos/go/**
       - arc/cpp/**
       - arc/go/**
       - arc/scripts/validate_bindings.sh
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - vendor/wasmtime/**
-      - x/cpp/**
+      - go.work
+      - go.work.sum
+      - x/go/**
   push:
     branches:
       - main
       - rc
     paths:
-      - .bazeliskrc
-      - .bazelrc
       - .github/workflows/test.arc.bindings.yaml
+      - alamos/go/**
       - arc/cpp/**
       - arc/go/**
       - arc/scripts/validate_bindings.sh
-      - MODULE.bazel
-      - MODULE.bazel.lock
-      - vendor/wasmtime/**
-      - x/cpp/**
+      - go.work
+      - go.work.sum
+      - x/go/**
   workflow_dispatch:
-
-env:
-  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
   validate:
