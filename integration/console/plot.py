@@ -63,6 +63,16 @@ class Plot(ConsolePage):
         plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
         return plot
 
+    @classmethod
+    def from_open_page(cls, client: sy.Synnax, console: Console, name: str) -> "Plot":
+        """Create Plot instance from an already-opened page.
+
+        Overrides parent to initialize the data tracking attribute.
+        """
+        plot = super().from_open_page(client, console, name)
+        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
+        return plot
+
     def __init__(
         self,
         client: sy.Synnax,

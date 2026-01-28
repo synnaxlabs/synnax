@@ -16,11 +16,12 @@ from playwright.sync_api import Locator, Page
 
 from framework.utils import get_results_path
 
+from .log import Log
+from .plot import Plot
+from .schematic import Schematic
+
 if TYPE_CHECKING:
     from .console import Console
-    from .log import Log
-    from .plot import Plot
-    from .schematic import Schematic
 
 
 class WorkspaceClient:
@@ -535,30 +536,6 @@ class WorkspaceClient:
         self.create(name)
         self.select(name)
 
-    def _create_plot_instance(self, client: sy.Synnax, page_name: str) -> "Plot":
-        """Create a Plot instance after a line plot becomes visible.
-
-        Args:
-            client: Synnax client instance.
-            page_name: The name of the plot page.
-
-        Returns:
-            Plot instance for the opened plot.
-        """
-        from .plot import Plot
-
-        line_plot = self.page.locator(Plot.pluto_label)
-        line_plot.first.wait_for(state="visible", timeout=5000)
-
-        plot = Plot.__new__(Plot)
-        plot.client = client
-        plot.console = self.console
-        plot.page = self.page
-        plot.page_name = page_name
-        plot.data = {"Y1": [], "Y2": [], "Ranges": [], "X1": None}
-        plot.pane_locator = line_plot.first
-        return plot
-
     def open_plot(self, client: sy.Synnax, name: str) -> "Plot":
         """Open a plot by double-clicking it in the workspace resources toolbar.
 
@@ -570,7 +547,7 @@ class WorkspaceClient:
             Plot instance for the opened plot.
         """
         self.open_page(name)
-        return self._create_plot_instance(client, name)
+        return Plot.from_open_page(client, self.console, name)
 
     def drag_plot_to_mosaic(self, client: sy.Synnax, name: str) -> "Plot":
         """Drag a plot from the workspace resources toolbar onto the mosaic.
@@ -583,30 +560,7 @@ class WorkspaceClient:
             Plot instance for the opened plot.
         """
         self.drag_page_to_mosaic(name)
-        return self._create_plot_instance(client, name)
-
-    def _create_log_instance(self, client: sy.Synnax, page_name: str) -> "Log":
-        """Create a Log instance after a log becomes visible.
-
-        Args:
-            client: Synnax client instance.
-            page_name: The name of the log page.
-
-        Returns:
-            Log instance for the opened log.
-        """
-        from .log import Log
-
-        log_pane = self.page.locator(Log.pluto_label)
-        log_pane.first.wait_for(state="visible", timeout=5000)
-
-        log = Log.__new__(Log)
-        log.client = client
-        log.console = self.console
-        log.page = self.page
-        log.page_name = page_name
-        log.pane_locator = log_pane.first
-        return log
+        return Plot.from_open_page(client, self.console, name)
 
     def open_log(self, client: sy.Synnax, name: str) -> "Log":
         """Open a log by double-clicking it in the workspace resources toolbar.
@@ -619,7 +573,7 @@ class WorkspaceClient:
             Log instance for the opened log.
         """
         self.open_page(name)
-        return self._create_log_instance(client, name)
+        return Log.from_open_page(client, self.console, name)
 
     def drag_log_to_mosaic(self, client: sy.Synnax, name: str) -> "Log":
         """Drag a log from the workspace resources toolbar onto the mosaic.
@@ -632,32 +586,7 @@ class WorkspaceClient:
             Log instance for the opened log.
         """
         self.drag_page_to_mosaic(name)
-        return self._create_log_instance(client, name)
-
-    def _create_schematic_instance(
-        self, client: sy.Synnax, page_name: str
-    ) -> "Schematic":
-        """Create a Schematic instance after a schematic becomes visible.
-
-        Args:
-            client: Synnax client instance.
-            page_name: The name of the schematic page.
-
-        Returns:
-            Schematic instance for the opened schematic.
-        """
-        from .schematic import Schematic
-
-        schematic_pane = self.page.locator(Schematic.pluto_label)
-        schematic_pane.first.wait_for(state="visible", timeout=5000)
-
-        schematic = Schematic.__new__(Schematic)
-        schematic.client = client
-        schematic.console = self.console
-        schematic.page = self.page
-        schematic.page_name = page_name
-        schematic.pane_locator = schematic_pane.first
-        return schematic
+        return Log.from_open_page(client, self.console, name)
 
     def open_schematic(self, client: sy.Synnax, name: str) -> "Schematic":
         """Open a schematic by double-clicking it in the workspace resources toolbar.
@@ -670,7 +599,7 @@ class WorkspaceClient:
             Schematic instance for the opened schematic.
         """
         self.open_page(name)
-        return self._create_schematic_instance(client, name)
+        return Schematic.from_open_page(client, self.console, name)
 
     def drag_schematic_to_mosaic(self, client: sy.Synnax, name: str) -> "Schematic":
         """Drag a schematic from the workspace resources toolbar onto the mosaic.
@@ -683,4 +612,4 @@ class WorkspaceClient:
             Schematic instance for the opened schematic.
         """
         self.drag_page_to_mosaic(name)
-        return self._create_schematic_instance(client, name)
+        return Schematic.from_open_page(client, self.console, name)

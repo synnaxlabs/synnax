@@ -7,15 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import os
 import re
 import time
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Literal, Self, cast
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
-from .console import Console, PageType
+if TYPE_CHECKING:
+    from .console import Console
+
+from .console import PageType
 
 
 class ConsolePage:
@@ -23,13 +28,41 @@ class ConsolePage:
 
     client: sy.Synnax
     page: Page
-    console: Console
+    console: "Console"
     page_name: str
     page_type: str
     pluto_label: str
     tab_locator: Locator | None = None
     pane_locator: Locator | None = None
     id: str | None = None
+
+    @classmethod
+    def from_open_page(cls, client: sy.Synnax, console: "Console", name: str) -> Self:
+        """Create instance from an already-opened page.
+
+        Use this factory method when a page has already been opened (e.g., via
+        drag_page_to_mosaic or open_page) and you need to create a typed wrapper.
+
+        Override in subclasses that need custom initialization (e.g., Plot sets data).
+
+        Args:
+            client: Synnax client instance
+            console: Console instance
+            name: Name of the page
+
+        Returns:
+            Instance of the page class
+        """
+        pane = console.page.locator(cls.pluto_label)
+        pane.first.wait_for(state="visible", timeout=5000)
+
+        instance = cls.__new__(cls)
+        instance.client = client
+        instance.console = console
+        instance.page = console.page
+        instance.page_name = name
+        instance.pane_locator = pane.first
+        return instance
 
     def __init__(
         self,
