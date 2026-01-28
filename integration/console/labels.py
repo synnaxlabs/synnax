@@ -50,12 +50,7 @@ class LabelClient:
 
         if color is not None:
             color_swatch = create_form.locator(".pluto-color-swatch").first
-            color_swatch.click()
-            hex_input = self.page.locator(".sketch-picker input").first
-            hex_input.click()
-            hex_input.fill(color.lstrip("#"))
-            self.page.keyboard.press("Enter")
-            self.page.keyboard.press("Escape")
+            self._set_color_via_picker(color_swatch, color)
 
         name_input = create_form.locator("input[placeholder='Label Name']")
         name_input.fill(name)
@@ -207,14 +202,27 @@ class LabelClient:
             raise ValueError(f"Label '{name}' not found")
 
         color_swatch = label_item.locator(".pluto-color-swatch").first
-        color_swatch.click()
+        self._set_color_via_picker(color_swatch, new_color)
+        self.page.wait_for_load_state("networkidle", timeout=5000)
 
-        hex_input = self.page.locator(".sketch-picker input").first
+        self._close_edit_modal()
+
+    def _set_color_via_picker(self, swatch: Locator, hex_color: str) -> None:
+        """Set a color using the color picker.
+
+        Args:
+            swatch: The color swatch locator to click.
+            hex_color: The hex color code (e.g., "#FF0000").
+        """
+        swatch.click()
+        color_picker = self.page.locator(".sketch-picker")
+        color_picker.wait_for(state="visible", timeout=2000)
+        hex_input = color_picker.locator("input").first
         hex_input.click()
-        hex_input.fill(new_color.lstrip("#"))
+        hex_input.fill(hex_color.lstrip("#"))
         self.page.keyboard.press("Enter")
         self.page.keyboard.press("Escape")
-        self._close_edit_modal()
+        color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:
         self.console.command_palette("Edit Labels")

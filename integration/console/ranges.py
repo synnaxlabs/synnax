@@ -9,7 +9,7 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator, Page, expect
 
 from framework.utils import get_results_path, rgb_to_hex
 
@@ -40,8 +40,9 @@ class RangesClient:
             name: Name of the range to search for and open.
         """
         self.console.search_palette(name)
-        name_input = self.page.locator(f"input[placeholder='Name'][value='{name}']")
+        name_input = self.page.locator("input[placeholder='Name']").first
         name_input.wait_for(state="visible", timeout=5000)
+        expect(name_input).to_have_value(name, timeout=5000)
 
     def show_toolbar(self) -> None:
         """Show the ranges toolbar in the left sidebar (favorites only)."""
@@ -286,8 +287,9 @@ class RangesClient:
             name: The name of the range to wait for.
             timeout: Maximum time to wait in milliseconds.
         """
-        name_input = self.page.locator(f"input[placeholder='Name'][value='{name}']")
+        name_input = self.page.locator("input[placeholder='Name']").first
         name_input.wait_for(state="visible", timeout=timeout)
+        expect(name_input).to_have_value(name, timeout=timeout)
 
     def is_overview_showing(self, name: str) -> bool:
         """Check if the range overview is showing a specific range.
