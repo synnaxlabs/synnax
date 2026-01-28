@@ -240,6 +240,30 @@ jobs:
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
         run: cargo install trusted-signing-cli
 
+      - name: Write Hello World Rust program
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        run: |
+          cat > hello.rs << 'EOF'
+          fn main() {
+              println!("Hello, world!");
+          }
+          EOF
+
+      - name: Compile Hello World Rust program
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        run: rustc hello.rs
+
+      - name: Sign Hello World Rust program
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net
+          -a  CodeSigningAccountName -c CodeSigningCertificateProfile -d "Hello
+          World"  hello.exe
+
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
         shell: bash
