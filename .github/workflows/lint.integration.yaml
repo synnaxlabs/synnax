@@ -30,13 +30,13 @@ on:
 
 jobs:
   lint:
-    name: Lint - Python
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Lint Python
+      - name: Lint
         uses: ./.github/actions/test-python
         with:
           directory: integration
