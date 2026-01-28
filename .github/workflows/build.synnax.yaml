@@ -226,45 +226,6 @@ jobs:
           rustup update
           rustup default stable
 
-      - name: Debug Rust
-        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        run: |
-          where.exe rustup
-          rustup -vV
-          where.exe rustc
-          rustc -vV
-          where.exe cargo
-          cargo -vV
-
-      - name: Install trusted-signing-cli
-        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        run: cargo install trusted-signing-cli
-
-      - name: Write Hello World Rust program
-        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        shell: bash
-        run: |
-          cat > hello.rs << 'EOF'
-          fn main() {
-              println!("Hello, world!");
-          }
-          EOF
-
-      - name: Compile Hello World Rust program
-        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        run: rustc hello.rs
-
-      - name: Sign Hello World Rust program
-        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        env:
-          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run:
-          trusted-signing-cli -e https://wcus.codesigning.azure.net
-          -a  CodeSigningAccountName -c CodeSigningCertificateProfile -d "Hello
-          World"  hello.exe
-
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
         shell: bash
@@ -373,17 +334,16 @@ jobs:
             --wait
           rm driver-notarize.zip
 
-      # - name: Download trusted-signing-cli for Windows signing
-      #   if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-      #   run: cargo install trusted-signing-cli
+      - name: Install trusted-signing-cli
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        run: cargo install trusted-signing-cli
 
-      - name: Move Driver for signing
+      - name: Remove read-only attribute from Driver for signing
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
-        run: |
-          Copy-Item -Force bazel-bin/driver/driver.exe driver-for-signing.exe
-          # Remove read-only attribute set by Bazel to allow signing
-          Set-ItemProperty -Path driver-for-signing.exe -Name IsReadOnly -Value $false
+        run:
+          Set-ItemProperty -Path bazel-bin/driver/driver.exe -Name IsReadOnly -Value
+          $false
 
       - name: Sign Driver (Windows)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
@@ -395,13 +355,7 @@ jobs:
         run:
           trusted-signing-cli -e https://wcus.codesigning.azure.net -a
           CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Driver"
-          driver-for-signing.exe
-
-      - name: Move Driver back
-        if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
-        shell: powershell
-        run: |
-          Copy-Item -Force driver-for-signing.exe bazel-bin/driver/driver.exe
+          bazel-bin/driver/driver.exe
 
       - name: Rename Driver Binary
         if: inputs.driver
@@ -741,7 +695,7 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
-      - name: Download trusted-signing-cli for Windows signing
+      - name: Install trusted-signing-cli
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
         run: cargo install trusted-signing-cli
 

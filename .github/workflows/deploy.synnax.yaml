@@ -214,7 +214,10 @@ jobs:
         run: |
           Move-Item -Force scripts/synnax-v${{ needs.setup.outputs.VERSION }}.exe scripts/synnax-server.exe
 
-      - name: Download trusted-signing-cli for signing
+      - name: Update Rust
+        run: rustup update
+
+      - name: Install trusted-signing-cli
         run: cargo install trusted-signing-cli
 
       - name: Build Windows Installer
