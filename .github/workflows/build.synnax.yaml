@@ -299,7 +299,7 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_NAME
           echo "KEYCHAIN_NAME=$KEYCHAIN_NAME" >> $GITHUB_ENV
 
-      - name: Sign macOS Driver Binary
+      - name: Sign Driver (macOS)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'macos-build-bot'
         run: |
           cat > driver-entitlements.plist << 'EOF'
@@ -334,43 +334,28 @@ jobs:
             --wait
           rm driver-notarize.zip
 
-      - name: Download relic for Windows signing
+      - name: Install trusted-signing-cli
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
-        shell: bash
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
+        run: cargo install trusted-signing-cli
 
-      - name: Add relic to PATH
-        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+      - name: Remove read-only attribute from Driver for signing
+        if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
-        run: |
-          New-Item -ItemType Directory -Force -Path relic-bin
-          Move-Item -Force relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        run:
+          Set-ItemProperty -Path bazel-bin/driver/driver.exe -Name IsReadOnly -Value
+          $false
 
-      - name: Sign Windows Driver Binary
+      - name: Sign Driver (Windows)
         if: inputs.sign_binaries && inputs.driver && matrix.os == 'windows-build-bot'
         shell: powershell
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          $bin = "bazel-bin\driver\driver.exe"
-          Start-Sleep -Seconds 2
-          attrib -R -S -H -A $bin
-          takeown /F $bin | Out-Null
-          icacls $bin /grant "*S-1-1-0:(F)" /inheritance:e | Out-Null
-          $max = 5
-          for ($i = 1; $i -le $max; $i++) {
-            try {
-              relic sign --file $bin --key azure --config relic.conf
-              break
-            } catch {
-              if ($i -eq $max) { throw }
-              Start-Sleep -Seconds 3
-            }
-          }
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Driver"
+          bazel-bin/driver/driver.exe
 
       - name: Rename Driver Binary
         if: inputs.driver
@@ -378,7 +363,7 @@ jobs:
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Upload Driver Binary as Artifact
+      - name: Upload Driver as Artifact
         if: inputs.driver
         uses: actions/upload-artifact@v6
         with:
@@ -470,7 +455,7 @@ jobs:
               -X github.com/synnaxlabs/synnax/pkg/version.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o synnax-v${{ needs.setup.outputs.VERSION }}${{ matrix.executable }}
 
-      - name: Sign macOS Server Binary
+      - name: Sign macOS Core Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'macos-build-bot'
         working-directory: core
         run: |
@@ -509,14 +494,16 @@ jobs:
             --wait
           rm server-notarize.zip
 
-      - name: Sign Windows Server Binary
+      - name: Sign Windows Core Binary
         if: inputs.sign_binaries && inputs.core && matrix.os == 'windows-build-bot'
         env:
           AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
           AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-        run: |
-          relic sign --file core/synnax-v${{ needs.setup.outputs.VERSION }}.exe --key azure --config relic.conf
+        run:
+          trusted-signing-cli -e https://wcus.codesigning.azure.net -a
+          CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Core"
+          core/synnax-v${{ needs.setup.outputs.VERSION }}.exe
 
       - name: Upload Core Binary as Artifact
         if: inputs.core
@@ -603,8 +590,6 @@ jobs:
     name: Build Console App
     needs: [setup]
     if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
-    permissions:
-      contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -708,18 +693,9 @@ jobs:
           codesign --force --options runtime --timestamp --sign "$APPLE_SIGNING_IDENTITY" "$EMBEDDED_BIN_REPO"
           codesign --verify --verbose "$EMBEDDED_BIN_REPO"
 
-      - name: Download relic for Windows signing
+      - name: Install trusted-signing-cli
         if: matrix.os == 'windows-latest' && inputs.sign_binaries
-        shell: bash
-        run: |
-          curl -L -o relic.exe https://github.com/sassoftware/relic/releases/latest/download/relic-windows-amd64.exe
-
-      - name: Add relic to PATH
-        if: matrix.os == 'windows-latest' && inputs.sign_binaries
-        run: |
-          mkdir relic-bin
-          mv relic.exe relic-bin\
-          echo "${{ github.workspace }}\relic-bin" >> $env:GITHUB_PATH
+        run: cargo install trusted-signing-cli
 
       - name: Build Console Tauri (Signed)
         if: inputs.sign_binaries
@@ -740,11 +716,8 @@ jobs:
 
       - name: Build Console Tauri (Unsigned)
         if: ${{ !inputs.sign_binaries }}
-        env:
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
         working-directory: console
-        run: pnpm build
+        run: pnpm build --no-sign
 
       - name: Upload Console App as Artifact
         uses: actions/upload-artifact@v6
