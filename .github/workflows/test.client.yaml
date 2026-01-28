@@ -3,6 +3,7 @@ name: Test - Client
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .bazeliskrc
       - .bazelrc
       - .clang-format
@@ -46,6 +47,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .bazeliskrc
       - .bazelrc
       - .clang-format
@@ -251,33 +253,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: client/py/pyproject.toml
-
-      - name: Check import order
-        run: uv run isort -c .
-        working-directory: client/py
-
-      - name: Check formatting
-        run: uv run black --check --diff --color .
-        working-directory: client/py
-
-      - name: Test
-        run: uv run pytest --cov=synnax --cov-report=xml
-        working-directory: client/py
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: client-py
           directory: client/py
+          coverage_module: synnax
+          coverage_flag: client-py
+          format_check: true
+          codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
   ts:
     name: Test - TypeScript

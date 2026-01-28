@@ -3,6 +3,7 @@ name: Test - Alamos (Python)
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.alamos.py.yaml
       - alamos/py/**
       - codecov.yaml
@@ -14,6 +15,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.alamos.py.yaml
       - alamos/py/**
       - codecov.yaml
@@ -39,43 +41,17 @@ jobs:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
               'windows-latest' }}
-
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: alamos/py/pyproject.toml
-
-      - name: Check import order
-        if: matrix.format
-        run: uv run isort -c .
-        working-directory: alamos/py
-
-      - name: Check formatting
-        if: matrix.format
-        run: uv run black --check --diff --color .
-        working-directory: alamos/py
-
-      - name: Check types
-        if: matrix.format
-        run: uv run mypy .
-        working-directory: alamos/py
-
-      - name: Test
-        run: uv run pytest --cov=alamos --cov-report=xml
-        working-directory: alamos/py
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: alamos-py
           directory: alamos/py
+          coverage_module: alamos
+          coverage_flag: alamos-py
+          type_check: true
+          format_check: ${{ matrix.format }}
+          codecov_token: ${{ secrets.CODECOV_TOKEN }}

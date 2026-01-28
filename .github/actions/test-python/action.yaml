@@ -1,0 +1,66 @@
+name: Test Python
+description: Common steps for testing Python packages
+
+inputs:
+  directory:
+    description: The directory containing the Python package to test
+    required: true
+  coverage_module:
+    description: The module name for pytest --cov (e.g., alamos, freighter, synnax)
+    required: true
+  coverage_flag:
+    description: The codecov flag for this module
+    required: true
+  type_check:
+    description: Whether to run mypy type checking
+    required: false
+    default: "false"
+  format_check:
+    description: Whether to run formatting checks (isort, black)
+    required: false
+    default: "false"
+  codecov_token:
+    description: Codecov token for uploading coverage
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version-file: ${{ inputs.directory }}/pyproject.toml
+
+    - name: Check import order
+      if: inputs.format_check == 'true'
+      run: uv run isort -c .
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+
+    - name: Check formatting
+      if: inputs.format_check == 'true'
+      run: uv run black --check --diff --color .
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+
+    - name: Check types
+      if: inputs.format_check == 'true' && inputs.type_check == 'true'
+      run: uv run mypy .
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+
+    - name: Test
+      run: uv run pytest --cov=${{ inputs.coverage_module }} --cov-report=xml
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v5
+      with:
+        fail_ci_if_error: true
+        token: ${{ inputs.codecov_token }}
+        flags: ${{ inputs.coverage_flag }}
+        directory: ${{ inputs.directory }}

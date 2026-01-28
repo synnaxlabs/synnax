@@ -3,6 +3,7 @@ name: Test - Freighter (Python & TypeScript)
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
       - alamos/py/**
@@ -31,6 +32,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.freighter.yaml
       - alamos/go/**
       - alamos/py/**
@@ -152,37 +154,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: freighter/py/pyproject.toml
-
-      - name: Check import order
-        run: uv run isort -c .
-        working-directory: freighter/py
-
-      - name: Check formatting
-        run: uv run black --check --diff --color .
-        working-directory: freighter/py
-
-      - name: Check types
-        run: uv run mypy .
-        working-directory: freighter/py
-
-      - name: Test
-        run: uv run pytest --cov=freighter --cov-report=xml
-        working-directory: freighter/py
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        with:
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          flags: freighter-py
           directory: freighter/py
+          coverage_module: freighter
+          coverage_flag: freighter-py
+          type_check: true
+          format_check: true
+          codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
   ts:
     name: Test - TypeScript
