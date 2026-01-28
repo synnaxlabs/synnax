@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/test.cesium.yaml
+      - .golangci.yaml
       - alamos/go/**
       - cesium/**
       - go.work
@@ -16,6 +17,7 @@ on:
       - rc
     paths:
       - .github/workflows/test.cesium.yaml
+      - .golangci.yaml
       - alamos/go/**
       - cesium/**
       - go.work
@@ -33,7 +35,7 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
-            lint: true
+            fmt: true
         exclude:
           - os:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
@@ -43,7 +45,7 @@ jobs:
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up Go
@@ -54,12 +56,11 @@ jobs:
             go.work.sum
             **/go.sum
 
-      - name: Check Formatting
-        if: matrix.lint
+      - name: Check formatting
+        if: matrix.fmt
         run: scripts/check_gofmt.sh cesium
 
       - name: Lint
-        if: matrix.lint
         uses: golangci/golangci-lint-action@v9
         with:
           working-directory: cesium

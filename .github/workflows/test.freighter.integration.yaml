@@ -1,11 +1,13 @@
-name: Test - X (Go)
+name: Test - Freighter (Integration)
 
 on:
   pull_request:
     paths:
-      - .github/workflows/test.x.go.yaml
+      - .github/workflows/test.freighter.integration.yaml
       - .golangci.yaml
       - alamos/go/**
+      - freighter/go/**
+      - freighter/integration/**
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -15,9 +17,11 @@ on:
       - main
       - rc
     paths:
-      - .github/workflows/test.x.go.yaml
+      - .github/workflows/test.freighter.integration.yaml
       - .golangci.yaml
       - alamos/go/**
+      - freighter/go/**
+      - freighter/integration/**
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -56,24 +60,24 @@ jobs:
 
       - name: Check formatting
         if: matrix.fmt
-        run: scripts/check_gofmt.sh x/go
+        run: scripts/check_gofmt.sh freighter/integration
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
-          working-directory: x/go
+          working-directory: freighter/integration
 
       - name: Test
         run:
-          go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
-          --fail-on-pending  --cover --coverprofile=cover.out --keep-going --trace
-          --github-output
-        working-directory: x/go
+          go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
+          --randomize-suites --fail-on-pending --cover --coverprofile=cover.out
+          --keep-going --race --trace --github-output
+        working-directory: freighter/integration
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: x-go
-          directory: x/go
+          flags: freighter-integration
+          directory: freighter/integration

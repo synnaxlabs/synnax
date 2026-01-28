@@ -5,19 +5,19 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
       - .github/workflows/test.arc.yaml
-      - arc/**
+      - .golangci.yaml
       - alamos/go/**
+      - arc/cpp/**
+      - arc/go/**
+      - arc/scripts/validate_bindings.sh
+      - freighter/go/**
       - go.work
       - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
-      - scripts/check_clang_format.sh
       - scripts/check_gofmt.sh
-      - scripts/sanitizers/**
-      - vendor/**
+      - vendor/wasmtime/**
       - x/cpp/**
       - x/go/**
   push:
@@ -27,19 +27,19 @@ on:
     paths:
       - .bazeliskrc
       - .bazelrc
-      - .clang-format
-      - .clang-format-ignore
       - .github/workflows/test.arc.yaml
-      - arc/**
+      - .golangci.yaml
       - alamos/go/**
+      - arc/cpp/**
+      - arc/go/**
+      - arc/scripts/validate_bindings.sh
+      - freighter/go/**
       - go.work
       - go.work.sum
       - MODULE.bazel
       - MODULE.bazel.lock
-      - scripts/check_clang_format.sh
       - scripts/check_gofmt.sh
-      - scripts/sanitizers/**
-      - vendor/**
+      - vendor/wasmtime/**
       - x/cpp/**
       - x/go/**
   workflow_dispatch:
@@ -66,7 +66,7 @@ jobs:
               'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up Go
@@ -77,16 +77,15 @@ jobs:
             go.work.sum
             **/go.sum
 
-      - name: Check Formatting
+      - name: Check formatting
         if: matrix.lint
         run: scripts/check_gofmt.sh arc/go
 
-      - name: Validate WASM Bindings
+      - name: Validate WASM bindings
         if: matrix.lint
-        run: ./arc/scripts/validate_bindings.sh
+        run: arc/scripts/validate_bindings.sh
 
       - name: Lint
-        if: matrix.lint
         uses: golangci/golangci-lint-action@v9
         with:
           working-directory: arc/go
