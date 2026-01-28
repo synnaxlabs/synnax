@@ -22,6 +22,7 @@ coverage:
         threshold: 0%
         informational: false
 ignore:
+  # Go
   - "**/*_generated.go"
   - "**/*.pb.go"
   - "arc/go/parser/arc_lexer.go"
@@ -31,3 +32,7 @@ ignore:
   - "arc/go/parser/arcparser_listener.go"
   - "arc/go/parser/arcparser_visitor.go"
   - "**/*_string.go"
+  # Python
+  - "**/tests/**"
+  - "**/__pycache__/**"
+  - "**/conftest.py"

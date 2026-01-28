@@ -268,8 +268,16 @@ jobs:
         working-directory: client/py
 
       - name: Test
-        run: uv run pytest
+        run: uv run pytest --cov=synnax --cov-report=xml
         working-directory: client/py
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: client-py
+          directory: client/py
 
   ts:
     name: Test - TypeScript

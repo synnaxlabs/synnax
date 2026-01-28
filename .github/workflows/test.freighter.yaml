@@ -173,8 +173,16 @@ jobs:
         working-directory: freighter/py
 
       - name: Test
-        run: uv run pytest
+        run: uv run pytest --cov=freighter --cov-report=xml
         working-directory: freighter/py
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: freighter-py
+          directory: freighter/py
 
   ts:
     name: Test - TypeScript
