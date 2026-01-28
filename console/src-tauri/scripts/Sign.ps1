@@ -5,5 +5,5 @@ param (
 $extension = [System.IO.Path]::GetExtension($FilePath).ToLower()
 
 if ($extension -eq ".exe" -or $extension -eq ".msi") {
-    relic sign --file $FilePath --key azure --config ..\..\relic.conf
+    trusted-signing-cli -e https://wcus.codesigning.azure.net -a CodeSigningAccountName -c CodeSigningCertificateProfile -d "Synnax Console" $FilePath
 }
