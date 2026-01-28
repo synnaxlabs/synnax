@@ -87,18 +87,24 @@ var _ = Describe("Task", Ordered, func() {
 				if err != nil {
 					return svcarc.Arc{}, err
 				}
-				return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: module}, nil
+				return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: &module}, nil
 			},
 		}))
 	}
 
+	configToMap := func(cfg runtime.TaskConfig) map[string]any {
+		cfgJSON := MustSucceed(json.Marshal(cfg))
+		var cfgMap map[string]any
+		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
+		return cfgMap
+	}
+
 	newTask := func(factory *runtime.Factory) driver.Task {
-		cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
 			Name:   "test-task",
 			Type:   runtime.TaskType,
-			Config: string(cfgJSON),
+			Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 		}
 		t := MustBeOk(MustSucceed2(factory.ConfigureTask(newContext(), svcTask)))
 		return t
@@ -123,7 +129,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   "not-arc",
-				Config: "{}",
+				Config: map[string]any{},
 			}
 			t, handled := MustSucceed2(factory.ConfigureTask(newContext(), svcTask))
 			Expect(handled).To(BeFalse())
@@ -137,7 +143,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t).ToNot(BeNil())
 		})
 
-		It("Should return error for invalid config JSON", func() {
+		It("Should return error for invalid config", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
@@ -147,10 +153,10 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   runtime.TaskType,
-				Config: "invalid json",
+				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			task, ok, err := factory.ConfigureTask(newContext(), svcTask)
-			Expect(err).To(MatchError(ContainSubstring("invalid character 'i'")))
+			Expect(err).To(HaveOccurred())
 			Expect(ok).To(BeTrue())
 			Expect(task).To(BeNil())
 		})
@@ -162,11 +168,10 @@ var _ = Describe("Task", Ordered, func() {
 				Status:    statusSvc,
 				GetModule: moduleNotFoundGetter,
 			}))
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t, handled, err := factory.ConfigureTask(newContext(), svcTask)
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -174,7 +179,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t).To(BeNil())
 		})
 
-		It("Should set error status when config JSON is invalid", func() {
+		It("Should set error status when config is invalid", func() {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
 				Channel:   dist.Channel,
 				Framer:    dist.Framer,
@@ -185,7 +190,7 @@ var _ = Describe("Task", Ordered, func() {
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
 				Name:   "test-invalid-config",
 				Type:   runtime.TaskType,
-				Config: "invalid json",
+				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			_, _, err := factory.ConfigureTask(newContext(), svcTask)
 			Expect(err).To(HaveOccurred())
@@ -194,7 +199,6 @@ var _ = Describe("Task", Ordered, func() {
 				WhereKeys(task.OntologyID(svcTask.Key).String()).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
 			Expect(stat.Variant).To(BeEquivalentTo("error"))
-			Expect(stat.Message).To(ContainSubstring("invalid character"))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
 
@@ -205,12 +209,11 @@ var _ = Describe("Task", Ordered, func() {
 				Status:    statusSvc,
 				GetModule: moduleNotFoundGetter,
 			}))
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
 				Name:   "test-module-not-found",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			_, _, err := factory.ConfigureTask(newContext(), svcTask)
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -234,7 +237,7 @@ var _ = Describe("Task", Ordered, func() {
 				Key:    task.NewKey(rack.NewKey(1, 1), 4),
 				Name:   "test-config-success",
 				Type:   runtime.TaskType,
-				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			t, handled := MustSucceed2(
 				newFactory(simpleGraph(ch.Key())).
@@ -260,13 +263,10 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
-				Key:  task.NewKey(rack.NewKey(1, 1), 5),
-				Name: "test-auto-start",
-				Type: runtime.TaskType,
-				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{
-					ArcKey:    uuid.New(),
-					AutoStart: true,
-				}))),
+				Key:    task.NewKey(rack.NewKey(1, 1), 5),
+				Name:   "test-auto-start",
+				Type:   runtime.TaskType,
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New(), AutoStart: true}),
 			}
 			t, handled := MustSucceed2(newFactory(
 				simpleGraph(ch.Key())).
@@ -388,12 +388,11 @@ var _ = Describe("Task", Ordered, func() {
 			badNodeGraph := graph.Graph{
 				Nodes: []graph.Node{{Key: "bad", Type: "nonexistent_type", Config: map[string]any{}}},
 			}
-			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Name:   "test-bad-node",
 				Type:   runtime.TaskType,
-				Config: string(cfgJSON),
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
 			}
 			_, ok, err := newFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)
 			Expect(ok).To(BeTrue())
