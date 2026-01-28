@@ -227,6 +227,7 @@ jobs:
           rustup default stable
 
       - name: Debug Rust
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
         run: |
           where.exe rustup
           rustup -vV
@@ -236,7 +237,7 @@ jobs:
           cargo -vV
 
       - name: Install trusted-signing-cli
-        if: inputs.sign_binaries
+        if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
         run: cargo install trusted-signing-cli
 
       - name: Build Driver (Windows)
