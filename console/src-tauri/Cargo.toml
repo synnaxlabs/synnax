@@ -14,7 +14,12 @@ rust-version = "1.91"
 [build-dependencies]
 tauri-build = { version = "2.5.3", features = [] }
 
+[target.'cfg(any(target_os = "windows", target_os = "linux"))'.dependencies]
+nvml-wrapper = "0.10"
+
 [target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = "0.10"
+io-kit-sys = "0.4"
 objc2 = "0.6.3"
 objc2-app-kit = { version = "0.3.2", features = [
     "NSApplication",
@@ -33,6 +38,7 @@ tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
 [dependencies]
 device_query = "2.1.0"
 serde = "1.0.228"
+sysinfo = "0.32"
 serde_json = "1.0.145"
 tauri = { version = "2.9.5", features = ["devtools"] }
 tauri-plugin-store = "2.4.1"
@@ -42,6 +48,7 @@ tauri-plugin-shell = "2.3.3"
 tauri-plugin-updater = "2.9.0"
 tauri-plugin-dialog = "2.4.2"
 tauri-plugin-process = "2.3.1"
+tauri-plugin-os = "2.2.0"
 tauri-plugin-prevent-default = "4.0.3"
 window-shadows = "0.2.2"
 

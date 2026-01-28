@@ -46,6 +46,7 @@ import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
+import { Perf } from "@/perf";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
@@ -69,6 +70,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...LinePlot.LAYOUTS,
   ...Log.LAYOUTS,
   ...Modals.LAYOUTS,
+  ...Perf.LAYOUTS,
   ...Range.LAYOUTS,
   ...Schematic.LAYOUTS,
   ...Table.LAYOUTS,

@@ -16,6 +16,7 @@ import { LabelServices } from "@/label/services";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { type Palette } from "@/palette";
+import { Perf } from "@/perf";
 import { Persist } from "@/persist";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
@@ -33,6 +34,7 @@ export const COMMANDS: Palette.Command[] = [
   ...LabelServices.COMMANDS,
   ...LinePlotServices.COMMANDS,
   ...LogServices.COMMANDS,
+  ...Perf.COMMANDS,
   ...Persist.COMMANDS,
   ...RangeServices.COMMANDS,
   ...SchematicServices.COMMANDS,
