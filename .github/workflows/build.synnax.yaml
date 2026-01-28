@@ -242,6 +242,7 @@ jobs:
 
       - name: Write Hello World Rust program
         if: inputs.sign_binaries && matrix.os == 'windows-build-bot'
+        shell: bash
         run: |
           cat > hello.rs << 'EOF'
           fn main() {
