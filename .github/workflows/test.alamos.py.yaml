@@ -5,6 +5,7 @@ on:
     paths:
       - .github/workflows/test.alamos.py.yaml
       - alamos/py/**
+      - codecov.yaml
       - pyproject.toml
       - uv.lock
       - uv.toml
@@ -15,6 +16,7 @@ on:
     paths:
       - .github/workflows/test.alamos.py.yaml
       - alamos/py/**
+      - codecov.yaml
       - pyproject.toml
       - uv.lock
       - uv.toml
@@ -40,7 +42,7 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Install uv
@@ -51,17 +53,17 @@ jobs:
         with:
           python-version-file: alamos/py/pyproject.toml
 
-      - name: Check Import Order
+      - name: Check import order
         if: matrix.format
         run: uv run isort -c .
         working-directory: alamos/py
 
-      - name: Check Formatting
+      - name: Check formatting
         if: matrix.format
         run: uv run black --check --diff --color .
         working-directory: alamos/py
 
-      - name: Check Types
+      - name: Check types
         if: matrix.format
         run: uv run mypy .
         working-directory: alamos/py

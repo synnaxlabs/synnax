@@ -7,6 +7,7 @@ on:
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -35,6 +36,7 @@ on:
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -86,6 +88,7 @@ jobs:
             py:
               - *server
               - alamos/py/**
+              - codecov.yaml
               - freighter/py/**
               - pyproject.toml
               - uv.lock
@@ -149,7 +152,7 @@ jobs:
         ports:
           - 8080:8080
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Install uv
@@ -160,15 +163,15 @@ jobs:
         with:
           python-version-file: freighter/py/pyproject.toml
 
-      - name: Check Import Order
+      - name: Check import order
         run: uv run isort -c .
         working-directory: freighter/py
 
-      - name: Check Formatting
+      - name: Check formatting
         run: uv run black --check --diff --color .
         working-directory: freighter/py
 
-      - name: Check Types
+      - name: Check types
         run: uv run mypy .
         working-directory: freighter/py
 

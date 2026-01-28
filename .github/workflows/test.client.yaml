@@ -16,6 +16,7 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -59,6 +60,7 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -131,6 +133,7 @@ jobs:
             py:
               - *shared
               - alamos/py/**
+              - codecov.yaml
               - client/py/**
               - freighter/py/**
               - pyproject.toml
@@ -248,7 +251,7 @@ jobs:
         ports:
           - 9090:9090
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Install uv
@@ -259,11 +262,11 @@ jobs:
         with:
           python-version-file: client/py/pyproject.toml
 
-      - name: Check Import Order
+      - name: Check import order
         run: uv run isort -c .
         working-directory: client/py
 
-      - name: Check Formatting
+      - name: Check formatting
         run: uv run black --check --diff --color .
         working-directory: client/py
 
