@@ -578,11 +578,11 @@ TEST(StateTest, Reset_ClearsReadsAndWrites) {
 TEST(StateTest, NodeReset_ClearsWatermarks) {
     arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type{.kind=arc::types::Kind::F32};
+    output_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type{.kind=arc::types::Kind::F32};
+    input_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";

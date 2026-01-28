@@ -61,7 +61,7 @@ TEST(MultiPlugin, testCallOrder) {
     ASSERT_EQ(multi.after_all(nullptr), x::errors::NIL);
 
     std::vector<std::string> expected =
-    {"before_all", "before_next", "after_next", "after_all"};
+        {"before_all", "before_next", "after_next", "after_all"};
     ASSERT_EQ(plugin1->calls, expected);
     ASSERT_EQ(plugin2->calls, expected);
 }

@@ -216,7 +216,10 @@ TEST(ModeSelectorTest, ModerateRate_SelectsHybrid) {
 }
 
 TEST(ModeSelectorTest, LowRate_SelectsEventDriven) {
-    EXPECT_EQ(select_mode(10 * x::telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
+    EXPECT_EQ(
+        select_mode(10 * x::telem::MILLISECOND, true),
+        ExecutionMode::EVENT_DRIVEN
+    );
 }
 
 TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
@@ -229,7 +232,10 @@ TEST(ModeSelectorTest, Boundary_AtOneMs_SelectsHybrid) {
 }
 
 TEST(ModeSelectorTest, Boundary_AtFiveMs_SelectsEventDriven) {
-    EXPECT_EQ(select_mode(5 * x::telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
+    EXPECT_EQ(
+        select_mode(5 * x::telem::MILLISECOND, true),
+        ExecutionMode::EVENT_DRIVEN
+    );
 }
 
 TEST(ConfigTest, ApplyDefaultsResolvesAuto) {

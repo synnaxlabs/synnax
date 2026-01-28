@@ -91,7 +91,10 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
     if (UA_Variant_isScalar(val))
         return {
             0,
-            x::errors::Error(x::errors::VALIDATION, "cannot not convert scalar to series")
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "cannot not convert scalar to series"
+            )
         };
 
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {

@@ -100,8 +100,10 @@ public:
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-    std::pair<task::common::ConfigureResult, x::errors::Error>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task) {
+    std::pair<task::common::ConfigureResult, x::errors::Error> configure(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    ) {
         task::common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
@@ -134,7 +136,9 @@ public:
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::pair<task::common::ConfigureResult, x::errors::Error>
-    configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task);
+    std::pair<task::common::ConfigureResult, x::errors::Error> configure_scan(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    );
 };
 }

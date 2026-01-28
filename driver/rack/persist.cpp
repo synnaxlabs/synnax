@@ -75,18 +75,14 @@ x::errors::Error Config::load_persisted_state(x::args::Parser &args) {
     return x::errors::NIL;
 }
 
-x::errors::Error Config::save_conn_params(
-    x::args::Parser &args,
-    const synnax::Config &conn_params
-) {
+x::errors::Error
+Config::save_conn_params(x::args::Parser &args, const synnax::Config &conn_params) {
     auto [kv, err] = open_kv(args);
     return kv->set("conn_params", conn_params.to_json().dump());
 }
 
-x::errors::Error Config::save_remote_info(
-    x::args::Parser &args,
-    const RemoteInfo &remote_info
-) {
+x::errors::Error
+Config::save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info) {
     auto [kv, err] = open_kv(args);
     return kv->set("remote_info", remote_info.to_json().dump());
 }

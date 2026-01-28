@@ -78,7 +78,8 @@ class Task final : public task::Task {
     public:
         explicit Source(Task &task): task(task) {}
 
-        x::errors::Error read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
+        x::errors::Error
+        read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
             if (!this->task.runtime->read(data))
                 return x::errors::Error("runtime closed");
             return x::errors::NIL;
@@ -102,7 +103,10 @@ class Task final : public task::Task {
         }
     };
 
-    Task(const synnax::task::Task &task_meta, const std::shared_ptr<task::Context> &ctx):
+    Task(
+        const synnax::task::Task &task_meta,
+        const std::shared_ptr<task::Context> &ctx
+    ):
         state(ctx, task_meta) {}
 
 public:
@@ -118,17 +122,19 @@ public:
         const ::arc::runtime::Config runtime_cfg{
             .mod = cfg.module,
             .breaker = x::breaker::default_config("arc_runtime"),
-            .retrieve_channels =
-                [client = ctx->client](const std::vector<::arc::types::ChannelKey> &keys)
-                -> std::
-                    pair<std::vector<::arc::runtime::state::ChannelDigest>, x::errors::Error> {
-                        auto [channels, err] = client->channels.retrieve(keys);
-                        if (err) return {{}, err};
-                        std::vector<::arc::runtime::state::ChannelDigest> digests;
-                        for (const auto &ch: channels)
-                            digests.push_back({ch.key, ch.data_type, ch.index});
-                        return {digests, x::errors::NIL};
-                    },
+            .retrieve_channels = [client = ctx->client](
+                                     const std::vector<::arc::types::ChannelKey> &keys
+                                 )
+                -> std::pair<
+                    std::vector<::arc::runtime::state::ChannelDigest>,
+                    x::errors::Error> {
+                auto [channels, err] = client->channels.retrieve(keys);
+                if (err) return {{}, err};
+                std::vector<::arc::runtime::state::ChannelDigest> digests;
+                for (const auto &ch: channels)
+                    digests.push_back({ch.key, ch.data_type, ch.index});
+                return {digests, x::errors::NIL};
+            },
             .loop = cfg.loop,
         };
 

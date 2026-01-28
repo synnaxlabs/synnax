@@ -12,8 +12,8 @@
 #include <memory>
 #include <string>
 
-#include "x/cpp/url/url.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/url/url.h"
 
 namespace freighter {
 const std::string ERR_TYPE_UNREACHABLE = "freighter.unreachable";
@@ -193,8 +193,7 @@ public:
             ):
                 index(0), collector(collector), req(req), finalizer(finalizer) {}
 
-            std::pair<Context, x::errors::Error>
-            operator()(Context context) override {
+            std::pair<Context, x::errors::Error> operator()(Context context) override {
                 if (this->index >= this->collector.middlewares.size()) {
                     auto f_res = this->finalizer->operator()(context, req);
                     this->res = std::move(f_res.response);

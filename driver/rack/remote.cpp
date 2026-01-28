@@ -22,7 +22,7 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
         this->remote_info.rack_key = 0;
         this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
         LOG(INFO) << "cluster identity changed. Creating a new rack";
-        }
+    }
     if (this->remote_info.rack_key != 0) {
         // if the rack key is non-zero, it means that persisted state or
         // configuration believes there's an existing rack in the cluster, and

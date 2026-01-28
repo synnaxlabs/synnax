@@ -85,7 +85,7 @@ x::errors::Error ChannelReceive::before_next(lua_State *L) {
             LOG(WARNING) << "[sequence.plugins.channel_receive] failed to set global "
                             "sample value. using nil instead: "
                          << err;
-            }
+        }
         this->latest_values[key].changed = false;
     }
     return x::errors::NIL;

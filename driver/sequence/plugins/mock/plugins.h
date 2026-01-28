@@ -11,9 +11,10 @@
 
 #include <vector>
 
+#include "x/cpp/control/control.h"
+
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
-#include "x/cpp/control/control.h"
 
 namespace driver::sequence::plugins::mock {
 class FrameSink final : public plugins::FrameSink, public pipeline::mock::Sink {

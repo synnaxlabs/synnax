@@ -16,11 +16,10 @@
 
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/notify/notify.h"
-#include "x/cpp/telem/telem.h"
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
+#include "x/cpp/notify/notify.h"
+#include "x/cpp/telem/telem.h"
 
 namespace arc::runtime::loop {
 

@@ -33,7 +33,10 @@ TEST(TaskConfigParsing, DefaultLoopConfig) {
 }
 
 TEST(TaskConfigParsing, ExplicitExecutionMode) {
-    nlohmann::json cfg{{"arc_key", "12345678-1234-5678-1234-567812345678"}, {"execution_mode", "BUSY_WAIT"}};
+    nlohmann::json cfg{
+        {"arc_key", "12345678-1234-5678-1234-567812345678"},
+        {"execution_mode", "BUSY_WAIT"}
+    };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
@@ -50,7 +53,10 @@ TEST(TaskConfigParsing, AllExecutionModes) {
         {"EVENT_DRIVEN", ::arc::runtime::loop::ExecutionMode::EVENT_DRIVEN},
     };
     for (const auto &[mode_str, expected_mode]: modes) {
-        nlohmann::json cfg{{"arc_key", "12345678-1234-5678-1234-567812345678"}, {"execution_mode", mode_str}};
+        nlohmann::json cfg{
+            {"arc_key", "12345678-1234-5678-1234-567812345678"},
+            {"execution_mode", mode_str}
+        };
         auto parser = x::json::Parser(nlohmann::to_string(cfg));
         arc::TaskConfig task_cfg(parser);
         ASSERT_TRUE(parser.ok()) << "Failed to parse mode: " << mode_str;
@@ -60,14 +66,20 @@ TEST(TaskConfigParsing, AllExecutionModes) {
 }
 
 TEST(TaskConfigParsing, InvalidExecutionMode) {
-    nlohmann::json cfg{{"arc_key", "12345678-1234-5678-1234-567812345678"}, {"execution_mode", "INVALID_MODE"}};
+    nlohmann::json cfg{
+        {"arc_key", "12345678-1234-5678-1234-567812345678"},
+        {"execution_mode", "INVALID_MODE"}
+    };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     EXPECT_FALSE(parser.ok());
 }
 
 TEST(TaskConfigParsing, RtPriority) {
-    nlohmann::json cfg{{"arc_key", "12345678-1234-5678-1234-567812345678"}, {"rt_priority", 99}};
+    nlohmann::json cfg{
+        {"arc_key", "12345678-1234-5678-1234-567812345678"},
+        {"rt_priority", 99}
+    };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
@@ -75,7 +87,10 @@ TEST(TaskConfigParsing, RtPriority) {
 }
 
 TEST(TaskConfigParsing, CpuAffinity) {
-    nlohmann::json cfg{{"arc_key", "12345678-1234-5678-1234-567812345678"}, {"cpu_affinity", 3}};
+    nlohmann::json cfg{
+        {"arc_key", "12345678-1234-5678-1234-567812345678"},
+        {"cpu_affinity", 3}
+    };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
@@ -84,8 +99,8 @@ TEST(TaskConfigParsing, CpuAffinity) {
 
 TEST(TaskConfigParsing, CpuAffinityNone) {
     nlohmann::json cfg{
-            {"arc_key", "12345678-1234-5678-1234-567812345678"},
-            {"cpu_affinity", ::arc::runtime::loop::CPU_AFFINITY_NONE}
+        {"arc_key", "12345678-1234-5678-1234-567812345678"},
+        {"cpu_affinity", ::arc::runtime::loop::CPU_AFFINITY_NONE}
     };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
@@ -94,7 +109,10 @@ TEST(TaskConfigParsing, CpuAffinityNone) {
 }
 
 TEST(TaskConfigParsing, LockMemory) {
-    nlohmann::json cfg{{"arc_key", "12345678-1234-5678-1234-567812345678"}, {"lock_memory", true}};
+    nlohmann::json cfg{
+        {"arc_key", "12345678-1234-5678-1234-567812345678"},
+        {"lock_memory", true}
+    };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
     ASSERT_TRUE(parser.ok());
@@ -103,11 +121,11 @@ TEST(TaskConfigParsing, LockMemory) {
 
 TEST(TaskConfigParsing, FullLoopConfig) {
     nlohmann::json cfg{
-            {"arc_key", "12345678-1234-5678-1234-567812345678"},
-            {"execution_mode", "RT_EVENT"},
-            {"rt_priority", 80},
-            {"cpu_affinity", 7},
-            {"lock_memory", true}
+        {"arc_key", "12345678-1234-5678-1234-567812345678"},
+        {"execution_mode", "RT_EVENT"},
+        {"rt_priority", 80},
+        {"cpu_affinity", 7},
+        {"lock_memory", true}
     };
     auto parser = x::json::Parser(nlohmann::to_string(cfg));
     arc::TaskConfig task_cfg(parser);
@@ -741,7 +759,10 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
 
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::VARIANT_ERROR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
     expect_status(*error_status, x::status::VARIANT_ERROR, false);
 
@@ -757,35 +778,32 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     auto output_name = make_unique_channel_name("restart_trap_output");
 
     auto input_idx = synnax::channel::Channel{
-        .name=input_idx_name,
-        .data_type=x::telem::TIMESTAMP_T,
+        .name = input_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
         .is_index = true
     };
     ASSERT_NIL(client->channels.create(input_idx));
     auto output_idx = synnax::channel::Channel{
-        .name=output_idx_name,
-        .data_type=x::telem::TIMESTAMP_T,
-        .is_index=true
+        .name = output_idx_name,
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true
     };
     ASSERT_NIL(client->channels.create(output_idx));
 
     auto input_ch = synnax::channel::Channel{
-        .name=input_name,
-        .data_type=x::telem::INT32_T,
-        .index=input_idx.key,
+        .name = input_name,
+        .data_type = x::telem::INT32_T,
+        .index = input_idx.key,
     };
-    auto
-        output_ch = synnax::channel::Channel{
-            .name=output_name,
-            .data_type=x::telem::INT32_T,
-            .index=output_idx.key
-        };
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::INT32_T,
+        .index = output_idx.key
+    };
     ASSERT_NIL(client->channels.create(input_ch));
     ASSERT_NIL(client->channels.create(output_ch));
 
-    synnax::arc::Arc arc_prog{
-        .name=make_unique_channel_name("restart_trap_test")
-    };
+    synnax::arc::Arc arc_prog{.name = make_unique_channel_name("restart_trap_test")};
     arc_prog.text = ::arc::text::Text(
         "func maybe_trap(val i32) i32 {\n"
         "    if val == 0 { return 1 / val }\n"
@@ -799,7 +817,10 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         client->racks.create(make_unique_channel_name("arc_restart_trap_rack"))
     );
 
-    synnax::task::Task task_meta{.name = "arc_restart_trap_test", .type = "arc_runtime"};
+    synnax::task::Task task_meta{
+        .name = "arc_restart_trap_test",
+        .type = "arc_runtime"
+    };
     task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
 
     auto parser = x::json::Parser(task_meta.config);
@@ -833,7 +854,10 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
-    auto *error_status = find_status_by_variant(ctx->statuses, x::status::VARIANT_ERROR);
+    auto *error_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_ERROR
+    );
     EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
 
     task->stop("test_stop_1", true);
@@ -1016,7 +1040,10 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         client->racks.create(make_unique_channel_name("arc_status_verify_rack"))
     );
 
-    synnax::task::Task task_meta{.name = "arc_status_verify_test", .type = "arc_runtime"};
+    synnax::task::Task task_meta{
+        .name = "arc_status_verify_test",
+        .type = "arc_runtime"
+    };
     task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
 
     auto parser = x::json::Parser(task_meta.config);
@@ -1058,7 +1085,10 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
 
     task->stop("verify_stop", true);
 
-    auto *stop_status = find_status_by_variant(ctx->statuses, x::status::VARIANT_SUCCESS);
+    auto *stop_status = find_status_by_variant(
+        ctx->statuses,
+        x::status::VARIANT_SUCCESS
+    );
     ASSERT_NE(stop_status, nullptr);
 
     bool found_stopped = false;
@@ -1276,7 +1306,10 @@ TEST(ArcEdgeCases, DoubleStart) {
         client->racks.create(make_unique_channel_name("arc_double_start_rack"))
     );
 
-    synnax::task::Task task_meta{.name = "arc_double_start_test", .type = "arc_runtime"};
+    synnax::task::Task task_meta{
+        .name = "arc_double_start_test",
+        .type = "arc_runtime"
+    };
     task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
 
     auto parser = x::json::Parser(task_meta.config);

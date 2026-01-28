@@ -68,8 +68,7 @@ sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
 
 /// @brief Convert JSON value to wasmtime::Val using the declared type.
 /// @note JSON stores numbers as double, so we cast to the appropriate type.
-inline wasmtime::Val
-json_to_wasm(const x::json::json &val, const types::Type &type) {
+inline wasmtime::Val json_to_wasm(const x::json::json &val, const types::Type &type) {
     const auto as_double = val.get<double>();
     switch (type.kind) {
         case types::Kind::F64:

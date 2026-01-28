@@ -1034,9 +1034,11 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
         .name = "test_period_device"
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("period"), x::telem::FLOAT64_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("period"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     json j{
         {"data_saving", false},
@@ -1206,9 +1208,11 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
         .name = "test_device"
     };
     ASSERT_NIL(client->devices.create(dev));
-    auto ch = ASSERT_NIL_P(
-        client->channels.create(make_unique_channel_name("test_channel"), x::telem::FLOAT64_T, true)
-    );
+    auto ch = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("test_channel"),
+        x::telem::FLOAT64_T,
+        true
+    ));
 
     auto j = base_analog_config();
     j["data_saving"] = true;
