@@ -176,9 +176,9 @@ class Schematic(ConsolePage):
             exported: The exported JSON dictionary to validate.
         """
         assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, (
-            f"Schematic key should be a UUID (36 chars), got {len(exported['key'])}"
-        )
+        assert (
+            len(exported["key"]) == 36
+        ), f"Schematic key should be a UUID (36 chars), got {len(exported['key'])}"
 
         assert "version" in exported, "Exported JSON should contain 'version'"
         assert exported["version"] == SCHEMATIC_VERSION, (

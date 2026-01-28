@@ -148,6 +148,7 @@ class SchematicLifecycle(ConsoleCase):
 
         assert schematic.is_pane_visible(), "Schematic pane should be visible"
 
+        # Assert the link we used to open is the same link we get.
         opened_link = schematic.copy_link()
         assert (
             opened_link == self.main_schematic_link
@@ -191,7 +192,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_ctx_operations(self) -> None:
         """Test context menu operations using shared schematic."""
-        self.console.close_nav_drawer()
+        assert self.ctx_schematic_name is not None, "ctx_schematic_name should be set"
 
         self.log("Testing copy link via context menu")
         link = self.console.workspace.copy_page_link(self.ctx_schematic_name)
@@ -222,8 +223,6 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_multi_schematic_operations(self) -> None:
         """Test multi-select operations: copy multiple, then delete multiple."""
-        self.console.close_nav_drawer()
-
         self.log("Creating schematics for multi-select operations")
         schematic_names: list[str] = []
         for i in range(3):
@@ -248,8 +247,6 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_snapshot_operations(self) -> None:
         """Test snapshot operations using shared range."""
-        self.console.close_nav_drawer()
-
         self.log("Testing snapshot schematic to active range")
         single_snapshot_name = f"Snapshot Single {self.suffix}"
         schematic = Schematic(self.client, self.console, single_snapshot_name)
@@ -322,7 +319,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_ctx_delete_operations(self) -> None:
         """Test delete operations using remaining schematics from earlier tests."""
-        self.console.close_nav_drawer()
+        assert self.ctx_schematic_name is not None, "ctx_schematic_name should be set"
 
         self.log("Testing delete schematic via context menu")
         assert self.console.workspace.page_exists(
