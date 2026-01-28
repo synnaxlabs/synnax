@@ -409,7 +409,7 @@ jobs:
         run: |
           mv bazel-bin/driver/driver${{ matrix.executable }} bazel-bin/driver/synnax-driver-v${{ needs.setup.outputs.VERSION }}-${{ matrix.os-name }}${{ matrix.executable }}
 
-      - name: Upload Driver Binary as Artifact
+      - name: Upload Driver as Artifact
         if: inputs.driver
         uses: actions/upload-artifact@v6
         with:
