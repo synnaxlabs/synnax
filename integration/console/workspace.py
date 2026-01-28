@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from .console import Console
     from .log import Log
     from .plot import Plot
+    from .schematic import Schematic
 
 
 class WorkspaceClient:
@@ -330,6 +331,111 @@ class WorkspaceClient:
             result: dict[str, Any] = json.load(f)
             return result
 
+    def snapshot_page_to_active_range(self, name: str, range_name: str) -> None:
+        """Snapshot a page to the active range via context menu.
+
+        Args:
+            name: Name of the page to snapshot
+            range_name: Name of the active range (for menu text matching)
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+
+        snapshot_item = self.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item.wait_for(state="visible", timeout=5000)
+        snapshot_item.click(timeout=5000)
+        self.console.close_nav_drawer()
+
+    def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
+        """Snapshot multiple pages to the active range via context menu.
+
+        Args:
+            names: List of page names to snapshot
+            range_name: Name of the active range (for menu text matching)
+        """
+        if not names:
+            return
+
+        self.expand_active()
+
+        first_item = self.get_page(names[0])
+        first_item.wait_for(state="visible", timeout=5000)
+        first_item.click()
+
+        for name in names[1:]:
+            page_item = self.get_page(name)
+            page_item.wait_for(state="visible", timeout=5000)
+            page_item.click(modifiers=["ControlOrMeta"])
+
+        last_item = self.get_page(names[-1])
+        last_item.click(button="right")
+
+        snapshot_item = self.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item.wait_for(state="visible", timeout=5000)
+        snapshot_item.click(timeout=5000)
+        self.console.close_nav_drawer()
+
+    def copy_page(self, name: str, new_name: str) -> None:
+        """Make a copy of a page via context menu.
+
+        Args:
+            name: Name of the page to copy
+            new_name: Name for the new copy
+        """
+        self.expand_active()
+        page_item = self.get_page(name)
+        page_item.wait_for(state="visible", timeout=5000)
+        page_item.click(button="right")
+
+        copy_item = self.page.get_by_text("Copy", exact=True)
+        copy_item.wait_for(state="visible", timeout=5000)
+        copy_item.click(timeout=5000)
+
+        # After clicking Copy, a rename dialog appears
+        self.console.select_all_and_type(new_name)
+        self.console.ENTER
+        self.get_page(new_name).wait_for(state="visible", timeout=5000)
+        self.console.close_nav_drawer()
+
+    def copy_pages(self, names: list[str]) -> None:
+        """Copy multiple pages via context menu.
+
+        Note: When copying multiple pages, each gets a " (copy)" suffix automatically.
+
+        Args:
+            names: List of page names to copy
+        """
+        if not names:
+            return
+
+        self.expand_active()
+
+        first_item = self.get_page(names[0])
+        first_item.wait_for(state="visible", timeout=5000)
+        first_item.click()
+
+        for name in names[1:]:
+            page_item = self.get_page(name)
+            page_item.wait_for(state="visible", timeout=5000)
+            page_item.click(modifiers=["ControlOrMeta"])
+
+        last_item = self.get_page(names[-1])
+        last_item.click(button="right")
+
+        copy_item = self.page.get_by_text("Copy", exact=True)
+        copy_item.wait_for(state="visible", timeout=5000)
+        copy_item.click(timeout=5000)
+
+        # When copying multiple, each gets renamed automatically with " (copy)" suffix
+        # Wait for the copies to appear
+        for name in names:
+            copy_name = f"{name} (copy)"
+            self.get_page(copy_name).wait_for(state="visible", timeout=5000)
+
+        self.console.close_nav_drawer()
+
     def create(self, name: str) -> bool:
         """Create a workspace via command palette.
 
@@ -527,3 +633,54 @@ class WorkspaceClient:
         """
         self.drag_page_to_mosaic(name)
         return self._create_log_instance(client, name)
+
+    def _create_schematic_instance(
+        self, client: sy.Synnax, page_name: str
+    ) -> "Schematic":
+        """Create a Schematic instance after a schematic becomes visible.
+
+        Args:
+            client: Synnax client instance.
+            page_name: The name of the schematic page.
+
+        Returns:
+            Schematic instance for the opened schematic.
+        """
+        from .schematic import Schematic
+
+        schematic_pane = self.page.locator(Schematic.pluto_label)
+        schematic_pane.first.wait_for(state="visible", timeout=5000)
+
+        schematic = Schematic.__new__(Schematic)
+        schematic.client = client
+        schematic.console = self.console
+        schematic.page = self.page
+        schematic.page_name = page_name
+        schematic.pane_locator = schematic_pane.first
+        return schematic
+
+    def open_schematic(self, client: sy.Synnax, name: str) -> "Schematic":
+        """Open a schematic by double-clicking it in the workspace resources toolbar.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the schematic to open.
+
+        Returns:
+            Schematic instance for the opened schematic.
+        """
+        self.open_page(name)
+        return self._create_schematic_instance(client, name)
+
+    def drag_schematic_to_mosaic(self, client: sy.Synnax, name: str) -> "Schematic":
+        """Drag a schematic from the workspace resources toolbar onto the mosaic.
+
+        Args:
+            client: Synnax client instance.
+            name: Name of the schematic to drag.
+
+        Returns:
+            Schematic instance for the opened schematic.
+        """
+        self.drag_page_to_mosaic(name)
+        return self._create_schematic_instance(client, name)

@@ -771,3 +771,59 @@ class RangesClient:
                 labels.append(label_text.strip())
 
         return labels
+
+    def get_snapshot_item(self, name: str) -> Locator:
+        """Get a snapshot item locator from the Snapshots section by name.
+
+        Args:
+            name: The name of the snapshot to find.
+
+        Returns:
+            Locator for the snapshot item.
+        """
+        return self.page.locator(".console-snapshots__list-item").filter(has_text=name)
+
+    def snapshot_exists_in_overview(self, name: str, timeout: int = 5000) -> bool:
+        """Check if a snapshot exists in the Snapshots section of the overview.
+
+        Args:
+            name: The name of the snapshot to check for.
+            timeout: Maximum time to wait in milliseconds.
+
+        Returns:
+            True if the snapshot exists, False otherwise.
+        """
+        try:
+            self.get_snapshot_item(name).wait_for(state="visible", timeout=timeout)
+            return True
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return False
+            raise RuntimeError(
+                f"Error checking snapshot '{name}' in overview: {e}"
+            ) from e
+
+    def open_snapshot_from_overview(self, name: str) -> None:
+        """Open a snapshot from the Snapshots section in the range overview.
+
+        Args:
+            name: The name of the snapshot to open.
+        """
+        item = self.get_snapshot_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        item.click()
+
+    def get_snapshot_names_in_overview(self) -> list[str]:
+        """Get all snapshot names in the Snapshots section.
+
+        Returns:
+            List of snapshot names.
+        """
+        items = self.page.locator(".console-snapshots__list-item")
+        count = items.count()
+        names = []
+        for i in range(count):
+            text = items.nth(i).inner_text().strip()
+            if text:
+                names.append(text)
+        return names

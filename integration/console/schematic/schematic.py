@@ -7,15 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
+import json
 import math
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import synnax as sy
 from playwright.sync_api import FloatRect
 
-from console.console import Console
+from framework.utils import get_results_path
 
 from ..page import ConsolePage
+
+if TYPE_CHECKING:
+    from console.console import Console
 from .symbol import (
     Symbol,
     box_bottom,
@@ -63,7 +69,34 @@ class Schematic(ConsolePage):
     page_type: str = "Schematic"
     pluto_label: str = ".react-flow__pane"
 
-    def __init__(self, client: sy.Synnax, console: Console, page_name: str):
+    @classmethod
+    def open_from_search(
+        cls, client: sy.Synnax, console: "Console", name: str
+    ) -> "Schematic":
+        """Open an existing schematic by searching its name in the command palette.
+
+        Args:
+            client: Synnax client instance.
+            console: Console instance.
+            name: Name of the schematic to search for and open.
+
+        Returns:
+            Schematic instance for the opened schematic.
+        """
+        console.search_palette(name)
+
+        schematic_pane = console.page.locator(cls.pluto_label)
+        schematic_pane.first.wait_for(state="visible", timeout=5000)
+
+        schematic = cls.__new__(cls)
+        schematic.client = client
+        schematic.console = console
+        schematic.page = console.page
+        schematic.page_name = name
+        schematic.pane_locator = schematic_pane.first
+        return schematic
+
+    def __init__(self, client: sy.Synnax, console: "Console", page_name: str):
         """Initialize a Schematic page."""
         super().__init__(client, console, page_name)
 
@@ -88,6 +121,74 @@ class Schematic(ConsolePage):
 
         symbol.create(self.page, self.console)
         return symbol
+
+    def copy_link(self) -> str:
+        """Copy link to the schematic via the toolbar link button.
+
+        Returns:
+            The copied link from clipboard (empty string if clipboard access fails)
+        """
+        self.console.notifications.close_all()
+        self.console.layout.show_visualization_toolbar()
+        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button.click(timeout=5000)
+
+        try:
+            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
+            return link
+        except Exception:
+            return ""
+
+    def export_json(self) -> dict[str, Any]:
+        """Export the schematic as a JSON file via the toolbar export button.
+
+        The file is saved to the tests/results directory with the schematic name.
+
+        Returns:
+            The exported JSON content as a dictionary.
+        """
+        self.console.layout.show_visualization_toolbar()
+        export_button = self.page.locator(".pluto-icon--export").locator("..")
+        self.page.evaluate("delete window.showSaveFilePicker")
+
+        with self.page.expect_download(timeout=5000) as download_info:
+            export_button.click()
+
+        download = download_info.value
+        save_path = get_results_path(f"{self.page_name}.json")
+        download.save_as(save_path)
+        with open(save_path, "r") as f:
+            result: dict[str, Any] = json.load(f)
+            return result
+
+    def get_control_legend_entries(self) -> list[str]:
+        """Get list of writer names from the control legend.
+
+        Returns:
+            List of writer names currently shown in the legend.
+            Returns empty list if legend is not visible.
+        """
+        legend = self.page.locator(".pluto-legend")
+        if legend.count() == 0 or not legend.is_visible():
+            return []
+
+        entries = legend.locator(".pluto-legend-entry")
+        return [entry.inner_text().strip() for entry in entries.all()]
+
+    def assert_control_legend_contains(self, writer_name: str) -> None:
+        """Assert that the control legend shows the specified writer.
+
+        Args:
+            writer_name: Name of the writer to check for in the legend.
+
+        Raises:
+            AssertionError: If writer is not in the legend.
+        """
+        entries = self.get_control_legend_entries()
+        assert writer_name in entries, (
+            f"Expected writer '{writer_name}' in control legend!\n"
+            f"Actual entries: {entries}"
+        )
 
     def align(
         self,

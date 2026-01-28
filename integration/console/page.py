@@ -80,6 +80,10 @@ class ConsolePage:
         tab = self.console.layout.get_tab(self.page_name)
         return tab.count() > 0 and tab.is_visible()
 
+    def is_pane_visible(self) -> bool:
+        """Check if the page pane content is visible."""
+        return self.pane_locator is not None and self.pane_locator.is_visible()
+
     def rename(self, new_name: str) -> None:
         """Rename the page by double-clicking the tab name.
 

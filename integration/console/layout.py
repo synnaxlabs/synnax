@@ -48,6 +48,15 @@ class LayoutClient:
             .first
         )
 
+    def wait_for_tab(self, name: str, timeout: int = 5000) -> None:
+        """Wait for a tab to be visible.
+
+        Args:
+            name: The name/title of the tab to wait for.
+            timeout: Maximum time to wait in milliseconds.
+        """
+        self.get_tab(name).wait_for(state="visible", timeout=timeout)
+
     def close_tab(self, name: str) -> None:
         """Close a tab using a randomly selected modality.
 
