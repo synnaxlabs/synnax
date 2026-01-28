@@ -10,7 +10,6 @@ on:
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
-      - Earthfile
       - freighter/go/**
       - freighter/integration/**
       - freighter/py/**
@@ -38,7 +37,6 @@ on:
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
-      - Earthfile
       - freighter/go/**
       - freighter/integration/**
       - freighter/py/**
@@ -77,7 +75,6 @@ jobs:
             server: &server
               - .github/workflows/test.freighter.yaml
               - alamos/go/**
-              - Earthfile
               - freighter/go/**
               - freighter/integration/**
               - go.work
