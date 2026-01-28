@@ -136,9 +136,7 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing export schematic as JSON")
 
         exported = schematic.export_json()
-
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Schematic key should be a UUID"
+        schematic.assert_exported_json(exported)
 
     def test_open_schematic_from_resources(self) -> None:
         """Test opening a schematic by double-clicking it in the workspace resources toolbar."""
@@ -201,8 +199,7 @@ class SchematicLifecycle(ConsoleCase):
 
         self.log("Testing export schematic via context menu")
         exported = self.console.workspace.export_page(self.ctx_schematic_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Schematic key should be a UUID"
+        Schematic.assert_exported_json(exported)
 
         self.log("Testing rename schematic via context menu")
         new_name = f"Renamed Schematic {self.suffix}"

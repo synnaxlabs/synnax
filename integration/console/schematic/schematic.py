@@ -34,6 +34,8 @@ from .symbol import (
 
 PropertyDict = dict[str, float | str | bool]
 
+SCHEMATIC_VERSION = "5.0.0"
+
 AlignmentType = Literal[
     "vertical",
     "horizontal",
@@ -160,6 +162,33 @@ class Schematic(ConsolePage):
         with open(save_path, "r") as f:
             result: dict[str, Any] = json.load(f)
             return result
+
+    @staticmethod
+    def assert_exported_json(exported: dict[str, Any]) -> None:
+        """Assert that the exported JSON has a valid structure.
+
+        Validates:
+        - Root 'key' is a valid UUID (36 characters)
+        - Version matches SCHEMATIC_VERSION
+        - Required keys exist: nodes, edges, props, viewport
+
+        Args:
+            exported: The exported JSON dictionary to validate.
+        """
+        assert "key" in exported, "Exported JSON should contain 'key'"
+        assert len(exported["key"]) == 36, (
+            f"Schematic key should be a UUID (36 chars), got {len(exported['key'])}"
+        )
+
+        assert "version" in exported, "Exported JSON should contain 'version'"
+        assert exported["version"] == SCHEMATIC_VERSION, (
+            f"Schematic version should be '{SCHEMATIC_VERSION}', "
+            f"got '{exported['version']}'"
+        )
+
+        required_keys = ["nodes", "edges", "props", "viewport"]
+        for key in required_keys:
+            assert key in exported, f"Exported JSON should contain '{key}'"
 
     def get_control_legend_entries(self) -> list[str]:
         """Get list of writer names from the control legend.
