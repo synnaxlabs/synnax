@@ -7,6 +7,7 @@ on:
       - .github/workflows/test.migration.yaml
       - alamos/go/**
       - alamos/py/**
+      - arc/go/**
       - aspen/**
       - cesium/**
       - client/py/**
@@ -28,6 +29,7 @@ on:
       - .github/workflows/test.migration.yaml
       - alamos/go/**
       - alamos/py/**
+      - arc/go/**
       - aspen/**
       - cesium/**
       - client/py/**
