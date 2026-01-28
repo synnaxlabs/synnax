@@ -531,7 +531,7 @@ jobs:
   docker:
     name: Build Docker Image
     needs: setup
-    if: inputs.docker && !inputs.docker
+    if: inputs.docker
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -589,9 +589,7 @@ jobs:
   build-console-tauri:
     name: Build Console App
     needs: [setup]
-    if:
-      inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]' &&
-      needs.setup.outputs.console_tauri_matrix == '[]'
+    if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
