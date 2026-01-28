@@ -10,9 +10,9 @@
 from typing import Any, Literal
 from uuid import UUID
 
-from freighter import Payload
 from pydantic import BaseModel
 
+from freighter import Payload
 from synnax.ontology.payload import ID
 
 ARC_ONTOLOGY_TYPE = ID(type="arc")

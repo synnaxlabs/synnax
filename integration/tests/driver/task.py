@@ -19,9 +19,9 @@ import sys
 from abc import abstractmethod
 from typing import Any
 
-import synnax as sy
-
 from framework.test_case import TestCase
+
+import synnax as sy
 
 
 class TaskCase(TestCase):

@@ -15,10 +15,10 @@ from contextlib import contextmanager
 from typing import Protocol, overload
 from uuid import uuid4
 
-from alamos import NOOP, Instrumentation
-from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import BaseModel, Field, ValidationError, conint, field_validator
 
+from alamos import NOOP, Instrumentation
+from freighter import Empty, Payload, UnaryClient, send_required
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import ConfigurationError, UnexpectedError
@@ -245,11 +245,9 @@ class Task:
                     if status.details.cmd is not None and status.details.cmd == key:
                         return status
                 except ValidationError as e:
-                    raise UnexpectedError(
-                        f"""
+                    raise UnexpectedError(f"""
                     Received invalid task state from driver.
-                    """
-                    ) from e
+                    """) from e
 
 
 class TaskProtocol(Protocol):

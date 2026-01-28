@@ -10,9 +10,9 @@
 from typing import Any, Generic, Literal, TypeVar
 from uuid import uuid4
 
-from freighter import Payload
 from pydantic import Field
 
+from freighter import Payload
 from synnax.ontology import ID
 from synnax.telem import TimeStamp
 

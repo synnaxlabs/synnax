@@ -9,8 +9,9 @@
 
 import random
 
-import synnax as sy
 from examples.simulators.base import SimDAQ
+
+import synnax as sy
 
 
 class PressSimDAQ(SimDAQ):

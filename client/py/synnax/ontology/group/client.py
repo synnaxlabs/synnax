@@ -10,7 +10,6 @@
 from uuid import UUID
 
 from freighter import Empty, Payload, UnaryClient, send_required
-
 from synnax.ontology.group.payload import Group
 from synnax.ontology.payload import ID, CrudeID
 

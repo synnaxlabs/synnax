@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from tests.driver.opcua_task import OPCUATaskCase
+
 import synnax as sy
 from synnax import opcua
-
-from tests.driver.opcua_task import OPCUATaskCase
 
 
 class OPCUAReadFloat(OPCUATaskCase):

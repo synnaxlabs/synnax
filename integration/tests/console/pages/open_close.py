@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
+
 from console.console import PageType
 
 

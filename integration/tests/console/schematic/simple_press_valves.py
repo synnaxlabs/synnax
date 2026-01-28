@@ -7,13 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
-from examples.simulators import PressSimDAQ
-
 from console.case import ConsoleCase
 from console.schematic import Button, Valve
 from console.schematic.schematic import Schematic
+from examples.simulators import PressSimDAQ
 from framework.sim_daq_case import SimDaqTestCase
+
+import synnax as sy
 
 
 class SimplePressValves(SimDaqTestCase, ConsoleCase):

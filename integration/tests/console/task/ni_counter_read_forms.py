@@ -9,10 +9,10 @@
 
 import random
 
-import synnax as sy
-
 from console.case import ConsoleCase
 from console.task.counter_read import CounterRead
+
+import synnax as sy
 
 
 class NICounterReadForms(ConsoleCase):

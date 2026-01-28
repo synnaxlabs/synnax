@@ -13,10 +13,10 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Literal
 
-import synnax as sy
+from framework.utils import get_results_path
 from playwright.sync_api import Locator, Page
 
-from framework.utils import get_results_path
+import synnax as sy
 
 from .access import AccessClient
 from .arc import ArcClient

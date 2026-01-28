@@ -9,9 +9,8 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
-
 from framework.utils import get_results_path, rgb_to_hex
+from playwright.sync_api import Locator, Page
 
 if TYPE_CHECKING:
     from .console import Console

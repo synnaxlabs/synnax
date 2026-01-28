@@ -9,9 +9,9 @@
 
 import time
 
-import synnax as sy
-
 from framework.test_case import SynnaxConnection, TestCase
+
+import synnax as sy
 
 
 class CheckConnectionBasic(TestCase):

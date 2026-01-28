@@ -10,10 +10,10 @@
 import numpy as np
 import pandas as pd
 import pytest
+from tests.telem import seconds_linspace
 
 import synnax as sy
 from synnax.util.random import random_name
-from tests.telem import seconds_linspace
 
 
 @pytest.mark.framer

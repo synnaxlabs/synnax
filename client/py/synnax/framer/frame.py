@@ -12,10 +12,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import overload
 
-from freighter import Payload
 from pandas import DataFrame
 from pydantic import Field
 
+from freighter import Payload
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,
@@ -86,12 +86,10 @@ class Frame:
             self.series = list() if series is None else [Series(d) for d in series]
             self.channels = channels or list[ChannelKey]()
         else:
-            raise ValueError(
-                f"""
+            raise ValueError(f"""
                 [Frame] - invalid construction arguments. Received {channels}
                 and {series}.
-            """
-            )
+            """)
 
     def __str__(self) -> str:
         return self.to_df().__str__()
@@ -166,12 +164,10 @@ class Frame:
         """
         if not all(isinstance(k, ChannelKey) for k in self.channels):
             diff = [k for k in self.channels if not isinstance(k, ChannelKey)]
-            raise ValidationError(
-                f"""
+            raise ValidationError(f"""
             Cannot convert a frame that contains channel names to a payload.
             The following channels are invalid: {diff}
-            """
-            )
+            """)
         return FramePayload(keys=self.channels, series=self.series)
 
     def to_df(self) -> DataFrame:

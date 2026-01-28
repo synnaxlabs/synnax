@@ -5,20 +5,10 @@ authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
 dependencies = [
     "alamos",
-    "msgpack>=1.1.2",
-    "pydantic>=2.12.5",
-    "urllib3>=2.6.2",
-    "websockets>=15.0.1",
-]
-
-[dependency-groups]
-dev = [
-    "black>=25.12.0",
-    "isort>=7.0.0",
-    "mypy>=1.19.0",
-    "pytest>=9.0.2",
-    "pytest-asyncio>=1.3.0",
-    "vermin>=1.8.0",
+    "msgpack>=1.1.2,<2",
+    "pydantic>=2.12.5,<3",
+    "urllib3>=2.6.3,<3",
+    "websockets>=16.0,<17",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -28,9 +18,8 @@ packages = ["freighter"]
 profile = "black"
 
 [tool.mypy]
-mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
-strict = true
+mypy_path = "stubs"
 
 [tool.pydantic-mypy]
 init_forbid_extra = true

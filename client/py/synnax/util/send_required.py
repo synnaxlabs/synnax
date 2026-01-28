@@ -8,10 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 
-from freighter import URL, UnaryClient
-from freighter import send_required as fsend_required
 from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS
+
+from freighter import URL, UnaryClient
+from freighter import send_required as fsend_required
 
 
 def send_required(client: UnaryClient, target: str, req: RQ, res_t: type[RS]) -> RS:

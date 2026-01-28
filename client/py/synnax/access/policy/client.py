@@ -12,7 +12,6 @@ from uuid import UUID
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
-
 from synnax.access.policy.payload import Policy
 from synnax.ontology.payload import ID
 from synnax.util.normalize import normalize

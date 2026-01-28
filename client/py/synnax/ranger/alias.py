@@ -10,7 +10,6 @@
 import uuid
 
 from freighter import Payload, UnaryClient
-
 from synnax.channel import ChannelKey
 from synnax.util.normalize import normalize
 

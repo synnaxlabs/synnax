@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from examples.simulators import PressSimDAQ
-
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_SEQUENCE_SOURCE = """

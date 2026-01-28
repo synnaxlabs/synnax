@@ -10,8 +10,9 @@
 import time
 from typing import TYPE_CHECKING, Any
 
-import synnax as sy
 from playwright.sync_api import Page
+
+import synnax as sy
 
 if TYPE_CHECKING:
     from .console import Console

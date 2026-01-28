@@ -13,8 +13,6 @@ pressure systems, and multiple valves and sensors.
 """
 
 import numpy as np
-
-import synnax as sy
 from examples.control.tpc.common import (
     DAQ_TIME,
     FUEL_MPV_CMD,
@@ -46,6 +44,8 @@ from examples.control.tpc.common import (
     VALVES,
 )
 from examples.simulators.base import SimDAQ
+
+import synnax as sy
 
 
 class TPCSimDAQ(SimDAQ):

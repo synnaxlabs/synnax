@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.control.tpc.common import DAQ_TIME, FUEL_PT_1
+
+import synnax as sy
 
 client = sy.Synnax()
 

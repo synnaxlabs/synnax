@@ -17,9 +17,9 @@ from typing import overload
 from uuid import UUID
 
 import numpy as np
-from freighter import UnaryClient
 from pydantic import PrivateAttr
 
+from freighter import UnaryClient
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,
@@ -172,11 +172,9 @@ class ScopedChannel:
 
     def __guard(self):
         if len(self.__internal) > 1:
-            raise QueryError(
-                f"""Multiple channels found for query '{self.__query}':
+            raise QueryError(f"""Multiple channels found for query '{self.__query}':
             {[str(ch) for ch in self.__internal]}
-            """
-            )
+            """)
 
     def __array__(self, *args, **kwargs):
         """Converts the scoped channel to a numpy array. This method is necessary
@@ -244,10 +242,8 @@ class ScopedChannel:
         return sum(len(ch) for ch in self.__internal)
 
 
-_RANGE_NOT_CREATED = QueryError(
-    """Cannot read from a range that has not been created.
-Please call client.ranges.create(range) before attempting to read from a range."""
-)
+_RANGE_NOT_CREATED = QueryError("""Cannot read from a range that has not been created.
+Please call client.ranges.create(range) before attempting to read from a range.""")
 
 
 class Range(RangePayload):
@@ -611,21 +607,17 @@ class RangeClient:
             if is_single and len(res) > 1:
                 filtered = [r for r in res if r.time_range == time_range]
                 if len(filtered) == 0:
-                    raise QueryError(
-                        f"""
+                    raise QueryError(f"""
                         retrieve_if_name_exists was set to true, but {len(res)} ranges
                         were found matching {name} but none had the same time range as
                         passed to create. Synnax can't figure out which one you want!
-                        """
-                    )
+                        """)
                 if len(filtered) > 1:
-                    raise QueryError(
-                        f"""
+                    raise QueryError(f"""
                     retrieve_if_name_exists was set to true, but {len(res)} ranges were
                     found that matched {name} and had time range {time_range}. Synnax
                     can't figure out which one you want!
-                    """
-                    )
+                    """)
                 res = [filtered[0]]
             existing_names = {r.name for r in res}
             to_create = [r for r in to_create if r.name not in existing_names]

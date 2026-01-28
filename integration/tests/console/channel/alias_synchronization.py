@@ -18,11 +18,11 @@ Note: Log, Schematic, and Table toolbars are excluded as aliases do not sync the
 Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
-import synnax as sy
-
 from console.case import ConsoleCase
 from console.plot import Plot
 from framework.utils import get_random_name
+
+import synnax as sy
 
 
 class AliasSynchronization(ConsoleCase):

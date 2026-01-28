@@ -11,6 +11,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Protocol
 
+from alamos.environment import Environment, EnvironmentFilter, env_threshold_filter
+from alamos.meta import InstrumentationMeta
+from alamos.noop import Noop
+from alamos.noop import noop as noopd
 from opentelemetry.propagators.textmap import Setter, TextMapPropagator
 from opentelemetry.trace import Span as OtelSpan
 from opentelemetry.trace import (
@@ -18,11 +22,6 @@ from opentelemetry.trace import (
 )
 from opentelemetry.trace import Tracer as OtelTracer
 from opentelemetry.trace import TracerProvider as OtelTraceProvider
-
-from alamos.environment import Environment, EnvironmentFilter, env_threshold_filter
-from alamos.meta import InstrumentationMeta
-from alamos.noop import Noop
-from alamos.noop import noop as noopd
 
 
 class Carrier(Protocol):

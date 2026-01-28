@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
-
 from console.case import ConsoleCase
 from console.log import Log
 from framework.utils import assert_link_format, get_random_name
+
+import synnax as sy
 
 
 class LogLifecycle(ConsoleCase):

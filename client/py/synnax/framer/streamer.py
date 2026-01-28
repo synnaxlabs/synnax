@@ -9,6 +9,8 @@
 
 from typing import overload
 
+from freighter.websocket import Message
+
 from freighter import (
     EOF,
     AsyncStream,
@@ -17,8 +19,6 @@ from freighter import (
     Stream,
     WebsocketClient,
 )
-from freighter.websocket import Message
-
 from synnax.channel.payload import ChannelKeys, ChannelParams
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter

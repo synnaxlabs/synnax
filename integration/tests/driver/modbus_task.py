@@ -16,12 +16,12 @@ Provides Modbus TCP task creation logic using Synnax task client directly.
 from abc import abstractmethod
 from typing import Any
 
+from driver.devices import Simulator
+from tests.driver.simulator_task import SimulatorTaskCase
+
 import synnax as sy
 from synnax import modbus
 from synnax.modbus.types import BaseChan
-
-from driver.devices import Simulator
-from tests.driver.simulator_task import SimulatorTaskCase
 
 
 class ModbusTaskCase(SimulatorTaskCase):

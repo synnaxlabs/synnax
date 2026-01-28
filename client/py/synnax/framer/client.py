@@ -10,9 +10,9 @@
 from typing import overload
 
 import pandas as pd
+
 from alamos import NOOP, Instrumentation
 from freighter import AsyncStreamClient, StreamClient, UnaryClient, WebsocketClient
-
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,

@@ -11,7 +11,6 @@ import uuid
 from typing import overload
 
 from freighter import Payload, UnaryClient, send_required
-
 from synnax.exceptions import ValidationError
 from synnax.util.normalize import normalize
 from synnax.util.primitive import is_primitive
@@ -26,12 +25,10 @@ class KVPair(Payload):
         value = kwargs.get("value")
         if not isinstance(value, str):
             if not is_primitive(value) and type(value).__str__ == object.__str__:
-                raise ValidationError(
-                    f"""
+                raise ValidationError(f"""
                 Synnax has no way of casting {value} to a string when setting metadata
                 on a range. Please convert the value to a string before setting it.
-                """
-                )
+                """)
         kwargs["value"] = str(value)
         super().__init__(**kwargs)
 

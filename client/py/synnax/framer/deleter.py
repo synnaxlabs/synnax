@@ -13,7 +13,6 @@ from freighter import (
     UnaryClient,
     send_required,
 )
-
 from synnax.channel.payload import (
     ChannelKeys,
     ChannelNames,

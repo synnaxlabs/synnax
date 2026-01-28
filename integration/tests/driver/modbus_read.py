@@ -8,11 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 
+from tests.driver.modbus_task import ModbusTaskCase
+
 import synnax as sy
 from synnax import modbus
 from synnax.modbus.types import BaseChan
-
-from tests.driver.modbus_task import ModbusTaskCase
 
 
 class ModbusReadInputRegister(ModbusTaskCase):

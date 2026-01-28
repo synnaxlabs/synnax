@@ -10,7 +10,6 @@
 from uuid import UUID
 
 from freighter import Payload
-
 from synnax.ontology import ID
 from synnax.telem import TimeRange
 

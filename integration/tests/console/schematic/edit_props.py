@@ -7,11 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
-
 from console.case import ConsoleCase
 from console.schematic import Button, Value
 from console.schematic.schematic import PropertyDict, Schematic
+
+import synnax as sy
 
 CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"

@@ -11,10 +11,10 @@ import json
 import random
 from typing import TYPE_CHECKING, Any
 
-import synnax as sy
+from framework.utils import get_results_path
 from playwright.sync_api import Locator, Page
 
-from framework.utils import get_results_path
+import synnax as sy
 
 if TYPE_CHECKING:
     from .console import Console

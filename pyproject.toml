@@ -2,7 +2,23 @@
 name = "synnax-workspace"
 version = "0.0.0"
 description = "Synnax Python Workspace"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4"
+
+[dependency-groups]
+dev = [
+    "black>=26.1.0,<27",
+    "isort>=7.0.0,<8",
+    "mypy>=1.19.1,<2",
+    "pytest>=9.0.2,<10",
+    "pytest-asyncio>=1.3.0,<2",
+    "vermin>=1.8.0,<2",
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+strict = true
 
 [tool.uv]
 managed = true

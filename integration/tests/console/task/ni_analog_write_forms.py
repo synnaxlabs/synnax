@@ -10,10 +10,10 @@
 import platform
 import random
 
-import synnax as sy
-
 from console.case import ConsoleCase
 from console.task.analog_write import AnalogWrite
+
+import synnax as sy
 
 
 class NIAnalogWriteForms(ConsoleCase):

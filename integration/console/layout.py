@@ -11,8 +11,9 @@ import random
 import re
 from typing import TYPE_CHECKING
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
+
+import synnax as sy
 
 if TYPE_CHECKING:
     from .console import Console

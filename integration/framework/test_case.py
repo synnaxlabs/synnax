@@ -25,8 +25,6 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Literal, overload
 
-import synnax as sy
-
 from framework.utils import (
     WebSocketErrorFilter,
     ignore_websocket_errors,
@@ -34,6 +32,8 @@ from framework.utils import (
     is_websocket_error,
     validate_and_sanitize_name,
 )
+
+import synnax as sy
 
 # Error filter
 sys.excepthook = ignore_websocket_errors

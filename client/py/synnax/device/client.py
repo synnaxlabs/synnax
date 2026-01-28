@@ -11,7 +11,6 @@ from typing import overload
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, Payload, UnaryClient, send_required
-
 from synnax.device.payload import Device
 from synnax.exceptions import NotFoundError
 from synnax.util.normalize import check_for_none, normalize, override
