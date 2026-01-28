@@ -20,7 +20,6 @@ on:
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -63,7 +62,6 @@ on:
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/py/**
@@ -110,7 +108,6 @@ jobs:
               - aspen/**
               - cesium/**
               - core/**
-              - Earthfile
               - freighter/go/**
               - go.work
               - go.work.sum

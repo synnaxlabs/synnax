@@ -10,7 +10,6 @@ on:
       - cesium/**
       - client/py/**
       - core/**
-      - Earthfile
       - freighter/go/**
       - freighter/py/**
       - go.work
@@ -31,7 +30,6 @@ on:
       - cesium/**
       - client/py/**
       - core/**
-      - Earthfile
       - freighter/go/**
       - freighter/py/**
       - go.work
