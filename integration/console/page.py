@@ -87,11 +87,7 @@ class ConsolePage:
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
-        return (
-            self.page.locator("div")
-            .filter(has_text=re.compile(f"^{re.escape(self.page_name)}$"))
-            .first
-        )
+        return self.console.layout.get_tab(self.page_name)
 
     def close(self) -> None:
         """

@@ -138,8 +138,10 @@ class Schematic(ConsolePage):
         try:
             link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
-        except Exception:
-            return ""
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return ""
+            raise RuntimeError(f"Error copying schematic link: {e}") from e
 
     def export_json(self) -> dict[str, Any]:
         """Export the schematic as a JSON file via the toolbar export button.
@@ -189,6 +191,26 @@ class Schematic(ConsolePage):
         required_keys = ["nodes", "edges", "props", "viewport"]
         for key in required_keys:
             assert key in exported, f"Exported JSON should contain '{key}'"
+
+    def get_node_count(self) -> int:
+        """Get the number of nodes on the schematic canvas.
+
+        Returns:
+            Number of nodes currently on the canvas.
+        """
+        canvas = self.page.locator(".react-flow__pane")
+        nodes = canvas.locator(".react-flow__node")
+        return nodes.count()
+
+    def wait_for_node(self, timeout: int = 5000) -> None:
+        """Wait for at least one node to appear on the schematic canvas.
+
+        Args:
+            timeout: Maximum time to wait in milliseconds.
+        """
+        canvas = self.page.locator(".react-flow__pane")
+        node = canvas.locator(".react-flow__node").last
+        node.wait_for(state="visible", timeout=timeout)
 
     def get_control_legend_entries(self) -> list[str]:
         """Get list of writer names from the control legend.
@@ -579,8 +601,13 @@ class Schematic(ConsolePage):
 
         try:
             show_control_legend = self.console.get_toggle("Show Control State Legend")
-        except Exception:
-            show_control_legend = True  # Default if not found
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                show_control_legend = True
+            else:
+                raise RuntimeError(
+                    f"Error getting show control legend toggle: {e}"
+                ) from e
 
         return (control_authority, show_control_legend)
 
