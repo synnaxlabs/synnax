@@ -580,7 +580,6 @@ jobs:
           sbom: ${{ inputs.upload_to_release }}
           provenance: ${{ inputs.upload_to_release && 'mode=max' || 'false' }}
           build-args: |
-            DRIVER_ENABLED=${{ inputs.driver }}
             CONSOLE_ENABLED=${{ inputs.console }}
             VERSION=${{ needs.setup.outputs.VERSION }}
             GIT_COMMIT=${{ github.sha }}
