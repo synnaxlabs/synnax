@@ -307,7 +307,6 @@ I can successfully:
 - **Symbol Editor**
   - [ ] Have multiple color regions for an actuator.
 - **Schematic Symbols Toolbar**
-  - [ ] Add a symbol to a symbol group.
   - [ ] Import a symbol group.
   - [ ] Import a symbol to a symbol group.
     - **Context Menu**
