@@ -42,13 +42,14 @@ public:
     xerrors::Error next(node::Context &ctx) override {
         if (ctx.elapsed - this->last_fired < this->cfg.interval) return xerrors::NIL;
         this->last_fired = ctx.elapsed;
-        ctx.mark_changed(ir::default_output_param);
+        // IMPORTANT: Set output BEFORE calling mark_changed, so is_output_truthy works
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
+        ctx.mark_changed(ir::default_output_param);
         return xerrors::NIL;
     }
 

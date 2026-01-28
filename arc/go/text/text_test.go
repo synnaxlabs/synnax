@@ -1107,6 +1107,73 @@ var _ = Describe("Text", func() {
 				Expect(triggerNode.Channels.Read.Contains(uint32(42))).To(BeTrue())
 			})
 		})
+
+		Context("Interval One-Shot Edge Generation", func() {
+			It("Should generate one-shot edge for interval triggering function", func() {
+				resolver := symbol.MapResolver{
+					"interval": {
+						Name: "interval",
+						Kind: symbol.KindFunction,
+						Type: types.Function(types.FunctionProperties{
+							Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+							Outputs: types.Params{{Name: "output", Type: types.U8()}},
+						}),
+					},
+				}
+				source := `
+				func press{} () {
+				}
+
+				interval{period=50ms} => press{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Should have 2 nodes: interval and press
+				Expect(inter.Nodes).To(HaveLen(2))
+
+				// Find the interval node
+				intervalNode := findNodeByType(inter.Nodes, "interval")
+				Expect(intervalNode.Config).To(HaveLen(1))
+				Expect(intervalNode.Config[0].Name).To(Equal("period"))
+
+				// Verify edge exists and is one-shot
+				Expect(inter.Edges).To(HaveLen(1))
+				edge := inter.Edges[0]
+				Expect(edge.Source.Node).To(Equal(intervalNode.Key))
+				Expect(edge.Source.Param).To(Equal("output"))
+				Expect(edge.Target.Node).To(Equal("press_0"))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
+			})
+
+			It("Should generate continuous edge for interval with -> operator", func() {
+				resolver := symbol.MapResolver{
+					"interval": {
+						Name: "interval",
+						Kind: symbol.KindFunction,
+						Type: types.Function(types.FunctionProperties{
+							Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+							Outputs: types.Params{{Name: "output", Type: types.U8()}},
+						}),
+					},
+				}
+				source := `
+				func handler{} () {
+				}
+
+				interval{period=50ms} -> handler{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Verify edge exists and is continuous
+				Expect(inter.Edges).To(HaveLen(1))
+				edge := inter.Edges[0]
+				Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
+			})
+		})
 	})
 
 	Describe("Unit Dimensional Analysis", func() {

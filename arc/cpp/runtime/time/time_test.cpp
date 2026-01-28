@@ -247,6 +247,29 @@ TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
     EXPECT_TRUE(node.is_output_truthy("output"));
 }
 
+/// @brief Test that Interval is_output_truthy returns false before firing.
+TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    // Before any next() call, output should be falsy (empty series)
+    EXPECT_FALSE(node.is_output_truthy("output"));
+}
+
+/// @brief Test that Interval is_output_truthy returns false for unknown param.
+TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
+    TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
+    const time::IntervalConfig cfg(setup.ir.nodes[0].config);
+    time::Interval node(cfg, setup.make_node());
+
+    auto ctx = make_context(telem::SECOND);
+    node.next(ctx);
+
+    // Unknown parameter should return false
+    EXPECT_FALSE(node.is_output_truthy("nonexistent"));
+}
+
 /// @brief Test that Interval reset allows it to fire immediately again.
 TEST(IntervalTest, ResetAllowsImmediateFiring) {
     TestSetup setup("interval", "period", telem::SECOND.nanoseconds());
