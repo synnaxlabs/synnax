@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import math
+import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
 import synnax as sy
@@ -72,13 +73,10 @@ class Schematic(ConsolePage):
     pluto_label: str = ".react-flow__pane"
 
     @classmethod
-    def open_from_search(
-        cls, client: sy.Synnax, console: "Console", name: str
-    ) -> "Schematic":
+    def open_from_search(cls, console: "Console", name: str) -> "Schematic":
         """Open an existing schematic by searching its name in the command palette.
 
         Args:
-            client: Synnax client instance.
             console: Console instance.
             name: Name of the schematic to search for and open.
 
@@ -90,17 +88,19 @@ class Schematic(ConsolePage):
         schematic_pane = console.page.locator(cls.pluto_label)
         schematic_pane.first.wait_for(state="visible", timeout=5000)
 
-        schematic = cls.__new__(cls)
-        schematic.client = client
-        schematic.console = console
-        schematic.page = console.page
-        schematic.page_name = name
+        schematic = cls(console, name, _skip_create=True)
         schematic.pane_locator = schematic_pane.first
         return schematic
 
-    def __init__(self, client: sy.Synnax, console: "Console", page_name: str):
+    def __init__(
+        self,
+        console: "Console",
+        page_name: str,
+        *,
+        _skip_create: bool = False,
+    ):
         """Initialize a Schematic page."""
-        super().__init__(client, console, page_name)
+        super().__init__(console, page_name, _skip_create=_skip_create)
 
     def create_symbol(self, symbol: Symbol) -> Symbol:
         """Add a symbol to the schematic and configure it.
@@ -138,8 +138,10 @@ class Schematic(ConsolePage):
         try:
             link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
-        except Exception:
-            return ""
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return ""
+            raise RuntimeError(f"Error copying schematic link: {e}") from e
 
     def export_json(self) -> dict[str, Any]:
         """Export the schematic as a JSON file via the toolbar export button.
@@ -168,7 +170,7 @@ class Schematic(ConsolePage):
         """Assert that the exported JSON has a valid structure.
 
         Validates:
-        - Root 'key' is a valid UUID (36 characters)
+        - Root 'key' is a valid UUID format
         - Version matches SCHEMATIC_VERSION
         - Required keys exist: nodes, edges, props, viewport
 
@@ -176,9 +178,12 @@ class Schematic(ConsolePage):
             exported: The exported JSON dictionary to validate.
         """
         assert "key" in exported, "Exported JSON should contain 'key'"
-        assert (
-            len(exported["key"]) == 36
-        ), f"Schematic key should be a UUID (36 chars), got {len(exported['key'])}"
+        try:
+            uuid.UUID(exported["key"])
+        except ValueError:
+            raise AssertionError(
+                f"Schematic key should be a valid UUID, got '{exported['key']}'"
+            )
 
         assert "version" in exported, "Exported JSON should contain 'version'"
         assert exported["version"] == SCHEMATIC_VERSION, (
@@ -579,8 +584,13 @@ class Schematic(ConsolePage):
 
         try:
             show_control_legend = self.console.get_toggle("Show Control State Legend")
-        except Exception:
-            show_control_legend = True  # Default if not found
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                show_control_legend = True
+            else:
+                raise RuntimeError(
+                    f"Error getting show control legend toggle: {e}"
+                ) from e
 
         return (control_authority, show_control_legend)
 

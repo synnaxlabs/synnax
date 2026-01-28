@@ -21,10 +21,10 @@ class SchematicLifecycle(ConsoleCase):
     suffix: str
     idx_name: str
     cmd_name: str
-    shared_range_name: str
+    shared_range_name: str | None
     ctx_schematic_name: str | None
     ctx_schematic_copy_name: str | None
-    main_schematic_name: str
+    main_schematic_name: str | None
     main_schematic_link: str
 
     def setup(self) -> None:
@@ -32,28 +32,28 @@ class SchematicLifecycle(ConsoleCase):
         self.suffix = get_random_name()
         self.ctx_schematic_name = None
         self.ctx_schematic_copy_name = None
+        self.shared_range_name = None
+        self.main_schematic_name = None
 
         self.shared_range_name = f"Shared Snapshot Range {self.suffix}"
         self.console.ranges.create(self.shared_range_name, persisted=True)
         self.console.ranges.favorite(self.shared_range_name)
         self.console.ranges.set_active(self.shared_range_name)
 
-        ctx_schematic = Schematic(
-            self.client, self.console, f"Context Menu Test {self.suffix}"
-        )
+        ctx_schematic = Schematic(self.console, f"Context Menu Test {self.suffix}")
         self.ctx_schematic_name = ctx_schematic.page_name
         ctx_schematic.close()
 
     def teardown(self) -> None:
-        if hasattr(self, "shared_range_name"):
+        if self.shared_range_name is not None:
             self.console.ranges.open_explorer()
             if self.console.ranges.exists_in_explorer(self.shared_range_name):
                 self.console.ranges.delete_from_explorer(self.shared_range_name)
 
         names_to_cleanup = [
-            getattr(self, "ctx_schematic_name", None),
-            getattr(self, "ctx_schematic_copy_name", None),
-            getattr(self, "main_schematic_name", None),
+            self.ctx_schematic_name,
+            self.ctx_schematic_copy_name,
+            self.main_schematic_name,
         ]
         for name in names_to_cleanup:
             if name and self.console.workspace.page_exists(name):
@@ -82,9 +82,7 @@ class SchematicLifecycle(ConsoleCase):
         """Run all schematic lifecycle tests."""
         self.setup_channels()
 
-        schematic = Schematic(
-            self.client, self.console, f"Schematic Test {self.suffix}"
-        )
+        schematic = Schematic(self.console, f"Schematic Test {self.suffix}")
         schematic.create_symbol(Button(label="Test Button", channel_name=self.cmd_name))
 
         self.test_view_writers_in_control(schematic)
@@ -94,7 +92,7 @@ class SchematicLifecycle(ConsoleCase):
         self.main_schematic_link = schematic.copy_link()
         self.main_schematic_name = schematic.page_name
         schematic.close()
-        assert not schematic.is_open(), "Schematic should be closed"
+        assert not schematic.is_open, "Schematic should be closed"
 
         self.test_open_schematic_from_resources()
         self.test_drag_schematic_onto_mosaic()
@@ -142,11 +140,9 @@ class SchematicLifecycle(ConsoleCase):
         """Test opening a schematic by double-clicking it in the workspace resources toolbar."""
         self.log("Testing open schematic from resources toolbar")
 
-        schematic = self.console.workspace.open_schematic(
-            self.client, self.main_schematic_name
-        )
+        schematic = self.console.workspace.open_schematic(self.main_schematic_name)
 
-        assert schematic.is_pane_visible(), "Schematic pane should be visible"
+        assert schematic.is_pane_visible, "Schematic pane should be visible"
 
         # Assert the link we used to open is the same link we get.
         opened_link = schematic.copy_link()
@@ -161,10 +157,10 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing drag schematic onto mosaic")
 
         schematic = self.console.workspace.drag_schematic_to_mosaic(
-            self.client, self.main_schematic_name
+            self.main_schematic_name
         )
 
-        assert schematic.is_pane_visible(), "Schematic pane should be visible"
+        assert schematic.is_pane_visible, "Schematic pane should be visible"
 
         opened_link = schematic.copy_link()
         assert (
@@ -177,11 +173,9 @@ class SchematicLifecycle(ConsoleCase):
         """Test opening a schematic by searching its name in the command palette."""
         self.log("Testing open schematic from search palette")
 
-        schematic = Schematic.open_from_search(
-            self.client, self.console, self.main_schematic_name
-        )
+        schematic = Schematic.open_from_search(self.console, self.main_schematic_name)
 
-        assert schematic.is_pane_visible(), "Schematic pane should be visible"
+        assert schematic.is_pane_visible, "Schematic pane should be visible"
 
         opened_link = schematic.copy_link()
         assert (
@@ -226,9 +220,7 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Creating schematics for multi-select operations")
         schematic_names: list[str] = []
         for i in range(3):
-            schematic = Schematic(
-                self.client, self.console, f"Multi Test {i} {self.suffix}"
-            )
+            schematic = Schematic(self.console, f"Multi Test {i} {self.suffix}")
             schematic_names.append(schematic.page_name)
             schematic.close()
 
@@ -249,7 +241,7 @@ class SchematicLifecycle(ConsoleCase):
         """Test snapshot operations using shared range."""
         self.log("Testing snapshot schematic to active range")
         single_snapshot_name = f"Snapshot Single {self.suffix}"
-        schematic = Schematic(self.client, self.console, single_snapshot_name)
+        schematic = Schematic(self.console, single_snapshot_name)
         schematic.close()
         self.console.workspace.snapshot_page_to_active_range(
             single_snapshot_name, self.shared_range_name
@@ -259,9 +251,7 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing snapshot multiple schematics to active range")
         multi_names: list[str] = []
         for i in range(2):
-            schematic = Schematic(
-                self.client, self.console, f"Snapshot Multi {i} {self.suffix}"
-            )
+            schematic = Schematic(self.console, f"Snapshot Multi {i} {self.suffix}")
             multi_names.append(schematic.page_name)
             schematic.close()
         self.console.workspace.snapshot_pages_to_active_range(
@@ -275,7 +265,7 @@ class SchematicLifecycle(ConsoleCase):
     def _test_snapshot_rename_synchronization(self) -> None:
         """Test that renaming a snapshot synchronizes across UI elements."""
         original_name = f"Snapshot Original {self.suffix}"
-        schematic = Schematic(self.client, self.console, original_name)
+        schematic = Schematic(self.console, original_name)
         schematic.close()
         self.console.workspace.snapshot_page_to_active_range(
             original_name, self.shared_range_name

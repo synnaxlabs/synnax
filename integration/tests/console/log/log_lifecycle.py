@@ -51,7 +51,7 @@ class LogLifecycle(ConsoleCase):
         """Run all log lifecycle tests."""
         self.setup_channels()
 
-        log = Log(self.client, self.console, f"Log Test {self.suffix}")
+        log = Log(self.console, f"Log Test {self.suffix}")
 
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
@@ -64,7 +64,7 @@ class LogLifecycle(ConsoleCase):
         log_link = log.copy_link()
         log_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         # Resources Toolbar
         self.test_open_log_from_resources(log_name, log_link)
@@ -197,7 +197,7 @@ class LogLifecycle(ConsoleCase):
         """Test opening a log by double-clicking it in the workspace resources toolbar."""
         self.log("Testing open log from resources toolbar")
 
-        log = self.console.workspace.open_log(self.client, log_name)
+        log = self.console.workspace.open_log(log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -208,13 +208,13 @@ class LogLifecycle(ConsoleCase):
         ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
     def test_drag_log_onto_mosaic(self, log_name: str, expected_link: str) -> None:
         """Test dragging a log from the resources toolbar onto the mosaic."""
         self.log("Testing drag log onto mosaic")
 
-        log = self.console.workspace.drag_log_to_mosaic(self.client, log_name)
+        log = self.console.workspace.drag_log_to_mosaic(log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -225,13 +225,13 @@ class LogLifecycle(ConsoleCase):
         ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
     def test_open_log_from_search(self, log_name: str, expected_link: str) -> None:
         """Test opening a log by searching its name in the command palette."""
         self.log("Testing open log from search palette")
 
-        log = Log.open_from_search(self.client, self.console, log_name)
+        log = Log.open_from_search(self.console, log_name)
 
         assert log.pane_locator is not None, "Log pane should be visible"
         assert log.pane_locator.is_visible(), "Log pane should be visible"
@@ -242,17 +242,17 @@ class LogLifecycle(ConsoleCase):
         ), f"Opened log link should match: expected {expected_link}, got {opened_link}"
 
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
     def test_ctx_rename_log(self) -> None:
         """Test renaming a log via context menu in the workspace resources toolbar."""
         self.log("Testing rename log via context menu")
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Rename Test {suffix}")
+        log = Log(self.console, f"Rename Test {suffix}")
         original_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         new_name = f"Renamed Log {suffix}"
         self.console.workspace.rename_page(original_name, new_name)
@@ -270,10 +270,10 @@ class LogLifecycle(ConsoleCase):
         self.console.close_nav_drawer()
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Delete Test {suffix}")
+        log = Log(self.console, f"Delete Test {suffix}")
         log_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         assert self.console.workspace.page_exists(
             log_name
@@ -290,10 +290,10 @@ class LogLifecycle(ConsoleCase):
         log_names = []
 
         for i in range(3):
-            log = Log(self.client, self.console, f"Multi Delete {suffix} {i}")
+            log = Log(self.console, f"Multi Delete {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
-            assert not log.is_open(), f"Log {i} should be closed after close()"
+            assert not log.is_open, f"Log {i} should be closed after close()"
 
         for name in log_names:
             assert self.console.workspace.page_exists(
@@ -311,10 +311,10 @@ class LogLifecycle(ConsoleCase):
         log_names = []
 
         for i in range(2):
-            log = Log(self.client, self.console, f"Group Test {suffix} {i}")
+            log = Log(self.console, f"Group Test {suffix} {i}")
             log_names.append(log.page_name)
             log.close()
-            assert not log.is_open(), f"Log {i} should be closed after close()"
+            assert not log.is_open, f"Log {i} should be closed after close()"
 
         self.console.workspace.group_pages(
             names=log_names, group_name=f"Log Group {suffix}"
@@ -332,10 +332,10 @@ class LogLifecycle(ConsoleCase):
         self.console.close_nav_drawer()
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Export Test {suffix}")
+        log = Log(self.console, f"Export Test {suffix}")
         log_name = log.page_name
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         exported = self.console.workspace.export_page(log_name)
 
@@ -350,11 +350,11 @@ class LogLifecycle(ConsoleCase):
         self.console.close_nav_drawer()
 
         suffix = get_random_name()
-        log = Log(self.client, self.console, f"Copy Link Test {suffix}")
+        log = Log(self.console, f"Copy Link Test {suffix}")
         log_name = log.page_name
         expected_link = log.copy_link()
         log.close()
-        assert not log.is_open(), "Log should be closed after close()"
+        assert not log.is_open, "Log should be closed after close()"
 
         link = self.console.workspace.copy_page_link(log_name)
 

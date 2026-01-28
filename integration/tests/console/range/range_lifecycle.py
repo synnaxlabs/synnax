@@ -18,20 +18,39 @@ from console.case import ConsoleCase
 class RangeLifecycle(ConsoleCase):
     """Test the lifecycle of ranges in the Console UI."""
 
+    rand_suffix: int
+    test_label_name: str
+    second_label_name: str
+    local_range_name: str | None
+    range_name: str | None
+    staged_range_name: str | None
+    child_range_name: str | None
+    labeled_range_name: str | None
+    new_child_range_name: str | None
+
     def setup(self) -> None:
         super().setup()
-        self.rand_suffix: int = random.randint(1000, 9999)
+        self.rand_suffix = random.randint(1000, 9999)
         self.test_label_name = f"RangeLabel_{self.rand_suffix}"
         self.second_label_name = f"SecondLabel_{self.rand_suffix}"
+
+        # Initialize optional attributes
+        self.local_range_name = None
+        self.range_name = None
+        self.staged_range_name = None
+        self.child_range_name = None
+        self.labeled_range_name = None
+        self.new_child_range_name = None
+
         self.console.labels.create(name=self.test_label_name)
         self.console.labels.create(name=self.second_label_name)
 
     def teardown(self) -> None:
         ranges_to_delete = [
-            getattr(self, "labeled_range_name", None),
-            getattr(self, "new_child_range_name", None),
-            getattr(self, "child_range_name", None),
-            getattr(self, "staged_range_name", None),
+            self.labeled_range_name,
+            self.new_child_range_name,
+            self.child_range_name,
+            self.staged_range_name,
         ]
 
         self.console.ranges.open_explorer()

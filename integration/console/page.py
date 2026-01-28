@@ -37,16 +37,13 @@ class ConsolePage:
     id: str | None = None
 
     @classmethod
-    def from_open_page(cls, client: sy.Synnax, console: "Console", name: str) -> Self:
+    def from_open_page(cls, console: "Console", name: str) -> Self:
         """Create instance from an already-opened page.
 
         Use this factory method when a page has already been opened (e.g., via
         drag_page_to_mosaic or open_page) and you need to create a typed wrapper.
 
-        Override in subclasses that need custom initialization (e.g., Plot sets data).
-
         Args:
-            client: Synnax client instance
             console: Console instance
             name: Name of the page
 
@@ -56,34 +53,32 @@ class ConsolePage:
         pane = console.page.locator(cls.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
 
-        instance = cls.__new__(cls)
-        instance.client = client
-        instance.console = console
-        instance.page = console.page
-        instance.page_name = name
+        instance = cls(console, name, _skip_create=True)
         instance.pane_locator = pane.first
         return instance
 
     def __init__(
         self,
-        client: sy.Synnax,
         console: Console,
         page_name: str,
+        *,
+        _skip_create: bool = False,
     ) -> None:
         """
         Initialize a ConsolePage.
 
         Args:
-            client: Synnax client instance
             console: Console instance
             page_name: Name for the page
+            _skip_create: Internal flag to skip page creation (used by factory methods)
         """
-        self.client = client
+        self.client = console.client
         self.page = console.page
         self.console = console
         self.page_name = page_name
 
-        self.new()
+        if not _skip_create:
+            self.new()
 
     def _get_tab(self) -> Locator:
         """Get the tab locator for this page."""
@@ -108,11 +103,13 @@ class ConsolePage:
             self.page.get_by_role("button", name="Confirm").click()
         tab.wait_for(state="hidden", timeout=5000)
 
+    @property
     def is_open(self) -> bool:
         """Check if the page tab is visible."""
         tab = self.console.layout.get_tab(self.page_name)
         return tab.count() > 0 and tab.is_visible()
 
+    @property
     def is_pane_visible(self) -> bool:
         """Check if the page pane content is visible."""
         return self.pane_locator is not None and self.pane_locator.is_visible()

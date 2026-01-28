@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
-
 from .console import Console
 from .page import ConsolePage
 
@@ -21,19 +19,20 @@ class Table(ConsolePage):
 
     def __init__(
         self,
-        client: sy.Synnax,
         console: Console,
         page_name: str,
+        *,
+        _skip_create: bool = False,
     ) -> None:
         """
         Initialize a Table page.
 
         Args:
-            client: Synnax client instance
             console: Console instance
             page_name: Name for the page
+            _skip_create: Internal flag to skip page creation (used by factory methods)
         """
-        super().__init__(client, console, page_name)
+        super().__init__(console, page_name, _skip_create=_skip_create)
 
     def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
         """Set a cell to display a channel's telemetry value.

@@ -11,7 +11,6 @@ import json
 import random
 from typing import TYPE_CHECKING, Any
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
 
 from framework.utils import get_results_path
@@ -165,7 +164,7 @@ class WorkspaceClient:
         page_item.click(button="right")
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
-        self.console.ENTER
+        self.console.page.keyboard.press("Enter")
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
         self.wait_for_page_removed(old_name)
         self.console.close_nav_drawer()
@@ -231,7 +230,7 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        last_item = self.get_page(names[-1])
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
         self.page.get_by_text("Delete", exact=True).click(timeout=5000)
@@ -285,12 +284,13 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        last_item = self.get_page(names[-1])
+        # For single item, reuse first_item; otherwise get the last item
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
         self.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
         self.console.select_all_and_type(group_name)
-        self.console.ENTER
+        self.console.page.keyboard.press("Enter")
         self.console.close_nav_drawer()
 
     def export_page(self, name: str) -> dict[str, Any]:
@@ -369,7 +369,8 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        last_item = self.get_page(names[-1])
+        # For single item, reuse first_item; otherwise get the last item
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
         snapshot_item = self.page.get_by_text(f"Snapshot to {range_name}", exact=True)
@@ -395,7 +396,7 @@ class WorkspaceClient:
 
         # After clicking Copy, a rename dialog appears
         self.console.select_all_and_type(new_name)
-        self.console.ENTER
+        self.console.page.keyboard.press("Enter")
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
         self.console.close_nav_drawer()
 
@@ -421,7 +422,8 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        last_item = self.get_page(names[-1])
+        # For single item, reuse first_item; otherwise get the last item
+        last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
         copy_item = self.page.get_by_text("Copy", exact=True)
@@ -503,7 +505,7 @@ class WorkspaceClient:
         workspace.click(button="right")
         self.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.console.select_all_and_type(new_name)
-        self.console.ENTER
+        self.console.page.keyboard.press("Enter")
         self.console.close_nav_drawer()
 
     def delete(self, name: str) -> None:
@@ -535,11 +537,10 @@ class WorkspaceClient:
         self.create(name)
         self.select(name)
 
-    def open_plot(self, client: sy.Synnax, name: str) -> "Plot":
+    def open_plot(self, name: str) -> "Plot":
         """Open a plot by double-clicking it in the workspace resources toolbar.
 
         Args:
-            client: Synnax client instance.
             name: Name of the plot to open.
 
         Returns:
@@ -548,13 +549,12 @@ class WorkspaceClient:
         from .plot import Plot
 
         self.open_page(name)
-        return Plot.from_open_page(client, self.console, name)
+        return Plot.from_open_page(self.console, name)
 
-    def drag_plot_to_mosaic(self, client: sy.Synnax, name: str) -> "Plot":
+    def drag_plot_to_mosaic(self, name: str) -> "Plot":
         """Drag a plot from the workspace resources toolbar onto the mosaic.
 
         Args:
-            client: Synnax client instance.
             name: Name of the plot to drag.
 
         Returns:
@@ -563,13 +563,12 @@ class WorkspaceClient:
         from .plot import Plot
 
         self.drag_page_to_mosaic(name)
-        return Plot.from_open_page(client, self.console, name)
+        return Plot.from_open_page(self.console, name)
 
-    def open_log(self, client: sy.Synnax, name: str) -> "Log":
+    def open_log(self, name: str) -> "Log":
         """Open a log by double-clicking it in the workspace resources toolbar.
 
         Args:
-            client: Synnax client instance.
             name: Name of the log to open.
 
         Returns:
@@ -578,13 +577,12 @@ class WorkspaceClient:
         from .log import Log
 
         self.open_page(name)
-        return Log.from_open_page(client, self.console, name)
+        return Log.from_open_page(self.console, name)
 
-    def drag_log_to_mosaic(self, client: sy.Synnax, name: str) -> "Log":
+    def drag_log_to_mosaic(self, name: str) -> "Log":
         """Drag a log from the workspace resources toolbar onto the mosaic.
 
         Args:
-            client: Synnax client instance.
             name: Name of the log to drag.
 
         Returns:
@@ -593,13 +591,12 @@ class WorkspaceClient:
         from .log import Log
 
         self.drag_page_to_mosaic(name)
-        return Log.from_open_page(client, self.console, name)
+        return Log.from_open_page(self.console, name)
 
-    def open_schematic(self, client: sy.Synnax, name: str) -> "Schematic":
+    def open_schematic(self, name: str) -> "Schematic":
         """Open a schematic by double-clicking it in the workspace resources toolbar.
 
         Args:
-            client: Synnax client instance.
             name: Name of the schematic to open.
 
         Returns:
@@ -608,13 +605,12 @@ class WorkspaceClient:
         from .schematic import Schematic
 
         self.open_page(name)
-        return Schematic.from_open_page(client, self.console, name)
+        return Schematic.from_open_page(self.console, name)
 
-    def drag_schematic_to_mosaic(self, client: sy.Synnax, name: str) -> "Schematic":
+    def drag_schematic_to_mosaic(self, name: str) -> "Schematic":
         """Drag a schematic from the workspace resources toolbar onto the mosaic.
 
         Args:
-            client: Synnax client instance.
             name: Name of the schematic to drag.
 
         Returns:
@@ -623,4 +619,4 @@ class WorkspaceClient:
         from .schematic import Schematic
 
         self.drag_page_to_mosaic(name)
-        return Schematic.from_open_page(client, self.console, name)
+        return Schematic.from_open_page(self.console, name)
