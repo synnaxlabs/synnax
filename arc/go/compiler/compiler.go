@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -63,15 +63,19 @@ import (
 //
 // The compiler maintains type safety by propagating type hints through expression compilation
 // and emitting type conversions when necessary.
-func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error) {
+func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error) {
 	o := &options{}
 	for _, opt := range opts {
 		opt(o)
 	}
-	ctx := ccontext.CreateRoot(ctx_, program.Symbols, program.TypeMap, o.disableHostImports)
+	compCtx := ccontext.CreateRoot(ctx, program.Symbols, program.TypeMap, o.disableHostImports)
+
+	importCount := compCtx.Module.ImportCount()
+	for i, f := range program.Functions {
+		compCtx.FunctionIndices[f.Key] = importCount + uint32(i)
+	}
 
 	outputMemoryCounter := uint32(0x1000)
-	hasMultiOutput := false
 	outputMemoryBases := make(map[string]uint32)
 
 	for _, i := range program.Functions {
@@ -85,7 +89,6 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 
 		var outputMemoryBase uint32
 		if hasNamedOutputs {
-			hasMultiOutput = true
 			outputMemoryBase = outputMemoryCounter
 			outputMemoryBases[i.Key] = outputMemoryBase
 			var size uint32 = 8 // dirty flags
@@ -95,16 +98,15 @@ func Compile(ctx_ context.Context, program ir.IR, opts ...Option) (Output, error
 			outputMemoryCounter += size
 		}
 
-		if err := compileItem(ctx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase); err != nil {
+		if err := compileItem(compCtx, i.Key, i.Body.AST, params, returnType, i.Outputs, outputMemoryBase); err != nil {
 			return Output{}, err
 		}
 	}
 
-	if hasMultiOutput {
-		ctx.Module.EnableMemory()
-	}
+	compCtx.Module.EnableMemory()
+	compCtx.Module.AddExport("memory", wasm.ExportKindMemory, 0)
 
-	return Output{WASM: ctx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
+	return Output{WASM: compCtx.Module.Generate(), OutputMemoryBases: outputMemoryBases}, nil
 }
 
 func compileItem(
@@ -155,7 +157,7 @@ func compileItem(
 	}
 
 	funcIdx := ctx.Module.AddFunction(typeIdx, collectLocals(ctx.Scope), ctx.Writer.Bytes())
-	ctx.Module.AddExport(ctx.Scope.Name, wasm.ExportFunc, funcIdx)
+	ctx.Module.AddExport(ctx.Scope.Name, wasm.ExportKindFunc, funcIdx)
 	return nil
 }
 

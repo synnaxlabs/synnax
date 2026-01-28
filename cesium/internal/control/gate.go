@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,17 +16,17 @@ import (
 
 // Gate controls access to a resource for a given region of time.
 type Gate[R Resource] struct {
+	// region is the control region in time for the resource
+	region *region[R]
 	// subject is the subject attempting to control the resource that the gate
 	// is guarding access to.
 	subject control.Subject
-	// authority is the authority that the subject has over the resource.
-	authority control.Authority
-	// region is the control region in time for the resource
-	region *region[R]
 	// position is the number of gates that had been opened in the region before
 	// this gate. Gates with a lower position yet equal authority take precedence
 	// over this gate. This position is constant for the lifetime of the gate.
 	position uint
+	// authority is the authority that the subject has over the resource.
+	authority control.Authority
 }
 
 // Subject returns information about the subject controlling this gate.
@@ -67,7 +67,7 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 	}
 	// In the case of exclusive concurrency, we only need to check if the gate is the
 	// current gate.
-	if g.region.controller.Concurrency == control.Exclusive {
+	if g.region.controller.Concurrency == control.ConcurrencyExclusive {
 		if g.region.curr == g {
 			return g.region.resource, nil
 		}

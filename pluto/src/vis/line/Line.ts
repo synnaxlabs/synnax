@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,8 @@ import { Aether } from "@/aether";
 import { line } from "@/vis/line/aether";
 
 export interface LineProps
-  extends optional.Optional<Omit<line.State, "key">, "strokeWidth">,
+  extends
+    optional.Optional<Omit<line.State, "key">, "strokeWidth">,
     Aether.ComponentProps {}
 
 export const Line = memo(({ aetherKey, ...rest }: LineProps): ReactElement | null => {

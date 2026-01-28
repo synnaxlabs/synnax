@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,10 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
-
 	analyzerContext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
+	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -73,7 +72,7 @@ var _ = Describe("Context", func() {
 				parent    = analyzerContext.CreateRoot(bCtx, parentAST, nil)
 				child     = analyzerContext.Child(parent, childAST)
 			)
-			child.Diagnostics.AddInfo(errors.New("test diagnostic"), childAST)
+			child.Diagnostics.Add(diagnostics.Infof(childAST, "test diagnostic"))
 			Expect(*parent.Diagnostics).To(HaveLen(1))
 			testAST := testutil.NewMockAST(3)
 			child.TypeMap[testAST] = types.I32()
@@ -168,7 +167,7 @@ var _ = Describe("Context", func() {
 			Expect(finalCtx.AST).To(Equal(mockChild))
 			Expect(finalCtx.TypeHint).To(Equal(types.String()))
 			Expect(finalCtx.Scope).To(Equal(newScope))
-			finalCtx.Diagnostics.AddError(errors.New("test"), finalCtx.AST)
+			finalCtx.Diagnostics.Add(diagnostics.Errorf(finalCtx.AST, "test"))
 			Expect(*rootCtx.Diagnostics).To(HaveLen(1))
 		})
 	})

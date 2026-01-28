@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -61,7 +61,8 @@ const INITIAL_QUERY: Task.ListQuery = {
   snapshot: false,
 };
 
-const filter = (task: task.Task) => !task.internal && !task.snapshot;
+const filter = (task: task.Task) =>
+  !task.internal && !task.snapshot && task.type !== "arc";
 
 const Content = () => {
   const client = Synnax.use();

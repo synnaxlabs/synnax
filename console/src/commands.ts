@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,6 @@ import { ClusterServices } from "@/cluster/services";
 import { Docs } from "@/docs";
 import { Hardware } from "@/hardware";
 import { LabelServices } from "@/label/services";
-import { Layout } from "@/layout";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { type Palette } from "@/palette";
@@ -22,6 +21,7 @@ import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
+import { Theme } from "@/theme";
 import { UserServices } from "@/user/services";
 import { WorkspaceServices } from "@/workspace/services";
 
@@ -31,7 +31,6 @@ export const COMMANDS: Palette.Command[] = [
   ...Docs.COMMANDS,
   ...Hardware.COMMANDS,
   ...LabelServices.COMMANDS,
-  ...Layout.COMMANDS,
   ...LinePlotServices.COMMANDS,
   ...LogServices.COMMANDS,
   ...Persist.COMMANDS,
@@ -42,4 +41,5 @@ export const COMMANDS: Palette.Command[] = [
   ...WorkspaceServices.COMMANDS,
   ...ArcServices.COMMANDS,
   ...Status.COMMANDS,
+  ...Theme.COMMANDS,
 ];

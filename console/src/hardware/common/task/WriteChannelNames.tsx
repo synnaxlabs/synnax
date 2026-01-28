@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,10 @@ import { CSS } from "@/css";
 import { ChannelName, type ChannelNameProps } from "@/hardware/common/task/ChannelName";
 import { getChannelNameID } from "@/hardware/common/task/getChannelNameID";
 
-export interface WriteChannelNamesProps
-  extends Omit<ChannelNameProps, "channel" | "defaultName" | "id" | "namePath"> {
+export interface WriteChannelNamesProps extends Omit<
+  ChannelNameProps,
+  "channel" | "defaultName" | "id" | "namePath"
+> {
   cmdChannel: channel.Key;
   cmdNamePath: string;
   stateChannel: channel.Key;

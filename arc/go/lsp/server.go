@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
 	"go.uber.org/zap"
@@ -30,23 +32,32 @@ import (
 
 // Config defines the configuration for opening an arc LSP Server.
 type Config struct {
-	// Instrumentation is used for logging, tracing, metrics, etc.
-	alamos.Instrumentation
 	// GlobalResolver allows the caller to define custom globals that will appear in
 	// LSP auto-complete and type checking. Typically used to provide standard library
 	// variables and functions as well as channels.
 	GlobalResolver symbol.Resolver
+	// OnExternalChange is an observable that fires when external state (such as
+	// Synnax channels) changes. When this fires, the server will republish diagnostics
+	// for all open documents to ensure they reflect the current state.
+	OnExternalChange observe.Observable[struct{}]
+	// RepublishTimeout is the maximum time to wait for a republish operation to complete.
+	// If zero, defaults to 30 seconds.
+	RepublishTimeout time.Duration
+	// Instrumentation is used for logging, tracing, metrics, etc.
+	alamos.Instrumentation
 }
 
 var (
 	_             config.Config[Config] = &Config{}
-	DefaultConfig                       = Config{}
+	DefaultConfig                       = Config{RepublishTimeout: 30 * time.Second}
 )
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GlobalResolver = override.Nil(c.GlobalResolver, other.GlobalResolver)
+	c.OnExternalChange = override.Nil(c.OnExternalChange, other.OnExternalChange)
+	c.RepublishTimeout = override.Numeric(c.RepublishTimeout, other.RepublishTimeout)
 	return c
 }
 
@@ -55,26 +66,17 @@ func (c Config) Validate() error { return nil }
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
-	cfg          Config
-	client       protocol.Client
-	mu           sync.RWMutex
-	documents    map[protocol.DocumentURI]*Document
-	capabilities protocol.ServerCapabilities
+	capabilities             protocol.ServerCapabilities
+	client                   protocol.Client
+	documents                map[protocol.DocumentURI]*Document
+	cfg                      Config
+	mu                       sync.RWMutex
+	republishMu              sync.Mutex
+	cancelRepublish          context.CancelFunc
+	externalChangeDisconnect observe.Disconnect
 }
 
 var _ protocol.Server = (*Server)(nil)
-
-// Document represents an open document
-type Document struct {
-	URI     protocol.DocumentURI
-	Version int32
-	Content string
-	// IR with symbol table
-	IR ir.IR
-	// Diagnostics diagnostics
-	Diagnostics diagnostics.Diagnostics
-	Metadata    *DocumentMetadata // Metadata for calculated channels
-}
 
 // New creates a new LSP server
 func New(cfgs ...Config) (*Server, error) {
@@ -92,11 +94,23 @@ func New(cfgs ...Config) (*Server, error) {
 			},
 			HoverProvider: true,
 			CompletionProvider: &protocol.CompletionOptions{
-				TriggerCharacters: []string{".", ":", "<", "-", ">"},
+				TriggerCharacters: []string{
+					parser.LiteralCOLON,
+					parser.LiteralLT,
+					parser.LiteralMINUS,
+					parser.LiteralGT,
+					parser.LiteralLBRACE,
+					parser.LiteralEQ,
+					parser.LiteralCOMMA,
+				},
 			},
-			DefinitionProvider:     true,
-			DocumentSymbolProvider: true,
-			SemanticTokensProvider: map[string]interface{}{
+			DefinitionProvider:              true,
+			DocumentSymbolProvider:          true,
+			DocumentFormattingProvider:      true,
+			DocumentRangeFormattingProvider: true,
+			FoldingRangeProvider:            true,
+			RenameProvider:                  true,
+			SemanticTokensProvider: map[string]any{
 				"legend": protocol.SemanticTokensLegend{
 					TokenTypes: convertToSemanticTokenTypes(semanticTokenTypes),
 				},
@@ -109,6 +123,18 @@ func New(cfgs ...Config) (*Server, error) {
 // SetClient sets the LSP client for sending notifications
 func (s *Server) SetClient(client protocol.Client) {
 	s.client = client
+	if s.cfg.OnExternalChange != nil {
+		s.externalChangeDisconnect = s.cfg.OnExternalChange.OnChange(func(ctx context.Context, _ struct{}) {
+			s.republishMu.Lock()
+			if s.cancelRepublish != nil {
+				s.cancelRepublish()
+			}
+			ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
+			s.cancelRepublish = cancel
+			s.republishMu.Unlock()
+			go s.republishAllDiagnostics(ctx)
+		})
+	}
 }
 
 // Logger returns the server's logger
@@ -156,6 +182,14 @@ func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error
 // Shutdown handles the shutdown request
 func (s *Server) Shutdown(_ context.Context) error {
 	s.cfg.L.Info("Shutting down server")
+	if s.externalChangeDisconnect != nil {
+		s.externalChangeDisconnect()
+	}
+	s.republishMu.Lock()
+	if s.cancelRepublish != nil {
+		s.cancelRepublish()
+	}
+	s.republishMu.Unlock()
 	return nil
 }
 
@@ -163,17 +197,17 @@ func (s *Server) Shutdown(_ context.Context) error {
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
-	metadata := ExtractMetadataFromURI(uri)
+	metadata := extractMetadataFromURI(uri)
 	s.cfg.L.Debug("file meta-data",
 		zap.String("uri", string(uri)),
 		zap.Bool("hasMetadata", metadata != nil),
-		zap.Bool("isBlock", metadata != nil && metadata.IsFunctionBlock))
+		zap.Bool("isBlock", metadata != nil && metadata.isFunctionBlock))
 	s.mu.Lock()
 	s.documents[uri] = &Document{
 		URI:      uri,
 		Version:  params.TextDocument.Version,
 		Content:  params.TextDocument.Text,
-		Metadata: metadata,
+		metadata: metadata,
 	}
 	s.mu.Unlock()
 
@@ -230,8 +264,10 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 
 	var pDiagnostics []protocol.Diagnostic
-	if doc.Metadata.IsFunctionBlock {
-		t, err := parser.ParseBlock(fmt.Sprintf("{%s}", content))
+	if doc.metadata.isFunctionBlock {
+		wrappedContent := fmt.Sprintf("{%s}", content)
+		doc.Content = wrappedContent
+		t, err := parser.ParseBlock(wrappedContent)
 		if err != nil {
 			pDiagnostics = translateDiagnostics(*err)
 		} else {
@@ -271,40 +307,91 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 }
 
+// republishAllDiagnostics re-analyzes and publishes diagnostics for all open documents.
+// This is called when external state changes (e.g., channels are created or deleted).
+func (s *Server) republishAllDiagnostics(ctx context.Context) {
+	s.mu.RLock()
+	docs := make(map[protocol.DocumentURI]string, len(s.documents))
+	for uri, doc := range s.documents {
+		docs[uri] = doc.Content
+	}
+	s.mu.RUnlock()
+	for uri, content := range docs {
+		s.publishDiagnostics(ctx, uri, content)
+	}
+}
+
 func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	var out protocol.DiagnosticSeverity
 	switch in {
-	case diagnostics.Warning:
+	case diagnostics.SeverityWarning:
 		out = protocol.DiagnosticSeverityWarning
-	case diagnostics.Info:
+	case diagnostics.SeverityInfo:
 		out = protocol.DiagnosticSeverityInformation
-	case diagnostics.Hint:
+	case diagnostics.SeverityHint:
 		out = protocol.DiagnosticSeverityHint
-	case diagnostics.Error:
+	case diagnostics.SeverityError:
 		out = protocol.DiagnosticSeverityError
 	}
 	return out
 }
 
-// translateDiagnostics converts Arc analyzer diagnostics to LSP diagnostics
 func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
-		oDiagnostics = append(oDiagnostics, protocol.Diagnostic{
+		end := diag.End
+		if end.Line == 0 && end.Col == 0 {
+			end.Line = diag.Start.Line
+			end.Col = diag.Start.Col + 1
+		}
+
+		pDiag := protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column),
+					Line:      uint32(diag.Start.Line - 1),
+					Character: uint32(diag.Start.Col),
 				},
 				End: protocol.Position{
-					Line:      uint32(diag.Line - 1),
-					Character: uint32(diag.Column + 10),
+					Line:      uint32(end.Line - 1),
+					Character: uint32(end.Col),
 				},
 			},
 			Severity: severity(diag.Severity),
-			Source:   "arc-analyzer",
+			Source:   "arc",
 			Message:  diag.Message,
-		})
+		}
+
+		if diag.Code != "" {
+			pDiag.Code = string(diag.Code)
+		}
+
+		if len(diag.Notes) > 0 {
+			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
+			for _, note := range diag.Notes {
+				loc := protocol.Location{
+					Range: protocol.Range{
+						Start: protocol.Position{
+							Line:      uint32(note.Start.Line - 1),
+							Character: uint32(note.Start.Col),
+						},
+						End: protocol.Position{
+							Line:      uint32(note.Start.Line - 1),
+							Character: uint32(note.Start.Col + 1),
+						},
+					},
+				}
+				if note.Start.Line == 0 {
+					loc.Range = pDiag.Range
+				}
+				related = append(related, protocol.DiagnosticRelatedInformation{
+					Location: loc,
+					Message:  note.Message,
+				})
+			}
+			pDiag.RelatedInformation = related
+		}
+
+		oDiagnostics = append(oDiagnostics, pDiag)
 	}
 	return oDiagnostics
 }

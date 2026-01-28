@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,12 +25,12 @@ export interface AliasFluxStore extends Flux.UnaryStore<ranger.Key, ranger.Alias
 export const RANGE_KV_FLUX_STORE_KEY = "rangeKV";
 export const RANGE_ALIASES_FLUX_STORE_KEY = "rangeAliases";
 
-const RESOURCE_NAME = "Range";
-const PLURAL_RESOURCE_NAME = "Ranges";
-const KV_RESOURCE_NAME = "Meta-Data Item";
-const PLURAL_KV_RESOURCE_NAME = "Meta-Data";
-const PLURAL_CHILDREN_RESOURCE_NAME = "Child Ranges";
-const PARENT_RESOURCE_NAME = "Parent Range";
+const RESOURCE_NAME = "range";
+const PLURAL_RESOURCE_NAME = "ranges";
+const KV_RESOURCE_NAME = "metadata";
+const PLURAL_KV_RESOURCE_NAME = "metadata";
+const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
+const PARENT_RESOURCE_NAME = "parent range";
 
 export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore {
   [aetherRanger.FLUX_STORE_KEY]: aetherRanger.FluxStore;
@@ -38,8 +38,10 @@ export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore 
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
 }
 
-export interface RetrieveQuery
-  extends Pick<ranger.RetrieveRequest, "includeLabels" | "includeParent"> {
+export interface RetrieveQuery extends Pick<
+  ranger.RetrieveRequest,
+  "includeLabels" | "includeParent"
+> {
   key: ranger.Key;
 }
 
@@ -617,21 +619,43 @@ export const useList = Flux.createList<
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store, query }) =>
-    store.ranges.get((r) => {
-      if (primitive.isNonZero(query.keys)) return query.keys.includes(r.key);
+  retrieveCached: ({ store, query }) => {
+    const keySet = primitive.isNonZero(query.keys) ? new Set(query.keys) : undefined;
+    const hasLabelsSet = primitive.isNonZero(query.hasLabels)
+      ? new Set(query.hasLabels)
+      : undefined;
+    return store.ranges.get((r) => {
+      if (keySet != null && !keySet.has(r.key)) return false;
+      if (
+        hasLabelsSet != null &&
+        (r.labels == null || !r.labels.some((l) => hasLabelsSet.has(l.key)))
+      )
+        return false;
       return true;
-    }),
+    });
+  },
   retrieve: async ({ client, query }) =>
     await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete, client, query: { keys } }) => {
-    const hasKeys = keys != null && keys.length > 0;
-    const keysSet = new Set(keys);
+  mountListeners: ({
+    store,
+    onChange,
+    onDelete,
+    client,
+    query: { keys, hasLabels },
+  }) => {
+    const keysSet = primitive.isNonZero(keys) ? new Set(keys) : undefined;
+    const hasLabelsSet =
+      hasLabels != null && hasLabels.length > 0 ? new Set(hasLabels) : undefined;
     return [
       store.ranges.onSet((range) => {
-        if (hasKeys && !keysSet.has(range.key)) return;
+        if (keysSet != null && !keysSet.has(range.key)) return;
+        if (
+          hasLabelsSet != null &&
+          (range.labels == null || !range.labels.some((l) => hasLabelsSet.has(l.key)))
+        )
+          return;
         onChange(range.key, (prev) => {
           if (prev == null) return range;
           return client.ranges.sugarOne({
@@ -644,6 +668,18 @@ export const useList = Flux.createList<
       store.relationships.onSet(async (rel) => {
         await handleListParentRelationshipSet(rel, onChange, client, store);
         await handleListLabelRelationshipSet(rel, onChange, client, store);
+      }),
+      store.relationships.onDelete(async (relKey) => {
+        const rel = ontology.relationshipZ.parse(relKey);
+        const isLabel = rel.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE;
+        if (isLabel)
+          onChange(rel.from.key, (prev) => {
+            if (prev == null) return prev;
+            return client.ranges.sugarOne({
+              ...prev,
+              labels: prev.labels?.filter((l) => l.key !== rel.to.key),
+            });
+          });
       }),
     ];
   },

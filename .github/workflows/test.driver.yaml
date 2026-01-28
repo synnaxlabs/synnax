@@ -9,6 +9,7 @@ on:
       - .clang-format-ignore
       - .github/workflows/test.driver.yaml
       - alamos/go/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
@@ -23,7 +24,7 @@ on:
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
       - scripts/sanitizers/**
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
   push:
@@ -37,6 +38,7 @@ on:
       - .clang-format-ignore
       - .github/workflows/test.driver.yaml
       - alamos/go/**
+      - arc/cpp/**
       - aspen/**
       - cesium/**
       - client/cpp/**
@@ -51,10 +53,13 @@ on:
       - MODULE.bazel.lock
       - scripts/check_clang_format.sh
       - scripts/sanitizers/**
-      - vendor
+      - vendor/**
       - x/cpp/**
       - x/go/**
   workflow_dispatch:
+
+env:
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
 
 jobs:
   server:
@@ -66,7 +71,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -85,7 +90,7 @@ jobs:
           file: ./core/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+          tags: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
           cache-from: type=gha,scope=synnax-docker-cache
           cache-to: type=inline
           build-args: |
@@ -93,11 +98,11 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-build-bot
     needs: server
     services:
       synnax:
-        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}-test-driver
         env:
           SYNNAX_LISTEN: localhost:9090
           SYNNAX_VERBOSE: true
@@ -111,12 +116,15 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libsystemd-dev
+
+      - name: Install Rust
+        run: rustup update
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -124,9 +132,9 @@ jobs:
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
 
       - name: Install Clang Format
         run: |
@@ -141,6 +149,7 @@ jobs:
       - name: Test Driver
         run: |
           bazel test --config=asan-leak --test_output=all //driver/... \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
             --jobs=1 --test_tag_filters=-hardware

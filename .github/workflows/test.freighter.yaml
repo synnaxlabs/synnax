@@ -20,7 +20,10 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - pyproject.toml
       - scripts/check_gofmt.sh
+      - uv.lock
+      - uv.toml
       - turbo.json
       - x/go/**
       - x/ts/**
@@ -46,7 +49,10 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - pyproject.toml
       - scripts/check_gofmt.sh
+      - uv.lock
+      - uv.toml
       - turbo.json
       - x/go/**
       - x/ts/**
@@ -62,7 +68,7 @@ jobs:
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -86,6 +92,9 @@ jobs:
               - *server
               - alamos/py/**
               - freighter/py/**
+              - pyproject.toml
+              - uv.lock
+              - uv.toml
             ts:
               - *server
               - alamos/ts/**
@@ -108,7 +117,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -138,7 +147,7 @@ jobs:
     if: needs.changes.outputs.integration == 'true'
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -152,7 +161,7 @@ jobs:
         run: scripts/check_gofmt.sh freighter/integration
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           working-directory: freighter/integration
 
@@ -171,35 +180,30 @@ jobs:
           - 8080:8080
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
-      - name: Set up Poetry
-        run: pipx install poetry
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: freighter/py/pyproject.toml
-          cache: poetry
 
-      - name: Install Dependencies
-        run: poetry install
+      - name: Check Import Order
+        run: uv run isort -c .
         working-directory: freighter/py
 
-      - name: isort
-        run: poetry run isort -c .
+      - name: Check Formatting
+        run: uv run black --check --diff --color .
         working-directory: freighter/py
 
-      - name: Format
-        run: poetry run black --check --diff --color .
-        working-directory: freighter/py
-
-      - name: Mypy
-        run: poetry run mypy .
+      - name: Check Types
+        run: uv run mypy .
         working-directory: freighter/py
 
       - name: Test
-        run: poetry run pytest
+        run: uv run pytest
         working-directory: freighter/py
 
   ts:
@@ -220,13 +224,13 @@ jobs:
           - 8080:8080
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
           cache: pnpm

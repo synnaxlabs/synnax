@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,11 +35,10 @@ export interface DetailsProps {
   path: string;
 }
 
-export interface ListAndDetailsProps<C extends Channel>
-  extends Pick<
-    ChannelListProps<C>,
-    "onTare" | "allowTare" | "listItem" | "contextMenuItems"
-  > {
+export interface ListAndDetailsProps<C extends Channel> extends Pick<
+  ChannelListProps<C>,
+  "onTare" | "allowTare" | "listItem" | "contextMenuItems"
+> {
   details: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
 }

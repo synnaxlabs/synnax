@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -104,7 +104,7 @@ var _ = Describe("Telem", func() {
 					State: s.Node("test"),
 				}
 				node, err := factory.Create(ctx, cfg)
-				Expect(err).To(Equal(query.NotFound))
+				Expect(err).To(Equal(query.ErrNotFound))
 				Expect(node).To(BeNil())
 			})
 			It("Should return error for invalid config", func() {
@@ -312,19 +312,6 @@ var _ = Describe("Telem", func() {
 				Expect(outputCount).To(Equal(0))
 			})
 		})
-
-		Describe("Lifecycle", func() {
-			It("Should initialize without error", func() {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
-					},
-					State: s.Node("source"),
-				}))
-				source.Init(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
-			})
-		})
 	})
 
 	Describe("Sink Node", func() {
@@ -443,18 +430,6 @@ var _ = Describe("Telem", func() {
 				Expect(fr2.Get(100).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 			})
 		})
-		Describe("Lifecycle", func() {
-			It("Should initialize without error", func() {
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
-					},
-					State: s.Node("sink"),
-				}))
-				sink.Init(rnode.Context{Context: ctx, MarkChanged: func(string) {}})
-			})
-		})
 	})
 
 	Describe("Integration", func() {
@@ -492,22 +467,20 @@ var _ = Describe("Telem", func() {
 					},
 				})
 				factory := rtelem.NewTelemFactory()
-				source, err := factory.Create(ctx, rnode.Config{
+				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
 						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
 					},
 					State: s.Node("read"),
-				})
-				Expect(err).ToNot(HaveOccurred())
-				sink, err := factory.Create(ctx, rnode.Config{
+				}))
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
 						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(3)}},
 					},
 					State: s.Node("write"),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				ingestFr := telem.Frame[uint32]{}
 				ingestFr = ingestFr.Append(1, telem.NewSeriesV[int32](42, 99))
 				ingestFr = ingestFr.Append(2, telem.NewSeriesSecondsTSV(10, 20))

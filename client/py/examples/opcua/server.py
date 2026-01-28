@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -19,7 +19,7 @@ ARRAY_COUNT = 5
 ARRAY_SIZE = 5
 FLOAT_COUNT = 5
 BOOL_COUNT = 5
-RATE = 100  # Hz
+RATE = 50  # Hz
 BOOL_OFFSET = 0.2  # seconds between each boolean transition
 
 # Error injection configuration
@@ -138,7 +138,7 @@ def inject_error(values):
         return values + [values[-1] for _ in range(extra)]
 
 
-async def update_arrays(arrays, values, start_ref, cycle_count):
+async def update_arrays(arrays, values):
     """Update array variables with generated values.
 
     Injects random errors into ERROR_ARRAY_INDEX at ERROR_INJECTION_RATE.
@@ -178,11 +178,11 @@ async def update_bools(bools, elapsed):
         await bool_var.set_value(square_wave, varianttype=ua.VariantType.Boolean)
 
 
-async def main():
+async def run_server() -> None:
     # Initialize server
     server = Server()
     await server.init()
-    server.set_endpoint("opc.tcp://localhost:4841/freeopcua/server/")
+    server.set_endpoint("opc.tcp://127.0.0.1:4841/freeopcua/server/")
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
@@ -213,17 +213,13 @@ async def main():
     print("\nWaiting for commands...\n")
 
     # Start monitoring task
-    monitor_task = asyncio.create_task(
-        monitor_command_changes(commands, command_values)
-    )
+    asyncio.create_task(monitor_command_changes(commands, command_values))
 
     # Start server loop
     start_ref = datetime.datetime.now(datetime.timezone.utc)
-    cycle_count = 0
 
     async with server:
         while True:
-            cycle_count += 1
             start = datetime.datetime.now(datetime.timezone.utc)
             elapsed = (start - start_ref).total_seconds()
 
@@ -232,7 +228,7 @@ async def main():
             sinewave_values = generate_sinewave_values(timestamps, start_ref)
 
             # Update all variables
-            await update_arrays(arrays, sinewave_values, start_ref, cycle_count)
+            await update_arrays(arrays, sinewave_values)
             await mytimearray.set_value(timestamps, varianttype=ua.VariantType.DateTime)
             await update_floats(floats, elapsed)
             await update_bools(bools, elapsed)
@@ -245,4 +241,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main(), debug=True)
+    asyncio.run(run_server())

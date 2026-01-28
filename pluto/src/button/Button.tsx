@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,8 +32,7 @@ export type Variant =
   | "shadow";
 
 export interface ExtensionProps
-  extends Omit<Text.ExtensionProps, "variant">,
-    Tooltip.WrapProps {
+  extends Omit<Text.ExtensionProps, "variant">, Tooltip.WrapProps {
   variant?: Variant;
   trigger?: Triggers.Trigger;
   triggerIndicator?: boolean | Triggers.Trigger;
@@ -85,7 +84,7 @@ const resolveTriggerIndicator = (
  * handler. This will cause the button to render a progress bar that fills up over the
  * specified time before calling the handler.
  */
-const Core = <E extends ElementType = "button">({
+const Base = <E extends ElementType = "button">({
   size,
   variant = "outlined",
   className,
@@ -234,4 +233,4 @@ const Core = <E extends ElementType = "button">({
   );
 };
 
-export const Button = Tooltip.wrap(Core) as typeof Core;
+export const Button = Tooltip.wrap(Base) as typeof Base;

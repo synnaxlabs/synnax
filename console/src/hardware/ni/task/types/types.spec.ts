@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -147,6 +147,41 @@ describe("analog read task", () => {
             { ...ZERO_AI_CHANNEL, key: "0", device: "34", port: 0 },
             { ...ZERO_AI_CHANNEL, key: "1", device: "34", port: 0 },
           ],
+        }).success,
+      ).toEqual(false);
+    });
+  });
+
+  describe("sample rate limits", () => {
+    it("should accept sample rate at 1 MHz (max limit)", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 20000,
+          sampleRate: 1000000,
+          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+        }).success,
+      ).toEqual(true);
+    });
+
+    it("should reject sample rate exceeding 1 MHz", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 20000,
+          sampleRate: 1000001,
+          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
+        }).success,
+      ).toEqual(false);
+    });
+
+    it("should reject negative sample rate", () => {
+      expect(
+        analogReadConfigZ.safeParse({
+          ...ZERO_ANALOG_READ_PAYLOAD.config,
+          streamRate: 1000,
+          sampleRate: -1,
+          channels: [{ ...ZERO_AI_CHANNEL, key: "0", device: "34" }],
         }).success,
       ).toEqual(false);
     });

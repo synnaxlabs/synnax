@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -12,8 +12,15 @@ This example simulates a basic control sequence where a tank with pressure repre
 by press_pt is pressurized in 20 psi increments. The tank is then vented after holding
 down to 5 psi after a period of time.
 
-This script requires the `simulated_daq.py` script to be running in order to simulate
-the data acquisition system (DAQ).
+To run this example:
+
+Terminal 1 - Start the simulator:
+    cd client/py
+    uv run python -m examples.simulators.press
+
+Terminal 2 - Run the control sequence:
+    cd client/py
+    uv run python -m examples.control.press.control_sequence
 
 This script can be visualized in the Synnax Console by connecting the press_pt channel
 to a line plot and making a schematic that shows valves representing press_vlv_cmd and
@@ -23,7 +30,7 @@ vent_vlv_cmd and a tank with a value representing press_pt.
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Define the control channel names

@@ -2,24 +2,141 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Console_Tests",
+      "sequence_name": "workspace",
+      "tests": [
+        {
+          "case": "console/workspace"
+        }
+      ]
+    },
+    {
+      "sequence_name": "lifecycle",
       "sequence_order": "asynchronous",
       "pool_size": 3,
       "tests": [
         {
+          "case": "console/label/label_lifecycle"
+        },
+        {
+          "case": "console/rack/rack_lifecycle"
+        },
+        {
+          "case": "console/range/range_lifecycle"
+        }
+      ]
+    },
+    {
+      "sequence_name": "pages",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/pages/open_close"
+        },
+        {
+          "case": "console/pages/rename_synchronization"
+        },
+        {
+          "case": "console/log/log_lifecycle"
+        },
+        {
+          "case": "console/plot/line_plot"
+        },
+        {
           "case": "console/schematic/alignment"
         },
         {
-          "case": "console/pages/snap_to_grid"
-        },
-        {
-          "case": "console/schematic/set_output"
-        },
-        {
           "case": "console/schematic/edit_props"
+        }
+      ]
+    },
+    {
+      "sequence_name": "channel",
+      "tests": [
+        {
+          "case": "console/channel/channel_operations"
         },
         {
-          "case": "console/pages/open_close"
+          "case": "console/channel/rename_synchronization"
+        },
+        {
+          "case": "console/channel/alias_synchronization"
+        },
+        {
+          "case": "console/channel/calc_channel_stress",
+          "parameters": {
+            "rate": [10, 100, 1000]
+          }
+        }
+      ]
+    },
+    {
+      "sequence_name": "user",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/user_register"
+        },
+        {
+          "case": "console/user_assign_role"
+        },
+        {
+          "case": "console/user_drag_to_role"
+        },
+        {
+          "case": "console/user_login_logout"
+        },
+        {
+          "case": "console/user_logout_badge"
+        }
+      ]
+    },
+    {
+      "sequence_name": "roles",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/role_engineer_permissions"
+        },
+        {
+          "case": "console/role_operator_permissions"
+        },
+        {
+          "case": "console/role_viewer_permissions"
+        }
+      ]
+    },
+    {
+      "sequence_name": "tasks",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/task/ni_analog_write_forms"
+        },
+        {
+          "case": "console/task/ni_counter_read_forms"
+        },
+        {
+          "case": "console/task/ni_analog_read_forms"
+        }
+      ]
+    },
+    {
+      "sequence_name": "other",
+      "sequence_order": "asynchronous",
+      "pool_size": 3,
+      "tests": [
+        {
+          "case": "console/layout/mosaic_operations"
+        },
+        {
+          "case": "console/layout/keyboard_shortcuts"
+        },
+        {
+          "case": "console/documentation"
         }
       ]
     }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,7 @@ func ProvisionRootUser(
 		if err := svc.User.NewRetrieve().
 			WhereUsernames(creds.Username).
 			Entry(&rootUser).
-			Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
 		if rootUser.Key == uuid.Nil {

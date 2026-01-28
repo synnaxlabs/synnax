@@ -1,0 +1,15 @@
+cc_library(
+    name = "testutil",
+    hdrs = ["testutil.h"],
+    visibility = ["//arc/cpp:__subpackages__"],
+    deps = ["//arc/cpp/ir"],
+)
+
+cc_test(
+    name = "testutil_test",
+    srcs = ["testutil_test.cpp"],
+    deps = [
+        ":testutil",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,11 +24,6 @@ func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-func (u Update[K, E]) Where(filter FilterFunc[K, E]) Update[K, E] {
-	u.retrieve = u.retrieve.Where(filter)
-	return u
-}
-
 func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {
 	u.retrieve = u.retrieve.WhereKeys(keys...)
 	return u
@@ -51,7 +46,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 	}
 	c := getChanges[K, E](u.retrieve.Params)
 	if len(c) == 0 {
-		return errors.Wrap(query.InvalidParameters, "[gorp] - update query must specify at least one change function")
+		return errors.Wrap(query.ErrInvalidParameters, "[gorp] - update query must specify at least one change function")
 	}
 	for i, e := range entries {
 		if entries[i], err = c.exec(Context{Context: ctx, Tx: tx}, e); err != nil {

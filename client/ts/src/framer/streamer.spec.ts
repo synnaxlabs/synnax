@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -389,7 +389,6 @@ describe("Streamer", () => {
             dataType: DataType.FLOAT64,
             virtual: true,
             expression: `return ${channelA.name} + ${channelB.name}`,
-            requires: [channelA.key, channelB.key],
           });
 
           const streamer = await client.openStreamer(calcChannel.key);

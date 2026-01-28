@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -41,7 +41,7 @@ var _ = Describe("Tx", Ordered, func() {
 				return err
 			})).To(MatchError(err))
 			_, _, err = db.Get(ctx, k)
-			Expect(err).To(MatchError(kv.NotFound))
+			Expect(err).To(MatchError(kv.ErrNotFound))
 		})
 	})
 })

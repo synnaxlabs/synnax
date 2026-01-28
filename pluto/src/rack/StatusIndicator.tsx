@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import { useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
-import { Status } from "@/status/core";
+import { Status } from "@/status/base";
 import { Tooltip } from "@/tooltip";
 
 export interface StatusIndicatorProps {

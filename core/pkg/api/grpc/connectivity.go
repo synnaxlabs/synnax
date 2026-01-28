@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,9 +30,7 @@ type (
 	]
 )
 
-var (
-	_ fgrpc.Translator[api.ConnectivityCheckResponse, *gapi.ConnectivityCheckResponse] = (*connectivityResponseTranslator)(nil)
-)
+var _ fgrpc.Translator[api.ConnectivityCheckResponse, *gapi.ConnectivityCheckResponse] = (*connectivityResponseTranslator)(nil)
 
 func (c connectivityResponseTranslator) Forward(
 	ctx context.Context,

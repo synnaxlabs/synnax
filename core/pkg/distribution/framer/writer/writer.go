@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ package writer
 import (
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -23,16 +23,16 @@ type StreamWriter = confluence.Segment[Request, Response]
 var ErrClosed = errors.New("writer closed")
 
 type Writer struct {
-	cfg       Config
 	requests  confluence.Inlet[Request]
 	responses confluence.Outlet[Response]
 	shutdown  io.Closer
 	closeErr  error
+	cfg       Config
 }
 
 // Write implements Writer.
-func (w *Writer) Write(frame core.Frame) (authorized bool, err error) {
-	res, err := w.exec(Request{Frame: frame, Command: Write}, *w.cfg.Sync)
+func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
+	res, err := w.exec(Request{Frame: frame, Command: CommandWrite}, *w.cfg.Sync)
 	if err != nil {
 		return false, err
 	}
@@ -41,12 +41,12 @@ func (w *Writer) Write(frame core.Frame) (authorized bool, err error) {
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, error) {
-	res, err := w.exec(Request{Command: Commit}, true)
+	res, err := w.exec(Request{Command: CommandCommit}, true)
 	return res.End, err
 }
 
 func (w *Writer) SetAuthority(cfg Config) error {
-	_, err := w.exec(Request{Command: SetAuthority, Config: cfg}, true)
+	_, err := w.exec(Request{Command: CommandSetAuthority, Config: cfg}, true)
 	return err
 }
 

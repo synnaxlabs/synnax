@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/flux/aether/provider";
-export * from "@/flux/core/client";
-export * from "@/flux/core/store";
-export * from "@/flux/core/streamer";
-export * from "@/flux/core/types";
+export * from "@/flux/base/client";
+export * from "@/flux/base/store";
+export * from "@/flux/base/streamer";
+export * from "@/flux/base/types";

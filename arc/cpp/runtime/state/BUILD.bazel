@@ -1,0 +1,30 @@
+cc_library(
+    name = "state",
+    srcs = [
+        "state.cpp",
+    ],
+    hdrs = [
+        "state.h",
+    ],
+    visibility = ["//arc/cpp/runtime:__subpackages__"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/errors",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "//x/cpp/xmemory",
+        "@glog",
+    ],
+)
+
+cc_test(
+    name = "state_test",
+    srcs = [
+        "state_test.cpp",
+    ],
+    deps = [
+        ":state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

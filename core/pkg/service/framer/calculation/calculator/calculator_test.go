@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,13 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -34,26 +36,51 @@ var _ = Describe("Calculator", Ordered, func() {
 	BeforeAll(func() {
 		distB := mock.NewCluster()
 		dist = distB.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
+		DeferCleanup(func() {
+			Expect(labelSvc.Close()).To(Succeed())
+		})
 		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
-			Label:    labelSvc,
-			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
+			Label:    labelSvc,
 		}))
+		DeferCleanup(func() {
+			Expect(statusSvc.Close()).To(Succeed())
+		})
+		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           dist.DB,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       statusSvc,
+		}))
+		DeferCleanup(func() {
+			Expect(rackService.Close()).To(Succeed())
+		})
+		taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Rack:     rackService,
+			Status:   statusSvc,
+		}))
+		DeferCleanup(func() {
+			Expect(taskSvc.Close()).To(Succeed())
+		})
 		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			Channel:  dist.Channel,
 			Ontology: dist.Ontology,
 			DB:       dist.DB,
-			Framer:   dist.Framer,
-			Status:   statusSvc,
 			Signals:  dist.Signals,
+			Task:     taskSvc,
 		}))
 	})
 
@@ -108,8 +135,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			c := open(nil, &base, &calc)
 			d := telem.NewSeriesV[int64](10, 20, 30)
 			d.Alignment = telem.NewAlignment(100, 50)
-			fr := core.UnaryFrame(base[0].Key(), d)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			fr := frame.NewUnary(base[0].Key(), d)
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](20, 40, 60))
@@ -141,11 +168,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			d1.Alignment = telem.NewAlignment(10, 5)
 			d2 := telem.NewSeriesV[int64](3, 4)
 			d2.Alignment = telem.NewAlignment(20, 3)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{d1, d2},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](4, 6))
@@ -168,16 +195,16 @@ var _ = Describe("Calculator", Ordered, func() {
 			c := open(nil, &base, &calc)
 			d1 := telem.NewSeriesV[int64](1)
 			d1.Alignment = telem.NewAlignment(15, 2)
-			fr1 := core.UnaryFrame(base[0].Key(), d1)
-			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			fr1 := frame.NewUnary(base[0].Key(), d1)
+			of, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](6))
 			Expect(od.Alignment).To(Equal(telem.NewAlignment(15, 2)))
 			d2 := telem.NewSeriesV[int64](2)
 			d2.Alignment = telem.NewAlignment(25, 7)
-			fr2 := core.UnaryFrame(base[0].Key(), d2)
-			of, changed = MustSucceed2(c.Next(ctx, fr2, core.Frame{}))
+			fr2 := frame.NewUnary(base[0].Key(), d2)
+			of, changed = MustSucceed2(c.Next(ctx, fr2, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od = of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](7))
@@ -215,11 +242,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			d2 := telem.NewSeriesV[int64](2)
 			d3 := telem.NewSeriesV[int64](3)
 			d3.Alignment = telem.NewAlignment(5, 1)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key()},
 				[]telem.Series{d1, d2, d3},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			od := of.Get(calc.Key()).Series[0]
 			Expect(od).To(telem.MatchSeriesDataV[int64](6))
@@ -249,14 +276,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expression: fmt.Sprintf("return %s - %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(nil, &bases, &calc)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
 					telem.NewSeriesV[float32](10.5, 20.5, 30.5),
 					telem.NewSeriesV[float32](0.5, 1.5, 2.5),
 				},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](10.0, 19.0, 28.0))
 			Expect(c.Close()).To(Succeed())
@@ -287,7 +314,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expression: fmt.Sprintf("return %s * %s + %s", bases[0].Name, bases[1].Name, bases[2].Name),
 			}
 			c := open(nil, &bases, &calc)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key(), bases[2].Key()},
 				[]telem.Series{
 					telem.NewSeriesV[int32](2, 3),
@@ -295,7 +322,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					telem.NewSeriesV[int32](1, 2),
 				},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int32](9, 17))
 			Expect(c.Close()).To(Succeed())
@@ -322,11 +349,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			idxData.Alignment = telem.NewAlignment(10, 5)
 			valData := telem.NewSeriesV(100.0, 200.0, 300.0)
 			valData.Alignment = telem.NewAlignment(10, 5)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{indexes[0].Key(), bases[0].Key()},
 				[]telem.Series{idxData, valData},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(50.0, 100.0, 150.0))
 			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
@@ -365,11 +392,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			tempData.Alignment = telem.NewAlignment(5, 2)
 			pressureData := telem.NewSeriesV[int64](5, 10, 15)
 			pressureData.Alignment = telem.NewAlignment(5, 2)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{indexes[0].Key(), bases[0].Key(), bases[1].Key()},
 				[]telem.Series{idxData, tempData, pressureData},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20, 35, 50))
 			Expect(of.Get(calc.Index()).Series[0]).To(telem.MatchSeriesDataV(
@@ -418,11 +445,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			idx2Data.Alignment = telem.NewAlignment(7, 3)
 			currentData := telem.NewSeriesV[float32](3.0, 5.0)
 			currentData.Alignment = telem.NewAlignment(7, 3)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{indexes[0].Key(), bases[0].Key(), indexes[1].Key(), bases[1].Key()},
 				[]telem.Series{idx1Data, voltageData, idx2Data, currentData},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](6.0, 20.0))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(10, 4)))
@@ -459,11 +486,11 @@ var _ = Describe("Calculator", Ordered, func() {
 			persistedData.Alignment = telem.NewAlignment(8, 4)
 			virtualData := telem.NewSeriesV[int64](30, 50)
 			virtualData.Alignment = telem.NewAlignment(12, 2)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{indexes[0].Key(), bases[0].Key(), bases[1].Key()},
 				[]telem.Series{idxData, persistedData, virtualData},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](70, 150))
 			Expect(of.Get(calc.Index()).Series[0].Alignment).To(Equal(telem.NewAlignment(20, 6)))
@@ -492,14 +519,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				Expression: fmt.Sprintf("return %s / %s", bases[0].Name, bases[1].Name),
 			}
 			c := open(nil, &bases, &calc)
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				[]channel.Key{bases[0].Key(), bases[1].Key()},
 				[]telem.Series{
 					telem.NewSeriesV[float32](10.0, 20.0, 30.0),
 					telem.NewSeriesV[float32](2.0, 4.0, 5.0),
 				},
 			)
-			of, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[float32](5.0, 5.0, 6.0))
 			Expect(c.Close()).To(Succeed())
@@ -526,12 +553,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			c := open(&indexes, &bases, &calc)
 			dataOnly := telem.NewSeriesV[int64](10, 20, 30)
 			dataOnly.Alignment = telem.NewAlignment(5, 2)
-			fr1 := core.UnaryFrame(bases[0].Key(), dataOnly)
-			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			fr1 := frame.NewUnary(bases[0].Key(), dataOnly)
+			of, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
 			Expect(changed).To(BeFalse())
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(5, 2)
-			fr2 := core.UnaryFrame(indexes[0].Key(), idxData)
+			fr2 := frame.NewUnary(indexes[0].Key(), idxData)
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 60, 90))
@@ -561,12 +588,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			c := open(&indexes, &bases, &calc)
 			idxData := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idxData.Alignment = telem.NewAlignment(3, 1)
-			fr1 := core.UnaryFrame(indexes[0].Key(), idxData)
-			of, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			fr1 := frame.NewUnary(indexes[0].Key(), idxData)
+			of, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
 			Expect(changed).To(BeFalse())
 			dataOnly := telem.NewSeriesV[int64](15, 25, 35)
 			dataOnly.Alignment = telem.NewAlignment(3, 1)
-			fr2 := core.UnaryFrame(bases[0].Key(), dataOnly)
+			fr2 := frame.NewUnary(bases[0].Key(), dataOnly)
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](30, 50, 70))
@@ -598,15 +625,15 @@ var _ = Describe("Calculator", Ordered, func() {
 			// First write: Data Series 1. Should not Calculate
 			data1 := telem.NewSeriesV[int64](5, 15)
 			data1.Alignment = telem.NewAlignment(2, 1)
-			fr1 := core.UnaryFrame(bases[0].Key(), data1)
-			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			fr1 := frame.NewUnary(bases[0].Key(), data1)
+			_, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
 			Expect(changed).To(BeFalse())
 
 			// Second Write: Data Series 2. Should Not Calculate
 			idx1 := telem.NewSeriesSecondsTSV(1, 2)
 			idx1.Alignment = telem.NewAlignment(2, 1)
-			fr2 := core.UnaryFrame(indexes[0].Key(), idx1)
-			of := core.Frame{}
+			fr2 := frame.NewUnary(indexes[0].Key(), idx1)
+			of := frame.Frame{}
 			of, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](15, 25))
@@ -617,15 +644,15 @@ var _ = Describe("Calculator", Ordered, func() {
 
 			data2 := telem.NewSeriesV[int64](25)
 			data2.Alignment = telem.NewAlignment(3, 2)
-			fr3 := core.UnaryFrame(bases[0].Key(), data2)
-			of = core.Frame{}
+			fr3 := frame.NewUnary(bases[0].Key(), data2)
+			of = frame.Frame{}
 			_, changed = MustSucceed2(c.Next(ctx, fr3, of))
 			Expect(changed).To(BeFalse())
 
 			idx2 := telem.NewSeriesSecondsTSV(3)
 			idx2.Alignment = telem.NewAlignment(3, 2)
-			fr4 := core.UnaryFrame(indexes[0].Key(), idx2)
-			of = core.Frame{}
+			fr4 := frame.NewUnary(indexes[0].Key(), idx2)
+			of = frame.Frame{}
 			of, changed = MustSucceed2(c.Next(ctx, fr4, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](35))
@@ -660,19 +687,19 @@ var _ = Describe("Calculator", Ordered, func() {
 			c := open(&indexes, &bases, &calc)
 			idx := telem.NewSeriesSecondsTSV(1, 2, 3)
 			idx.Alignment = telem.NewAlignment(5, 1)
-			fr1 := core.UnaryFrame(indexes[0].Key(), idx)
-			_, changed := MustSucceed2(c.Next(ctx, fr1, core.Frame{}))
+			fr1 := frame.NewUnary(indexes[0].Key(), idx)
+			_, changed := MustSucceed2(c.Next(ctx, fr1, frame.Frame{}))
 			Expect(changed).To(BeFalse())
 			ch1Data := telem.NewSeriesV(10.0, 20.0, 30.0)
 			ch1Data.Alignment = telem.NewAlignment(5, 1)
-			fr2 := core.UnaryFrame(bases[0].Key(), ch1Data)
-			of := core.Frame{}
+			fr2 := frame.NewUnary(bases[0].Key(), ch1Data)
+			of := frame.Frame{}
 			_, changed = MustSucceed2(c.Next(ctx, fr2, of))
 			Expect(changed).To(BeFalse())
 			ch2Data := telem.NewSeriesV(1.0, 2.0, 3.0)
 			ch2Data.Alignment = telem.NewAlignment(5, 1)
-			fr3 := core.UnaryFrame(bases[1].Key(), ch2Data)
-			of = core.Frame{}
+			fr3 := frame.NewUnary(bases[1].Key(), ch2Data)
+			of = frame.Frame{}
 			of, changed = MustSucceed2(c.Next(ctx, fr3, of))
 			Expect(changed).To(BeTrue())
 			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV(11.0, 22.0, 33.0))
@@ -712,11 +739,11 @@ var _ = Describe("Calculator", Ordered, func() {
 		i := telem.NewSeriesSecondsTSV(1, 2, 3)
 		d.Alignment = telem.NewAlignment(1, 0)
 		i.Alignment = d.Alignment
-		fr := core.MultiFrame(
+		fr := frame.NewMulti(
 			[]channel.Key{idx[0].Key(), base[0].Key()},
 			[]telem.Series{i, d},
 		)
-		o, changed := MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+		o, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 		Expect(changed).To(BeTrue())
 		Expect(o.Len()).To(BeEquivalentTo(1))
 		Expect(o.Get(calc.Index()).Series[0]).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(3)))
@@ -726,11 +753,11 @@ var _ = Describe("Calculator", Ordered, func() {
 		i = telem.NewSeriesSecondsTSV(4, 5, 6)
 		d.Alignment = telem.NewAlignment(1, 3)
 		i.Alignment = d.Alignment
-		fr = core.MultiFrame(
+		fr = frame.NewMulti(
 			[]channel.Key{idx[0].Key(), base[0].Key()},
 			[]telem.Series{i, d},
 		)
-		o, changed = MustSucceed2(c.Next(ctx, fr, core.Frame{}))
+		o, changed = MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
 		Expect(changed).To(BeTrue())
 		Expect(o.Len()).To(BeEquivalentTo(1))
 		Expect(o.Get(calc.Index()).Series[0]).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(6)))
@@ -785,7 +812,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			d1 := telem.NewSeriesV[int64](10, 20)
 			d2 := telem.NewSeriesV[int64](5, 10)
 			i := telem.NewSeriesSecondsTSV(1, 2)
-			fr := core.MultiFrame([]channel.Key{idx[0].Key(), b1[0].Key(), b2[0].Key()}, []telem.Series{i, d1, d2})
+			fr := frame.NewMulti([]channel.Key{idx[0].Key(), b1[0].Key(), b2[0].Key()}, []telem.Series{i, d1, d2})
 			output, changed, statuses := g.Next(ctx, fr)
 			Expect(statuses).To(BeEmpty())
 			Expect(changed).To(BeTrue())
@@ -842,7 +869,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			for i := 0; i < 10; i++ {
 				d1 := telem.NewSeriesV[int64](10, 20)
 				d1.Alignment = telem.NewAlignment(0, uint32(i*2))
-				fr := core.MultiFrame([]channel.Key{b1[0].Key()}, []telem.Series{d1})
+				fr := frame.NewMulti([]channel.Key{b1[0].Key()}, []telem.Series{d1})
 				output, changed, statuses := g.Next(ctx, fr)
 				Expect(statuses).To(BeEmpty())
 				Expect(changed).To(BeTrue())

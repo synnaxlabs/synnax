@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -9,11 +9,10 @@
 
 """Test that Viewer role has read-only permissions."""
 
-import uuid
-
 import synnax as sy
 
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class RoleViewerPermissions(ConsoleCase):
@@ -21,7 +20,7 @@ class RoleViewerPermissions(ConsoleCase):
 
     def run(self) -> None:
         # Create a new user with Viewer role
-        username = f"viewer_{uuid.uuid4().hex[:8]}"
+        username = f"viewer_{get_random_name()}"
         password = "testpassword123"
         first_name = "Viewer"
         last_name = "Test"
@@ -41,7 +40,7 @@ class RoleViewerPermissions(ConsoleCase):
         # Log out and log in as the viewer
         self.log("Logging out and logging in as viewer...")
         self.console.access.logout()
-        self.console.access.login(username, password)
+        self.console.access.login(username=username, password=password)
 
         # Verify logged in as viewer
         user_badge = self.page.get_by_text(first_name, exact=True)

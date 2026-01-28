@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -54,7 +54,7 @@ var _ = Describe("update", func() {
 	It("Should return an error if no change function was specified", func() {
 		Expect(gorp.NewUpdate[int, entry]().
 			WhereKeys(entries[0].GorpKey()).
-			Exec(ctx, tx)).To(HaveOccurredAs(query.InvalidParameters))
+			Exec(ctx, tx)).To(HaveOccurredAs(query.ErrInvalidParameters))
 	})
 
 	It("Should return an error if the the key cannot be found", func() {
@@ -63,7 +63,7 @@ var _ = Describe("update", func() {
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
-			}).Exec(ctx, tx)).To(HaveOccurredAs(query.NotFound))
+			}).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
 	})
 
 	It("Should pass the correct transaction into the gorp.Context in the where function", func() {
@@ -78,39 +78,5 @@ var _ = Describe("update", func() {
 				return e
 			}).Exec(ctx, tx)).To(Succeed())
 		Expect(count).To(Equal(1))
-	})
-
-	Describe("Where", func() {
-		It("Should correctly update a set of entries based on a where filter function", func() {
-			Expect(gorp.NewUpdate[int, entry]().
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
-				Change(func(_ gorp.Context, e entry) entry {
-					e.Data = "new data"
-					return e
-				}).Exec(ctx, tx)).To(Succeed())
-			var res []entry
-			Expect(gorp.NewRetrieve[int, entry]().
-				Where(func(_ gorp.Context, e *entry) (bool, error) { return e.ID < 5, nil }).
-				Entries(&res).
-				Exec(ctx, tx)).To(Succeed())
-			for i := range res {
-				Expect(res[i]).To(Equal(entry{ID: i, Data: "new data"}))
-			}
-		})
-
-		It("Should pass the correct transaction to the gorp.Context in the where function", func() {
-			count := 0
-			Expect(gorp.NewUpdate[int, entry]().
-				WhereKeys(entries[0].GorpKey()).
-				Where(func(gCtx gorp.Context, e *entry) (bool, error) {
-					count++
-					Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-					Expect(gCtx.Tx).To(BeIdenticalTo(tx))
-					Expect(e).NotTo(BeNil())
-					return true, nil
-				}).Change(func(_ gorp.Context, e entry) entry { return e }).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(count).To(Equal(1))
-		})
 	})
 })

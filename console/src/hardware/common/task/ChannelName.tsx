@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,8 +15,10 @@ import { useCallback, useEffect, useMemo } from "react";
 import { CSS } from "@/css";
 import { useSelectActiveKey as useSelectActiveRangeKey } from "@/range/selectors";
 
-export interface ChannelNameProps
-  extends optional.Optional<Omit<Text.MaybeEditableProps, "value">, "level"> {
+export interface ChannelNameProps extends optional.Optional<
+  Omit<Text.MaybeEditableProps, "value">,
+  "level"
+> {
   channel: channel.Key;
   defaultName?: string;
   namePath: string;
@@ -42,7 +44,7 @@ export const ChannelName = ({
     retrieve({ key: channel, rangeKey: range ?? undefined });
   }, [channel, range]);
   const { update } = Channel.useRename();
-  const name = data?.name ?? (primitive.isNonZero(formName) ? formName : defaultName);
+  const name = getName(data, formName, defaultName);
   const handleRename = useCallback(
     (name: string) => {
       if (channel === 0) {
@@ -103,4 +105,17 @@ export const ChannelName = ({
       {text}
     </Tooltip.Dialog>
   );
+};
+
+const getName = (
+  data: channel.Channel | undefined,
+  formName: string | null,
+  defaultName: string,
+) => {
+  if (data != null) {
+    if (primitive.isNonZero(data.alias)) return data.alias;
+    return data.name;
+  }
+  if (primitive.isNonZero(formName)) return formName;
+  return defaultName;
 };

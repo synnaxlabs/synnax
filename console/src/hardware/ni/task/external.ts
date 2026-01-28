@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,28 +11,28 @@ import { type Export } from "@/export";
 import { Common } from "@/hardware/common";
 import {
   ANALOG_READ_LAYOUT,
-  ANALOG_READ_SELECTABLE,
   AnalogRead,
+  AnalogReadSelectable,
 } from "@/hardware/ni/task/AnalogRead";
 import {
   ANALOG_WRITE_LAYOUT,
-  ANALOG_WRITE_SELECTABLE,
   AnalogWrite,
+  AnalogWriteSelectable,
 } from "@/hardware/ni/task/AnalogWrite";
 import {
   COUNTER_READ_LAYOUT,
-  COUNTER_READ_SELECTABLE,
   CounterRead,
+  CounterReadSelectable,
 } from "@/hardware/ni/task/CounterRead";
 import {
   DIGITAL_READ_LAYOUT,
-  DIGITAL_READ_SELECTABLE,
   DigitalRead,
+  DigitalReadSelectable,
 } from "@/hardware/ni/task/DigitalRead";
 import {
   DIGITAL_WRITE_LAYOUT,
-  DIGITAL_WRITE_SELECTABLE,
   DigitalWrite,
+  DigitalWriteSelectable,
 } from "@/hardware/ni/task/DigitalWrite";
 import {
   ingestAnalogRead,
@@ -85,11 +85,11 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
 };
 
 export const SELECTABLES: Selector.Selectable[] = [
-  ANALOG_READ_SELECTABLE,
-  ANALOG_WRITE_SELECTABLE,
-  COUNTER_READ_SELECTABLE,
-  DIGITAL_READ_SELECTABLE,
-  DIGITAL_WRITE_SELECTABLE,
+  AnalogReadSelectable,
+  AnalogWriteSelectable,
+  CounterReadSelectable,
+  DigitalReadSelectable,
+  DigitalWriteSelectable,
 ];
 
 export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {

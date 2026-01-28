@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -138,8 +138,11 @@ export const readStatusDataZ = z
 export const READ_TYPE = `${PREFIX}_read`;
 export const readTypeZ = z.literal(READ_TYPE);
 
-interface ReadPayload
-  extends task.Payload<typeof readTypeZ, typeof readConfigZ, typeof readStatusDataZ> {}
+interface ReadPayload extends task.Payload<
+  typeof readTypeZ,
+  typeof readConfigZ,
+  typeof readStatusDataZ
+> {}
 export const ZERO_READ_PAYLOAD = {
   key: "",
   name: "Modbus Read Task",
@@ -219,12 +222,11 @@ export const writeStatusDataZ = z
 export const WRITE_TYPE = `${PREFIX}_write`;
 export const writeTypeZ = z.literal(WRITE_TYPE);
 
-interface WritePayload
-  extends task.Payload<
-    typeof writeTypeZ,
-    typeof writeConfigZ,
-    typeof writeStatusDataZ
-  > {}
+interface WritePayload extends task.Payload<
+  typeof writeTypeZ,
+  typeof writeConfigZ,
+  typeof writeStatusDataZ
+> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",

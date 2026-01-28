@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,7 +32,7 @@ var _ = Describe("Service", func() {
 				DB:           testDB,
 			}))
 
-			testSvc, err := symbol.OpenService(ctx, symbol.Config{
+			testSvc, err := symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 			})
@@ -50,12 +50,12 @@ var _ = Describe("Service", func() {
 				EnableSearch: config.False(),
 				DB:           testDB,
 			}))
-			testGroup := MustSucceed(group.OpenService(ctx, group.Config{
+			testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 			}))
 
-			testSvc, err := symbol.OpenService(ctx, symbol.Config{
+			testSvc, err := symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Group:    testGroup,
@@ -71,13 +71,13 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should fail with invalid configuration", func() {
-			_, err := symbol.OpenService(ctx, symbol.Config{
+			_, err := symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB: nil,
 			})
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("db: must be non-nil"))
 
-			_, err = symbol.OpenService(ctx, symbol.Config{
+			_, err = symbol.OpenService(ctx, symbol.ServiceConfig{
 				Ontology: otg,
 			})
 			Expect(err).To(HaveOccurred())
@@ -96,11 +96,11 @@ var _ = Describe("Service", func() {
 				DB:           testDB2,
 			}))
 
-			cfg1 := symbol.Config{
+			cfg1 := symbol.ServiceConfig{
 				DB:       testDB1,
 				Ontology: testOtg1,
 			}
-			cfg2 := symbol.Config{
+			cfg2 := symbol.ServiceConfig{
 				DB:       testDB2,
 				Ontology: testOtg2,
 			}
@@ -108,8 +108,8 @@ var _ = Describe("Service", func() {
 			testSvc, err := symbol.OpenService(ctx, cfg1, cfg2)
 			Expect(err).ToNot(HaveOccurred())
 			// Should use cfg2's values
-			Expect(testSvc.Config.DB).To(Equal(testDB2))
-			Expect(testSvc.Config.Ontology).To(Equal(testOtg2))
+			Expect(testSvc.ServiceConfig.DB).To(Equal(testDB2))
+			Expect(testSvc.ServiceConfig.Ontology).To(Equal(testOtg2))
 
 			Expect(testSvc.Close()).To(Succeed())
 			Expect(testOtg1.Close()).To(Succeed())
@@ -146,7 +146,7 @@ var _ = Describe("Service", func() {
 				DB:           testDB,
 			}))
 
-			testSvc, err := symbol.OpenService(ctx, symbol.Config{
+			testSvc, err := symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 			})

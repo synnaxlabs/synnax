@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,9 +32,6 @@ import (
 // Config is the configuration for opening the telemetry relay. See its fields for
 // more information.
 type Config struct {
-	// Instrumentation is used for logging, tracing, etc.
-	// [OPTIONAL]
-	alamos.Instrumentation
 	// Transport is the network transport used to move telemetry streams. This is used
 	// to both send telemetry streams from the host node to peer nodes, and to stream
 	// telemetry from peer nodes to the host node.
@@ -47,6 +44,13 @@ type Config struct {
 	// HostResolver is used to retrieve information about the host node.
 	// [REQUIRED]
 	HostResolver cluster.HostResolver
+	// FreeWrites is the pipeline for moving data for free virtual channels. Free virtual
+	// channels are not leased to any node, and their data is not stored in the cluster
+	// and is propagated through the cluster using a separate mechanism. This is mostly
+	// used for signaling changes in the cluster meta-data through aspen based key-value
+	// gossip.
+	// [REQUIRED]
+	FreeWrites confluence.Outlet[Response]
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
@@ -55,17 +59,13 @@ type Config struct {
 	// engine's streaming mechanism.
 	// [REQUIRED]
 	TS *ts.DB
-	// FreeWrites is the pipeline for moving data for free virtual channels. Free virtual
-	// channels are not leased to any node, and their data is not stored in the cluster
-	// and is propagated through the cluster using a separate mechanism. This is mostly
-	// used for signaling changes in the cluster meta-data through aspen based key-value
-	// gossip.
-	// [REQUIRED]
-	FreeWrites confluence.Outlet[Response]
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
+	// Instrumentation is used for logging, tracing, etc.
+	// [OPTIONAL]
+	alamos.Instrumentation
 	// SlowConsumerTimeout sets the maximum amount of time that the relay will wait for
 	// a streamer to receive a response before dropping the frame.
 	SlowConsumerTimeout time.Duration
@@ -124,11 +124,11 @@ func (c Config) Validate() error {
 // Relay is the central mechanism for streaming real-time telemetry within the
 // distribution layer. It moves
 type Relay struct {
-	cfg      Config
 	ins      alamos.Instrumentation
-	delta    *confluence.DynamicDeltaMultiplier[Response]
 	demands  confluence.Inlet[demand]
 	shutdown io.Closer
+	delta    *confluence.DynamicDeltaMultiplier[Response]
+	cfg      Config
 }
 
 func Open(configs ...Config) (*Relay, error) {

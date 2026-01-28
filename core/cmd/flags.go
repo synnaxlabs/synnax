@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,16 +12,16 @@ package cmd
 import "github.com/spf13/cobra"
 
 const (
-	flagConfig  = "config"
 	flagVersion = "version"
+	flagConfig  = "config"
 )
 
-func bindFlags(cmd *cobra.Command) {
+func addFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringP(
 		flagConfig,
 		"c",
 		"/usr/local/synnax/config.yaml",
-		"config file",
+		"The path to the configuration file",
 	)
 	cmd.Flags().Bool(flagVersion, false, "Print the version of Synnax")
 }

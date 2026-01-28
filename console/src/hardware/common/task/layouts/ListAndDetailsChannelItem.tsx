@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,8 +23,9 @@ export interface ListAndDetailsIconProps {
   name: string;
 }
 
-export interface ListAndDetailsChannelItemProps<K extends record.Key>
-  extends List.ItemProps<K> {
+export interface ListAndDetailsChannelItemProps<
+  K extends record.Key,
+> extends List.ItemProps<K> {
   port: string | number;
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;

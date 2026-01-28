@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -58,6 +58,13 @@ export type Operation = z.infer<typeof operationZ>;
 
 export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
+
+export const calculationStatusDetailsZ = z.object({ channel: keyZ });
+export type CalculationStatusDetails = z.infer<typeof calculationStatusDetailsZ>;
+export const calculationStatusZ = status.statusZ(calculationStatusDetailsZ);
+export type CalculationStatus = z.infer<typeof calculationStatusZ>;
+
+export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 export const payloadZ = z.object({
   name: z.string(),
   key: keyZ,
@@ -71,7 +78,6 @@ export const payloadZ = z.object({
   expression: z.string().default(""),
   status: statusZ.optional(),
   operations: array.nullableZ(operationZ),
-  requires: array.nullableZ(keyZ),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -85,11 +91,12 @@ export const newZ = payloadZ.extend({
   virtual: z.boolean().default(false),
   expression: z.string().default(""),
   operations: array.nullableZ(operationZ).optional(),
-  requires: array.nullableZ(keyZ).optional(),
 });
 
-export interface New
-  extends Omit<z.input<typeof newZ>, "dataType" | "status" | "internal"> {
+export interface New extends Omit<
+  z.input<typeof newZ>,
+  "dataType" | "status" | "internal"
+> {
   dataType: CrudeDataType;
 }
 

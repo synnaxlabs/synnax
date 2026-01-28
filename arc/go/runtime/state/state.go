@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,26 +35,26 @@ type value struct {
 // State manages runtime data for an arc program.
 // It stores node outputs, channel I/O buffers, and index relationships.
 type State struct {
-	cfg     Config
-	outputs map[ir.Handle]*value
-	indexes map[uint32]uint32
 	channel struct {
 		reads  map[uint32]telem.MultiSeries
 		writes map[uint32]telem.Series
 	}
+	outputs map[ir.Handle]*value
+	indexes map[uint32]uint32
+	cfg     Config
 }
 
 // ChannelDigest provides metadata about a channel for state initialization.
 type ChannelDigest struct {
-	Key      uint32
 	DataType telem.DataType
+	Key      uint32
 	Index    uint32
 }
 
 // Config provides dependencies for creating a State instance.
 type Config struct {
-	ChannelDigests []ChannelDigest
 	IR             ir.IR
+	ChannelDigests []ChannelDigest
 }
 
 // New creates a state manager from the given configuration.
@@ -118,12 +118,18 @@ func (s *State) writeChannel(key uint32, data, time telem.Series) {
 	}
 }
 
-// ClearReads empties all channel read buffers while preserving their underlying capacity.
-// This is typically called after processing channel reads to prepare for the next batch of data.
-// Unlike FlushWrites, ClearReads does not extract data; it simply discards buffered channel reads.
+// ClearReads clears accumulated channel read buffers while preserving the latest series for each channel.
+// This allows channel_read_* calls to return the most recent value even if new frames for that
+// channel haven't arrived yet in the current cycle.
 func (s *State) ClearReads() {
 	for key, ser := range s.channel.reads {
-		ser.Series = ser.Series[:0]
+		if len(ser.Series) <= 1 {
+			continue
+		}
+		// Keep only the last series to preserve the latest value for each channel.
+		last := ser.Series[len(ser.Series)-1]
+		ser.Series = ser.Series[:1]
+		ser.Series[0] = last
 		s.channel.reads[key] = ser
 	}
 }
@@ -209,6 +215,12 @@ type Node struct {
 	inputSources []*value // Cached pointers to input sources (avoids map lookups)
 	outputCache  []*value // Cached pointers to output values (avoids map lookups)
 }
+
+// Reset is called by the scheduler when the stage containing this node is activated.
+// Nodes that embed *state.Node inherit this behavior and can override to add
+// custom reset logic (calling the embedded Reset() first).
+// One-shot edge tracking is handled at the scheduler level, not per-node.
+func (n *Node) Reset() {}
 
 // RefreshInputs performs temporal alignment of node inputs and returns whether the node should execute.
 //
@@ -330,6 +342,57 @@ func (n *Node) WriteChan(key uint32, value, time telem.Series) {
 	n.state.writeChannel(key, value, time)
 }
 
+// IsOutputTruthy checks if the output at the given param name is truthy.
+// Returns false if the param doesn't exist, if the output is empty,
+// or if the last element is zero. Returns true otherwise.
+// Used by the scheduler to evaluate one-shot edges - edges only fire
+// when the source output is truthy.
+func (n *Node) IsOutputTruthy(paramName string) bool {
+	for i, h := range n.outputs {
+		if h.Param == paramName {
+			series := &n.outputCache[i].data
+			return isSeriesTruthy(*series)
+		}
+	}
+	return false
+}
+
+// isSeriesTruthy checks if a series is truthy by examining its last element.
+// Empty series are falsy. A series with a last element of zero is falsy.
+func isSeriesTruthy(s telem.Series) bool {
+	if s.Len() == 0 {
+		return false
+	}
+	dt := s.DataType
+	switch dt {
+	case telem.Float64T:
+		return telem.ValueAt[float64](s, -1) != 0
+	case telem.Float32T:
+		return telem.ValueAt[float32](s, -1) != 0
+	case telem.Int64T:
+		return telem.ValueAt[int64](s, -1) != 0
+	case telem.Int32T:
+		return telem.ValueAt[int32](s, -1) != 0
+	case telem.Int16T:
+		return telem.ValueAt[int16](s, -1) != 0
+	case telem.Int8T:
+		return telem.ValueAt[int8](s, -1) != 0
+	case telem.Uint64T:
+		return telem.ValueAt[uint64](s, -1) != 0
+	case telem.Uint32T:
+		return telem.ValueAt[uint32](s, -1) != 0
+	case telem.Uint16T:
+		return telem.ValueAt[uint16](s, -1) != 0
+	case telem.Uint8T:
+		return telem.ValueAt[uint8](s, -1) != 0
+	case telem.TimeStampT:
+		return telem.ValueAt[telem.TimeStamp](s, -1) != 0
+	default:
+		// StringT and other types default to falsy
+		return false
+	}
+}
+
 // ReadChannelValue reads a single value from a channel (for WASM runtime bindings).
 func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
 	series, ok := s.channel.reads[key]
@@ -340,7 +403,8 @@ func (s *State) ReadChannelValue(key uint32) (telem.Series, bool) {
 }
 
 // WriteChannelValue writes a single value to a channel (for WASM runtime bindings).
-// For channels with an index, you should also write the timestamp.
+// For channels with an index, it auto-generates a timestamp using telem.Now() and writes
+// to both the data channel and its index channel, matching the behavior of writeChannel.
 func (s *State) WriteChannelValue(key uint32, value telem.Series) {
-	s.channel.writes[key] = value
+	s.writeChannel(key, value, telem.NewSeriesV(telem.Now()))
 }

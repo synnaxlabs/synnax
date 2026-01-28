@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -67,7 +67,7 @@ func provisionRole(
 		if err := service.Policy.NewRetrieve().
 			WhereNames(pol.Name).
 			Entry(pol).
-			Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return uuid.Nil, err
 		}
 		if pol.Key == uuid.Nil {
@@ -82,7 +82,7 @@ func provisionRole(
 	if err := service.Role.NewRetrieve().
 		WhereName(rol.Name).
 		Entry(&rol).
-		Exec(ctx, tx); errors.Skip(err, query.NotFound) != nil {
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return uuid.Nil, err
 	}
 	if rol.Key == uuid.Nil {

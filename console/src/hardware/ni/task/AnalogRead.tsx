@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -30,7 +30,7 @@ import {
   ZERO_AI_CHANNEL,
   ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -39,12 +39,11 @@ export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.NI",
 };
 
-export const ANALOG_READ_SELECTABLE: Selector.Selectable = {
-  key: ANALOG_READ_TYPE,
+export const AnalogReadSelectable = Selector.createSimpleItem({
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  create: async ({ layoutKey }) => ({ ...ANALOG_READ_LAYOUT, key: layoutKey }),
-};
+  layout: ANALOG_READ_LAYOUT,
+});
 
 const Properties = () => (
   <>

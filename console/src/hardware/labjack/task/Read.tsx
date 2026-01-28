@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -33,7 +33,7 @@ import {
   ZERO_INPUT_CHANNELS,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/labjack/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -42,12 +42,11 @@ export const READ_LAYOUT: Common.Task.Layout = {
   icon: "Logo.LabJack",
 };
 
-export const READ_SELECTABLE: Selector.Selectable = {
-  key: READ_TYPE,
+export const ReadSelectable = Selector.createSimpleItem({
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  create: async ({ layoutKey }) => ({ ...READ_LAYOUT, key: layoutKey }),
-};
+  layout: READ_LAYOUT,
+});
 
 const Properties = () => (
   <>

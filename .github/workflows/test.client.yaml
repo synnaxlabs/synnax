@@ -32,9 +32,12 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - pyproject.toml
       - scripts/check_clang_format.sh
       - scripts/sanitizers/**
       - turbo.json
+      - uv.lock
+      - uv.toml
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -72,9 +75,12 @@ on:
       - package.json
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
+      - pyproject.toml
       - scripts/check_clang_format.sh
       - scripts/sanitizers/**
       - turbo.json
+      - uv.lock
+      - uv.toml
       - x/cpp/**
       - x/go/**
       - x/ts/**
@@ -90,7 +96,7 @@ jobs:
       ts: ${{ steps.filter.outputs.ts }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Diff Changes
         uses: dorny/paths-filter@v3
@@ -127,6 +133,9 @@ jobs:
               - alamos/py/**
               - client/py/**
               - freighter/py/**
+              - pyproject.toml
+              - uv.lock
+              - uv.toml
             ts:
               - *shared
               - alamos/ts/**
@@ -150,7 +159,7 @@ jobs:
       GITHUB_SHA: ${{ github.sha }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -196,7 +205,7 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
@@ -240,31 +249,26 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
-      - name: Set up Poetry
-        run: pipx install poetry
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: client/py/pyproject.toml
-          cache: poetry
 
-      - name: Install Dependencies
-        run: poetry install
+      - name: Check Import Order
+        run: uv run isort -c .
         working-directory: client/py
 
-      - name: isort
-        run: poetry run isort -c .
-        working-directory: client/py
-
-      - name: Format
-        run: poetry run black --check --diff --color .
+      - name: Check Formatting
+        run: uv run black --check --diff --color .
         working-directory: client/py
 
       - name: Test
-        run: poetry run pytest
+        run: uv run pytest
         working-directory: client/py
 
   ts:
@@ -290,13 +294,13 @@ jobs:
           - 9090:9090
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version-file: package.json
           cache: pnpm

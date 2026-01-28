@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -84,7 +84,7 @@ class Value(Symbol):
         self.page.get_by_text("Telemetry").click()
 
         if channel_name is not None:
-            self.set_channel("Input Channel", channel_name)
+            self.set_channel(input_field="Input Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         if notation is not None:

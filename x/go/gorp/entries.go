@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -41,27 +41,19 @@ func entryKeys[K Key, E Entry[K]](entries []E) []K {
 	return keys
 }
 
-type nopEntry []struct{}
-
-var _ Entry[string] = nopEntry{}
-
-func (nopEntry) GorpKey() string { return "" }
-
-func (nopEntry) SetOptions() []any { return nil }
-
 const entriesOptKey query.Parameter = "entries"
 
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
 type Entries[K Key, E Entry[K]] struct {
-	// isMultiple is a boolean flag indicating whether the query expects one or isMultiple
-	// entities.
-	isMultiple bool
 	// entry is used when the client expects/passes a single entry.
 	entry *E
 	// entries are used when the client expects/passes a slice of entries.
 	entries *[]E
 	changes int
+	// isMultiple is a boolean flag indicating whether the query expects one or isMultiple
+	// entities.
+	isMultiple bool
 }
 
 // Add adds the provided entry to the query. If the client expects a single result,
@@ -205,8 +197,8 @@ func prefix[K Key, E Entry[K]](ctx context.Context, encoder binary.Encoder) []by
 }
 
 type lazyPrefix[K Key, E Entry[K]] struct {
-	_prefix []byte
 	Tools
+	_prefix []byte
 }
 
 func (lp *lazyPrefix[K, E]) prefix(ctx context.Context) []byte {

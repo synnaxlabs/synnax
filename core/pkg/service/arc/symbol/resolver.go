@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,12 +21,11 @@ import (
 	"github.com/synnaxlabs/arc/runtime/stable"
 	"github.com/synnaxlabs/arc/runtime/stat"
 	"github.com/synnaxlabs/arc/runtime/telem"
+	"github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	"github.com/synnaxlabs/x/config"
 )
 
 type channelResolver struct{ *channel.Service }
@@ -57,7 +56,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	return channelToSymbol(ch), nil
 }
 
-func (r *channelResolver) ResolvePrefix(ctx context.Context, name string) ([]arc.Symbol, error) {
+func (r *channelResolver) Search(ctx context.Context, name string) ([]arc.Symbol, error) {
 	var results []channel.Channel
 	if err := r.NewRetrieve().
 		WhereInternal(false).
@@ -70,11 +69,7 @@ func (r *channelResolver) ResolvePrefix(ctx context.Context, name string) ([]arc
 	}), nil
 }
 
-func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
-	cfg, err := config.New(runtime.DefaultConfig, cfgs...)
-	if err != nil {
-		return nil, err
-	}
+func CreateResolver(channelSvc *channel.Service) arc.SymbolResolver {
 	return symbol.CompoundResolver{
 		constant.SymbolResolver,
 		op.SymbolResolver,
@@ -83,6 +78,7 @@ func CreateResolver(cfgs ...runtime.Config) (arc.SymbolResolver, error) {
 		status.SymbolResolver,
 		telem.SymbolResolver,
 		stat.SymbolResolver,
-		&channelResolver{Service: cfg.Channel},
-	}, nil
+		time.SymbolResolver,
+		&channelResolver{Service: channelSvc},
+	}
 }

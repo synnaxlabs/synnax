@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Core, type CoreProps } from "@/arc/handle/Core";
+import { Base, type BaseProps } from "@/arc/handle/Base";
 import { CSS } from "@/css";
 
-export interface SinkProps extends Omit<CoreProps, "type"> {}
+export interface SinkProps extends Omit<BaseProps, "type"> {}
 
 export const Sink = ({ location, ...props }: SinkProps) => (
-  <Core type="target" className={CSS.M("sink")} location={location} {...props} />
+  <Base type="target" className={CSS.M("sink")} location={location} {...props} />
 );

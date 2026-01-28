@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -63,9 +63,6 @@ func (c Config) distribution() framer.IteratorConfig {
 
 // ServiceConfig is the configuration for opening the service layer frame Service.
 type ServiceConfig struct {
-	// Instrumentation is for logging, tracing, and metrics.
-	// [OPTIONAL] - defaults to noop instrumentation.
-	alamos.Instrumentation
 	// DistFramer is the distribution layer frame service to extend.
 	// [REQUIRED]
 	DistFramer *framer.Service
@@ -74,6 +71,9 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	Channel *channel.Service
 	Arc     *arc.Service
+	// Instrumentation is for logging, tracing, and metrics.
+	// [OPTIONAL] - defaults to noop instrumentation.
+	alamos.Instrumentation
 }
 
 var (
@@ -123,10 +123,6 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	if err != nil {
 		return nil, err
 	}
-	legacyCalcTransform, err := s.newLegacyCalculationTransform(ctx, &cfg)
-	if err != nil {
-		return nil, err
-	}
 	dist, err := s.cfg.DistFramer.NewStreamIterator(ctx, cfg.distribution())
 	if err != nil {
 		return nil, err
@@ -151,15 +147,6 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 		)
 		plumber.MustConnect[Response](p, routeOutletFrom, "downsampler", 25)
 		routeOutletFrom = "downsampler"
-	}
-	if legacyCalcTransform != nil {
-		plumber.SetSegment(
-			p,
-			"legacy_calculation",
-			legacyCalcTransform,
-		)
-		plumber.MustConnect[Response](p, routeOutletFrom, "legacy_calculation", 25)
-		routeOutletFrom = "legacy_calculation"
 	}
 	return &plumber.Segment[Request, Response]{
 		Pipeline:         p,
@@ -209,7 +196,7 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 
 	// Add all calculated channels to the allocator
 	for _, ch := range channels {
-		if ch.IsCalculated() && !ch.IsLegacyCalculated() {
+		if ch.IsCalculated() {
 			if err := calcGraph.Add(ctx, ch); err != nil {
 				return nil, err
 			}

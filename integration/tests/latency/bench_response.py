@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -50,17 +50,24 @@ class BenchResponse(Latency):
     def run(self) -> None:
         """
         Run the test case.
+
+        NOTE: This test intentionally avoids using self.should_continue because
+        it calls loop.wait() which rate-limits. For latency benchmarking, we
+        need a tight loop with no artificial delays.
         """
 
         state_channel: str = self.state_channel
         cmd_channel: str = self.cmd_channel
+
+        timeout = sy.TimeSpan.SECOND * self._manual_timeout
+        start = sy.TimeStamp.now()
 
         try:
             with self.bench_client.open_streamer(cmd_channel) as stream:
                 with self.bench_client.open_writer(
                     sy.TimeStamp.now(), state_channel
                 ) as writer:
-                    while self.should_continue:
+                    while sy.TimeStamp.since(start) < timeout and not self._should_stop:
                         frame = stream.read(timeout=3)
                         if frame is not None:
                             writer.write(state_channel, frame[cmd_channel])

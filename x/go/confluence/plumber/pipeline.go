@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -148,18 +148,6 @@ func GetSink[V cfs.Value](p *Pipeline, addr address.Address) (cfs.Sink[V], error
 	s, ok := rs.flow.(cfs.Sink[V])
 	if !ok {
 		return nil, wrongType[V, types.Nil](addr, rs.flow)
-	}
-	return s, nil
-}
-
-func GetSegment[I, O cfs.Value](p *Pipeline, addr address.Address) (cfs.Segment[I, O], error) {
-	rs, err := GetSource[I](p, addr)
-	if err != nil {
-		return nil, err
-	}
-	s, ok := rs.(cfs.Segment[I, O])
-	if !ok {
-		return nil, wrongType[I, O](addr, rs)
 	}
 	return s, nil
 }

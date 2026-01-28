@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,10 +14,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -27,6 +28,21 @@ import (
 )
 
 type WriterConfig struct {
+	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
+	// data is written.
+	// [OPTIONAL] - Defaults to true
+	Persist *bool
+	// EnableAutoCommit denotes whether each write is committed.
+	//
+	// [OPTIONAL] - Defaults to True
+	EnableAutoCommit *bool
+	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open
+	// when attempting to write to a channel that is does not have authority over.
+	// [OPTIONAL] - Defaults to false
+	ErrOnUnauthorizedOpen *bool
+	// Subject is the control subject held by the writer.
+	// [REQUIRED]
+	Subject xcontrol.Subject
 	// Start marks the starting bound of the writer.
 	// [REQUIRED]
 	Start telem.TimeStamp
@@ -36,34 +52,19 @@ type WriterConfig struct {
 	// called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
-	// Subject is the control subject held by the writer.
-	// [REQUIRED]
-	Subject xcontrol.Subject
-	// Authority is the control authority held by the writer: higher authority entities
-	// have priority access to the region.
-	// [OPTIONAL]
-	Authority xcontrol.Authority
-	// Persist denotes whether the writer writes its data to FS. If Persist is off, no
-	// data is written.
-	// [OPTIONAL] - Defaults to true
-	Persist *bool
-	// EnableAutoCommit denotes whether each write is committed.
-	//
-	// [OPTIONAL] - Defaults to True
-	EnableAutoCommit *bool
 	// AutoIndexPersistInterval is the frequency at which the changes to index are
 	// persisted to the disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// ErrOnUnauthorizedOpen controls whether the writer will return an error on open
-	// when attempting to write to a channel that is does not have authority over.
-	// [OPTIONAL] - Defaults to false
-	ErrOnUnauthorizedOpen *bool
 	// AlignmentDomainIndex is the index of the domain that this writer is aligned to.
 	// This value is almost always set to the index of the domain within the 'Index'
 	// channel that is being written to at the same time as this writer. This value is
 	// used to guarantee alignment between samples written to index and data channels.
 	AlignmentDomainIndex uint32
+	// Authority is the control authority held by the writer: higher authority entities
+	// have priority access to the region.
+	// [OPTIONAL]
+	Authority xcontrol.Authority
 }
 
 var (
@@ -74,18 +75,18 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    config.False(),
 	}
-	errWriterClosed = core.NewErrResourceClosed("unary.writer")
+	errWriterClosed = resource.NewClosedError("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 // Validate implements config.Config.
 func (c WriterConfig) Validate() error {
-	v := validate.New("unary.WriterConfig")
-	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	validate.NotNil(v, "ErrOnUnauthorizedOpen", c.ErrOnUnauthorizedOpen)
-	validate.NotNil(v, "Persist", c.Persist)
-	validate.NotNil(v, "EnableAutoCommit", c.EnableAutoCommit)
+	v := validate.New("unary.writer_config")
+	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
+	validate.NotNil(v, "err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
+	validate.NotNil(v, "persist", c.Persist)
+	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -125,31 +126,31 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 // information are consistent.
 type controlledWriter struct {
 	*domain.Writer
-	channelKey core.ChannelKey
+	channelKey channel.Key
 	alignment  telem.Alignment
 }
 
 var _ control.Resource = controlledWriter{}
 
 // ChannelKey implements controller.Resource.
-func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
+func (w controlledWriter) ChannelKey() channel.Key { return w.channelKey }
 
 type Writer struct {
-	cfg WriterConfig
-	// Channel stores information about the channel this writer is writing to, including
-	// but not limited to density and index.
-	Channel core.Channel
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx *index.Domain
+	// wrapError is a function that wraps any error originating from this writer to
+	// provide context including the writer's channel key and name.
+	wrapError func(error) error
+	// Channel stores information about the channel this writer is writing to, including
+	// but not limited to density and index.
+	Channel channel.Channel
+	cfg     WriterConfig
 	// highWaterMark is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written. Only
 	// valid when Channel.IsIndex is true.
 	highWaterMark telem.TimeStamp
-	// wrapError is a function that wraps any error originating from this writer to
-	// provide context including the writer's channel key and name.
-	wrapError func(error) error
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
 	closed bool
@@ -212,8 +213,8 @@ func Write(
 		return db.wrapError(err)
 	}
 	defer func() {
-		_, err_ := w.Close()
-		err = db.wrapError(errors.Combine(err, err_))
+		_, errClose := w.Close()
+		err = db.wrapError(errors.Combine(err, errClose))
 	}()
 	if _, err = w.Write(series); err != nil {
 		return err
@@ -306,7 +307,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		}
 		if !approx.Exact() {
 			return 0, errors.Wrapf(
-				validate.Error,
+				validate.ErrValidation,
 				"writer start %s cannot be resolved in the index channel %v",
 				w.cfg.Start,
 				w.idx.Info(),

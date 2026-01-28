@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -126,7 +126,7 @@ func userHasRole(
 	var roles []ontology.Resource
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
-		TraverseTo(ontology.Parents).
+		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(role.OntologyType).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {

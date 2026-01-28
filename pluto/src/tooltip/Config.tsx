@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,8 +25,7 @@ export interface ContextValue {
 }
 
 export interface ConfigProps
-  extends PropsWithChildren,
-    Partial<Omit<ContextValue, "startAccelerating">> {
+  extends PropsWithChildren, Partial<Omit<ContextValue, "startAccelerating">> {
   accelerate?: boolean;
   acceleratedDelay?: CrudeTimeSpan;
   accelerationDelay?: CrudeTimeSpan;

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -40,10 +40,11 @@ func Attach[I, O Value](seg Segment[I, O], buffer ...int) (Inlet[I], Outlet[O]) 
 // share a Stream across multiple Frame, as long as those segments perform are
 // replicates of one another.
 type Stream[V Value] struct {
-	inletAddr, outletAddr address.Address
-	values                chan V
-	once                  sync.Once
-	c                     *atomic.Int32Counter
+	values     chan V
+	c          *atomic.Int32Counter
+	inletAddr  address.Address
+	outletAddr address.Address
+	once       sync.Once
 }
 
 // Inlet implements Stream.

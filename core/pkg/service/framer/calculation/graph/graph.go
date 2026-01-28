@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,9 +29,9 @@ import (
 )
 
 type Config struct {
-	alamos.Instrumentation
-	Channel        *channel.Service
 	SymbolResolver arc.SymbolResolver
+	Channel        *channel.Service
+	alamos.Instrumentation
 }
 
 var (
@@ -54,11 +54,11 @@ func (c Config) Validate() error {
 }
 
 type channelInfo struct {
+	calcDeps      []channel.Key
 	module        compiler.Module
 	groupID       int
 	explicitCount int
 	depCount      int
-	calcDeps      []channel.Key
 	processing    bool
 }
 
@@ -68,10 +68,10 @@ type groupInfo struct {
 }
 
 type Graph struct {
+	cfg      Config
+	channels map[channel.Key]*channelInfo
+	groups   map[int]*groupInfo
 	alamos.Instrumentation
-	cfg         Config
-	channels    map[channel.Key]*channelInfo
-	groups      map[int]*groupInfo
 	nextGroupID int
 }
 
@@ -147,7 +147,7 @@ func (g *Graph) Update(ctx context.Context, ch channel.Channel) error {
 		}
 
 		for _, depCh := range depChannels {
-			if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+			if depCh.IsCalculated() {
 				// Check for circular dependencies before adding
 				if err := g.checkCircularDependency(ch.Key(), depCh.Key()); err != nil {
 					return err
@@ -395,7 +395,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 		}
 
 		for _, depCh := range depChannels {
-			if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+			if depCh.IsCalculated() {
 				if err := g.addInternal(ctx, depCh, false); err != nil {
 					delete(g.channels, ch.Key())
 					return errors.Wrapf(err, "failed to add calculated dependency %v", depCh.Key())
@@ -469,7 +469,7 @@ func (g *Graph) resolveBaseDependencies(
 	}
 
 	for _, depCh := range depChannels {
-		if depCh.IsCalculated() && !depCh.IsLegacyCalculated() {
+		if depCh.IsCalculated() {
 			info, err := g.getChannelInfo(depCh.Key())
 			if err != nil {
 				return nil, err
@@ -744,7 +744,7 @@ func (g *Graph) topologicalSortGroup(groupKey int, modules []compiler.Module) ([
 func (g *Graph) getChannelInfo(key channel.Key) (*channelInfo, error) {
 	info := g.channels[key]
 	if info == nil {
-		return nil, errors.Wrapf(query.NotFound, "channel %v not found in allocator", key)
+		return nil, errors.Wrapf(query.ErrNotFound, "channel %v not found in allocator", key)
 	}
 	return info, nil
 }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,13 +27,13 @@ import (
 type DB struct {
 	xkv.DB
 	xkv.Observable
-	config     Config
-	leaseAlloc *leaseAllocator
-	source     struct {
-		confluence.AbstractUnarySource[TxRequest]
+	source struct {
 		confluence.NopFlow
+		confluence.AbstractUnarySource[TxRequest]
 	}
-	shutdown io.Closer
+	shutdown   io.Closer
+	leaseAlloc *leaseAllocator
+	config     Config
 }
 
 var _ xkv.DB = (*DB)(nil)
@@ -122,7 +122,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	}
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	db_ := &DB{
+	db := &DB{
 		config:     cfg,
 		DB:         cfg.Engine,
 		leaseAlloc: &leaseAllocator{Config: cfg},
@@ -134,12 +134,12 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	db_.config.L.Debug("opening cluster KV", db_.config.Report().ZapFields()...)
+	db.config.L.Debug("opening cluster KV", db.config.Report().ZapFields()...)
 
 	st := newStore()
 
 	pipe := plumber.New()
-	plumber.SetSource[TxRequest](pipe, executorAddr, &db_.source)
+	plumber.SetSource[TxRequest](pipe, executorAddr, &db.source)
 	plumber.SetSource[TxRequest](pipe, leaseReceiverAddr, newLeaseReceiver(cfg))
 	plumber.SetSegment[TxRequest, TxRequest](
 		pipe,
@@ -180,11 +180,11 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 	// each handler in the observable chain. This is necessary because the transaction
 	// reader can be exhausted.
 	observable := confluence.NewGeneratorTransformObservable[TxRequest, xkv.TxReader](
-		func(ctx context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
+		func(_ context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
 			return func() xkv.TxReader { return tx.reader() }, true, nil
 		})
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
-	db_.Observable = observable
+	db.Observable = observable
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},
@@ -258,7 +258,7 @@ func Open(ctx context.Context, cfgs ...Config) (*DB, error) {
 		confluence.RecoverWithoutErrOnPanic(),
 		confluence.WithRetryOnPanic(100),
 	)
-	return db_, runRecovery(ctx, cfg)
+	return db, runRecovery(ctx, cfg)
 }
 
 func (d *DB) Close() error { return d.shutdown.Close() }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -81,7 +81,7 @@ void Control::run() {
 SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal):
     internal(std::move(internal)) {}
 
-std::pair<synnax::Frame, xerrors::Error> SynnaxStreamer::read() {
+std::pair<telem::Frame, xerrors::Error> SynnaxStreamer::read() {
     return this->internal.read();
 }
 

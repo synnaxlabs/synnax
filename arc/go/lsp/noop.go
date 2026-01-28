@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -97,15 +97,7 @@ func (s *Server) Exit(context.Context) error {
 	return nil
 }
 
-func (s *Server) FoldingRange(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
-	return nil, nil
-}
-
 func (s *Server) FoldingRanges(context.Context, *protocol.FoldingRangeParams) ([]protocol.FoldingRange, error) {
-	return nil, nil
-}
-
-func (s *Server) Formatting(context.Context, *protocol.DocumentFormattingParams) ([]protocol.TextEdit, error) {
 	return nil, nil
 }
 
@@ -141,19 +133,7 @@ func (s *Server) PrepareCallHierarchy(context.Context, *protocol.CallHierarchyPr
 	return nil, nil
 }
 
-func (s *Server) PrepareRename(context.Context, *protocol.PrepareRenameParams) (*protocol.Range, error) {
-	return nil, nil
-}
-
-func (s *Server) RangeFormatting(context.Context, *protocol.DocumentRangeFormattingParams) ([]protocol.TextEdit, error) {
-	return nil, nil
-}
-
 func (s *Server) References(context.Context, *protocol.ReferenceParams) ([]protocol.Location, error) {
-	return nil, nil
-}
-
-func (s *Server) Rename(context.Context, *protocol.RenameParams) (*protocol.WorkspaceEdit, error) {
 	return nil, nil
 }
 

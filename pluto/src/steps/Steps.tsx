@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,8 +21,7 @@ export interface Step {
 }
 
 export interface StepsProps
-  extends Omit<Flex.BoxProps, "children" | "onChange">,
-    Input.Control<string> {
+  extends Omit<Flex.BoxProps, "children" | "onChange">, Input.Control<string> {
   steps: Step[];
 }
 

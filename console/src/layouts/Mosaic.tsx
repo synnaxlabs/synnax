@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,7 @@ import {
   Flux,
   Icon,
   Menu as PMenu,
-  Mosaic as Core,
+  Mosaic as Base,
   Nav as PNav,
   OS,
   type Pluto,
@@ -174,7 +174,7 @@ const contextMenu = Component.renderProp(ContextMenu);
 
 interface MosaicProps {
   windowKey: string;
-  mosaic: Core.Node;
+  mosaic: Base.Node;
 }
 
 const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
@@ -292,7 +292,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   // into their correct location. This means that moving layouts around in the Mosaic
   // or focusing them will not cause them to re-mount. This has considerable impacts
   // on the user experience, as it reduces necessary data fetching and expensive
-  const [portalRef, portalNodes] = Core.usePortal({
+  const [portalRef, portalNodes] = Base.usePortal({
     root: mosaic,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => (
@@ -315,7 +315,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   return (
     <>
       {portalNodes}
-      <Core.Mosaic
+      <Base.Mosaic
         rounded={1}
         bordered
         borderColor={5}
@@ -335,7 +335,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         className={CSS.B("mosaic")}
       >
         {renderProp}
-      </Core.Mosaic>
+      </Base.Mosaic>
     </>
   );
 };

@@ -34,34 +34,37 @@ on:
       - x/go/**/*.pb.go
   workflow_dispatch:
 
+env:
+  BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-build-bot, ubuntu-build-bot, windows-build-bot]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-build-bot
             format: true
         exclude:
           - os:
               ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'macos-latest' }}
+              'refs/heads/main' && github.base_ref != 'main') && 'macos-build-bot' }}
           - os:
               ${{ github.event_name != 'workflow_dispatch' && (github.ref !=
-              'refs/heads/main' && github.base_ref != 'main') && 'windows-latest' }}
+              'refs/heads/main' && github.base_ref != 'main') && 'windows-build-bot' }}
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ matrix.os }}
-          repository-cache: true
+          bazelisk-cache: false
+          disk-cache: false
+          repository-cache: false
 
       - name: Install Clang Format
         if: matrix.format
@@ -76,18 +79,22 @@ jobs:
         run: scripts/check_clang_format.sh freighter/cpp
 
       - name: Test (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-build-bot'
         run:
           bazel test --config=asan --test_output=all //freighter/cpp/...
           --test_tag_filters=-no-asan
         shell: bash
 
       - name: Test (Ubuntu)
-        if: matrix.os == 'ubuntu-latest'
-        run: bazel test --config=asan-leak --test_output=all //freighter/cpp/...
+        if: matrix.os == 'ubuntu-build-bot'
+        run:
+          bazel test $BAZEL_REMOTE_CACHE_FLAGS --config=asan-leak --test_output=all
+          //freighter/cpp/...
         shell: bash
 
       - name: Test (Windows)
-        if: matrix.os == 'windows-latest'
-        run: bazel test --test_output=all //freighter/cpp/...
+        if: matrix.os == 'windows-build-bot'
+        run: |
+          export MSYS_NO_PATHCONV=1
+          bazel --output_user_root=C:/tmp test $BAZEL_REMOTE_CACHE_FLAGS --test_output=all //freighter/cpp/...
         shell: bash

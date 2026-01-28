@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/samber/lo"
@@ -27,22 +28,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	grpcapi "github.com/synnaxlabs/synnax/pkg/api/grpc"
 	httpapi "github.com/synnaxlabs/synnax/pkg/api/http"
+	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
-	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
 	xsignal "github.com/synnaxlabs/x/signal"
@@ -51,27 +54,27 @@ import (
 )
 
 type CoreConfig struct {
-	alamos.Instrumentation
 	insecure             *bool
 	debug                *bool
 	autoCert             *bool
-	verifier             string
+	validateChannelNames *bool
 	memBacked            *bool
+	noDriver             *bool
+	alamos.Instrumentation
+	rootUsername         string
+	dataPath             string
+	verifier             string
+	rootPassword         string
 	listenAddress        address.Address
 	peers                []address.Address
-	dataPath             string
-	slowConsumerTimeout  time.Duration
-	rootUsername         string
-	rootPassword         string
-	noDriver             *bool
-	taskOpTimeout        time.Duration
-	taskPollInterval     time.Duration
-	taskShutdownTimeout  time.Duration
-	taskWorkerCount      uint8
-	certFactoryConfig    cert.FactoryConfig
-	enabledIntegrations  []string
 	disabledIntegrations []string
-	validateChannelNames *bool
+	enabledIntegrations  []string
+	certFactoryConfig    cert.FactoryConfig
+	taskShutdownTimeout  time.Duration
+	taskPollInterval     time.Duration
+	taskOpTimeout        time.Duration
+	slowConsumerTimeout  time.Duration
+	taskWorkerCount      uint8
 }
 
 var _ config.Config[CoreConfig] = CoreConfig{}
@@ -179,8 +182,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	workDir, err := resolveWorkDir()
-	if err != nil {
+	workDir, closeWorkDir, err := openWorkDir()
+	if !ok(err, closeWorkDir) {
 		return errors.Wrapf(err, "failed to resolve working directory")
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
@@ -223,6 +226,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Instrumentation: cfg.Child("service"),
 		Distribution:    distributionLayer,
 		Security:        securityProvider,
+		Storage:         storageLayer,
 	}); !ok(err, serviceLayer) {
 		return err
 	}
@@ -262,7 +266,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []fhttp.BindableTransport{r, serviceLayer.Console},
+					Transports: []fhttp.BindableTransport{r, console.NewService()},
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					grpcAPITrans,
@@ -295,7 +299,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return nil
 	}
 
-	if embeddedDriver, err = driver.OpenDriver(
+	if embeddedDriver, err = driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:             config.Bool(!*cfg.noDriver),
@@ -312,10 +316,10 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 			ClientCertFile:      cfg.certFactoryConfig.AbsoluteNodeCertPath(),
 			ClientKeyFile:       cfg.certFactoryConfig.AbsoluteNodeKeyPath(),
 			ParentDirname:       workDir,
-			TaskOpTimeout:       cfg.taskOpTimeout,
-			TaskPollInterval:    cfg.taskPollInterval,
-			TaskShutdownTimeout: cfg.taskShutdownTimeout,
 			TaskWorkerCount:     cfg.taskWorkerCount,
+			TaskShutdownTimeout: cfg.taskShutdownTimeout,
+			TaskPollInterval:    cfg.taskPollInterval,
+			TaskOpTimeout:       cfg.taskOpTimeout,
 		},
 	); !ok(err, embeddedDriver) {
 		return err
@@ -333,12 +337,22 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	return err
 }
 
-func resolveWorkDir() (string, error) {
+func openWorkDir() (string, io.Closer, error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return filepath.Join(cacheDir, "synnax", "core", "workdir"), nil
+	dir := filepath.Join(
+		cacheDir,
+		"synnax",
+		"core",
+		"workdir",
+		strconv.Itoa(os.Getpid()),
+	)
+	if err = os.MkdirAll(dir, xfs.UserRWX); err != nil {
+		return "", nil, err
+	}
+	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
 }
 
 func runStartupSearchIndexing(

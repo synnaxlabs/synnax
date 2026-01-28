@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#define _USE_MATH_DEFINES
+#include <cmath>
 #include <random>
 
 #include "gtest/gtest.h"
@@ -54,6 +56,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNominal) {
     ASSERT_EQ(end, telem::TimeStamp(telem::SECOND * 2));
 }
 
+/// @brief it should apply proportional correction when system time runs late.
 TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
     const auto sample_rate = telem::HERTZ * 2;
     const auto stream_rate = telem::HERTZ * 1;
@@ -85,6 +88,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockNowIsLater) {
     ASSERT_EQ(telem::TimeSpan(end.nanoseconds()), telem::SECOND * 2 + skew * k_p);
 }
 
+/// @brief it should reset clock state for new acquisition cycle.
 TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
     const auto sample_rate = telem::HERTZ * 2;
     const auto stream_rate = telem::HERTZ * 1;
@@ -115,6 +119,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockReset) {
     ASSERT_EQ(end, telem::TimeStamp(now_v));
 }
 
+/// @brief it should apply PID correction when system runs slower than expected.
 TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
     const auto sample_rate = telem::HERTZ * 2;
     const auto stream_rate = telem::HERTZ * 1;
@@ -144,6 +149,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockPIDCorrection) {
     ASSERT_LT(end, telem::TimeStamp(now_v.nanoseconds()));
 }
 
+/// @brief it should maintain timing continuity across multiple consecutive cycles.
 TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
     const auto sample_rate = telem::HERTZ * 2;
     const auto stream_rate = telem::HERTZ * 1;
@@ -173,6 +179,7 @@ TEST(TestSampleClock, testHardwareTimedSampleClockConsecutiveCycles) {
     }
 }
 
+/// @brief it should limit back correction to prevent excessive timestamp adjustments.
 TEST(TestSampleClock, testHardwareTimedSampleClockMaxBackCorrection) {
     const auto sample_rate = telem::HERTZ * 2;
     const auto stream_rate = telem::HERTZ * 1;
@@ -236,6 +243,7 @@ protected:
     }
 };
 
+/// @brief it should converge timing errors using PID controller.
 TEST_P(HardwareTimedSampleClockPIDTest, ConvergenceTest) {
     const auto &params = GetParam();
 
@@ -414,8 +422,9 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
+/// @brief it should generate evenly spaced timestamps for single index channel.
 TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2); // 1 data channel + 1 index
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel
@@ -434,8 +443,9 @@ TEST(TestCommonReadTask, testGenerateIndexDataSingleIndex) {
     EXPECT_EQ(fr.series->at(1).at<telem::TimeStamp>(2), telem::TimeStamp(3000));
 }
 
+/// @brief it should generate identical timestamps for multiple index channels.
 TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(3);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3));
@@ -456,8 +466,9 @@ TEST(TestCommonReadTask, testGenerateIndexDataMultipleIndices) {
     }
 }
 
+/// @brief it should handle empty index keys without modification.
 TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(1);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3));
 
@@ -471,8 +482,9 @@ TEST(TestCommonReadTask, testGenerateIndexDataEmptyIndices) {
     EXPECT_EQ(fr.size(), 1);
 }
 
+/// @brief it should generate inclusive timestamps including end point.
 TEST(TestCommonReadTask, testGenerateIndexDataInclusive) {
-    synnax::Frame fr;
+    telem::Frame fr;
     fr.reserve(2);
     fr.emplace(1, telem::Series(telem::FLOAT64_T, 3)); // Data channel
     fr.emplace(2, telem::Series(telem::TIMESTAMP_T, 3)); // Index channel

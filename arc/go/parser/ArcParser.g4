@@ -15,6 +15,7 @@ program
 topLevelItem
     : functionDeclaration
     | flowStatement
+    | sequenceDeclaration
     ;
 
 // =============================================================================
@@ -26,7 +27,7 @@ functionDeclaration
     ;
 
 inputList
-    : input (COMMA input)*
+    : input (COMMA input)* COMMA?
     ;
 
 input
@@ -34,12 +35,13 @@ input
     ;
 
 outputType
-    : type                      // Single output (existing)
-    | multiOutputBlock          // Multiple named outputs
+    : type                                          // Unnamed single output: f64
+    | IDENTIFIER type                               // Named single output without parens: result f64
+    | multiOutputBlock                              // Multiple or single named outputs with parens
     ;
 
 multiOutputBlock
-    : LBRACE namedOutput* RBRACE
+    : LPAREN namedOutput (COMMA namedOutput)* COMMA? RPAREN
     ;
 
 namedOutput
@@ -47,7 +49,11 @@ namedOutput
     ;
 
 configBlock
-    : LBRACE config* RBRACE
+    : LBRACE configList? RBRACE
+    ;
+
+configList
+    : config (COMMA config)* COMMA?
     ;
 
 config
@@ -55,15 +61,49 @@ config
     ;
 
 // =============================================================================
+// Sequence and Stage Declarations
+// =============================================================================
+
+// sequence main { stage precheck { } stage pressurization { } }
+sequenceDeclaration
+    : SEQUENCE IDENTIFIER LBRACE stageDeclaration* RBRACE
+    ;
+
+// stage precheck { items... }
+stageDeclaration
+    : STAGE IDENTIFIER stageBody
+    ;
+
+// { reactive flows and transitions, comma-separated }
+stageBody
+    : LBRACE (stageItem (COMMA stageItem)* COMMA?)? RBRACE
+    ;
+
+stageItem
+    : flowStatement
+    | singleInvocation
+    ;
+
+singleInvocation
+    : function
+    | expression
+    ;
+
+// =============================================================================
 // Inter-Stage Flow
 // =============================================================================
 
 flowStatement
-    : (routingTable | flowNode) (ARROW (routingTable | flowNode))+ SEMICOLON?
+    : (routingTable | flowNode) (flowOperator (routingTable | flowNode))+
+    ;
+
+flowOperator
+    : ARROW        // -> (continuous flow)
+    | TRANSITION   // => (one-shot flow)
     ;
 
 routingTable
-    : LBRACE routingEntry (COMMA routingEntry)* RBRACE
+    : LBRACE routingEntry (COMMA routingEntry)* COMMA? RBRACE
     ;
 
 routingEntry
@@ -71,17 +111,18 @@ routingEntry
     ;
 
 flowNode
-    : channelIdentifier
+    : identifier        // Channel, stage, or sequence name - resolved in analysis
     | function
     | expression
+    | NEXT              // Continue to next stage
     ;
 
-channelIdentifier
+identifier
     : IDENTIFIER
     ;
 
 function
-    : IDENTIFIER configValues? arguments?
+    : IDENTIFIER configValues
     ;
 
 configValues
@@ -91,7 +132,7 @@ configValues
     ;
 
 namedConfigValues
-    : namedConfigValue (COMMA namedConfigValue)*
+    : namedConfigValue (COMMA namedConfigValue)* COMMA?
     ;
 
 namedConfigValue
@@ -99,7 +140,7 @@ namedConfigValue
     ;
 
 anonymousConfigValues
-    : expression (COMMA expression)*
+    : expression (COMMA expression)* COMMA?
     ;
 
 arguments
@@ -107,7 +148,7 @@ arguments
     ;
 
 argumentList
-    : expression (COMMA expression)*
+    : expression (COMMA expression)* COMMA?
     ;
 
 // =============================================================================
@@ -120,11 +161,9 @@ block
 
 statement
     : variableDeclaration
-    | channelOperation
     | assignment
     | ifStatement
     | returnStatement
-    | functionCall
     | expression
     ;
 
@@ -145,29 +184,17 @@ statefulVariable
 
 assignment
     : IDENTIFIER ASSIGN expression
+    | IDENTIFIER indexOrSlice ASSIGN expression
+    | IDENTIFIER compoundOp expression
+    | IDENTIFIER indexOrSlice compoundOp expression
     ;
 
-channelOperation
-    : channelWrite
-    | channelRead
-    ;
-
-channelWrite
-    : expression ARROW IDENTIFIER
-    | IDENTIFIER RECV expression
-    ;
-
-channelRead
-    : blockingRead
-    | nonBlockingRead
-    ;
-
-blockingRead
-    : IDENTIFIER DECLARE RECV IDENTIFIER
-    ;
-
-nonBlockingRead
-    : IDENTIFIER DECLARE IDENTIFIER
+compoundOp
+    : PLUS_ASSIGN
+    | MINUS_ASSIGN
+    | STAR_ASSIGN
+    | SLASH_ASSIGN
+    | PERCENT_ASSIGN
     ;
 
 ifStatement
@@ -186,18 +213,18 @@ returnStatement
     : RETURN expression?
     ;
 
-functionCall
-    : IDENTIFIER LPAREN argumentList? RPAREN
-    ;
-
 // =============================================================================
 // Types
 // =============================================================================
 
 type
-    : primitiveType
+    : primitiveType unitSuffix?
     | channelType
     | seriesType
+    ;
+
+unitSuffix
+    : IDENTIFIER
     ;
 
 primitiveType
@@ -208,7 +235,6 @@ primitiveType
 numericType
     : integerType
     | floatType
-    | temporalType
     ;
 
 integerType
@@ -220,16 +246,13 @@ floatType
     : F32 | F64
     ;
 
-temporalType
-    : TIMESTAMP | TIMESPAN
-    ;
-
 channelType
-    : (CHAN | RECV_CHAN | SEND_CHAN) (primitiveType | seriesType)
+    : CHAN primitiveType unitSuffix?
+    | CHAN seriesType
     ;
 
 seriesType
-    : SERIES primitiveType
+    : SERIES primitiveType unitSuffix?
     ;
 
 // =============================================================================
@@ -272,13 +295,7 @@ powerExpression
 unaryExpression
     : MINUS unaryExpression
     | NOT unaryExpression
-    | blockingReadExpr
     | postfixExpression
-    ;
-
-// Blocking read as a true unary operator
-blockingReadExpr
-    : RECV IDENTIFIER
     ;
 
 postfixExpression
@@ -299,16 +316,10 @@ primaryExpression
     | IDENTIFIER
     | LPAREN expression RPAREN
     | typeCast
-    | builtinFunction
     ;
 
 typeCast
     : type LPAREN expression RPAREN
-    ;
-
-builtinFunction
-    : LEN LPAREN expression RPAREN
-    | NOW LPAREN RPAREN
     ;
 
 // =============================================================================
@@ -317,19 +328,16 @@ builtinFunction
 
 literal
     : numericLiteral
-    | temporalLiteral
     | STR_LITERAL
     | seriesLiteral
     ;
 
+// Numeric literal with optional unit suffix.
+// The unit suffix (IDENTIFIER) is only consumed if it immediately follows
+// the number with no whitespace. This is checked via semantic predicate.
 numericLiteral
-    : INTEGER_LITERAL
-    | FLOAT_LITERAL
-    ;
-
-temporalLiteral
-    : TEMPORAL_LITERAL
-    | FREQUENCY_LITERAL
+    : (INTEGER_LITERAL | FLOAT_LITERAL)
+      ({p.TokensAdjacent(p.GetTokenStream().LT(-1), p.GetTokenStream().LT(1))}? IDENTIFIER)?
     ;
 
 seriesLiteral
@@ -337,5 +345,5 @@ seriesLiteral
     ;
 
 expressionList
-    : expression (COMMA expression)*
+    : expression (COMMA expression)* COMMA?
     ;

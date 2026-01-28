@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -46,13 +46,8 @@ var _ = Describe("Channel Tests", func() {
 			})
 			It("Should return an error when the key is not a valid integer", func() {
 				_, err := channel.ParseKey("123456a")
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(err.Error()).To(ContainSubstring("123456a is not a valid channel key"))
-			})
-		})
-		Describe("MustParseKey", func() {
-			It("Should panic when the key is not a valid integer", func() {
-				Expect(func() { channel.MustParseKey("123456a") }).To(Panic())
 			})
 		})
 		Describe("Lease", func() {
@@ -72,7 +67,7 @@ var _ = Describe("Channel Tests", func() {
 		})
 		Describe("Free", func() {
 			It("Should return true if the channel is a free channel", func() {
-				k := channel.NewKey(cluster.Free, 1)
+				k := channel.NewKey(cluster.NodeKeyFree, 1)
 				Expect(k.Free()).To(BeTrue())
 			})
 			It("Should return false if the channel is not a free channel", func() {
@@ -127,7 +122,7 @@ var _ = Describe("Channel Tests", func() {
 					{Type: "channel", Key: "a"},
 				}
 				_, err := channel.KeysFromOntologyIDs(ids)
-				Expect(err).To(HaveOccurredAs(validate.Error))
+				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
 				Expect(err.Error()).To(ContainSubstring("a is not a valid channel key"))
 			})
 		})

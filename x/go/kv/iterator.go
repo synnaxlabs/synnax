@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -65,12 +65,6 @@ type Iterator interface {
 // return an Iterator that only iterates over keys with the given prefix.
 func IterPrefix(prefix []byte) IteratorOptions {
 	return IteratorOptions{LowerBound: prefix, UpperBound: prefixUpperBound(prefix)}
-}
-
-// IterRange returns IteratorOptions, that when passed to writer.NewStreamIterator, will
-// iterator through the range of keys between start and end.
-func IterRange(start, end []byte) IteratorOptions {
-	return IteratorOptions{LowerBound: start, UpperBound: end}
 }
 
 func prefixUpperBound(lower []byte) []byte {

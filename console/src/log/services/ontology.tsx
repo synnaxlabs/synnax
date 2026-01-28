@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log, ontology, type Synnax } from "@synnaxlabs/client";
-import { Access, Icon, Log as Core, Menu as PMenu, Mosaic } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Base, Menu as PMenu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -24,7 +24,7 @@ import { createUseRename } from "@/ontology/createUseRename";
 
 const useDelete = createUseDelete({
   type: "Log",
-  query: Core.useDelete,
+  query: Base.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
@@ -34,7 +34,7 @@ const useDelete = createUseDelete({
 });
 
 const useRename = createUseRename({
-  query: Core.useRename,
+  query: Base.useRename,
   ontologyID: log.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -235,10 +235,12 @@ public:
     }
 };
 
-synnax::TaskStatus wait_for_status(
+synnax::TaskStatus wait_for_task_status(
     synnax::Streamer &streamer,
     const synnax::Task &task,
     const std::function<bool(const synnax::TaskStatus &)> &pred,
+    const char *file,
+    const int line,
     telem::TimeSpan timeout = 5 * telem::SECOND
 ) {
     synnax::TaskStatus result;
@@ -257,10 +259,29 @@ synnax::TaskStatus wait_for_status(
             return false;
         },
         [&]() { return "Timed out waiting for task status"; },
+        file,
+        line,
         std::chrono::duration_cast<std::chrono::milliseconds>(timeout.chrono())
     );
     return result;
 }
+
+#define WAIT_FOR_TASK_STATUS(streamer, task, predicate, ...)                           \
+    wait_for_task_status(                                                              \
+        streamer,                                                                      \
+        task,                                                                          \
+        predicate,                                                                     \
+        __FILE__,                                                                      \
+        __LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
+    )
+
+#define EVENTUALLY(condition, failure_message, ...)                                    \
+    ::xtest::eventually(                                                               \
+        condition,                                                                     \
+        failure_message,                                                               \
+        __FILE__,                                                                      \
+        __LINE__ __VA_OPT__(, ) __VA_ARGS__                                            \
+    )
 
 class TaskManagerTest : public testing::Test {
 protected:
@@ -269,6 +290,7 @@ protected:
     synnax::Rack rack;
     std::thread thread;
     synnax::Streamer streamer;
+    bool setup_succeeded = false;
 
     void SetUp() override {
         client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -277,6 +299,7 @@ protected:
             client->channels.retrieve(synnax::STATUS_SET_CHANNEL_NAME)
         );
         streamer = ASSERT_NIL_P(client->telem.open_streamer({.channels = {ch.key}}));
+        setup_succeeded = true;
     }
 
     void start_manager(
@@ -300,7 +323,7 @@ protected:
     }
 
     void TearDown() override {
-        ASSERT_NIL(streamer.close());
+        if (setup_succeeded) { ASSERT_NIL(streamer.close()); }
         if (manager) {
             manager->stop();
             if (thread.joinable()) thread.join();
@@ -312,7 +335,7 @@ TEST_F(TaskManagerTest, Configure) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
-    auto s = wait_for_status(streamer, task, [](auto &s) {
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
         return s.variant == status::variant::SUCCESS && s.message == "configured";
     });
     ASSERT_EQ(s.details.task, task.key);
@@ -322,9 +345,11 @@ TEST_F(TaskManagerTest, Delete) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
-    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
+        return s.message == "configured";
+    });
     ASSERT_NIL(rack.tasks.del(task.key));
-    auto s = wait_for_status(streamer, task, [](auto &s) {
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
         return s.message == "stopped";
     });
     ASSERT_EQ(s.details.task, task.key);
@@ -338,14 +363,16 @@ TEST_F(TaskManagerTest, Command) {
     ));
     auto task = synnax::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
-    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
+        return s.message == "configured";
+    });
 
     auto cmd = task::Command(task.key, "test", json{{"msg", "hi"}});
     cmd.key = "cmd1";
-    ASSERT_NIL(writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
+    ASSERT_NIL(writer.write(telem::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
     ASSERT_NIL(writer.close());
 
-    auto s = wait_for_status(streamer, task, [](auto &s) {
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
         return s.details.cmd == "cmd1";
     });
     ASSERT_EQ(s.details.data["msg"], "hi");
@@ -375,10 +402,12 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
-    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
+        return s.message == "configured";
+    });
     manager->stop();
     thread.join();
-    auto s = wait_for_status(streamer, task, [](auto &s) {
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
         return s.message == "stopped";
     });
     ASSERT_EQ(s.details.task, task.key);
@@ -414,17 +443,17 @@ TEST_F(TaskManagerTest, ParallelConfig) {
 
     auto blocking = synnax::Task(rack.key, "b", "blocking", "");
     ASSERT_NIL(rack.tasks.create(blocking));
-    xtest::eventually([&] { return f->started.load(); }, [] { return "not started"; });
+    EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
 
     auto echo = synnax::Task(rack.key, "e", "echo", "");
     ASSERT_NIL(rack.tasks.create(echo));
-    auto s = wait_for_status(streamer, echo, [](auto &s) {
+    auto s = WAIT_FOR_TASK_STATUS(streamer, echo, [](const synnax::TaskStatus &s) {
         return s.message == "configured";
     });
     ASSERT_EQ(s.details.task, echo.key);
 
     f->release();
-    wait_for_status(streamer, blocking, [](auto &s) {
+    WAIT_FOR_TASK_STATUS(streamer, blocking, [](const synnax::TaskStatus &s) {
         return s.message == "configured";
     });
 }
@@ -438,20 +467,24 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
 
     auto fake_key = synnax::create_task_key(rack.key, 99999);
     auto cmd = task::Command(fake_key, "test", json{});
-    ASSERT_NIL(writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
+    ASSERT_NIL(writer.write(telem::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
     ASSERT_NIL(writer.close());
     std::this_thread::sleep_for((200 * telem::MILLISECOND).chrono());
 
     auto task = synnax::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
-    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
+        return s.message == "configured";
+    });
 }
 
 TEST_F(TaskManagerTest, RapidReconfigure) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::Task(rack.key, "t", "echo", "");
     ASSERT_NIL(rack.tasks.create(task));
-    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
+        return s.message == "configured";
+    });
 
     for (int i = 0; i < 5; i++) {
         task.config = "{\"v\":" + std::to_string(i) + "}";
@@ -465,9 +498,11 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     ));
     auto cmd = task::Command(task.key, "test", json{});
     cmd.key = "final";
-    ASSERT_NIL(writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
+    ASSERT_NIL(writer.write(telem::Frame(cmd_ch.key, telem::Series(cmd.to_json()))));
     ASSERT_NIL(writer.close());
-    wait_for_status(streamer, task, [](auto &s) { return s.details.cmd == "final"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::TaskStatus &s) {
+        return s.details.cmd == "final";
+    });
 }
 
 TEST_F(TaskManagerTest, Timeout) {
@@ -483,10 +518,10 @@ TEST_F(TaskManagerTest, Timeout) {
     auto task = synnax::Task(rack.key, "t", "timeout", "");
     ASSERT_NIL(rack.tasks.create(task));
 
-    auto s = wait_for_status(
+    auto s = WAIT_FOR_TASK_STATUS(
         streamer,
         task,
-        [](auto &s) {
+        [](const synnax::TaskStatus &s) {
             return s.variant == status::variant::ERR &&
                    s.message == "operation timed out";
         },
@@ -509,7 +544,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
 
     auto task = synnax::Task(rack.key, "t", "tracking", "");
     ASSERT_NIL(rack.tasks.create(task));
-    xtest::eventually(
+    EVENTUALLY(
         [&] {
             std::lock_guard lock(f->mu);
             return !f->task_states.empty();
@@ -522,13 +557,13 @@ TEST_F(TaskManagerTest, CommandFIFO) {
         auto cmd = task::Command(task.key, "test", json{});
         cmd.key = k;
         ASSERT_NIL(
-            writer.write(synnax::Frame(cmd_ch.key, telem::Series(cmd.to_json())))
+            writer.write(telem::Frame(cmd_ch.key, telem::Series(cmd.to_json())))
         );
     }
     ASSERT_NIL(writer.close());
 
     auto state = f->task_states[0];
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return state->exec_count.load() >= 5; },
         [] { return "cmds not executed"; }
     );
@@ -545,7 +580,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     ASSERT_NIL(rack.tasks.create(task));
 
     std::shared_ptr<TrackingTaskState> first_state;
-    xtest::eventually(
+    EVENTUALLY(
         [&] {
             std::lock_guard lock(f->mu);
             if (f->task_states.empty()) return false;
@@ -558,13 +593,13 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
     task.config = "{\"v\":2}";
     ASSERT_NIL(rack.tasks.create(task));
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return first_state->stopped.load(); },
         [] { return "not stopped"; }
     );
     ASSERT_TRUE(first_state->stop_will_reconfigure.load());
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] {
             std::lock_guard lock(f->mu);
             return f->task_states.size() >= 2;
@@ -631,7 +666,9 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     auto task = synnax::Task(rack.key, "t", "destructor_tracking", "");
     ASSERT_NIL(rack.tasks.create(task));
 
-    wait_for_status(streamer, task, [](auto &s) { return s.message == "configured"; });
+    WAIT_FOR_TASK_STATUS(streamer, task, [](auto &s) {
+        return s.message == "configured";
+    });
 
     ASSERT_EQ(f->configure_count.load(), 1);
     ASSERT_FALSE(f->first_destroyed.load());
@@ -639,12 +676,12 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     task.config = "{\"v\":2}";
     ASSERT_NIL(rack.tasks.create(task));
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return f->configure_count.load() >= 2; },
         [] { return "second task not configured"; }
     );
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return f->first_destroyed.load(); },
         [] { return "first task destructor not called"; }
     );
@@ -674,7 +711,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
 
     auto task = synnax::Task(rack.key, "t", "blocking", "");
     ASSERT_NIL(rack.tasks.create(task));
-    xtest::eventually([&] { return f->started.load(); }, [] { return "not started"; });
+    EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
 
     manager->stop();
     f->release();
@@ -917,7 +954,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
     auto task = synnax::Task(rack.key, "t", "stuck_worker", "");
     ASSERT_NIL(rack.tasks.create(task));
 
-    xtest::eventually(
+    EVENTUALLY(
         [&] { return f->configure_started.load(); },
         [] { return "configure not started"; }
     );

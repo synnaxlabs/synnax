@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -35,7 +35,7 @@ TEST(DeferTests, MultipleDefers) {
     ASSERT_EQ(counter, 6);
 }
 
-// @brief it should call a deferred function even after an early return.
+/// @brief it should call a deferred function even after an early return.
 TEST(DeferTests, EarlyReturn) {
     bool called_after_early_return = false;
     bool called_after_normal_return = false;

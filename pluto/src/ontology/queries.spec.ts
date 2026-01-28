@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -258,6 +258,106 @@ describe("Ontology Queries", () => {
           ontology.idToString(group.ontologyID(newGroup.key)),
         );
         expect(item?.name).toBe(newGroupName);
+      });
+    });
+  });
+
+  describe("useRetrieveChildren", () => {
+    it("should retrieve children of a parent", async () => {
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "parent",
+      });
+      await client.ontology.groups.create({
+        parent: group.ontologyID(parent.key),
+        name: "child1",
+      });
+      await client.ontology.groups.create({
+        parent: group.ontologyID(parent.key),
+        name: "child2",
+      });
+
+      const { result } = renderHook(
+        () => Ontology.useRetrieveChildren({ id: group.ontologyID(parent.key) }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toHaveLength(2);
+      });
+    });
+
+    it("should return empty array when parent has no children", async () => {
+      const parent = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "empty-parent",
+      });
+
+      const { result } = renderHook(
+        () => Ontology.useRetrieveChildren({ id: group.ontologyID(parent.key) }),
+        { wrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([]);
+      });
+    });
+
+    it("should return disabled state when no client connected", async () => {
+      const noClientWrapper = createSynnaxWrapper({ client: null });
+
+      const { result } = renderHook(
+        () => Ontology.useRetrieveChildren({ id: ontology.ROOT_ID }),
+        { wrapper: noClientWrapper },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("disabled");
+      });
+    });
+
+    it("should re-fetch when query ID changes", async () => {
+      const parent1 = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "parent1",
+      });
+      await client.ontology.groups.create({
+        parent: group.ontologyID(parent1.key),
+        name: "p1-child",
+      });
+
+      const parent2 = await client.ontology.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "parent2",
+      });
+      await client.ontology.groups.create({
+        parent: group.ontologyID(parent2.key),
+        name: "p2-child1",
+      });
+      await client.ontology.groups.create({
+        parent: group.ontologyID(parent2.key),
+        name: "p2-child2",
+      });
+
+      const { result, rerender } = renderHook(
+        ({ id }) => Ontology.useRetrieveChildren({ id }),
+        {
+          wrapper,
+          initialProps: { id: group.ontologyID(parent1.key) },
+        },
+      );
+
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toHaveLength(1);
+      });
+
+      rerender({ id: group.ontologyID(parent2.key) });
+
+      await waitFor(() => {
+        expect(result.current.data).toHaveLength(2);
       });
     });
   });

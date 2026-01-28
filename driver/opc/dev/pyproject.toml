@@ -1,15 +1,19 @@
-[tool.poetry]
-package-mode = false
+[project]
+name = "opc-dev"
+version = "0.0.0"
+description = "OPC UA development tools"
+requires-python = ">=3.12"
+dependencies = ["asyncua==1.1.5", "synnax"]
 
-[tool.poetry.dependencies]
-asyncua = "1.1.5"
-python = "^3.12"
-synnax = { path = "../../../client/py", develop = true }
+[dependency-groups]
+dev = ["black>=25.1.0", "isort>=6.0.1"]
 
-[tool.poetry.group.dev.dependencies]
-black = "^25.1.0"
-isort = "^6.0.1"
-poetry = "^2.2.0"
+[tool.uv.sources]
+synnax = { path = "../../../client/py" }
 
 [tool.isort]
 profile = "black"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

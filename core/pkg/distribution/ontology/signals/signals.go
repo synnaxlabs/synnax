@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,7 +26,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Publish publishes changes from the provided ontology into the provided signals.Provider.
+// Publish publishes changes from the provided ontology into the provided
+// signals.Provider.
 func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
@@ -34,14 +35,14 @@ func Publish(
 ) (io.Closer, error) {
 	resourceObserver := observe.Translator[iter.Seq[ontology.Change], []change.Change[[]byte, struct{}]]{
 		Observable: otg.ResourceObserver,
-		Translate: func(nexter iter.Seq[ontology.Change]) []change.Change[[]byte, struct{}] {
+		Translate: func(ctx context.Context, nexter iter.Seq[ontology.Change]) ([]change.Change[[]byte, struct{}], bool) {
 			var (
 				out []change.Change[[]byte, struct{}]
 				key []byte
 				err error
 			)
 			for ch := range nexter {
-				if ch.Variant == change.Set {
+				if ch.Variant == change.VariantSet {
 					key, err = signals.MarshalJSON(ch.Value)
 					if err != nil {
 						otg.L.DPanic("unexpected failure to marshal ontology resource set", zap.Error(err))
@@ -52,7 +53,7 @@ func Publish(
 				}
 				out = append(out, change.Change[[]byte, struct{}]{Key: key, Variant: ch.Variant})
 			}
-			return out
+			return out, true
 		},
 	}
 	resourceObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
@@ -66,7 +67,7 @@ func Publish(
 	}
 	relationshipObserver := observe.Translator[gorp.TxReader[[]byte, ontology.Relationship], []change.Change[[]byte, struct{}]]{
 		Observable: otg.RelationshipObserver,
-		Translate: func(nexter gorp.TxReader[[]byte, ontology.Relationship]) []change.Change[[]byte, struct{}] {
+		Translate: func(ctx context.Context, nexter gorp.TxReader[[]byte, ontology.Relationship]) ([]change.Change[[]byte, struct{}], bool) {
 			var out []change.Change[[]byte, struct{}]
 			for ch := range nexter {
 				out = append(out, change.Change[[]byte, struct{}]{
@@ -74,7 +75,7 @@ func Publish(
 					Variant: ch.Variant,
 				})
 			}
-			return out
+			return out, true
 		},
 	}
 	relationshipObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{

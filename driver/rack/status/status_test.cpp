@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@
 
 #include "driver/rack/status/status.h"
 
-/// @brief tests the nominal state case.
+/// @brief it should report nominal driver status via state streamer.
 TEST(stateTests, testNominal) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
@@ -28,16 +28,14 @@ TEST(stateTests, testNominal) {
     auto cmd = task::Command(0, "start", {});
     hb->exec(cmd);
     x::defer stop([&hb]() { hb->stop(false); });
-    auto [streamer, strm_err] = client->telem.open_streamer(
+    auto streamer = ASSERT_NIL_P(client->telem.open_streamer(
         synnax::StreamerConfig{
             .channels = {ch.key},
         }
-    );
-    ASSERT_FALSE(strm_err) << strm_err.message();
+    ));
     json j;
     for (int i = 0; i < 50; i++) {
-        auto [frm, msg_err] = streamer.read();
-        ASSERT_FALSE(msg_err) << msg_err.message();
+        auto frm = ASSERT_NIL_P(streamer.read());
         ASSERT_EQ(frm.size(), 1);
         frm.series->at(0).at(-1, j);
         if (j["details"]["rack"] == rack.key) break;
@@ -45,6 +43,5 @@ TEST(stateTests, testNominal) {
     EXPECT_EQ(j["details"]["rack"], rack.key);
     EXPECT_EQ(j["variant"], status::variant::SUCCESS);
     EXPECT_EQ(j["message"], "Driver is running");
-    const auto err = streamer.close();
-    ASSERT_FALSE(err) << err.message();
+    ASSERT_NIL(streamer.close());
 }

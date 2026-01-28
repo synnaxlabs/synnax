@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,13 +18,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -43,7 +43,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.Config{
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
@@ -53,12 +53,12 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
-	statusSvc, err := svcstatus.OpenService(ctx, svcstatus.ServiceConfig{
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
-		Label:    labelSvc,
-		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Ontology: dist.Ontology,
+		Label:    labelSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -68,8 +68,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
-		Framer:   dist.Framer,
-		Status:   statusSvc,
 		Signals:  dist.Signals,
 	})
 	if err != nil {
@@ -82,6 +80,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Framer:            dist.Framer,
 		Channel:           dist.Channel,
 		ChannelObservable: dist.Channel.NewObservable(),
+		Status:            statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open calculation service: %v", err)
@@ -200,7 +199,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 	for j := 0; j < 100; j++ {
 		data[j] = float32(j)
 	}
-	fr := core.UnaryFrame(ch.Key(), telem.NewSeriesV(data...))
+	fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(data...))
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -257,7 +256,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 			for j := 0; j < 1000; j++ {
 				data[j] = float32(j)
 			}
-			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesV(data...))
+			fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(data...))
 
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -324,7 +323,7 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 			data1[j] = float32(j)
 			data2[j] = float32(j * 2)
 		}
-		fr := core.MultiFrame(keys, []telem.Series{
+		fr := frame.NewMulti(keys, []telem.Series{
 			telem.NewSeriesV(timestamps...),
 			telem.NewSeriesV(data1...),
 			telem.NewSeriesV(data2...),
@@ -384,7 +383,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 			for j := 0; j < size; j++ {
 				data[j] = float32(j)
 			}
-			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesV(data...))
+			fr := frame.NewUnary(ch.Key(), telem.NewSeriesV(data...))
 
 			b.ReportAllocs()
 			b.ResetTimer()
@@ -459,7 +458,7 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 					timestamps[j] = baseTS + telem.TimeStamp(j)*telem.SecondTS
 					data[j] = float32(j)
 				}
-				fr := core.MultiFrame(keys, []telem.Series{
+				fr := frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV(timestamps...),
 					telem.NewSeriesV(data...),
 				})

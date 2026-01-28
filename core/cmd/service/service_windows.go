@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,10 +24,12 @@ import (
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	signal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/mgr"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -35,6 +37,47 @@ const (
 	shutdownTimeout = 30 * time.Second
 	name            = "SynnaxCore"
 )
+
+// ConfigDir returns the directory where the service config file is stored.
+func ConfigDir() string {
+	programData := os.Getenv("ProgramData")
+	if programData == "" {
+		programData = "C:\\ProgramData"
+	}
+	return filepath.Join(programData, "Synnax")
+}
+
+// ConfigPath returns the full path to the service config file.
+func ConfigPath() string { return filepath.Join(ConfigDir(), "config.yaml") }
+
+// configKeysToExclude contains keys that should not be written to the config file.
+// These are either service-specific (not needed at runtime) or internal.
+var configKeysToExclude = set.FromSlice([]string{"auto-start", "delayed-start"})
+
+// WriteConfig writes the current viper configuration to the config file.
+// This captures all the core configuration flags set during service installation,
+// excluding service-specific flags like auto-start and delayed-start.
+func WriteConfig() error {
+	dir := ConfigDir()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+
+	// Build settings map by explicitly reading each key from viper.
+	// This is necessary because viper.AllSettings() doesn't properly evaluate
+	// bound flag values - it returns defaults instead of actual flag values.
+	settings := make(map[string]any)
+	for _, key := range viper.AllKeys() {
+		if !configKeysToExclude.Contains(key) {
+			settings[key] = viper.Get(key)
+		}
+	}
+	data, err := yaml.Marshal(settings)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(ConfigPath(), data, 0644)
+}
 
 // Is returns true if the current process is running as a Windows Service.
 func Is() (bool, error) { return svc.IsWindowsService() }

@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -7,18 +7,36 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+"""
+Nominal pressurization sequence that runs alongside an abort sequence.
+
+To run this example:
+
+Terminal 1 - Start the simulator:
+    cd client/py
+    uv run python -m examples.simulators.press
+
+Terminal 2 - Run the abort sequence (must start first):
+    cd client/py
+    uv run python -m examples.control.abort.abort_sequence
+
+Terminal 3 - Run the nominal sequence:
+    cd client/py
+    uv run python -m examples.control.abort.nominal_sequence
+"""
+
 import time
 
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Define the control channel names
 PRESS_VALVE = "press_vlv_cmd"
 VENT_VALVE = "vent_vlv_cmd"
-PRESSURE = "pressure"
+PRESSURE = "press_pt"
 
 # Open a control sequence under a context manager, so that the control is released when
 # the block exits

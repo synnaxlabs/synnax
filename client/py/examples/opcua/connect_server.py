@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -17,13 +17,13 @@ Before running this example:
 1. Start the Synnax Driver (if not already running).
 
 2. Start the OPC UA test server:
-   poetry run python driver/opc/dev/server_extended.py
+   uv run python driver/opc/dev/server_extended.py
 
 3. Login to Synnax (if not already logged in):
-   poetry run sy login
+   uv run sy login
 
 4. Run this script:
-   poetry run python examples/opcua/connect_opc_server.py
+   uv run python examples/opcua/connect_opc_server.py
 
 Configuration:
     Modify the constants below to match your OPC UA server configuration.
@@ -36,7 +36,7 @@ import synnax as sy
 
 # Configuration
 DEVICE_NAME = "OPC UA Server"
-ENDPOINT = "opc.tcp://localhost:4841/"
+ENDPOINT = "opc.tcp://127.0.0.1:4841/"
 
 # Connect to Synnax
 client = sy.Synnax()

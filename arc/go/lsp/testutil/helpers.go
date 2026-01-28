@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,18 +13,25 @@ import (
 	"context"
 
 	"github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/lsp"
-	"github.com/synnaxlabs/x/testutil"
+	xutil "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
 )
 
-// SetupTestServer creates a new LSP server configured for testing with a MockClient.
-// Returns the server, a background context, and a default test URI.
 func SetupTestServer(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI) {
-	server := testutil.MustSucceed(lsp.New(cfgs...))
+	server := xutil.MustSucceed(lsp.New(cfgs...))
 	uri := protocol.DocumentURI("file:///test.arc")
 	server.SetClient(&MockClient{})
 	return server, uri
+}
+
+func SetupTestServerWithClient(cfgs ...lsp.Config) (*lsp.Server, protocol.DocumentURI, *MockClient) {
+	server := xutil.MustSucceed(lsp.New(cfgs...))
+	uri := protocol.DocumentURI("file:///test.arc")
+	client := &MockClient{}
+	server.SetClient(client)
+	return server, uri, client
 }
 
 // OpenDocument is a helper to open a document in the LSP server.
@@ -42,4 +49,70 @@ func OpenDocument(
 			Text:       content,
 		},
 	})).To(gomega.Succeed())
+}
+
+func Hover(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) *protocol.Hover {
+	return xutil.MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	}))
+}
+
+func Definition(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) []protocol.Location {
+	return xutil.MustSucceed(server.Definition(ctx, &protocol.DefinitionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	}))
+}
+
+func Completion(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+	line, char uint32,
+) *protocol.CompletionList {
+	return xutil.MustSucceed(server.Completion(ctx, &protocol.CompletionParams{
+		TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+			Position:     protocol.Position{Line: line, Character: char},
+		},
+	}))
+}
+
+func SemanticTokens(
+	server *lsp.Server,
+	ctx context.Context,
+	uri protocol.DocumentURI,
+) *protocol.SemanticTokens {
+	return xutil.MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+		TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+	}))
+}
+
+func FindCompletion(
+	items []protocol.CompletionItem,
+	label string,
+) (protocol.CompletionItem, bool) {
+	return lo.Find(items, func(item protocol.CompletionItem) bool {
+		return item.Label == label
+	})
+}
+
+func HasCompletion(items []protocol.CompletionItem, label string) bool {
+	_, found := FindCompletion(items, label)
+	return found
 }

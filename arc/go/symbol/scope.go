@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,9 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -81,19 +83,19 @@ func NewChannels() Channels {
 //  2. Parent scope (recursively)
 //  3. GlobalResolver (if non-nil)
 type Scope struct {
-	Symbol
 	// GlobalResolver provides global built-in symbols available from any scope.
 	GlobalResolver Resolver
+	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
+	Channels Channels
 	// Parent is the lexically enclosing scope. Nil for the root scope.
 	Parent *Scope
-	// Children are nested scopes within this scope.
-	Children []*Scope
 	// Counter is the ID counter for variable kinds. Functions create new counters.
 	Counter *int
 	// OnResolve is an optional callback invoked when symbols are resolved from this scope.
 	OnResolve func(ctx context.Context, s *Scope) error
-	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
-	Channels Channels
+	// Children are nested scopes within this scope.
+	Children []*Scope
+	Symbol
 }
 
 // GetChildByParserRule finds a direct child scope with the given AST parser rule.
@@ -165,7 +167,7 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 		}
 	}
 	child := &Scope{Parent: s, Symbol: sym}
-	if sym.Kind == KindFunction {
+	if sym.Kind == KindFunction || sym.Kind == KindSequence {
 		child.Counter = new(int)
 	}
 	if sym.Kind == KindVariable ||
@@ -229,22 +231,24 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 		}
 		return scope, nil
 	}
+	suggestions := s.SuggestSimilar(ctx, name, 2)
+	if len(suggestions) > 0 {
+		return nil, errors.Newf("undefined symbol: %s (did you mean: %s?)", name, strings.Join(suggestions, ", "))
+	}
 	return nil, errors.Newf("undefined symbol: %s", name)
 }
 
-// ResolvePrefix returns all symbols whose names start with the given prefix.
-// It searches children, GlobalResolver, and parent scope, deduplicating results.
-func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, error) {
+func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {
 	seen := make(map[string]bool)
 	var scopes []*Scope
 	for _, child := range s.Children {
-		if strings.HasPrefix(child.Name, prefix) && !seen[child.Name] {
+		if matchesSearch(child.Name, term) && !seen[child.Name] {
 			scopes = append(scopes, child)
 			seen[child.Name] = true
 		}
 	}
 	if s.GlobalResolver != nil {
-		symbols, err := s.GlobalResolver.ResolvePrefix(ctx, prefix)
+		symbols, err := s.GlobalResolver.Search(ctx, term)
 		if err == nil {
 			for _, sym := range symbols {
 				if !seen[sym.Name] {
@@ -255,7 +259,7 @@ func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, err
 		}
 	}
 	if s.Parent != nil {
-		parentScopes, err := s.Parent.ResolvePrefix(ctx, prefix)
+		parentScopes, err := s.Parent.Search(ctx, term)
 		if err == nil {
 			for _, scope := range parentScopes {
 				if !seen[scope.Name] {
@@ -268,6 +272,13 @@ func (s *Scope) ResolvePrefix(ctx context.Context, prefix string) ([]*Scope, err
 	return scopes, nil
 }
 
+func matchesSearch(name, term string) bool {
+	if strings.HasPrefix(name, term) {
+		return true
+	}
+	return len(term) > 2 && compare.LevenshteinDistance(name, term) <= 2
+}
+
 // String returns a human-readable string representation of the scope tree.
 func (s *Scope) String() string { return s.stringWithIndent("") }
 
@@ -278,7 +289,7 @@ func (s *Scope) ClosestAncestorOfKind(kind Kind) (*Scope, error) {
 		return s, nil
 	}
 	if s.Parent == nil {
-		return nil, errors.Newf("undefined symbol")
+		return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
 	}
 	return s.Parent.ClosestAncestorOfKind(kind)
 }
@@ -291,7 +302,7 @@ func (s *Scope) FirstChildOfKind(kind Kind) (*Scope, error) {
 			return child, nil
 		}
 	}
-	return nil, errors.Newf("undefined symbol")
+	return nil, errors.Wrap(query.ErrNotFound, "undefined symbol")
 }
 
 func (s *Scope) stringWithIndent(indent string) string {
@@ -325,4 +336,18 @@ func (s *Scope) stringWithIndent(indent string) string {
 		}
 	}
 	return builder.String()
+}
+
+// AccumulateReadChannels initializes channel tracking for this scope.
+// It sets up an OnResolve callback that records any channel references
+// in the Channels.Read map. This is used by functions and expressions
+// to track their channel dependencies.
+func (s *Scope) AccumulateReadChannels() {
+	s.Channels = NewChannels()
+	s.OnResolve = func(_ context.Context, resolved *Scope) error {
+		if resolved.Kind == KindChannel || resolved.Type.Kind == types.KindChan {
+			s.Channels.Read[uint32(resolved.ID)] = resolved.Name
+		}
+		return nil
+	}
 }

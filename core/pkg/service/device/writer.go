@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -40,7 +40,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.WarningVariant,
+			Variant: xstatus.VariantWarning,
 			Message: fmt.Sprintf("%s state unknown", d.Name),
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
@@ -67,7 +67,7 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 		WhereKeys(device.Key).
 		Entry(&existing).
 		Exec(ctx, w.tx)
-	isNotFound := errors.Is(err, query.NotFound)
+	isNotFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !isNotFound {
 		return err
 	}
@@ -99,14 +99,14 @@ func (w Writer) Create(ctx context.Context, device Device) error {
 	if err = w.otg.DeleteIncomingRelationshipsOfType(
 		ctx,
 		otgID,
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 	); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(
 		ctx,
 		device.Rack.OntologyID(),
-		ontology.ParentOf,
+		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }

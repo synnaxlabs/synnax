@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -20,10 +20,10 @@ Before running this example:
    python driver/modbus/dev/server.py
 
 3. Login to Synnax (if not already logged in):
-   poetry run sy login
+   uv run sy login
 
 4. Run this script:
-   poetry run python examples/modbus/connect_modbus_server.py
+   uv run python examples/modbus/connect_modbus_server.py
 
 Configuration:
     Modify the constants below to match your Modbus server configuration.
@@ -80,7 +80,7 @@ if response in ("", "y", "yes"):
         rack = client.racks.retrieve_embedded_rack()
         print(f"Using rack: {rack.name} (key={rack.key})")
 
-        device = sy.sy.modbus.Device(
+        device = sy.modbus.Device(
             host=HOST,
             port=PORT,
             name=DEVICE_NAME,

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,29 +20,31 @@ export interface BaseArgs<V> {
   result?: V;
 }
 
-export interface BaseProps<R, A extends BaseArgs<R>> {
-  value: A;
-  onFinish: (value: R | null) => void;
+export interface BaseProps<Return, Args extends BaseArgs<Return>> {
+  value: Args;
+  onFinish: (value: Return | null) => void;
 }
 
-export interface LayoutOverrides
-  extends Omit<Partial<Layout.BaseState>, "type" | "location"> {}
+export interface LayoutOverrides extends Omit<
+  Partial<Layout.BaseState>,
+  "type" | "location"
+> {}
 
-export interface Prompt<R, A extends BaseArgs<R>> {
-  (args: A, layoutOverrides?: LayoutOverrides): Promise<R | null>;
+export interface Prompt<Return, A extends BaseArgs<Return>> {
+  (args: A, layoutOverrides?: LayoutOverrides): Promise<Return | null>;
 }
 
-export const createBase = <R, A extends BaseArgs<R>>(
+export const createBase = <Return, Args extends BaseArgs<Return>>(
   name: string,
   type: string,
-  Component: FC<BaseProps<R, A>>,
+  Component: FC<BaseProps<Return, Args>>,
   defaultLayoutOverrides?: LayoutOverrides,
-): [() => Prompt<R, A>, Layout.Renderer] => {
+): [() => Prompt<Return, Args>, Layout.Renderer] => {
   const configureLayout = (
     key: string,
-    args: A,
+    args: Args,
     layoutOverrides?: LayoutOverrides,
-  ): Layout.BaseState<A> & Pick<Layout.State<A>, "key"> => ({
+  ): Layout.BaseState<Args> & Pick<Layout.State<Args>, "key"> => ({
     name,
     type,
     location: "modal",
@@ -52,10 +54,10 @@ export const createBase = <R, A extends BaseArgs<R>>(
     key,
     args: { ...args, result: undefined },
   });
-  const useModal = (): Prompt<R, A> => {
+  const useModal = (): Prompt<Return, Args> => {
     const placeLayout = usePlacer();
     const store = useStore<Layout.StoreState>();
-    return async (args: A, layoutOverrides?: LayoutOverrides) => {
+    return async (args: Args, layoutOverrides?: LayoutOverrides) => {
       let unsubscribe: ReturnType<typeof store.subscribe> | null = null;
       const key = layoutOverrides?.key ?? defaultLayoutOverrides?.key ?? id.create();
       return await new Promise((resolve) => {
@@ -65,7 +67,7 @@ export const createBase = <R, A extends BaseArgs<R>>(
           const state = store.getState();
           const l = select(state, key);
           if (l == null) resolve(null);
-          const args = selectArgs<A>(state, key);
+          const args = selectArgs<Args>(state, key);
           if (args?.result == null) return;
           resolve(args.result);
           unsubscribe?.();
@@ -74,12 +76,12 @@ export const createBase = <R, A extends BaseArgs<R>>(
     };
   };
   const Modal: Layout.Renderer = ({ layoutKey, onClose }) => {
-    const args = useSelectArgs<A>(layoutKey);
+    const args = useSelectArgs<Args>(layoutKey);
     const dispatch = useDispatch();
-    const handleResult = (value: R | null) => {
+    const handleResult = (value: Return | null) => {
       if (value == null) return onClose();
       dispatch(
-        setArgs<BaseArgs<R>>({
+        setArgs<BaseArgs<Return>>({
           key: layoutKey,
           args: { ...args, result: value },
         }),

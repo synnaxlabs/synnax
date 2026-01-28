@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -43,11 +43,32 @@ type ArcParserListener interface {
 	// EnterConfigBlock is called when entering the configBlock production.
 	EnterConfigBlock(c *ConfigBlockContext)
 
+	// EnterConfigList is called when entering the configList production.
+	EnterConfigList(c *ConfigListContext)
+
 	// EnterConfig is called when entering the config production.
 	EnterConfig(c *ConfigContext)
 
+	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
+	EnterSequenceDeclaration(c *SequenceDeclarationContext)
+
+	// EnterStageDeclaration is called when entering the stageDeclaration production.
+	EnterStageDeclaration(c *StageDeclarationContext)
+
+	// EnterStageBody is called when entering the stageBody production.
+	EnterStageBody(c *StageBodyContext)
+
+	// EnterStageItem is called when entering the stageItem production.
+	EnterStageItem(c *StageItemContext)
+
+	// EnterSingleInvocation is called when entering the singleInvocation production.
+	EnterSingleInvocation(c *SingleInvocationContext)
+
 	// EnterFlowStatement is called when entering the flowStatement production.
 	EnterFlowStatement(c *FlowStatementContext)
+
+	// EnterFlowOperator is called when entering the flowOperator production.
+	EnterFlowOperator(c *FlowOperatorContext)
 
 	// EnterRoutingTable is called when entering the routingTable production.
 	EnterRoutingTable(c *RoutingTableContext)
@@ -58,8 +79,8 @@ type ArcParserListener interface {
 	// EnterFlowNode is called when entering the flowNode production.
 	EnterFlowNode(c *FlowNodeContext)
 
-	// EnterChannelIdentifier is called when entering the channelIdentifier production.
-	EnterChannelIdentifier(c *ChannelIdentifierContext)
+	// EnterIdentifier is called when entering the identifier production.
+	EnterIdentifier(c *IdentifierContext)
 
 	// EnterFunction is called when entering the function production.
 	EnterFunction(c *FunctionContext)
@@ -100,20 +121,8 @@ type ArcParserListener interface {
 	// EnterAssignment is called when entering the assignment production.
 	EnterAssignment(c *AssignmentContext)
 
-	// EnterChannelOperation is called when entering the channelOperation production.
-	EnterChannelOperation(c *ChannelOperationContext)
-
-	// EnterChannelWrite is called when entering the channelWrite production.
-	EnterChannelWrite(c *ChannelWriteContext)
-
-	// EnterChannelRead is called when entering the channelRead production.
-	EnterChannelRead(c *ChannelReadContext)
-
-	// EnterBlockingRead is called when entering the blockingRead production.
-	EnterBlockingRead(c *BlockingReadContext)
-
-	// EnterNonBlockingRead is called when entering the nonBlockingRead production.
-	EnterNonBlockingRead(c *NonBlockingReadContext)
+	// EnterCompoundOp is called when entering the compoundOp production.
+	EnterCompoundOp(c *CompoundOpContext)
 
 	// EnterIfStatement is called when entering the ifStatement production.
 	EnterIfStatement(c *IfStatementContext)
@@ -127,11 +136,11 @@ type ArcParserListener interface {
 	// EnterReturnStatement is called when entering the returnStatement production.
 	EnterReturnStatement(c *ReturnStatementContext)
 
-	// EnterFunctionCall is called when entering the functionCall production.
-	EnterFunctionCall(c *FunctionCallContext)
-
 	// EnterType is called when entering the type production.
 	EnterType(c *TypeContext)
+
+	// EnterUnitSuffix is called when entering the unitSuffix production.
+	EnterUnitSuffix(c *UnitSuffixContext)
 
 	// EnterPrimitiveType is called when entering the primitiveType production.
 	EnterPrimitiveType(c *PrimitiveTypeContext)
@@ -144,9 +153,6 @@ type ArcParserListener interface {
 
 	// EnterFloatType is called when entering the floatType production.
 	EnterFloatType(c *FloatTypeContext)
-
-	// EnterTemporalType is called when entering the temporalType production.
-	EnterTemporalType(c *TemporalTypeContext)
 
 	// EnterChannelType is called when entering the channelType production.
 	EnterChannelType(c *ChannelTypeContext)
@@ -181,9 +187,6 @@ type ArcParserListener interface {
 	// EnterUnaryExpression is called when entering the unaryExpression production.
 	EnterUnaryExpression(c *UnaryExpressionContext)
 
-	// EnterBlockingReadExpr is called when entering the blockingReadExpr production.
-	EnterBlockingReadExpr(c *BlockingReadExprContext)
-
 	// EnterPostfixExpression is called when entering the postfixExpression production.
 	EnterPostfixExpression(c *PostfixExpressionContext)
 
@@ -199,17 +202,11 @@ type ArcParserListener interface {
 	// EnterTypeCast is called when entering the typeCast production.
 	EnterTypeCast(c *TypeCastContext)
 
-	// EnterBuiltinFunction is called when entering the builtinFunction production.
-	EnterBuiltinFunction(c *BuiltinFunctionContext)
-
 	// EnterLiteral is called when entering the literal production.
 	EnterLiteral(c *LiteralContext)
 
 	// EnterNumericLiteral is called when entering the numericLiteral production.
 	EnterNumericLiteral(c *NumericLiteralContext)
-
-	// EnterTemporalLiteral is called when entering the temporalLiteral production.
-	EnterTemporalLiteral(c *TemporalLiteralContext)
 
 	// EnterSeriesLiteral is called when entering the seriesLiteral production.
 	EnterSeriesLiteral(c *SeriesLiteralContext)
@@ -244,11 +241,32 @@ type ArcParserListener interface {
 	// ExitConfigBlock is called when exiting the configBlock production.
 	ExitConfigBlock(c *ConfigBlockContext)
 
+	// ExitConfigList is called when exiting the configList production.
+	ExitConfigList(c *ConfigListContext)
+
 	// ExitConfig is called when exiting the config production.
 	ExitConfig(c *ConfigContext)
 
+	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
+	ExitSequenceDeclaration(c *SequenceDeclarationContext)
+
+	// ExitStageDeclaration is called when exiting the stageDeclaration production.
+	ExitStageDeclaration(c *StageDeclarationContext)
+
+	// ExitStageBody is called when exiting the stageBody production.
+	ExitStageBody(c *StageBodyContext)
+
+	// ExitStageItem is called when exiting the stageItem production.
+	ExitStageItem(c *StageItemContext)
+
+	// ExitSingleInvocation is called when exiting the singleInvocation production.
+	ExitSingleInvocation(c *SingleInvocationContext)
+
 	// ExitFlowStatement is called when exiting the flowStatement production.
 	ExitFlowStatement(c *FlowStatementContext)
+
+	// ExitFlowOperator is called when exiting the flowOperator production.
+	ExitFlowOperator(c *FlowOperatorContext)
 
 	// ExitRoutingTable is called when exiting the routingTable production.
 	ExitRoutingTable(c *RoutingTableContext)
@@ -259,8 +277,8 @@ type ArcParserListener interface {
 	// ExitFlowNode is called when exiting the flowNode production.
 	ExitFlowNode(c *FlowNodeContext)
 
-	// ExitChannelIdentifier is called when exiting the channelIdentifier production.
-	ExitChannelIdentifier(c *ChannelIdentifierContext)
+	// ExitIdentifier is called when exiting the identifier production.
+	ExitIdentifier(c *IdentifierContext)
 
 	// ExitFunction is called when exiting the function production.
 	ExitFunction(c *FunctionContext)
@@ -301,20 +319,8 @@ type ArcParserListener interface {
 	// ExitAssignment is called when exiting the assignment production.
 	ExitAssignment(c *AssignmentContext)
 
-	// ExitChannelOperation is called when exiting the channelOperation production.
-	ExitChannelOperation(c *ChannelOperationContext)
-
-	// ExitChannelWrite is called when exiting the channelWrite production.
-	ExitChannelWrite(c *ChannelWriteContext)
-
-	// ExitChannelRead is called when exiting the channelRead production.
-	ExitChannelRead(c *ChannelReadContext)
-
-	// ExitBlockingRead is called when exiting the blockingRead production.
-	ExitBlockingRead(c *BlockingReadContext)
-
-	// ExitNonBlockingRead is called when exiting the nonBlockingRead production.
-	ExitNonBlockingRead(c *NonBlockingReadContext)
+	// ExitCompoundOp is called when exiting the compoundOp production.
+	ExitCompoundOp(c *CompoundOpContext)
 
 	// ExitIfStatement is called when exiting the ifStatement production.
 	ExitIfStatement(c *IfStatementContext)
@@ -328,11 +334,11 @@ type ArcParserListener interface {
 	// ExitReturnStatement is called when exiting the returnStatement production.
 	ExitReturnStatement(c *ReturnStatementContext)
 
-	// ExitFunctionCall is called when exiting the functionCall production.
-	ExitFunctionCall(c *FunctionCallContext)
-
 	// ExitType is called when exiting the type production.
 	ExitType(c *TypeContext)
+
+	// ExitUnitSuffix is called when exiting the unitSuffix production.
+	ExitUnitSuffix(c *UnitSuffixContext)
 
 	// ExitPrimitiveType is called when exiting the primitiveType production.
 	ExitPrimitiveType(c *PrimitiveTypeContext)
@@ -345,9 +351,6 @@ type ArcParserListener interface {
 
 	// ExitFloatType is called when exiting the floatType production.
 	ExitFloatType(c *FloatTypeContext)
-
-	// ExitTemporalType is called when exiting the temporalType production.
-	ExitTemporalType(c *TemporalTypeContext)
 
 	// ExitChannelType is called when exiting the channelType production.
 	ExitChannelType(c *ChannelTypeContext)
@@ -382,9 +385,6 @@ type ArcParserListener interface {
 	// ExitUnaryExpression is called when exiting the unaryExpression production.
 	ExitUnaryExpression(c *UnaryExpressionContext)
 
-	// ExitBlockingReadExpr is called when exiting the blockingReadExpr production.
-	ExitBlockingReadExpr(c *BlockingReadExprContext)
-
 	// ExitPostfixExpression is called when exiting the postfixExpression production.
 	ExitPostfixExpression(c *PostfixExpressionContext)
 
@@ -400,17 +400,11 @@ type ArcParserListener interface {
 	// ExitTypeCast is called when exiting the typeCast production.
 	ExitTypeCast(c *TypeCastContext)
 
-	// ExitBuiltinFunction is called when exiting the builtinFunction production.
-	ExitBuiltinFunction(c *BuiltinFunctionContext)
-
 	// ExitLiteral is called when exiting the literal production.
 	ExitLiteral(c *LiteralContext)
 
 	// ExitNumericLiteral is called when exiting the numericLiteral production.
 	ExitNumericLiteral(c *NumericLiteralContext)
-
-	// ExitTemporalLiteral is called when exiting the temporalLiteral production.
-	ExitTemporalLiteral(c *TemporalLiteralContext)
 
 	// ExitSeriesLiteral is called when exiting the seriesLiteral production.
 	ExitSeriesLiteral(c *SeriesLiteralContext)

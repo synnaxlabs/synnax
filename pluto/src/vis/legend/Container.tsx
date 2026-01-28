@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,8 +21,7 @@ import { state } from "@/state";
 import { preventDefault } from "@/util/event";
 
 export interface ContainerProps
-  extends Omit<Flex.BoxProps, "onChange">,
-    Partial<OptionalControl<sticky.XY>> {
+  extends Omit<Flex.BoxProps, "onChange">, Partial<OptionalControl<sticky.XY>> {
   dragEnabled?: boolean;
   initial?: sticky.XY;
 }
@@ -51,7 +50,6 @@ export const Container = memo(
       onChange,
       initial,
     });
-
     const positionRef = useRef<sticky.XY>(position);
     const disabled = useSyncedRef(draggable === false);
     const ref = useRef<HTMLDivElement | null>(null);
@@ -98,16 +96,22 @@ export const Container = memo(
           container: box.construct(ref.current.parentElement),
         });
       }, []),
-      onMove: useCallback((box: box.Box) => {
-        if (disabled.current) return;
-        const pos = calculatePosition(box);
-        if (pos !== null) setPosition(pos);
-      }, []),
-      onEnd: useCallback((box: box.Box) => {
-        if (disabled.current) return;
-        const pos = calculatePosition(box);
-        if (pos !== null) positionRef.current = pos;
-      }, []),
+      onMove: useCallback(
+        (box: box.Box) => {
+          if (disabled.current) return;
+          const pos = calculatePosition(box);
+          if (pos !== null) setPosition(pos);
+        },
+        [calculatePosition, setPosition],
+      ),
+      onEnd: useCallback(
+        (box: box.Box) => {
+          if (disabled.current) return;
+          const pos = calculatePosition(box);
+          if (pos !== null) positionRef.current = pos;
+        },
+        [calculatePosition],
+      ),
     });
 
     return (

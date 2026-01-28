@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,8 @@ import { useState } from "react";
 import { Item, type ItemProps } from "@/arc/list/Item";
 
 export interface ListProps
-  extends Pick<
+  extends
+    Pick<
       Flux.UseListReturn<PList.PagerParams, arc.Key, arc.Arc>,
       "data" | "getItem" | "subscribe" | "retrieve"
     >,
@@ -52,7 +53,6 @@ export const List = ({
             value={searchTerm}
             placeholder={
               <>
-                {" "}
                 <Icon.Search />
                 Search Arcs...
               </>

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -29,9 +28,9 @@ type Retrieve struct {
 	tx                        gorp.Tx
 	gorp                      gorp.Retrieve[Key, Channel]
 	otg                       *ontology.Ontology
-	keys                      Keys
-	searchTerm                string
 	validateRetrievedChannels func([]Channel) ([]Channel, error)
+	searchTerm                string
+	keys                      Keys
 }
 
 // Search sets the search term for the query. Note that the fuzzy search will be executed
@@ -79,13 +78,6 @@ func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
 func (r Retrieve) WhereInternal(internal bool) Retrieve {
 	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
 		return ch.Internal == internal, nil
-	}, gorp.Required())
-	return r
-}
-
-func (r Retrieve) WhereLegacyCalculated(legacyCalculated bool) Retrieve {
-	r.gorp.Where(func(_ gorp.Context, ch *Channel) (bool, error) {
-		return ch.IsLegacyCalculated() == legacyCalculated, nil
 	}, gorp.Required())
 	return r
 }
@@ -141,7 +133,7 @@ func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r 
 // Exec executes the query, binding
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
-		ids, err := r.otg.SearchIDs(ctx, search.Request{
+		ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
 			Type: OntologyType,
 			Term: r.searchTerm,
 		})

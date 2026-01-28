@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -141,11 +141,10 @@ const TemperatureUnitsField = PForm.buildSelectField<
 
 interface CJCSourceEntry extends record.KeyedNamed<string> {}
 
-interface SelectCJCSourceFieldProps
-  extends optional.Optional<
-    Select.StaticProps<string, CJCSourceEntry>,
-    "data" | "resourceName"
-  > {
+interface SelectCJCSourceFieldProps extends optional.Optional<
+  Select.StaticProps<string, CJCSourceEntry>,
+  "data" | "resourceName"
+> {
   model: Device.Model;
 }
 

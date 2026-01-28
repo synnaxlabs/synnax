@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,7 +16,7 @@ import (
 
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -24,8 +24,8 @@ import (
 )
 
 type freeWriteAlignments struct {
-	mu         sync.Mutex
 	alignments map[channel.Key]*atomic.Uint32
+	mu         sync.Mutex
 }
 
 func (f *freeWriteAlignments) increment(key channel.Key) telem.Alignment {
@@ -44,7 +44,7 @@ func (s *Service) newFree(
 	channels []channel.Channel,
 ) StreamWriter {
 	w := &freeWriter{
-		freeWrites: s.FreeWrites,
+		freeWrites: s.cfg.FreeWrites,
 		mode:       mode,
 		sync:       sync,
 		indexes:    make(map[channel.Key]channel.Key),
@@ -80,7 +80,7 @@ type freeWriter struct {
 	sync bool
 }
 
-func (w *freeWriter) alignFrame(fr core.Frame) core.Frame {
+func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 	var (
 		idx channel.Key
 		ok  bool
@@ -108,7 +108,7 @@ func (w *freeWriter) alignFrame(fr core.Frame) core.Frame {
 }
 
 func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
-	if req.Command == Write && w.mode.Stream() {
+	if req.Command == CommandWrite && w.mode.Stream() {
 		if err = signal.SendUnderContext(
 			ctx, w.freeWrites.Inlet(),
 			relay.Response{Frame: w.alignFrame(req.Frame)},

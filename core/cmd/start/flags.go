@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,9 +38,9 @@ const (
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 )
 
-// BindFlags binds the start flags to the given command.
-func BindFlags(cmd *cobra.Command) {
-	cert.BindFlags(cmd)
+// AddFlags adds the start flags to the given command.
+func AddFlags(cmd *cobra.Command) {
+	cert.AddFlags(cmd)
 	cmd.Flags().StringP(
 		FlagListen,
 		"l",

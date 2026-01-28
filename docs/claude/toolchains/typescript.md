@@ -2,7 +2,7 @@
 
 ## TypeScript/JavaScript Packages
 
-The monorepo uses **PNPM workspaces** with **catalog dependencies** for centralized
+The monorepo uses **pnpm workspaces** with **catalog dependencies** for centralized
 version management:
 
 - **Alamos** (`/alamos/ts/`) - Distributed instrumentation and observability with
@@ -179,7 +179,7 @@ pnpm madge:console # Check only Console
 
 - **Console**: Has both Tauri (`dev:console`) and Vite-only (`dev:console-vite`)
   development modes
-- **PNPM catalog**: Shared dependency versions in `pnpm-workspace.yaml`; use `catalog:`
+- **pnpm catalog**: Shared dependency versions in `pnpm-workspace.yaml`; use `catalog:`
   prefix in package.json
 - **Turbo**: Build cache can cause issues; clear with `npx turbo clean`
 - **Absolute imports**: TypeScript paths configured in tsconfig.json, ensure bundler

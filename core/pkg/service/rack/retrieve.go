@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,9 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -42,10 +40,18 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 // WhereNames filters racks by their names.
-func (r Retrieve) WhereNames(names ...string) Retrieve {
+func (r Retrieve) WhereNames(names []string, opts ...gorp.FilterOption) Retrieve {
 	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
 		return lo.Contains(names, rack.Name), nil
-	})
+	}, opts...)
+	return r
+}
+
+// WhereName filters racks by their names.
+func (r Retrieve) WhereName(name string, opts ...gorp.FilterOption) Retrieve {
+	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
+		return name == rack.Name, nil
+	}, opts...)
 	return r
 }
 
@@ -105,14 +111,14 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if r.searchTerm == "" {
 		return r, nil
 	}
-	ids, err := r.otg.SearchIDs(ctx, search.Request{
+	ids, err := r.otg.SearchIDs(ctx, ontology.SearchRequest{
 		Type: OntologyType,
 		Term: r.searchTerm,
 	})
 	if err != nil {
 		return r, err
 	}
-	keys, err := KeysFromOntologyIds(ids)
+	keys, err := KeysFromOntologyIDs(ids)
 	if err != nil {
 		return r, err
 	}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,18 +20,18 @@ import (
 
 var _ = Describe("KV", Ordered, Serial, func() {
 	var (
-		authenticator  auth.Authenticator
-		db             *gorp.DB
-		creds          auth.InsecureCredentials
-		invalPassCreds auth.InsecureCredentials
-		invalUserCreds auth.InsecureCredentials
+		authenticator    auth.Authenticator
+		db               *gorp.DB
+		creds            auth.InsecureCredentials
+		invalidPassCreds auth.InsecureCredentials
+		invalidUserCreds auth.InsecureCredentials
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		authenticator = auth.MultiAuthenticator{&auth.KV{DB: db}}
+		authenticator = &auth.KV{DB: db}
 		creds = auth.InsecureCredentials{Username: "username", Password: "password"}
-		invalPassCreds = auth.InsecureCredentials{Username: creds.Username, Password: "invalid"}
-		invalUserCreds = auth.InsecureCredentials{Username: "invalid", Password: creds.Password}
+		invalidPassCreds = auth.InsecureCredentials{Username: creds.Username, Password: "invalid"}
+		invalidUserCreds = auth.InsecureCredentials{Username: "invalid", Password: creds.Password}
 	})
 	AfterAll(func() {
 		Expect(db.Close()).To(Succeed())
@@ -62,16 +62,14 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 		})
 		It("Should return an InvalidCredentials error when the password is wrong", func() {
-			Expect(authenticator.Authenticate(ctx, invalPassCreds)).To(MatchError(auth.InvalidCredentials))
+			Expect(authenticator.Authenticate(ctx, invalidPassCreds)).To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should return an InvalidCredentials error when the user can't be found", func() {
-			Expect(authenticator.Authenticate(ctx, invalUserCreds)).To(MatchError(auth.InvalidCredentials))
+			Expect(authenticator.Authenticate(ctx, invalidUserCreds)).To(MatchError(auth.InvalidCredentials))
 		})
 	})
 	Describe("Changing the username", func() {
-		var (
-			newCreds auth.InsecureCredentials
-		)
+		var newCreds auth.InsecureCredentials
 		BeforeAll(func() {
 			newCreds = auth.InsecureCredentials{
 				Username: "new-username",
@@ -88,12 +86,12 @@ var _ = Describe("KV", Ordered, Serial, func() {
 				Expect(authenticator.Authenticate(ctx, creds)).To(MatchError(auth.InvalidCredentials))
 			})
 			It("Should return an InvalidCredentials error when the password is wrong", func() {
-				Expect(authenticator.NewWriter(nil).UpdateUsername(ctx, invalPassCreds, newCreds.Username)).To(MatchError(auth.InvalidCredentials))
+				Expect(authenticator.NewWriter(nil).UpdateUsername(ctx, invalidPassCreds, newCreds.Username)).To(MatchError(auth.InvalidCredentials))
 				Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 				Expect(authenticator.Authenticate(ctx, newCreds)).To(MatchError(auth.InvalidCredentials))
 			})
 			It("Should return an InvalidCredentials error when the user can't be found", func() {
-				Expect(authenticator.NewWriter(nil).UpdateUsername(ctx, invalUserCreds, newCreds.Username)).To(MatchError(auth.InvalidCredentials))
+				Expect(authenticator.NewWriter(nil).UpdateUsername(ctx, invalidUserCreds, newCreds.Username)).To(MatchError(auth.InvalidCredentials))
 				Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 				Expect(authenticator.Authenticate(ctx, newCreds)).To(MatchError(auth.InvalidCredentials))
 			})
@@ -127,9 +125,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 		})
 	})
 	Describe("Updating a password", func() {
-		var (
-			newCreds auth.InsecureCredentials
-		)
+		var newCreds auth.InsecureCredentials
 		BeforeAll(func() {
 			newCreds = auth.InsecureCredentials{
 				Username: creds.Username,
@@ -142,12 +138,12 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Expect(authenticator.Authenticate(ctx, newCreds)).To(Succeed())
 		})
 		It("Should return an InvalidCredentials error when the password is wrong", func() {
-			Expect(authenticator.NewWriter(nil).UpdatePassword(ctx, invalPassCreds, newCreds.Password)).To(MatchError(auth.InvalidCredentials))
+			Expect(authenticator.NewWriter(nil).UpdatePassword(ctx, invalidPassCreds, newCreds.Password)).To(MatchError(auth.InvalidCredentials))
 			Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 			Expect(authenticator.Authenticate(ctx, newCreds)).To(MatchError(auth.InvalidCredentials))
 		})
 		It("Should return an InvalidCredentials error when the user can't be found", func() {
-			Expect(authenticator.NewWriter(nil).UpdatePassword(ctx, invalUserCreds, newCreds.Password)).To(MatchError(auth.InvalidCredentials))
+			Expect(authenticator.NewWriter(nil).UpdatePassword(ctx, invalidUserCreds, newCreds.Password)).To(MatchError(auth.InvalidCredentials))
 			Expect(authenticator.Authenticate(ctx, creds)).To(Succeed())
 			Expect(authenticator.Authenticate(ctx, newCreds)).To(MatchError(auth.InvalidCredentials))
 			Expect(authenticator.NewWriter(nil).InsecureDeactivate(ctx, creds.Username)).To(Succeed())

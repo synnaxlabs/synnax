@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -43,7 +43,7 @@ public:
             throw std::runtime_error("mock unary client has no responses left!");
         const auto ctx = freighter::Context(
             "mock",
-            freighter::URL(target),
+            url::URL(target),
             freighter::TransportVariant::STREAM
         );
         auto [res, err] = mw.exec(ctx, this, request);

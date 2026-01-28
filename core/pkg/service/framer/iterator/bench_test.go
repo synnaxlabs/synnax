@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,12 +17,10 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -41,32 +39,9 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
-	labelSvc, err := label.OpenService(ctx, label.Config{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-	})
-	if err != nil {
-		b.Fatalf("failed to open label service: %v", err)
-	}
-
-	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Label:    labelSvc,
-	})
-	if err != nil {
-		b.Fatalf("failed to open status service: %v", err)
-	}
-
 	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       dist.DB,
 		Channel:  dist.Channel,
-		Framer:   dist.Framer,
-		Status:   statusSvc,
 		Ontology: dist.Ontology,
 	})
 	if err != nil {
@@ -157,7 +132,7 @@ func (e *benchIterEnv) writeData(
 		}
 		series[i+1] = telem.NewSeriesV(data...)
 	}
-	fr := core.MultiFrame(keys, series)
+	fr := frame.NewMulti(keys, series)
 	if _, err := w.Write(fr); err != nil {
 		b.Fatalf("failed to write frame: %v", err)
 	}
@@ -388,7 +363,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 					timestamps[i] = telem.TimeStamp(d*1000+i+1) * telem.SecondTS
 					data[i] = float32(d*100 + i)
 				}
-				fr := core.MultiFrame(keys, []telem.Series{
+				fr := frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV(timestamps...),
 					telem.NewSeriesV(data...),
 				})

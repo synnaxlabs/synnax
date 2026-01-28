@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -16,16 +16,16 @@ import (
 	"github.com/synnaxlabs/x/kv"
 )
 
-var ErrMigrationCountExceeded = errors.Newf(
+var ErrMigrationCountExceeded = errors.New(
 	"migration count is greater than the maximum of 255",
 )
 
 // MigrationSpec defines a single migration that should be run with a transaction.
 type MigrationSpec struct {
-	// Name is a unique identifier for this migration (e.g., "name_validation")
-	Name string
 	// Migrate is the migration function to execute
 	Migrate func(context.Context, Tx) error
+	// Name is a unique identifier for this migration (e.g., "name_validation")
+	Name string
 }
 
 // Migrator executes a series of migrations in order, tracking progress with
@@ -70,7 +70,7 @@ func (r Migrator) Run(ctx context.Context, db *DB) error {
 		var currentVersion uint8
 		if !r.Force {
 			versionBytes, closer, err := tx.Get(ctx, []byte(r.Key))
-			if err := errors.Skip(err, kv.NotFound); err != nil {
+			if err := errors.Skip(err, kv.ErrNotFound); err != nil {
 				return err
 			}
 			if closer != nil {

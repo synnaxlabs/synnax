@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -48,12 +48,18 @@ var (
 )
 
 type setStatus struct {
-	stat      status.Status[any]
 	statusSvc *status.Service
 	ins       alamos.Instrumentation
+	stat      status.Status[any]
 }
 
 func (s *setStatus) Init(node.Context) {}
+
+func (s *setStatus) Reset() {}
+
+func (s *setStatus) IsOutputTruthy(output string) bool {
+	return false
+}
 
 func (s *setStatus) Next(ctx node.Context) {
 	s.stat.Time = telem.Now()
@@ -80,7 +86,7 @@ type nodeConfig struct {
 
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
-		return nil, query.NotFound
+		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
@@ -90,7 +96,7 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 	if err := s.stat.NewRetrieve().
 		WhereKeys(nodeCfg.StatusKey).
 		Entry(&stat).
-		Exec(ctx, nil); errors.Skip(err, query.NotFound) != nil {
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err
 	}
 	stat.Key = nodeCfg.StatusKey

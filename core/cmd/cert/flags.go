@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,9 +26,9 @@ const (
 	FlagKeySize       = "key-size"
 )
 
-// BindFlags binds the cert flags to the given command.
-func BindFlags(cmd *cobra.Command) {
-	instrumentation.BindFlags(cmd)
+// AddFlags adds the cert flags to the given command.
+func AddFlags(cmd *cobra.Command) {
+	instrumentation.AddFlags(cmd)
 	cmd.Flags().String(
 		FlagCertsDir,
 		cert.DefaultLoaderConfig.CertsDir,

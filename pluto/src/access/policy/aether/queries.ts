@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,8 +15,10 @@ import { type Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "policies";
 
-export interface FluxStore
-  extends flux.UnaryStore<access.policy.Key, access.policy.Policy> {}
+export interface FluxStore extends flux.UnaryStore<
+  access.policy.Key,
+  access.policy.Policy
+> {}
 
 export interface FluxSubStore extends Ontology.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;

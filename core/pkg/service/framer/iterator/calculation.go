@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -68,18 +68,18 @@ func (t *calculationTransform) Flow(sCtx signal.Context, opts ...confluence.Opti
 }
 
 func (t *calculationTransform) processResponse(ctx context.Context, res Response) {
-	if res.Command == Error {
+	if res.Command == CommandError {
 		res.Error = errors.Combine(res.Error, t.accumulatedError)
 		t.Out.Inlet() <- res
 		return
 	}
-	if res.Variant == DataResponse {
+	if res.Variant == ResponseVariantData {
 		if res.Frame.Count() > 0 {
 			t.pendingFrames = append(t.pendingFrames, res.Frame)
 		}
 		return
 	}
-	if res.Variant == AckResponse {
+	if res.Variant == ResponseVariantAck {
 		t.processBufferedFrames(ctx, res)
 		return
 	}
@@ -95,7 +95,7 @@ func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes
 		t.Out.Inlet() <- ackRes
 		return
 	}
-	mergedFrame := core.MergeFrames(t.pendingFrames)
+	mergedFrame := frame.Merge(t.pendingFrames)
 	var err error
 	for _, c := range t.calculators {
 		mergedFrame, _, err = c.Next(ctx, mergedFrame, mergedFrame)
@@ -107,7 +107,7 @@ func (t *calculationTransform) processBufferedFrames(ctx context.Context, ackRes
 	mergedFrame = mergedFrame.KeepKeys(t.keepKeys)
 	if mergedFrame.Count() > 0 {
 		t.Out.Inlet() <- Response{
-			Variant: DataResponse,
+			Variant: ResponseVariantData,
 			Command: ackRes.Command,
 			SeqNum:  ackRes.SeqNum,
 			Frame:   mergedFrame,

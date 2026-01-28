@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,9 +14,9 @@ import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { type FluxSubStore } from "@/ontology/aether/queries";
 
-const RESOURCE_RESOURCE_NAME = "Resource";
-const PLURAL_RESOURCE_RESOURCE_NAME = "Resources";
-const PLURAL_CHILDREN_RESOURCE_NAME = "Children";
+const RESOURCE_RESOURCE_NAME = "resource";
+const PLURAL_RESOURCE_RESOURCE_NAME = "resources";
+const PLURAL_CHILDREN_RESOURCE_NAME = "children";
 
 export const useResourceSetSynchronizer = (
   onSet: (resource: ontology.Resource) => void,
@@ -234,19 +234,21 @@ export const renameFluxResource = (
   name: string,
 ) => Flux.partialUpdate(store.resources, ontology.idToString(id), { name });
 
-export interface RetrieveChildrenQuery {
+export interface RetrieveChildrenQuery extends ontology.RetrieveOptions {
   id: ontology.ID;
 }
 
-export const { useRetrieveObservable: useRetrieveObservableChildren } =
-  Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[], FluxSubStore>({
-    name: RESOURCE_RESOURCE_NAME,
-    retrieve: async ({ client, query, store }) => {
-      const children = await client.ontology.retrieveChildren(query.id);
-      store.resources.set(children);
-      return children;
-    },
-  });
+export const {
+  useRetrieve: useRetrieveChildren,
+  useRetrieveObservable: useRetrieveObservableChildren,
+} = Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[], FluxSubStore>({
+  name: RESOURCE_RESOURCE_NAME,
+  retrieve: async ({ client, query, store }) => {
+    const children = await client.ontology.retrieveChildren(query.id, query);
+    store.resources.set(children);
+    return children;
+  },
+});
 
 interface RetrieveResourceQuery {
   ids: ontology.ID[];

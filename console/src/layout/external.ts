@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,6 @@ export * from "@/layout/Menu";
 export * from "@/layout/middleware";
 export * from "@/layout/Modals";
 export * from "@/layout/nav";
-export * from "@/layout/palette";
 export * from "@/layout/selectors";
 export * from "@/layout/slice";
 export * from "@/layout/useDropOutside";

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,7 +21,7 @@ import {
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
 import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
-import { Value as CoreValue } from "@/vis/value";
+import { Value as BaseValue } from "@/vis/value";
 
 const VARIANTS = ["text", "value"] as const;
 
@@ -55,7 +55,7 @@ const value: Spec<typeof valuePropsZ> = {
       },
       outlet: "stringifier",
     }),
-    redline: CoreValue.ZERO_READLINE,
+    redline: BaseValue.ZERO_READLINE,
     color: color.hex(t.colors.gray.l10),
     level: "h5",
     units: "",

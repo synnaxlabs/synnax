@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { arc } from "@synnaxlabs/client";
 import { Diagram, Viewport } from "@synnaxlabs/pluto";
 import { type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -41,15 +42,17 @@ const graphStateZ = z.object({
 
 export interface GraphState extends z.infer<typeof graphStateZ> {}
 
+export type Mode = arc.Mode | undefined;
+
 export const stateZ = z.object({
   key: z.string(),
   type: z.literal(TYPE),
   version: z.literal(VERSION),
   remoteCreated: z.boolean(),
   graph: graphStateZ,
+  text: arc.textZ.default({ raw: "" }),
+  mode: arc.modeZ.optional(),
 });
-
-export interface GraphState extends z.infer<typeof graphStateZ> {}
 
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -68,8 +71,6 @@ export interface CopyBuffer {
 }
 
 const ZERO_COPY_BUFFER: CopyBuffer = { pos: xy.ZERO, nodes: [], edges: [], props: {} };
-
-// ||||| TOOLBAR |||||
 
 const TOOLBAR_TABS = ["stages", "properties"] as const;
 export const toolbarTabZ = z.enum(TOOLBAR_TABS);
@@ -108,6 +109,8 @@ export const ZERO_STATE: State = {
   version: VERSION,
   graph: ZERO_GRAPH_STATE,
   remoteCreated: false,
+  text: { raw: "" },
+  mode: undefined,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {

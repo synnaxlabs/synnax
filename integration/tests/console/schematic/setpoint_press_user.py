@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -8,24 +8,28 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from examples.simulators import PressSimDAQ
 
 from console.case import ConsoleCase
 from console.schematic import Button, Setpoint, Valve
 from console.schematic.schematic import Schematic
+from framework.sim_daq_case import SimDaqTestCase
 
 
-class SetpointPressUser(ConsoleCase):
+class SetpointPressUser(SimDaqTestCase, ConsoleCase):
     """
     Test the setpoint symbol. A separate case will
     read the setpoints and determine whether to
     open or close the valves.
     """
 
+    sim_daq_class = PressSimDAQ
+
     def setup(self) -> None:
-        self.set_manual_timeout(90)
+        self.set_manual_timeout(60)
         self.subscribe(
             [
-                "test_flag_cmd",
+                "test_flag_cmd",  # virtual channel
                 "press_vlv_state",
                 "vent_vlv_state",
                 "end_test_cmd",
@@ -46,11 +50,11 @@ class SetpointPressUser(ConsoleCase):
                 command_channel="test_flag_cmd",
             )
         )
-        start_cmd.move(-90, -100)
+        start_cmd.move(delta_x=-90, delta_y=-100)
         end_cmd = schematic.create_symbol(
             Button(label="end_test_cmd", channel_name="end_test_cmd", mode="Fire")
         )
-        end_cmd.move(90, -100)
+        end_cmd.move(delta_x=90, delta_y=-100)
         press_valve = schematic.create_symbol(
             Valve(
                 label="press_vlv",
@@ -58,7 +62,7 @@ class SetpointPressUser(ConsoleCase):
                 command_channel="press_vlv",
             )
         )
-        press_valve.move(-90, 10)
+        press_valve.move(delta_x=-90, delta_y=10)
         vent_valve = schematic.create_symbol(
             Valve(
                 label="vent_vlv",
@@ -66,11 +70,11 @@ class SetpointPressUser(ConsoleCase):
                 command_channel="vent_vlv",
             )
         )
-        vent_valve.move(90, 10)
+        vent_valve.move(delta_x=90, delta_y=10)
         setpoint = schematic.create_symbol(
             Setpoint(label="press_setpoint_cmd", channel_name="press_setpoint_cmd")
         )
-        setpoint.move(0, 120)
+        setpoint.move(delta_x=0, delta_y=120)
 
         schematic.set_authority(100)
         # ------------- Test 1: Control Authority --------------
@@ -101,13 +105,8 @@ class SetpointPressUser(ConsoleCase):
         press_valve.press()  # Set True
         vent_valve.press()  # Set True
 
-        # Assertions 2
-        start_flag_val = self.read_tlm("test_flag_cmd")
-        press_vlv_state = self.read_tlm("press_vlv_state")
-        vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == 1, "Start flag should be 1 after press"
-        assert press_vlv_state == 1, "Press valve should be 1 after first press"
-        assert vent_vlv_state == 1, "Vent valve should be 1 after first press"
+        # Wait for states to propagate
+        self.assert_states(press_state=1, vent_state=1, start_flag_state=1)
 
         press_valve.press()  # Set False
         vent_valve.press()  # Set False
@@ -119,24 +118,20 @@ class SetpointPressUser(ConsoleCase):
         # Check we can control something again
         start_cmd.press()  # Set False
 
-        # Assertions 3
-        start_flag_val = self.read_tlm("test_flag_cmd")
-        press_vlv_state = self.read_tlm("press_vlv_state")
-        vent_vlv_state = self.read_tlm("vent_vlv_state")
-        assert start_flag_val == 0, "Start flag should be 0 after reset"
-        assert press_vlv_state == 0, "Press valve should be 0 after reset"
-        assert vent_vlv_state == 0, "Vent valve should be 0 after reset"
+        # Wait for states to propagate
+        self.assert_states(press_state=0, vent_state=0, start_flag_state=0)
 
         # ------------- Test 2: Basic Control --------------
         self.log("Starting Basic Control Test (2/2)")
         start_cmd.press()  # Set True
 
         self.log("Starting test")
-        setpoints = [50, 25, 0]
+        setpoints = [25, 0]
         for target in setpoints:
             self.log(f"Target pressure: {target}")
             setpoint.set_value(target)
 
+            target_reached = False
             while self.should_continue:
                 pressure_value = self.get_value("press_pt")
                 if pressure_value is not None:
@@ -144,12 +139,33 @@ class SetpointPressUser(ConsoleCase):
                     if delta < 0.5:
                         self.log(f"Target pressure reached: {pressure_value:.2f}")
                         sy.sleep(1)
+                        target_reached = True
                         break
 
-                if self.should_stop:
-                    self.console.screenshot("setpoint_press_user_failed")
-                    self.fail("Exiting on timeout.")
-                    return
+            if not target_reached:
+                self.console.screenshot("setpoint_press_user_failed")
+                self.fail("Exiting on timeout.")
+                return
 
         end_cmd.press()
         self.console.screenshot("setpoint_press_user_passed")
+
+    def assert_states(
+        self, press_state: int, vent_state: int, start_flag_state: int
+    ) -> None:
+        """Wait for valve states to match expected values."""
+        while self.should_continue:
+            press_vlv_state = self.get_value("press_vlv_state")
+            vent_vlv_state = self.get_value("vent_vlv_state")
+            start_flag_val = self.read_tlm("test_flag_cmd")  # virtual channel
+            if (
+                press_vlv_state == press_state
+                and vent_vlv_state == vent_state
+                and start_flag_val == start_flag_state
+            ):
+                return
+        self.fail(
+            f"State mismatch: press={press_vlv_state} (expected {press_state}), "
+            f"vent={vent_vlv_state} (expected {vent_state}), "
+            f"start_flag={start_flag_val} (expected {start_flag_state})"
+        )

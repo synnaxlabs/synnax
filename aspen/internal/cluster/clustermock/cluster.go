@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ package clustermock
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
@@ -20,10 +21,10 @@ import (
 )
 
 type Builder struct {
-	Configs     []cluster.Config
 	GossipNet   *fmock.Network[gossip.Message, gossip.Message]
 	PledgeNet   *fmock.Network[pledge.Request, pledge.Response]
 	ClusterAPIs map[node.Key]*cluster.Cluster
+	Configs     []cluster.Config
 }
 
 func NewBuilder(cfgs ...cluster.Config) *Builder {
@@ -45,18 +46,19 @@ func (b *Builder) New(ctx context.Context, cfgs ...cluster.Config) (*cluster.Clu
 		Pledge: pledge.Config{
 			TransportClient: b.PledgeNet.UnaryClient(),
 			TransportServer: pledgeServer,
-			Peers:           b.MemberAddresses(),
+			Peers:           b.memberAddresses(),
 		},
 	})
-	clust, err := cluster.Open(ctx, cfgs...)
+	c, err := cluster.Open(ctx, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	b.ClusterAPIs[clust.Host().Key] = clust
-	return clust, err
+	b.ClusterAPIs[c.Host().Key] = c
+	return c, nil
 }
 
-func (b *Builder) MemberAddresses() (memberAddresses []address.Address) {
+func (b *Builder) memberAddresses() []address.Address {
+	memberAddresses := make([]address.Address, 0, len(b.ClusterAPIs))
 	for _, api := range b.ClusterAPIs {
 		memberAddresses = append(memberAddresses, api.Host().Address)
 	}

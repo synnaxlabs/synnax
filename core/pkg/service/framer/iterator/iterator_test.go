@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,12 +17,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -37,25 +39,50 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	)
 	BeforeAll(func() {
 		dist = builder.Provision(ctx)
-		labelSvc := MustSucceed(label.OpenService(ctx, label.Config{
+		labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		}))
+		DeferCleanup(func() {
+			Expect(labelSvc.Close()).To(Succeed())
+		})
 		statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
-			Ontology: dist.Ontology,
 			Group:    dist.Group,
 			Signals:  dist.Signals,
+			Ontology: dist.Ontology,
 			Label:    labelSvc,
 		}))
+		DeferCleanup(func() {
+			Expect(statusSvc.Close()).To(Succeed())
+		})
+		rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           dist.DB,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			HostProvider: mock.StaticHostKeyProvider(1),
+			Status:       statusSvc,
+		}))
+		DeferCleanup(func() {
+			Expect(rackService.Close()).To(Succeed())
+		})
+		taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Rack:     rackService,
+			Status:   statusSvc,
+		}))
+		DeferCleanup(func() {
+			Expect(taskSvc.Close()).To(Succeed())
+		})
 		arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       dist.DB,
 			Channel:  dist.Channel,
-			Framer:   dist.Framer,
-			Status:   statusSvc,
 			Ontology: dist.Ontology,
+			Task:     taskSvc,
 		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
@@ -79,7 +106,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Start: telem.SecondTS,
 				Keys:  []channel.Key{ch.Key()},
 			}))
-			fr := core.UnaryFrame(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
+			fr := frame.NewUnary(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
@@ -130,7 +157,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5),
 					telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10),
 				}}
-				fr := core.MultiFrame(
+				fr := frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[0],
@@ -145,7 +172,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Keys:             keys,
 					EnableAutoCommit: config.True(),
 				}))
-				fr = core.MultiFrame(
+				fr = frame.NewMulti(
 					keys,
 					[]telem.Series{
 						idxData.Series[1],
@@ -184,29 +211,6 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Expect(v.Series[1].Alignment).To(Equal(telem.NewAlignment(1, 0)))
 				Expect(iter.Next(iterator.AutoSpan)).To(BeFalse())
 				Expect(iter.Close()).To(Succeed())
-			})
-
-			Describe("Legacy Calculation", func() {
-				It("Should correctly calculate output values", func() {
-					legacyCalculation := &channel.Channel{
-						Name:       "legacy_calculation",
-						DataType:   telem.Float32T,
-						Expression: "return sensor_1",
-						Requires:   []channel.Key{dataCh1.Key()},
-					}
-					Expect(dist.Channel.Create(ctx, legacyCalculation)).To(Succeed())
-					iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
-						Keys:   []channel.Key{legacyCalculation.Key()},
-						Bounds: telem.TimeRangeMax,
-					}))
-					Expect(iter.SeekFirst()).To(BeTrue())
-					Expect(iter.Next(iterator.AutoSpan)).To(BeTrue())
-					v := iter.Value().Get(legacyCalculation.Key())
-					Expect(v.Series).To(HaveLen(1))
-					Expect(v.Series[0]).To(telem.MatchSeriesDataV[float32](6, 7, 8, 9, 10))
-					Expect(v.Series[0].Alignment).To(Equal(telem.NewAlignment(1, 0)))
-					Expect(iter.Close()).To(Succeed())
-				})
 			})
 
 			Describe("Nested Calculations", func() {
@@ -506,7 +510,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					fr := core.MultiFrame(
+					fr := frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[0],
@@ -522,7 +526,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					fr = core.MultiFrame(
+					fr = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[1],
@@ -538,7 +542,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					fr = core.MultiFrame(
+					fr = frame.NewMulti(
 						keys,
 						[]telem.Series{
 							threeDomainIdxData.Series[2],
@@ -766,7 +770,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					MustSucceed(w.Write(core.MultiFrame(
+					MustSucceed(w.Write(frame.NewMulti(
 						keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1, 2, 3),
@@ -781,7 +785,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						Keys:             keys,
 						EnableAutoCommit: config.True(),
 					}))
-					MustSucceed(w.Write(core.MultiFrame(
+					MustSucceed(w.Write(frame.NewMulti(
 						keys,
 						[]telem.Series{
 							telem.NewSeriesSecondsTSV(1000, 1001, 1002),
@@ -907,7 +911,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
@@ -959,7 +963,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8, 9),
@@ -1014,7 +1018,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
@@ -1074,7 +1078,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			fr := core.MultiFrame(
+			fr := frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6, 7, 8),
@@ -1124,7 +1128,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			Expect(w.Write(core.MultiFrame(
+			Expect(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
@@ -1139,7 +1143,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				Keys:             keys,
 				EnableAutoCommit: config.True(),
 			}))
-			Expect(w.Write(core.MultiFrame(
+			Expect(w.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{
 					telem.NewSeriesSecondsTSV(10, 11, 12, 13),

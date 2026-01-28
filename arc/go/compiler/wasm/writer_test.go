@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -119,6 +119,18 @@ var _ = Describe("WASM Writer", func() {
 				encoder.Reset()
 				encoder.WriteBinaryOp(wasm.OpF64Mul)
 				Expect(encoder.Bytes()).To(Equal([]byte{0xa2}))
+			})
+		})
+
+		Context("Unary Operations", func() {
+			It("Should encode i32.eqz", func() {
+				encoder.WriteI32Eqz()
+				Expect(encoder.Bytes()).To(Equal([]byte{0x45}))
+			})
+
+			It("Should encode unary operations", func() {
+				encoder.WriteUnaryOp(wasm.OpI32Eqz)
+				Expect(encoder.Bytes()).To(Equal([]byte{0x45}))
 			})
 		})
 	})

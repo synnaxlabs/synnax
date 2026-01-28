@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,52 +9,86 @@
 
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { importRead, importWrite } from "@/hardware/modbus/task/import";
 import { READ_LAYOUT } from "@/hardware/modbus/task/Read";
 import { WRITE_LAYOUT } from "@/hardware/modbus/task/Write";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const visibleFilter = ({ store, client }: Palette.CommandVisibleContext) =>
-  Access.updateGranted({ id: task.TYPE_ONTOLOGY_ID, store, client });
+const useVisible = () => Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
 
-const CREATE_READ_COMMAND: Palette.Command = {
+export const CreateReadCommand = Palette.createSimpleCommand({
   key: "modbus-create-read-task",
   name: "Create a Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
-  onSelect: ({ placeLayout }) => placeLayout(READ_LAYOUT),
-  visible: visibleFilter,
-};
+  layout: READ_LAYOUT,
+  useVisible,
+});
 
-const CREATE_WRITE_COMMAND: Palette.Command = {
+export const CreateWriteCommand = Palette.createSimpleCommand({
   key: "modbus-create-write-task",
   name: "Create a Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
-  onSelect: ({ placeLayout }) => placeLayout(WRITE_LAYOUT),
-  visible: visibleFilter,
-};
+  layout: WRITE_LAYOUT,
+  useVisible,
+});
 
-const IMPORT_READ_COMMAND: Palette.Command = {
-  key: "modbus-import-read-task",
-  name: "Import Modbus Read Task(s)",
-  sortOrder: -1,
-  icon: <Icon.Logo.Modbus />,
-  onSelect: importRead,
-  visible: visibleFilter,
+export const ImportReadCommand: Palette.Command = ({
+  placeLayout,
+  handleError,
+  store,
+  client,
+  fluxStore,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () => importRead({ placeLayout, handleError, store, client, fluxStore }),
+    [placeLayout, handleError, store, client, fluxStore],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import Modbus Read Task(s)"
+      icon={<Icon.Logo.Modbus />}
+      onSelect={handleSelect}
+    />
+  );
 };
+ImportReadCommand.key = "modbus-import-read-task";
+ImportReadCommand.commandName = "Import Modbus Read Task(s)";
+ImportReadCommand.sortOrder = -1;
+ImportReadCommand.useVisible = useVisible;
 
-const IMPORT_WRITE_COMMAND: Palette.Command = {
-  key: "modbus-import-write-task",
-  name: "Import Modbus Write Task(s)",
-  sortOrder: -1,
-  icon: <Icon.Logo.Modbus />,
-  onSelect: importWrite,
-  visible: visibleFilter,
+export const ImportWriteCommand: Palette.Command = ({
+  placeLayout,
+  handleError,
+  store,
+  client,
+  fluxStore,
+  ...listProps
+}) => {
+  const handleSelect = useCallback(
+    () => importWrite({ placeLayout, handleError, store, client, fluxStore }),
+    [placeLayout, handleError, store, client, fluxStore],
+  );
+  return (
+    <Palette.CommandListItem
+      {...listProps}
+      name="Import Modbus Write Task(s)"
+      icon={<Icon.Logo.Modbus />}
+      onSelect={handleSelect}
+    />
+  );
 };
+ImportWriteCommand.key = "modbus-import-write-task";
+ImportWriteCommand.commandName = "Import Modbus Write Task(s)";
+ImportWriteCommand.sortOrder = -1;
+ImportWriteCommand.useVisible = useVisible;
 
 export const COMMANDS = [
-  CREATE_READ_COMMAND,
-  CREATE_WRITE_COMMAND,
-  IMPORT_READ_COMMAND,
-  IMPORT_WRITE_COMMAND,
+  CreateReadCommand,
+  CreateWriteCommand,
+  ImportReadCommand,
+  ImportWriteCommand,
 ];

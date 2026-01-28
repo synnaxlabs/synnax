@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,7 +29,7 @@ import {
   type digitalReadTypeZ,
   ZERO_DIGITAL_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -38,12 +38,11 @@ export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_READ_TYPE,
 };
 
-export const DIGITAL_READ_SELECTABLE: Selector.Selectable = {
-  create: async ({ layoutKey }) => ({ ...DIGITAL_READ_LAYOUT, key: layoutKey }),
-  icon: <Icon.Logo.NI />,
-  key: DIGITAL_READ_TYPE,
+export const DigitalReadSelectable = Selector.createSimpleItem({
   title: "NI Digital Read Task",
-};
+  icon: <Icon.Logo.NI />,
+  layout: DIGITAL_READ_LAYOUT,
+});
 
 const Properties = () => (
   <>

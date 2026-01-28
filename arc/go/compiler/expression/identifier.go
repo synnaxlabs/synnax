@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -50,11 +51,15 @@ func emitStatefulLoad[ASTNode antlr.ParserRuleContext](
 	idx int,
 	t types.Type,
 ) error {
-	// Push funcID
 	ctx.Writer.WriteI32Const(0)
 	ctx.Writer.WriteI32Const(int32(idx))
 	emitZeroValue(ctx, t)
-	importIdx, err := ctx.Imports.GetStateLoad(t)
+	stateLoadF := lo.Ternary(
+		t.Kind == types.KindSeries,
+		ctx.Imports.GetStateLoadSeries,
+		ctx.Imports.GetStateLoad,
+	)
+	importIdx, err := stateLoadF(t.Unwrap())
 	if err != nil {
 		return err
 	}
@@ -69,7 +74,7 @@ func emitZeroValue[ASTNode antlr.ParserRuleContext](
 	switch t.Kind {
 	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
 		ctx.Writer.WriteI32Const(0)
-	case types.KindI64, types.KindU64, types.KindTimeStamp, types.KindTimeSpan:
+	case types.KindI64, types.KindU64:
 		ctx.Writer.WriteI64Const(0)
 	case types.KindF32:
 		ctx.Writer.WriteF32Const(0.0)

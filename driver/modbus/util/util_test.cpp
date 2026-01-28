@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,6 +31,7 @@ protected:
     }
 };
 
+/// @brief it should format and parse 16-bit register types correctly.
 TEST_F(ModbusUtilTest, test16BitTypes) {
     expect_format_parse_eq<uint16_t>(12345, telem::UINT16_T);
     expect_format_parse_eq<uint16_t>(0xFFFF, telem::UINT16_T);
@@ -41,6 +42,7 @@ TEST_F(ModbusUtilTest, test16BitTypes) {
     expect_format_parse_eq<int16_t>(0, telem::INT16_T);
 }
 
+/// @brief it should format and parse 32-bit register types correctly.
 TEST_F(ModbusUtilTest, test32BitTypes) {
     expect_format_parse_eq<uint32_t>(0xFFFFFFFF, telem::UINT32_T);
     expect_format_parse_eq<uint32_t>(12345678, telem::UINT32_T);
@@ -54,6 +56,7 @@ TEST_F(ModbusUtilTest, test32BitTypes) {
     expect_format_parse_eq<float>(100.0, telem::FLOAT32_T);
 }
 
+/// @brief it should format and parse 64-bit register types correctly.
 TEST_F(ModbusUtilTest, test64BitTypes) {
     expect_format_parse_eq<uint64_t>(0xFFFFFFFFFFFFFFFF, telem::UINT64_T);
     expect_format_parse_eq<uint64_t>(12345678901234, telem::UINT64_T);
@@ -66,6 +69,7 @@ TEST_F(ModbusUtilTest, test64BitTypes) {
     expect_format_parse_eq<double>(0.0, telem::FLOAT64_T);
 }
 
+/// @brief it should format and parse 8-bit register types correctly.
 TEST_F(ModbusUtilTest, test8BitTypes) {
     expect_format_parse_eq<uint8_t>(255, telem::UINT8_T);
     expect_format_parse_eq<uint8_t>(0, telem::UINT8_T);
@@ -76,24 +80,28 @@ TEST_F(ModbusUtilTest, test8BitTypes) {
     expect_format_parse_eq<int8_t>(127, telem::INT8_T);
 }
 
+/// @brief it should handle byte swapping in register operations.
 TEST_F(ModbusUtilTest, testByteSwapping) {
     expect_format_parse_eq<uint16_t>(0x1234, telem::UINT16_T, true);
     expect_format_parse_eq<uint32_t>(0x12345678, telem::UINT32_T, true);
     expect_format_parse_eq<float>(3.14159f, telem::FLOAT32_T, true);
 }
 
+/// @brief it should handle word swapping in register operations.
 TEST_F(ModbusUtilTest, testWordSwapping) {
     expect_format_parse_eq<uint32_t>(0x12345678, telem::UINT32_T, false, true);
     expect_format_parse_eq<float>(3.14159f, telem::FLOAT32_T, false, true);
     expect_format_parse_eq<double>(3.14159265359, telem::FLOAT64_T, false, true);
 }
 
+/// @brief it should handle combined byte and word swapping.
 TEST_F(ModbusUtilTest, testByteAndWordSwapping) {
     expect_format_parse_eq<uint32_t>(0x12345678, telem::UINT32_T, true, true);
     expect_format_parse_eq<float>(3.14159f, telem::FLOAT32_T, true, true);
     expect_format_parse_eq<double>(3.14159265359, telem::FLOAT64_T, true, true);
 }
 
+/// @brief it should reject invalid data type in register operations.
 TEST_F(ModbusUtilTest, testInvalidDataType) {
     uint16_t registers[4] = {0};
     ASSERT_OCCURRED_AS_P(

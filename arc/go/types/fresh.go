@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -63,7 +63,7 @@ func freshen(t Type, prefix string, mapping map[string]Type) Type {
 	}
 	if t.Kind == KindChan || t.Kind == KindSeries {
 		ft := freshen(t.Unwrap(), prefix, mapping)
-		return Type{Kind: t.Kind, ValueType: &ft}
+		return Type{Kind: t.Kind, Elem: &ft}
 	}
 	if t.Kind == KindFunction {
 		props := FunctionProperties{

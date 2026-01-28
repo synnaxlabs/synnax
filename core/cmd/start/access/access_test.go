@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -56,7 +56,7 @@ var _ = Describe("Access", Ordered, func() {
 				var policies []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(role.OntologyID(roleKey)).
-					TraverseTo(ontology.Children).
+					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&policies).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(policies).ToNot(BeEmpty())
@@ -169,7 +169,7 @@ var _ = Describe("Access", Ordered, func() {
 				Expect(otg.NewWriter(tx).DefineRelationship(
 					ctx,
 					usersGroup.OntologyID(),
-					ontology.ParentOf,
+					ontology.RelationshipTypeParentOf,
 					userOntologyID,
 				)).To(Succeed())
 
@@ -177,7 +177,7 @@ var _ = Describe("Access", Ordered, func() {
 				var groupParents []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(userOntologyID).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.ParentsTraverser).
 					WhereTypes("group").
 					Entries(&groupParents).
 					Exec(ctx, tx)).To(Succeed())
@@ -191,7 +191,7 @@ var _ = Describe("Access", Ordered, func() {
 				var groupParentsAfter []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(userOntologyID).
-					TraverseTo(ontology.Parents).
+					TraverseTo(ontology.ParentsTraverser).
 					WhereTypes("group").
 					Entries(&groupParentsAfter).
 					Exec(ctx, tx)).To(Succeed())
@@ -242,7 +242,7 @@ func userHasSpecificRole(
 	var roles []ontology.Resource
 	if err := otg.NewRetrieve().
 		WhereIDs(userID).
-		TraverseTo(ontology.Parents).
+		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(role.OntologyType).
 		Entries(&roles).
 		Exec(ctx, tx); err != nil {

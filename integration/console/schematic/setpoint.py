@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -45,14 +45,14 @@ class Setpoint(Symbol):
             # Navigate to Properties > Control tab
             self.page.get_by_text("Properties").click()
             self.page.get_by_text("Control").last.click()
-            self.set_channel("Command Channel", channel_name)
+            self.set_channel(input_field="Command Channel", channel_name=channel_name)
             applied_properties["channel"] = channel_name
 
         return applied_properties
 
     def set_value(self, value: float) -> None:
         self._disable_edit_mode()
-        self.console.close_all_notifications()
+        self.console.notifications.close_all()
         self.click()
 
         # Fill the input and set the value

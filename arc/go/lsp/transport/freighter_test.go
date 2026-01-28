@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -52,8 +52,7 @@ var _ = Describe("Freighter Transport", func() {
 					Expect(clientStream.Send(transport.JSONRPCMessage{Content: jsonContent})).To(Succeed())
 				}()
 				buf := make([]byte, 1024)
-				n, err := adapter.Read(buf)
-				Expect(err).ToNot(HaveOccurred())
+				n := MustSucceed(adapter.Read(buf))
 				Expect(n).To(BeNumerically(">", 0))
 				expected := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
 				Expect(string(buf[:n])).To(Equal(expected))
@@ -69,12 +68,10 @@ var _ = Describe("Freighter Transport", func() {
 					Expect(clientStream.Send(transport.JSONRPCMessage{Content: jsonContent})).To(Succeed())
 				}()
 				smallBuf := make([]byte, 10)
-				n, err := adapter.Read(smallBuf)
-				Expect(err).ToNot(HaveOccurred())
+				n := MustSucceed(adapter.Read(smallBuf))
 				Expect(n).To(Equal(10))
 				secondBuf := make([]byte, 1024)
-				n2, err := adapter.Read(secondBuf)
-				Expect(err).ToNot(HaveOccurred())
+				n2 := MustSucceed(adapter.Read(secondBuf))
 				Expect(n2).To(BeNumerically(">", 0))
 				Eventually(done).Should(BeClosed())
 			})
@@ -104,8 +101,7 @@ var _ = Describe("Freighter Transport", func() {
 					msg := MustSucceed(clientStream.Receive())
 					Expect(msg.Content).To(Equal(jsonContent))
 				}()
-				n, err := adapter.Write([]byte(message))
-				Expect(err).ToNot(HaveOccurred())
+				n := MustSucceed(adapter.Write([]byte(message)))
 				Expect(n).To(Equal(len(message)))
 				Eventually(done).Should(BeClosed())
 			})
@@ -126,8 +122,7 @@ var _ = Describe("Freighter Transport", func() {
 						}
 					}
 				}()
-				n, err := adapter.Write([]byte(combined))
-				Expect(err).ToNot(HaveOccurred())
+				n := MustSucceed(adapter.Write([]byte(combined)))
 				Expect(n).To(Equal(len(combined)))
 				Eventually(func() int32 { return receivedCount.Load() }).Should(Equal(int32(2)))
 			})
@@ -137,8 +132,7 @@ var _ = Describe("Freighter Transport", func() {
 				fullMessage := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
 				part1 := fullMessage[:20]
 				part2 := fullMessage[20:]
-				n1, err := adapter.Write([]byte(part1))
-				Expect(err).ToNot(HaveOccurred())
+				n1 := MustSucceed(adapter.Write([]byte(part1)))
 				Expect(n1).To(Equal(len(part1)))
 				done := make(chan struct{})
 				go func() {
@@ -147,8 +141,7 @@ var _ = Describe("Freighter Transport", func() {
 					msg := MustSucceed(clientStream.Receive())
 					Expect(msg.Content).To(Equal(jsonContent))
 				}()
-				n2, err := adapter.Write([]byte(part2))
-				Expect(err).ToNot(HaveOccurred())
+				n2 := MustSucceed(adapter.Write([]byte(part2)))
 				Expect(n2).To(Equal(len(part2)))
 				Eventually(done).Should(BeClosed())
 			})
@@ -163,8 +156,7 @@ var _ = Describe("Freighter Transport", func() {
 					msg := MustSucceed(clientStream.Receive())
 					Expect(msg.Content).To(Equal(jsonContent))
 				}()
-				n, err := adapter.Write([]byte(message))
-				Expect(err).ToNot(HaveOccurred())
+				n := MustSucceed(adapter.Write([]byte(message)))
 				Expect(n).To(Equal(len(message)))
 				Eventually(done).Should(BeClosed())
 			})
@@ -172,6 +164,12 @@ var _ = Describe("Freighter Transport", func() {
 				adapter := &streamAdapter{stream: serverStream, closed: true}
 				_, err := adapter.Write([]byte("test"))
 				Expect(err).To(Equal(io.ErrClosedPipe))
+			})
+			It("Should return error when Content-Length exceeds max", func() {
+				adapter := &streamAdapter{stream: serverStream, maxContentLength: 10}
+				jsonContent := `{"jsonrpc":"2.0","id":1,"method":"test"}`
+				message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonContent), jsonContent)
+				Expect(adapter.Write([]byte(message))).Error().To(MatchError(transport.ErrContentLengthExceeded))
 			})
 		})
 		Describe("Close", func() {
@@ -192,7 +190,10 @@ var _ = Describe("Freighter Transport", func() {
 			clientStream, serverStream := fmock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](ctx)
 			errChan := make(chan error, 1)
 			go func() {
-				errChan <- transport.ServeFreighter(ctx, server, serverStream)
+				errChan <- transport.ServeFreighter(ctx, transport.Config{
+					Server: server,
+					Stream: serverStream,
+				})
 			}()
 			Expect(clientStream.CloseSend()).To(Succeed())
 			Eventually(errChan, time.Second).Should(Receive())
@@ -223,10 +224,11 @@ var _ = Describe("Freighter Transport", func() {
 })
 
 type streamAdapter struct {
-	stream      *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-	buffer      []byte
-	writeBuffer []byte
-	closed      bool
+	stream           *fmock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+	buffer           []byte
+	writeBuffer      []byte
+	closed           bool
+	maxContentLength int
 }
 
 func (s *streamAdapter) Read(p []byte) (n int, err error) {
@@ -261,7 +263,10 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 		headerEnd := -1
 		contentLength := -1
 		data := s.writeBuffer
-		for i := 0; i < len(data)-16; i++ {
+		if len(data) < 16 {
+			break
+		}
+		for i := 0; i <= len(data)-16; i++ {
 			if data[i] == 'C' && string(data[i:i+15]) == "Content-Length:" {
 				j := i + 15
 				for j < len(data) && (data[j] == ' ' || data[j] == '\t') {
@@ -291,6 +296,9 @@ func (s *streamAdapter) Write(p []byte) (int, error) {
 		}
 		if headerEnd == -1 || contentLength == -1 || len(data) < headerEnd+contentLength {
 			break
+		}
+		if contentLength < 0 || (s.maxContentLength > 0 && contentLength > s.maxContentLength) {
+			return 0, transport.ErrContentLengthExceeded
 		}
 		jsonContent := data[headerEnd : headerEnd+contentLength]
 		msg := transport.JSONRPCMessage{Content: string(jsonContent)}

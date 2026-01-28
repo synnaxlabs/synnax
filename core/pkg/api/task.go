@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -77,16 +77,16 @@ func (svc *TaskService) Create(
 
 type (
 	TaskRetrieveRequest struct {
-		Rack          rack.Key   `json:"rack" msgpack:"rack"`
-		Keys          []task.Key `json:"keys" msgpack:"keys"`
-		Names         []string   `json:"names" msgpack:"names"`
-		Types         []string   `json:"types" msgpack:"types"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 		Internal      *bool      `json:"internal" msgpack:"internal"`
 		Snapshot      *bool      `json:"snapshot" msgpack:"snapshot"`
 		SearchTerm    string     `json:"search_term" msgpack:"search_term"`
+		Keys          []task.Key `json:"keys" msgpack:"keys"`
+		Names         []string   `json:"names" msgpack:"names"`
+		Types         []string   `json:"types" msgpack:"types"`
 		Limit         int        `json:"limit" msgpack:"limit"`
 		Offset        int        `json:"offset" msgpack:"offset"`
+		Rack          rack.Key   `json:"rack" msgpack:"rack"`
+		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	TaskRetrieveResponse struct {
 		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
@@ -142,7 +142,7 @@ func (svc *TaskService) Retrieve(
 	if req.IncludeStatus {
 		statuses := make([]task.Status, 0, len(res.Tasks))
 		if err = status.NewRetrieve[task.StatusDetails](svc.status.status).
-			WhereKeys(ontology.IDsToString(task.OntologyIDsFromTasks(res.Tasks))...).
+			WhereKeys(ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
@@ -190,8 +190,8 @@ func (svc *TaskService) Delete(
 
 type (
 	TaskCopyRequest struct {
-		Key      task.Key `json:"key" msgpack:"key"`
 		Name     string   `json:"name" msgpack:"name"`
+		Key      task.Key `json:"key" msgpack:"key"`
 		Snapshot bool     `json:"snapshot" msgpack:"snapshot"`
 	}
 	TaskCopyResponse struct {

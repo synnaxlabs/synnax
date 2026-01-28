@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,8 +12,9 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/binary"
@@ -30,10 +31,10 @@ var _ = Describe("DB Metadata Operations", func() {
 			codec      = &binary.JSONCodec{}
 			cleanUp    func() error
 			indexDBfs  xfs.FS
-			indexDBKey core.ChannelKey
+			indexDBKey channel.Key
 			indexDB    *unary.DB
 			dataDBfs   xfs.FS
-			dataDBKey  core.ChannelKey
+			dataDBKey  channel.Key
 			dataDB     *unary.DB
 		)
 		Context("FS: "+fsName, func() {
@@ -44,7 +45,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexDBfs,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Key:      indexDBKey,
 						Name:     "test",
 						DataType: telem.TimeStampT,
@@ -56,7 +57,7 @@ var _ = Describe("DB Metadata Operations", func() {
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        dataDBfs,
 					MetaCodec: codec,
-					Channel: core.Channel{
+					Channel: channel.Channel{
 						Key:      dataDBKey,
 						Name:     "test",
 						DataType: telem.Int64T,
@@ -140,6 +141,41 @@ var _ = Describe("DB Metadata Operations", func() {
 				})
 			})
 
+			Describe("Size", func() {
+				It("Should return zero for an empty database", func() {
+					Expect(indexDB.Size()).To(Equal(telem.Size(0)))
+					Expect(dataDB.Size()).To(Equal(telem.Size(0)))
+				})
+
+				It("Should return the correct size after writing data", func() {
+					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+						Start:   telem.TimeStamp(0),
+						Subject: control.Subject{Key: "size_test"},
+					}))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+
+					expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+					Expect(indexDB.Size()).To(Equal(expectedSize))
+				})
+
+				It("Should accumulate size across multiple writes", func() {
+					w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
+						Start:   telem.TimeStamp(0),
+						Subject: control.Subject{Key: "size_test"},
+					}))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(3, 4)))
+					MustSucceed(w.Commit(ctx))
+					MustSucceed(w.Close())
+
+					expectedSize := telem.Size(5 * telem.TimeStampT.Density())
+					Expect(indexDB.Size()).To(Equal(expectedSize))
+				})
+			})
+
 		})
 	}
 
@@ -149,7 +185,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			db = MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},
-				Channel: core.Channel{
+				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
 					DataType: telem.TimeStampT,
@@ -179,7 +215,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			db := MustSucceed(unary.Open(ctx, unary.Config{
 				FS:        xfs.NewMem(),
 				MetaCodec: &binary.JSONCodec{},
-				Channel: core.Channel{
+				Channel: channel.Channel{
 					Key:      testutil.GenerateChannelKey(),
 					Name:     "test",
 					DataType: telem.TimeStampT,
@@ -189,7 +225,7 @@ var _ = Describe("DB Metadata Operations", func() {
 			writer, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
-			Expect(db.Close()).To(MatchError(core.ErrOpenResource))
+			Expect(db.Close()).To(MatchError(resource.ErrOpen))
 			_ = MustSucceed(writer.Close())
 			Expect(db.Close()).To(Succeed())
 		})

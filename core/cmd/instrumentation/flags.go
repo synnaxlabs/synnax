@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,8 +22,8 @@ const (
 	FlagLogFileCompress   = "log-file-compress"
 )
 
-// BindFlags binds the instrumentation flags to the given command.
-func BindFlags(cmd *cobra.Command) {
+// AddFlags adds the instrumentation flags to the given command.
+func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolP(FlagVerbose, "v", false, "Enable verbose debugging")
 	cmd.Flags().Bool(FlagDebug, false, "Enable debug logging")
 	cmd.Flags().String(FlagLogFilePath, "./synnax-logs/synnax.log", "Log file path")

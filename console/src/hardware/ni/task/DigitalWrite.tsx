@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,7 +29,7 @@ import {
   type DOChannel,
   ZERO_DIGITAL_WRITE_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
 export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
   ...Common.Task.LAYOUT,
@@ -38,12 +38,11 @@ export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
   type: DIGITAL_WRITE_TYPE,
 };
 
-export const DIGITAL_WRITE_SELECTABLE: Selector.Selectable = {
-  create: async ({ layoutKey }) => ({ ...DIGITAL_WRITE_LAYOUT, key: layoutKey }),
-  icon: <Icon.Logo.NI />,
-  key: DIGITAL_WRITE_TYPE,
+export const DigitalWriteSelectable = Selector.createSimpleItem({
   title: "NI Digital Write Task",
-};
+  icon: <Icon.Logo.NI />,
+  layout: DIGITAL_WRITE_LAYOUT,
+});
 
 const Properties = () => (
   <>

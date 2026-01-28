@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,8 +19,8 @@ import (
 // Reader is a readable domain of telemetry within the DB implementing the io.ReaderAt
 // and io.Closer interfaces.
 type Reader struct {
-	ptr pointer
 	xio.ReaderAtCloser
+	ptr pointer
 }
 
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {

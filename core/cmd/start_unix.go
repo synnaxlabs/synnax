@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,12 @@
 
 package cmd
 
+import "os"
+
 // RunMain is the entry point for the Synnax CLI on non-Windows platforms. It simply
 // delegates to Execute() since Windows Service mode is not applicable.
-func RunMain() { Execute() }
+func RunMain() {
+	if err := Cmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}

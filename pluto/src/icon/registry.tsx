@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -72,6 +72,7 @@ import {
   IoShapes,
   IoTerminal,
   IoTime,
+  IoTvOutline,
 } from "react-icons/io5";
 import {
   MdAlignHorizontalCenter,
@@ -90,11 +91,14 @@ import {
   MdCalendarToday,
   MdComment,
   MdCommit,
+  MdContentCut,
+  MdContentPaste,
   MdDarkMode,
   MdDataArray,
   MdDataObject,
   MdEdit,
   MdEditOff,
+  MdError,
   MdFeedback,
   MdFiberManualRecord,
   MdFilterCenterFocus,
@@ -236,11 +240,14 @@ export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
 export const Add = wrapSVGIcon(HiOutlinePlus, "add");
 export const Subtract = wrapSVGIcon(AiOutlineMinus, "subtract");
 export const Copy = wrapSVGIcon(IoCopy, "copy");
+export const Cut = wrapSVGIcon(MdContentCut, "cut");
+export const Paste = wrapSVGIcon(MdContentPaste, "paste");
 export const Close = wrapSVGIcon(AiOutlineClose, "close");
 export const Info = wrapSVGIcon(BsFillInfoSquareFill, "info");
 export const Warning = wrapSVGIcon(AiFillWarning, "warning");
 export const Check = wrapSVGIcon(AiOutlineCheck, "check");
 export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
+export const View = wrapSVGIcon(IoTvOutline, "view");
 export const Delete = wrapSVGIcon(AiFillDelete, "delete");
 export const Time = wrapSVGIcon(IoTime, "time");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
@@ -464,6 +471,7 @@ export const Reset = wrapSVGIcon(RxReset, "reset");
 export const FillColor = wrapSVGIcon(IoMdColorFill, "fill-color");
 export const StrokeColor = wrapSVGIcon(MdBorderColor, "stroke-color");
 export const Logout = wrapSVGIcon(MdLogout, "logout");
+export const Err = wrapSVGIcon(MdError, "error");
 
 export interface CreateProps extends Omit<IconProps, "topRight"> {}
 
@@ -482,6 +490,8 @@ const icons = {
   Add,
   Subtract,
   Copy,
+  Cut,
+  Paste,
   Close,
   Info,
   Warning,
@@ -564,6 +574,7 @@ const icons = {
   Guide,
   Focus,
   OpenInNewWindow,
+  View,
   MoveToMainWindow,
   SplitX,
   SplitY,
@@ -622,6 +633,7 @@ const icons = {
   FillColor,
   StrokeColor,
   Logout,
+  Err,
 };
 
 export const resolve = ((

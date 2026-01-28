@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,10 +13,10 @@ import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Schematic } from "@/schematic";
-import { Selector as CoreSelector } from "@/selector";
+import { Selector as BaseSelector } from "@/selector";
 import { Table } from "@/table";
 
-export const SELECTABLES: CoreSelector.Selectable[] = [
+export const SELECTABLES: BaseSelector.Selectable[] = [
   ...LinePlot.SELECTABLES,
   ...Schematic.SELECTABLES,
   ...Log.SELECTABLES,
@@ -25,12 +25,10 @@ export const SELECTABLES: CoreSelector.Selectable[] = [
 
 export const SELECTOR_LAYOUT_TYPE = "visualizationSelector";
 
-export const useSelectorVisible = (): boolean => {
-  // Call ALL hooks first to maintain consistent hook order across renders.
-  // Using .some() directly would short-circuit and skip hooks, violating Rules of Hooks.
-  const results = SELECTABLES.map(({ useVisible }) => useVisible?.() ?? true);
-  return results.some(Boolean);
-};
+export const useSelectorVisible = (): boolean =>
+  // It's safe to call hooks in map since SELECTABLES is a module-level constant
+  // and never changes between renders, ensuring consistent hook order.
+  SELECTABLES.map((s) => s.useVisible?.() ?? true).some(Boolean);
 
 export const createSelectorLayout = (): Layout.BaseState => ({
   type: SELECTOR_LAYOUT_TYPE,
@@ -41,7 +39,7 @@ export const createSelectorLayout = (): Layout.BaseState => ({
 });
 
 export const Selector: Layout.Renderer = (props) => (
-  <CoreSelector.Selector
+  <BaseSelector.Selector
     selectables={SELECTABLES}
     text="Select a Visualization Type"
     {...props}

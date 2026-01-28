@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -217,7 +217,7 @@ public:
 };
 
 inline void generate_index_data(
-    const synnax::Frame &f,
+    const telem::Frame &f,
     const std::set<synnax::ChannelKey> &index_keys,
     const telem::TimeStamp &start,
     const telem::TimeStamp &end,

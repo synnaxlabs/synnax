@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,5 +13,5 @@ import "net/http"
 
 // NewHTTPRedirectBranch returns a new SimpleHTTPBranch.
 func NewHTTPRedirectBranch() *SimpleHTTPBranch {
-	return NewSimpleHTTPBranch(http.HandlerFunc(secureHTTPRedirect), ServeOnInsecureIfSecure)
+	return NewSimpleHTTPBranch(http.HandlerFunc(secureHTTPRedirect), RoutingPolicyServeOnInsecureIfSecure)
 }

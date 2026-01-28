@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -93,7 +93,7 @@ class AccessClient:
         # Wait for login screen to appear
         self.page.wait_for_selector(".pluto-field__username", timeout=5000)
 
-    def login(self, username: str, password: str) -> None:
+    def login(self, *, username: str, password: str) -> None:
         """Log in as a user.
 
         Assumes the login screen is currently displayed.
@@ -148,6 +148,7 @@ class AccessClient:
 
     def register_user(
         self,
+        *,
         username: str,
         password: str,
         first_name: str,
@@ -163,6 +164,9 @@ class AccessClient:
         :param role_name: Role to assign to the user (required).
         :returns: True if the user was created successfully.
         """
+        # Clear any existing notifications to avoid false positives
+        self.console.notifications.close_all()
+
         # Open command palette and register user
         self.console.command_palette("Register a User")
 
@@ -190,10 +194,10 @@ class AccessClient:
         sy.sleep(0.5)
 
         # Check for error notifications
-        for notification in self.console.check_for_notifications():
+        for notification in self.console.notifications.check():
             message = notification.get("message", "")
             if "Failed" in message or "Error" in message:
-                self.console.close_notification(0)
+                self.console.notifications.close(0)
                 return False
 
         return True
@@ -202,7 +206,7 @@ class AccessClient:
     # Role Assignment (context menu → modal)
     # -------------------------------------------------------------------------
 
-    def assign_role_to_user(self, username: str, role_name: str) -> bool:
+    def assign_role_to_user(self, *, username: str, role_name: str) -> bool:
         """Assign a role to a user via the context menu modal.
 
         This uses the "Assign to role" context menu option on a user,
@@ -277,7 +281,7 @@ class AccessClient:
     # Role Rename/Delete (context menu)
     # -------------------------------------------------------------------------
 
-    def rename_role(self, old_name: str, new_name: str) -> bool:
+    def rename_role(self, *, old_name: str, new_name: str) -> bool:
         """Rename a role via context menu.
 
         Note: Internal/system roles cannot be renamed.
@@ -355,10 +359,10 @@ class AccessClient:
             sy.sleep(0.3)
 
         # Check for error notifications
-        for notification in self.console.check_for_notifications():
+        for notification in self.console.notifications.check():
             message = notification.get("message", "")
             if "Failed" in message or "Error" in message:
-                self.console.close_notification(0)
+                self.console.notifications.close(0)
                 return False
 
         return True

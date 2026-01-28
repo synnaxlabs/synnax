@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@/flex";
-import { Form as Core } from "@/form";
+import { Form as Base } from "@/form";
 
 export const Form = () => (
   <Flex.Box x grow>
-    <Core.NumericField path="value" grow />
+    <Base.NumericField path="value" grow />
   </Flex.Box>
 );

@@ -1,0 +1,25 @@
+cc_library(
+    name = "constant",
+    hdrs = ["constant.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//arc/cpp/ir",
+        "//arc/cpp/runtime/node",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/telem",
+        "//x/cpp/xerrors",
+        "//x/cpp/xmemory",
+    ],
+)
+
+cc_test(
+    name = "constant_test",
+    srcs = ["constant_test.cpp"],
+    deps = [
+        ":constant",
+        "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/state",
+        "//x/cpp/xtest",
+        "@googletest//:gtest_main",
+    ],
+)

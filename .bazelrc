@@ -15,25 +15,31 @@ build:hide_symbols --copt=-fvisibility=hidden --cxxopt=-fvisibility-inlines-hidd
 
 # macOS (Apple Silicon)
 build:macos --cpu=darwin_arm64
-build:macos --cxxopt=-std=c++20
-build:macos --host_cxxopt=-std=c++20
+build:macos --cxxopt=-std=c++23
+build:macos --host_cxxopt=-std=c++23
 build:macos --copt=-Werror
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:macos --copt=-Wno-error=deprecated-declarations
 
 # Linux
-build:linux --cxxopt=-std=c++17
-build:linux --host_cxxopt=-std=c++17
+build:linux --cxxopt=-std=c++23
+build:linux --host_cxxopt=-std=c++23
 build:linux --copt=-Werror
 
 # Allow protobuf deprecation warnings without treating them as errors
 build:linux --copt=-Wno-error=deprecated-declarations
 
+# Allow sequence-point warnings without treating them as errors
+# (wasmtime headers use storage++ in pack expansion which triggers this)
+build:linux --copt=-Wno-error=sequence-point
+
 # Windows (MSVC)
+# Note: MSVC uses /std:c++latest for C++23 features (not /std:c++23)
 build:windows --enable_runfiles
-build:windows --cxxopt=/std:c++20
-build:windows --host_cxxopt=/std:c++20
+build:windows --cxxopt=/std:c++latest
+build:windows --host_cxxopt=/std:c++latest
+build:windows --copt=/Zc:preprocessor      # Enable C++20 conformant preprocessor (for __VA_OPT__)
 build:windows --copt=/W3     # Use warning level 3 instead of -Wall (which is /W4 + extras on MSVC)
 build:windows --cxxopt=/W3   # Same for C++
 build:windows --copt=/WX     # Treat warnings as errors
@@ -70,6 +76,14 @@ build:windows --copt=/wd5267  # definition of implicit copy constructor is depre
 build:windows --copt=/wd5219  # implicit conversion, possible loss of data
 build:windows --copt=/wd4305  # truncation from double to float
 build:windows --copt=/wd4242  # conversion with possible loss of data
+build:windows --copt=/wd4668  # 'macro' not defined as preprocessor macro (Windows SDK headers)
+build:windows --copt=/wd5220  # volatile qualified type no longer implies trivial constructors (open62541)
+build:windows --copt=/wd4146  # unary minus operator applied to unsigned type (telem templates)
+build:windows --copt=/wd4061  # enumerator not explicitly handled by case label (mbedtls headers)
+build:windows --copt=/wd4435  # object layout under /vd2 will change due to virtual base (NI channel hierarchy)
+build:windows --copt=/wd4589  # constructor ignores initializer for virtual base class (NI channel hierarchy)
+build:windows --copt=/wd4201  # nonstandard extension used: nameless struct/union (wasmtime headers)
+build:windows --copt=/wd4324  # structure was padded due to alignment specifier (queue/spsc.h)
 build:windows --per_file_copt=external/.*@/WX-,/w
 build:windows --per_file_copt=vendor/.*@/WX-,/w
 
@@ -90,15 +104,34 @@ build --per_file_copt=vendor/.*@-w
 build --copt=-Wall
 build --cxxopt=-Wall
 
-# ===== Optimization Flags (used with -c opt) =====
+# ===== Optimization Flags (used with --config=opt) =====
+#
+# Use --config=opt for release builds. This enables:
+# - compilation_mode=opt (Bazel's optimization mode)
+# - Symbol stripping
+#
+# For maximum optimization, also add platform-specific config:
+# - macOS/Linux: --config=opt --config=opt-unix
+# - Windows: --config=opt --config=opt-windows
 
+# Base optimization settings (platform-agnostic)
 build:opt --compilation_mode=opt
 build:opt --strip=always
 
-# Platform-agnostic optimization
-build:opt --copt=-O3
-build:opt --copt=-flto
-build:opt --linkopt=-flto
+# Unix optimization (macOS/Linux with GCC/Clang)
+# -O3: Maximum optimization level
+# -flto: Link-Time Optimization for cross-module inlining
+build:opt-unix --copt=-O3
+build:opt-unix --copt=-flto
+build:opt-unix --linkopt=-flto
+
+# Windows optimization (MSVC)
+# /O2: Maximum speed optimization
+# /GL: Whole Program Optimization (compile-time cross-module optimization)
+# /LTCG: Link-Time Code Generation (link-time optimization)
+build:opt-windows --copt=/O2
+build:opt-windows --copt=/GL
+build:opt-windows --linkopt=/LTCG
 
 # ===== Sanitizers (Memory/Undefined Behavior Detection) =====
 

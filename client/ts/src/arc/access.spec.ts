@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,7 +31,6 @@ describe("arc", () => {
           edges: [],
         },
         text: { raw: "" },
-        deploy: false,
         version: "1.0.0",
       };
       const randomArc = await client.arcs.create(a);
@@ -53,7 +52,6 @@ describe("arc", () => {
           edges: [],
         },
         text: { raw: "" },
-        deploy: false,
         version: "1.0.0",
       });
       const retrieved = await userClient.arcs.retrieve({ key: randomArc.key });
@@ -74,7 +72,6 @@ describe("arc", () => {
           edges: [],
         },
         text: { raw: "" },
-        deploy: false,
         version: "1.0.0",
       });
     });
@@ -93,7 +90,6 @@ describe("arc", () => {
             edges: [],
           },
           text: { raw: "" },
-          deploy: false,
           version: "1.0.0",
         }),
       ).rejects.toThrow(AuthError);
@@ -112,7 +108,6 @@ describe("arc", () => {
           edges: [],
         },
         text: { raw: "" },
-        deploy: false,
         version: "1.0.0",
       });
       await userClient.arcs.delete(randomArc.key);
@@ -134,7 +129,6 @@ describe("arc", () => {
           edges: [],
         },
         text: { raw: "" },
-        deploy: false,
         version: "1.0.0",
       });
       await expect(userClient.arcs.delete(randomArc.key)).rejects.toThrow(AuthError);

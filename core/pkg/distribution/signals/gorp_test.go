@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,8 +20,8 @@ import (
 )
 
 type testUUIDEntry struct {
-	Key  uuid.UUID `json:"key"`
 	Name string    `json:"name"`
+	Key  uuid.UUID `json:"key"`
 }
 
 func (t testUUIDEntry) GorpKey() uuid.UUID { return t.Key }
@@ -29,8 +29,8 @@ func (t testUUIDEntry) GorpKey() uuid.UUID { return t.Key }
 func (t testUUIDEntry) SetOptions() []interface{} { return nil }
 
 type testNumericEntry struct {
-	Key   uint32 `json:"key"`
 	Value string `json:"value"`
+	Key   uint32 `json:"key"`
 }
 
 func (t testNumericEntry) GorpKey() uint32 { return t.Key }

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -138,7 +138,7 @@ public:
         return xerrors::NIL;
     }
 
-    xerrors::Error write(const synnax::Frame &frame) override {
+    xerrors::Error write(::telem::Frame &frame) override {
         auto err = this->perform_write(frame);
         if (!err.matches(opc::errors::UNREACHABLE)) return err;
         LOG(
@@ -157,7 +157,7 @@ public:
     }
 
 private:
-    xerrors::Error perform_write(const synnax::Frame &frame) {
+    xerrors::Error perform_write(const ::telem::Frame &frame) {
         if (!this->connection) return opc::errors::NO_CONNECTION;
         this->builder.clear();
         this->written_keys.clear();

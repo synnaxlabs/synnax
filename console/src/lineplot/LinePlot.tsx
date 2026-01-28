@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,7 +14,7 @@ import {
   type axis,
   Channel,
   Icon,
-  LinePlot as Core,
+  LinePlot as Base,
   Menu as PMenu,
   Ranger,
   Status,
@@ -362,12 +362,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const props = PMenu.useContextMenu();
+  const linePlotRef = useRef<Base.LinePlotRef | null>(null);
 
   interface ContextMenuContentProps extends PMenu.ContextMenuMenuProps {
     layoutKey: string;
   }
-
-  const boundsQuerierRef = useRef<Core.GetBoundsFn>(null);
 
   const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
     const { box: selection } = useSelectSelection(layoutKey);
@@ -375,7 +374,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const handleError = Status.useErrorHandler();
 
     const getTimeRange = useCallback(async () => {
-      const bounds = await boundsQuerierRef.current?.();
+      const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null) return null;
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
@@ -457,6 +456,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
         menu={(props) => <ContextMenuContent {...props} layoutKey={layoutKey} />}
       >
         <Channel.LinePlot
+          ref={linePlotRef}
           aetherKey={layoutKey}
           hold={hold}
           onContextMenu={props.open}
@@ -492,7 +492,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           onMeasureModeChange={hasEditPermission ? handleMeasureModeChange : undefined}
         >
           {!focused && <Controls layoutKey={layoutKey} />}
-          <Core.BoundsQuerier ref={boundsQuerierRef} />
         </Channel.LinePlot>
       </PMenu.ContextMenu>
       {focused && <Controls layoutKey={layoutKey} />}
@@ -512,7 +511,7 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     );
 
 const useLoadRemote = createLoadRemote<lineplot.LinePlot>({
-  useRetrieve: Core.useRetrieveObservable,
+  useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
   actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),

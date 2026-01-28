@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,14 +19,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/signal"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -51,7 +50,7 @@ var _ = Describe("Writer", func() {
 					Start: 10 * telem.SecondTS,
 					Sync:  config.True(),
 				}))
-				MustSucceed(writer.Write(core.MultiFrame(
+				MustSucceed(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
@@ -60,7 +59,7 @@ var _ = Describe("Writer", func() {
 					},
 				)))
 				MustSucceed(writer.Commit())
-				MustSucceed(writer.Write(core.MultiFrame(
+				MustSucceed(writer.Write(frame.NewMulti(
 					s.keys,
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
@@ -95,7 +94,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
 			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
+			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
 			Expect(err.Error()).To(ContainSubstring("Channel"))
 			Expect(err.Error()).To(ContainSubstring("22"))
 			Expect(err.Error()).ToNot(ContainSubstring("1"))
@@ -112,7 +111,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  config.True(),
 			}))
-			_, err := writer.Write(core.MultiFrame(
+			_, err := writer.Write(frame.NewMulti(
 				append(s.keys, channel.NewKey(12, 22)),
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),
@@ -121,8 +120,8 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV[int64](5, 6, 7),
 				},
 			))
-			Expect(err).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Close()).To(HaveOccurredAs(validate.Error))
+			Expect(err).To(HaveOccurredAs(validate.ErrValidation))
+			Expect(writer.Close()).To(HaveOccurredAs(validate.ErrValidation))
 		})
 	})
 
@@ -134,13 +133,13 @@ var _ = Describe("Writer", func() {
 					Name:        "free_time",
 					IsIndex:     true,
 					DataType:    telem.TimeStampT,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Virtual:     true,
 				}
 				dataCh = channel.Channel{
 					Name:        "free",
 					DataType:    telem.Float32T,
-					Leaseholder: cluster.Free,
+					Leaseholder: cluster.NodeKeyFree,
 					Virtual:     true,
 				}
 			)
@@ -166,7 +165,7 @@ var _ = Describe("Writer", func() {
 			}))
 			data := telem.NewSeriesV[int64](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
-			MustSucceed(writer.Write(core.MultiFrame(
+			MustSucceed(writer.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{idx, data},
 			)))
@@ -182,7 +181,7 @@ var _ = Describe("Writer", func() {
 			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 			data = telem.NewSeriesV[int64](3, 4)
 			idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
-			MustSucceed(writer.Write(core.MultiFrame(
+			MustSucceed(writer.Write(frame.NewMulti(
 				keys,
 				[]telem.Series{idx, data},
 			)))
@@ -202,10 +201,10 @@ var _ = Describe("Writer", func() {
 })
 
 type scenario struct {
-	name   string
-	keys   channel.Keys
 	dist   mock.Node
 	closer io.Closer
+	name   string
+	keys   channel.Keys
 }
 
 func newChannelSet() []channel.Channel {
@@ -280,7 +279,7 @@ func freeWriterScenario() scenario {
 	builder := mock.ProvisionCluster(ctx, 3)
 	svc := builder.Nodes[1]
 	for i, ch := range channels {
-		ch.Leaseholder = cluster.Free
+		ch.Leaseholder = cluster.NodeKeyFree
 		ch.Virtual = true
 		channels[i] = ch
 	}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -25,9 +25,9 @@ type BatchFactory[E Entry] struct {
 }
 
 type Batch[E Entry] struct {
+	Peers   map[cluster.NodeKey][]E
 	Gateway []E
 	Free    []E
-	Peers   map[cluster.NodeKey][]E
 }
 
 func (f BatchFactory[E]) Batch(entries []E) Batch[E] {

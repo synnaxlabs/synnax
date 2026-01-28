@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,8 +38,8 @@ var (
 
 // Validate implements config.Config.
 func (r ReporterConfig) Validate() error {
-	v := validate.New("alamos.ReporterConfig")
-	validate.NotNil(v, "Filter", r.Filter)
+	v := validate.New("alamos.reporter_config")
+	validate.NotNil(v, "filter", r.Filter)
 	return v.Error()
 }
 
@@ -52,9 +52,9 @@ func (r ReporterConfig) Override(other ReporterConfig) ReporterConfig {
 // Reporter is used to attach reports (key-value metadata) to Instrumentation. It's
 // typically used for recording the configuration of a service.
 type Reporter struct {
-	meta    InstrumentationMeta
 	reports map[string]ReportProvider
 	config  ReporterConfig
+	meta    InstrumentationMeta
 }
 
 // NewReporter instantiates a new Reporter using the given configurations. If no configurations
@@ -72,21 +72,21 @@ func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
 // Debug environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Debug(key string, report ReportProvider) {
-	r.Attach(key, report, Debug)
+	r.Attach(key, report, EnvironmentDebug)
 }
 
 // Prod attaches the given ReportProvider to the Reporter with the given key in the
 // production (Prod) environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Prod(key string, report ReportProvider) {
-	r.Attach(key, report, Prod)
+	r.Attach(key, report, EnvironmentProd)
 }
 
 // Bench attaches the given ReportProvider to the Reporter with the given key in the
 // benchmark (Bench) environment . The Report is lazily evaluated, and will only be called
 // when the instrumentation report is generated.
 func (r *Reporter) Bench(key string, report ReportProvider) {
-	r.Attach(key, report, Bench)
+	r.Attach(key, report, EnvironmentBench)
 }
 
 // Attach attaches the given ReportProvider to the Reporter with the given key under
@@ -113,8 +113,8 @@ func (r Report) ZapFields() []zap.Field { return r.zapFields("") }
 func (r Report) zapFields(prefix string) []zap.Field {
 	args := make([]zap.Field, 0, len(r))
 	for k, v := range r {
-		if v_, ok := v.(Report); ok {
-			args = append(args, v_.zapFields(prefix+k+".")...)
+		if v, ok := v.(Report); ok {
+			args = append(args, v.zapFields(prefix+k+".")...)
 			continue
 		}
 		args = append(args, zap.Any(prefix+k, v))

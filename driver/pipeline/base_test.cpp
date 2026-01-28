@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -27,6 +27,7 @@ public:
     void run() override { throw std::out_of_range("test std::exception"); }
 };
 
+/// @brief it should catch and handle unknown exceptions in run().
 TEST(BasePipeline, testUnknownExceptionHandling) {
     auto pipeline = ThrowingPipeline(breaker::Config{});
     ASSERT_TRUE(pipeline.start());
@@ -34,6 +35,7 @@ TEST(BasePipeline, testUnknownExceptionHandling) {
     ASSERT_TRUE(pipeline.stop());
 }
 
+/// @brief it should catch and handle std::exception in run().
 TEST(BasePipeline, testStdExceptionHandling) {
     auto pipeline = StdExceptionPipeline(breaker::Config{});
     ASSERT_TRUE(pipeline.start());

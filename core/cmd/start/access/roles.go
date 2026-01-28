@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace/log"
@@ -39,12 +40,12 @@ var allObjects = []ontology.ID{
 	{Type: label.OntologyType},
 	{Type: log.OntologyType},
 	{Type: cluster.OntologyType},
-	{Type: cluster.NodeOntologyType},
+	{Type: cluster.OntologyTypeNode},
 	{Type: channel.OntologyType},
 	{Type: group.OntologyType},
 	{Type: ranger.OntologyType},
 	{Type: framer.OntologyType},
-	{Type: ranger.AliasOntologyType},
+	{Type: ranger.OntologyTypeAlias},
 	{Type: user.OntologyType},
 	{Type: workspace.OntologyType},
 	{Type: schematic.OntologyType},
@@ -58,7 +59,8 @@ var allObjects = []ontology.ID{
 	{Type: status.OntologyType},
 	{Type: role.OntologyType},
 	{Type: policy.OntologyType},
-	{Type: ontology.BuiltInType},
+	{Type: ontology.TypeBuiltIn},
+	{Type: view.OntologyType},
 }
 
 // Owner role - Full control of deployment, including user registration and security.
@@ -92,12 +94,12 @@ var (
 				{Type: label.OntologyType},
 				{Type: log.OntologyType},
 				{Type: cluster.OntologyType},
-				{Type: cluster.NodeOntologyType},
+				{Type: cluster.OntologyTypeNode},
 				{Type: channel.OntologyType},
 				{Type: group.OntologyType},
 				{Type: ranger.OntologyType},
 				{Type: framer.OntologyType},
-				{Type: ranger.AliasOntologyType},
+				{Type: ranger.OntologyTypeAlias},
 				{Type: workspace.OntologyType},
 				{Type: schematic.OntologyType},
 				{Type: lineplot.OntologyType},
@@ -108,6 +110,7 @@ var (
 				{Type: arc.OntologyType},
 				{Type: symbol.OntologyType},
 				{Type: status.OntologyType},
+				{Type: view.OntologyType},
 			},
 			Actions:  access.AllActions,
 			Internal: true,

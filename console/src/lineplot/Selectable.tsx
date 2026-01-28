@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,14 +9,27 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { create, LAYOUT_TYPE } from "@/lineplot/layout";
-import { type Selector } from "@/selector";
+import { Selector } from "@/selector";
 
-export const SELECTABLE: Selector.Selectable = {
-  key: LAYOUT_TYPE,
-  title: "Line Plot",
-  icon: <Icon.LinePlot />,
-  useVisible: () => Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID),
-  create: async ({ layoutKey }) => create({ key: layoutKey }),
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+  const visible = Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);
+  const handleClick = useCallback(() => {
+    onPlace(create({ key: layoutKey }));
+  }, [onPlace, layoutKey]);
+
+  if (!visible) return null;
+
+  return (
+    <Selector.Item
+      key={LAYOUT_TYPE}
+      title="Line Plot"
+      icon={<Icon.LinePlot />}
+      onClick={handleClick}
+    />
+  );
 };
+Selectable.type = LAYOUT_TYPE;
+Selectable.useVisible = () => Access.useUpdateGranted(lineplot.TYPE_ONTOLOGY_ID);

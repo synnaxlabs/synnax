@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,11 +19,13 @@ import { state } from "@/state";
 import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "tasks";
-export const RESOURCE_NAME = "Task";
-export const PLURAL_RESOURCE_NAME = "Tasks";
+export const RESOURCE_NAME = "task";
+export const PLURAL_RESOURCE_NAME = "tasks";
 
-export interface FluxStore
-  extends Flux.UnaryStore<task.Key, Omit<task.Task, "status">> {}
+export interface FluxStore extends Flux.UnaryStore<
+  task.Key,
+  Omit<task.Task, "status">
+> {}
 
 export interface FluxSubStore extends Ontology.FluxSubStore, Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
@@ -359,6 +361,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.tasks.delete(keys));
+    const statusKeys = keys.map((key) => task.statusKey(key));
+    rollbacks.push(store.statuses.delete(statusKeys));
+    // Task client will automatically handle the deletion of the statuses.
     await client.tasks.delete(keys);
     return data;
   },
@@ -392,28 +397,32 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<
 
 export interface UseRenameArgs extends Pick<task.Payload, "key" | "name"> {}
 
+export const rename = async (
+  params: Flux.UpdateParams<UseRenameArgs, FluxSubStore>,
+): Promise<UseRenameArgs> => {
+  const {
+    client,
+    data,
+    rollbacks,
+    store,
+    data: { key, name },
+  } = params;
+  rollbacks.push(
+    store.tasks.set(
+      key,
+      state.skipUndefined((p) => client.tasks.sugar({ ...p.payload, name })),
+    ),
+  );
+  rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
+  const t = await retrieveSingle({ ...params, query: { key } });
+  await client.tasks.create({ ...t.payload, name });
+  return data;
+};
+
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async (params) => {
-    const {
-      client,
-      data,
-      rollbacks,
-      store,
-      data: { key, name },
-    } = params;
-    rollbacks.push(
-      store.tasks.set(
-        key,
-        state.skipUndefined((p) => client.tasks.sugar({ ...p.payload, name })),
-      ),
-    );
-    rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
-    const t = await retrieveSingle({ ...params, query: { key } });
-    await client.tasks.create({ ...t.payload, name });
-    return data;
-  },
+  update: rename,
 });
 
 export type CommandParams = task.NewCommand | task.NewCommand[];

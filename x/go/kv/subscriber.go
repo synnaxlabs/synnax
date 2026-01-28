@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -24,18 +24,18 @@ import (
 // to an underlying key-value store.
 type Subscriber[S any] struct {
 	alamos.Instrumentation
-	// Key is the key to flush the contents of the observable into.
-	Key []byte
+	// LastFlush stores the last time the observable was flushed.
+	LastFlush time.Time
 	// Store is the store to flush the contents of the observable into.
 	Store Writer
+	// Encoder is the encoder to use when flushing the contents of the state
+	Encoder binary.Encoder
+	// Key is the key to flush the contents of the observable into.
+	Key []byte
 	// MinInterval specifies the minimum interval between flushes. If the observable
 	// updates more quickly than min interval, the Subscriber will not flush the
 	// contents.
 	MinInterval time.Duration
-	// LastFlush stores the last time the observable was flushed.
-	LastFlush time.Time
-	// Encoder is the encoder to use when flushing the contents of the state
-	Encoder binary.Encoder
 	// mu is used to prevent multiple flushes from racing over each other.
 	mu sync.Mutex
 }

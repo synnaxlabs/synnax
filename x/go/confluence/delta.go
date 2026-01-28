@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,8 +45,8 @@ func (d *DeltaMultiplier[V]) Flow(ctx signal.Context, opts ...Option) {
 // DeltaTransformMultiplier reads a value from an input stream, performs a
 // transformation on it, and writes the transformed value to every output stream.
 type DeltaTransformMultiplier[I, O Value] struct {
-	Delta[I, O]
 	Transform TransformFunc[I, O]
+	Delta[I, O]
 }
 
 // Flow implements the Segment interface.
@@ -71,9 +71,9 @@ func (d *DeltaTransformMultiplier[I, O]) transformAndMultiply(ctx context.Contex
 type DynamicDeltaMultiplier[V Value] struct {
 	alamos.Instrumentation
 	UnarySink[V]
-	Source         AbstractMultiSource[V]
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
+	Source         AbstractMultiSource[V]
 	timeout        time.Duration
 }
 
@@ -151,7 +151,7 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 					err = d.Source.SendToEach(ctx, res)
 				}
 				if err != nil {
-					if !errors.Is(err, timeout.Timeout) {
+					if !errors.Is(err, timeout.ErrTimeout) {
 						return err
 					}
 					d.L.Warn(fmt.Sprintf("delta: %s", err))

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -64,28 +64,6 @@ func MustSucceedWithOffset[T any](offset int) func(value T, err error) T {
 func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
 	return a, b
-}
-
-// MustSucceed3 is a test helper that asserts the error is nil and returns three values.
-// This is useful for unwrapping functions that return three values and an error in test assertions.
-//
-// Example:
-//
-//	x, y, z := MustSucceed3(parseCoordinates(input))
-func MustSucceed3[A, B, C any](a A, b B, c C, err error) (A, B, C) {
-	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	return a, b, c
-}
-
-// MustSucceed4 is a test helper that asserts the error is nil and returns four values.
-// This is useful for unwrapping functions that return four values and an error in test assertions.
-//
-// Example:
-//
-//	r, g, b, a := MustSucceed4(parseRGBA(input))
-func MustSucceed4[A, B, C, D any](a A, b B, c C, d D, err error) (A, B, C, D) {
-	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	return a, b, c, d
 }
 
 // MustBeOk is a test helper that asserts the ok value is true and returns the value.

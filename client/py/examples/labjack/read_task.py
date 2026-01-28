@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -14,12 +14,12 @@ Before running this example:
 1. Connect your LabJack device (T4, T7, T7-Pro, T8, or Digit) to your computer
 
 2. Register the device in Synnax:
-   poetry run python examples/labjack/connect_device.py
+   uv run python examples/labjack/connect_device.py
 
 3. Connect analog sensors to AIN0 and AIN1 (or update channel configuration below)
 
 4. Run this script:
-   poetry run python examples/labjack/read_task.py
+   uv run python examples/labjack/read_task.py
 
 This example reads from two analog input channels at 100 Hz.
 """
@@ -27,7 +27,7 @@ This example reads from two analog input channels at 100 Hz.
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
-# credentials here. See https://docs.synnaxlabs.com/reference/python-client/get-started.
+# credentials here. See https://docs.synnaxlabs.com/reference/client/quick-start.
 client = sy.Synnax()
 
 # Retrieve the LabJack device from Synnax

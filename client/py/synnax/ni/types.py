@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -2414,11 +2414,13 @@ class AnalogReadTaskConfig(BaseReadTaskConfig):
     """Configuration for NI Analog Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
-    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration
+    with NI hardware sample rate limits (1 MHz max).
     """
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
+    sample_rate: conint(gt=0, le=1000000)
     channels: list[AIChan]
 
     @field_validator("channels")
@@ -2441,7 +2443,7 @@ class AnalogWriteConfig(BaseWriteTaskConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(ge=0, le=50000)
+    state_rate: conint(gt=0, le=50000)
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[AOChan]
 
@@ -2450,11 +2452,13 @@ class CounterReadConfig(BaseReadTaskConfig):
     """Configuration for NI Counter Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
-    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration
+    with NI hardware sample rate limits (1 MHz max).
     """
 
     device: str = ""
     "The key of the Synnax NI device to read from (optional, can be set per channel)."
+    sample_rate: conint(gt=0, le=1000000)
     channels: list[CIChan]
 
     @field_validator("channels")
@@ -2471,11 +2475,13 @@ class DigitalReadConfig(BaseReadTaskConfig):
     """Configuration for NI Digital Read Task.
 
     Inherits common read task fields (sample_rate, stream_rate, data_saving,
-    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration.
+    auto_start) from BaseReadTaskConfig and adds NI-specific channel configuration
+    with NI hardware sample rate limits (1 MHz max).
     """
 
     device: str = Field(min_length=1)
     "The key of the Synnax NI device to read from."
+    sample_rate: conint(gt=0, le=1000000)
     channels: list[DIChan]
 
 
@@ -2489,7 +2495,7 @@ class DigitalWriteConfig(BaseWriteTaskConfig):
 
     data_saving: bool = True
     "Whether to persist state feedback data to disk (True) or only stream it (False)."
-    state_rate: conint(ge=0, le=50000)
+    state_rate: conint(gt=0, le=50000)
     "The rate at which to write task channel states to the Synnax cluster (Hz)."
     channels: list[DOChan]
 

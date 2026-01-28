@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -56,9 +56,7 @@ export interface MainChecker {
  * Communicator allows for event communication between windows.
  */
 export interface Communicator<S extends StoreState, A extends Action = UnknownAction>
-  extends Sender<S, A>,
-    Receiver<S, A>,
-    MainChecker {}
+  extends Sender<S, A>, Receiver<S, A>, MainChecker {}
 
 /**
  * Properties represents the runtime properties of a window.
@@ -111,10 +109,8 @@ export interface Manager {
 }
 
 /**
- * An interface that represents the core runtime of the application.
- * Drift uses this runtime to manage windows and communicate between them.
+ * An interface that represents the main runtime of the application. Drift uses this
+ * runtime to manage windows and communicate between them.
  */
 export interface Runtime<S extends StoreState, A extends Action = UnknownAction>
-  extends Communicator<S, A>,
-    Properties,
-    Manager {}
+  extends Communicator<S, A>, Properties, Manager {}

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -21,14 +21,6 @@ var (
 	_ freighter.UnaryClient[types.Nil, any] = (*UnaryClient[types.Nil, any])(nil)
 	_ freighter.UnaryServer[types.Nil, any] = (*UnaryServer[types.Nil, any])(nil)
 )
-
-// NewUnaryPair creates a new unary client and server pair that are directly linked to
-// one another i.e. dialing any target on the client will call the server's handler.
-func NewUnaryPair[RQ, RS freighter.Payload]() (*UnaryServer[RQ, RS], *UnaryClient[RQ, RS]) {
-	us := &UnaryServer[RQ, RS]{}
-	uc := &UnaryClient[RQ, RS]{server: us}
-	return us, uc
-}
 
 // UnaryServer implements the freighter.UnaryServer interface using go channels as
 // the transport.
@@ -98,7 +90,7 @@ func (u *UnaryClient[RQ, RS]) Send(
 			} else if u.Network != nil {
 				route, ok := u.Network.resolveUnaryTarget(target)
 				if !ok || route.Handler == nil {
-					return oMD, address.NewErrTargetNotFound(target)
+					return oMD, address.NewTargetNotFoundError(target)
 				}
 				handler = route.exec
 			}

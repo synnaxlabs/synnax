@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,13 +20,14 @@ import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListQuery, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
-import { Select as Core } from "@/select";
+import { Select as Base } from "@/select";
 import { Tag } from "@/tag";
 import { Telem } from "@/telem";
 
 export interface SelectProps
-  extends Omit<
-      Core.SingleProps<ranger.Key, ranger.Payload | undefined>,
+  extends
+    Omit<
+      Base.SingleProps<ranger.Key, ranger.Payload | undefined>,
       | "data"
       | "getItem"
       | "subscribe"
@@ -49,7 +50,7 @@ export const Select = ({
   });
   const { fetchMore, search } = List.usePager({ retrieve });
   return (
-    <Core.Single<ranger.Key, ranger.Payload | undefined>
+    <Base.Single<ranger.Key, ranger.Payload | undefined>
       variant="modal"
       haulType={HAUL_TYPE}
       icon={<Icon.Range />}
@@ -65,7 +66,7 @@ export const Select = ({
       onSearch={search}
     >
       {listItemRenderProp}
-    </Core.Single>
+    </Base.Single>
   );
 };
 
@@ -87,7 +88,7 @@ const ListItem = ({
   if (item == null) return null;
   const { name, timeRange, parent, labels } = item;
   return (
-    <Core.ListItem
+    <Base.ListItem
       className={CSS(CSS.BE("range", "list-item"), className)}
       itemKey={itemKey}
       justify="between"
@@ -111,7 +112,7 @@ const ListItem = ({
         )}
         <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       </Flex.Box>
-    </Core.ListItem>
+    </Base.ListItem>
   );
 };
 

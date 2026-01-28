@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -105,8 +105,6 @@ var (
 	AnyDataTypeSchema   = Enum(DataTypes...)
 )
 
-func Primitive() UnionZ { return Union(Number(), String(), Bool()) }
-
 // Schema is a schema that provides methods for validating and converting data.
 type Schema interface {
 	// Parse converts the given data from a standardized format to the destination type.
@@ -134,10 +132,10 @@ type Shape interface {
 
 // baseZ provides the base implementation for all schema types.
 type baseZ struct {
-	optional     bool
-	dataType     DataType
 	expectedType reflect.Type
 	wrapper      Schema
+	dataType     DataType
+	optional     bool
 }
 
 // Shape returns the base shape of the schema.

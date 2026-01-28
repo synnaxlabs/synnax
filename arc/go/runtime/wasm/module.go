@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,8 +22,9 @@ import (
 )
 
 type Module struct {
-	runtime wazero.Runtime
-	module  api.Module
+	wasmRuntime wazero.Runtime
+	wasmModule  api.Module
+	arcRuntime  *runtimebindings.Runtime
 }
 
 func (m *Module) Close() error {
@@ -32,31 +33,38 @@ func (m *Module) Close() error {
 	// for the module, which means a simpler shutdown callstack.
 	ctx := context.TODO()
 	c := errors.NewCatcher(errors.WithAggregation())
-	c.Exec(func() error { return m.module.Close(ctx) })
-	c.Exec(func() error { return m.runtime.Close(ctx) })
+	c.Exec(func() error { return m.wasmModule.Close(ctx) })
+	c.Exec(func() error { return m.wasmRuntime.Close(ctx) })
 	return c.Error()
 }
 
+// OnCycleEnd implements scheduler.CycleCallback to clear temporary series handles.
+// This should be called at the end of each scheduler cycle to prevent memory leaks.
+func (m *Module) OnCycleEnd() {
+	m.arcRuntime.ClearTemporarySeries()
+}
+
 type ModuleConfig struct {
-	Module module.Module
 	State  *state.State
+	Module module.Module
 }
 
 func OpenModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
-	runtime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+	wasmRuntime := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 	bindings := compilerbindings.NewBindings()
 	arcRuntime := runtimebindings.NewRuntime(cfg.State, nil)
 	runtimebindings.BindRuntime(arcRuntime, bindings)
-	if err := bindings.Bind(ctx, runtime); err != nil {
+	if err := bindings.Bind(ctx, wasmRuntime); err != nil {
 		return nil, err
 	}
-	wasmModule, err := runtime.Instantiate(ctx, cfg.Module.WASM)
+	wasmModule, err := wasmRuntime.Instantiate(ctx, cfg.Module.WASM)
 	if err != nil {
 		return nil, err
 	}
 	arcRuntime.SetMemory(wasmModule.Memory())
-	if err != nil {
-		return nil, err
-	}
-	return &Module{module: wasmModule, runtime: runtime}, nil
+	return &Module{
+		wasmModule:  wasmModule,
+		wasmRuntime: wasmRuntime,
+		arcRuntime:  arcRuntime,
+	}, nil
 }

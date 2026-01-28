@@ -1,4 +1,4 @@
-#  Copyright 2025 Synnax Labs, Inc.
+#  Copyright 2026 Synnax Labs, Inc.
 #
 #  Use of this software is governed by the Business Source License included in the file
 #  licenses/BSL.txt.
@@ -9,9 +9,8 @@
 
 """Test changing a user's role via drag-drop in the ontology tree."""
 
-import uuid
-
 from console.case import ConsoleCase
+from framework.utils import get_random_name
 
 
 class UserDragToRole(ConsoleCase):
@@ -19,7 +18,7 @@ class UserDragToRole(ConsoleCase):
 
     def run(self) -> None:
         # Create a user with initial role
-        username = f"testuser_{uuid.uuid4().hex[:8]}"
+        username = f"testuser_{get_random_name()}"
         password = "testpassword123"
         first_name = "Test"
         last_name = "User"

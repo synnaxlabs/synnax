@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -38,7 +38,6 @@ type Node struct {
 }
 
 type Cluster struct {
-	cfg         distribution.Config
 	storage     *mock.Cluster
 	Nodes       map[cluster.NodeKey]Node
 	writerNet   *tmock.FramerWriterNetwork
@@ -48,6 +47,7 @@ type Cluster struct {
 	deleteNet   *tmock.FramerDeleterNetwork
 	aspenNet    *aspentransmock.Network
 	addrFactory *address.Factory
+	cfg         distribution.Config
 }
 
 func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.Config) *Cluster {

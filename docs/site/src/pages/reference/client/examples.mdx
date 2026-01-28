@@ -1,0 +1,117 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Examples"
+description: "Working examples for common Synnax client use cases."
+prev: "Build a Device Driver"
+prevURL: "/reference/client/advanced/build-device-driver"
+next: "Troubleshooting"
+nextURL: "/reference/client/troubleshooting"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Text, Icon } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+One of the best ways to learn how to use the Synnax client is to look over and run
+examples. This page contains a list of links to examples that demonstrate how to perform
+various tasks.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Play /> Getting Started</Text.Text>
+
+|                                                                                                               |                                                               |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [Basic Read and Write](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/basic_read_write.py) | Demonstrates a basic read and write of channel data.          |
+| [Create Channels](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/create_channels.py)       | Shows how to create large numbers of channels simultaneously. |
+| [Create Range](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/create_range.py)             | Creates a range and reads data from it.                       |
+| [Read Latest](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/read_latest.py)               | Demonstrates how to read the latest N samples from a channel. |
+| [Series and Frames](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/series_and_frames.py)   | Demonstrates how to work with series and frames.              |
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Visualize /> Streaming Data</Text.Text>
+
+|                                                                                                             |                                                                 |
+| ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [Stream Read](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/stream_read.py)             | Shows how to live stream sensor data from a set of channels.    |
+| [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/stream_write.py)           | Shows how to stream simulated sensor data to a set of channels. |
+| [Async Stream Read](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/stream_read_async.py) | Shows how to live stream sensor data asynchronously.            |
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Value /> Data Processing & Export</Text.Text>
+
+|                                                                                                                          |                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| [Calculated Channels](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/calculated_channels.py)          | Shows how to create and write to channels calculated from other channels.  |
+| [Advanced Calculated Channels/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/multi-rate-calculated) | Demonstrates calculated channels based on channels with different indexes. |
+| [Plot](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/plot.py)                                        | Demonstrates how to plot data retrieved from a Synnax cluster.             |
+| [Export to CSV](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/export_to_csv.py)                      | Demonstrates how to export data to a CSV file.                             |
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Control /> Control Sequences</Text.Text>
+
+|                                                                                                           |                                                                           |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Control/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/control)                     | Sets up a simulated DAQ and controls it with a control sequence.          |
+| [Embedded Sequence/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/embedded-sequence) | Retrieve and start embedded control sequences.                            |
+| [Simulators/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/simulators)               | Reusable SimDAQ base class and hardware simulators (press, thermal, TPC). |
+| [Simulation](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/simulation.py)             | Creates a simulated DAQ that writes large amounts of data to channels.    |
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Device /> Hardware Driver</Text.Text>
+
+|                                                                                                                  |                                                      |
+| ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| [Arduino/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/arduino)                            | Read and write driver examples.                      |
+| [LabJack/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/labjack)                            | Device connection, read/write tasks.                 |
+| [Modbus/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/modbus)                              | Server connection, read/write tasks.                 |
+| [National Instruments/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/ni)                    | Analog/digital read/write tasks, counter read tasks. |
+| [OPC UA/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/opcua)                               | Server connection, read/write tasks.                 |
+| [Task Management](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/hardware/task_management.py) | Task management walkthrough.                         |
+
+</ExampleDetails>
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Play /> Getting Started</Text.Text>
+
+|                                                                                                                  |                                                               |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| [Basic Read and Write](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/basicReadWrite.js) | Demonstrates a basic read and write of channel data.          |
+| [Create Channels](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/createChannels.js)      | Shows how to create large numbers of channels simultaneously. |
+| [Create Range](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/createRange.js)            | Creates a range and reads data from it.                       |
+| [Read Latest](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/readLatest.js)              | Demonstrates how to read the latest N samples from a channel. |
+| [Series and Frames](https://github.com/synnaxlabs/synnax/blob/main/client/ts/examples/node/seriesAndFrames.js)   | Demonstrates how to work with series and frames.              |
+
+</ExampleDetails>
+
+<ExampleDetails open>
+<Text.Text slot="summary" level="p"><Icon.Visualize /> Streaming Data</Text.Text>
+
+|                                                                                                       |                                                                 |
+| ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| [Stream Read](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/streamRead.js)   | Shows how to live stream sensor data from a set of channels.    |
+| [Stream Write](https://github.com/synnaxlabs/synnax/tree/main/client/ts/examples/node/streamWrite.js) | Shows how to stream simulated sensor data to a set of channels. |
+
+</ExampleDetails>
+
+  </Fragment>
+</Client.Tabs>

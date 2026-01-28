@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -23,7 +23,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func NewMockPolymorphicResolver() symbol.Resolver {
+func newMockPolymorphicResolver() symbol.Resolver {
 	constraint := types.NumericConstraint()
 	simpleInputs := types.Params{{Name: "a", Type: types.Variable("T", &constraint)}}
 	return &symbol.MapResolver{
@@ -46,36 +46,37 @@ func NewMockPolymorphicResolver() symbol.Resolver {
 }
 
 var _ = Describe("Polymorphic func Analysis", func() {
-	resolver := NewMockPolymorphicResolver()
+	resolver := newMockPolymorphicResolver()
 
-	Context("Simple Polymorphic Flow", func() {
-		It("should infer types for add func from channel inputs", func() {
-			src := `sensor_f32 -> simple{}`
-			ast := MustSucceed(parser.Parse(src))
+	type polymorphicCase struct {
+		source       string
+		expectedType types.Type
+	}
+
+	DescribeTable("Simple Polymorphic Flow",
+		func(tc polymorphicCase) {
+			ast := MustSucceed(parser.Parse(tc.source))
 			ctx := acontext.CreateRoot(context.Background(), ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue())
+			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			simpleSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "simple"))
-			aType := MustBeOk(simpleSymbol.Type.Inputs.Get("a"))
-			resolvedParam := ctx.Constraints.ApplySubstitutions(aType.Type)
-			returnType := MustBeOk(simpleSymbol.Type.Outputs.Get(ir.DefaultOutputParam))
-			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType.Type)
-			Expect(resolvedParam).To(Equal(types.F32()))
-			Expect(resolvedReturn).To(Equal(types.F32()))
-		})
 
-		It("should infer types from expression inputs", func() {
-			src := `(f32(1.5) + f32(2.5)) -> simple{}`
-			ast := MustSucceed(parser.Parse(src))
-			ctx := acontext.CreateRoot(context.Background(), ast, resolver)
-			Expect(analyzer.AnalyzeProgram(ctx)).To(BeTrue(), ctx.Diagnostics.String())
 			simpleSymbol := MustSucceed(ctx.Scope.Resolve(ctx, "simple"))
 			aType := MustBeOk(simpleSymbol.Type.Inputs.Get("a"))
 			resolvedParam := ctx.Constraints.ApplySubstitutions(aType.Type)
 			returnType := MustBeOk(simpleSymbol.Type.Outputs.Get(ir.DefaultOutputParam))
 			resolvedReturn := ctx.Constraints.ApplySubstitutions(returnType.Type)
-			Expect(resolvedParam).To(Equal(types.F32()))
-			Expect(resolvedReturn).To(Equal(types.F32()))
-		})
-	})
+			Expect(resolvedParam).To(Equal(tc.expectedType))
+			Expect(resolvedReturn).To(Equal(tc.expectedType))
+		},
+		Entry("infers types from channel inputs",
+			polymorphicCase{
+				source:       `sensor_f32 -> simple{}`,
+				expectedType: types.F32(),
+			}),
+		Entry("infers types from expression inputs",
+			polymorphicCase{
+				source:       `(f32(1.5) + f32(2.5)) -> simple{}`,
+				expectedType: types.F32(),
+			}),
+	)
 })

@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 
+#include "x/cpp/url/url.h"
 #include "x/cpp/xerrors/errors.h"
 
 namespace freighter {
@@ -26,36 +27,6 @@ const xerrors::Error STREAM_CLOSED = {
 const xerrors::Error EOF_ERR = {"freighter.eof", "EOF"};
 const xerrors::Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
-/// @brief A simple URL builder.
-struct URL {
-    /// @brief The IP address of the target.
-    std::string ip;
-    /// @brief The port of the target.
-    std::uint16_t port = 0;
-    /// @brief Supplementary path information.
-    std::string path;
-
-    URL() = default;
-
-    /// @brief Creates a URL with the given IP, port, and path.
-    URL(std::string ip, std::uint16_t port, const std::string &path);
-
-    /// @brief Parses the given address into a URL.
-    /// @throws std::invalid_argument if the address is not a valid URL.
-    explicit URL(const std::string &address);
-
-    /// @brief Creates a child URL by appending the given path to the current path.
-    /// @returns the child URL. It is guaranteed to have a single slash between the
-    /// current path and child path, and have a trailing slash.
-    [[nodiscard]] URL child(const std::string &child_path) const;
-
-    /// @brief Converts the URL to a string.
-    /// @returns the URL as a string.
-    [[nodiscard]] std::string to_string() const;
-
-    std::string host_address() const;
-};
-
 enum TransportVariant { UNARY, STREAM };
 
 /// @brief A Context object that can be used to inject metadata into an outbound
@@ -69,13 +40,13 @@ public:
     std::string protocol;
     /// @brief The target passed to UnaryClient::send or StreamClient::stream along
     /// with any base target configured in the underlying transport.
-    URL target;
+    url::URL target;
     /// @brief The transport variant that the context is associated with. Can either
     /// be a streaming (STREAM) or unary (UNARY) transport.
     TransportVariant variant;
 
     /// @brief Constructs the context with an empty set of parameters.
-    Context(std::string protocol, URL target, const TransportVariant variant):
+    Context(std::string protocol, url::URL target, const TransportVariant variant):
         id(0),
         protocol(std::move(protocol)),
         target(std::move(target)),

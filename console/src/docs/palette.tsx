@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,13 +10,13 @@
 import { Icon } from "@synnaxlabs/pluto";
 
 import { LAYOUT } from "@/docs/Docs";
-import { type Palette } from "@/palette";
+import { Palette } from "@/palette";
 
-const READ_COMMAND: Palette.Command = {
+export const ReadCommand = Palette.createSimpleCommand({
   key: "read-the-docs",
   name: "Read the documentation",
   icon: <Icon.QuestionMark />,
-  onSelect: ({ placeLayout }) => placeLayout(LAYOUT),
-};
+  layout: LAYOUT,
+});
 
-export const COMMANDS = [READ_COMMAND];
+export const COMMANDS = [ReadCommand];

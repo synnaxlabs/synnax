@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -50,8 +50,9 @@ const ZERO_AI_FORCE_BRIDGE_TABLE_CHAN: AIForceBridgeTableChan = {
 
 const aiForceBridgeTwoPointLinChanZ =
   v0.aiForceBridgeTwoPointLinChanZ.extend(aiChanExtensionShape);
-interface AIForceBridgeTwoPointLinChan
-  extends z.infer<typeof aiForceBridgeTwoPointLinChanZ> {}
+interface AIForceBridgeTwoPointLinChan extends z.infer<
+  typeof aiForceBridgeTwoPointLinChanZ
+> {}
 const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinChan = {
   ...v0.ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
@@ -73,8 +74,9 @@ const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
 
 const aiPressureBridgeTableChanZ =
   v0.aiPressureBridgeTableChanZ.extend(aiChanExtensionShape);
-interface AIPressureBridgeTableChan
-  extends z.infer<typeof aiPressureBridgeTableChanZ> {}
+interface AIPressureBridgeTableChan extends z.infer<
+  typeof aiPressureBridgeTableChanZ
+> {}
 const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
   ...v0.ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
@@ -82,8 +84,9 @@ const ZERO_AI_PRESSURE_BRIDGE_TABLE_CHAN: AIPressureBridgeTableChan = {
 
 const aiPressureBridgeTwoPointLinChanZ =
   v0.aiPressureBridgeTwoPointLinChanZ.extend(aiChanExtensionShape);
-interface AIPressureBridgeTwoPointLinChan
-  extends z.infer<typeof aiPressureBridgeTwoPointLinChanZ> {}
+interface AIPressureBridgeTwoPointLinChan extends z.infer<
+  typeof aiPressureBridgeTwoPointLinChanZ
+> {}
 const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinChan = {
   ...v0.ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
@@ -134,8 +137,9 @@ const ZERO_AI_TORQUE_BRIDGE_TABLE_CHAN: AITorqueBridgeTableChan = {
 
 const aiTorqueBridgeTwoPointLinChanZ =
   v0.aiTorqueBridgeTwoPointLinChanZ.extend(aiChanExtensionShape);
-interface AITorqueBridgeTwoPointLinChan
-  extends z.infer<typeof aiTorqueBridgeTwoPointLinChanZ> {}
+interface AITorqueBridgeTwoPointLinChan extends z.infer<
+  typeof aiTorqueBridgeTwoPointLinChanZ
+> {}
 const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLinChan = {
   ...v0.ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN,
   ...ZERO_AI_CHAN_EXTENSION,
@@ -249,22 +253,22 @@ const ZERO_ANALOG_READ_CONFIG: AnalogReadConfig = {
   channels: [],
 };
 
-export interface AnalogReadPayload
-  extends task.Payload<
-    typeof v0.analogReadTypeZ,
-    typeof analogReadConfigZ,
-    typeof v0.analogReadStatusDataZ
-  > {}
+export interface AnalogReadPayload extends task.Payload<
+  typeof v0.analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof v0.analogReadStatusDataZ
+> {}
 export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   ...v0.ZERO_ANALOG_READ_PAYLOAD,
   config: ZERO_ANALOG_READ_CONFIG,
 };
 
-export interface AnalogReadTask
-  extends task.Task<
-    typeof v0.analogReadTypeZ,
-    typeof analogReadConfigZ,
-    typeof v0.analogReadStatusDataZ
-  > {}
-export interface NewAnalogReadTask
-  extends task.New<typeof v0.analogReadTypeZ, typeof analogReadConfigZ> {}
+export interface AnalogReadTask extends task.Task<
+  typeof v0.analogReadTypeZ,
+  typeof analogReadConfigZ,
+  typeof v0.analogReadStatusDataZ
+> {}
+export interface NewAnalogReadTask extends task.New<
+  typeof v0.analogReadTypeZ,
+  typeof analogReadConfigZ
+> {}

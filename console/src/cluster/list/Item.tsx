@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import "@/cluster/list/List.css";
 import {
   Cluster as PCluster,
   Flex,
-  List as CoreList,
+  List as BaseList,
   Select,
   Status,
   Synnax,
@@ -27,7 +27,7 @@ import { useSelect } from "@/cluster/selectors";
 import { type Cluster, rename } from "@/cluster/slice";
 import { CSS } from "@/css";
 
-interface ListItemProps extends CoreList.ItemProps<string> {
+interface ListItemProps extends BaseList.ItemProps<string> {
   validateName: (name: string) => boolean;
   item: Cluster;
 }
@@ -42,7 +42,7 @@ const Base = ({ validateName, item, ...rest }: ListItemProps): ReactElement | nu
   const { data } = PCluster.useConnectionState(item);
   const status = data?.status ?? "disconnected";
   return (
-    <CoreList.Item
+    <BaseList.Item
       className={CSS(CSS.B("cluster-list-item"))}
       x
       selected={selected}
@@ -80,7 +80,7 @@ const Base = ({ validateName, item, ...rest }: ListItemProps): ReactElement | nu
           {caseconv.capitalize(status)}
         </Text.Text>
       </Tooltip.Dialog>
-    </CoreList.Item>
+    </BaseList.Item>
   );
 };
 
