@@ -75,6 +75,7 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
 
         for _ in range(2):
             self.log(f"Target pressure: {target_Pressure}")
+            self.console.notifications.close_all()
             press_valve.press()
             self.assert_states(press_state=1, vent_state=0)
             pressure_reached = False
@@ -89,12 +90,14 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
 
             # Configure next cycle
             self.log("Closing press valve")
+            self.console.notifications.close_all
             press_valve.press()
             self.assert_states(press_state=0, vent_state=0)
             target_Pressure += 20
 
         # Safe the system
         self.log("Venting the system")
+        self.console.notifications.close_all()
         vent_valve.press()
         self.assert_states(press_state=0, vent_state=1)
         while self.should_continue:
