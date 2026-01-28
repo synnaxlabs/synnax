@@ -51,8 +51,26 @@ inline wasmtime::Val sample_to_wasm(const x::telem::SampleValue &val) {
 /// @brief Convert SampleValue to wasmtime::Val using the declared type.
 /// @note Needed because protobuf stores all numbers as double.
 inline wasmtime::Val
-sample_to_wasm(const telem::SampleValue &val, const types::Type &type) {
-    const auto as_double = telem::cast<double>(val);
+sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
+    const auto as_double = x::telem::cast<double>(val);
+    switch (type.kind) {
+        case types::Kind::F64:
+            return wasmtime::Val(as_double);
+        case types::Kind::F32:
+            return wasmtime::Val(static_cast<float>(as_double));
+        case types::Kind::I64:
+        case types::Kind::U64:
+            return wasmtime::Val(static_cast<int64_t>(as_double));
+        default:
+            return wasmtime::Val(static_cast<int32_t>(as_double));
+    }
+}
+
+/// @brief Convert JSON value to wasmtime::Val using the declared type.
+/// @note JSON stores numbers as double, so we cast to the appropriate type.
+inline wasmtime::Val
+json_to_wasm(const x::json::json &val, const types::Type &type) {
+    const auto as_double = val.get<double>();
     switch (type.kind) {
         case types::Kind::F64:
             return wasmtime::Val(as_double);
@@ -249,7 +267,7 @@ public:
     class Function {
     public:
         struct Result {
-            telem::SampleValue value;
+            x::telem::SampleValue value;
             bool changed = false;
         };
 
@@ -278,8 +296,8 @@ public:
             base(base) {
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
             for (size_t i = 0; i < config.size(); i++)
-                if (config[i].value.has_value())
-                    this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+                if (!config[i].value.is_null())
+                    this->args[i] = json_to_wasm(config[i].value, config[i].type);
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
@@ -288,7 +306,7 @@ public:
         }
 
         x::errors::Error call(
-            const std::vector<telem::SampleValue> &input_vals,
+            const std::vector<x::telem::SampleValue> &input_vals,
             std::vector<Result> &output_vals
         ) {
             output_vals.assign(this->outputs.size(), Result{});

@@ -11,7 +11,8 @@
 
 #include "rack.h"
 
-bool driver::rack::Rack::should_exit(
+namespace driver::rack {
+bool Rack::should_exit(
     const x::errors::Error &err,
     const std::function<void()> &on_shutdown
 ) {
@@ -23,11 +24,11 @@ bool driver::rack::Rack::should_exit(
     return !breaker_ok;
 }
 
-driver::rack::Rack::~Rack() {
+Rack::~Rack() {
     stop();
 }
 
-void driver::rack::Rack::run(
+void Rack::run(
     x::args::Parser &args,
     const std::function<void()> &on_shutdown
 ) {
@@ -53,7 +54,7 @@ void driver::rack::Rack::run(
     this->run_err = x::errors::NIL;
 }
 
-void driver::rack::Rack::start(
+void Rack::start(
     x::args::Parser &args,
     std::function<void()> on_shutdown
 ) {
@@ -65,9 +66,10 @@ void driver::rack::Rack::start(
     );
 }
 
-x::errors::Error driver::rack::Rack::stop() {
+x::errors::Error Rack::stop() {
     if (!this->breaker.stop()) return x::errors::NIL;
     if (this->task_manager != nullptr) this->task_manager->stop();
     this->run_thread.join();
     return this->run_err;
+}
 }

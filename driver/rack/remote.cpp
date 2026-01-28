@@ -12,16 +12,17 @@
 
 #include "driver/rack/rack.h"
 
-x::errors::Error driver::rack::Config::load_remote(x::breaker::Breaker &breaker) {
+namespace driver::rack {
+x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
     std::pair<synnax::rack::Rack, x::errors::Error> res;
-    auto client = synnax::Synnax(this->connection);
+    const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
     if (this->remote_info.cluster_key != client.auth->cluster_info.cluster_key &&
         this->remote_info.rack_key != 0) {
         this->remote_info.rack_key = 0;
         this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
         LOG(INFO) << "cluster identity changed. Creating a new rack";
-    }
+        }
     if (this->remote_info.rack_key != 0) {
         // if the rack key is non-zero, it means that persisted state or
         // configuration believes there's an existing rack in the cluster, and
@@ -54,4 +55,5 @@ x::errors::Error driver::rack::Config::load_remote(x::breaker::Breaker &breaker)
     this->remote_info.rack_key = res.first.key;
     this->remote_info.cluster_key = client.auth->cluster_info.cluster_key;
     return err;
+}
 }

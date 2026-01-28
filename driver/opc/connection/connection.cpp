@@ -24,7 +24,7 @@
 #include "driver/opc/errors/errors.h"
 #include "driver/task/task.h"
 
-namespace opc::connection {
+namespace driver::opc::connection {
 using ClientDeleter = void (*)(UA_Client *);
 
 ClientDeleter client_deleter() {

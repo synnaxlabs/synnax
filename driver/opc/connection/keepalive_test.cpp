@@ -18,8 +18,7 @@
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
 
-using namespace driver::opc::connection;
-
+namespace driver::opc::connection {
 class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -211,4 +210,5 @@ TEST_F(ConnectionPoolKeepAliveTest, ShortTimeoutKeepAlive) {
 
     // Verify we can still acquire successfully
     auto final_conn = ASSERT_NIL_P(pool.acquire(short_cfg, "[test] "));
+}
 }

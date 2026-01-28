@@ -104,7 +104,7 @@ public:
 
             // Use software timer for sub-millisecond precision
             if (use_software_timer)
-                this->timer_ = std::make_unique<::loop::Timer>(this->config_.interval);
+                this->timer_ = std::make_unique<x::loop::Timer>(this->config_.interval);
             // Use kqueue timer for EVENT_DRIVEN/HYBRID/BUSY_WAIT (ms precision OK)
             else if (auto err = this->setup_kqueue_timer(); err) {
                 close(this->kqueue_fd_);

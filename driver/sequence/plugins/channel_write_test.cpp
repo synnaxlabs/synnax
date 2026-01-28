@@ -21,11 +21,12 @@ extern "C" {
 #include "driver/sequence/plugins/mock/plugins.h"
 #include "driver/sequence/plugins/plugins.h"
 
+namespace driver::sequence::plugins {
 class SetOperatorTest : public testing::Test {
 protected:
     void SetupChannel(x::telem::DataType data_type) {
         channels.clear();
-        sink = std::make_shared<plugins::mock::FrameSink>();
+        sink = std::make_shared<mock::FrameSink>();
 
         synnax::channel::Channel ch;
         ch.name = "my_channel";
@@ -34,7 +35,7 @@ protected:
         ch.is_virtual = true;
         channels.push_back(ch);
 
-        op = std::make_unique<plugins::ChannelWrite>(sink, channels);
+        op = std::make_unique<ChannelWrite>(sink, channels);
         L = luaL_newstate();
         luaL_openlibs(L);
         op->before_all(L);
@@ -65,9 +66,9 @@ protected:
         ASSERT_EQ(value, expected_value);
     }
 
-    std::shared_ptr<plugins::mock::FrameSink> sink;
+    std::shared_ptr<mock::FrameSink> sink;
     std::vector<synnax::channel::Channel> channels;
-    std::unique_ptr<plugins::ChannelWrite> op;
+    std::unique_ptr<ChannelWrite> op;
     lua_State *L{};
 };
 
@@ -191,7 +192,7 @@ class SetOperatorWithIndexTest : public testing::Test {
 protected:
     void SetupChannels(x::telem::DataType data_type) {
         channels.clear();
-        sink = std::make_shared<plugins::mock::FrameSink>();
+        sink = std::make_shared<mock::FrameSink>();
 
         // Add index channel
         synnax::channel::Channel index_ch;
@@ -209,7 +210,7 @@ protected:
         value_ch.index = index_ch.key;
         channels.push_back(value_ch);
 
-        op = std::make_unique<plugins::ChannelWrite>(sink, channels);
+        op = std::make_unique<ChannelWrite>(sink, channels);
         L = luaL_newstate();
         luaL_openlibs(L);
         op->before_all(L);
@@ -234,9 +235,9 @@ protected:
         EXPECT_EQ(value_ser.at<T>(0), expected_value);
     }
 
-    std::shared_ptr<plugins::mock::FrameSink> sink;
+    std::shared_ptr<mock::FrameSink> sink;
     std::vector<synnax::channel::Channel> channels;
-    std::unique_ptr<plugins::ChannelWrite> op;
+    std::unique_ptr<ChannelWrite> op;
     lua_State *L{};
 };
 
@@ -261,7 +262,7 @@ TEST_F(SetOperatorWithIndexTest, BooleanValueWithIndex) {
 class SetAuthorityTest : public testing::Test {
 protected:
     void SetUp() override {
-        sink = std::make_shared<plugins::mock::FrameSink>();
+        sink = std::make_shared<mock::FrameSink>();
         // Add three test channels
         synnax::channel::Channel ch1;
         ch1.name = "channel1";
@@ -278,7 +279,7 @@ protected:
         ch3.key = 3;
         channels.push_back(ch3);
 
-        op = std::make_unique<plugins::ChannelWrite>(sink, channels);
+        op = std::make_unique<ChannelWrite>(sink, channels);
         L = luaL_newstate();
         luaL_openlibs(L);
         op->before_all(L);
@@ -289,9 +290,9 @@ protected:
         channels.clear();
     }
 
-    std::shared_ptr<plugins::mock::FrameSink> sink;
+    std::shared_ptr<mock::FrameSink> sink;
     std::vector<synnax::channel::Channel> channels;
-    std::unique_ptr<plugins::ChannelWrite> op;
+    std::unique_ptr<ChannelWrite> op;
     lua_State *L{};
 };
 
@@ -368,13 +369,13 @@ TEST_F(SetAuthorityTest, InvalidArguments) {
 
 /// @brief it should safely handle stop being called before start.
 TEST(ChannelWriteLifecycle, StopBeforeStart) {
-    auto sink = std::make_shared<plugins::mock::FrameSink>();
+    auto sink = std::make_shared<mock::FrameSink>();
     synnax::channel::Channel ch;
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = x::telem::FLOAT64_T;
 
-    auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
+    auto plugin = ChannelWrite(sink, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
 
@@ -385,13 +386,13 @@ TEST(ChannelWriteLifecycle, StopBeforeStart) {
 
 /// @brief it should safely handle being started twice.
 TEST(ChannelWriteLifecycle, DoubleStart) {
-    const auto sink = std::make_shared<plugins::mock::FrameSink>();
+    const auto sink = std::make_shared<mock::FrameSink>();
     synnax::channel::Channel ch;
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = x::telem::FLOAT64_T;
 
-    auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
+    auto plugin = ChannelWrite(sink, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
 
@@ -404,13 +405,13 @@ TEST(ChannelWriteLifecycle, DoubleStart) {
 
 /// @brief it should safely handle being stopped twice.
 TEST(ChannelWriteLifecycle, DoubleStop) {
-    const auto sink = std::make_shared<plugins::mock::FrameSink>();
+    const auto sink = std::make_shared<mock::FrameSink>();
     synnax::channel::Channel ch;
     ch.name = "test_channel";
     ch.key = 1;
     ch.data_type = x::telem::FLOAT64_T;
 
-    auto plugin = plugins::ChannelWrite(sink, std::vector{ch});
+    auto plugin = ChannelWrite(sink, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
 
@@ -418,4 +419,5 @@ TEST(ChannelWriteLifecycle, DoubleStop) {
     plugin.after_all(L);
     plugin.after_all(L);
     lua_close(L);
+}
 }

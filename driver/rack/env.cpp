@@ -11,13 +11,15 @@
 
 #include "driver/rack/rack.h"
 
+namespace driver::rack {
 const std::string ENV_PREFIX = "SYNNAX_DRIVER_";
 
-x::errors::Error driver::rack::Config::load_env() {
+x::errors::Error Config::load_env() {
     x::env::Parser p(ENV_PREFIX);
     this->connection.override(p);
     this->timing.override(p);
     this->manager.override(p);
     this->remote_info.override(p);
     return x::errors::NIL;
+}
 }

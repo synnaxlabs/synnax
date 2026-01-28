@@ -18,6 +18,7 @@
 #include "driver/sequence/plugins/plugins.h"
 #include "driver/sequence/sequence.h"
 
+namespace driver::sequence {
 /// @brief it should executed a basic sequence.
 TEST(Sequence, nominal) {
     synnax::channel::Channel read_channel;
@@ -209,4 +210,5 @@ TEST(Sequence, restart) {
     ASSERT_EVENTUALLY_GE_F(check_writes_2, curr_size);
     ASSERT_NIL(seq.end());
     ASSERT_EQ(mock_sink->writes->at(0).channels->at(0), write_channel.key);
+}
 }

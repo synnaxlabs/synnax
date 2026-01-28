@@ -19,6 +19,7 @@ extern "C" {
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
 
+namespace driver::sequence::plugins {
 /// @brief it should receive channel values and expose them as Lua globals.
 TEST(ChannelReceive, Basic) {
     synnax::channel::Channel ch;
@@ -29,11 +30,11 @@ TEST(ChannelReceive, Basic) {
     fr_1.emplace(1, x::telem::Series(1.0, x::telem::FLOAT64_T));
     const auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     reads->push_back(std::move(fr_1));
-    const auto factory = driver::pipeline::mock::simple_streamer_factory(
+    const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
         reads
     );
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
@@ -53,11 +54,11 @@ TEST(ChannelReceive, StopBeforeStart) {
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = x::telem::FLOAT64_T;
-    const auto factory = driver::pipeline::mock::simple_streamer_factory(
+    const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
         std::make_shared<std::vector<x::telem::Frame>>()
     );
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     // Stopping before starting should be safe
@@ -71,11 +72,11 @@ TEST(ChannelReceive, DoubleStart) {
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = x::telem::FLOAT64_T;
-    const auto factory = driver::pipeline::mock::simple_streamer_factory(
+    const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
         std::make_shared<std::vector<x::telem::Frame>>()
     );
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     // Starting twice should be safe
@@ -91,11 +92,11 @@ TEST(ChannelReceive, DoubleStop) {
     ch.key = 1;
     ch.name = "my_channel";
     ch.data_type = x::telem::FLOAT64_T;
-    const auto factory = driver::pipeline::mock::simple_streamer_factory(
+    const auto factory = pipeline::mock::simple_streamer_factory(
         {ch.key},
         std::make_shared<std::vector<x::telem::Frame>>()
     );
-    auto plugin = plugins::ChannelReceive(factory, std::vector{ch});
+    auto plugin = ChannelReceive(factory, std::vector{ch});
     const auto L = luaL_newstate();
     luaL_openlibs(L);
     plugin.before_all(L);
@@ -103,4 +104,5 @@ TEST(ChannelReceive, DoubleStop) {
     plugin.after_all(L);
     plugin.after_all(L);
     lua_close(L);
+}
 }

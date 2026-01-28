@@ -13,7 +13,8 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
-plugins::ChannelReceive::ChannelReceive(
+namespace driver::sequence::plugins {
+ChannelReceive::ChannelReceive(
     const std::shared_ptr<driver::pipeline::StreamerFactory> &factory,
     const std::vector<synnax::channel::Channel> &read_from
 ):
@@ -28,7 +29,7 @@ plugins::ChannelReceive::ChannelReceive(
     latest_values(read_from.size()),
     channels(synnax::channel::map_channel_Keys(read_from)) {}
 
-plugins::ChannelReceive::ChannelReceive(
+ChannelReceive::ChannelReceive(
     const std::shared_ptr<synnax::Synnax> &client,
     const std::vector<synnax::channel::Channel> &read_from
 ):
@@ -37,21 +38,21 @@ plugins::ChannelReceive::ChannelReceive(
         read_from
     ) {}
 
-/// @brief implements plugins::Plugin to start receiving values from the read pipeline.
-x::errors::Error plugins::ChannelReceive::before_all(lua_State *L) {
+/// @brief implements Plugin to start receiving values from the read pipeline.
+x::errors::Error ChannelReceive::before_all(lua_State *L) {
     this->pipe.start();
     return x::errors::NIL;
 }
 
-/// @brief implements plugins::Plugin to start receiving values from the write pipeline.
-x::errors::Error plugins::ChannelReceive::after_all(lua_State *L) {
+/// @brief implements Plugin to start receiving values from the write pipeline.
+x::errors::Error ChannelReceive::after_all(lua_State *L) {
     this->pipe.stop();
     return x::errors::NIL;
 }
 
 /// @brief implements driver::pipeline::Sink to receive values from a streamer and bind
 /// them into the latest values state.
-x::errors::Error plugins::ChannelReceive::Sink::write(x::telem::Frame &frame) {
+x::errors::Error ChannelReceive::Sink::write(x::telem::Frame &frame) {
     std::lock_guard lock(this->receiver.mu);
     for (size_t i = 0; i < frame.size(); i++) {
         const auto key = frame.channels->at(i);
@@ -61,9 +62,9 @@ x::errors::Error plugins::ChannelReceive::Sink::write(x::telem::Frame &frame) {
     return x::errors::NIL;
 }
 
-/// @brief implements plugins::Plugin to bind the latest values to the lua state
+/// @brief implements Plugin to bind the latest values to the lua state
 /// on every sequence iteration.
-x::errors::Error plugins::ChannelReceive::before_next(lua_State *L) {
+x::errors::Error ChannelReceive::before_next(lua_State *L) {
     std::lock_guard lock(this->mu);
     for (const auto &[key, latest]: this->latest_values) {
         if (!latest.changed) continue;
@@ -84,8 +85,9 @@ x::errors::Error plugins::ChannelReceive::before_next(lua_State *L) {
             LOG(WARNING) << "[sequence.plugins.channel_receive] failed to set global "
                             "sample value. using nil instead: "
                          << err;
-        }
+            }
         this->latest_values[key].changed = false;
     }
     return x::errors::NIL;
+}
 }

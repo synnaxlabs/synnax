@@ -1035,7 +1035,7 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(
-        client->channels.create("period", x::telem::FLOAT64_T, true)
+        client->channels.create(make_unique_channel_name("period"), x::telem::FLOAT64_T, true)
     );
 
     json j{
@@ -1207,7 +1207,7 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     };
     ASSERT_NIL(client->devices.create(dev));
     auto ch = ASSERT_NIL_P(
-        client->channels.create("test_channel", x::telem::FLOAT64_T, true)
+        client->channels.create(make_unique_channel_name("test_channel"), x::telem::FLOAT64_T, true)
     );
 
     auto j = base_analog_config();

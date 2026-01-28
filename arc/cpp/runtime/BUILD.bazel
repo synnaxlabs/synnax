@@ -24,7 +24,7 @@ cc_test(
         ":runtime",
         "//arc/cpp/runtime/testutil",
         "//x/cpp/telem",
-        "//x/cpp/text",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

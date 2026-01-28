@@ -15,8 +15,10 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
-plugins::JSON::JSON(json source_data): data(std::move(source_data)) {}
+namespace driver::sequence::plugins {
+JSON::JSON(json source_data): data(std::move(source_data)) {}
 
-x::errors::Error plugins::JSON::before_all(lua_State *L) {
+x::errors::Error JSON::before_all(lua_State *L) {
     return x::lua::set_globals_from_json_object(L, this->data);
+}
 }

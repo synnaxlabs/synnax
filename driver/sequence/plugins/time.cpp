@@ -9,7 +9,8 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
-x::errors::Error plugins::Time::before_all(lua_State *L) {
+namespace driver::sequence::plugins {
+x::errors::Error Time::before_all(lua_State *L) {
     this->start_time = x::telem::TimeStamp(this->now());
     this->elapsed = x::telem::TimeSpan::ZERO();
     this->iteration = 0;
@@ -31,7 +32,7 @@ x::errors::Error plugins::Time::before_all(lua_State *L) {
     return x::errors::NIL;
 }
 
-x::errors::Error plugins::Time::before_next(lua_State *L) {
+x::errors::Error Time::before_next(lua_State *L) {
     this->elapsed = this->now() - this->start_time;
     this->iteration++;
     lua_pushnumber(L, this->elapsed.seconds());
@@ -39,4 +40,5 @@ x::errors::Error plugins::Time::before_next(lua_State *L) {
     lua_pushinteger(L, this->iteration);
     lua_setglobal(L, "iteration");
     return x::errors::NIL;
+}
 }

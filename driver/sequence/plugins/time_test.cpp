@@ -15,6 +15,7 @@ extern "C" {
 #include <lualib.h>
 }
 
+namespace driver::sequence::plugins {
 /// @brief it should correctly return the elapsed sequence time based on the current
 /// time.
 TEST(TimePluginTest, testElapsed) {
@@ -26,7 +27,7 @@ TEST(TimePluginTest, testElapsed) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    auto plugin = plugins::Time(now);
+    auto plugin = Time(now);
 
     // Initialize the plugin with the Lua state
     ASSERT_EQ(plugin.before_all(L), x::errors::NIL);
@@ -54,7 +55,7 @@ TEST(TimePluginTest, testIteration) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    auto plugin = plugins::Time();
+    auto plugin = Time();
 
     ASSERT_EQ(plugin.before_all(L), x::errors::NIL);
 
@@ -83,7 +84,7 @@ TEST(TimePluginTest, testElapsedWithin) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
 
-    auto plugin = plugins::Time(now);
+    auto plugin = Time(now);
 
     ASSERT_EQ(plugin.before_all(L), x::errors::NIL);
 
@@ -117,4 +118,5 @@ TEST(TimePluginTest, testElapsedWithin) {
     EXPECT_TRUE(lua_toboolean(L, -1)); // 7 seconds is within 5-10 seconds
 
     lua_close(L);
+}
 }

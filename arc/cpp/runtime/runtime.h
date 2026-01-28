@@ -60,7 +60,7 @@ class Runtime {
     std::unique_ptr<loop::Loop> loop;
     x::queue::SPSC<x::telem::Frame> inputs;
     x::queue::SPSC<x::telem::Frame> outputs;
-    x::telem::TimeStamp start_time = telem::TimeStamp(0);
+    x::telem::TimeStamp start_time = x::telem::TimeStamp(0);
     errors::Handler error_handler;
 
 public:

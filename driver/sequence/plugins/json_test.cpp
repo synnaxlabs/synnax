@@ -23,6 +23,7 @@ extern "C" {
 
 using json = x::json::json;
 
+namespace driver::sequence::plugins {
 /// @brief it should apply JSON variables as Lua globals.
 TEST(JSONPluginTest, BasicVariableApplication) {
     lua_State *L = luaL_newstate();
@@ -36,7 +37,7 @@ TEST(JSONPluginTest, BasicVariableApplication) {
         {"nested", {{"value", 123}}}
     };
 
-    plugins::JSON source(test_data);
+    JSON source(test_data);
     ASSERT_EQ(source.before_all(L), x::errors::NIL);
 
     lua_getglobal(L, "number");
@@ -79,7 +80,8 @@ TEST(JSONPluginTest, InvalidJSON) {
     lua_State *L = luaL_newstate();
     luaL_openlibs(L);
     const json invalid_json = json::array();
-    plugins::JSON plugin(invalid_json);
+    JSON plugin(invalid_json);
     ASSERT_FALSE(plugin.before_all(L).ok());
     lua_close(L);
+}
 }

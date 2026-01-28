@@ -11,12 +11,12 @@
 
 #include <vector>
 
-#include "../../../../x/cpp/control/control.h"
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/sequence/plugins/plugins.h"
+#include "x/cpp/control/control.h"
 
-namespace plugins::mock {
-class FrameSink final : public plugins::FrameSink, public driver::pipeline::mock::Sink {
+namespace driver::sequence::plugins::mock {
+class FrameSink final : public plugins::FrameSink, public pipeline::mock::Sink {
 public:
     std::vector<std::pair<
         std::vector<synnax::channel::Key>,
@@ -24,7 +24,7 @@ public:
         authority_calls;
 
     x::errors::Error write(x::telem::Frame &frame) override {
-        return driver::pipeline::mock::Sink::write(frame);
+        return Sink::write(frame);
     }
 
     x::errors::Error set_authority(

@@ -11,14 +11,15 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
+namespace driver::sequence::plugins {
 /// @brief an implementation of Sink backed by a Synnax writer.
-plugins::SynnaxFrameSink::SynnaxFrameSink(
+SynnaxFrameSink::SynnaxFrameSink(
     const std::shared_ptr<synnax::Synnax> &client,
     synnax::framer::WriterConfig cfg
 ):
     client(client), cfg(std::move(cfg)) {}
 
-x::errors::Error plugins::SynnaxFrameSink::open() {
+x::errors::Error SynnaxFrameSink::open() {
     if (this->writer != nullptr) return x::errors::NIL;
     auto [w, err] = this->client->telem.open_writer(this->cfg);
     if (err) return err;
@@ -26,27 +27,27 @@ x::errors::Error plugins::SynnaxFrameSink::open() {
     return x::errors::NIL;
 }
 
-x::errors::Error plugins::SynnaxFrameSink::write(x::telem::Frame &frame) {
+x::errors::Error SynnaxFrameSink::write(x::telem::Frame &frame) {
     if (frame.empty()) return x::errors::NIL;
     return this->writer->write(frame);
 }
 
-x::errors::Error plugins::SynnaxFrameSink::set_authority(
+x::errors::Error SynnaxFrameSink::set_authority(
     const std::vector<synnax::channel::Key> &keys,
     const std::vector<x::control::Authority> &authorities
 ) {
     return this->writer->set_authority(keys, authorities);
 }
 
-x::errors::Error plugins::SynnaxFrameSink::close() {
+x::errors::Error SynnaxFrameSink::close() {
     if (this->writer == nullptr) return x::errors::NIL;
     const auto err = this->writer->close();
     this->writer = nullptr;
     return err;
 }
 
-plugins::ChannelWrite::ChannelWrite(
-    std::shared_ptr<plugins::FrameSink> sink,
+ChannelWrite::ChannelWrite(
+    std::shared_ptr<FrameSink> sink,
     const std::vector<synnax::channel::Channel> &channels
 ):
     frame(x::telem::Frame(channels.size())),
@@ -60,7 +61,7 @@ plugins::ChannelWrite::ChannelWrite(
 }
 
 std::pair<synnax::channel::Channel, bool>
-plugins::ChannelWrite::resolve(const std::string &name) {
+ChannelWrite::resolve(const std::string &name) {
     const auto it = this->names_to_keys.find(name);
     if (it == this->names_to_keys.end()) return {synnax::channel::Channel(), false};
     return {this->channels[it->second], true};
@@ -68,14 +69,14 @@ plugins::ChannelWrite::resolve(const std::string &name) {
 
 /// @brief implements driver::sequence::Operator to bind channel set functions to the
 /// sequence on startup.
-x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
+x::errors::Error ChannelWrite::before_all(lua_State *L) {
     if (const auto err = this->sink->open()) return err;
     // Configuring the "set" closure used to set a channel value.
     lua_pushlightuserdata(L, this);
     lua_pushcclosure(
         L,
         [](lua_State *cL) -> int {
-            auto *op = static_cast<plugins::ChannelWrite *>(
+            auto *op = static_cast<ChannelWrite *>(
                 lua_touserdata(cL, lua_upvalueindex(1))
             );
             const char *channel_name = lua_tostring(cL, 1);
@@ -117,7 +118,7 @@ x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
     lua_pushcclosure(
         L,
         [](lua_State *cL) -> int {
-            auto *op = static_cast<plugins::ChannelWrite *>(
+            auto *op = static_cast<ChannelWrite *>(
                 lua_touserdata(cL, lua_upvalueindex(1))
             );
 
@@ -202,21 +203,21 @@ x::errors::Error plugins::ChannelWrite::before_all(lua_State *L) {
     return x::errors::NIL;
 }
 
-/// @brief implements plugins::Plugin to close the sink after the sequence
+/// @brief implements Plugin to close the sink after the sequence
 /// is complete.
-x::errors::Error plugins::ChannelWrite::after_all(lua_State *L) {
+x::errors::Error ChannelWrite::after_all(lua_State *L) {
     return this->sink->close();
 }
 
 /// @brief clears out the previous written frame before the next iteration.
-x::errors::Error plugins::ChannelWrite::before_next(lua_State *L) {
+x::errors::Error ChannelWrite::before_next(lua_State *L) {
     this->frame.clear();
     this->frame.reserve(this->channels.size());
     return x::errors::NIL;
 }
 
 /// @brief writes the frame to the sink after the iteration.
-x::errors::Error plugins::ChannelWrite::after_next(lua_State *L) {
+x::errors::Error ChannelWrite::after_next(lua_State *L) {
     if (this->frame.empty()) return x::errors::NIL;
     const auto now = x::telem::TimeStamp::now();
     std::vector<synnax::channel::Key> index_keys;
@@ -230,4 +231,5 @@ x::errors::Error plugins::ChannelWrite::after_next(lua_State *L) {
     for (const auto index: index_keys)
         frame.emplace(index, x::telem::Series(now));
     return this->sink->write(this->frame);
+}
 }

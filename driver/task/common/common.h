@@ -13,7 +13,7 @@
 
 #include "driver/task/task.h"
 
-namespace common {
+namespace driver::task::common {
 /// @brief a common base configuration for tasks.
 struct BaseTaskConfig {
     /// @brief whether data saving is enabled for the task.
@@ -28,7 +28,7 @@ struct BaseTaskConfig {
     BaseTaskConfig(const BaseTaskConfig &other) = delete;
     const BaseTaskConfig &operator=(const BaseTaskConfig &other) = delete;
 
-    explicit BaseTaskConfig(xjson::Parser &parser):
+    explicit BaseTaskConfig(x::json::Parser &parser):
         data_saving(parser.field<bool>("data_saving", true)),
         auto_start(parser.field<bool>("auto_start", false)) {}
 };
@@ -44,8 +44,8 @@ struct ConfigureResult {
 };
 
 /// @brief converts a data_saving boolean to the appropriate WriterMode.
-inline synnax::WriterMode data_saving_writer_mode(const bool data_saving) {
-    if (data_saving) return synnax::WriterMode::PersistStream;
-    return synnax::WriterMode::StreamOnly;
+inline synnax::framer::WriterMode data_saving_writer_mode(const bool data_saving) {
+    if (data_saving) return synnax::framer::WriterMode::PersistStream;
+    return synnax::framer::WriterMode::StreamOnly;
 }
 }

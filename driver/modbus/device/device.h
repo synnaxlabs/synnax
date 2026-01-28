@@ -19,14 +19,14 @@
 #endif
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/xjson/xjson.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/errors/errors.h"
 
 const x::errors::Error CRITICAL_ERROR = driver::CRITICAL_HARDWARE_ERROR.sub("modbus");
 const x::errors::Error TEMPORARY_ERROR = driver::TEMPORARY_HARDWARE_ERROR.sub("modbus");
 
-namespace modbus::device {
+namespace driver::modbus::device {
 /// @brief parses the xerrors compatible representation of the modbus error code.
 inline x::errors::Error parse_error(const int code) {
     if (code != -1) return x::errors::NIL;
@@ -139,14 +139,14 @@ struct ConnectionConfig {
         swap_words(swap_words) {}
 
     /// @brief constructs a ConnectionConfig from a JSON object.
-    explicit ConnectionConfig(xjson::Parser parser):
+    explicit ConnectionConfig(x::json::Parser parser):
         host(parser.field<std::string>("host")),
         port(parser.field<uint16_t>("port")),
         swap_bytes(parser.field<bool>("swap_bytes")),
         swap_words(parser.field<bool>("swap_words")) {}
 
     /// @brief returns the JSON representation of the configuration.
-    [[nodiscard]] json to_json() const {
+    [[nodiscard]] x::json::json to_json() const {
         return {
             {"host", host},
             {"port", port},

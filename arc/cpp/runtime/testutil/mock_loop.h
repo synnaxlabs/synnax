@@ -58,14 +58,14 @@ public:
         cv.notify_all();
     }
 
-    bool watch(notify::Notifier &notifier) override {
+    bool watch(x::notify::Notifier &notifier) override {
         watch_count++;
         watched_notifiers.push_back(&notifier);
         return true;
     }
 
     /// @brief List of notifiers that have been watched.
-    std::vector<notify::Notifier *> watched_notifiers;
+    std::vector<x::notify::Notifier *> watched_notifiers;
 
 private:
     std::condition_variable cv;

@@ -14,6 +14,7 @@
 // internal
 #include "driver/rack/rack.h"
 
+namespace driver::rack {
 constexpr auto PERSISTED_STATE_FILE_PERMISSIONS = std::filesystem::perms::owner_read |
                                                   std::filesystem::perms::owner_write |
                                                   std::filesystem::perms::group_read |
@@ -53,7 +54,7 @@ open_kv(x::args::Parser &parser) {
     );
 }
 
-x::errors::Error driver::rack::Config::load_persisted_state(x::args::Parser &args) {
+x::errors::Error Config::load_persisted_state(x::args::Parser &args) {
     auto [kv, open_err] = open_kv(args);
     if (open_err) return open_err;
 
@@ -65,16 +66,16 @@ x::errors::Error driver::rack::Config::load_persisted_state(x::args::Parser &arg
     this->connection.override(conn_parser);
 
     // Load the cached remote info
-    std::string remote_info = "{}";
-    const auto r_err = kv->get("remote_info", remote_info);
+    std::string rem_info = "{}";
+    const auto r_err = kv->get("remote_info", rem_info);
     if (r_err && !x::errors::NOT_FOUND.matches(r_err)) return r_err;
-    auto remote_parser = x::json::Parser(remote_info);
+    auto remote_parser = x::json::Parser(rem_info);
     this->remote_info.override(remote_parser);
 
     return x::errors::NIL;
 }
 
-x::errors::Error driver::rack::Config::save_conn_params(
+x::errors::Error Config::save_conn_params(
     x::args::Parser &args,
     const synnax::Config &conn_params
 ) {
@@ -82,7 +83,7 @@ x::errors::Error driver::rack::Config::save_conn_params(
     return kv->set("conn_params", conn_params.to_json().dump());
 }
 
-x::errors::Error driver::rack::Config::save_remote_info(
+x::errors::Error Config::save_remote_info(
     x::args::Parser &args,
     const RemoteInfo &remote_info
 ) {
@@ -90,10 +91,11 @@ x::errors::Error driver::rack::Config::save_remote_info(
     return kv->set("remote_info", remote_info.to_json().dump());
 }
 
-x::errors::Error driver::rack::Config::clear_persisted_state(x::args::Parser &args) {
+x::errors::Error Config::clear_persisted_state(x::args::Parser &args) {
     auto [kv, err] = open_kv(args);
     if (err) return err;
     if (const auto d1_err = kv->del("conn_params")) return d1_err;
     if (const auto d2_err = kv->del("remote_info")) return d2_err;
     return x::errors::NIL;
+}
 }

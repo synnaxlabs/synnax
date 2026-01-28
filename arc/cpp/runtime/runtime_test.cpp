@@ -26,7 +26,7 @@ std::shared_ptr<Runtime> create_test_runtime(
 ) {
     Config cfg{
         .mod = {},
-        .breaker = breaker::Config{},
+        .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = input_capacity,
         .output_queue_capacity = 1,
@@ -61,7 +61,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
 
     Config cfg{
         .mod = {},
-        .breaker = breaker::Config{},
+        .breaker = x::breaker::Config{},
         .retrieve_channels = nullptr,
         .input_queue_capacity = 256,
         .output_queue_capacity = 256,
@@ -91,9 +91,9 @@ TEST(RuntimeTest, WriteCallsErrorHandlerOnQueueFull) {
         reported_errors.push_back(err);
     });
 
-    auto series1 = telem::Series(x::telem::FLOAT32_T, 1);
+    auto series1 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series1.write(1.0f);
-    auto series2 = telem::Series(x::telem::FLOAT32_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(2.0f);
 
     ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series1))));
@@ -114,7 +114,7 @@ TEST(RuntimeTest, WriteReportsMultipleQueueFullErrors) {
     });
 
     for (int i = 0; i < 5; i++) {
-        auto series = telem::Series(x::telem::FLOAT32_T, 1);
+        auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
         series.write(static_cast<float>(i));
         runtime->write(x::telem::Frame(1, std::move(series)));
     }
@@ -130,7 +130,7 @@ TEST(RuntimeTest, WriteSucceedsWithCapacity) {
         reported_errors.push_back(err);
     });
     for (int i = 0; i < 5; i++) {
-        auto series = telem::Series(x::telem::FLOAT32_T, 1);
+        auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
         series.write(static_cast<float>(i));
         ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series))));
     }
@@ -188,7 +188,7 @@ TEST(RuntimeLifecycleTest, WriteReturnsClosedErrorAfterStop) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    auto series = telem::Series(x::telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
     auto err = runtime->write(x::telem::Frame(1, std::move(series)));
     EXPECT_TRUE(err.matches("runtime closed"));
@@ -218,14 +218,14 @@ TEST(RuntimeLifecycleTest, WriteSucceedsAfterRestart) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    auto series = telem::Series(x::telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
     auto err = runtime->write(x::telem::Frame(1, std::move(series)));
     EXPECT_TRUE(err.matches("runtime closed")) << "Write should fail when stopped";
 
     ASSERT_TRUE(runtime->start());
 
-    auto series2 = telem::Series(x::telem::FLOAT32_T, 1);
+    auto series2 = x::telem::Series(x::telem::FLOAT32_T, 1);
     series2.write(2.0f);
     ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series2))));
 
@@ -259,7 +259,7 @@ TEST(RuntimeLifecycleTest, WriteSucceedsWhileRunning) {
     );
     ASSERT_TRUE(runtime->start());
 
-    auto series = telem::Series(x::telem::FLOAT32_T, 1);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 1);
     series.write(1.0f);
     ASSERT_NIL(runtime->write(x::telem::Frame(1, std::move(series))));
 
@@ -274,7 +274,7 @@ TEST(RuntimeLifecycleTest, ReadReturnsFalseAfterStop) {
     ASSERT_TRUE(runtime->start());
     ASSERT_TRUE(runtime->stop());
 
-    telem::Frame frame;
+    x::telem::Frame frame;
     EXPECT_FALSE(runtime->read(frame)) << "Read should return false when stopped";
 }
 

@@ -110,7 +110,7 @@ TEST(TimeFactoryTest, TimingBaseSetToFirstInterval) {
     ASSERT_NIL_P(
         factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
-    EXPECT_EQ(factory.timing_base, 500 * telem::MILLISECOND);
+    EXPECT_EQ(factory.timing_base, 500 * x::telem::MILLISECOND);
 }
 
 /// @brief Test that timing_base computes GCD across multiple intervals.

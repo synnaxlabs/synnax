@@ -59,11 +59,11 @@ struct RemoteInfo {
 
 inline std::vector<std::string> default_integrations() {
     std::vector<std::string> integrations = {
-        driver::opc::INTEGRATION_NAME,
-        driver::ni::INTEGRATION_NAME,
-        driver::sequence::INTEGRATION_NAME,
-        driver::labjack::INTEGRATION_NAME,
-        ::arc::INTEGRATION_NAME,
+        opc::INTEGRATION_NAME,
+        ni::INTEGRATION_NAME,
+        sequence::INTEGRATION_NAME,
+        labjack::INTEGRATION_NAME,
+        arc::INTEGRATION_NAME,
     };
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(driver::modbus::INTEGRATION_NAME);

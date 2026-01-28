@@ -558,7 +558,7 @@ TEST(StateTest, ReadChannel_UnknownChannel) {
 TEST(StateTest, Reset_ClearsReadsAndWrites) {
     State s = create_minimal_state();
 
-    auto series = telem::Series(x::telem::FLOAT32_T, 2);
+    auto series = x::telem::Series(x::telem::FLOAT32_T, 2);
     series.write(1.0f);
     series.write(2.0f);
     s.ingest(x::telem::Frame(10, std::move(series)));
@@ -576,23 +576,23 @@ TEST(StateTest, Reset_ClearsReadsAndWrites) {
 
 /// @brief Test that Node::reset clears watermark tracking
 TEST(StateTest, NodeReset_ClearsWatermarks) {
-    arc::ir::Param output_param;
+    arc::types::Param output_param;
     output_param.name = "output";
-    output_param.type = arc::types::Type(arc::types::Kind::F32);
+    output_param.type = arc::types::Type{.kind=arc::types::Kind::F32};
 
-    arc::ir::Param input_param;
+    arc::types::Param input_param;
     input_param.name = "input";
-    input_param.type = arc::types::Type(arc::types::Kind::F32);
+    input_param.type = arc::types::Type{.kind=arc::types::Kind::F32};
 
     arc::ir::Node producer;
     producer.key = "producer";
     producer.type = "producer";
-    producer.outputs.params.push_back(output_param);
+    producer.outputs.push_back(output_param);
 
     arc::ir::Node consumer;
     consumer.key = "consumer";
     consumer.type = "consumer";
-    consumer.inputs.params.push_back(input_param);
+    consumer.inputs.push_back(input_param);
 
     arc::ir::Edge edge(
         arc::ir::Handle("producer", "output"),
@@ -621,8 +621,8 @@ TEST(StateTest, NodeReset_ClearsWatermarks) {
 
     auto &o_time = producer_node.output_time(0);
     o_time->resize(2);
-    o_time->set(0, x::telem::TimeStamp(1 * telem::MICROSECOND));
-    o_time->set(1, x::telem::TimeStamp(2 * telem::MICROSECOND));
+    o_time->set(0, x::telem::TimeStamp(1 * x::telem::MICROSECOND));
+    o_time->set(1, x::telem::TimeStamp(2 * x::telem::MICROSECOND));
 
     ASSERT_TRUE(consumer_node.refresh_inputs());
 

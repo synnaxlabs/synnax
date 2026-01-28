@@ -35,8 +35,6 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::arc::DeleteRequest, google::protobuf::Empty>;
 
-class Client;
-
 /// @brief Options for retrieving Arc programs.
 struct RetrieveOptions {
     /// @brief If true, compiles the Arc text to a module with IR and WASM bytecode.

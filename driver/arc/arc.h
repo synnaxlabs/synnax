@@ -28,13 +28,13 @@ const std::string TASK_TYPE = INTEGRATION_NAME;
 /// @brief factory for creating arc runtime tasks.
 class Factory final : public task::Factory {
     /// @brief configures an arc runtime task.
-    std::pair<common::ConfigureResult, x::errors::Error>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
+    std::pair<task::common::ConfigureResult, x::errors::Error>
+    configure(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task);
 
 public:
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
     [[nodiscard]] std::string name() override;

@@ -24,23 +24,23 @@ using namespace arc::runtime::loop;
 /// @brief Test timing constants.
 namespace test_timing {
 /// @brief Time to wait for a thread to start waiting before signaling.
-const auto THREAD_STARTUP = 50 * telem::MILLISECOND;
+const auto THREAD_STARTUP = 50 * x::telem::MILLISECOND;
 /// @brief Small delay before wake to ensure thread is ready.
-const auto SMALL_DELAY = 100 * telem::MICROSECOND;
+const auto SMALL_DELAY = 100 * x::telem::MICROSECOND;
 /// @brief Expected timer bounds (lower).
-const auto TIMER_LOWER_BOUND = 5 * telem::MILLISECOND;
+const auto TIMER_LOWER_BOUND = 5 * x::telem::MILLISECOND;
 /// @brief Expected timer bounds (upper, accounts for system jitter).
-const auto TIMER_UPPER_BOUND = 50 * telem::MILLISECOND;
+const auto TIMER_UPPER_BOUND = 50 * x::telem::MILLISECOND;
 /// @brief Maximum wake latency (Windows ~15ms scheduler time slice, POSIX ~1ms).
 #ifdef _WIN32
-const auto WAKE_LATENCY = 50 * telem::MILLISECOND;
+const auto WAKE_LATENCY = 50 * x::telem::MILLISECOND;
 #else
-const auto WAKE_LATENCY = telem::MILLISECOND;
+const auto WAKE_LATENCY = x::telem::MILLISECOND;
 #endif
 /// @brief Maximum time for breaker stop to take effect.
-const auto BREAKER_STOP_LATENCY = 10 * telem::MILLISECOND;
+const auto BREAKER_STOP_LATENCY = 10 * x::telem::MILLISECOND;
 /// @brief Maximum time for event-driven timeout (100ms + margin).
-const auto EVENT_DRIVEN_BOUND = 150 * telem::MILLISECOND;
+const auto EVENT_DRIVEN_BOUND = 150 * x::telem::MILLISECOND;
 }
 
 /// @brief Test that Loop can be created.
@@ -98,7 +98,7 @@ TEST(LoopTest, TimerExpiration) {
 
     x::breaker::Breaker breaker;
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
 
     // Should have waited approximately 10ms (allow some jitter)
@@ -125,7 +125,7 @@ TEST(LoopTest, BusyWaitMode) {
 
     std::this_thread::sleep_for(test_timing::SMALL_DELAY.chrono());
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     loop->wake();
     waiter.join();
 
@@ -143,7 +143,7 @@ TEST(LoopTest, HighRateMode) {
 
     x::breaker::Breaker breaker;
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
 
     // Should wait approximately 10ms with high-rate timer
@@ -169,7 +169,7 @@ TEST(LoopTest, HybridMode) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for((10 * telem::MICROSECOND).chrono());
+    std::this_thread::sleep_for((10 * x::telem::MICROSECOND).chrono());
     loop->wake();
 
     waiter.join();
@@ -212,15 +212,15 @@ TEST(ModeSelectorTest, NoIntervals_SelectsEventDriven) {
 }
 
 TEST(ModeSelectorTest, ModerateRate_SelectsHybrid) {
-    EXPECT_EQ(select_mode(3 * telem::MILLISECOND, true), ExecutionMode::HYBRID);
+    EXPECT_EQ(select_mode(3 * x::telem::MILLISECOND, true), ExecutionMode::HYBRID);
 }
 
 TEST(ModeSelectorTest, LowRate_SelectsEventDriven) {
-    EXPECT_EQ(select_mode(10 * telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
+    EXPECT_EQ(select_mode(10 * x::telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
 }
 
 TEST(ModeSelectorTest, NeverAutoselectsBusyWait) {
-    EXPECT_NE(select_mode(10 * telem::MICROSECOND, true), ExecutionMode::BUSY_WAIT);
+    EXPECT_NE(select_mode(10 * x::telem::MICROSECOND, true), ExecutionMode::BUSY_WAIT);
     EXPECT_NE(select_mode(x::telem::TimeSpan(0), true), ExecutionMode::BUSY_WAIT);
 }
 
@@ -229,21 +229,21 @@ TEST(ModeSelectorTest, Boundary_AtOneMs_SelectsHybrid) {
 }
 
 TEST(ModeSelectorTest, Boundary_AtFiveMs_SelectsEventDriven) {
-    EXPECT_EQ(select_mode(5 * telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
+    EXPECT_EQ(select_mode(5 * x::telem::MILLISECOND, true), ExecutionMode::EVENT_DRIVEN);
 }
 
 TEST(ConfigTest, ApplyDefaultsResolvesAuto) {
     const Config cfg;
     EXPECT_EQ(cfg.mode, ExecutionMode::AUTO);
-    const auto resolved = cfg.apply_defaults(10 * telem::MILLISECOND);
+    const auto resolved = cfg.apply_defaults(10 * x::telem::MILLISECOND);
     EXPECT_NE(resolved.mode, ExecutionMode::AUTO);
 }
 
 TEST(ConfigTest, ApplyDefaultsSetsInterval) {
     const Config cfg;
     EXPECT_EQ(cfg.interval.nanoseconds(), 0);
-    const auto resolved = cfg.apply_defaults(10 * telem::MILLISECOND);
-    EXPECT_EQ(resolved.interval, 10 * telem::MILLISECOND);
+    const auto resolved = cfg.apply_defaults(10 * x::telem::MILLISECOND);
+    EXPECT_EQ(resolved.interval, 10 * x::telem::MILLISECOND);
 }
 
 TEST(ConfigTest, DefaultRtPriority) {
@@ -255,7 +255,7 @@ TEST(ConfigTest, AutoCpuAffinityPinsForRTEvent) {
     Config cfg;
     cfg.mode = ExecutionMode::RT_EVENT;
     EXPECT_EQ(cfg.cpu_affinity, CPU_AFFINITY_AUTO);
-    const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
+    const auto resolved = cfg.apply_defaults(500 * x::telem::MICROSECOND);
     if (std::thread::hardware_concurrency() > 1) {
         EXPECT_GE(resolved.cpu_affinity, 0);
     }
@@ -265,7 +265,7 @@ TEST(ConfigTest, AutoModeResolvesToRTEventGetsCpuPinning) {
     Config cfg;
     cfg.mode = ExecutionMode::AUTO;
     cfg.cpu_affinity = CPU_AFFINITY_AUTO;
-    const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
+    const auto resolved = cfg.apply_defaults(500 * x::telem::MICROSECOND);
     if (has_rt_scheduling() && std::thread::hardware_concurrency() > 1) {
         EXPECT_GE(resolved.cpu_affinity, 0);
     }
@@ -275,21 +275,21 @@ TEST(ConfigTest, ExplicitCpuAffinityNotOverridden) {
     Config cfg;
     cfg.mode = ExecutionMode::RT_EVENT;
     cfg.cpu_affinity = 0;
-    const auto resolved = cfg.apply_defaults(500 * telem::MICROSECOND);
+    const auto resolved = cfg.apply_defaults(500 * x::telem::MICROSECOND);
     EXPECT_EQ(resolved.cpu_affinity, 0);
 }
 
 TEST(ConfigTest, ExplicitModeNotOverridden) {
     Config cfg;
     cfg.mode = ExecutionMode::BUSY_WAIT;
-    const auto resolved = cfg.apply_defaults(10 * telem::MILLISECOND);
+    const auto resolved = cfg.apply_defaults(10 * x::telem::MILLISECOND);
     EXPECT_EQ(resolved.mode, ExecutionMode::BUSY_WAIT);
 }
 
 TEST(ConfigTest, HighRateModeWithoutIntervalGetsDefault) {
     Config cfg;
     cfg.mode = ExecutionMode::HIGH_RATE;
-    cfg.interval = telem::TimeSpan(0);
+    cfg.interval = x::telem::TimeSpan(0);
     const auto resolved = cfg.apply_defaults(x::telem::TimeSpan::max());
     EXPECT_EQ(resolved.interval, timing::HIGH_RATE_POLL_INTERVAL);
 }
@@ -297,7 +297,7 @@ TEST(ConfigTest, HighRateModeWithoutIntervalGetsDefault) {
 TEST(ConfigTest, RTEventModeWithoutIntervalGetsDefault) {
     Config cfg;
     cfg.mode = ExecutionMode::RT_EVENT;
-    cfg.interval = telem::TimeSpan(0);
+    cfg.interval = x::telem::TimeSpan(0);
     const auto resolved = cfg.apply_defaults(x::telem::TimeSpan::max());
     EXPECT_EQ(resolved.interval, timing::HIGH_RATE_POLL_INTERVAL);
 }
@@ -305,9 +305,9 @@ TEST(ConfigTest, RTEventModeWithoutIntervalGetsDefault) {
 TEST(ConfigTest, HighRateModeWithExplicitIntervalNotOverridden) {
     Config cfg;
     cfg.mode = ExecutionMode::HIGH_RATE;
-    cfg.interval = 500 * telem::MICROSECOND;
+    cfg.interval = 500 * x::telem::MICROSECOND;
     const auto resolved = cfg.apply_defaults(x::telem::TimeSpan::max());
-    EXPECT_EQ(resolved.interval, 500 * telem::MICROSECOND);
+    EXPECT_EQ(resolved.interval, 500 * x::telem::MICROSECOND);
 }
 
 TEST(ConfigOutputTest, OutputContainsMode) {
@@ -322,7 +322,7 @@ TEST(ConfigOutputTest, OutputContainsMode) {
 TEST(ConfigOutputTest, OutputContainsIntervalWhenSet) {
     Config cfg;
     cfg.mode = ExecutionMode::HIGH_RATE;
-    cfg.interval = 10 * telem::MILLISECOND;
+    cfg.interval = 10 * x::telem::MILLISECOND;
     std::ostringstream os;
     os << cfg;
     EXPECT_NE(os.str().find("interval"), std::string::npos);
@@ -331,7 +331,7 @@ TEST(ConfigOutputTest, OutputContainsIntervalWhenSet) {
 TEST(ConfigOutputTest, OutputOmitsIntervalWhenZero) {
     Config cfg;
     cfg.mode = ExecutionMode::EVENT_DRIVEN;
-    cfg.interval = telem::TimeSpan(0);
+    cfg.interval = x::telem::TimeSpan(0);
     std::ostringstream os;
     os << cfg;
     EXPECT_EQ(os.str().find("interval"), std::string::npos);
@@ -397,11 +397,11 @@ TEST(ConfigOutputTest, OutputOmitsCpuAffinityWhenAuto) {
 TEST(WatchTest, WatchReturnsTrue_ValidNotifier) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier = notify::create();
+    auto notifier = x::notify::create();
     EXPECT_TRUE(loop->watch(*notifier));
 }
 
@@ -409,15 +409,15 @@ TEST(WatchTest, WatchReturnsTrue_ValidNotifier) {
 TEST(WatchTest, WatchWakesWait_NotifierSignaled) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier = notify::create();
+    auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     std::thread waiter([&]() {
         loop->wait(breaker);
@@ -437,14 +437,14 @@ TEST(WatchTest, WatchWakesWait_NotifierSignaled) {
 TEST(WatchTest, WatchAndWake_BothWork) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier = notify::create();
+    auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
 
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     std::atomic<int> wake_count{0};
     std::thread waiter1([&]() {
@@ -472,19 +472,19 @@ TEST(WatchTest, WatchAndWake_BothWork) {
 TEST(WatchTest, WatchAndTimer_BothWork) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = 50 * telem::MILLISECOND;
+    config.interval = 50 * x::telem::MILLISECOND;
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier = notify::create();
+    auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
 
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
     const auto elapsed = sw.elapsed();
-    EXPECT_GE(elapsed, 25 * telem::MILLISECOND);
+    EXPECT_GE(elapsed, 25 * x::telem::MILLISECOND);
     EXPECT_LE(elapsed, test_timing::EVENT_DRIVEN_BOUND);
 
     std::atomic<bool> woke_up{false};
@@ -493,7 +493,7 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
         woke_up.store(true);
     });
 
-    std::this_thread::sleep_for((10 * telem::MILLISECOND).chrono());
+    std::this_thread::sleep_for((10 * x::telem::MILLISECOND).chrono());
     notifier->signal();
     waiter.join();
 
@@ -506,16 +506,16 @@ TEST(WatchTest, WatchAndTimer_BothWork) {
 TEST(WatchTest, WatchMultipleNotifiers) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier1 = notify::create();
-    auto notifier2 = notify::create();
+    auto notifier1 = x::notify::create();
+    auto notifier2 = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier1));
     ASSERT_TRUE(loop->watch(*notifier2));
 
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     std::atomic<bool> woke_up{false};
     std::thread waiter1([&]() {
@@ -544,11 +544,11 @@ TEST(WatchTest, WatchMultipleNotifiers) {
 TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier = notify::create();
+    auto notifier = x::notify::create();
     EXPECT_TRUE(loop->watch(*notifier));
     EXPECT_TRUE(loop->watch(*notifier)); // Should succeed, not fail with EEXIST
 }
@@ -557,16 +557,16 @@ TEST(WatchTest, WatchSameNotifierTwice_Succeeds) {
 TEST(WatchTest, WatchSameNotifierTwice_StillWakes) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier = notify::create();
+    auto notifier = x::notify::create();
     ASSERT_TRUE(loop->watch(*notifier));
     ASSERT_TRUE(loop->watch(*notifier)); // Re-register
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     std::thread waiter([&]() {
         loop->wait(breaker);
@@ -584,15 +584,15 @@ TEST(WatchTest, WatchSameNotifierTwice_StillWakes) {
 TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier = notify::create();
+    auto notifier = x::notify::create();
 
     // First "run" - watch and use
     ASSERT_TRUE(loop->watch(*notifier));
-    breaker::Breaker breaker1;
+    x::breaker::Breaker breaker1;
     std::thread t1([&]() { loop->wait(breaker1); });
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     loop->wake();
@@ -600,7 +600,7 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
 
     // Second "run" - watch same notifier again (simulates restart scenario)
     ASSERT_TRUE(loop->watch(*notifier));
-    breaker::Breaker breaker2;
+    x::breaker::Breaker breaker2;
     std::atomic<bool> woke{false};
     std::thread t2([&]() {
         loop->wait(breaker2);
@@ -621,12 +621,12 @@ TEST(WatchTest, WatchAfterSimulatedRestart_Works) {
 TEST(WatchTest, WatchSecondNotifierFails_Windows) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    auto notifier1 = notify::create();
-    auto notifier2 = notify::create();
+    auto notifier1 = x::notify::create();
+    auto notifier2 = x::notify::create();
     EXPECT_TRUE(loop->watch(*notifier1));
     EXPECT_FALSE(loop->watch(*notifier2));
 }
@@ -641,12 +641,12 @@ TEST(WatchTest, WatchSecondNotifierFails_Windows) {
 TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
     Config config;
     config.mode = ExecutionMode::BUSY_WAIT;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
     breaker.start();
 
     std::thread waiter([&]() {
@@ -656,7 +656,7 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
 
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     breaker.stop();
     waiter.join();
 
@@ -668,13 +668,13 @@ TEST(BreakerCancellationTest, BreakerStop_BusyWaitExits) {
 TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
     Config config;
     config.mode = ExecutionMode::HYBRID;
-    config.interval = telem::TimeSpan(0);
-    config.spin_duration = 50 * telem::MICROSECOND;
+    config.interval = x::telem::TimeSpan(0);
+    config.spin_duration = 50 * x::telem::MICROSECOND;
 
     const auto loop = ASSERT_NIL_P(create(config));
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
     breaker.start();
 
     std::thread waiter([&]() {
@@ -684,7 +684,7 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
 
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     breaker.stop();
     waiter.join();
 
@@ -696,13 +696,13 @@ TEST(BreakerCancellationTest, BreakerStop_HybridModeExits) {
 TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     loop->wait(breaker);
 
     // EVENT_DRIVEN uses 100ms timeout, allow some margin
@@ -713,12 +713,12 @@ TEST(BreakerCancellationTest, EventDriven_ReturnsWithinTimeout) {
 TEST(WakeTest, Wake_UnblocksWait) {
     Config config;
     config.mode = ExecutionMode::EVENT_DRIVEN;
-    config.interval = telem::TimeSpan(0);
+    config.interval = x::telem::TimeSpan(0);
 
     const auto loop = ASSERT_NIL_P(create(config));
 
     std::atomic<bool> woke_up{false};
-    breaker::Breaker breaker;
+    x::breaker::Breaker breaker;
 
     std::thread waiter([&]() {
         loop->wait(breaker);
@@ -728,7 +728,7 @@ TEST(WakeTest, Wake_UnblocksWait) {
     std::this_thread::sleep_for(test_timing::THREAD_STARTUP.chrono());
     EXPECT_FALSE(woke_up.load());
 
-    const auto sw = telem::Stopwatch();
+    const auto sw = x::telem::Stopwatch();
     loop->wake();
     waiter.join();
 

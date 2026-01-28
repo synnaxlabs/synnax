@@ -35,7 +35,7 @@ cc_test(
     deps = [
         ":wasm",
         "//x/cpp/telem",
-        "//x/cpp/text",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

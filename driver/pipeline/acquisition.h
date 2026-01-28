@@ -14,7 +14,7 @@
 
 #include "driver/pipeline/base.h"
 
-namespace pipeline {
+namespace driver::pipeline {
 /// @brief an object that reads data from an acquisition computer or another source,
 /// returning data as frames.
 class Source {
@@ -29,7 +29,7 @@ public:
     /// driver::CRITICAL_HARDWARE_ERROR for any error that is not recoverable, as
     /// this improved traceability.
     [[nodiscard]] virtual x::errors::Error
-    read(x::breaker::Breaker &breaker, telem::Frame &data) = 0;
+    read(x::breaker::Breaker &breaker, x::telem::Frame &data) = 0;
 
     /// @brief communicates an error encountered by the acquisition pipeline that
     /// caused it to shut down or occurred during commanded shutdown. Note that this
@@ -52,7 +52,7 @@ public:
     /// @brief writes the given frame of telemetry to the writer. Returns a non-nil
     /// error if the write fails, at which point the acquisition pipeline will
     /// close the writer and conditionally trigger a retry (see the close method).
-    [[nodiscard]] virtual x::errors::Error write(const telem::Frame &fr) = 0;
+    [[nodiscard]] virtual x::errors::Error write(const x::telem::Frame &fr) = 0;
 
     /// @brief closes the writer, returning any error that occurred during normal
     /// operation. If the returned error is of type freighter::UNREACHABLE, the
@@ -75,7 +75,7 @@ public:
     /// number of maximum retries is exceeded. Any other error will be considered
     /// permanent and the pipeline will exit.
     virtual std::pair<std::unique_ptr<Writer>, x::errors::Error>
-    open_writer(const synnax::WriterConfig &config) = 0;
+    open_writer(const synnax::framer::WriterConfig &config) = 0;
 
     virtual ~WriterFactory() = default;
 };
@@ -84,13 +84,13 @@ public:
 /// by a Synnax writer that writes data to a cluster.
 class SynnaxWriter final : public pipeline::Writer {
     /// @brief the internal Synnax writer that this writer wraps.
-    synnax::Writer internal;
+    synnax::framer::Writer internal;
 
 public:
-    explicit SynnaxWriter(synnax::Writer internal);
+    explicit SynnaxWriter(synnax::framer::Writer internal);
 
     /// @brief implements pipeline::Writer to write the frame to Synnax.
-    [[nodiscard]] x::errors::Error write(const telem::Frame &fr) override;
+    [[nodiscard]] x::errors::Error write(const x::telem::Frame &fr) override;
 
     /// @brief implements pipeline::Writer to close the writer.
     [[nodiscard]] x::errors::Error close() override;
@@ -107,7 +107,7 @@ public:
 
     /// @brief implements pipeline::WriterFactory to open a Synnax writer.
     [[nodiscard]] std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
-    open_writer(const synnax::WriterConfig &config) override;
+    open_writer(const synnax::framer::WriterConfig &config) override;
 };
 
 /// @brief A pipeline that reads from a source and writes it's data to Synnax. The
@@ -123,7 +123,7 @@ class Acquisition final : public Base {
     /// new frames to synnax.
     const std::shared_ptr<Source> source;
     /// @brief the configuration for the Synnax writer.
-    synnax::WriterConfig writer_config;
+    synnax::framer::WriterConfig writer_config;
 
     /// @brief the run function passed to the pipeline thread. Automatically catches
     /// standard exceptions to ensure the pipeline does not cause the application to
@@ -146,9 +146,9 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
-        synnax::WriterConfig writer_config,
+        synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
-        const breaker::Config &breaker_config,
+        const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 
@@ -167,9 +167,9 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     Acquisition(
         std::shared_ptr<WriterFactory> factory,
-        synnax::WriterConfig writer_config,
+        synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
-        const breaker::Config &breaker_config,
+        const x::breaker::Config &breaker_config,
         std::string thread_name = ""
     );
 };

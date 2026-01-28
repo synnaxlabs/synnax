@@ -12,7 +12,8 @@
 
 #include "driver/rack/rack.h"
 
-x::errors::Error driver::rack::Config::load_config_file(
+namespace driver::rack {
+x::errors::Error Config::load_config_file(
     x::args::Parser &args,
     x::breaker::Breaker &breaker
 ) {
@@ -27,10 +28,11 @@ x::errors::Error driver::rack::Config::load_config_file(
     auto p = x::json::Parser::from_file_path(config_path);
     auto conn = p.optional_child("connection");
     this->connection.override(conn);
-    auto remote_info = p.optional_child("remote_info");
-    this->remote_info.override(remote_info);
+    auto rem_info = p.optional_child("remote_info");
+    this->remote_info.override(rem_info);
     auto timing_config = p.optional_child("timing");
     this->timing.override(timing_config);
     this->integrations = p.field("integrations", this->integrations);
     return p.error();
+}
 }

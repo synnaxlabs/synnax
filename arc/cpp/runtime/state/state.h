@@ -141,7 +141,7 @@ public:
     /// @brief Resets accumulated input state for runtime restart.
     void reset() {
         for (auto &entry: this->accumulated) {
-            entry.last_timestamp = telem::TimeStamp(0);
+            entry.last_timestamp = x::telem::TimeStamp(0);
             entry.consumed = true;
         }
     }

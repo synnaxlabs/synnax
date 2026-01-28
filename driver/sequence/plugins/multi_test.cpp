@@ -11,7 +11,8 @@
 
 #include "driver/sequence/plugins/plugins.h"
 
-class MockPlugin : public plugins::Plugin {
+namespace driver::sequence::plugins {
+class MockPlugin : public Plugin {
 public:
     std::vector<std::string> calls;
     bool should_error = false;
@@ -60,7 +61,7 @@ TEST(MultiPlugin, testCallOrder) {
     ASSERT_EQ(multi.after_all(nullptr), x::errors::NIL);
 
     std::vector<std::string> expected =
-        {"before_all", "before_next", "after_next", "after_all"};
+    {"before_all", "before_next", "after_next", "after_all"};
     ASSERT_EQ(plugin1->calls, expected);
     ASSERT_EQ(plugin2->calls, expected);
 }
@@ -154,4 +155,5 @@ TEST(MultiPlugin, testAfterAllCallsAllPlugins) {
 
     ASSERT_EQ(plugin3->calls.size(), 1);
     ASSERT_EQ(plugin3->calls[0], "after_all");
+}
 }
