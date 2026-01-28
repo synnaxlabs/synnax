@@ -1,0 +1,10 @@
+cc_library(
+    name = "mock",
+    hdrs = ["master.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//x/cpp/xerrors",
+    ],
+)

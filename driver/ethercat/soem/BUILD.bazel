@@ -1,0 +1,63 @@
+cc_library(
+    name = "soem",
+    srcs = ["master.cpp"],
+    hdrs = ["master.h"],
+    visibility = ["//driver/ethercat:__pkg__"],
+    deps = [
+        "//driver/ethercat/errors",
+        "//driver/ethercat/master",
+        "//vendor/soem",
+        "//x/cpp/xerrors",
+    ],
+)
+
+cc_binary(
+    name = "scan_test",
+    srcs = ["scan_test.cpp"],
+    deps = ["//vendor/soem"],
+)
+
+cc_binary(
+    name = "pcap_debug",
+    srcs = ["pcap_debug.cpp"],
+    linkopts = ["-lpcap"],
+)
+
+cc_binary(
+    name = "iolite_test",
+    srcs = ["iolite_test.cpp"],
+    deps = [":soem"],
+)
+
+cc_binary(
+    name = "slave_info",
+    srcs = ["slave_info.cpp"],
+    deps = ["//vendor/soem"],
+)
+
+cc_binary(
+    name = "iolite_preop_test",
+    srcs = ["iolite_preop_test.cpp"],
+    deps = ["//vendor/soem"],
+)
+
+cc_binary(
+    name = "iolite_partial_test",
+    srcs = ["iolite_partial_test.cpp"],
+    deps = ["//vendor/soem"],
+)
+
+cc_binary(
+    name = "pipeline_test",
+    srcs = ["pipeline_test.cpp"],
+    deps = [
+        ":soem",
+        "//driver/ethercat",
+    ],
+)
+
+cc_binary(
+    name = "iomap_debug",
+    srcs = ["iomap_debug.cpp"],
+    deps = ["//vendor/soem"],
+)
