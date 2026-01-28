@@ -10,9 +10,9 @@
 import random
 from datetime import timezone
 
-from console.case import ConsoleCase
-
 import synnax as sy
+
+from console.case import ConsoleCase
 
 
 class RangeLifecycle(ConsoleCase):

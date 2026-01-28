@@ -12,9 +12,9 @@ from __future__ import annotations
 import json
 from typing import Any, Literal
 
-from framework.utils import get_results_path
-
 import synnax as sy
+
+from framework.utils import get_results_path
 
 from .console import Console
 from .page import ConsolePage

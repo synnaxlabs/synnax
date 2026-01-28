@@ -9,9 +9,9 @@
 
 from urllib.parse import urlparse
 
-from console.case import ConsoleCase
-
 import synnax as sy
+
+from console.case import ConsoleCase
 
 
 class Documentation(ConsoleCase):

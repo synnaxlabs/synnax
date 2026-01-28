@@ -11,9 +11,9 @@ import time
 from re import S
 from time import time as now
 
-from tests.latency.latency import Latency
-
 import synnax as sy
+
+from tests.latency.latency import Latency
 
 
 class BenchResponse(Latency):

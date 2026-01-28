@@ -9,6 +9,8 @@
 
 from typing import TYPE_CHECKING, Any, Type
 
+from playwright.sync_api import Page
+
 from console.task.channels.counter import Counter
 from console.task.channels.counter_input import (
     AngularPosition,
@@ -23,7 +25,6 @@ from console.task.channels.counter_input import (
     SemiPeriod,
     TwoEdgeSeparation,
 )
-from playwright.sync_api import Page
 
 from .ni import NIChannel, NITask
 

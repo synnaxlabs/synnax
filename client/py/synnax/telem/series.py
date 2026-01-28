@@ -15,9 +15,9 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
+from freighter import Payload
 from pydantic import PrivateAttr
 
-from freighter import Payload
 from synnax.telem.telem import (
     Alignment,
     Bounds,

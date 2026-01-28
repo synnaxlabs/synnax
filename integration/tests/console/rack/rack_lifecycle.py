@@ -9,9 +9,9 @@
 
 import random
 
-from console.case import ConsoleCase
-
 import synnax as sy
+
+from console.case import ConsoleCase
 
 
 class RackLifecycle(ConsoleCase):

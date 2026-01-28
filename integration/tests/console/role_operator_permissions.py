@@ -9,10 +9,10 @@
 
 """Test that Operator role has restricted permissions."""
 
+import synnax as sy
+
 from console.case import ConsoleCase
 from framework.utils import get_random_name
-
-import synnax as sy
 
 
 class RoleOperatorPermissions(ConsoleCase):

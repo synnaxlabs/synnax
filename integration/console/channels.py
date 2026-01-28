@@ -10,9 +10,8 @@
 import re
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
-
 import synnax as sy
+from playwright.sync_api import Locator, Page
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,

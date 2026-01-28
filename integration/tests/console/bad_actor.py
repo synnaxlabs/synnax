@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from console.case import ConsoleCase
-
 import synnax as sy
+
+from console.case import ConsoleCase
 
 
 class BadActor(ConsoleCase):

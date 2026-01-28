@@ -18,10 +18,10 @@ import atexit
 from multiprocessing.process import BaseProcess
 from typing import Any
 
+import synnax as sy
+
 from driver.devices import SimulatorConfig, connect_device
 from tests.driver.task import TaskCase
-
-import synnax as sy
 
 
 class SimulatorTaskCase(TaskCase):

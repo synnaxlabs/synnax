@@ -11,6 +11,7 @@ from typing import overload
 from uuid import UUID
 
 from freighter import Empty, Payload, UnaryClient, send_required
+
 from synnax.user.payload import NewUser, User
 from synnax.util.normalize import normalize
 from synnax.util.params import require_named_params

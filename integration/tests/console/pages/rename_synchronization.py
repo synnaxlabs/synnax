@@ -8,9 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from framework.utils import get_random_name
-
 from console.console import PageType
+from framework.utils import get_random_name
 
 
 class RenameSynchronization(ConsoleCase):

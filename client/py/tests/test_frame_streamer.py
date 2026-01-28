@@ -12,9 +12,9 @@ import time
 import numpy as np
 import pandas as pd
 import pytest
-from tests.channel import assert_eventually_channels_are_found
 
 import synnax as sy
+from tests.channel import assert_eventually_channels_are_found
 
 
 @pytest.mark.framer

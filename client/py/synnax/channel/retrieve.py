@@ -13,6 +13,7 @@ from typing import Protocol
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient, send_required
+
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,

@@ -9,10 +9,10 @@
 
 import random
 
+import synnax as sy
+
 from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
-
-import synnax as sy
 
 
 class NIAnalogReadForms(ConsoleCase):

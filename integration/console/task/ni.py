@@ -10,11 +10,11 @@
 from abc import abstractmethod
 from typing import Any, TypeVar, cast
 
+import synnax as sy
+
+from console.console import Console
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter
-
-import synnax as sy
-from console.console import Console
 
 from ..page import ConsolePage
 

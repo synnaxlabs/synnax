@@ -7,8 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from urllib3 import Retry, Timeout
-
 from alamos import Instrumentation
 from freighter import (
     URL,
@@ -25,6 +23,8 @@ from freighter import (
     async_instrumentation_middleware,
     instrumentation_middleware,
 )
+from urllib3 import Retry, Timeout
+
 from synnax.telem import Size, TimeSpan
 
 

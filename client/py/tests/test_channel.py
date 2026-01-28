@@ -12,9 +12,9 @@ import uuid
 
 import numpy as np
 import pytest
-from tests.telem import seconds_linspace
 
 import synnax as sy
+from tests.telem import seconds_linspace
 
 
 def channel_name() -> str:

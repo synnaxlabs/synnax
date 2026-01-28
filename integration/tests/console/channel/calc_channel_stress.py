@@ -11,10 +11,10 @@ import threading
 from typing import Any
 
 import numpy as np
+import synnax as sy
+
 from console.case import ConsoleCase
 from console.plot import Plot
-
-import synnax as sy
 
 CrudeFrame = dict[int, sy.TimeStamp | float | np.floating]
 

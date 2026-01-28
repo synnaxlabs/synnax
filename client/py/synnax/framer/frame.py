@@ -12,10 +12,10 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import overload
 
+from freighter import Payload
 from pandas import DataFrame
 from pydantic import Field
 
-from freighter import Payload
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,

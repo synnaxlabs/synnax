@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
-from framework.sim_daq_case import SimDaqTestCase
-
 import synnax as sy
+from examples.simulators import PressSimDAQ
+
+from framework.sim_daq_case import SimDaqTestCase
 
 
 class SimplePress(SimDaqTestCase):

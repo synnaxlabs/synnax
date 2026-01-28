@@ -9,9 +9,8 @@
 
 """Tree navigation utilities for Console UI automation."""
 
-from playwright.sync_api import Locator, Page
-
 import synnax as sy
+from playwright.sync_api import Locator, Page
 
 
 class Tree:

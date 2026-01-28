@@ -29,11 +29,11 @@ The base class provides the run() method that tests:
 
 from abc import ABC
 
+import synnax as sy
+
 from tests.driver.modbus_read import ModbusReadMixed
 from tests.driver.opcua_read import OPCUAReadMixed
 from tests.driver.simulator_task import SimulatorTaskCase
-
-import synnax as sy
 
 
 class DisconnectTask(SimulatorTaskCase, ABC):

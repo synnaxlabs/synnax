@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import struct
 
+from freighter import JSONCodec
 from freighter.codec import Codec as FreighterCodec
 
-from freighter import JSONCodec
 from synnax.channel.payload import ChannelKey, ChannelKeys
 from synnax.exceptions import ValidationError
 from synnax.framer.frame import Frame, FramePayload

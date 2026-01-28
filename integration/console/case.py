@@ -11,7 +11,6 @@ import os
 import random
 from typing import cast
 
-from framework.test_case import TestCase
 from playwright.sync_api import (
     Browser,
     BrowserContext,
@@ -21,6 +20,7 @@ from playwright.sync_api import (
 )
 
 from console.console import Console
+from framework.test_case import TestCase
 
 
 class ConsoleCase(TestCase):

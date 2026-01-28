@@ -12,9 +12,8 @@ import re
 import time
 from typing import Literal, cast
 
-from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
-
 import synnax as sy
+from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
 from .console import Console, PageType
 

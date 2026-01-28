@@ -11,6 +11,7 @@ from typing import overload
 from uuid import UUID
 
 from freighter import Empty, Payload, UnaryClient, send_required
+
 from synnax.exceptions import NotFoundError
 from synnax.ontology import ID
 from synnax.status.payload import Status

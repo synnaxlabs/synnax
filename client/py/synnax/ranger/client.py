@@ -17,9 +17,9 @@ from typing import overload
 from uuid import UUID
 
 import numpy as np
+from freighter import UnaryClient
 from pydantic import PrivateAttr
 
-from freighter import UnaryClient
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,

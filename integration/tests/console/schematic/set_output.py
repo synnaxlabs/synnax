@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import synnax as sy
+
 from console.case import ConsoleCase
 from console.schematic import Setpoint, Value
 from console.schematic.schematic import Schematic
 from framework.utils import get_random_name
-
-import synnax as sy
 
 
 class SetOutput(ConsoleCase):

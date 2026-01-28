@@ -10,9 +10,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from playwright.sync_api import FloatRect, Locator, Page
-
 import synnax as sy
+from playwright.sync_api import FloatRect, Locator, Page
 
 from ..console import Console
 

@@ -10,6 +10,7 @@
 from uuid import UUID
 
 from freighter import Payload
+
 from synnax.ontology.payload import ID
 
 

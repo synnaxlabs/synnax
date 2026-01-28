@@ -11,6 +11,7 @@ from enum import Enum
 
 from alamos import NOOP, Instrumentation
 from freighter import EOF, Payload, Stream, StreamClient
+
 from synnax.channel.payload import ChannelKeys
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter

@@ -16,11 +16,11 @@ Provides OPC UA task creation logic using Synnax task client directly.
 from abc import abstractmethod
 from typing import Any
 
-from driver.devices import Simulator
-from tests.driver.simulator_task import SimulatorTaskCase
-
 import synnax as sy
 from synnax import opcua
+
+from driver.devices import Simulator
+from tests.driver.simulator_task import SimulatorTaskCase
 
 
 class OPCUATaskCase(SimulatorTaskCase):

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import synnax as sy
+
 from console.case import ConsoleCase
 from console.schematic import (
     Schematic,
@@ -15,8 +17,6 @@ from console.schematic import (
     ValveThreeWay,
     ValveThreeWayBall,
 )
-
-import synnax as sy
 
 CHANNEL_NAME = "alignment_command_channel"
 INDEX_NAME = "alignment_idx_channel"

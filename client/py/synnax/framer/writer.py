@@ -11,8 +11,6 @@ from enum import Enum
 from typing import Literal, TypeAlias, overload
 from uuid import uuid4
 
-from freighter.websocket import Message
-
 from freighter import (
     EOF,
     ExceptionPayload,
@@ -21,6 +19,8 @@ from freighter import (
     WebsocketClient,
     decode_exception,
 )
+from freighter.websocket import Message
+
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,

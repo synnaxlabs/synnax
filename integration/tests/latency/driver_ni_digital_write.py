@@ -14,6 +14,9 @@ from collections import deque
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import synnax as sy
+from synnax import ni
+
 from framework.utils import (
     get_cpu_cores,
     get_machine_info,
@@ -21,9 +24,6 @@ from framework.utils import (
     get_synnax_version,
 )
 from tests.latency.latency import Latency
-
-import synnax as sy
-from synnax import ni
 
 matplotlib.use("Agg")  # Use non-interactive backend
 

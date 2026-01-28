@@ -9,6 +9,7 @@
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, Payload, UnaryClient, send_required
+
 from synnax.ontology.payload import ID
 from synnax.ranger.payload import RangeKey, RangePayload
 

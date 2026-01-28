@@ -12,12 +12,18 @@ dependencies = [
 ]
 classifiers = ["Private :: Do Not Upload"]
 
+[dependency-groups]
+dev = ["black>=26.1.0,<27", "isort>=7.0.0,<8", "mypy>=1.19.1,<2"]
+
 [project.scripts]
 test-conductor = "framework.test_conductor:main"
 tc = "framework.test_conductor:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["driver", "framework", "tests"]
+
+[tool.isort]
+profile = "black"
 
 [tool.mypy]
 mypy_path = "stubs"

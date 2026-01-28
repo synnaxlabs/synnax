@@ -12,6 +12,7 @@ from uuid import UUID
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
+
 from synnax.access.role.payload import Role
 from synnax.util.normalize import normalize
 

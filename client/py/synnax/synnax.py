@@ -11,6 +11,7 @@ import warnings
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
+
 from synnax.access import Client as AccessClient
 from synnax.access.policy.client import PolicyClient
 from synnax.access.role.client import RoleClient

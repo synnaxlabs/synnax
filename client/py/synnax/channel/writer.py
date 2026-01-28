@@ -9,6 +9,7 @@
 
 from alamos import Instrumentation, trace
 from freighter import Empty, Payload, UnaryClient, send_required
+
 from synnax.channel.payload import (
     ChannelKeys,
     ChannelNames,

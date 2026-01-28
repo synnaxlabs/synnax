@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from tests.eventually import assert_eventually
-
 import synnax as sy
+from tests.eventually import assert_eventually
 
 
 def assert_eventually_channels_are_found(client: sy.Synnax, keys: list[int]):

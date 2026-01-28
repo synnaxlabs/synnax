@@ -23,9 +23,8 @@ NOT implemented in Console UI (no helpers for these):
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
-
 import synnax as sy
+from playwright.sync_api import Locator, Page
 
 from .tree import Tree
 

@@ -9,9 +9,9 @@
 
 
 import numpy as np
-from tests.latency.latency import Latency
-
 import synnax as sy
+
+from tests.latency.latency import Latency
 
 
 class Abcd(Latency):

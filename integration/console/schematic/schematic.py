@@ -10,9 +10,9 @@
 import math
 from typing import Literal
 
+import synnax as sy
 from playwright.sync_api import FloatRect
 
-import synnax as sy
 from console.console import Console
 
 from ..page import ConsolePage

@@ -29,10 +29,10 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Any, cast
 
+import synnax as sy
+
 from framework.test_case import STATUS, SYMBOLS, SynnaxConnection, TestCase
 from framework.utils import is_ci, validate_and_sanitize_name
-
-import synnax as sy
 
 
 class STATE(Enum):

@@ -15,10 +15,10 @@ from contextlib import contextmanager
 from typing import Protocol, overload
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, ValidationError, conint, field_validator
-
 from alamos import NOOP, Instrumentation
 from freighter import Empty, Payload, UnaryClient, send_required
+from pydantic import BaseModel, Field, ValidationError, conint, field_validator
+
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import ConfigurationError, UnexpectedError

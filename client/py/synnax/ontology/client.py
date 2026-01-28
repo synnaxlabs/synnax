@@ -9,9 +9,9 @@
 
 from typing import overload
 
+from freighter import Empty, Payload, UnaryClient, send_required
 from pydantic import Field
 
-from freighter import Empty, Payload, UnaryClient, send_required
 from synnax.ontology.group import Client as GroupClient
 from synnax.ontology.payload import ID, CrudeID, Resource
 from synnax.util.normalize import normalize

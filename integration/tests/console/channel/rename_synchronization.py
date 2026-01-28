@@ -20,6 +20,8 @@ Verifies that renaming a channel properly synchronizes across:
 Note: Task Configuration Dialog is excluded as it requires hardware devices.
 """
 
+import synnax as sy
+
 from console.case import ConsoleCase
 from console.log import Log
 from console.plot import Plot
@@ -27,8 +29,6 @@ from console.schematic.schematic import Schematic
 from console.schematic.value import Value
 from console.table import Table
 from framework.utils import get_random_name
-
-import synnax as sy
 
 
 class RenameSynchronization(ConsoleCase):
