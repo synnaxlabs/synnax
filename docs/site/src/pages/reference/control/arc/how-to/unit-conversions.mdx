@@ -1,0 +1,183 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Unit Conversions"
+description: "Convert sensor readings between units in Arc"
+prev: "Stateful Variables"
+prevURL: "/reference/control/arc/concepts/stateful-variables"
+next: "Sensor Averaging"
+nextURL: "/reference/control/arc/how-to/sensor-averaging"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Sensors often output raw values that need conversion to meaningful units. A pressure
+transducer might output voltage that represents PSI, or a thermocouple might read in
+Celsius when you need Fahrenheit.
+
+<Divider.Divider x />
+
+## Simple Conversions
+
+A basic conversion takes a value and applies a formula:
+
+```arc
+func celsius_to_fahrenheit(c f64) f64 {
+    return c * 9.0 / 5.0 + 32.0
+}
+
+tc_1 -> celsius_to_fahrenheit{} -> tc_1_fahrenheit
+```
+
+This creates a continuous flow where every reading from `tc_1` (a thermocouple channel)
+is converted to Fahrenheit and written to `tc_1_fahrenheit`.
+
+<Divider.Divider x />
+
+## Voltage to Engineering Units
+
+Pressure transducers typically output 0-10V or 4-20mA signals that map to a pressure
+range. For a 0-10V transducer measuring 0-1000 PSI:
+
+```arc
+func volts_to_psi{
+    v_min f64,
+    v_max f64,
+    psi_min f64,
+    psi_max f64
+} (voltage f64) f64 {
+    // Linear interpolation: map voltage range to pressure range
+    ratio := (voltage - v_min) / (v_max - v_min)
+    return psi_min + ratio * (psi_max - psi_min)
+}
+
+pressure_raw -> volts_to_psi{v_min=0.0, v_max=10.0, psi_min=0.0, psi_max=1000.0} -> tank_pressure
+```
+
+The config parameters (`v_min`, `v_max`, `psi_min`, `psi_max`) are set when the
+function is instantiated, making it reusable across different sensors.
+
+<Divider.Divider x />
+
+## Common Conversions
+
+### Pressure: PSI to Bar
+
+```arc
+func psi_to_bar(psi f64) f64 {
+    return psi * 0.0689476
+}
+
+tank_pt_1 -> psi_to_bar{} -> tank_pt_1_bar
+```
+
+### Temperature: Fahrenheit to Celsius
+
+```arc
+func fahrenheit_to_celsius(f f64) f64 {
+    return (f - 32.0) * 5.0 / 9.0
+}
+
+ambient_temp -> fahrenheit_to_celsius{} -> ambient_temp_c
+```
+
+### Flow Rate: GPM to L/min
+
+```arc
+func gpm_to_lpm(gpm f64) f64 {
+    return gpm * 3.78541
+}
+
+fuel_flow -> gpm_to_lpm{} -> fuel_flow_lpm
+```
+
+<Divider.Divider x />
+
+## Scaling with Offset and Gain
+
+Many DAQ systems use a standard linear scaling formula:
+
+```arc
+func scale{
+    gain f64,
+    offset f64
+} (raw f64) f64 {
+    return raw * gain + offset
+}
+
+// Example: strain gauge where 1V = 100 microstrain, with 5 microstrain offset
+strain_raw -> scale{gain=100.0, offset=5.0} -> strain_microstrain
+```
+
+<Divider.Divider x />
+
+## Chaining Conversions
+
+You can chain multiple conversions in a single flow:
+
+```arc
+func mv_to_volts(mv f64) f64 {
+    return mv / 1000.0
+}
+
+func volts_to_temp{
+    v_ref f64,
+    temp_coeff f64
+} (v f64) f64 {
+    return (v - v_ref) / temp_coeff
+}
+
+// Thermocouple: millivolts -> volts -> temperature
+tc_raw -> mv_to_volts{} -> volts_to_temp{v_ref=0.0, temp_coeff=0.041} -> tc_temp
+```
+
+<Note.Note variant="info">
+Keep conversion chains short when possible. Longer chains add latency and make
+debugging harder. If you have a complex multi-step conversion, consider combining
+the math into a single function.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Using Arc's Unit System
+
+Arc supports unit annotations for type safety. While the compiler tracks units, the
+actual conversion math is still your responsibility:
+
+```arc
+func convert_pressure(psi f64) f64 bar {
+    return psi * 0.0689476
+}
+```
+
+The return type `f64 bar` documents that this function returns a value in bar units.
+The compiler will catch if you accidentally use this where a PSI value is expected
+(in functions that declare their parameters with units).
+
+<Divider.Divider x />
+
+## Reusable Conversion Patterns
+
+For systems with many sensors of the same type, create a single conversion function
+and instantiate it for each channel:
+
+```arc
+func pt_convert{
+    v_min f64,
+    v_max f64,
+    p_max f64
+} (raw f64) f64 {
+    ratio := (raw - v_min) / (v_max - v_min)
+    return ratio * p_max
+}
+
+// Apply same conversion to multiple pressure transducers
+pressure_1_raw -> pt_convert{v_min=0.5, v_max=4.5, p_max=500.0} -> pressure_1
+pressure_2_raw -> pt_convert{v_min=0.5, v_max=4.5, p_max=500.0} -> pressure_2
+pressure_3_raw -> pt_convert{v_min=0.5, v_max=4.5, p_max=1000.0} -> pressure_3
+```
+
+Each instantiation creates a separate node in the dataflow graph, allowing different
+calibration values for each sensor.

@@ -1,0 +1,303 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Syntax"
+description: "Arc language syntax reference for comments, identifiers, literals, and statement structure"
+prev: "Effective Arc"
+prevURL: "/reference/control/arc/effective-arc"
+next: "Types"
+nextURL: "/reference/control/arc/reference/types"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Comments
+
+Single-line comments start with `//`. Multi-line comments use `/* */`.
+
+```arc
+// This is a single-line comment
+
+/* This is a
+   multi-line comment */
+
+x := 42  // Comments can follow code
+```
+
+<Divider.Divider x />
+
+## Identifiers
+
+Identifiers name variables, functions, sequences, stages, and channels.
+
+**Rules:**
+- Start with a letter (`a-z`, `A-Z`) or underscore (`_`)
+- Contain letters, digits (`0-9`), or underscores
+- Case-sensitive (`ox_pt_1` and `Ox_Pt_1` are different)
+
+```arc
+valid_name
+_private
+sensor1
+ox_pt_1
+```
+
+**Reserved keywords** cannot be used as identifiers:
+
+| Keywords | | | |
+| -------- | -------- | -------- | -------- |
+| `func` | `if` | `else` | `return` |
+| `sequence` | `stage` | `next` | `chan` |
+| `series` | `and` | `or` | `not` |
+| `i8` `i16` `i32` `i64` | `u8` `u16` `u32` `u64` | `f32` `f64` | `str` |
+
+<Divider.Divider x />
+
+## Literals
+
+### Numeric Literals
+
+Integer literals default to `i64`. Float literals default to `f64`.
+
+```arc
+42         // i64
+3.14       // f64
+0.5        // f64
+.25        // f64 (leading dot allowed)
+```
+
+### Numeric Literals with Units
+
+Unit suffixes attach directly to numbers (no whitespace):
+
+```arc
+100ms      // 100 milliseconds (i64)
+5s         // 5 seconds (i64)
+1m         // 1 minute (i64)
+2h         // 2 hours (i64)
+10hz       // 10 Hz frequency (converts to 100ms period)
+1khz       // 1 kHz frequency (converts to 1ms period)
+```
+
+| Temporal Units | Meaning |
+| -------------- | ------- |
+| `ns` | nanoseconds |
+| `us` | microseconds |
+| `ms` | milliseconds |
+| `s` | seconds |
+| `m` | minutes |
+| `h` | hours |
+
+| Frequency Units | Meaning |
+| --------------- | ------- |
+| `hz` | hertz |
+| `khz` | kilohertz |
+| `mhz` | megahertz |
+
+### String Literals
+
+Strings are enclosed in double quotes. Escape sequences are supported.
+
+```arc
+"hello"
+"line1\nline2"     // newline
+"tab\there"        // tab
+"quote: \""        // escaped quote
+```
+
+| Escape | Meaning |
+| ------ | ------- |
+| `\n` | newline |
+| `\t` | tab |
+| `\r` | carriage return |
+| `\\` | backslash |
+| `\"` | double quote |
+
+### Series Literals
+
+Series (arrays) use square brackets:
+
+```arc
+[1, 2, 3]           // series i64
+[1.0, 2.0, 3.0]     // series f64
+[]                  // empty (requires type annotation)
+```
+
+Empty series require an explicit type:
+
+```arc
+empty series f64 := []
+```
+
+<Divider.Divider x />
+
+## Variables
+
+### Local Variables
+
+Local variables are declared with `:=` and reset each function invocation.
+
+```arc
+x := 42                  // type inferred as i64
+y f64 := 3.14           // explicit type
+```
+
+### Stateful Variables
+
+Stateful variables are declared with `$=` and persist across invocations.
+
+```arc
+count $= 0               // persists between calls
+total f64 $= 0.0        // explicit type
+```
+
+### Assignment
+
+Assign to existing variables with `=`:
+
+```arc
+x = x + 1
+```
+
+### Compound Assignment
+
+```arc
+count += 1       // count = count + 1
+value -= 10      // value = value - 10
+total *= 2       // total = total * 2
+ratio /= 4       // ratio = ratio / 4
+remainder %= 3   // remainder = remainder % 3
+```
+
+<Divider.Divider x />
+
+## Statements
+
+### If Statements
+
+```arc
+if condition {
+    // body
+}
+
+if condition {
+    // body
+} else {
+    // alternative
+}
+
+if condition1 {
+    // body
+} else if condition2 {
+    // alternative
+} else {
+    // fallback
+}
+```
+
+Conditions evaluate as `u8`: `0` is false, non-zero is true.
+
+### Return Statements
+
+Functions with return types require explicit `return` statements.
+
+```arc
+func compute(x f64) f64 {
+    if x < 0 {
+        return 0.0       // early return
+    }
+    return x * 2.0       // required
+}
+```
+
+Functions without return types can use `return` for early exit:
+
+```arc
+func process() {
+    if skip {
+        return           // early exit
+    }
+    // more work
+}
+```
+
+<Note.Note variant="info">
+Arc has no loops. Use [stateful variables](/reference/control/arc/concepts/stateful-variables) with reactive execution for iterative patterns.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Flow Statements
+
+Flow statements connect channels and functions in the reactive scope.
+
+### Continuous Flow (`->`)
+
+Executes every cycle while active:
+
+```arc
+sensor -> filter{} -> output
+```
+
+### One-Shot Flow (`=>`)
+
+Fires once when condition becomes true, then stops until reset:
+
+```arc
+pressure > 500 => next
+```
+
+### Routing Tables
+
+Map multiple inputs to function parameters:
+
+```arc
+{ sensor1: a, sensor2: b } -> averager{}
+```
+
+Route multiple outputs to different targets:
+
+```arc
+sensor -> split{} -> {
+    high: alarm{},
+    low: logger{}
+}
+```
+
+### Expressions in Flows
+
+Inline expressions act as implicit functions:
+
+```arc
+temperature > 100 -> alarm{}
+(sensor1 + sensor2) / 2.0 -> display
+```
+
+<Divider.Divider x />
+
+## Blocks
+
+Braces `{}` delimit blocks. Blocks contain statements (function bodies) or
+flow statements (stage bodies).
+
+```arc
+func example() {
+    // statements in function block
+}
+
+stage pressurize {
+    // flow statements in stage block
+}
+```
+
+Stage bodies use commas to separate flow statements:
+
+```arc
+stage pressurize {
+    1 -> valve,
+    sensor -> controller{},
+    pressure > 500 => next
+}
+```

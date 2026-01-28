@@ -1,0 +1,213 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Channels and Series"
+description: "How Arc connects to Synnax telemetry through channels and handles array data with series"
+prev: "Reactive Execution"
+prevURL: "/reference/control/arc/concepts/reactive-execution"
+next: "Stateful Variables"
+nextURL: "/reference/control/arc/concepts/stateful-variables"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Channels are Arc's connection to Synnax telemetry data. They let you read sensor values,
+write to actuators, and respond to operator inputs. Series are arrays of values,
+useful for batch processing and aggregation.
+
+<Divider.Divider x />
+
+## Channels
+
+A channel in Arc references a channel that exists in your Synnax cluster. You don't
+declare channels. Just use them by name:
+
+```arc
+// Read from a pressure transducer
+value := tank_pressure
+
+// Write to a valve command
+valve_cmd = 1
+```
+
+Channel names follow the same conventions as Synnax channels: start with a letter or
+underscore, then letters, digits, or underscores. Examples: `tank_pressure`,
+`inlet_temp`, `start_btn`.
+
+### Channel Discovery
+
+The Arc text editor provides autocomplete for channels in your cluster. As you type,
+matching channel names appear with their data types. You can also browse available
+channels in the Console's resources panel before writing code.
+
+<Divider.Divider x />
+
+## Reading Channels
+
+Channels behave differently depending on whether you're in a **reactive context** (flow
+statements) or an **imperative context** (inside a function body).
+
+### Reactive Context
+
+In flow statements, channels are event-driven data sources:
+
+```arc
+sensor -> filter{threshold=50.0} -> controller{} -> actuator
+```
+
+When new data arrives on `sensor`, the entire pipeline executes. The runtime tracks
+which data has been processed using watermarks, so only new data triggers execution.
+
+### Imperative Context
+
+Inside function bodies, channel reads are **non-blocking snapshots**:
+
+```arc
+func controller{
+    setpoint chan f64,
+    output chan f64
+} (pressure f64) f64 {
+    target := setpoint    // Read latest value (non-blocking)
+    error := pressure - target
+    if error > 10 {
+        output = error    // Write to channel
+    }
+    return error
+}
+```
+
+The line `target := setpoint` returns immediately with the most recent value written to
+the `setpoint` channel. If nothing has been written yet, it returns zero.
+
+| Aspect | Reactive (`->`) | Imperative (function body) |
+|--------|-----------------|---------------------------|
+| Trigger | New data arrival | Function invocation |
+| Data form | Time-series stream | Single scalar value |
+| Empty channel | Skips execution | Returns zero |
+| Use case | Main data pipelines | Side-channel reads, setpoints |
+
+### Channels as Config Parameters
+
+Channels can be passed to functions through config parameters:
+
+```arc
+func monitor{
+    sensor chan f64,
+    limit f64
+} () u8 {
+    return sensor > limit
+}
+
+// Wire it up
+monitor{sensor=tank_pressure, limit=500.0}
+```
+
+This lets you write reusable functions that work with different channels.
+
+<Divider.Divider x />
+
+## Writing to Channels
+
+Inside functions, use assignment syntax to write to channels:
+
+```arc
+func control{
+    valve chan u8
+} (pressure f64) {
+    if pressure > 500 {
+        valve = 1
+    } else {
+        valve = 0
+    }
+}
+```
+
+Writes are queued until the end of the execution cycle. Multiple writes to the same
+channel in a single cycle result in the last value being sent.
+
+In flow statements, you can write directly to channels as the final target:
+
+```arc
+sensor -> scale{factor=2.0} -> output_channel
+```
+
+<Divider.Divider x />
+
+## Series
+
+Series are homogeneous arrays of values. They're useful for batch operations and
+working with buffered data.
+
+### Creating Series
+
+```arc
+// Literal
+data := [1.0, 2.0, 3.0]
+
+// Empty (requires type annotation)
+buffer series f64 := []
+```
+
+### Indexing and Slicing
+
+```arc
+data := [10.0, 20.0, 30.0, 40.0]
+
+first := data[0]        // 10.0
+last := data[3]         // 40.0
+middle := data[1:3]     // [20.0, 30.0]
+```
+
+Out-of-bounds access causes a runtime error.
+
+### Series Length
+
+```arc
+data := [1.0, 2.0, 3.0]
+count := len(data)      // 3 (i64)
+```
+
+<Divider.Divider x />
+
+## Element-wise Operations
+
+Arithmetic and comparison operators work element-wise on series:
+
+```arc
+data := [1.0, 2.0, 3.0]
+
+// Scalar operations (broadcast)
+scaled := data * 2.0        // [2.0, 4.0, 6.0]
+offset := data + 10.0       // [11.0, 12.0, 13.0]
+
+// Series operations (must be equal length)
+other := [4.0, 5.0, 6.0]
+sum := data + other         // [5.0, 7.0, 9.0]
+
+// Comparisons return series u8
+mask := data > 2.0          // [0, 0, 1]
+```
+
+Binary operations between two series require them to have equal length. Mismatched
+lengths cause a runtime error.
+
+<Divider.Divider x />
+
+## Channel Types
+
+When passing channels through config parameters, you declare their type:
+
+```arc
+func process{
+    input chan f64,           // channel of f64
+    output chan series f64    // channel of f64 series
+} () {
+    // ...
+}
+```
+
+The type system ensures you don't accidentally connect incompatible channels. If you
+try to read an `f64` channel and use it where an `i32` is expected, the compiler will
+catch it.

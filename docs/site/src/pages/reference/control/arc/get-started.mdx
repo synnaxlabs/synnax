@@ -1,0 +1,158 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Get Started"
+description: "Create and run your first Arc automation"
+prev: "Introduction"
+prevURL: "/reference/control/arc/introduction"
+next: "Sequences and Stages"
+nextURL: "/reference/control/arc/concepts/sequences-and-stages"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+This page walks you through creating, deploying, and running your first Arc automation.
+By the end, you'll have a working program that reads sensor data, processes it, and
+writes the result to another channel.
+
+<Divider.Divider x />
+
+## Create an Arc Automation
+
+Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create an Arc
+automation". You can also click the "+" button in the toolbar or right-click a driver
+in the resources panel.
+
+{/* TODO: Video - control/arc/get-started/create-automation */}
+<Video client:only="react" id="control/arc/get-started/create-automation" />
+
+Choose a name and select **Text** for the editor mode.
+
+<Divider.Divider x />
+
+## Your First Program
+
+Copy this code into the editor:
+
+```arc
+func scale_reading(value f64) f64 {
+    return value * 2.0
+}
+
+tank_pressure -> scale_reading{} -> pressure_scaled
+```
+
+This program does three things:
+
+1. **Declares a function** called `scale_reading` that takes a number (`f64` means
+   floating-point) and returns that number multiplied by 2
+2. **Reads from a channel** called `tank_pressure`
+3. **Pipes the value** through `scale_reading` and writes the result to `pressure_scaled`
+
+The `->` arrow creates a **flow**. Whenever `tank_pressure` receives new data, Arc
+automatically runs `scale_reading` and updates `pressure_scaled`.
+
+<Note.Note variant="info">
+Replace `tank_pressure` and `pressure_scaled` with actual channel names from your
+Synnax setup. The channels must already exist.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Understanding the Syntax
+
+Let's break down the key parts:
+
+### Function Declaration
+
+```arc
+func scale_reading(value f64) f64 {
+    return value * 2.0
+}
+```
+
+- `func` starts a function declaration
+- `scale_reading` is the function name
+- `(value f64)` means the function takes one input named `value` of type `f64`
+- The second `f64` after the parentheses is the return type
+- `return value * 2.0` sends the computed result back
+
+### Flow Statement
+
+```arc
+tank_pressure -> scale_reading{} -> pressure_scaled
+```
+
+- `tank_pressure` is the source channel (input)
+- `->` creates a continuous flow that runs every time new data arrives
+- `scale_reading{}` instantiates the function (the `{}` is required even with no config)
+- `pressure_scaled` is the destination channel (output)
+
+<Divider.Divider x />
+
+## Deploy to a Driver
+
+Arc automations run on a [driver](/reference/driver/get-started), the process that
+manages your hardware. To deploy:
+
+1. Select a driver from the dropdown in the editor toolbar
+2. Click **Configure** to upload the automation to Synnax
+3. Click the **Play** button to start execution
+
+{/* TODO: Video - control/arc/get-started/deploy-automation */}
+<Video client:only="react" id="control/arc/get-started/deploy-automation" />
+
+The status indicator shows whether your automation is running, stopped, or has errors.
+You can stop execution at any time with the **Pause** button.
+
+<Divider.Divider x />
+
+## A Threshold Alarm
+
+Here's a more practical example that triggers a notification when temperature exceeds
+a limit:
+
+```arc
+func check_temp{limit f64}(reading f64) u8 {
+    return reading > limit
+}
+
+tank_temp -> check_temp{limit=150.0} -> set_status{
+    statusKey="temp_warning",
+    variant="warning",
+    message="Tank temperature exceeded 150 degrees"
+}
+```
+
+New concepts in this example:
+
+- **Config parameter** (`{limit f64}`): A constant set when the function is
+  instantiated. Here, `limit=150.0` sets the threshold
+- **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
+  returns 1 (true) or 0 (false)
+- **Built-in function** (`set_status`): Displays a notification in the Console toolbar
+  when the input is truthy (non-zero)
+
+<Divider.Divider x />
+
+## What's Next
+
+You've created a basic Arc automation. The real power of Arc comes from **sequences**,
+which let you build multi-step procedures that progress through stages based on
+conditions.
+
+**Recommended next step**: [Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages)
+to learn how to build test procedures, startup routines, and state machines.
+
+Or explore other topics:
+
+- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)**: Understand
+  how Arc schedules computations and the difference between continuous (`->`) and
+  one-shot (`=>`) edges
+- **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
+  with telemetry data and array operations
+- **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)**: Persist
+  values across executions for counters and rate-of-change detection

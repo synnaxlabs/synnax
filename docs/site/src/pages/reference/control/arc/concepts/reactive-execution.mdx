@@ -1,0 +1,187 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Reactive Execution"
+description: "How Arc executes programs using reactive dataflow and stratified scheduling"
+prev: "Sequences and Stages"
+prevURL: "/reference/control/arc/concepts/sequences-and-stages"
+next: "Channels and Series"
+nextURL: "/reference/control/arc/concepts/channels-and-series"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Why This Matters
+
+Consider two functions reading the same pressure sensor:
+
+```arc
+tank_pressure -> safety_check{}
+tank_pressure -> controller{}
+```
+
+In traditional programming, if `tank_pressure` updates to 500 PSI while your code is
+running, `safety_check` might see 500 PSI while `controller` sees the old value (400
+PSI). This inconsistency could cause subtle bugs or safety issues.
+
+Arc prevents this. Both functions see exactly the same value. Either both see 400 PSI
+or both see 500 PSI, never a mix.
+
+This is called **stratified execution**, and it's why Arc programs are predictable
+and safe.
+
+<Divider.Divider x />
+
+## The Reactive Model
+
+Arc programs don't execute line-by-line like traditional code. Instead, they use a
+**reactive dataflow model** where computations run automatically in response to new
+data arriving on channels.
+
+You declare how data flows through your system, and Arc handles the scheduling:
+
+```arc
+// When tank_pressure updates, scale it and write to display
+tank_pressure -> scale{factor=2.0} -> pressure_display
+```
+
+No loops. No polling. When `tank_pressure` receives new data, Arc automatically runs
+`scale` and updates `pressure_display`.
+
+<Divider.Divider x />
+
+## Flow Statements and Edges
+
+Flow statements connect channels and functions using **edges**. There are two types:
+
+### Continuous Edges (`->`)
+
+Run every time data arrives:
+
+```arc
+// Scale sensor readings continuously
+tank_pressure -> scale{factor=2.0} -> pressure_scaled
+
+// Run a control loop every 50ms
+interval{period=50ms} -> controller{}
+
+// Average two sensors
+(sensor_1 + sensor_2) / 2.0 -> average_display
+```
+
+Every time the source produces data, the entire pipeline executes.
+
+### One-Shot Edges (`=>`)
+
+Fire once when a condition becomes true, then stop:
+
+```arc
+// Abort when pressure exceeds limit (fires once)
+tank_pressure > 600 => abort
+
+// Advance to next stage when target reached
+tank_pressure > 500 => next
+
+// Log a message once when pressure drops
+tank_pressure < 20 => log_message{}
+```
+
+One-shot edges reset when the containing stage is re-entered.
+
+<Note.Note variant="warning">
+A common mistake is using `->` when you meant `=>`. If you want something to happen
+once (like a stage transition), use `=>`. If you use `->`, the transition will keep
+firing every cycle while the condition is true.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Stratified Execution
+
+Arc guarantees **deterministic, glitch-free execution** through stratification:
+
+**Snapshot consistency**: All nodes in an execution cycle see the same values. If a
+channel updates while the graph is executing, every node sees the same snapshot.
+
+**Deterministic order**: Nodes execute in a guaranteed order based on their
+dependencies. The compiler organizes nodes into "strata" (layers), where each stratum
+only executes after all nodes in the previous stratum have completed.
+
+This is critical for:
+
+- **Safety certification**: Predictable, repeatable behavior
+- **Debugging**: You know exactly what values each node saw
+- **Multi-branch logic**: All branches see consistent data
+
+<Divider.Divider x />
+
+## No Loops
+
+Arc doesn't have `for` or `while` loops. This is intentional.
+
+Instead of:
+
+```python
+# Traditional approach (not Arc)
+while True:
+    value = read_sensor()
+    if value > threshold:
+        trigger_alarm()
+    sleep(0.1)
+```
+
+You write:
+
+```arc
+// Arc approach
+sensor > threshold -> trigger_alarm{}
+```
+
+The runtime handles the "loop". Your code just declares what should happen when data
+arrives.
+
+For computations that need to accumulate values over time, use
+[stateful variables](/reference/control/arc/concepts/stateful-variables).
+
+<Divider.Divider x />
+
+## Expressions in Flows
+
+Inline expressions work as implicit functions:
+
+```arc
+// Comparison
+temperature > 100 -> alarm{}
+
+// Arithmetic
+(sensor_1 + sensor_2) / 2.0 -> display
+
+// Logical combination
+pressure > 100 or emergency -> shutdown{}
+```
+
+These expressions can reference channels and literals, but not local variables from
+function bodies.
+
+<Divider.Divider x />
+
+## Cycle Detection
+
+Flow graphs must be acyclic. You can't create a loop where node A depends on node B
+which depends on node A. The compiler will reject this with an error.
+
+The exception is **stage transitions** using `=>`. These can form cycles because they
+represent valid state machine behavior:
+
+```arc
+sequence main {
+    stage idle {
+        start_btn => next
+    }
+    stage running {
+        stop_btn => idle  // valid: can return to idle
+    }
+}
+```

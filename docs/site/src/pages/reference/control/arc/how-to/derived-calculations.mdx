@@ -1,0 +1,273 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Derived Calculations"
+description: "Compute values from multiple sensor inputs in Arc"
+prev: "Sensor Averaging"
+prevURL: "/reference/control/arc/how-to/sensor-averaging"
+next: "Rate of Change"
+nextURL: "/reference/control/arc/how-to/rate-of-change"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Many useful values aren't measured directly but calculated from other measurements.
+Mass flow rate depends on pressure and temperature. Thrust depends on chamber pressure
+and throat area. Arc lets you compute these derived values in real-time.
+
+<Divider.Divider x />
+
+## Multi-Input Functions
+
+When a calculation needs multiple sensor values, pass the channels as config
+parameters:
+
+```arc
+func pressure_ratio{
+    upstream chan f64,
+    downstream chan f64
+} () f64 {
+    p1 := upstream
+    p2 := downstream
+    if p2 == 0 {
+        return 0.0
+    }
+    return p1 / p2
+}
+
+interval{period=50ms} -> pressure_ratio{upstream=inlet_pressure, downstream=outlet_pressure} -> pressure_ratio_display
+```
+
+The function reads from both channels and computes the ratio. Using `interval` ensures
+the calculation runs at a consistent rate.
+
+<Divider.Divider x />
+
+## Mass Flow Rate
+
+Mass flow rate through an orifice depends on upstream pressure, downstream pressure,
+temperature, and the orifice characteristics:
+
+```arc
+func mass_flow{
+    p_upstream chan f64,
+    p_downstream chan f64,
+    temperature chan f64,
+    cd f64,              // discharge coefficient
+    area f64,            // orifice area (m^2)
+    gas_constant f64     // specific gas constant (J/kg·K)
+} () f64 {
+    p1 := p_upstream
+    p2 := p_downstream
+    t := temperature
+
+    // Avoid division by zero
+    if t <= 0 {
+        return 0.0
+    }
+
+    // Pressure ratio
+    pr := p2 / p1
+    if pr > 1.0 {
+        pr = 1.0
+    }
+
+    // Simplified compressible flow equation
+    // For choked flow (pr < 0.528 for air), use critical flow
+    density := p1 / (gas_constant * t)
+    delta_p := p1 - p2
+    if delta_p < 0 {
+        delta_p = 0.0
+    }
+
+    // Simplified: mdot = Cd * A * sqrt(2 * rho * dP)
+    // Note: This is a simplification; real equations are more complex
+    mdot := cd * area * (2.0 * density * delta_p) ^ 0.5
+    return mdot
+}
+
+interval{period=100ms} -> mass_flow{
+    p_upstream=tank_pressure,
+    p_downstream=outlet_pressure,
+    temperature=tank_temp,
+    cd=0.65,
+    area=0.0001,
+    gas_constant=287.0
+} -> mass_flow_rate
+```
+
+<Note.Note variant="info">
+The mass flow equation above is simplified for illustration. Real propulsion
+calculations require proper isentropic flow equations accounting for compressibility,
+gamma (specific heat ratio), and choking conditions.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Tank Volume from Level
+
+Calculate remaining propellant volume from a level sensor:
+
+```arc
+func tank_volume{
+    level chan f64,      // level sensor reading (0-100%)
+    total_volume f64     // total tank volume (liters)
+} () f64 {
+    pct := level
+    if pct < 0 {
+        pct = 0.0
+    }
+    if pct > 100 {
+        pct = 100.0
+    }
+    return total_volume * pct / 100.0
+}
+
+interval{period=100ms} -> tank_volume{level=tank_level, total_volume=500.0} -> tank_volume_liters
+```
+
+<Divider.Divider x />
+
+## Delta Pressure
+
+Calculate pressure drop across a component:
+
+```arc
+func delta_p{
+    inlet chan f64,
+    outlet chan f64
+} () f64 {
+    return inlet - outlet
+}
+
+interval{period=50ms} -> delta_p{inlet=filter_pt_in, outlet=filter_pt_out} -> filter_dp
+```
+
+<Divider.Divider x />
+
+## Temperature-Compensated Density
+
+Gas density varies with pressure and temperature:
+
+```arc
+func gas_density{
+    pressure chan f64,       // Pa
+    temperature chan f64,    // K
+    molar_mass f64           // kg/mol
+} () f64 {
+    p := pressure
+    t := temperature
+
+    if t <= 0 {
+        return 0.0
+    }
+
+    // Ideal gas law: rho = P * M / (R * T)
+    // R = 8.314 J/(mol·K)
+    r := 8.314
+    return p * molar_mass / (r * t)
+}
+
+interval{period=100ms} -> gas_density{
+    pressure=tank_pressure,
+    temperature=tank_temp,
+    molar_mass=0.032  // O2
+} -> gas_density_display
+```
+
+<Divider.Divider x />
+
+## Combining Derived Values
+
+Derived calculations can feed into other calculations:
+
+```arc
+// First: calculate density
+func density{p chan f64, t chan f64} () f64 {
+    return p / (287.0 * t)  // simplified for air
+}
+
+// Second: use density to calculate flow
+func flow{rho chan f64, velocity chan f64, area f64} () f64 {
+    return rho * velocity * area
+}
+
+// Wire them together
+interval{period=50ms} -> density{p=duct_pt, t=duct_tc} -> duct_density
+interval{period=50ms} -> flow{rho=duct_density, velocity=duct_velocity, area=0.01} -> duct_flow
+```
+
+<Divider.Divider x />
+
+## Power and Energy
+
+Calculate electrical power from voltage and current:
+
+```arc
+func power{
+    voltage chan f64,
+    current chan f64
+} () f64 {
+    return voltage * current
+}
+
+interval{period=10ms} -> power{voltage=bus_voltage, current=bus_current} -> bus_power
+```
+
+Track total energy consumed:
+
+```arc
+func energy{
+    power chan f64,
+    dt_ms f64           // sample period in milliseconds
+} () f64 {
+    total $= 0.0
+    p := power
+    // Convert ms to hours for Wh
+    dt_h := dt_ms / 3600000.0
+    total = total + p * dt_h
+    return total
+}
+
+interval{period=100ms} -> energy{power=bus_power, dt_ms=100.0} -> bus_energy_wh
+```
+
+<Divider.Divider x />
+
+## Efficiency Calculations
+
+Calculate efficiency from input and output power:
+
+```arc
+func efficiency{
+    input_power chan f64,
+    output_power chan f64
+} () f64 {
+    p_in := input_power
+    p_out := output_power
+
+    if p_in <= 0 {
+        return 0.0
+    }
+
+    eff := p_out / p_in * 100.0
+
+    // Clamp to 0-100%
+    if eff < 0 {
+        eff = 0.0
+    }
+    if eff > 100 {
+        eff = 100.0
+    }
+
+    return eff
+}
+
+interval{period=100ms} -> efficiency{
+    input_power=motor_input_power,
+    output_power=motor_shaft_power
+} -> motor_efficiency
+```
+

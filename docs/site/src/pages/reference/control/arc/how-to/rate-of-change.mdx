@@ -1,0 +1,307 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Rate of Change"
+description: "Calculate how fast values are changing using stateful variables in Arc"
+prev: "Derived Calculations"
+prevURL: "/reference/control/arc/how-to/derived-calculations"
+next: "Sensor Validation"
+nextURL: "/reference/control/arc/how-to/sensor-validation"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+The rate at which a value changes is often more important than the value itself.
+A tank pressure of 500 PSI is fine during pressurization, but a pressure that's
+rising at 100 PSI/second might indicate a runaway condition. Rate of change
+detection catches these situations.
+
+<Divider.Divider x />
+
+## Basic Rate of Change
+
+Track the difference between the current and previous value:
+
+```arc
+func delta(value f64) f64 {
+    prev $= 0.0
+    d := value - prev
+    prev = value
+    return d
+}
+
+tank_pressure -> delta{} -> pressure_delta
+```
+
+This returns the change since the last sample. The first execution returns the full
+value (since `prev` starts at 0), so you may want to ignore initial readings or
+initialize `prev` to the first sample.
+
+<Divider.Divider x />
+
+## Rate Per Second
+
+To get a meaningful rate, divide by the time between samples:
+
+```arc
+func rate{dt_ms f64} (value f64) f64 {
+    prev $= 0.0
+    d := value - prev
+    prev = value
+
+    // Convert to per-second rate
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0.0
+    }
+    return d / dt_s
+}
+
+// At 50ms intervals, dt_ms = 50
+interval{period=50ms} -> tank_pressure
+tank_pressure -> rate{dt_ms=50.0} -> pressure_rate
+```
+
+Now `pressure_rate` shows PSI per second (assuming `tank_pressure` is in PSI).
+
+<Divider.Divider x />
+
+## Smoothed Rate of Change
+
+Raw rate calculations amplify noise. Apply an exponential moving average to smooth
+the result:
+
+```arc
+func smoothed_rate{
+    dt_ms f64,
+    alpha f64      // smoothing factor (0.1 = heavy, 0.9 = light)
+} (value f64) f64 {
+    prev $= 0.0
+    avg_rate $= 0.0
+    first $= 1
+
+    // Calculate instantaneous rate
+    d := value - prev
+    prev = value
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0.0
+    }
+    inst_rate := d / dt_s
+
+    // Apply EMA smoothing
+    if first {
+        avg_rate = inst_rate
+        first = 0
+    } else {
+        avg_rate = alpha * inst_rate + (1.0 - alpha) * avg_rate
+    }
+
+    return avg_rate
+}
+
+tank_pressure -> smoothed_rate{dt_ms=50.0, alpha=0.3} -> pressure_rate
+```
+
+<Divider.Divider x />
+
+## Detecting Rapid Changes
+
+Trigger an alert when the rate exceeds a threshold:
+
+```arc
+func rate_alarm{
+    dt_ms f64,
+    threshold f64      // max allowed rate (units/second)
+} (value f64) u8 {
+    prev $= 0.0
+    d := value - prev
+    prev = value
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0
+    }
+
+    rate := d / dt_s
+
+    // Check magnitude (absolute value)
+    if rate < 0 {
+        rate = 0.0 - rate
+    }
+
+    if rate > threshold {
+        return 1
+    }
+    return 0
+}
+
+tank_pressure -> rate_alarm{dt_ms=50.0, threshold=100.0} -> pressure_rate_high
+```
+
+This outputs 1 when the pressure is changing faster than 100 PSI/second in either
+direction.
+
+<Divider.Divider x />
+
+## Leak Detection
+
+A pressure drop in a closed system indicates a leak. Monitor the rate and trigger
+when it exceeds the expected decay:
+
+```arc
+func leak_detector{
+    dt_ms f64,
+    leak_threshold f64,    // PSI/second drop rate
+    min_pressure f64       // minimum pressure to consider (ignore near-empty tanks)
+} (pressure f64) u8 {
+    prev $= 0.0
+    d := pressure - prev
+    prev = pressure
+
+    // Only check if we're above minimum pressure
+    if pressure < min_pressure {
+        return 0
+    }
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0
+    }
+
+    rate := d / dt_s
+
+    // Leak is a negative rate (pressure dropping)
+    if rate < (0.0 - leak_threshold) {
+        return 1
+    }
+    return 0
+}
+
+tank_pressure -> leak_detector{dt_ms=100.0, leak_threshold=5.0, min_pressure=50.0} -> leak_detected
+```
+
+<Divider.Divider x />
+
+## Pressure Rise Rate
+
+During pressurization, monitor the rise rate to detect problems:
+
+```arc
+func rise_rate_too_fast{dt_ms f64, max_rate f64} (pressure f64) u8 {
+    prev $= 0.0
+    d := pressure - prev
+    prev = pressure
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0
+    }
+
+    rate := d / dt_s
+    if rate > max_rate {
+        return 1
+    }
+    return 0
+}
+
+func rise_rate_too_slow{dt_ms f64, min_rate f64} (pressure f64) u8 {
+    prev $= 0.0
+    d := pressure - prev
+    prev = pressure
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0
+    }
+
+    rate := d / dt_s
+    if rate < min_rate {
+        return 1
+    }
+    return 0
+}
+
+// Run separate checks for each condition
+tank_pressure -> rise_rate_too_fast{dt_ms=100.0, max_rate=50.0} -> rise_fast
+tank_pressure -> rise_rate_too_slow{dt_ms=100.0, min_rate=10.0} -> rise_slow
+```
+
+<Divider.Divider x />
+
+## Temperature Rate Limits
+
+Monitor temperature rate of change to protect equipment:
+
+```arc
+func heating_too_fast{dt_ms f64, max_rate f64} (temp f64) u8 {
+    prev $= 0.0
+    d := temp - prev
+    prev = temp
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0
+    }
+
+    rate := d / dt_s
+    if rate > max_rate {
+        return 1
+    }
+    return 0
+}
+
+func cooling_too_fast{dt_ms f64, max_rate f64} (temp f64) u8 {
+    prev $= 0.0
+    d := temp - prev
+    prev = temp
+
+    dt_s := dt_ms / 1000.0
+    if dt_s <= 0 {
+        return 0
+    }
+
+    rate := d / dt_s
+    if rate < (0.0 - max_rate) {
+        return 1
+    }
+    return 0
+}
+
+// Run separate checks for heating and cooling
+tank_temp -> heating_too_fast{dt_ms=100.0, max_rate=5.0} -> heating_alarm
+tank_temp -> cooling_too_fast{dt_ms=100.0, max_rate=10.0} -> cooling_alarm
+```
+
+<Divider.Divider x />
+
+## Using Rate in Sequences
+
+Rate of change is useful for sequence transitions:
+
+```arc
+sequence main {
+    stage pressurize {
+        1 -> valve_cmd,
+
+        // Abort if pressure rising too fast
+        tank_pressure -> rate{dt_ms=50.0} -> pressure_rate,
+        pressure_rate > 100 => abort,
+
+        // Normal completion
+        tank_pressure > 500 => next
+    }
+
+    stage hold {
+        // ...
+    }
+}
+```
+
+<Note.Note variant="warning">
+Rate calculations are sensitive to noise and sample timing. Use smoothing for
+critical decisions, and set thresholds with margin for normal variation.
+</Note.Note>

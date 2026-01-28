@@ -1,0 +1,129 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Introduction to Arc"
+description: "What is Arc, who it's for, and when to use it"
+next: "Get Started"
+nextURL: "/reference/control/arc/get-started"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Arc is Synnax's automation language for hardware control. If you've been using Synnax
+to acquire data and control hardware manually through schematics, Arc lets you automate
+those procedures.
+
+Think of it as writing down the steps you would perform manually: open this valve when
+pressure reaches 500 PSI, close it when temperature exceeds 300 degrees, then wait 30
+seconds and move to the next step. Arc executes these procedures automatically while you
+monitor from the Console.
+
+<Divider.Divider x />
+
+## Who Arc is For
+
+Arc is designed for **test engineers and control system operators** who understand what
+they want to accomplish but need a way to express it in code. If you're coming from:
+
+- **LabVIEW or visual programming tools**: Arc's syntax is more concise than block
+  diagrams, and you don't need deep programming experience to use it
+- **PLC configuration (Rockwell, Siemens)**: Arc handles automation logic similar to
+  function blocks, but integrated directly with Synnax telemetry
+- **Manual control through Synnax schematics**: Arc automates the button clicks and
+  valve toggles you've been doing by hand
+
+You don't need to be a software developer. If you understand valves, pressure
+transducers, and control loops, you already know *what* to automate. Arc teaches you
+*how* to express it.
+
+<Divider.Divider x />
+
+## Graph Mode vs Text Mode
+
+When you create an Arc automation, you choose between two editor modes:
+
+### Graph Mode
+
+A visual, block-based editor where you drag and connect nodes. Good for:
+
+- Simple threshold alarms ("alert when pressure > 500")
+- Basic on/off control
+- Quick prototyping without writing code
+- Users who prefer visual programming
+
+### Text Mode
+
+A code editor where you write Arc syntax directly. Good for:
+
+- Multi-step test sequences with multiple stages
+- Complex logic with many conditions
+- Reusable functions across automations
+- Users comfortable with text-based configuration
+
+**Which should you use?** Start with Graph mode for simple automations. Move to Text
+mode when you need sequences, stateful logic, or want more control over the automation
+structure.
+
+<Note.Note variant="info">
+This documentation focuses on Text mode. Graph mode documentation is coming soon.
+</Note.Note>
+
+<Divider.Divider x />
+
+## What Arc Does Differently
+
+Unlike traditional programming where you write loops to poll sensors, Arc is
+**reactive**. You declare what should happen when data changes, and Arc handles the
+rest.
+
+Instead of:
+
+```python
+# Traditional approach
+while True:
+    pressure = read_sensor("tank_pressure")
+    scaled = pressure * 2.0
+    write_channel("pressure_display", scaled)
+    sleep(0.1)
+```
+
+You write:
+
+```arc
+// Arc approach
+tank_pressure * 2.0 -> pressure_display
+```
+
+Arc monitors `tank_pressure` for you. When it updates, the computation runs
+automatically. No loops, no polling, no timing code.
+
+This reactive model is particularly useful for:
+
+- **Test sequences** where you progress through stages based on conditions
+- **Safety monitoring** where multiple conditions must be checked simultaneously
+- **Data transformations** where sensor values need scaling or filtering
+
+<Divider.Divider x />
+
+## Before You Start
+
+Arc builds on Synnax concepts you likely already know:
+
+- **Channels**: Arc reads from and writes to Synnax channels
+- **Drivers**: Arc automations run on a driver process
+- **Schematics**: Buttons in schematics can trigger Arc sequences
+
+If you're not familiar with these, see:
+
+- [Channels](/reference/concepts/channels) for creating and naming channels
+- [Drivers](/reference/driver/get-started) for setting up hardware connections
+- [Schematics](/reference/console/schematics) for building control interfaces
+
+<Divider.Divider x />
+
+## What's Next
+
+Ready to write your first automation? Continue to **[Get Started](/reference/control/arc/get-started)**
+to create and run an Arc program in the Console.

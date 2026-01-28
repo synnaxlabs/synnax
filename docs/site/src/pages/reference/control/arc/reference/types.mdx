@@ -1,0 +1,254 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Types"
+description: "Arc type system reference for primitives, channels, series, units, and type casting"
+prev: "Syntax"
+prevURL: "/reference/control/arc/reference/syntax"
+next: "Operators"
+nextURL: "/reference/control/arc/reference/operators"
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## Primitive Types
+
+### Integer Types
+
+| Type | Size | Range |
+| ---- | ---- | ----- |
+| `i8` | 8-bit signed | -128 to 127 |
+| `i16` | 16-bit signed | -32,768 to 32,767 |
+| `i32` | 32-bit signed | -2,147,483,648 to 2,147,483,647 |
+| `i64` | 64-bit signed | -9.2×10¹⁸ to 9.2×10¹⁸ |
+| `u8` | 8-bit unsigned | 0 to 255 |
+| `u16` | 16-bit unsigned | 0 to 65,535 |
+| `u32` | 32-bit unsigned | 0 to 4,294,967,295 |
+| `u64` | 64-bit unsigned | 0 to 1.8×10¹⁹ |
+
+### Floating Point Types
+
+| Type | Size | Precision |
+| ---- | ---- | --------- |
+| `f32` | 32-bit | ~7 decimal digits |
+| `f64` | 64-bit | ~15 decimal digits |
+
+### String Type
+
+| Type | Description |
+| ---- | ----------- |
+| `str` | Immutable UTF-8 string |
+
+<Divider.Divider x />
+
+## Type Defaults
+
+When you write a literal without an explicit type, Arc infers a default:
+
+| Literal | Default Type |
+| ------- | ------------ |
+| `42` | `i64` |
+| `3.14` | `f64` |
+| `"text"` | `str` |
+| `[1, 2, 3]` | `series i64` |
+| `[1.0, 2.0]` | `series f64` |
+
+<Divider.Divider x />
+
+## Boolean Semantics
+
+Arc uses `u8` for boolean values. There is no separate boolean type.
+
+| Value | Meaning |
+| ----- | ------- |
+| `0` | false |
+| non-zero | true |
+
+Logical operators normalize results to `0` or `1`:
+
+```arc
+result := 2 and 3       // 1 (both truthy)
+result := 5 or 0        // 1 (short-circuits)
+negated := not 5        // 0
+```
+
+Comparison operators return `u8`:
+
+```arc
+is_high := pressure > 500    // 0 or 1
+```
+
+<Divider.Divider x />
+
+## Channel Types
+
+Channels connect Arc to Synnax telemetry data. Declare channel types with `chan`:
+
+```arc
+chan f64           // channel of float64
+chan i32           // channel of int32
+chan series f64    // channel of float64 series
+```
+
+Channel names reference channels that exist in your Synnax cluster:
+
+```arc
+value := ox_pt_1       // read from channel
+ox_pt_cmd = value      // write to channel
+```
+
+Reading from a channel that has no data returns the zero value for that type.
+
+<Divider.Divider x />
+
+## Series Types
+
+Series are homogeneous arrays. Declare series types with `series`:
+
+```arc
+series f64         // array of float64
+series i32         // array of int32
+```
+
+### Series Literals
+
+```arc
+data := [1.0, 2.0, 3.0]     // series f64
+empty series f64 := []      // empty series (type required)
+```
+
+### Series Operations
+
+```arc
+length := len(data)          // i64: number of elements
+first := data[0]             // indexing (0-based)
+subset := data[1:3]          // slicing [start:end)
+```
+
+### Element-wise Operations
+
+Arithmetic and comparison operators work element-wise on series:
+
+```arc
+data := [1.0, 2.0, 3.0]
+
+// Scalar operations
+scaled := data * 2.0         // [2.0, 4.0, 6.0]
+offset := data + 10.0        // [11.0, 12.0, 13.0]
+
+// Series-to-series (must be equal length)
+sum := data + [4.0, 5.0, 6.0]    // [5.0, 7.0, 9.0]
+
+// Comparisons return series u8
+mask := data > 2.0           // [0, 0, 1]
+```
+
+<Note.Note variant="warning">
+Out-of-bounds access causes a runtime error. Series-to-series operations require
+equal-length arrays.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Unit Annotations
+
+Types can have unit suffixes for dimensional tracking:
+
+```arc
+velocity f64 m/s := 10.0
+distance f64 m := 50.0
+duration i64 ns := 1000000000
+```
+
+### Dimensional Compatibility
+
+The compiler enforces dimensional compatibility:
+
+- **Addition/Subtraction**: Operands must have compatible dimensions
+- **Multiplication/Division**: Always valid; dimensions combine
+- **Exponentiation**: Base with dimensions requires literal integer exponent
+
+```arc
+distance f64 m := 10.0
+time f64 s := 2.0
+speed := distance / time     // f64 m/s
+area := distance ^ 2         // f64 m^2
+```
+
+<Divider.Divider x />
+
+## Type Casting
+
+Explicit casting converts between numeric types:
+
+```arc
+x i32 := 42
+y f64 := f64(x)              // int to float
+
+a f64 := 3.7
+b i64 := i64(a)              // truncates to 3
+```
+
+### Casting Rules
+
+| Conversion | Behavior |
+| ---------- | -------- |
+| Widening (e.g., `i16` to `i64`) | Safe, sign/zero extend |
+| Narrowing (e.g., `i64` to `i8`) | Truncates |
+| Signed to unsigned | Saturates at bounds |
+| Float to integer | Truncates toward zero, saturates on overflow |
+| Integer overflow | Two's-complement wrapping |
+
+<Note.Note variant="info">
+Arc requires explicit casts for mixed-type arithmetic. No implicit type promotion.
+</Note.Note>
+
+```arc
+// Wrong: type error
+x i32 := 42
+y f64 := x + 1.0
+
+// Right: explicit cast
+x i32 := 42
+y f64 := f64(x) + 1.0
+```
+
+<Divider.Divider x />
+
+## Zero Values
+
+All types have default zero values:
+
+| Type | Zero Value |
+| ---- | ---------- |
+| integers | `0` |
+| floats | `0.0` |
+| `str` | `""` (empty string) |
+| series | `[]` (empty series) |
+| channels | zero value of element type (on first read) |
+
+<Divider.Divider x />
+
+## String Operations
+
+Strings support the following operations:
+
+```arc
+msg := "Hello"
+greeting := msg + " World"   // concatenation
+first := msg[0]              // indexing (returns u8)
+sub := msg[1:4]              // slicing
+length := len(msg)           // length in bytes
+equal := msg == "Hello"      // equality (returns u8: 1 or 0)
+```
+
+| Operation | Supported |
+| --------- | --------- |
+| `+` (concatenation) | Yes |
+| `==`, `!=` (equality) | Yes |
+| `[]` (indexing) | Yes |
+| `[:]` (slicing) | Yes |
+| `len()` | Yes |
+| `<`, `>`, `<=`, `>=` | No |
