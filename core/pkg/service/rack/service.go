@@ -157,12 +157,15 @@ func (s *Service) OnSuspect(handler func(ctx context.Context, status Status)) ob
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
-	var embeddedRack Rack
 
 	// Check if a v1 rack exists.
-	v1RackName := fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
-	err := s.NewRetrieve().WhereName(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
-	isNotFound := errors.Is(err, query.ErrNotFound)
+	var (
+		embeddedRack Rack
+		v1RackName   = fmt.Sprintf("sy_node_%s_rack", s.HostProvider.HostKey())
+		err          = s.NewRetrieve().WhereName(v1RackName).Entry(&embeddedRack).Exec(ctx, s.DB)
+		isNotFound   = errors.Is(err, query.ErrNotFound)
+		v2Name       = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
+	)
 	if err != nil && !isNotFound {
 		return err
 	}
@@ -170,6 +173,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	// If a v1 rack does not exist, check if a v2 rack exists.
 	if isNotFound {
 		err = s.NewRetrieve().
+			WhereName(v2Name, gorp.Required()).
 			WhereEmbedded(true, gorp.Required()).
 			WhereNode(s.HostProvider.HostKey(), gorp.Required()).
 			Entry(&embeddedRack).Exec(ctx, s.DB)
@@ -179,7 +183,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 	}
 
 	// The key will get populated if a rack exists, in which case this will be an update.
-	embeddedRack.Name = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
+	embeddedRack.Name = v2Name
 	embeddedRack.Embedded = true
 	err = s.NewWriter(nil).Create(ctx, &embeddedRack)
 	s.EmbeddedKey = embeddedRack.Key
