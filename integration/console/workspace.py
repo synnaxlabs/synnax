@@ -16,12 +16,11 @@ from playwright.sync_api import Locator, Page
 
 from framework.utils import get_results_path
 
-from .log import Log
-from .plot import Plot
-from .schematic import Schematic
-
 if TYPE_CHECKING:
     from .console import Console
+    from .log import Log
+    from .plot import Plot
+    from .schematic import Schematic
 
 
 class WorkspaceClient:
@@ -546,6 +545,8 @@ class WorkspaceClient:
         Returns:
             Plot instance for the opened plot.
         """
+        from .plot import Plot
+
         self.open_page(name)
         return Plot.from_open_page(client, self.console, name)
 
@@ -559,6 +560,8 @@ class WorkspaceClient:
         Returns:
             Plot instance for the opened plot.
         """
+        from .plot import Plot
+
         self.drag_page_to_mosaic(name)
         return Plot.from_open_page(client, self.console, name)
 
@@ -572,6 +575,8 @@ class WorkspaceClient:
         Returns:
             Log instance for the opened log.
         """
+        from .log import Log
+
         self.open_page(name)
         return Log.from_open_page(client, self.console, name)
 
@@ -585,6 +590,8 @@ class WorkspaceClient:
         Returns:
             Log instance for the opened log.
         """
+        from .log import Log
+
         self.drag_page_to_mosaic(name)
         return Log.from_open_page(client, self.console, name)
 
@@ -598,6 +605,8 @@ class WorkspaceClient:
         Returns:
             Schematic instance for the opened schematic.
         """
+        from .schematic import Schematic
+
         self.open_page(name)
         return Schematic.from_open_page(client, self.console, name)
 
@@ -611,5 +620,7 @@ class WorkspaceClient:
         Returns:
             Schematic instance for the opened schematic.
         """
+        from .schematic import Schematic
+
         self.drag_page_to_mosaic(name)
         return Schematic.from_open_page(client, self.console, name)
