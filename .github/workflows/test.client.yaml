@@ -235,6 +235,8 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       synnax:
         image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
@@ -257,10 +259,10 @@ jobs:
         uses: ./.github/actions/test-python
         with:
           directory: client/py
+          coverage: true
           coverage_module: synnax
           coverage_flag: client-py
           format_check: true
-          codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
   ts:
     name: Test - TypeScript

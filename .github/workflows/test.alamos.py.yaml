@@ -42,6 +42,8 @@ jobs:
               ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -50,8 +52,8 @@ jobs:
         uses: ./.github/actions/test-python
         with:
           directory: alamos/py
+          coverage: true
           coverage_module: alamos
           coverage_flag: alamos-py
           type_check: true
           format_check: ${{ matrix.format }}
-          codecov_token: ${{ secrets.CODECOV_TOKEN }}

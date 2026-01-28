@@ -3,6 +3,7 @@ name: Test - Migration
 on:
   pull_request:
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.migration.yaml
       - alamos/go/**
       - alamos/py/**
@@ -23,6 +24,7 @@ on:
       - main
       - rc
     paths:
+      - .github/actions/test-python/**
       - .github/workflows/test.migration.yaml
       - alamos/go/**
       - alamos/py/**
@@ -63,17 +65,10 @@ jobs:
         with:
           ref: main
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python with Main Server
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: client/py/pyproject.toml
-
-      - name: Python Test with Main Server
-        run: uv run pytest
-        working-directory: client/py
+          directory: client/py
 
       - name: Stop Main Server
         if: always() && steps.start_main.outcome == 'success'
@@ -116,14 +111,10 @@ jobs:
           SYNNAX_LICENSE_KEY=${{ secrets.SYNNAX_LICENSE_KEY }}
           ghcr.io/synnaxlabs/synnax:${GITHUB_SHA}
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Test Python with Current Server
+        uses: ./.github/actions/test-python
         with:
-          python-version-file: client/py/pyproject.toml
-
-      - name: Python Test with Current Server
-        run: uv run pytest
-        working-directory: client/py
+          directory: client/py
 
       - name: Stop Current Server
         if: always() && steps.start_current.outcome == 'success'

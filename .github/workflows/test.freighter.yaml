@@ -142,6 +142,8 @@ jobs:
     needs: [changes, server]
     if: needs.changes.outputs.py == 'true'
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
         image: ghcr.io/synnaxlabs/freighter-go-integration:latest
@@ -158,11 +160,11 @@ jobs:
         uses: ./.github/actions/test-python
         with:
           directory: freighter/py
+          coverage: true
           coverage_module: freighter
           coverage_flag: freighter-py
           type_check: true
           format_check: true
-          codecov_token: ${{ secrets.CODECOV_TOKEN }}
 
   ts:
     name: Test - TypeScript
