@@ -50,6 +50,7 @@ class SymbolToolbar:
         """Select a symbol group by name."""
         self.show()
         group_btn = self.group_list.locator(".pluto-btn").filter(has_text=name)
+        group_btn.wait_for(state="visible", timeout=5000)
         group_btn.click()
 
     def create_group(self, name: str) -> None:
@@ -259,6 +260,9 @@ class SymbolToolbar:
 
         if group is not None:
             self.select_group(group)
+            self.toolbar.locator(".console-schematic-symbols__button").first.wait_for(
+                state="visible", timeout=10000
+            )
             symbol = self.get_symbol(symbol_type)
             canvas = self.page.locator(".react-flow__pane").first
             symbol.drag_to(canvas)

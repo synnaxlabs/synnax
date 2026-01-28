@@ -26,7 +26,7 @@ class Valve(Symbol):
         state_channel: str,
         command_channel: str,
         show_control_chip: bool = True,
-        symbol_type: str = "Valve",
+        symbol_type: str = "Generic",
         rotatable: bool = True,
     ):
         """Initialize a valve symbol with configuration.

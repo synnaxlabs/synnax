@@ -87,6 +87,7 @@ class WorkspaceClient:
         if caret.count() > 0:
             return
         workspace_item.click()
+        caret.wait_for(state="visible", timeout=5000)
 
     def get_page(self, name: str) -> Locator:
         """Get a page item locator from the workspace resources toolbar.
