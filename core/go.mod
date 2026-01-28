@@ -7,7 +7,7 @@ require (
 	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58
 	github.com/cockroachdb/pebble/v2 v2.1.4
 	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
