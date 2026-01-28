@@ -58,27 +58,20 @@ jobs:
       - name: Publish Alamos
         if: steps.filter.outputs.alamos == 'true'
         working-directory: alamos/py
-        run: |
-          uv build && uv publish
+        run: uv build
 
       - name: Publish Freighter
         if: steps.filter.outputs.freighter == 'true'
         working-directory: freighter/py
-        run: |
-          for i in {1..10}; do
-            uv build --no-sources && break
-            echo "Waiting for dependencies on PyPI (attempt $i/10)..."
-            sleep 5
-          done
-          uv publish
+        run: uv build
 
       - name: Publish Client
         if: steps.filter.outputs.client == 'true'
         working-directory: client/py
-        run: |
-          for i in {1..10}; do
-            uv build --no-sources && break
-            echo "Waiting for dependencies on PyPI (attempt $i/10)..."
-            sleep 5
-          done
-          uv publish
+        run: uv build
+
+      - name: Publish Code
+        if:
+          steps.filter.outputs.alamos == 'true' || steps.filter.outputs.freighter ==
+          'true' || steps.filter.outputs.client == 'true'
+        run: uv publish
