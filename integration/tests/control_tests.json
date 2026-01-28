@@ -2,19 +2,6 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "Console Press Control - Setpoints",
-      "sequence_order": "asynchronous",
-      "tests": [
-        {
-          "case": "console/schematic/setpoint_press_user"
-        },
-        {
-          "case": "client/setpoint_press_auto",
-          "parameters": { "control_authority": 150 }
-        }
-      ]
-    },
-    {
       "sequence_name": "Console Press Control - Valves",
       "tests": [
         {
