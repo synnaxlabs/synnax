@@ -18,20 +18,39 @@ from console.case import ConsoleCase
 class RangeLifecycle(ConsoleCase):
     """Test the lifecycle of ranges in the Console UI."""
 
+    rand_suffix: int
+    test_label_name: str
+    second_label_name: str
+    local_range_name: str | None
+    range_name: str | None
+    staged_range_name: str | None
+    child_range_name: str | None
+    labeled_range_name: str | None
+    new_child_range_name: str | None
+
     def setup(self) -> None:
         super().setup()
-        self.rand_suffix: int = random.randint(1000, 9999)
+        self.rand_suffix = random.randint(1000, 9999)
         self.test_label_name = f"RangeLabel_{self.rand_suffix}"
         self.second_label_name = f"SecondLabel_{self.rand_suffix}"
+
+        # Initialize optional attributes
+        self.local_range_name = None
+        self.range_name = None
+        self.staged_range_name = None
+        self.child_range_name = None
+        self.labeled_range_name = None
+        self.new_child_range_name = None
+
         self.console.labels.create(name=self.test_label_name)
         self.console.labels.create(name=self.second_label_name)
 
     def teardown(self) -> None:
         ranges_to_delete = [
-            getattr(self, "labeled_range_name", None),
-            getattr(self, "new_child_range_name", None),
-            getattr(self, "child_range_name", None),
-            getattr(self, "staged_range_name", None),
+            self.labeled_range_name,
+            self.new_child_range_name,
+            self.child_range_name,
+            self.staged_range_name,
         ]
 
         self.console.ranges.open_explorer()
@@ -137,6 +156,8 @@ class RangeLifecycle(ConsoleCase):
 
     def test_navigate_to_parent(self) -> None:
         """Test navigating to parent range from child range overview."""
+        assert self.child_range_name is not None
+        assert self.staged_range_name is not None
         self.log("Testing: Navigate to parent range")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.child_range_name)
@@ -168,6 +189,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_range_exists_in_explorer(self) -> None:
         """Test that created range exists in the explorer."""
+        assert self.range_name is not None
         self.log("Testing: Range exists in explorer")
         assert self.console.ranges.exists_in_explorer(
             self.range_name
@@ -175,6 +197,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_favorite_range(self) -> None:
         """Test favoriting and unfavoriting a range."""
+        assert self.range_name is not None
         self.log("Testing: Favorite range")
         self.console.ranges.favorite_from_explorer(self.range_name)
         assert self.console.ranges.exists_in_toolbar(
@@ -194,6 +217,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_set_active_range(self) -> None:
         """Test setting a range as active from the toolbar."""
+        assert self.range_name is not None
         self.log("Testing: Set active range")
         self.console.ranges.set_active(self.range_name)
         item = self.console.ranges.get_toolbar_item(self.range_name)
@@ -202,6 +226,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_change_times_in_overview(self) -> None:
         """Test changing start and end times in the range overview."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Change times in overview")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -230,6 +255,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_change_stage_in_overview(self) -> None:
         """Test changing stage in the range overview (which also changes times)."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Change stage in overview")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -244,6 +270,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_add_label_in_overview(self) -> None:
         """Test adding a label to a range in the overview."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Add label in overview")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -258,6 +285,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_remove_label_in_overview(self) -> None:
         """Test removing a label from a range in the overview."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Remove label in overview")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -272,6 +300,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_rename_range_from_tab(self) -> None:
         """Test renaming a range from the tab name."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Rename range from tab")
         original_rng = self.client.ranges.retrieve(name=self.labeled_range_name)
         original_key = original_rng.key
@@ -292,6 +321,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_rename_range_from_overview(self) -> None:
         """Test renaming a range from the overview name field."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Rename range from overview")
         original_rng = self.client.ranges.retrieve(name=self.labeled_range_name)
         original_key = original_rng.key
@@ -310,6 +340,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_copy_python_code(self) -> None:
         """Test copying Python code from the range overview."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Copy Python code")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -325,6 +356,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_copy_typescript_code(self) -> None:
         """Test copying TypeScript code from the range overview."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Copy TypeScript code")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -340,6 +372,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_copy_link(self) -> None:
         """Test copying link from the range overview."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Copy link")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -355,6 +388,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_download_csv(self) -> None:
         """Test downloading CSV data from the range overview."""
+        assert self.labeled_range_name is not None
         self.log("Testing: Download CSV")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.labeled_range_name)
@@ -370,6 +404,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_rename_range(self) -> None:
         """Test renaming a range from the explorer."""
+        assert self.range_name is not None
         self.log("Testing: Rename range")
         self.console.ranges.open_explorer()
         new_name = f"RenamedRange_{self.rand_suffix}"
@@ -381,6 +416,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_delete_range(self) -> None:
         """Test deleting a range from the explorer."""
+        assert self.range_name is not None
         self.log("Testing: Delete range")
         rng = self.client.ranges.retrieve(name=self.range_name)
         range_key = rng.key
@@ -393,6 +429,8 @@ class RangeLifecycle(ConsoleCase):
 
     def test_navigate_to_child_range(self) -> None:
         """Test clicking on a child range to navigate to its overview."""
+        assert self.staged_range_name is not None
+        assert self.child_range_name is not None
         self.log("Testing: Navigate to child range")
         self.console.ranges.open_explorer()
         self.console.ranges.open_overview_from_explorer(self.staged_range_name)
@@ -406,6 +444,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_create_child_range_from_overview(self) -> None:
         """Test creating a child range from the parent overview."""
+        assert self.staged_range_name is not None
         self.log("Testing: Create child range from overview")
         self.console.ranges.navigate_to_parent(self.staged_range_name)
         self.console.ranges.wait_for_overview(self.staged_range_name)
@@ -428,6 +467,8 @@ class RangeLifecycle(ConsoleCase):
 
     def test_change_child_range_stage(self) -> None:
         """Test changing the stage of a child range from the parent overview."""
+        assert self.staged_range_name is not None
+        assert self.child_range_name is not None
         self.log("Testing: Change child range stage")
         self.console.ranges.open_overview_from_explorer(self.staged_range_name)
         self.console.ranges.wait_for_overview(self.staged_range_name)
@@ -441,6 +482,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_favorite_child_range(self) -> None:
         """Test favoriting a child range from the parent overview."""
+        assert self.child_range_name is not None
         self.log("Testing: Favorite child range")
         self.console.ranges.favorite_child_range(self.child_range_name)
 
@@ -450,6 +492,7 @@ class RangeLifecycle(ConsoleCase):
 
     def test_unfavorite_child_range(self) -> None:
         """Test unfavoriting a child range from the parent overview."""
+        assert self.child_range_name is not None
         self.log("Testing: Unfavorite child range")
         # Will raise an error if the range is still in the toolbar
         self.console.ranges.unfavorite_child_range(self.child_range_name)

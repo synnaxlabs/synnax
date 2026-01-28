@@ -820,10 +820,4 @@ class RangesClient:
             List of snapshot names.
         """
         items = self.page.locator(".console-snapshots__list-item")
-        count = items.count()
-        names = []
-        for i in range(count):
-            text = items.nth(i).inner_text().strip()
-            if text:
-                names.append(text)
-        return names
+        return [items.nth(i).inner_text().strip() for i in range(items.count())]
