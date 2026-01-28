@@ -48,11 +48,13 @@ func Analyze(
 
 		source, filePath, err := loader.Load(file)
 		if err != nil {
-			diag.AddErrorf(nil, file, "failed to load file: %v", err)
+			d := diagnostics.Errorf(nil, "failed to load file: %v", err)
+			d.File = file
+			diag.Add(d)
 			continue
 		}
 		ast, parseDiag := parser.Parse(source)
-		if parseDiag != nil && parseDiag.HasErrors() {
+		if parseDiag != nil && !parseDiag.Ok() {
 			for i := range *parseDiag {
 				(*parseDiag)[i].File = filePath
 			}
@@ -71,7 +73,7 @@ func Analyze(
 		}
 		analyze(c)
 	}
-	if diag.HasErrors() {
+	if !diag.Ok() {
 		return nil, diag
 	}
 	detectRecursiveTypes(table)
@@ -87,7 +89,7 @@ func AnalyzeSource(
 	table := resolution.NewTable()
 
 	ast, parseDiag := parser.Parse(source)
-	if parseDiag != nil && parseDiag.HasErrors() {
+	if parseDiag != nil && !parseDiag.Ok() {
 		diag.Merge(*parseDiag)
 		return nil, diag
 	}
@@ -102,7 +104,7 @@ func AnalyzeSource(
 		fileDomains: make(map[string]resolution.Domain),
 	}
 	analyze(c)
-	if diag.HasErrors() {
+	if !diag.Ok() {
 		return nil, diag
 	}
 	detectRecursiveTypes(table)
@@ -143,11 +145,13 @@ func analyze(c *analysisCtx) {
 		c.table.MarkImported(path)
 		source, filePath, err := c.loader.Load(path)
 		if err != nil {
-			c.diag.AddErrorf(imp, c.filePath, "failed to import %s: %v", path, err)
+			d := diagnostics.Errorf(imp, "failed to import %s: %v", path, err)
+			d.File = c.filePath
+			c.diag.Add(d)
 			continue
 		}
 		ast, parseDiag := parser.Parse(source)
-		if parseDiag != nil && parseDiag.HasErrors() {
+		if parseDiag != nil && !parseDiag.Ok() {
 			for i := range *parseDiag {
 				(*parseDiag)[i].File = filePath
 			}
@@ -199,7 +203,9 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
-		c.diag.AddErrorf(def, c.filePath, "duplicate type definition: %s", qname)
+		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
+		d.File = c.filePath
+		c.diag.Add(d)
 		return
 	}
 
@@ -255,7 +261,9 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	qname := c.namespace + "." + name
 
 	if _, exists := c.table.Get(qname); exists {
-		c.diag.AddErrorf(def, c.filePath, "duplicate type definition: %s", qname)
+		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
+		d.File = c.filePath
+		c.diag.Add(d)
 		return
 	}
 
@@ -538,7 +546,9 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
-		c.diag.AddErrorf(def, c.filePath, "duplicate type definition: %s", qname)
+		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
+		d.File = c.filePath
+		c.diag.Add(d)
 		return
 	}
 
@@ -602,7 +612,9 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
-		c.diag.AddErrorf(def, c.filePath, "duplicate type definition: %s", qname)
+		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
+		d.File = c.filePath
+		c.diag.Add(d)
 		return
 	}
 
@@ -732,7 +744,9 @@ func resolveTypeRef(c *analysisCtx, currentType *resolution.Type, ref *resolutio
 	} else if typ, ok := c.table.Lookup(ns, name); ok {
 		ref.Name = typ.QualifiedName
 	} else {
-		c.diag.AddWarningf(nil, c.filePath, "unresolved type: %s", ref.Name)
+		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
+		d.File = c.filePath
+		c.diag.Add(d)
 	}
 
 	for i := range ref.TypeArgs {
@@ -817,20 +831,26 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	for i, extendsRef := range form.Extends {
 		parent, ok := extendsRef.Resolve(c.table)
 		if !ok {
-			c.diag.AddErrorf(nil, c.filePath,
+			d := diagnostics.Errorf(nil,
 				"struct %s extends unresolved type at position %d: %s",
 				typ.Name, i+1, extendsRef.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
 			continue
 		}
 		parentForm, ok := parent.Form.(resolution.StructForm)
 		if !ok {
-			c.diag.AddErrorf(nil, c.filePath,
+			d := diagnostics.Errorf(nil,
 				"struct %s extends non-struct type at position %d: %s",
 				typ.Name, i+1, parent.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
 			continue
 		}
 		if parent.QualifiedName == typ.QualifiedName {
-			c.diag.AddErrorf(nil, c.filePath, "struct %s cannot extend itself", typ.Name)
+			d := diagnostics.Errorf(nil, "struct %s cannot extend itself", typ.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
 			continue
 		}
 		if len(parentForm.TypeParams) > 0 {
@@ -841,15 +861,19 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 				}
 			}
 			if len(extendsRef.TypeArgs) < requiredParams {
-				c.diag.AddErrorf(nil, c.filePath,
+				d := diagnostics.Errorf(nil,
 					"struct %s extends %s but provides %d type arguments (need at least %d)",
 					typ.Name, parent.Name, len(extendsRef.TypeArgs), requiredParams)
+				d.File = c.filePath
+				c.diag.Add(d)
 			}
 		}
 	}
 
 	if hasCircularInheritance(typ, c.table, make(map[string]bool)) {
-		c.diag.AddErrorf(nil, c.filePath, "circular inheritance detected: struct %s", typ.Name)
+		d := diagnostics.Errorf(nil, "circular inheritance detected: struct %s", typ.Name)
+		d.File = c.filePath
+		c.diag.Add(d)
 		return
 	}
 
@@ -865,9 +889,11 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	}
 	for _, omitted := range form.OmittedFields {
 		if !allParentFields[omitted] {
-			c.diag.AddErrorf(nil, c.filePath,
+			d := diagnostics.Errorf(nil,
 				"cannot omit field %q: not found in any parent struct",
 				omitted)
+			d.File = c.filePath
+			c.diag.Add(d)
 		}
 	}
 }

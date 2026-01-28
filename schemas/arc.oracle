@@ -36,32 +36,41 @@ Key = uuid {
     @doc value "is a unique identifier for an Arc module."
 }
 
+Mode enum {
+    text  = "text"
+    graph = "graph"
+
+    @doc value """
+        specifies whether an Arc module uses text-based or graph-based representation.
+    """
+}
+
 Arc struct {
-    key     Key             {
+    key    Key             {
         @key
         @doc value "is the unique identifier for this module."
     }
-    name    string          {
+    name   string          {
         @doc value "is a human-readable name for the module."
     }
-    graph   graph.Graph     {
+    mode   Mode            {
+        @doc value """
+            specifies the representation mode for this module.
+            Either "text" for text-based Arc code or "graph" for visual dataflow.
+        """
+    }
+    graph  graph.Graph     {
         @doc value "is the visual dataflow graph representation of the module."
     }
-    text    text.Text       {
+    text   text.Text       {
         @doc value "is the text-based Arc source code."
     }
-    module  module.Module?? {
+    module module.Module?? {
         @doc value """
             is the compiled module output including IR and WebAssembly bytecode.
         """
     }
-    deploy  bool            {
-        @doc value "indicates whether the module is deployed for execution."
-    }
-    version string          {
-        @doc value "is the module version identifier."
-    }
-    status  Status??        {
+    status Status??        {
         @doc value "is the current execution status of the module."
     }
 
@@ -74,26 +83,20 @@ Arc struct {
 }
 
 New struct {
-    key     Key?        {
+    key   Key?        {
         @doc value """
             is an optional key for the module. If not provided, one will be
             automatically assigned.
         """
     }
-    name    string      {
+    name  string      {
         @doc value "is a human-readable name for the module."
     }
-    graph   graph.Graph {
+    graph graph.Graph {
         @doc value "is the visual dataflow graph representation."
     }
-    text    text.Text   {
+    text  text.Text   {
         @doc value "is the text-based Arc source code."
-    }
-    deploy  bool        {
-        @doc value "indicates whether to deploy the module for execution."
-    }
-    version string      {
-        @doc value "is the module version identifier."
     }
 
     @doc value    "contains parameters for creating a new Arc module."

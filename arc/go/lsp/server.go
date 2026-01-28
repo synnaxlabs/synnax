@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/x/config"
+	xlsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"go.lsp.dev/protocol"
@@ -65,6 +66,7 @@ func (c Config) Validate() error { return nil }
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
+	xlsp.NoopServer
 	capabilities             protocol.ServerCapabilities
 	client                   protocol.Client
 	documents                map[protocol.DocumentURI]*Document
@@ -311,79 +313,4 @@ func (s *Server) republishAllDiagnostics(ctx context.Context) {
 	for uri, content := range docs {
 		s.publishDiagnostics(ctx, uri, content)
 	}
-}
-
-func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
-	var out protocol.DiagnosticSeverity
-	switch in {
-	case diagnostics.SeverityWarning:
-		out = protocol.DiagnosticSeverityWarning
-	case diagnostics.SeverityInfo:
-		out = protocol.DiagnosticSeverityInformation
-	case diagnostics.SeverityHint:
-		out = protocol.DiagnosticSeverityHint
-	case diagnostics.SeverityError:
-		out = protocol.DiagnosticSeverityError
-	}
-	return out
-}
-
-func translateDiagnostics(analysisDiag diagnostics.Diagnostics) []protocol.Diagnostic {
-	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
-	for _, diag := range analysisDiag {
-		end := diag.End
-		if end.Line == 0 && end.Col == 0 {
-			end.Line = diag.Start.Line
-			end.Col = diag.Start.Col + 1
-		}
-
-		pDiag := protocol.Diagnostic{
-			Range: protocol.Range{
-				Start: protocol.Position{
-					Line:      uint32(diag.Start.Line - 1),
-					Character: uint32(diag.Start.Col),
-				},
-				End: protocol.Position{
-					Line:      uint32(end.Line - 1),
-					Character: uint32(end.Col),
-				},
-			},
-			Severity: severity(diag.Severity),
-			Source:   "arc",
-			Message:  diag.Message,
-		}
-
-		if diag.Code != "" {
-			pDiag.Code = string(diag.Code)
-		}
-
-		if len(diag.Notes) > 0 {
-			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
-			for _, note := range diag.Notes {
-				loc := protocol.Location{
-					Range: protocol.Range{
-						Start: protocol.Position{
-							Line:      uint32(note.Start.Line - 1),
-							Character: uint32(note.Start.Col),
-						},
-						End: protocol.Position{
-							Line:      uint32(note.Start.Line - 1),
-							Character: uint32(note.Start.Col + 1),
-						},
-					},
-				}
-				if note.Start.Line == 0 {
-					loc.Range = pDiag.Range
-				}
-				related = append(related, protocol.DiagnosticRelatedInformation{
-					Location: loc,
-					Message:  note.Message,
-				})
-			}
-			pDiag.RelatedInformation = related
-		}
-
-		oDiagnostics = append(oDiagnostics, pDiag)
-	}
-	return oDiagnostics
 }

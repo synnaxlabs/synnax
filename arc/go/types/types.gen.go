@@ -34,6 +34,7 @@ const (
 	KindNumericConstant
 	KindIntegerConstant
 	KindFloatConstant
+	KindExactIntegerFloatConstant
 	KindFunction
 	KindSequence
 	KindStage

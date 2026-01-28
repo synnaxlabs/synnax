@@ -23,6 +23,13 @@ type Status = status.Status[StatusDetails]
 
 type Key = uuid.UUID
 
+type Mode string
+
+const (
+	ModeText  Mode = "text"
+	ModeGraph Mode = "graph"
+)
+
 // StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails struct {
 	// Running indicates whether the Arc module is currently executing.
@@ -36,16 +43,15 @@ type Arc struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the module.
 	Name string `json:"name" msgpack:"name"`
+	// Mode specifies the representation mode for this module. Either "text" for text-based
+	// Arc code or "graph" for visual dataflow.
+	Mode Mode `json:"mode" msgpack:"mode"`
 	// Graph is the visual dataflow graph representation of the module.
 	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
 	Text text.Text `json:"text" msgpack:"text"`
 	// Module is the compiled module output including IR and WebAssembly bytecode.
 	Module *module.Module `json:"module,omitempty" msgpack:"module,omitempty"`
-	// Deploy indicates whether the module is deployed for execution.
-	Deploy bool `json:"deploy" msgpack:"deploy"`
-	// Version is the module version identifier.
-	Version string `json:"version" msgpack:"version"`
 	// Status is the current execution status of the module.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

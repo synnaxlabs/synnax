@@ -502,6 +502,8 @@ func KindToPB(v types.Kind) Kind {
 		return Kind_KIND_INTEGER_CONSTANT
 	case types.KindFloatConstant:
 		return Kind_KIND_FLOAT_CONSTANT
+	case types.KindExactIntegerFloatConstant:
+		return Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT
 	case types.KindFunction:
 		return Kind_KIND_FUNCTION
 	case types.KindSequence:
@@ -552,6 +554,8 @@ func KindFromPB(v Kind) types.Kind {
 		return types.KindIntegerConstant
 	case Kind_KIND_FLOAT_CONSTANT:
 		return types.KindFloatConstant
+	case Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT:
+		return types.KindExactIntegerFloatConstant
 	case Kind_KIND_FUNCTION:
 		return types.KindFunction
 	case Kind_KIND_SEQUENCE:

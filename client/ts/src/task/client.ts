@@ -46,6 +46,9 @@ const NOT_CREATED_ERROR = new Error("Task not created");
 
 export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
 
+export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
+  ((BigInt(rackKey) << 32n) + BigInt(taskKey)).toString();
+
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.retrieveParents(ontologyID(taskKey));
   if (parents.length === 0) return null;

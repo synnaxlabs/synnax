@@ -31,9 +31,10 @@ export enum Kind {
   numeric_constant = 17,
   integer_constant = 18,
   float_constant = 19,
-  function = 20,
-  sequence = 21,
-  stage = 22,
+  exact_integer_float_constant = 20,
+  function = 21,
+  sequence = 22,
+  stage = 23,
 }
 export const kindZ = z.enum(Kind);
 

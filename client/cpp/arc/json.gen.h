@@ -39,11 +39,10 @@ inline Arc Arc::parse(x::json::Parser parser) {
     return Arc{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
+        .mode = parser.field<std::string>("mode"),
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
         .module = parser.field<std::optional<::arc::module::Module>>("module"),
-        .deploy = parser.field<bool>("deploy"),
-        .version = parser.field<std::string>("version"),
         .status = parser.field<std::optional<Status>>("status"),
     };
 }
@@ -52,11 +51,10 @@ inline x::json::json Arc::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
+    j["mode"] = this->mode;
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
     if (this->module.has_value()) j["module"] = this->module->to_json();
-    j["deploy"] = this->deploy;
-    j["version"] = this->version;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     return j;
 }

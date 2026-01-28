@@ -14,7 +14,6 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	arctransport "github.com/synnaxlabs/arc/lsp/transport"
 	arctext "github.com/synnaxlabs/arc/text"
@@ -163,7 +162,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP handles LSP protocol messages over a Freighter stream
-func (s *ArcService) LSP(ctx context.Context, stream freighter.ServerStream[ArcLSPMessage, ArcLSPMessage]) error {
+func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMessage, LSPMessage]) error {
 	lsp, err := s.internal.NewLSP()
 	if err != nil {
 		return err

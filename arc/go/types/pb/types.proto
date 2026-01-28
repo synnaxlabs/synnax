@@ -29,9 +29,10 @@ enum Kind {
   KIND_NUMERIC_CONSTANT = 17;
   KIND_INTEGER_CONSTANT = 18;
   KIND_FLOAT_CONSTANT = 19;
-  KIND_FUNCTION = 20;
-  KIND_SEQUENCE = 21;
-  KIND_STAGE = 22;
+  KIND_EXACT_INTEGER_FLOAT_CONSTANT = 20;
+  KIND_FUNCTION = 21;
+  KIND_SEQUENCE = 22;
+  KIND_STAGE = 23;
 }
 
 // FunctionProperties contains common parameter definitions for function-like types.

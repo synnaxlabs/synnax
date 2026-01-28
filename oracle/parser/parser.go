@@ -98,8 +98,7 @@ func (e *errorListener) SyntaxError(
 ) {
 	e.Add(diagnostics.Diagnostic{
 		Severity: diagnostics.SeverityError,
-		Line:     line,
-		Column:   column,
+		Start:    diagnostics.Position{Line: line, Col: column},
 		Message:  msg,
 	})
 }

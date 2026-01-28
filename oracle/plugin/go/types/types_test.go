@@ -96,7 +96,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -124,7 +124,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -150,7 +150,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "compiler", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -228,7 +228,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -256,7 +256,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -283,7 +283,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -313,7 +313,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -336,7 +336,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "empty", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -361,7 +361,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "simple", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -396,7 +396,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -433,7 +433,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -466,7 +466,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "priority", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -495,7 +495,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -522,7 +522,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -546,7 +546,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "container", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -575,7 +575,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Alias = Original
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "alias", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -596,7 +596,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Stratum = string[]
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -630,7 +630,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -667,7 +667,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -715,7 +715,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -754,7 +754,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -791,7 +791,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -831,7 +831,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "child", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -873,7 +873,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -903,7 +903,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -936,7 +936,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "entities", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -972,7 +972,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "entities", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1011,7 +1011,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "entities", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1052,7 +1052,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1080,7 +1080,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1111,7 +1111,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1139,7 +1139,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1163,7 +1163,7 @@ var _ = Describe("Go Types Plugin", func() {
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1195,7 +1195,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "compiler", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1232,7 +1232,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1261,7 +1261,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1300,7 +1300,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "module", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1340,7 +1340,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1435,7 +1435,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,

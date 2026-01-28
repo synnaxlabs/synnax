@@ -31,6 +31,9 @@ namespace synnax::arc {
 struct StatusDetails;
 struct Arc;
 
+constexpr const char *MODE_TEXT = "text";
+constexpr const char *MODE_GRAPH = "graph";
+
 using Key = x::uuid::UUID;
 
 /// @brief StatusDetails contains Arc-specific status details for execution state.
@@ -57,6 +60,9 @@ struct Arc {
     Key key;
     /// @brief name is a human-readable name for the module.
     std::string name;
+    /// @brief mode specifies the representation mode for this module. Either "text" for
+    /// text-based Arc code or "graph" for visual dataflow.
+    std::string mode;
     /// @brief graph is the visual dataflow graph representation of the module.
     ::arc::graph::Graph graph;
     /// @brief text is the text-based Arc source code.
@@ -64,10 +70,6 @@ struct Arc {
     /// @brief module is the compiled module output including IR and WebAssembly
     /// bytecode.
     std::optional<::arc::module::Module> module;
-    /// @brief deploy indicates whether the module is deployed for execution.
-    bool deploy = false;
-    /// @brief version is the module version identifier.
-    std::string version;
     /// @brief status is the current execution status of the module.
     std::optional<Status> status;
 

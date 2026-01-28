@@ -11,6 +11,12 @@ import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 
+// Mode specifies whether an Arc module uses text-based or graph-based representation.
+enum Mode {
+  MODE_TEXT = 0;
+  MODE_GRAPH = 1;
+}
+
 // StatusDetails contains Arc-specific status details for execution state.
 message StatusDetails {
   // running indicates whether the Arc module is currently executing.
@@ -24,16 +30,15 @@ message Arc {
   string key = 1;
   // name is a human-readable name for the module.
   string name = 2;
+  // mode specifies the representation mode for this module. Either "text" for text-based
+  // Arc code or "graph" for visual dataflow.
+  Mode mode = 3;
   // graph is the visual dataflow graph representation of the module.
-  .arc.graph.pb.Graph graph = 3;
+  .arc.graph.pb.Graph graph = 4;
   // text is the text-based Arc source code.
-  .arc.text.pb.Text text = 4;
+  .arc.text.pb.Text text = 5;
   // module is the compiled module output including IR and WebAssembly bytecode.
-  optional .arc.module.pb.Module module = 5;
-  // deploy indicates whether the module is deployed for execution.
-  bool deploy = 6;
-  // version is the module version identifier.
-  string version = 7;
+  optional .arc.module.pb.Module module = 6;
   // status is the current execution status of the module.
-  optional .x.status.pb.Status status = 8;
+  optional .x.status.pb.Status status = 7;
 }

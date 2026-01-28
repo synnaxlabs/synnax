@@ -171,7 +171,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri protocol.DocumentUR
 	}
 
 	ast, parseDiag := parser.Parse(content)
-	if parseDiag != nil && parseDiag.HasErrors() {
+	if parseDiag != nil && !parseDiag.Ok() {
 		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         uri,

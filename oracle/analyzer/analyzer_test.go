@@ -48,7 +48,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 			Expect(table).NotTo(BeNil())
 			Expect(table.StructTypes()).To(HaveLen(1))
 
@@ -83,7 +83,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.EnumTypes()).To(HaveLen(1))
 
 			taskStateType := table.MustGet("task.TaskState")
@@ -106,7 +106,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			dataTypeType := table.MustGet("telem.DataType")
 			form, ok := dataTypeType.Form.(resolution.EnumForm)
@@ -129,7 +129,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			taskStateType := table.MustGet("task.TaskState")
 			form, ok := taskStateType.Form.(resolution.EnumForm)
@@ -173,7 +173,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			userType := table.MustGet("user.User")
 			form := userType.Form.(resolution.StructForm)
@@ -206,7 +206,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
 			Expect(rangeType.Domains).To(HaveLen(1))
@@ -225,7 +225,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
 			form := rangeType.Form.(resolution.StructForm)
@@ -248,7 +248,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
 			form := rangeType.Form.(resolution.StructForm)
@@ -276,7 +276,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			// Both structs should be in the table
 			Expect(table.StructTypes()).To(HaveLen(2))
@@ -302,7 +302,7 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "main", loader)
 			// Should not error - circular imports are handled by tracking
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.StructTypes()).To(HaveLen(3))
 		})
 
@@ -313,7 +313,7 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag).NotTo(BeNil())
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 	})
@@ -345,7 +345,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`)
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			testType := table.MustGet("test.Test")
 			form := testType.Form.(resolution.StructForm)
@@ -370,7 +370,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "viz", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			viewportType := table.MustGet("viz.Viewport")
 			form := viewportType.Form.(resolution.StructForm)
@@ -400,7 +400,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			rangeType := table.MustGet("ranger.Range")
 			form := rangeType.Form.(resolution.StructForm)
@@ -428,7 +428,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			taskType := table.MustGet("task.Task")
 			form := taskType.Form.(resolution.StructForm)
@@ -451,7 +451,7 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
 			Expect(diag).NotTo(BeNil())
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
@@ -466,7 +466,7 @@ var _ = Describe("Analyzer", func() {
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag).NotTo(BeNil())
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 	})
@@ -492,7 +492,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			userType := table.MustGet("user.User")
 			Expect(userType.Domains).To(HaveKey("pb"))
@@ -522,7 +522,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			userType := table.MustGet("user.User")
 			Expect(userType.Domains).To(HaveKey("go"))
@@ -553,7 +553,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			// User should have overridden output
 			userType := table.MustGet("user.User")
@@ -582,7 +582,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 			Expect(table.StructTypes()).To(HaveLen(2))
 
 			childType := table.MustGet("test.Child")
@@ -615,7 +615,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
 			form := childType.Form.(resolution.StructForm)
@@ -645,7 +645,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
 			form := childType.Form.(resolution.StructForm)
@@ -685,7 +685,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			rackStatusType := table.MustGet("test.RackStatus")
 			form := rackStatusType.Form.(resolution.StructForm)
@@ -723,7 +723,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
 			// UnifiedFields should include fields from all ancestors
@@ -749,7 +749,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			extendedType := table.MustGet("test.Extended")
 			form := extendedType.Form.(resolution.StructForm)
@@ -771,7 +771,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
@@ -782,7 +782,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
@@ -793,7 +793,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
@@ -808,7 +808,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
 
@@ -824,7 +824,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
 			allFields := resolution.UnifiedFields(childType, table)
@@ -862,7 +862,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
 			allFields := resolution.UnifiedFields(childType, table)
@@ -893,7 +893,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
 			allFields := resolution.UnifiedFields(childType, table)
@@ -922,7 +922,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			childType := table.MustGet("test.Child")
 			allFields := resolution.UnifiedFields(childType, table)
@@ -956,7 +956,7 @@ var _ = Describe("Analyzer", func() {
 				C struct extends A, B { c string }
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			cType := table.MustGet("test.C")
 			form := cType.Form.(resolution.StructForm)
@@ -977,7 +977,7 @@ var _ = Describe("Analyzer", func() {
 				C struct extends A, B { }
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			cType := table.MustGet("test.C")
 			allFields := resolution.UnifiedFields(cType, table)
@@ -993,7 +993,7 @@ var _ = Describe("Analyzer", func() {
 				Diamond struct extends Left, Right { }
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			dType := table.MustGet("test.Diamond")
 			allFields := resolution.UnifiedFields(dType, table)
@@ -1013,7 +1013,7 @@ var _ = Describe("Analyzer", func() {
 				C struct extends A, B { c string }
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 		})
 
 		It("Should handle type parameters with multiple extends", func() {
@@ -1025,7 +1025,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			cType := table.MustGet("test.Combined")
 			allFields := resolution.UnifiedFields(cType, table)
@@ -1045,7 +1045,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			cType := table.MustGet("test.C")
 			allFields := resolution.UnifiedFields(cType, table)
@@ -1066,7 +1066,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 		})
 	})
 
@@ -1077,7 +1077,7 @@ var _ = Describe("Analyzer", func() {
 				ChannelKey uint32
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			channelKeyType := table.MustGet("channel.ChannelKey")
 			form, ok := channelKeyType.Form.(resolution.DistinctForm)
@@ -1095,7 +1095,7 @@ var _ = Describe("Analyzer", func() {
 				Point = Position
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "geo", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			pointType := table.MustGet("geo.Point")
 			form, ok := pointType.Form.(resolution.AliasForm)
@@ -1113,7 +1113,7 @@ var _ = Describe("Analyzer", func() {
 				Params Param[]
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			paramsType := table.MustGet("ir.Params")
 			form, ok := paramsType.Form.(resolution.DistinctForm)
@@ -1128,7 +1128,7 @@ var _ = Describe("Analyzer", func() {
 				Stratum = string[]
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			stratumType := table.MustGet("ir.Stratum")
 			form, ok := stratumType.Form.(resolution.AliasForm)
@@ -1148,7 +1148,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			containerType := table.MustGet("test.Container")
 			form := containerType.Form.(resolution.StructForm)
@@ -1168,7 +1168,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			containerType := table.MustGet("test.NumberContainer")
 			form := containerType.Form.(resolution.StructForm)
@@ -1183,7 +1183,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			containerType := table.MustGet("test.Container")
 			form := containerType.Form.(resolution.StructForm)
@@ -1202,7 +1202,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			wrapperType := table.MustGet("test.Wrapper")
 			form := wrapperType.Form.(resolution.StructForm)
@@ -1224,7 +1224,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			taskType := table.MustGet("test.Task")
 			form := taskType.Form.(resolution.StructForm)
@@ -1275,7 +1275,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			taskType := table.MustGet("test.Task")
 
@@ -1314,7 +1314,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			configType := table.MustGet("test.Config")
 			form := configType.Form.(resolution.StructForm)
@@ -1335,7 +1335,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			nodeType := table.MustGet("test.Node")
 			form := nodeType.Form.(resolution.StructForm)
@@ -1350,7 +1350,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			simpleType := table.MustGet("test.Simple")
 			form := simpleType.Form.(resolution.StructForm)

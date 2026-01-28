@@ -38,27 +38,28 @@ const (
 type Kind int32
 
 const (
-	Kind_KIND_INVALID          Kind = 0
-	Kind_KIND_U_8              Kind = 1
-	Kind_KIND_U_16             Kind = 2
-	Kind_KIND_U_32             Kind = 3
-	Kind_KIND_U_64             Kind = 4
-	Kind_KIND_I_8              Kind = 5
-	Kind_KIND_I_16             Kind = 6
-	Kind_KIND_I_32             Kind = 7
-	Kind_KIND_I_64             Kind = 8
-	Kind_KIND_F_32             Kind = 9
-	Kind_KIND_F_64             Kind = 10
-	Kind_KIND_STRING           Kind = 11
-	Kind_KIND_CHAN             Kind = 14
-	Kind_KIND_SERIES           Kind = 15
-	Kind_KIND_VARIABLE         Kind = 16
-	Kind_KIND_NUMERIC_CONSTANT Kind = 17
-	Kind_KIND_INTEGER_CONSTANT Kind = 18
-	Kind_KIND_FLOAT_CONSTANT   Kind = 19
-	Kind_KIND_FUNCTION         Kind = 20
-	Kind_KIND_SEQUENCE         Kind = 21
-	Kind_KIND_STAGE            Kind = 22
+	Kind_KIND_INVALID                      Kind = 0
+	Kind_KIND_U_8                          Kind = 1
+	Kind_KIND_U_16                         Kind = 2
+	Kind_KIND_U_32                         Kind = 3
+	Kind_KIND_U_64                         Kind = 4
+	Kind_KIND_I_8                          Kind = 5
+	Kind_KIND_I_16                         Kind = 6
+	Kind_KIND_I_32                         Kind = 7
+	Kind_KIND_I_64                         Kind = 8
+	Kind_KIND_F_32                         Kind = 9
+	Kind_KIND_F_64                         Kind = 10
+	Kind_KIND_STRING                       Kind = 11
+	Kind_KIND_CHAN                         Kind = 14
+	Kind_KIND_SERIES                       Kind = 15
+	Kind_KIND_VARIABLE                     Kind = 16
+	Kind_KIND_NUMERIC_CONSTANT             Kind = 17
+	Kind_KIND_INTEGER_CONSTANT             Kind = 18
+	Kind_KIND_FLOAT_CONSTANT               Kind = 19
+	Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT Kind = 20
+	Kind_KIND_FUNCTION                     Kind = 21
+	Kind_KIND_SEQUENCE                     Kind = 22
+	Kind_KIND_STAGE                        Kind = 23
 )
 
 // Enum value maps for Kind.
@@ -82,32 +83,34 @@ var (
 		17: "KIND_NUMERIC_CONSTANT",
 		18: "KIND_INTEGER_CONSTANT",
 		19: "KIND_FLOAT_CONSTANT",
-		20: "KIND_FUNCTION",
-		21: "KIND_SEQUENCE",
-		22: "KIND_STAGE",
+		20: "KIND_EXACT_INTEGER_FLOAT_CONSTANT",
+		21: "KIND_FUNCTION",
+		22: "KIND_SEQUENCE",
+		23: "KIND_STAGE",
 	}
 	Kind_value = map[string]int32{
-		"KIND_INVALID":          0,
-		"KIND_U_8":              1,
-		"KIND_U_16":             2,
-		"KIND_U_32":             3,
-		"KIND_U_64":             4,
-		"KIND_I_8":              5,
-		"KIND_I_16":             6,
-		"KIND_I_32":             7,
-		"KIND_I_64":             8,
-		"KIND_F_32":             9,
-		"KIND_F_64":             10,
-		"KIND_STRING":           11,
-		"KIND_CHAN":             14,
-		"KIND_SERIES":           15,
-		"KIND_VARIABLE":         16,
-		"KIND_NUMERIC_CONSTANT": 17,
-		"KIND_INTEGER_CONSTANT": 18,
-		"KIND_FLOAT_CONSTANT":   19,
-		"KIND_FUNCTION":         20,
-		"KIND_SEQUENCE":         21,
-		"KIND_STAGE":            22,
+		"KIND_INVALID":                      0,
+		"KIND_U_8":                          1,
+		"KIND_U_16":                         2,
+		"KIND_U_32":                         3,
+		"KIND_U_64":                         4,
+		"KIND_I_8":                          5,
+		"KIND_I_16":                         6,
+		"KIND_I_32":                         7,
+		"KIND_I_64":                         8,
+		"KIND_F_32":                         9,
+		"KIND_F_64":                         10,
+		"KIND_STRING":                       11,
+		"KIND_CHAN":                         14,
+		"KIND_SERIES":                       15,
+		"KIND_VARIABLE":                     16,
+		"KIND_NUMERIC_CONSTANT":             17,
+		"KIND_INTEGER_CONSTANT":             18,
+		"KIND_FLOAT_CONSTANT":               19,
+		"KIND_EXACT_INTEGER_FLOAT_CONSTANT": 20,
+		"KIND_FUNCTION":                     21,
+		"KIND_SEQUENCE":                     22,
+		"KIND_STAGE":                        23,
 	}
 )
 
@@ -658,7 +661,7 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"dimensions\x18\x01 \x01(\v2\x18.arc.types.pb.DimensionsR\n" +
 	"dimensions\x12\x14\n" +
 	"\x05scale\x18\x02 \x01(\x01R\x05scale\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name*\xf5\x02\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name*\x9c\x03\n" +
 	"\x04Kind\x12\x10\n" +
 	"\fKIND_INVALID\x10\x00\x12\f\n" +
 	"\bKIND_U_8\x10\x01\x12\r\n" +
@@ -678,11 +681,12 @@ const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\rKIND_VARIABLE\x10\x10\x12\x19\n" +
 	"\x15KIND_NUMERIC_CONSTANT\x10\x11\x12\x19\n" +
 	"\x15KIND_INTEGER_CONSTANT\x10\x12\x12\x17\n" +
-	"\x13KIND_FLOAT_CONSTANT\x10\x13\x12\x11\n" +
-	"\rKIND_FUNCTION\x10\x14\x12\x11\n" +
-	"\rKIND_SEQUENCE\x10\x15\x12\x0e\n" +
+	"\x13KIND_FLOAT_CONSTANT\x10\x13\x12%\n" +
+	"!KIND_EXACT_INTEGER_FLOAT_CONSTANT\x10\x14\x12\x11\n" +
+	"\rKIND_FUNCTION\x10\x15\x12\x11\n" +
+	"\rKIND_SEQUENCE\x10\x16\x12\x0e\n" +
 	"\n" +
-	"KIND_STAGE\x10\x16B\x94\x01\n" +
+	"KIND_STAGE\x10\x17B\x94\x01\n" +
 	"\x10com.arc.types.pbB\n" +
 	"TypesProtoP\x01Z\"github.com/synnaxlabs/arc/types/pb\xa2\x02\x03ATP\xaa\x02\fArc.Types.Pb\xca\x02\fArc\\Types\\Pb\xe2\x02\x18Arc\\Types\\Pb\\GPBMetadata\xea\x02\x0eArc::Types::Pbb\x06proto3"
 

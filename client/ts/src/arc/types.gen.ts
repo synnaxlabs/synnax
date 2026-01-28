@@ -16,6 +16,9 @@ import { graph } from "@/arc/graph";
 import { module } from "@/arc/module";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
+export const MODES = ["text", "graph"] as const;
+export const modeZ = z.enum(MODES);
+export type Mode = z.infer<typeof modeZ>;
 
 /** StatusDetails contains Arc-specific status details for execution state. */
 export const statusDetailsZ = z.object({
@@ -43,10 +46,6 @@ export const newZ = z.object({
   graph: graph.graphZ,
   /** text is the text-based Arc source code. */
   text: text.textZ,
-  /** deploy indicates whether to deploy the module for execution. */
-  deploy: z.boolean(),
-  /** version is the module version identifier. */
-  version: z.string(),
 });
 export interface New extends z.input<typeof newZ> {}
 
@@ -60,16 +59,17 @@ export const arcZ = z.object({
   key: keyZ,
   /** name is a human-readable name for the module. */
   name: z.string(),
+  /**
+   * mode specifies the representation mode for this module.
+   * Either "text" for text-based Arc code or "graph" for visual dataflow.
+   */
+  mode: modeZ,
   /** graph is the visual dataflow graph representation of the module. */
   graph: graph.graphZ,
   /** text is the text-based Arc source code. */
   text: text.textZ,
   /** module is the compiled module output including IR and WebAssembly bytecode. */
   module: module.moduleZ.optional(),
-  /** deploy indicates whether the module is deployed for execution. */
-  deploy: z.boolean(),
-  /** version is the module version identifier. */
-  version: z.string(),
   /** status is the current execution status of the module. */
   status: statusZ.optional(),
 });

@@ -102,7 +102,7 @@ func runSync(cmd *cobra.Command) error {
 	result, diag := oracle.Generate(ctx, normalizedFiles, repoRoot, registry)
 	if diag != nil {
 		printDiagnostics(diag.String())
-		if diag.HasErrors() {
+		if !diag.Ok() {
 			return errors.New("generation failed")
 		}
 	}

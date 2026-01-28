@@ -28,10 +28,10 @@ func generateRequest(
 	loader *MockFileLoader,
 ) (*plugin.Request, error) {
 	table, diag := analyzer.AnalyzeSource(ctx, source, namespace, loader)
-	if diag.HasErrors() {
+	if diag != nil && !diag.Ok() {
 		errors := diag.Errors()
 		if len(errors) > 0 {
-			return nil, errors
+			return nil, diag
 		}
 	}
 	return &plugin.Request{

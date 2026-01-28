@@ -33,7 +33,7 @@ func Generate(
 ) (*GenerateResult, *diagnostics.Diagnostics) {
 	loader := analyzer.NewStandardFileLoader(repoRoot)
 	table, diag := analyzer.Analyze(ctx, files, loader)
-	if diag != nil && diag.HasErrors() {
+	if diag != nil && !diag.Ok() {
 		return nil, diag
 	}
 
@@ -47,20 +47,23 @@ func Generate(
 		for _, depName := range p.Requires() {
 			dep := registry.Get(depName)
 			if dep == nil {
-				diag.AddErrorf(nil, "", "plugin '%s' requires unknown plugin '%s'", p.Name(), depName)
+				diag.Add(diagnostics.Errorf(nil, "plugin '%s' requires unknown plugin '%s'", p.Name(), depName))
 				continue
 			}
 			if err := dep.Check(req); err != nil {
-				return nil, diagnostics.FromError(&plugin.DependencyStaleError{
+				staleErr := &plugin.DependencyStaleError{
 					Plugin:     p.Name(),
 					Dependency: depName,
 					Reason:     err,
-				})
+				}
+				errDiag := &diagnostics.Diagnostics{}
+				errDiag.Add(diagnostics.Error(staleErr, nil))
+				return nil, errDiag
 			}
 		}
 		resp, err := p.Generate(req)
 		if err != nil {
-			diag.AddErrorf(nil, "", "plugin %s failed: %v", p.Name(), err)
+			diag.Add(diagnostics.Errorf(nil, "plugin %s failed: %v", p.Name(), err))
 			continue
 		}
 		if resp != nil {

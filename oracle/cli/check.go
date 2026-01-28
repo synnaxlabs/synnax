@@ -84,7 +84,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 		printDiagnostics(diag.String())
 	}
 
-	if diag != nil && diag.HasErrors() {
+	if diag != nil && !diag.Ok() {
 		printError(fmt.Sprintf("validation failed with %d error(s)", len(diag.Errors())))
 		return errors.New("validation failed")
 	}

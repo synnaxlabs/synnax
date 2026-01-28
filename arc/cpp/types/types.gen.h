@@ -54,9 +54,10 @@ enum class Kind : std::uint8_t {
     NumericConstant = 17,
     IntegerConstant = 18,
     FloatConstant = 19,
-    Function = 20,
-    Sequence = 21,
-    Stage = 22,
+    ExactIntegerFloatConstant = 20,
+    Function = 21,
+    Sequence = 22,
+    Stage = 23,
 };
 
 /// @brief Channels contains channel declarations for reading from and writing to Synnax

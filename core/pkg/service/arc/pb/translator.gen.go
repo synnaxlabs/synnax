@@ -81,12 +81,11 @@ func ArcToPB(ctx context.Context, r arc.Arc) (*Arc, error) {
 		return nil, err
 	}
 	pb := &Arc{
-		Name:    r.Name,
-		Deploy:  r.Deploy,
-		Version: r.Version,
-		Key:     r.Key.String(),
-		Graph:   graphVal,
-		Text:    textVal,
+		Name:  r.Name,
+		Mode:  ModeToPB(r.Mode),
+		Key:   r.Key.String(),
+		Graph: graphVal,
+		Text:  textVal,
 	}
 	if r.Module != nil {
 		var err error
@@ -126,8 +125,7 @@ func ArcFromPB(ctx context.Context, pb *Arc) (arc.Arc, error) {
 		return r, err
 	}
 	r.Name = pb.Name
-	r.Deploy = pb.Deploy
-	r.Version = pb.Version
+	r.Mode = ModeFromPB(pb.Mode)
 	if pb.Module != nil {
 		val, err := modulepb.ModuleFromPB(ctx, pb.Module)
 		if err != nil {
@@ -169,6 +167,30 @@ func ArcsFromPB(ctx context.Context, pbs []*Arc) ([]arc.Arc, error) {
 		}
 	}
 	return result, nil
+}
+
+// ModeToPB converts arc.Mode to Mode.
+func ModeToPB(v arc.Mode) Mode {
+	switch v {
+	case arc.ModeText:
+		return Mode_MODE_TEXT
+	case arc.ModeGraph:
+		return Mode_MODE_GRAPH
+	default:
+		return Mode_MODE_TEXT
+	}
+}
+
+// ModeFromPB converts Mode to arc.Mode.
+func ModeFromPB(v Mode) arc.Mode {
+	switch v {
+	case Mode_MODE_TEXT:
+		return arc.ModeText
+	case Mode_MODE_GRAPH:
+		return arc.ModeGraph
+	default:
+		return arc.ModeText
+	}
 }
 
 // StatusDetailsToPBAny converts StatusDetails to *anypb.Any for use with generic translators.

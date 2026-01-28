@@ -225,7 +225,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -251,7 +251,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -277,7 +277,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -303,7 +303,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -327,7 +327,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -351,7 +351,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -375,7 +375,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -405,7 +405,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -434,7 +434,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -462,7 +462,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -494,7 +494,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -518,7 +518,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -543,7 +543,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -569,7 +569,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -593,7 +593,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -618,7 +618,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -656,12 +656,12 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			if diag.HasErrors() {
+			if !diag.Ok() {
 				for _, e := range diag.Errors() {
 					GinkgoWriter.Printf("Error: %s\n", e)
 				}
 			}
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -687,7 +687,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Status = StatusDetails
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -710,7 +710,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "module", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -735,7 +735,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Params Param[]
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -767,7 +767,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -795,7 +795,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Params Param[]
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -824,7 +824,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Params Param[]
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -862,7 +862,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Params Param[]
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -895,7 +895,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -922,7 +922,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -955,7 +955,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -1001,7 +1001,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -1027,7 +1027,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-			Expect(diag.HasErrors()).To(BeFalse())
+			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -1056,7 +1056,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1084,7 +1084,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,
@@ -1189,7 +1189,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, channelSource, "channel", loader)
-				Expect(diag.HasErrors()).To(BeFalse())
+				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
 					Resolutions: table,

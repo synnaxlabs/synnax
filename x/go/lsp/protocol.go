@@ -43,25 +43,59 @@ func TranslateDiagnostics(diags diagnostics.Diagnostics, cfg TranslateConfig) []
 	result := make([]protocol.Diagnostic, 0, len(diags))
 	for _, d := range diags {
 		// Lines are 1-indexed in diagnostics, but 0-indexed in LSP
-		line := uint32(d.Line - 1)
-		if d.Line <= 0 {
-			line = 0
+		startLine := uint32(d.Start.Line - 1)
+		if d.Start.Line <= 0 {
+			startLine = 0
 		}
-		result = append(result, protocol.Diagnostic{
+		endLine := uint32(d.End.Line - 1)
+		if d.End.Line <= 0 {
+			endLine = startLine
+		}
+		pDiag := protocol.Diagnostic{
 			Range: protocol.Range{
 				Start: protocol.Position{
-					Line:      line,
-					Character: uint32(d.Column),
+					Line:      startLine,
+					Character: uint32(d.Start.Col),
 				},
 				End: protocol.Position{
-					Line:      line,
-					Character: uint32(d.Column + 10),
+					Line:      endLine,
+					Character: uint32(d.End.Col),
 				},
 			},
 			Severity: Severity(d.Severity),
 			Source:   cfg.Source,
 			Message:  d.Message,
-		})
+		}
+		// Add error code if present
+		if d.Code != "" {
+			pDiag.Code = string(d.Code)
+		}
+		// Convert notes to related information
+		if len(d.Notes) > 0 {
+			pDiag.RelatedInformation = make([]protocol.DiagnosticRelatedInformation, len(d.Notes))
+			for i, note := range d.Notes {
+				noteLine := uint32(note.Start.Line - 1)
+				if note.Start.Line <= 0 {
+					noteLine = startLine
+				}
+				pDiag.RelatedInformation[i] = protocol.DiagnosticRelatedInformation{
+					Location: protocol.Location{
+						Range: protocol.Range{
+							Start: protocol.Position{
+								Line:      noteLine,
+								Character: uint32(note.Start.Col),
+							},
+							End: protocol.Position{
+								Line:      noteLine,
+								Character: uint32(note.Start.Col),
+							},
+						},
+					},
+					Message: note.Message,
+				}
+			}
+		}
+		result = append(result, pDiag)
 	}
 	return result
 }

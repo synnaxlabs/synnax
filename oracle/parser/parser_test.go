@@ -565,13 +565,13 @@ var _ = Describe("Parser", func() {
 		It("Should report syntax errors", func() {
 			_, diag := parser.Parse(`struct { }`) // name should be before struct
 			Expect(diag).NotTo(BeNil())
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 		})
 
 		It("Should report errors for missing braces", func() {
 			_, diag := parser.Parse(`Range struct key uuid`)
 			Expect(diag).NotTo(BeNil())
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 		})
 
 		It("Should report errors for invalid enum value", func() {
@@ -581,7 +581,7 @@ var _ = Describe("Parser", func() {
 				}
 			`) // missing = value
 			Expect(diag).NotTo(BeNil())
-			Expect(diag.HasErrors()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 		})
 	})
 })
