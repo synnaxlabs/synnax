@@ -504,6 +504,6 @@ struct IR {
     [[nodiscard]] const Function &function(const std::string &key) const;
     [[nodiscard]] std::optional<Edge> edge_to(const Handle &target) const;
     [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
-    edges_from(const std::string &node_key) const;std::vector<Edge>edges_into(const std::string&node_key)const;
+    edges_from(const std::string &node_key) const;
 };
 }

@@ -51,7 +51,7 @@ export const stateZ = z.object({
   remoteCreated: z.boolean(),
   graph: graphStateZ,
   text: arc.text.textZ,
-  mode: arc.modeZ.optional(),
+  mode: arc.modeZ.default("graph"),
 });
 
 export interface State extends z.infer<typeof stateZ> {}
@@ -110,7 +110,7 @@ export const ZERO_STATE: State = {
   graph: ZERO_GRAPH_STATE,
   remoteCreated: false,
   text: { raw: "" },
-  mode: undefined,
+  mode: "graph",
 };
 
 export const ZERO_SLICE_STATE: SliceState = {

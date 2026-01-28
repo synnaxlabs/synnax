@@ -24,8 +24,8 @@ export const VERSION = "0.0.0";
 export const labelZ = z.looseObject({
   label: z.string().optional(),
   level: Text.levelZ.optional(),
-  orientation: location.location.optional(),
-  direction: direction.direction.optional(),
+  orientation: location.locationZ.optional(),
+  direction: direction.directionZ.optional(),
   maxInlineSize: z.number().optional(),
   align: Flex.alignmentZ.optional(),
 });

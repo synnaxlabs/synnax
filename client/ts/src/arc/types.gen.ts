@@ -42,6 +42,11 @@ export const newZ = z.object({
   key: keyZ.optional(),
   /** name is a human-readable name for the module. */
   name: z.string(),
+  /**
+   * mode specifies the representation mode for this module.
+   * Either "text" for text-based Arc code or "graph" for visual dataflow.
+   */
+  mode: modeZ,
   /** graph is the visual dataflow graph representation. */
   graph: graph.graphZ,
   /** text is the text-based Arc source code. */

@@ -337,7 +337,7 @@ const MultiElementProperties = ({
       if (el.type !== "node") return;
       const parsed = location.outerZ.safeParse(el.props.orientation);
       if (!parsed.success) return;
-      onChange(e.key, { orientation: location.rotate(parsed.data, dir) });
+      onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
     });
   };
 

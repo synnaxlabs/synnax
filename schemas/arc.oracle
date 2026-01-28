@@ -92,6 +92,12 @@ New struct {
     name  string      {
         @doc value "is a human-readable name for the module."
     }
+    mode  Mode        {
+        @doc value """
+            specifies the representation mode for this module.
+            Either "text" for text-based Arc code or "graph" for visual dataflow.
+        """
+    }
     graph graph.Graph {
         @doc value "is the visual dataflow graph representation."
     }

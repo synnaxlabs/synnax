@@ -264,15 +264,15 @@ describe("Ontology Queries", () => {
 
   describe("useRetrieveChildren", () => {
     it("should retrieve children of a parent", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child1",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent.key),
         name: "child2",
       });
@@ -289,7 +289,7 @@ describe("Ontology Queries", () => {
     });
 
     it("should return empty array when parent has no children", async () => {
-      const parent = await client.ontology.groups.create({
+      const parent = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "empty-parent",
       });
@@ -319,24 +319,24 @@ describe("Ontology Queries", () => {
     });
 
     it("should re-fetch when query ID changes", async () => {
-      const parent1 = await client.ontology.groups.create({
+      const parent1 = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent1",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent1.key),
         name: "p1-child",
       });
 
-      const parent2 = await client.ontology.groups.create({
+      const parent2 = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "parent2",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent2.key),
         name: "p2-child1",
       });
-      await client.ontology.groups.create({
+      await client.groups.create({
         parent: group.ontologyID(parent2.key),
         name: "p2-child2",
       });
