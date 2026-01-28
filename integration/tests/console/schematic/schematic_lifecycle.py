@@ -138,6 +138,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_open_schematic_from_resources(self) -> None:
         """Test opening a schematic by double-clicking it in the workspace resources toolbar."""
+        assert self.main_schematic_name is not None
         self.log("Testing open schematic from resources toolbar")
 
         schematic = self.console.workspace.open_schematic(self.main_schematic_name)
@@ -154,6 +155,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_drag_schematic_onto_mosaic(self) -> None:
         """Test dragging a schematic from the resources toolbar onto the mosaic."""
+        assert self.main_schematic_name is not None
         self.log("Testing drag schematic onto mosaic")
 
         schematic = self.console.workspace.drag_schematic_to_mosaic(
@@ -171,6 +173,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_open_schematic_from_search(self) -> None:
         """Test opening a schematic by searching its name in the command palette."""
+        assert self.main_schematic_name is not None
         self.log("Testing open schematic from search palette")
 
         schematic = Schematic.open_from_search(self.console, self.main_schematic_name)
@@ -239,6 +242,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def test_snapshot_operations(self) -> None:
         """Test snapshot operations using shared range."""
+        assert self.shared_range_name is not None
         self.log("Testing snapshot schematic to active range")
         single_snapshot_name = f"Snapshot Single {self.suffix}"
         schematic = Schematic(self.console, single_snapshot_name)
@@ -264,6 +268,7 @@ class SchematicLifecycle(ConsoleCase):
 
     def _test_snapshot_rename_synchronization(self) -> None:
         """Test that renaming a snapshot synchronizes across UI elements."""
+        assert self.shared_range_name is not None
         original_name = f"Snapshot Original {self.suffix}"
         schematic = Schematic(self.console, original_name)
         schematic.close()
