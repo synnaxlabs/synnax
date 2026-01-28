@@ -7,6 +7,7 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - cesium/**
+      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -20,6 +21,7 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - cesium/**
+      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh

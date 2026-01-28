@@ -6,6 +6,7 @@ on:
       - .github/workflows/test.alamos.go.yaml
       - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
@@ -18,6 +19,7 @@ on:
       - .github/workflows/test.alamos.go.yaml
       - .golangci.yaml
       - alamos/go/**
+      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh
