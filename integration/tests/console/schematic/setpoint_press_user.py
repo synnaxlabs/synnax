@@ -96,26 +96,32 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
         assert press_vlv_state == 0, "Press valve should be 0 on initial read"
         assert vent_vlv_state == 0, "Vent valve should be 0 on initial read"
 
+        self.console.notifications.close_all()
         start_cmd.press()  # Set True
 
         # Take absolute control
+        self.console.notifications.close_all()
         press_valve.toggle_absolute_control()
         vent_valve.toggle_absolute_control()
 
+        self.console.notifications.close_all()
         press_valve.press()  # Set True
         vent_valve.press()  # Set True
 
         # Wait for states to propagate
         self.assert_states(press_state=1, vent_state=1, start_flag_state=1)
 
+        self.console.notifications.close_all()
         press_valve.press()  # Set False
         vent_valve.press()  # Set False
 
         # Release back to higher authority
+        self.console.notifications.close_all()
         press_valve.toggle_absolute_control()
         vent_valve.toggle_absolute_control()
 
         # Check we can control something again
+        self.console.notifications.close_all()
         start_cmd.press()  # Set False
 
         # Wait for states to propagate
@@ -123,6 +129,7 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
 
         # ------------- Test 2: Basic Control --------------
         self.log("Starting Basic Control Test (2/2)")
+        self.console.notifications.close_all()
         start_cmd.press()  # Set True
 
         self.log("Starting test")
@@ -147,6 +154,7 @@ class SetpointPressUser(SimDaqTestCase, ConsoleCase):
                 self.fail("Exiting on timeout.")
                 return
 
+        self.console.notifications.close_all()
         end_cmd.press()
         self.console.screenshot("setpoint_press_user_passed")
 
