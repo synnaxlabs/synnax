@@ -15,7 +15,6 @@ on:
       - client/cpp/**
       - core/**
       - driver/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - go.work
@@ -44,7 +43,6 @@ on:
       - client/cpp/**
       - core/**
       - driver/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - go.work
