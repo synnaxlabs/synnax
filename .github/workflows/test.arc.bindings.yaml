@@ -1,0 +1,45 @@
+name: Test - Arc Bindings
+
+on:
+  pull_request:
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/test.arc.bindings.yaml
+      - arc/cpp/**
+      - arc/go/**
+      - arc/scripts/validate_bindings.sh
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - vendor/wasmtime/**
+      - x/cpp/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .bazeliskrc
+      - .bazelrc
+      - .github/workflows/test.arc.bindings.yaml
+      - arc/cpp/**
+      - arc/go/**
+      - arc/scripts/validate_bindings.sh
+      - MODULE.bazel
+      - MODULE.bazel.lock
+      - vendor/wasmtime/**
+      - x/cpp/**
+  workflow_dispatch:
+
+env:
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+
+jobs:
+  validate:
+    name: Validate WASM Bindings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate WASM bindings
+        run: arc/scripts/validate_bindings.sh
