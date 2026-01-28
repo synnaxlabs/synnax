@@ -56,8 +56,8 @@ func volts_to_psi{
 pressure_raw -> volts_to_psi{v_min=0.0, v_max=10.0, psi_min=0.0, psi_max=1000.0} -> tank_pressure
 ```
 
-The config parameters (`v_min`, `v_max`, `psi_min`, `psi_max`) are set when the
-function is instantiated, making it reusable across different sensors.
+The config parameters (`v_min`, `v_max`, `psi_min`, `psi_max`) are set when the function
+is instantiated, making it reusable across different sensors.
 
 <Divider.Divider x />
 
@@ -134,9 +134,9 @@ tc_raw -> mv_to_volts{} -> volts_to_temp{v_ref=0.0, temp_coeff=0.041} -> tc_temp
 ```
 
 <Note.Note variant="info">
-Keep conversion chains short when possible. Longer chains add latency and make
-debugging harder. If you have a complex multi-step conversion, consider combining
-the math into a single function.
+  Keep conversion chains short when possible. Longer chains add latency and make
+  debugging harder. If you have a complex multi-step conversion, consider combining the
+  math into a single function.
 </Note.Note>
 
 <Divider.Divider x />
@@ -152,16 +152,16 @@ func convert_pressure(psi f64) f64 bar {
 }
 ```
 
-The return type `f64 bar` documents that this function returns a value in bar units.
-The compiler will catch if you accidentally use this where a PSI value is expected
-(in functions that declare their parameters with units).
+The return type `f64 bar` documents that this function returns a value in bar units. The
+compiler will catch if you accidentally use this where a PSI value is expected (in
+functions that declare their parameters with units).
 
 <Divider.Divider x />
 
 ## Reusable Conversion Patterns
 
-For systems with many sensors of the same type, create a single conversion function
-and instantiate it for each channel:
+For systems with many sensors of the same type, create a single conversion function and
+instantiate it for each channel:
 
 ```arc
 func pt_convert{

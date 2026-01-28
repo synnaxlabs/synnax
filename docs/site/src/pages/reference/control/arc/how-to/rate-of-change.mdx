@@ -13,10 +13,10 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-The rate at which a value changes is often more important than the value itself.
-A tank pressure of 500 PSI is fine during pressurization, but a pressure that's
-rising at 100 PSI/second might indicate a runaway condition. Rate of change
-detection catches these situations.
+The rate at which a value changes is often more important than the value itself. A tank
+pressure of 500 PSI is fine during pressurization, but a pressure that's rising at 100
+PSI/second might indicate a runaway condition. Rate of change detection catches these
+situations.
 
 <Divider.Divider x />
 
@@ -70,8 +70,8 @@ Now `pressure_rate` shows PSI per second (assuming `tank_pressure` is in PSI).
 
 ## Smoothed Rate of Change
 
-Raw rate calculations amplify noise. Apply an exponential moving average to smooth
-the result:
+Raw rate calculations amplify noise. Apply an exponential moving average to smooth the
+result:
 
 ```arc
 func smoothed_rate{
@@ -149,8 +149,8 @@ direction.
 
 ## Leak Detection
 
-A pressure drop in a closed system indicates a leak. Monitor the rate and trigger
-when it exceeds the expected decay:
+A pressure drop in a closed system indicates a leak. Monitor the rate and trigger when
+it exceeds the expected decay:
 
 ```arc
 func leak_detector{
@@ -302,6 +302,6 @@ sequence main {
 ```
 
 <Note.Note variant="warning">
-Rate calculations are sensitive to noise and sample timing. Use smoothing for
-critical decisions, and set thresholds with margin for normal variation.
+  Rate calculations are sensitive to noise and sample timing. Use smoothing for critical
+  decisions, and set thresholds with margin for normal variation.
 </Note.Note>

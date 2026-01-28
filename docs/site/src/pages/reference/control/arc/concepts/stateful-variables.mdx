@@ -117,8 +117,8 @@ func toggle(trigger u8) u8 {
 ## Stateful Variables Replace Loops
 
 Since Arc doesn't have loops, stateful variables are how you implement iterative
-algorithms. Instead of looping until a condition is met, you update state each
-execution and let the reactive model handle the iteration.
+algorithms. Instead of looping until a condition is met, you update state each execution
+and let the reactive model handle the iteration.
 
 Traditional approach (not Arc):
 
@@ -189,6 +189,6 @@ func example() {
 ```
 
 <Note.Note variant="info">
-Integer literals default to `i64` and float literals default to `f64`. If you need a
-different type, add an explicit annotation.
+  Integer literals default to `i64` and float literals default to `f64`. If you need a
+  different type, add an explicit annotation.
 </Note.Note>

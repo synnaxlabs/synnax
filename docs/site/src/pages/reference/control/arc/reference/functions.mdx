@@ -1,7 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Functions"
-description: "Arc function reference for declaration syntax, config parameters, inputs, outputs, and calling conventions"
+description:
+  "Arc function reference for declaration syntax, config parameters, inputs, outputs,
+  and calling conventions"
 prev: "Operators"
 prevURL: "/reference/control/arc/reference/operators"
 next: "Sequences"
@@ -21,14 +23,14 @@ func name{config}(inputs) output {
 }
 ```
 
-| Part | Required | Description |
-| ---- | -------- | ----------- |
-| `func` | Yes | Keyword |
-| `name` | Yes | Function identifier |
-| `{config}` | No | Config parameters (compile-time) |
-| `(inputs)` | Yes | Input parameters (runtime) |
-| `output` | No | Return type |
-| `{ body }` | Yes | Function body |
+| Part       | Required | Description                      |
+| ---------- | -------- | -------------------------------- |
+| `func`     | Yes      | Keyword                          |
+| `name`     | Yes      | Function identifier              |
+| `{config}` | No       | Config parameters (compile-time) |
+| `(inputs)` | Yes      | Input parameters (runtime)       |
+| `output`   | No       | Return type                      |
+| `{ body }` | Yes      | Function body                    |
 
 <Divider.Divider x />
 
@@ -54,8 +56,8 @@ func log_value(value f64) {
 
 ## Config Parameters
 
-Config parameters are set at instantiation time (compile-time constants). They
-appear in braces `{}` after the function name.
+Config parameters are set at instantiation time (compile-time constants). They appear in
+braces `{}` after the function name.
 
 ```arc
 func filter{threshold f64} (value f64) f64 {
@@ -132,8 +134,8 @@ sensor -> clamp{min=0.0, max=100.0} -> output
 
 ## Input Parameters
 
-Input parameters are received at runtime when the function is triggered.
-They appear in parentheses `()`.
+Input parameters are received at runtime when the function is triggered. They appear in
+parentheses `()`.
 
 ```arc
 func process(value f64, scale f64) f64 {
@@ -284,8 +286,8 @@ func monitor() {
 ```
 
 <Note.Note variant="info">
-Channel reads in function bodies are non-blocking snapshots. They return the
-latest value or zero if no data exists.
+  Channel reads in function bodies are non-blocking snapshots. They return the latest
+  value or zero if no data exists.
 </Note.Note>
 
 <Divider.Divider x />
@@ -308,13 +310,13 @@ The routing table maps channel names to parameter names.
 
 ## Restrictions
 
-| Restriction | Description |
-| ----------- | ----------- |
-| No closures | Functions cannot capture variables from enclosing scope |
-| No nested functions | Functions cannot be defined inside other functions |
-| No partial application | All required arguments must be provided |
-| Explicit returns | Functions with return types require `return` statements |
-| Config = constants | Config values must be literals or channel identifiers |
+| Restriction            | Description                                             |
+| ---------------------- | ------------------------------------------------------- |
+| No closures            | Functions cannot capture variables from enclosing scope |
+| No nested functions    | Functions cannot be defined inside other functions      |
+| No partial application | All required arguments must be provided                 |
+| Explicit returns       | Functions with return types require `return` statements |
+| Config = constants     | Config values must be literals or channel identifiers   |
 
 <Divider.Divider x />
 
@@ -332,5 +334,5 @@ func factorial(n i64) i64 {
 ```
 
 <Note.Note variant="warning">
-Unbounded recursion causes a stack overflow at runtime.
+  Unbounded recursion causes a stack overflow at runtime.
 </Note.Note>

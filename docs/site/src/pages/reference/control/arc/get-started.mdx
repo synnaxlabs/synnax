@@ -23,10 +23,11 @@ writes the result to another channel.
 ## Create an Arc Automation
 
 Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create an Arc
-automation". You can also click the "+" button in the toolbar or right-click a driver
-in the resources panel.
+automation". You can also click the "+" button in the toolbar or right-click a driver in
+the resources panel.
 
 {/* TODO: Video - control/arc/get-started/create-automation */}
+
 <Video client:only="react" id="control/arc/get-started/create-automation" />
 
 Choose a name and select **Text** for the editor mode.
@@ -50,14 +51,15 @@ This program does three things:
 1. **Declares a function** called `scale_reading` that takes a number (`f64` means
    floating-point) and returns that number multiplied by 2
 2. **Reads from a channel** called `tank_pressure`
-3. **Pipes the value** through `scale_reading` and writes the result to `pressure_scaled`
+3. **Pipes the value** through `scale_reading` and writes the result to
+   `pressure_scaled`
 
 The `->` arrow creates a **flow**. Whenever `tank_pressure` receives new data, Arc
 automatically runs `scale_reading` and updates `pressure_scaled`.
 
 <Note.Note variant="info">
-Replace `tank_pressure` and `pressure_scaled` with actual channel names from your
-Synnax setup. The channels must already exist.
+  Replace `tank_pressure` and `pressure_scaled` with actual channel names from your
+  Synnax setup. The channels must already exist.
 </Note.Note>
 
 <Divider.Divider x />
@@ -103,6 +105,7 @@ manages your hardware. To deploy:
 3. Click the **Play** button to start execution
 
 {/* TODO: Video - control/arc/get-started/deploy-automation */}
+
 <Video client:only="react" id="control/arc/get-started/deploy-automation" />
 
 The status indicator shows whether your automation is running, stopped, or has errors.
@@ -112,8 +115,8 @@ You can stop execution at any time with the **Pause** button.
 
 ## A Threshold Alarm
 
-Here's a more practical example that triggers a notification when temperature exceeds
-a limit:
+Here's a more practical example that triggers a notification when temperature exceeds a
+limit:
 
 ```arc
 func check_temp{limit f64}(reading f64) u8 {
@@ -144,14 +147,15 @@ You've created a basic Arc automation. The real power of Arc comes from **sequen
 which let you build multi-step procedures that progress through stages based on
 conditions.
 
-**Recommended next step**: [Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages)
-to learn how to build test procedures, startup routines, and state machines.
+**Recommended next step**:
+[Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages) to learn
+how to build test procedures, startup routines, and state machines.
 
 Or explore other topics:
 
-- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)**: Understand
-  how Arc schedules computations and the difference between continuous (`->`) and
-  one-shot (`=>`) edges
+- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)**:
+  Understand how Arc schedules computations and the difference between continuous (`->`)
+  and one-shot (`=>`) edges
 - **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
   with telemetry data and array operations
 - **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)**: Persist

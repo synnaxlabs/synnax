@@ -1,7 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Types"
-description: "Arc type system reference for primitives, channels, series, units, and type casting"
+description:
+  "Arc type system reference for primitives, channels, series, units, and type casting"
 prev: "Syntax"
 prevURL: "/reference/control/arc/reference/syntax"
 next: "Operators"
@@ -17,28 +18,28 @@ export const components = mdxOverrides;
 
 ### Integer Types
 
-| Type | Size | Range |
-| ---- | ---- | ----- |
-| `i8` | 8-bit signed | -128 to 127 |
-| `i16` | 16-bit signed | -32,768 to 32,767 |
-| `i32` | 32-bit signed | -2,147,483,648 to 2,147,483,647 |
-| `i64` | 64-bit signed | -9.2×10¹⁸ to 9.2×10¹⁸ |
-| `u8` | 8-bit unsigned | 0 to 255 |
-| `u16` | 16-bit unsigned | 0 to 65,535 |
-| `u32` | 32-bit unsigned | 0 to 4,294,967,295 |
-| `u64` | 64-bit unsigned | 0 to 1.8×10¹⁹ |
+| Type  | Size            | Range                           |
+| ----- | --------------- | ------------------------------- |
+| `i8`  | 8-bit signed    | -128 to 127                     |
+| `i16` | 16-bit signed   | -32,768 to 32,767               |
+| `i32` | 32-bit signed   | -2,147,483,648 to 2,147,483,647 |
+| `i64` | 64-bit signed   | -9.2×10¹⁸ to 9.2×10¹⁸           |
+| `u8`  | 8-bit unsigned  | 0 to 255                        |
+| `u16` | 16-bit unsigned | 0 to 65,535                     |
+| `u32` | 32-bit unsigned | 0 to 4,294,967,295              |
+| `u64` | 64-bit unsigned | 0 to 1.8×10¹⁹                   |
 
 ### Floating Point Types
 
-| Type | Size | Precision |
-| ---- | ---- | --------- |
-| `f32` | 32-bit | ~7 decimal digits |
+| Type  | Size   | Precision          |
+| ----- | ------ | ------------------ |
+| `f32` | 32-bit | ~7 decimal digits  |
 | `f64` | 64-bit | ~15 decimal digits |
 
 ### String Type
 
-| Type | Description |
-| ---- | ----------- |
+| Type  | Description            |
+| ----- | ---------------------- |
 | `str` | Immutable UTF-8 string |
 
 <Divider.Divider x />
@@ -47,12 +48,12 @@ export const components = mdxOverrides;
 
 When you write a literal without an explicit type, Arc infers a default:
 
-| Literal | Default Type |
-| ------- | ------------ |
-| `42` | `i64` |
-| `3.14` | `f64` |
-| `"text"` | `str` |
-| `[1, 2, 3]` | `series i64` |
+| Literal      | Default Type |
+| ------------ | ------------ |
+| `42`         | `i64`        |
+| `3.14`       | `f64`        |
+| `"text"`     | `str`        |
+| `[1, 2, 3]`  | `series i64` |
 | `[1.0, 2.0]` | `series f64` |
 
 <Divider.Divider x />
@@ -61,10 +62,10 @@ When you write a literal without an explicit type, Arc infers a default:
 
 Arc uses `u8` for boolean values. There is no separate boolean type.
 
-| Value | Meaning |
-| ----- | ------- |
-| `0` | false |
-| non-zero | true |
+| Value    | Meaning |
+| -------- | ------- |
+| `0`      | false   |
+| non-zero | true    |
 
 Logical operators normalize results to `0` or `1`:
 
@@ -146,8 +147,8 @@ mask := data > 2.0           // [0, 0, 1]
 ```
 
 <Note.Note variant="warning">
-Out-of-bounds access causes a runtime error. Series-to-series operations require
-equal-length arrays.
+  Out-of-bounds access causes a runtime error. Series-to-series operations require
+  equal-length arrays.
 </Note.Note>
 
 <Divider.Divider x />
@@ -193,16 +194,16 @@ b i64 := i64(a)              // truncates to 3
 
 ### Casting Rules
 
-| Conversion | Behavior |
-| ---------- | -------- |
-| Widening (e.g., `i16` to `i64`) | Safe, sign/zero extend |
-| Narrowing (e.g., `i64` to `i8`) | Truncates |
-| Signed to unsigned | Saturates at bounds |
-| Float to integer | Truncates toward zero, saturates on overflow |
-| Integer overflow | Two's-complement wrapping |
+| Conversion                      | Behavior                                     |
+| ------------------------------- | -------------------------------------------- |
+| Widening (e.g., `i16` to `i64`) | Safe, sign/zero extend                       |
+| Narrowing (e.g., `i64` to `i8`) | Truncates                                    |
+| Signed to unsigned              | Saturates at bounds                          |
+| Float to integer                | Truncates toward zero, saturates on overflow |
+| Integer overflow                | Two's-complement wrapping                    |
 
 <Note.Note variant="info">
-Arc requires explicit casts for mixed-type arithmetic. No implicit type promotion.
+  Arc requires explicit casts for mixed-type arithmetic. No implicit type promotion.
 </Note.Note>
 
 ```arc
@@ -221,12 +222,12 @@ y f64 := f64(x) + 1.0
 
 All types have default zero values:
 
-| Type | Zero Value |
-| ---- | ---------- |
-| integers | `0` |
-| floats | `0.0` |
-| `str` | `""` (empty string) |
-| series | `[]` (empty series) |
+| Type     | Zero Value                                 |
+| -------- | ------------------------------------------ |
+| integers | `0`                                        |
+| floats   | `0.0`                                      |
+| `str`    | `""` (empty string)                        |
+| series   | `[]` (empty series)                        |
 | channels | zero value of element type (on first read) |
 
 <Divider.Divider x />
@@ -244,11 +245,11 @@ length := len(msg)           // length in bytes
 equal := msg == "Hello"      // equality (returns u8: 1 or 0)
 ```
 
-| Operation | Supported |
-| --------- | --------- |
-| `+` (concatenation) | Yes |
-| `==`, `!=` (equality) | Yes |
-| `[]` (indexing) | Yes |
-| `[:]` (slicing) | Yes |
-| `len()` | Yes |
-| `<`, `>`, `<=`, `>=` | No |
+| Operation             | Supported |
+| --------------------- | --------- |
+| `+` (concatenation)   | Yes       |
+| `==`, `!=` (equality) | Yes       |
+| `[]` (indexing)       | Yes       |
+| `[:]` (slicing)       | Yes       |
+| `len()`               | Yes       |
+| `<`, `>`, `<=`, `>=`  | No        |

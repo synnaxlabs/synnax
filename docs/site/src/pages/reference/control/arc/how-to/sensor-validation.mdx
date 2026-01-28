@@ -14,9 +14,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Bad sensor data can cause control systems to make bad decisions. A disconnected
-thermocouple might read -200°C, causing a heater to run at full power. A failed
-pressure transducer might show 0 PSI, triggering a false leak alarm. Validating
-sensor readings before using them catches these failures.
+thermocouple might read -200°C, causing a heater to run at full power. A failed pressure
+transducer might show 0 PSI, triggering a false leak alarm. Validating sensor readings
+before using them catches these failures.
 
 <Divider.Divider x />
 
@@ -48,8 +48,8 @@ Downstream control logic uses `pressure_validated` instead of the raw reading.
 
 ## Thermocouple Validation
 
-Thermocouples have specific failure modes. Open circuits often read very negative
-or very positive values:
+Thermocouples have specific failure modes. Open circuits often read very negative or
+very positive values:
 
 ```arc
 func tc_validate{
@@ -147,8 +147,8 @@ tank_pressure -> stuck_detector{threshold=0.1, max_stuck=100} -> sensor_stuck
 ```
 
 <Note.Note variant="info">
-Set `threshold` based on expected sensor noise. A perfectly stable reading might
-indicate a failed sensor, but some sensors legitimately hold steady values.
+  Set `threshold` based on expected sensor noise. A perfectly stable reading might
+  indicate a failed sensor, but some sensors legitimately hold steady values.
 </Note.Note>
 
 <Divider.Divider x />
@@ -450,6 +450,6 @@ sequence main {
 ```
 
 <Note.Note variant="warning">
-Always use validated sensor values in control logic. Raw sensor inputs should go
-through validation before being used for decisions or fed to actuators.
+  Always use validated sensor values in control logic. Raw sensor inputs should go
+  through validation before being used for decisions or fed to actuators.
 </Note.Note>

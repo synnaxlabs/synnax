@@ -1,7 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Channels and Series"
-description: "How Arc connects to Synnax telemetry through channels and handles array data with series"
+description:
+  "How Arc connects to Synnax telemetry through channels and handles array data with
+  series"
 prev: "Reactive Execution"
 prevURL: "/reference/control/arc/concepts/reactive-execution"
 next: "Stateful Variables"
@@ -14,8 +16,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 Channels are Arc's connection to Synnax telemetry data. They let you read sensor values,
-write to actuators, and respond to operator inputs. Series are arrays of values,
-useful for batch processing and aggregation.
+write to actuators, and respond to operator inputs. Series are arrays of values, useful
+for batch processing and aggregation.
 
 <Divider.Divider x />
 
@@ -81,12 +83,12 @@ func controller{
 The line `target := setpoint` returns immediately with the most recent value written to
 the `setpoint` channel. If nothing has been written yet, it returns zero.
 
-| Aspect | Reactive (`->`) | Imperative (function body) |
-|--------|-----------------|---------------------------|
-| Trigger | New data arrival | Function invocation |
-| Data form | Time-series stream | Single scalar value |
-| Empty channel | Skips execution | Returns zero |
-| Use case | Main data pipelines | Side-channel reads, setpoints |
+| Aspect        | Reactive (`->`)     | Imperative (function body)    |
+| ------------- | ------------------- | ----------------------------- |
+| Trigger       | New data arrival    | Function invocation           |
+| Data form     | Time-series stream  | Single scalar value           |
+| Empty channel | Skips execution     | Returns zero                  |
+| Use case      | Main data pipelines | Side-channel reads, setpoints |
 
 ### Channels as Config Parameters
 
@@ -137,8 +139,8 @@ sensor -> scale{factor=2.0} -> output_channel
 
 ## Series
 
-Series are homogeneous arrays of values. They're useful for batch operations and
-working with buffered data.
+Series are homogeneous arrays of values. They're useful for batch operations and working
+with buffered data.
 
 ### Creating Series
 
@@ -208,6 +210,6 @@ func process{
 }
 ```
 
-The type system ensures you don't accidentally connect incompatible channels. If you
-try to read an `f64` channel and use it where an `i32` is expected, the compiler will
-catch it.
+The type system ensures you don't accidentally connect incompatible channels. If you try
+to read an `f64` channel and use it where an `i32` is expected, the compiler will catch
+it.

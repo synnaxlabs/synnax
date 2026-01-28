@@ -13,9 +13,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Sensor data is often noisy. A pressure reading might fluctuate by several PSI even
-when the actual pressure is stable. Averaging reduces this noise, giving you a more
-accurate picture of the true value.
+Sensor data is often noisy. A pressure reading might fluctuate by several PSI even when
+the actual pressure is stable. Averaging reduces this noise, giving you a more accurate
+picture of the true value.
 
 <Divider.Divider x />
 
@@ -67,10 +67,10 @@ func moving_avg{window i64} (value f64) f64 {
 ```
 
 <Note.Note variant="warning">
-The example above is simplified. Arc doesn't have loops, so implementing a true moving
-average with arbitrary window size requires using series element-wise operations. For
-production use, consider using built-in statistical nodes if available, or keep the
-window small enough to compute explicitly.
+  The example above is simplified. Arc doesn't have loops, so implementing a true moving
+  average with arbitrary window size requires using series element-wise operations. For
+  production use, consider using built-in statistical nodes if available, or keep the
+  window small enough to compute explicitly.
 </Note.Note>
 
 <Divider.Divider x />
@@ -100,6 +100,7 @@ tank_pressure -> ema{alpha=0.2} -> pressure_smooth
 ```
 
 The `alpha` parameter controls responsiveness:
+
 - `alpha` close to 0: Heavy smoothing, slow response
 - `alpha` close to 1: Light smoothing, fast response
 
@@ -155,8 +156,8 @@ tank_pressure -> track_min{} -> pressure_min
 
 ## Resettable Statistics
 
-In test sequences, you often want to reset statistics at specific points. Use a
-separate reset channel:
+In test sequences, you often want to reset statistics at specific points. Use a separate
+reset channel:
 
 ```arc
 func resettable_avg{
@@ -179,8 +180,8 @@ func resettable_avg{
 tank_pressure -> resettable_avg{reset=stats_reset} -> pressure_avg
 ```
 
-Wire a button or stage transition to the `stats_reset` channel to clear the
-accumulated values.
+Wire a button or stage transition to the `stats_reset` channel to clear the accumulated
+values.
 
 <Divider.Divider x />
 
@@ -202,8 +203,8 @@ func avg_sensors{
 interval{period=50ms} -> avg_sensors{sensor_a=pressure_1, sensor_b=pressure_2} -> pressure_avg
 ```
 
-Using `interval` ensures the average is calculated at a fixed rate regardless of
-when individual sensor updates arrive.
+Using `interval` ensures the average is calculated at a fixed rate regardless of when
+individual sensor updates arrive.
 
 <Divider.Divider x />
 
@@ -234,5 +235,5 @@ func median3{
 interval{period=50ms} -> median3{a=pressure_1, b=pressure_2, c=pressure_3} -> pressure_voted
 ```
 
-The median rejects a single faulty sensor reading, making it useful for
-safety-critical measurements.
+The median rejects a single faulty sensor reading, making it useful for safety-critical
+measurements.

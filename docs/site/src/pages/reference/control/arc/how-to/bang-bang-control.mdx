@@ -13,9 +13,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Bang-bang control is the simplest form of closed-loop control: turn something
-on when a value is too low, off when it's too high. It's commonly used for
-temperature control (heaters, coolers), pressure regulation, and level control.
+Bang-bang control is the simplest form of closed-loop control: turn something on when a
+value is too low, off when it's too high. It's commonly used for temperature control
+(heaters, coolers), pressure regulation, and level control.
 
 <Divider.Divider x />
 
@@ -34,9 +34,8 @@ func on_off{setpoint f64} (value f64) u8 {
 tank_temp -> on_off{setpoint=50.0} -> heater_cmd
 ```
 
-This turns the heater on whenever temperature drops below 50°C and off when
-it rises above 50°C. The problem: rapid cycling as the temperature hovers
-near the setpoint.
+This turns the heater on whenever temperature drops below 50°C and off when it rises
+above 50°C. The problem: rapid cycling as the temperature hovers near the setpoint.
 
 <Divider.Divider x />
 
@@ -69,8 +68,8 @@ func bang_bang{
 tank_temp -> bang_bang{low=48.0, high=52.0} -> heater_cmd
 ```
 
-The heater turns on when temperature drops below 48°C and stays on until
-temperature rises above 52°C. The 4°C deadband prevents cycling.
+The heater turns on when temperature drops below 48°C and stays on until temperature
+rises above 52°C. The 4°C deadband prevents cycling.
 
 <Divider.Divider x />
 
@@ -150,8 +149,8 @@ interval{period=50ms} -> heater_ctrl{
 } -> heater_cmd
 ```
 
-The heater maintains 50°C ± 2°C, but shuts off if temperature exceeds 80°C
-regardless of the setpoint.
+The heater maintains 50°C ± 2°C, but shuts off if temperature exceeds 80°C regardless of
+the setpoint.
 
 <Divider.Divider x />
 
@@ -414,8 +413,8 @@ interval{period=50ms} -> cool_control{
 ```
 
 <Note.Note variant="info">
-In dual-action control, the deadbands prevent simultaneous heating and cooling.
-The system only heats when 3°C below setpoint and only cools when 3°C above.
+  In dual-action control, the deadbands prevent simultaneous heating and cooling. The
+  system only heats when 3°C below setpoint and only cools when 3°C above.
 </Note.Note>
 
 <Divider.Divider x />
@@ -456,8 +455,8 @@ interval{period=50ms} -> bang_bang_controller{
 }
 ```
 
-This ensures the control loop runs at a consistent rate regardless of
-how often sensor data arrives.
+This ensures the control loop runs at a consistent rate regardless of how often sensor
+data arrives.
 
 <Divider.Divider x />
 
@@ -503,7 +502,7 @@ start_cmd => main
 ```
 
 <Note.Note variant="warning">
-Bang-bang control is simple but produces oscillating outputs. For smoother
-control, consider more sophisticated algorithms implemented outside Arc or
-future Arc library additions for PID control.
+  Bang-bang control is simple but produces oscillating outputs. For smoother control,
+  consider more sophisticated algorithms implemented outside Arc or future Arc library
+  additions for PID control.
 </Note.Note>

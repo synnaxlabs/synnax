@@ -13,8 +13,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-This page covers what works well in Arc and what to avoid. These patterns
-come from building real control systems.
+This page covers what works well in Arc and what to avoid. These patterns come from
+building real control systems.
 
 <Divider.Divider x />
 
@@ -22,8 +22,8 @@ come from building real control systems.
 
 ### Safety Conditions First
 
-Line order determines priority for one-shot transitions (`=>`). Always list
-abort conditions before normal operations:
+Line order determines priority for one-shot transitions (`=>`). Always list abort
+conditions before normal operations:
 
 ```arc
 stage pressurize {
@@ -42,8 +42,8 @@ If multiple transitions are true simultaneously, the first one wins.
 
 ### Use `->` for Streaming, `=>` for Transitions
 
-Continuous edges (`->`) run every cycle. One-shot edges (`=>`) fire once
-and stop until the stage is re-entered.
+Continuous edges (`->`) run every cycle. One-shot edges (`=>`) fire once and stop until
+the stage is re-entered.
 
 ```arc
 // Streaming: continuously process sensor data
@@ -73,8 +73,8 @@ stage do_everything {
 
 ### Initialize Stateful Variables Appropriately
 
-Stateful variables (`$=`) persist across invocations. Consider whether your
-initial value makes sense:
+Stateful variables (`$=`) persist across invocations. Consider whether your initial
+value makes sense:
 
 ```arc
 func rate(value f64) f64 {
@@ -297,9 +297,8 @@ sensor -> combined_filter{} -> output
 
 ### Check Task Status
 
-When an Arc automation doesn't behave as expected, check its status in
-Console. Runtime errors (division by zero, out-of-bounds access) stop the
-task and report the error.
+When an Arc automation doesn't behave as expected, check its status in Console. Runtime
+errors (division by zero, out-of-bounds access) stop the task and report the error.
 
 ### Use Channel Outputs for Visibility
 
@@ -326,12 +325,12 @@ Build sequences incrementally:
 
 ### Common Error Messages
 
-| Message | Meaning |
-| ------- | ------- |
+| Message               | Meaning                                     |
+| --------------------- | ------------------------------------------- |
 | `undefined symbol: X` | `X` is not declared (typo, missing channel) |
-| `type mismatch` | Incompatible types in operation |
-| `X is not a channel` | Using non-channel where channel expected |
-| `X is not a function` | Using non-function with `{}` syntax |
+| `type mismatch`       | Incompatible types in operation             |
+| `X is not a channel`  | Using non-channel where channel expected    |
+| `X is not a function` | Using non-function with `{}` syntax         |
 
 <Divider.Divider x />
 

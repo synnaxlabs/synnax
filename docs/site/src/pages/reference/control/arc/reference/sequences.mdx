@@ -1,7 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Sequences"
-description: "Arc sequence and stage reference for state machine declarations, transitions, and entry points"
+description:
+  "Arc sequence and stage reference for state machine declarations, transitions, and
+  entry points"
 prev: "Functions"
 prevURL: "/reference/control/arc/reference/functions"
 next: "Built-In Functions"
@@ -26,8 +28,8 @@ sequence name {
 }
 ```
 
-A sequence is a state machine containing ordered stages. Only one stage is
-active at a time per sequence.
+A sequence is a state machine containing ordered stages. Only one stage is active at a
+time per sequence.
 
 <Divider.Divider x />
 
@@ -41,8 +43,8 @@ stage name {
 }
 ```
 
-Stage bodies contain flow statements separated by commas. All flow statements
-in a stage run concurrently while the stage is active.
+Stage bodies contain flow statements separated by commas. All flow statements in a stage
+run concurrently while the stage is active.
 
 ### Stage Body Syntax
 
@@ -89,10 +91,10 @@ One-shot state resets when the stage is re-entered.
 
 ## Transition Targets
 
-| Target | Description |
-| ------ | ----------- |
-| `next` | Go to next stage in definition order |
-| `stage_name` | Jump to named stage in same sequence |
+| Target          | Description                                        |
+| --------------- | -------------------------------------------------- |
+| `next`          | Go to next stage in definition order               |
+| `stage_name`    | Jump to named stage in same sequence               |
 | `sequence_name` | Jump to different sequence (starts at first stage) |
 
 ### Using `next`
@@ -112,7 +114,7 @@ sequence test {
 ```
 
 <Note.Note variant="warning">
-Using `next` on the last stage in a sequence is a compile-time error.
+  Using `next` on the last stage in a sequence is a compile-time error.
 </Note.Note>
 
 ### Named Stage Transitions
@@ -152,6 +154,7 @@ sequence abort {
 ```
 
 Cross-sequence transitions:
+
 1. Deactivate current stage in source sequence
 2. Activate first stage of target sequence
 3. No built-in "return" mechanism
@@ -209,8 +212,8 @@ stage pressurize {
 
 ### Line Order and Priority
 
-When multiple one-shot transitions (`=>`) are true simultaneously,
-the first one listed wins:
+When multiple one-shot transitions (`=>`) are true simultaneously, the first one listed
+wins:
 
 ```arc
 stage pressurize {
@@ -224,8 +227,8 @@ stage pressurize {
 }
 ```
 
-For continuous flows (`->`), if multiple flows write to the same channel,
-last write wins based on line order.
+For continuous flows (`->`), if multiple flows write to the same channel, last write
+wins based on line order.
 
 <Divider.Divider x />
 
@@ -290,10 +293,10 @@ emergency_stop => abort
 
 ## Restrictions
 
-| Restriction | Description |
-| ----------- | ----------- |
-| One active stage | Only one stage per sequence is active at a time |
-| No `next` on last stage | Using `next` on the final stage is an error |
-| Entry points at top level | Entry points must be outside sequences |
-| Acyclic continuous flows | Continuous flows (`->`) within a stage must be acyclic |
-| Stage transitions can cycle | One-shot transitions (`=>`) can form cycles |
+| Restriction                 | Description                                            |
+| --------------------------- | ------------------------------------------------------ |
+| One active stage            | Only one stage per sequence is active at a time        |
+| No `next` on last stage     | Using `next` on the final stage is an error            |
+| Entry points at top level   | Entry points must be outside sequences                 |
+| Acyclic continuous flows    | Continuous flows (`->`) within a stage must be acyclic |
+| Stage transitions can cycle | One-shot transitions (`=>`) can form cycles            |

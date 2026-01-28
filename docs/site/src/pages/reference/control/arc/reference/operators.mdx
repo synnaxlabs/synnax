@@ -1,7 +1,9 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Operators"
-description: "Arc operator reference for arithmetic, comparison, logical, assignment, and flow operators"
+description:
+  "Arc operator reference for arithmetic, comparison, logical, assignment, and flow
+  operators"
 prev: "Types"
 prevURL: "/reference/control/arc/reference/types"
 next: "Functions"
@@ -15,17 +17,17 @@ export const components = mdxOverrides;
 
 ## Arithmetic Operators
 
-| Operator | Name | Example | Result |
-| -------- | ---- | ------- | ------ |
-| `+` | Addition | `3 + 2` | `5` |
-| `-` | Subtraction | `5 - 2` | `3` |
-| `*` | Multiplication | `3 * 4` | `12` |
-| `/` | Division | `10 / 3` | `3` (integer) or `3.333...` (float) |
-| `%` | Modulo | `10 % 3` | `1` |
-| `^` | Exponentiation | `2 ^ 8` | `256` |
+| Operator | Name           | Example  | Result                              |
+| -------- | -------------- | -------- | ----------------------------------- |
+| `+`      | Addition       | `3 + 2`  | `5`                                 |
+| `-`      | Subtraction    | `5 - 2`  | `3`                                 |
+| `*`      | Multiplication | `3 * 4`  | `12`                                |
+| `/`      | Division       | `10 / 3` | `3` (integer) or `3.333...` (float) |
+| `%`      | Modulo         | `10 % 3` | `1`                                 |
+| `^`      | Exponentiation | `2 ^ 8`  | `256`                               |
 
 <Note.Note variant="warning">
-`^` is exponentiation, not XOR. Arc has no bitwise operators.
+  `^` is exponentiation, not XOR. Arc has no bitwise operators.
 </Note.Note>
 
 ### Division Behavior
@@ -63,14 +65,14 @@ result := 2 ^ 3 ^ 2    // 2 ^ (3 ^ 2) = 2 ^ 9 = 512
 
 All comparisons return `u8` (0 for false, 1 for true).
 
-| Operator | Name | Example | Result |
-| -------- | ---- | ------- | ------ |
-| `==` | Equal | `5 == 5` | `1` |
-| `!=` | Not equal | `5 != 3` | `1` |
-| `<` | Less than | `3 < 5` | `1` |
-| `>` | Greater than | `5 > 3` | `1` |
-| `<=` | Less than or equal | `3 <= 3` | `1` |
-| `>=` | Greater than or equal | `5 >= 5` | `1` |
+| Operator | Name                  | Example  | Result |
+| -------- | --------------------- | -------- | ------ |
+| `==`     | Equal                 | `5 == 5` | `1`    |
+| `!=`     | Not equal             | `5 != 3` | `1`    |
+| `<`      | Less than             | `3 < 5`  | `1`    |
+| `>`      | Greater than          | `5 > 3`  | `1`    |
+| `<=`     | Less than or equal    | `3 <= 3` | `1`    |
+| `>=`     | Greater than or equal | `5 >= 5` | `1`    |
 
 ```arc
 in_range := pressure >= 100 and pressure <= 500
@@ -82,11 +84,11 @@ in_range := pressure >= 100 and pressure <= 500
 
 Logical operators use short-circuit evaluation and return `u8` (0 or 1).
 
-| Operator | Name | Example | Result |
-| -------- | ---- | ------- | ------ |
-| `and` | Logical AND | `1 and 1` | `1` |
-| `or` | Logical OR | `0 or 1` | `1` |
-| `not` | Logical NOT | `not 1` | `0` |
+| Operator | Name        | Example   | Result |
+| -------- | ----------- | --------- | ------ |
+| `and`    | Logical AND | `1 and 1` | `1`    |
+| `or`     | Logical OR  | `0 or 1`  | `1`    |
+| `not`    | Logical NOT | `not 1`   | `0`    |
 
 ### Short-Circuit Evaluation
 
@@ -112,10 +114,10 @@ negated := not 42      // 0
 
 ## Unary Operators
 
-| Operator | Name | Example | Result |
-| -------- | ---- | ------- | ------ |
-| `-` | Negation | `-5` | `-5` |
-| `not` | Logical NOT | `not 1` | `0` |
+| Operator | Name        | Example | Result |
+| -------- | ----------- | ------- | ------ |
+| `-`      | Negation    | `-5`    | `-5`   |
+| `not`    | Logical NOT | `not 1` | `0`    |
 
 Unary minus applies to numeric values:
 
@@ -128,21 +130,21 @@ y := -x        // -5
 
 ## Assignment Operators
 
-| Operator | Name | Example | Equivalent |
-| -------- | ---- | ------- | ---------- |
-| `=` | Assignment | `x = 5` | |
-| `+=` | Add and assign | `x += 5` | `x = x + 5` |
-| `-=` | Subtract and assign | `x -= 5` | `x = x - 5` |
-| `*=` | Multiply and assign | `x *= 2` | `x = x * 2` |
-| `/=` | Divide and assign | `x /= 2` | `x = x / 2` |
-| `%=` | Modulo and assign | `x %= 3` | `x = x % 3` |
+| Operator | Name                | Example  | Equivalent  |
+| -------- | ------------------- | -------- | ----------- |
+| `=`      | Assignment          | `x = 5`  |             |
+| `+=`     | Add and assign      | `x += 5` | `x = x + 5` |
+| `-=`     | Subtract and assign | `x -= 5` | `x = x - 5` |
+| `*=`     | Multiply and assign | `x *= 2` | `x = x * 2` |
+| `/=`     | Divide and assign   | `x /= 2` | `x = x / 2` |
+| `%=`     | Modulo and assign   | `x %= 3` | `x = x % 3` |
 
 ### Variable Declaration Operators
 
-| Operator | Name | Example |
-| -------- | ---- | ------- |
-| `:=` | Local variable declaration | `x := 5` |
-| `$=` | Stateful variable declaration | `count $= 0` |
+| Operator | Name                          | Example      |
+| -------- | ----------------------------- | ------------ |
+| `:=`     | Local variable declaration    | `x := 5`     |
+| `$=`     | Stateful variable declaration | `count $= 0` |
 
 <Divider.Divider x />
 
@@ -150,10 +152,10 @@ y := -x        // -5
 
 Flow operators connect nodes in the reactive scope.
 
-| Operator | Name | Behavior |
-| -------- | ---- | -------- |
-| `->` | Continuous flow | Executes every cycle |
-| `=>` | One-shot flow | Fires once when condition becomes true |
+| Operator | Name            | Behavior                               |
+| -------- | --------------- | -------------------------------------- |
+| `->`     | Continuous flow | Executes every cycle                   |
+| `=>`     | One-shot flow   | Fires once when condition becomes true |
 
 ### Continuous Flow (`->`)
 
@@ -178,14 +180,14 @@ abort_btn => abort
 
 Operators listed from highest to lowest precedence.
 
-| Precedence | Operators | Associativity |
-| ---------- | --------- | ------------- |
-| 1 (highest) | `^` | Right |
-| 2 | `-` (unary), `not` | Right |
-| 3 | `*`, `/`, `%` | Left |
-| 4 | `+`, `-` | Left |
-| 5 | `<`, `>`, `<=`, `>=`, `==`, `!=` | Left |
-| 6 (lowest) | `and`, `or` | Left |
+| Precedence  | Operators                        | Associativity |
+| ----------- | -------------------------------- | ------------- |
+| 1 (highest) | `^`                              | Right         |
+| 2           | `-` (unary), `not`               | Right         |
+| 3           | `*`, `/`, `%`                    | Left          |
+| 4           | `+`, `-`                         | Left          |
+| 5           | `<`, `>`, `<=`, `>=`, `==`, `!=` | Left          |
+| 6 (lowest)  | `and`, `or`                      | Left          |
 
 ### Precedence Examples
 
@@ -226,11 +228,11 @@ mask := data > 2.0           // [0, 0, 1]
 
 ## String Operators
 
-| Operator | Operation | Example |
-| -------- | --------- | ------- |
-| `+` | Concatenation | `"Hello" + " World"` |
-| `==` | Equality | `name == "test"` |
-| `!=` | Inequality | `name != ""` |
+| Operator | Operation     | Example              |
+| -------- | ------------- | -------------------- |
+| `+`      | Concatenation | `"Hello" + " World"` |
+| `==`     | Equality      | `name == "test"`     |
+| `!=`     | Inequality    | `name != ""`         |
 
 ```arc
 msg := "Hello"

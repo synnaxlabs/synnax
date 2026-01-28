@@ -13,16 +13,15 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Many useful values aren't measured directly but calculated from other measurements.
-Mass flow rate depends on pressure and temperature. Thrust depends on chamber pressure
-and throat area. Arc lets you compute these derived values in real-time.
+Many useful values aren't measured directly but calculated from other measurements. Mass
+flow rate depends on pressure and temperature. Thrust depends on chamber pressure and
+throat area. Arc lets you compute these derived values in real-time.
 
 <Divider.Divider x />
 
 ## Multi-Input Functions
 
-When a calculation needs multiple sensor values, pass the channels as config
-parameters:
+When a calculation needs multiple sensor values, pass the channels as config parameters:
 
 ```arc
 func pressure_ratio{
@@ -99,9 +98,9 @@ interval{period=100ms} -> mass_flow{
 ```
 
 <Note.Note variant="info">
-The mass flow equation above is simplified for illustration. Real propulsion
-calculations require proper isentropic flow equations accounting for compressibility,
-gamma (specific heat ratio), and choking conditions.
+  The mass flow equation above is simplified for illustration. Real propulsion
+  calculations require proper isentropic flow equations accounting for compressibility,
+  gamma (specific heat ratio), and choking conditions.
 </Note.Note>
 
 <Divider.Divider x />
@@ -270,4 +269,3 @@ interval{period=100ms} -> efficiency{
     output_power=motor_shaft_power
 } -> motor_efficiency
 ```
-
