@@ -163,8 +163,6 @@ jobs:
           coverage: true
           coverage_module: freighter
           coverage_flag: freighter-py
-          type_check: true
-          format_check: true
 
   ts:
     name: Test - TypeScript

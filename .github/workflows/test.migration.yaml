@@ -122,6 +122,8 @@ jobs:
         uses: ./.github/actions/test-python
         with:
           directory: client/py
+          type_check: false
+          format_check: false
 
       - name: Stop Core on current branch
         if: always() && steps.start_current.outcome == 'success'

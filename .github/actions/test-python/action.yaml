@@ -5,6 +5,10 @@ inputs:
   directory:
     description: The directory containing the Python package to test
     required: true
+  test:
+    description: Whether to run pytest
+    required: false
+    default: "true"
   coverage:
     description: Whether to collect and upload coverage
     required: false
@@ -20,15 +24,22 @@ inputs:
   type_check:
     description: Whether to run mypy type checking
     required: false
-    default: "false"
+    default: "true"
   format_check:
     description: Whether to run formatting checks (isort, black)
     required: false
-    default: "false"
+    default: "true"
 
 runs:
   using: composite
   steps:
+    - name: Validate inputs
+      if: inputs.test != 'true' && inputs.coverage == 'true'
+      shell: bash
+      run: |
+        echo "::error::Invalid input combination: coverage cannot be true when test is false"
+        exit 1
+
     - name: Install uv
       uses: astral-sh/setup-uv@v7
 
@@ -50,19 +61,19 @@ runs:
       working-directory: ${{ inputs.directory }}
 
     - name: Check types
-      if: inputs.format_check == 'true' && inputs.type_check == 'true'
+      if: inputs.type_check == 'true'
       run: uv run mypy .
       shell: bash
       working-directory: ${{ inputs.directory }}
 
     - name: Test
-      if: inputs.coverage != 'true'
+      if: inputs.test == 'true' && inputs.coverage != 'true'
       run: uv run pytest
       shell: bash
       working-directory: ${{ inputs.directory }}
 
     - name: Test with coverage
-      if: inputs.coverage == 'true'
+      if: inputs.test == 'true' && inputs.coverage == 'true'
       run: uv run pytest --cov=${{ inputs.coverage_module }} --cov-report=xml
       shell: bash
       working-directory: ${{ inputs.directory }}

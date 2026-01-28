@@ -1,0 +1,43 @@
+name: Lint - Integration
+
+on:
+  pull_request:
+    paths:
+      - .github/actions/test-python/**
+      - .github/workflows/lint.integration.yaml
+      - alamos/py/**
+      - client/py/**
+      - freighter/py/**
+      - integration/**
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/actions/test-python/**
+      - .github/workflows/lint.integration.yaml
+      - alamos/py/**
+      - client/py/**
+      - freighter/py/**
+      - integration/**
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: Lint - Python
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Lint Python
+        uses: ./.github/actions/test-python
+        with:
+          directory: integration
+          test: false

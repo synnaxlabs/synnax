@@ -262,7 +262,7 @@ jobs:
           coverage: true
           coverage_module: synnax
           coverage_flag: client-py
-          format_check: true
+          type_check: false
 
   ts:
     name: Test - TypeScript

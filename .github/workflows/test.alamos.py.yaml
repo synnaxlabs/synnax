@@ -55,5 +55,4 @@ jobs:
           coverage: true
           coverage_module: alamos
           coverage_flag: alamos-py
-          type_check: true
           format_check: ${{ matrix.format }}
