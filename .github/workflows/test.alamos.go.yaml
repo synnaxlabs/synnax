@@ -31,7 +31,6 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/test.go.yaml
-    secrets: inherit
     with:
       directory: alamos/go
       ginkgo_flags: -p --randomize-all --fail-on-empty --race
