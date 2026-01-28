@@ -12,6 +12,7 @@ dependencies = [
     "pymodbus>=3.11.4",
     "asyncua>=1.1.8",
 ]
+classifiers = ["Private :: Do Not Upload"]
 
 [project.scripts]
 test-conductor = "framework.test_conductor:main"

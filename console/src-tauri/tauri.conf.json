@@ -22,7 +22,7 @@
     ],
     "createUpdaterArtifacts": true,
     "windows": {
-      "signCommand": "powershell -File scripts\\sign-windows.ps1 %1"
+      "signCommand": "powershell -File scripts\\Sign.ps1 %1"
     },
     "longDescription": "",
     "macOS": {
