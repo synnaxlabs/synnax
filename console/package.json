@@ -13,6 +13,7 @@
     "lint": "eslint",
     "fix": "eslint --fix",
     "test": "vitest",
+    "cov": "vitest --coverage",
     "madge": "madge --circular src",
     "devtools": "pnpm react-devtools",
     "react-devtools": "npx react-devtools"

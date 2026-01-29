@@ -17,6 +17,7 @@
     "check-types": "tsc --noEmit",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
+    "cov": "vitest --coverage",
     "lint": "eslint",
     "fix": "eslint --fix",
     "madge": "madge --circular src"

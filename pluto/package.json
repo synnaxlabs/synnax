@@ -7,6 +7,7 @@
     "check-types": "tsc --noEmit",
     "watch": "vite build --watch",
     "test": "vitest",
+    "cov": "vitest --coverage",
     "bench": "vitest bench",
     "dev": "vite",
     "lint": "eslint",

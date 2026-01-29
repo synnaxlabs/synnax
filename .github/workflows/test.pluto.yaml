@@ -123,4 +123,4 @@ jobs:
           package: pluto
           coverage_flag: pluto
           directory: pluto
-          test_args: --no-file-parallelism
+          test_args: -- --no-file-parallelism

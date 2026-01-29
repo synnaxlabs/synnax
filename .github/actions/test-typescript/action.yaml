@@ -69,7 +69,7 @@ runs:
     - name: Test
       if: inputs.test == 'true'
       shell: bash
-      run: pnpm test:${{ inputs.package }} -- --coverage ${{inputs.test_args }}
+      run: pnpm cov:${{ inputs.package }} ${{ inputs.test_args }}
 
     - name: Upload coverage
       if: inputs.test == 'true'
