@@ -153,8 +153,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Test Python
-        uses: ./.github/actions/test-python
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: freighter/py/pyproject.toml
+
+      - name: Check Import Order
+        run: uv run isort -c .
+        working-directory: freighter/py
+
+      - name: Check Formatting
+        run: uv run black --check --diff --color .
+        working-directory: freighter/py
+
+      - name: Check Types
+        run: uv run mypy .
+        working-directory: freighter/py
+
+      - name: Test
+        run: uv run pytest
+        working-directory: freighter/py
         with:
           directory: freighter/py
           coverage: true
