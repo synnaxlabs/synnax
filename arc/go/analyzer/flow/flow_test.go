@@ -108,8 +108,8 @@ var resolver = symbol.MapResolver{
 }
 
 var _ = Describe("Flow Statements", func() {
-	Describe("Interval Trigger Flows", func() {
-		It("Should detect when function is used without config braces in flow statement", func() {
+	Describe("Function Without Config Braces", func() {
+		It("Should detect when function follows function invocation without config braces", func() {
 			intervalResolver := symbol.MapResolver{
 				"interval": symbol.Symbol{
 					Name: "interval",
@@ -127,6 +127,32 @@ func sim_daq() {
 interval{period=50ms} -> sim_daq
 			`))
 			ctx := context.CreateRoot(bCtx, ast, intervalResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("sim_daq is not a channel"))
+			Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Notes[0].Message).To(Equal("use sim_daq{} to instantiate the function"))
+		})
+
+		It("Should detect when function follows channel without config braces", func() {
+			ast := MustSucceed(parser.Parse(`
+func sim_daq() {}
+sensor_chan -> sim_daq
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("sim_daq is not a channel"))
+			Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Notes[0].Message).To(Equal("use sim_daq{} to instantiate the function"))
+		})
+
+		It("Should detect when function follows expression without config braces", func() {
+			ast := MustSucceed(parser.Parse(`
+func sim_daq() {}
+sensor_chan > 100 -> sim_daq
+			`))
+			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("sim_daq is not a channel"))

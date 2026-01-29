@@ -218,7 +218,7 @@ func analyzeIdentifier(
 		return
 	}
 
-	if prevNode != nil && prevNode.Function() != nil {
+	if prevNode != nil {
 		validTarget := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage || sym.Kind == symbol.KindSequence
 		if !validTarget {
 			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
