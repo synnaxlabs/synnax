@@ -15,6 +15,8 @@ from playwright.sync_api import Locator
 
 from framework.utils import rgb_to_hex
 
+from .base import BaseClient
+
 if TYPE_CHECKING:
     from .layout import LayoutClient
 
@@ -23,11 +25,11 @@ _MODAL_SELECTOR = ".console-label__edit"
 _LABEL_ITEM_SELECTOR = ".console-label__list-item"
 
 
-class LabelClient:
+class LabelClient(BaseClient):
     """Console label client for managing labels via the UI."""
 
     def __init__(self, layout: "LayoutClient"):
-        self.layout = layout
+        super().__init__(layout)
 
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
@@ -215,17 +217,10 @@ class LabelClient:
         color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:
-        self.layout.command_palette("Edit Labels")
-        modal = self.layout.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="visible", timeout=5000)
+        self._open_modal("Edit Labels", _MODAL_SELECTOR)
 
     def _close_edit_modal(self) -> None:
-        close_button = self.layout.page.locator(
-            ".pluto-dialog__dialog button:has(svg.pluto-icon--close)"
-        ).first
-        close_button.click()
-        modal = self.layout.page.locator(_MODAL_SELECTOR)
-        modal.wait_for(state="hidden", timeout=5000)
+        self._close_modal(_MODAL_SELECTOR)
 
     def _find_label_item(self, name: str) -> Locator | None:
         for attempt in range(5):

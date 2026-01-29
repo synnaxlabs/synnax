@@ -11,12 +11,14 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator
 
+from .base import BaseClientWithNotifications
+
 if TYPE_CHECKING:
     from .layout import LayoutClient
     from .notifications import NotificationsClient
 
 
-class ArcClient:
+class ArcClient(BaseClientWithNotifications):
     """Arc automation management for Console UI automation."""
 
     TOOLBAR_CLASS = ".console-arc-toolbar"
@@ -24,8 +26,7 @@ class ArcClient:
     LIST_ITEM_CLASS = ".pluto-list__item"
 
     def __init__(self, layout: "LayoutClient", notifications: "NotificationsClient"):
-        self.layout = layout
-        self.notifications = notifications
+        super().__init__(layout, notifications)
 
     def _show_arc_panel(self) -> None:
         """Show the Arc panel in the navigation drawer.
@@ -215,7 +216,7 @@ class ArcClient:
         self._show_arc_panel()
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
+        self._right_click(item)
         context_delete = self.layout.page.get_by_text("Delete", exact=True)
         context_delete.wait_for(state="visible", timeout=3000)
         context_delete.click()

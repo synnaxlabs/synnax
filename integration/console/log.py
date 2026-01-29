@@ -70,8 +70,8 @@ class Log(ConsolePage):
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""
-        self.console.layout.get_tab(self.page_name).click()
-        self.console.layout.show_visualization_toolbar()
+        self.layout.get_tab(self.page_name).click()
+        self.layout.show_visualization_toolbar()
         channel_btn = (
             self.page.locator("text=Channel").locator("..").locator("button").first
         )
@@ -82,7 +82,7 @@ class Log(ConsolePage):
     def copy_link(self) -> str:
         """Copy link to the log via the toolbar link button."""
         self.console.notifications.close_all()
-        self.console.layout.show_visualization_toolbar()
+        self.layout.show_visualization_toolbar()
         link_button = self.page.locator(".pluto-icon--link").locator("..")
         link_button.click(timeout=5000)
 

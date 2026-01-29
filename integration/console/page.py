@@ -19,6 +19,7 @@ from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
 
 if TYPE_CHECKING:
     from .console import Console
+    from .layout import LayoutClient
 
 from .console import PageType
 
@@ -29,6 +30,7 @@ class ConsolePage:
     client: sy.Synnax
     page: Page
     console: "Console"
+    layout: "LayoutClient"
     page_name: str
     page_type: str
     pluto_label: str
@@ -75,6 +77,7 @@ class ConsolePage:
         self.client = console.client
         self.page = console.page
         self.console = console
+        self.layout = console.layout
         self.page_name = page_name
 
         if not _skip_create:

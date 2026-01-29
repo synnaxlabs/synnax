@@ -235,7 +235,7 @@ class Plot(ConsolePage):
         Returns:
             The copied link from clipboard (empty string if clipboard access fails)
         """
-        self.console.layout.show_visualization_toolbar()
+        self.layout.show_visualization_toolbar()
         link_button = self.page.locator(".pluto-icon--link").locator("..")
         link_button.click(timeout=5000)
 
@@ -253,7 +253,7 @@ class Plot(ConsolePage):
         Returns:
             The exported JSON content as a dictionary.
         """
-        self.console.layout.show_visualization_toolbar()
+        self.layout.show_visualization_toolbar()
         export_button = self.page.locator(".pluto-icon--export").locator("..")
         self.page.evaluate("delete window.showSaveFilePicker")
 
@@ -439,8 +439,8 @@ class Plot(ConsolePage):
 
     def has_channel(self, axis: Axis, channel_name: str) -> bool:
         """Check if a channel is shown on the specified axis in the toolbar."""
-        self.console.layout.get_tab(self.page_name).click()
-        self.console.layout.show_visualization_toolbar()
+        self.layout.get_tab(self.page_name).click()
+        self.layout.show_visualization_toolbar()
         self.page.locator("#data").click(timeout=5000)
         axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
         result = axis_section.get_by_text(channel_name).count() > 0

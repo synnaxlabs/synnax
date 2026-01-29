@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 import synnax as sy
 from playwright.sync_api import Locator
 
+from .base import BaseClientWithNotifications
 from .tree import Tree
 
 if TYPE_CHECKING:
@@ -33,12 +34,11 @@ if TYPE_CHECKING:
     from .notifications import NotificationsClient
 
 
-class AccessClient:
+class AccessClient(BaseClientWithNotifications):
     """Console RBAC client for existing role/user UI functionality."""
 
     def __init__(self, layout: "LayoutClient", notifications: "NotificationsClient"):
-        self.layout = layout
-        self.notifications = notifications
+        super().__init__(layout, notifications)
         self.tree = Tree(layout.page)
 
     # -------------------------------------------------------------------------
@@ -191,11 +191,8 @@ class AccessClient:
         sy.sleep(0.5)
 
         # Check for error notifications
-        for notification in self.notifications.check():
-            message = notification.get("message", "")
-            if "Failed" in message or "Error" in message:
-                self.notifications.close(0)
-                return False
+        if self._check_for_errors():
+            return False
 
         return True
 
@@ -222,8 +219,7 @@ class AccessClient:
             raise ValueError(f"User '{username}' not found in users panel")
 
         # Right-click to open context menu
-        user_item.click(button="right")
-        sy.sleep(0.2)
+        self._right_click(user_item)
 
         # Click "Assign to role" option
         assign_option = self.layout.page.get_by_text("Assign to role", exact=True).first
@@ -292,8 +288,7 @@ class AccessClient:
             raise ValueError(f"Role '{old_name}' not found")
 
         # Right-click to open context menu
-        role_item.click(button="right")
-        sy.sleep(0.2)
+        self._right_click(role_item)
 
         # Click Rename option
         rename_option = self.layout.page.get_by_text("Rename", exact=True).first
@@ -332,8 +327,7 @@ class AccessClient:
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        role_item.click(button="right")
-        sy.sleep(0.2)
+        self._right_click(role_item)
 
         # Click Delete option
         delete_option = self.layout.page.get_by_text("Delete", exact=True).first
@@ -356,11 +350,8 @@ class AccessClient:
             sy.sleep(0.3)
 
         # Check for error notifications
-        for notification in self.notifications.check():
-            message = notification.get("message", "")
-            if "Failed" in message or "Error" in message:
-                self.notifications.close(0)
-                return False
+        if self._check_for_errors():
+            return False
 
         return True
 
@@ -375,8 +366,7 @@ class AccessClient:
             raise ValueError(f"Role '{name}' not found")
 
         # Right-click to open context menu
-        role_item.click(button="right")
-        sy.sleep(0.2)
+        self._right_click(role_item)
 
         # Check if Rename and Delete are available and not disabled
         rename_option = self.layout.page.get_by_text("Rename", exact=True).first

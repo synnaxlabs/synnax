@@ -11,17 +11,19 @@ from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator
 
+from .base import BaseClient
+
 if TYPE_CHECKING:
     from .layout import LayoutClient
 
 
-class RackClient:
+class RackClient(BaseClient):
     """Rack management for Console UI automation."""
 
     ITEM_PREFIX = "rack:"
 
     def __init__(self, layout: "LayoutClient"):
-        self.layout = layout
+        super().__init__(layout)
 
     def _show_devices_panel(self) -> None:
         """Show the devices panel in the navigation drawer."""
@@ -89,7 +91,7 @@ class RackClient:
         """Rename a rack via context menu."""
         self._show_devices_panel()
         rack_item = self.get_item(old_name)
-        rack_item.click(button="right")
+        self._right_click(rack_item)
         self.layout.page.get_by_text("Rename", exact=True).click(timeout=2000)
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
@@ -103,7 +105,7 @@ class RackClient:
         """Delete a rack via context menu."""
         self._show_devices_panel()
         rack_item = self.get_item(name)
-        rack_item.click(button="right")
+        self._right_click(rack_item)
         self.layout.page.get_by_text("Delete", exact=True).click(timeout=2000)
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=3000)
@@ -116,6 +118,6 @@ class RackClient:
         rack_item = self.get_item(name)
         element_id = rack_item.get_attribute("id")
         rack_key = element_id.split(":")[1] if element_id else ""
-        rack_item.click(button="right")
+        self._right_click(rack_item)
         self.layout.page.get_by_text("Copy properties", exact=True).click(timeout=2000)
         return rack_key

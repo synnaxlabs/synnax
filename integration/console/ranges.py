@@ -15,13 +15,15 @@ from playwright.sync_api import expect
 
 from framework.utils import get_results_path, rgb_to_hex
 
+from .base import BaseClientWithNotifications
+
 if TYPE_CHECKING:
     from .console import Console
     from .layout import LayoutClient
     from .notifications import NotificationsClient
 
 
-class RangesClient:
+class RangesClient(BaseClientWithNotifications):
     """Console ranges client for managing ranges via the UI.
 
     The ranges toolbar shows only favorited ranges.
@@ -39,8 +41,7 @@ class RangesClient:
         notifications: "NotificationsClient",
         console: "Console",
     ):
-        self.layout = layout
-        self.notifications = notifications
+        super().__init__(layout, notifications)
         self.console = console
 
     def open_from_search(self, name: str) -> None:
@@ -202,7 +203,7 @@ class RangesClient:
         """Rename a range via modal dialog from the explorer."""
         item = self.get_explorer_item(old_name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
+        self._right_click(item)
         self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
         name_input = self.layout.page.locator("input[placeholder='Name']")
         name_input.wait_for(state="visible", timeout=5000)
@@ -217,7 +218,7 @@ class RangesClient:
         """Delete a range via context menu in the explorer."""
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
+        self._right_click(item)
         self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
 
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
@@ -231,7 +232,7 @@ class RangesClient:
         self.layout.hide_visualization_toolbar()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
+        self._right_click(item)
         add_btn = self.layout.page.get_by_text("Add to favorites", exact=True)
         remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
@@ -246,7 +247,7 @@ class RangesClient:
         self.show_toolbar()
         item = self.get_toolbar_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
+        self._right_click(item)
         remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         remove_btn.wait_for(state="visible", timeout=5000)
         remove_btn.click()
@@ -651,14 +652,14 @@ class RangesClient:
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
+        self._right_click(item)
         add_btn = self.layout.page.get_by_text("Add to favorites", exact=True)
         remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
             remove_btn.click()
             remove_btn.wait_for(state="hidden", timeout=2000)
-            item.click(button="right")
+            self._right_click(item)
             add_btn.wait_for(state="visible", timeout=2000)
         add_btn.click()
         add_btn.wait_for(state="hidden", timeout=2000)
@@ -671,7 +672,7 @@ class RangesClient:
         """
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
-        item.click(button="right")
+        self._right_click(item)
         remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         remove_btn.wait_for(state="visible", timeout=2000)
         remove_btn.click()

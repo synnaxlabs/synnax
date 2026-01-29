@@ -24,6 +24,8 @@ from synnax.telem import (
     DataType,
 )
 
+from .base import BaseClientWithNotifications
+
 if TYPE_CHECKING:
     from .console import Console
     from .layout import LayoutClient
@@ -31,7 +33,7 @@ if TYPE_CHECKING:
     from .plot import Plot
 
 
-class ChannelClient:
+class ChannelClient(BaseClientWithNotifications):
     """Console channel client for managing channels via the UI.
 
     Provides methods for creating, renaming, deleting, and organizing channels
@@ -48,8 +50,7 @@ class ChannelClient:
         notifications: "NotificationsClient",
         console: "Console",
     ):
-        self.layout = layout
-        self.notifications = notifications
+        super().__init__(layout, notifications)
         self.console = console
         self.channels_button = self.layout.page.locator(
             "button.console-main-nav__item"
@@ -110,7 +111,7 @@ class ChannelClient:
         item = self._find_channel_item(name)
         if item is None:
             raise ValueError(f"Channel {name} not found")
-        item.click(button="right")
+        self._right_click(item)
         return item
 
     def create(
@@ -429,7 +430,7 @@ class ChannelClient:
         """
         self.show_channels()
         item = self.channels_list.first
-        item.click(button="right")
+        self._right_click(item)
 
         reload_option = self.layout.page.get_by_text("Reload Console", exact=True).first
         reload_option.wait_for(state="visible", timeout=2000)

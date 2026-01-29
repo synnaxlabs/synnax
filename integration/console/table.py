@@ -43,7 +43,7 @@ class Table(ConsolePage):
             col: Column index (0-based)
         """
         self._click_cell(row, col)
-        self.console.layout.show_visualization_toolbar()
+        self.layout.show_visualization_toolbar()
         self.console.click_btn("Variant")
         self.console.select_from_dropdown("Value")
         self.page.get_by_text("Telemetry").click()
@@ -60,9 +60,9 @@ class Table(ConsolePage):
         Returns:
             The channel name or empty string if not set
         """
-        self.console.layout.get_tab(self.page_name).click()
+        self.layout.get_tab(self.page_name).click()
         self._click_cell(row, col)
-        self.console.layout.show_visualization_toolbar()
+        self.layout.show_visualization_toolbar()
         self.page.get_by_text("Telemetry").click()
         channel_btn = (
             self.page.locator("text=Input Channel")
