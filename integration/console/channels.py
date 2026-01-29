@@ -40,9 +40,8 @@ class ChannelClient(BaseClientWithNotifications):
     through the Console sidebar and command palette.
     """
 
-    channels_button: Locator
-    channels_pane: Locator
-    channels_list: Locator
+    ITEM_PREFIX = "channel:"
+    ICON_NAME = "channel"
 
     def __init__(
         self,
@@ -52,27 +51,34 @@ class ChannelClient(BaseClientWithNotifications):
     ):
         super().__init__(layout, notifications)
         self.console = console
-        self.channels_button = self.layout.page.locator(
-            "button.console-main-nav__item"
-        ).filter(has=self.layout.page.locator("svg.pluto-icon--channel"))
-        self.channels_button_backup = self.layout.page.locator(
-            "button.console-main-nav__item:has-text('C')"
+
+    def _get_channels_button(self) -> Locator:
+        """Get the channels button in the sidebar."""
+        return self.layout.page.locator("button.console-main-nav__item").filter(
+            has=self.layout.page.locator(f"svg.pluto-icon--{self.ICON_NAME}")
         )
-        self.channels_pane = self.layout.page.locator("text=Channels").first
-        self.channels_list = self.layout.page.locator("div[id^='channel:']")
+
+    def _get_channels_pane(self) -> Locator:
+        """Get the channels pane header."""
+        return self.layout.page.locator("text=Channels").first
+
+    def _get_channels_list(self) -> Locator:
+        """Get the channels list locator."""
+        return self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
 
     def show_channels(self) -> None:
         """Show the channels pane in the sidebar if not already visible."""
-        if self.channels_pane.is_visible():
+        channels_pane = self._get_channels_pane()
+        if channels_pane.is_visible():
             return
-        self.channels_button.click(force=True, timeout=5000)
-        self.channels_pane.first.wait_for(state="visible", timeout=5000)
-        self.channels_list.first.wait_for(state="attached", timeout=5000)
+        self._get_channels_button().click(force=True, timeout=5000)
+        channels_pane.wait_for(state="visible", timeout=5000)
+        self._get_channels_list().first.wait_for(state="attached", timeout=5000)
 
     def hide_channels(self) -> None:
         """Hide the channels pane in the sidebar if currently visible."""
-        if self.channels_pane.is_visible():
-            self.channels_button.click(force=True, timeout=2000)
+        if self._get_channels_pane().is_visible():
+            self._get_channels_button().click(force=True, timeout=2000)
 
     def _find_channel_item(
         self, name: ChannelName, retry_with_refresh: bool = True
@@ -84,7 +90,7 @@ class ChannelClient(BaseClientWithNotifications):
             channels pane and try again (handles cases where list is stale).
         :returns: The channel item Locator, or None if not found.
         """
-        for item in self.channels_list.all():
+        for item in self._get_channels_list().all():
             if not item.is_visible():
                 continue
             channel_name_element = item.locator("p.pluto-text--editable")
@@ -160,9 +166,7 @@ class ChannelClient(BaseClientWithNotifications):
             self.layout.select_from_dropdown(index, "Search Channels")
 
         self.layout.page.get_by_role("button", name="Create", exact=True).click()
-        modal = self.layout.page.locator(
-            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-        )
+        modal = self.layout.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=5000)
         self.show_channels()
         for _ in range(20):
@@ -209,13 +213,11 @@ class ChannelClient(BaseClientWithNotifications):
                 self.layout.command_palette("Create a Channel")
                 # Wait for modal to appear
                 self.layout.page.wait_for_selector(
-                    "div.pluto-dialog__dialog.pluto--modal.pluto--visible",
+                    self.MODAL_SELECTOR,
                     timeout=5000,
                 )
             else:
-                modal = self.layout.page.locator(
-                    "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-                )
+                modal = self.layout.page.locator(self.MODAL_SELECTOR)
                 modal_count = modal.count()
                 if modal_count == 0:
                     raise RuntimeError(
@@ -273,9 +275,7 @@ class ChannelClient(BaseClientWithNotifications):
             created_channels.append(name)
 
             if not is_last:
-                modal = self.layout.page.locator(
-                    "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-                )
+                modal = self.layout.page.locator(self.MODAL_SELECTOR)
                 modal_count = modal.count()
                 if modal_count == 0:
                     raise RuntimeError(
@@ -333,9 +333,7 @@ class ChannelClient(BaseClientWithNotifications):
             name_input.wait_for(state="hidden", timeout=1000)
             return None
         except PlaywrightTimeoutError:
-            modal = self.layout.page.locator(
-                "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-            )
+            modal = self.layout.page.locator(self.MODAL_SELECTOR)
             modal_count = modal.count()
 
             if modal_count > 0:
@@ -433,7 +431,7 @@ class ChannelClient(BaseClientWithNotifications):
         This will reload the entire console.
         """
         self.show_channels()
-        item = self.channels_list.first
+        item = self._get_channels_list().first
         self._right_click(item)
 
         reload_option = self.layout.page.get_by_text("Reload Console", exact=True).first
@@ -457,7 +455,7 @@ class ChannelClient(BaseClientWithNotifications):
         first_item = True
 
         for name in names:
-            for item in self.channels_list.all():
+            for item in self._get_channels_list().all():
                 if item.is_visible():
                     channel_name_element = item.locator("p.pluto-text--editable")
                     text = channel_name_element.inner_text().strip()
@@ -469,12 +467,12 @@ class ChannelClient(BaseClientWithNotifications):
                             item.click(modifiers=["ControlOrMeta"])
                         break
 
-        for item in self.channels_list.all():
+        for item in self._get_channels_list().all():
             if item.is_visible():
                 channel_name_element = item.locator("p.pluto-text--editable")
                 text = channel_name_element.inner_text().strip()
                 if text == names[-1]:
-                    item.click(button="right")
+                    self._right_click(item)
                     break
 
         group_selection_item = self.layout.page.get_by_text(
@@ -489,10 +487,10 @@ class ChannelClient(BaseClientWithNotifications):
         try:
             editable_input.wait_for(state="visible", timeout=500)
             editable_input.fill(group_name)
-            self.layout.page.keyboard.press("Enter")
+            self.layout.press_enter()
         except Exception:
             self.layout.page.keyboard.type(group_name)
-            self.layout.page.keyboard.press("Enter")
+            self.layout.press_enter()
 
         self.hide_channels()
 
@@ -510,11 +508,7 @@ class ChannelClient(BaseClientWithNotifications):
 
         self.hide_channels()
 
-        try:
-            link: str = str(self.layout.page.evaluate("navigator.clipboard.readText()"))
-            return link
-        except Exception:
-            return ""
+        return self.layout.read_clipboard()
 
     def exists(self, name: ChannelName) -> bool:
         """
@@ -525,9 +519,7 @@ class ChannelClient(BaseClientWithNotifications):
         """
         self.show_channels()
         channel_name_str = str(name)
-        selector = (
-            f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
-        )
+        selector = f"div[id^='{self.ITEM_PREFIX}'] p.pluto-text--editable:has-text('{channel_name_str}')"
         try:
             self.layout.page.wait_for_selector(selector, state="visible", timeout=500)
             return True
@@ -544,9 +536,9 @@ class ChannelClient(BaseClientWithNotifications):
         """
         self.show_channels()
         channel_name_str = str(name)
-        channel_item = self.layout.page.locator("div[id^='channel:']").filter(
-            has=self.layout.page.get_by_text(channel_name_str, exact=True)
-        )
+        channel_item = self.layout.page.locator(
+            f"div[id^='{self.ITEM_PREFIX}']"
+        ).filter(has=self.layout.page.get_by_text(channel_name_str, exact=True))
         channel_item.first.wait_for(state="hidden", timeout=timeout)
         self.hide_channels()
 
@@ -569,7 +561,7 @@ class ChannelClient(BaseClientWithNotifications):
         try:
             for name in normalized_names.channels:
                 channel_name_str = str(name)
-                selector = f"div[id^='channel:'] p.pluto-text--editable:has-text('{channel_name_str}')"
+                selector = f"div[id^='{self.ITEM_PREFIX}'] p.pluto-text--editable:has-text('{channel_name_str}')"
                 try:
                     self.layout.page.wait_for_selector(
                         selector, state="visible", timeout=timeout_ms
@@ -628,7 +620,7 @@ class ChannelClient(BaseClientWithNotifications):
         channel_name_element = item.locator("p.pluto-text--editable")
         channel_name_element.click()
         channel_name_element.fill(new_name)
-        self.layout.page.keyboard.press("Enter")
+        self.layout.press_enter()
 
         self.hide_channels()
 
@@ -662,10 +654,7 @@ class ChannelClient(BaseClientWithNotifications):
         delete_option.wait_for(state="visible", timeout=5000)
         delete_option.click()
 
-        modal = self.layout.page.locator(
-            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-        )
-
+        modal = self.layout.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=2000)
         modal_delete_btn = modal.get_by_role("button", name="Delete", exact=True)
         modal_delete_btn.click()
@@ -678,9 +667,9 @@ class ChannelClient(BaseClientWithNotifications):
                 self.notifications.close(i)
                 raise RuntimeError(f"{message} {name}, {description}")
 
-        channel_item = self.layout.page.locator("div[id^='channel:']").filter(
-            has=self.layout.page.get_by_text(name, exact=True)
-        )
+        channel_item = self.layout.page.locator(
+            f"div[id^='{self.ITEM_PREFIX}']"
+        ).filter(has=self.layout.page.get_by_text(name, exact=True))
         channel_item.first.wait_for(state="hidden", timeout=timeout)
 
         self.hide_channels()
@@ -693,7 +682,7 @@ class ChannelClient(BaseClientWithNotifications):
         """
         self.show_channels()
 
-        all_items = self.channels_list.all()
+        all_items = self._get_channels_list().all()
         channels = list[ChannelName]()
         for item in all_items:
             if item.is_visible():
@@ -711,9 +700,7 @@ class ChannelClient(BaseClientWithNotifications):
         ).first
         close_button.click(timeout=2000)
 
-        modal = self.layout.page.locator(
-            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-        )
+        modal = self.layout.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="hidden", timeout=2000)
 
     def open_create_modal(self) -> None:
@@ -724,9 +711,7 @@ class ChannelClient(BaseClientWithNotifications):
         """
         self.layout.command_palette("Create a Channel")
 
-        modal = self.layout.page.locator(
-            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-        )
+        modal = self.layout.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
         name_input = self.layout.page.locator("input[placeholder='Name']")
@@ -740,9 +725,7 @@ class ChannelClient(BaseClientWithNotifications):
         """
         self.layout.command_palette("Create a Calculated Channel")
 
-        modal = self.layout.page.locator(
-            "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-        )
+        modal = self.layout.page.locator(self.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
         name_input = self.layout.page.locator("input[placeholder='Name']")

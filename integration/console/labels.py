@@ -214,8 +214,8 @@ class LabelClient(BaseClient):
         hex_input = color_picker.locator("input").first
         hex_input.click()
         hex_input.fill(hex_color.lstrip("#"))
-        self.layout.page.keyboard.press("Enter")
-        self.layout.page.keyboard.press("Escape")
+        self.layout.press_enter()
+        self.layout.press_escape()
         color_picker.wait_for(state="hidden", timeout=2000)
 
     def _open_edit_modal(self) -> None:

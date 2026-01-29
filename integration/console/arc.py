@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 class ArcClient(BaseClientWithNotifications):
     """Arc automation management for Console UI automation."""
 
+    ICON_NAME = "arc"
     TOOLBAR_CLASS = ".console-arc-toolbar"
     CONTROLS_CLASS = ".console-arc-editor__controls"
     LIST_ITEM_CLASS = ".pluto-list__item"
@@ -38,7 +39,7 @@ class ArcClient(BaseClientWithNotifications):
         toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
         if toolbar.count() > 0 and toolbar.is_visible():
             return
-        arc_btn = self.layout.page.locator("button:has(.pluto-icon--arc)")
+        arc_btn = self.layout.page.locator(f"button:has(.pluto-icon--{self.ICON_NAME})")
         arc_btn.click()
         toolbar.wait_for(state="visible", timeout=5000)
 
@@ -88,9 +89,9 @@ class ArcClient(BaseClientWithNotifications):
             editor.locator(".monaco-editor.focused").wait_for(
                 state="visible", timeout=5000
             )
-            self.layout.page.keyboard.press("ControlOrMeta+a")
+            self.layout.press_key("ControlOrMeta+a")
             self.layout.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
-            self.layout.page.keyboard.press("ControlOrMeta+v")
+            self.layout.press_key("ControlOrMeta+v")
 
     def find_item(self, name: str) -> Locator | None:
         """Find an Arc item in the panel by name.

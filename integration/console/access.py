@@ -37,6 +37,10 @@ if TYPE_CHECKING:
 class AccessClient(BaseClientWithNotifications):
     """Console RBAC client for existing role/user UI functionality."""
 
+    SHORTCUT_KEY = "u"
+    ROLE_ITEM_PREFIX = "role:"
+    USER_ITEM_PREFIX = "user:"
+
     def __init__(self, layout: "LayoutClient", notifications: "NotificationsClient"):
         super().__init__(layout, notifications)
         self.tree = Tree(layout.page)
@@ -51,7 +55,7 @@ class AccessClient(BaseClientWithNotifications):
         After logout, the login screen will be displayed.
         """
         # Open command palette
-        self.layout.page.keyboard.press("ControlOrMeta+Shift+p")
+        self.layout.press_key("ControlOrMeta+Shift+p")
         sy.sleep(0.3)
 
         # Type the logout command
@@ -309,7 +313,7 @@ class AccessClient(BaseClientWithNotifications):
         role_name_element = role_item.locator("p.pluto-text--editable")
         role_name_element.click()
         role_name_element.fill(new_name)
-        self.layout.page.keyboard.press("Enter")
+        self.layout.press_enter()
         sy.sleep(0.2)
 
         return True
@@ -397,23 +401,17 @@ class AccessClient(BaseClientWithNotifications):
 
     def _show_users_panel(self) -> None:
         """Show the users panel in the navigation drawer."""
-        # Check if panel is already visible by looking for role elements
-        role_elements = self.layout.page.locator("div[id^='role:']")
-        if role_elements.count() > 0 and role_elements.first.is_visible():
-            return  # Already visible
-        # Press 'U' keyboard shortcut to toggle users panel
-        self.layout.page.keyboard.press("u")
-        sy.sleep(0.3)
+        self._show_toolbar(self.SHORTCUT_KEY, self.ROLE_ITEM_PREFIX)
 
     def _find_user_item(self, username: str) -> Locator | None:
         """Find a user item in the users panel by username."""
         self._show_users_panel()
-        return self.tree.find_by_name("user:", username)
+        return self.tree.find_by_name(self.USER_ITEM_PREFIX, username)
 
     def _find_role_item(self, role_name: str) -> Locator | None:
         """Find a role item in the ontology tree by name."""
         self._show_users_panel()
-        return self.tree.find_by_name("role:", role_name)
+        return self.tree.find_by_name(self.ROLE_ITEM_PREFIX, role_name)
 
     def list_visible_roles(self) -> list[str]:
         """List all roles visible in the ontology tree.
@@ -421,7 +419,7 @@ class AccessClient(BaseClientWithNotifications):
         :returns: List of role names.
         """
         self._show_users_panel()
-        return self.tree.list_names("role:")
+        return self.tree.list_names(self.ROLE_ITEM_PREFIX)
 
     def expand_role(self, role_name: str) -> None:
         """Expand a role node to show its child users.
@@ -443,4 +441,4 @@ class AccessClient(BaseClientWithNotifications):
         :returns: List of usernames under the role.
         """
         self._show_users_panel()
-        return self.tree.list_names("user:")
+        return self.tree.list_names(self.USER_ITEM_PREFIX)

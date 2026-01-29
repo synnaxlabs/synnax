@@ -29,6 +29,8 @@ class BaseClient:
     and other UI patterns used across multiple clients.
     """
 
+    MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+
     layout: "LayoutClient"
 
     def __init__(self, layout: "LayoutClient"):
@@ -83,6 +85,68 @@ class BaseClient:
         )
         button.click(timeout=5000)
         items.first.wait_for(state="visible", timeout=5000)
+
+    def _show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
+        """Show a navigation toolbar using keyboard shortcut.
+
+        Args:
+            shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
+            item_prefix: The ID prefix of items in the panel (e.g., "rack:", "role:").
+        """
+        items = self.layout.page.locator(f"div[id^='{item_prefix}']")
+        if items.count() > 0 and items.first.is_visible():
+            return
+        self.layout.press_key(shortcut_key)
+        items.first.wait_for(state="visible", timeout=5000)
+
+    def _find_toolbar_item(self, item_prefix: str, name: str) -> Locator | None:
+        """Find a toolbar item by name.
+
+        Args:
+            item_prefix: The ID prefix of items (e.g., "rack:", "role:").
+            name: The name to search for.
+
+        Returns:
+            The Locator for the item, or None if not found.
+        """
+        items = self.layout.page.locator(f"div[id^='{item_prefix}']").filter(
+            has_text=name
+        )
+        if items.count() == 0:
+            return None
+        return items.first
+
+    def _toolbar_item_exists(self, item_prefix: str, name: str) -> bool:
+        """Check if a toolbar item exists.
+
+        Args:
+            item_prefix: The ID prefix of items (e.g., "rack:", "role:").
+            name: The name to search for.
+
+        Returns:
+            True if the item exists, False otherwise.
+        """
+        return self._find_toolbar_item(item_prefix, name) is not None
+
+    def _get_toolbar_item(self, item_prefix: str, name: str) -> Locator:
+        """Get a toolbar item by name, raising if not found.
+
+        Args:
+            item_prefix: The ID prefix of items (e.g., "rack:", "role:").
+            name: The name to search for.
+
+        Returns:
+            The Locator for the item.
+
+        Raises:
+            ValueError: If the item is not found.
+        """
+        item = self._find_toolbar_item(item_prefix, name)
+        if item is None:
+            raise ValueError(
+                f"Item '{name}' not found in toolbar (prefix: {item_prefix})"
+            )
+        return item
 
     def _open_modal(self, command: str, selector: str) -> None:
         """Open a modal via command palette.

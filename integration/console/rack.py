@@ -21,40 +21,29 @@ class RackClient(BaseClient):
     """Rack management for Console UI automation."""
 
     ITEM_PREFIX = "rack:"
+    SHORTCUT_KEY = "d"
 
     def __init__(self, layout: "LayoutClient"):
         super().__init__(layout)
 
     def _show_devices_panel(self) -> None:
         """Show the devices panel in the navigation drawer."""
-        rack_elements = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
-        if rack_elements.count() > 0 and rack_elements.first.is_visible():
-            return
-        self.layout.page.keyboard.press("d")
-        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
-            state="visible", timeout=5000
-        )
+        self._show_toolbar(self.SHORTCUT_KEY, self.ITEM_PREFIX)
 
     def find_item(self, name: str) -> Locator | None:
         """Find a rack item in the devices panel by name."""
         self._show_devices_panel()
-        items = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
-            has_text=name
-        )
-        if items.count() == 0:
-            return None
-        return items.first
+        return self._find_toolbar_item(self.ITEM_PREFIX, name)
 
     def get_item(self, name: str) -> Locator:
         """Get a rack item locator from the devices panel."""
-        item = self.find_item(name)
-        if item is None:
-            raise ValueError(f"Rack '{name}' not found in devices panel")
-        return item
+        self._show_devices_panel()
+        return self._get_toolbar_item(self.ITEM_PREFIX, name)
 
     def exists(self, name: str) -> bool:
         """Check if a rack exists in the devices panel."""
-        return self.find_item(name) is not None
+        self._show_devices_panel()
+        return self._toolbar_item_exists(self.ITEM_PREFIX, name)
 
     def wait_for_rack_removed(self, name: str, timeout: int = 5000) -> None:
         """Wait for a rack to be removed from the devices panel.

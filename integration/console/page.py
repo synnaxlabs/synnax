@@ -9,13 +9,16 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import time
-from typing import TYPE_CHECKING, Literal, Self, cast
+from typing import TYPE_CHECKING, Any, Literal, Self, cast
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize
+
+from framework.utils import get_results_path
 
 if TYPE_CHECKING:
     from .console import Console
@@ -254,6 +257,40 @@ class ConsolePage:
         self.console.notifications.close_all()
         self.page.locator("#properties").click(timeout=5000)
         return self.layout.get_input_field("Title")
+
+    def copy_link(self) -> str:
+        """Copy link to the page via the toolbar link button.
+
+        Returns:
+            The copied link from clipboard (empty string if clipboard access fails).
+        """
+        self.console.notifications.close_all()
+        self.layout.show_visualization_toolbar()
+        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button.click(timeout=5000)
+        return self.layout.read_clipboard()
+
+    def export_json(self) -> dict[str, Any]:
+        """Export the page as a JSON file via the toolbar export button.
+
+        The file is saved to the tests/results directory with the page name.
+
+        Returns:
+            The exported JSON content as a dictionary.
+        """
+        self.layout.show_visualization_toolbar()
+        export_button = self.page.locator(".pluto-icon--export").locator("..")
+        self.page.evaluate("delete window.showSaveFilePicker")
+
+        with self.page.expect_download(timeout=5000) as download_info:
+            export_button.click()
+
+        download = download_info.value
+        save_path = get_results_path(f"{self.page_name}.json")
+        download.save_as(save_path)
+        with open(save_path, "r") as f:
+            result: dict[str, Any] = json.load(f)
+            return result
 
     def get_value(self, channel_name: str) -> float | None:
         """Get the latest data value for any channel using the synnax client"""

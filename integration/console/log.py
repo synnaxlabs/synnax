@@ -79,19 +79,6 @@ class Log(ConsolePage):
         result = channel_name in channel_text
         return result
 
-    def copy_link(self) -> str:
-        """Copy link to the log via the toolbar link button."""
-        self.console.notifications.close_all()
-        self.layout.show_visualization_toolbar()
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
-        link_button.click(timeout=5000)
-
-        try:
-            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
-            return link
-        except Exception:
-            return ""
-
     def is_empty(self) -> bool:
         """Check if the log shows any empty state message."""
         if not self.pane_locator:

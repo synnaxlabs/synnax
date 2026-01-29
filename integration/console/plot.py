@@ -9,7 +9,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import Any, Literal
 
 from framework.utils import get_results_path
@@ -228,44 +227,6 @@ class Plot(ConsolePage):
 
         selector = f"label:has-text('Label Size') + div button:has-text('{size}')"
         self.page.locator(selector).click(timeout=5000)
-
-    def copy_link(self) -> str:
-        """Copy link to the plot via the toolbar link button.
-
-        Returns:
-            The copied link from clipboard (empty string if clipboard access fails)
-        """
-        self.layout.show_visualization_toolbar()
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
-        link_button.click(timeout=5000)
-
-        try:
-            link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
-            return link
-        except Exception:
-            return ""
-
-    def export_json(self) -> dict[str, Any]:
-        """Export the plot as a JSON file via the toolbar export button.
-
-        The file is saved to the tests/results directory with the plot name.
-
-        Returns:
-            The exported JSON content as a dictionary.
-        """
-        self.layout.show_visualization_toolbar()
-        export_button = self.page.locator(".pluto-icon--export").locator("..")
-        self.page.evaluate("delete window.showSaveFilePicker")
-
-        with self.page.expect_download(timeout=5000) as download_info:
-            export_button.click()
-
-        download = download_info.value
-        save_path = get_results_path(f"{self.page_name}.json")
-        download.save_as(save_path)
-        with open(save_path, "r") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
 
     def set_title(self, title: str) -> None:
         """Set the plot title via the Properties tab.

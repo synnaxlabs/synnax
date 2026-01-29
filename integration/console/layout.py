@@ -11,10 +11,96 @@ import random
 import re
 from collections.abc import Generator
 from contextlib import contextmanager
+from typing import Literal
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+AriaRole = Literal[
+    "alert",
+    "alertdialog",
+    "application",
+    "article",
+    "banner",
+    "blockquote",
+    "button",
+    "caption",
+    "cell",
+    "checkbox",
+    "code",
+    "columnheader",
+    "combobox",
+    "complementary",
+    "contentinfo",
+    "definition",
+    "deletion",
+    "dialog",
+    "directory",
+    "document",
+    "emphasis",
+    "feed",
+    "figure",
+    "form",
+    "generic",
+    "grid",
+    "gridcell",
+    "group",
+    "heading",
+    "img",
+    "insertion",
+    "link",
+    "list",
+    "listbox",
+    "listitem",
+    "log",
+    "main",
+    "marquee",
+    "math",
+    "menu",
+    "menubar",
+    "menuitem",
+    "menuitemcheckbox",
+    "menuitemradio",
+    "meter",
+    "navigation",
+    "none",
+    "note",
+    "option",
+    "paragraph",
+    "presentation",
+    "progressbar",
+    "radio",
+    "radiogroup",
+    "region",
+    "row",
+    "rowgroup",
+    "rowheader",
+    "scrollbar",
+    "search",
+    "searchbox",
+    "separator",
+    "slider",
+    "spinbutton",
+    "status",
+    "strong",
+    "subscript",
+    "superscript",
+    "switch",
+    "tab",
+    "table",
+    "tablist",
+    "tabpanel",
+    "term",
+    "textbox",
+    "time",
+    "timer",
+    "toolbar",
+    "tooltip",
+    "tree",
+    "treegrid",
+    "treeitem",
+]
 
 
 class LayoutClient:
@@ -24,6 +110,8 @@ class LayoutClient:
     This is the PRIMARY abstraction layer over Playwright. All UI operations
     (command palette, forms, keyboard, navigation) should go through this client.
     """
+
+    MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
 
     def __init__(self, page: Page):
         self.page = page
@@ -168,42 +256,9 @@ class LayoutClient:
             target_result.click(timeout=5000)
             return
 
-    def press_escape(self) -> None:
-        """Press the Escape key."""
-        self.page.keyboard.press("Escape")
-
-    def press_enter(self) -> None:
-        """Press the Enter key."""
-        self.page.keyboard.press("Enter")
-
-    def press_meta_enter(self) -> None:
-        """Press Ctrl/Cmd+Enter."""
-        self.page.keyboard.press("ControlOrMeta+Enter")
-
-    def press_delete(self) -> None:
-        """Press the Delete key."""
-        self.page.keyboard.press("Delete")
-
-    def select_all(self) -> None:
-        """Select all text in the focused element."""
-        # Pressing too quickly can cause the arcs toolbar to open and block.
-        sy.sleep(0.1)
-        self.page.keyboard.press("ControlOrMeta+a")
-
-    def select_all_and_type(self, text: str) -> None:
-        """Select all text in the focused element and type new text."""
-        self.select_all()
-        sy.sleep(0.1)
-        self.page.keyboard.type(text)
-
     def is_modal_open(self) -> bool:
         """Check if a modal dialog is currently open."""
-        return (
-            self.page.locator(
-                "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
-            ).count()
-            > 0
-        )
+        return self.page.locator(self.MODAL_SELECTOR).count() > 0
 
     def check_for_modal(self) -> bool:
         """Check for a modal (alias for is_modal_open)."""
@@ -612,3 +667,140 @@ class LayoutClient:
         ).first
         header.wait_for(state="visible", timeout=5000)
         return header.inner_text().strip()
+
+    # ============================================================
+    # Playwright Wrapper Methods
+    # These methods provide a consistent interface for common Playwright operations,
+    # reducing direct Playwright coupling in client code.
+    # ============================================================
+
+    def wait_for_visible(self, locator: Locator) -> None:
+        """Wait for a locator to become visible.
+
+        Args:
+            locator: The Playwright Locator to wait for.
+        """
+        locator.wait_for(state="visible", timeout=5000)
+
+    def wait_for_hidden(self, locator: Locator) -> None:
+        """Wait for a locator to become hidden.
+
+        Args:
+            locator: The Playwright Locator to wait for.
+        """
+        locator.wait_for(state="hidden", timeout=5000)
+
+    def press_key(self, key: str) -> None:
+        """Press a keyboard key.
+
+        Args:
+            key: The key to press (e.g., "Enter", "Escape", "ControlOrMeta+a").
+        """
+        self.page.keyboard.press(key)
+
+    def press_escape(self) -> None:
+        """Press the Escape key."""
+        self.page.keyboard.press("Escape")
+
+    def press_enter(self) -> None:
+        """Press the Enter key."""
+        self.page.keyboard.press("Enter")
+
+    def press_meta_enter(self) -> None:
+        """Press Ctrl/Cmd+Enter."""
+        self.page.keyboard.press("ControlOrMeta+Enter")
+
+    def press_delete(self) -> None:
+        """Press the Delete key."""
+        self.page.keyboard.press("Delete")
+
+    def select_all(self) -> None:
+        """Select all text in the focused element."""
+        sy.sleep(0.1)
+        self.page.keyboard.press("ControlOrMeta+a")
+
+    def select_all_and_type(self, text: str) -> None:
+        """Select all text in the focused element and type new text."""
+        self.select_all()
+        sy.sleep(0.1)
+        self.page.keyboard.type(text)
+
+    def type_text(self, text: str) -> None:
+        """Type text using the keyboard.
+
+        Args:
+            text: The text to type.
+        """
+        self.page.keyboard.type(text)
+
+    def get_by_text(self, text: str, *, exact: bool = False) -> Locator:
+        """Get a locator for an element containing the specified text.
+
+        Args:
+            text: The text to search for.
+            exact: If True, match the exact text. If False, match substring.
+
+        Returns:
+            A Playwright Locator for the element.
+        """
+        return self.page.get_by_text(text, exact=exact)
+
+    def click_role(self, role: AriaRole, name: str) -> None:
+        """Click on an element by its ARIA role and accessible name.
+
+        Args:
+            role: The ARIA role (e.g., "button", "checkbox", "textbox").
+            name: The accessible name of the element.
+        """
+        self.page.get_by_role(role, name=name).click()
+
+    def locator(self, selector: str) -> Locator:
+        """Create a locator for the given CSS selector.
+
+        Args:
+            selector: CSS selector string.
+
+        Returns:
+            A Playwright Locator for the element(s).
+        """
+        return self.page.locator(selector)
+
+    def wait_for_selector_visible(self, selector: str) -> Locator:
+        """Wait for a selector to become visible and return its locator.
+
+        Args:
+            selector: CSS selector string.
+
+        Returns:
+            A Playwright Locator for the visible element.
+        """
+        loc = self.page.locator(selector)
+        loc.wait_for(state="visible", timeout=5000)
+        return loc
+
+    def wait_for_selector_hidden(self, selector: str) -> None:
+        """Wait for a selector to become hidden.
+
+        Args:
+            selector: CSS selector string.
+        """
+        self.page.locator(selector).wait_for(state="hidden", timeout=5000)
+
+    def sleep(self, ms: int) -> None:
+        """Wait for a specified number of milliseconds.
+
+        Args:
+            ms: The number of milliseconds to wait.
+        """
+        self.page.wait_for_timeout(ms)
+
+    def read_clipboard(self) -> str:
+        """Read text from the clipboard.
+
+        Returns:
+            The clipboard text, or empty string if clipboard access fails.
+        """
+        try:
+            return str(self.page.evaluate("navigator.clipboard.readText()"))
+        except Exception:
+            return ""

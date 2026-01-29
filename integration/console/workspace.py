@@ -46,6 +46,8 @@ PageType = Literal[
 class WorkspaceClient:
     """Workspace management for Console UI automation."""
 
+    ITEM_PREFIX = "workspace:"
+
     def __init__(self, layout: "LayoutClient", console: "Console"):
         self.layout = layout
         self.console = console
@@ -131,7 +133,7 @@ class WorkspaceClient:
             Locator for the workspace item
         """
         return (
-            self.layout.page.locator("div[id^='workspace:']")
+            self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
             .filter(has_text=name)
             .first
         )
@@ -147,13 +149,13 @@ class WorkspaceClient:
         """
         self.layout.show_resource_toolbar("workspace")
         try:
-            self.layout.page.locator("div[id^='workspace:']").first.wait_for(
+            self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
                 state="visible", timeout=2000
             )
         except PlaywrightTimeoutError:
             return False
         count = (
-            self.layout.page.locator("div[id^='workspace:']")
+            self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
             .filter(has_text=name)
             .count()
         )
@@ -167,15 +169,17 @@ class WorkspaceClient:
             timeout: Maximum time in milliseconds to wait
         """
         self.layout.show_resource_toolbar("workspace")
-        workspace_item = self.layout.page.locator("div[id^='workspace:']").filter(
-            has_text=name
-        )
+        workspace_item = self.layout.page.locator(
+            f"div[id^='{self.ITEM_PREFIX}']"
+        ).filter(has_text=name)
         workspace_item.first.wait_for(state="hidden", timeout=5000)
 
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
         self.layout.show_resource_toolbar("workspace")
-        workspace_item = self.layout.page.locator("div[id^='workspace:']").first
+        workspace_item = self.layout.page.locator(
+            f"div[id^='{self.ITEM_PREFIX}']"
+        ).first
         workspace_item.wait_for(state="visible", timeout=10000)
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
@@ -259,7 +263,7 @@ class WorkspaceClient:
         page_item.click(button="right")
         self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.layout.select_all_and_type(new_name)
-        self.layout.page.keyboard.press("Enter")
+        self.layout.press_enter()
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
         self.wait_for_page_removed(old_name)
         self.layout.close_nav_drawer()
@@ -353,10 +357,7 @@ class WorkspaceClient:
         menu.wait_for(state="visible", timeout=2000)
         menu.get_by_text("Copy link", exact=True).click(timeout=5000)
         self.layout.close_nav_drawer()
-
-        link: str = str(self.layout.page.evaluate("navigator.clipboard.readText()"))
-
-        return link
+        return self.layout.read_clipboard()
 
     def group_pages(self, *, names: list[str], group_name: str) -> None:
         """Group multiple pages into a folder via multi-select and context menu.
@@ -384,7 +385,7 @@ class WorkspaceClient:
 
         self.layout.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
         self.layout.select_all_and_type(group_name)
-        self.layout.page.keyboard.press("Enter")
+        self.layout.press_enter()
         self.layout.close_nav_drawer()
 
     def export_page(self, name: str) -> dict[str, Any]:
@@ -492,7 +493,7 @@ class WorkspaceClient:
         copy_item.click(timeout=5000)
 
         self.layout.select_all_and_type(new_name)
-        self.layout.page.keyboard.press("Enter")
+        self.layout.press_enter()
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
         self.layout.close_nav_drawer()
 
@@ -603,7 +604,7 @@ class WorkspaceClient:
         workspace.click(button="right")
         self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
         self.layout.select_all_and_type(new_name)
-        self.layout.page.keyboard.press("Enter")
+        self.layout.press_enter()
         self.layout.close_nav_drawer()
 
     def delete(self, name: str) -> None:

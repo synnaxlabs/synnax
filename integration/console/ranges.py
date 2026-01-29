@@ -30,6 +30,8 @@ class RangesClient(BaseClientWithNotifications):
     The Range Explorer shows all persisted ranges.
     """
 
+    SHORTCUT_KEY = "r"
+    TOOLBAR_HEADER_TEXT = "Ranges"
     TOOLBAR_ITEM_SELECTOR = ".console-range-list-item"
     EXPLORER_ITEM_SELECTOR = ".console-range__list-item"
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
@@ -57,10 +59,12 @@ class RangesClient(BaseClientWithNotifications):
 
     def show_toolbar(self) -> None:
         """Show the ranges toolbar in the left sidebar (favorites only)."""
-        toolbar_header = self.layout.page.get_by_text("Ranges", exact=True).first
+        toolbar_header = self.layout.page.get_by_text(
+            self.TOOLBAR_HEADER_TEXT, exact=True
+        ).first
         if toolbar_header.is_visible():
             return
-        self.layout.page.keyboard.press("r")
+        self.layout.press_key(self.SHORTCUT_KEY)
         toolbar_header.wait_for(state="visible")
 
     def hide_toolbar(self) -> None:
@@ -200,7 +204,7 @@ class RangesClient(BaseClientWithNotifications):
                     raise RuntimeError(
                         f"Error selecting label '{label_name}'. Available labels: {available_labels}."
                     )
-            self.layout.page.keyboard.press("Escape")
+            self.layout.press_escape()
 
         if persisted:
             save_button = self.layout.page.get_by_role("button", name="Save to Synnax")
@@ -255,7 +259,7 @@ class RangesClient(BaseClientWithNotifications):
         remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
-            self.layout.page.keyboard.press("Escape")
+            self.layout.press_escape()
             return
         add_btn.click(timeout=5000)
         add_btn.wait_for(state="hidden", timeout=2000)
@@ -493,7 +497,7 @@ class RangesClient(BaseClientWithNotifications):
             raise RuntimeError(
                 f"Label '{label_name}' not found in dropdown. Available: {available_labels}"
             ) from e
-        self.layout.page.keyboard.press("Escape")
+        self.layout.press_escape()
         item.wait_for(state="hidden", timeout=2000)
 
     def remove_label_in_overview(self, label_name: str) -> None:
@@ -511,7 +515,7 @@ class RangesClient(BaseClientWithNotifications):
             .first
         )
         item.click(timeout=2000)
-        self.layout.page.keyboard.press("Escape")
+        self.layout.press_escape()
         item.wait_for(state="hidden", timeout=2000)
 
     def get_labels_in_overview(self) -> list[str]:
