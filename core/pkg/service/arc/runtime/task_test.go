@@ -12,6 +12,7 @@ package runtime_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -32,7 +33,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -47,6 +51,8 @@ var _ = Describe("Task", Ordered, func() {
 		statusSvc *status.Service
 		labelSvc  *label.Service
 	)
+
+	ShouldNotLeakGoroutinesBeforeEach()
 
 	BeforeAll(func() {
 		distB := mock.NewCluster()
@@ -76,20 +82,35 @@ var _ = Describe("Task", Ordered, func() {
 		return driver.NewContext(ctx, statusSvc)
 	}
 
-	newFactory := func(g graph.Graph) *runtime.Factory {
+	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) *runtime.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel: dist.Channel,
-			Framer:  dist.Framer,
-			Status:  statusSvc,
-			GetModule: func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-				resolver := symbol.CreateResolver(dist.Channel)
-				module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
-				if err != nil {
-					return svcarc.Arc{}, err
-				}
-				return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: module}, nil
-			},
+			Channel:   dist.Channel,
+			Framer:    dist.Framer,
+			Status:    statusSvc,
+			GetModule: getModule,
 		}))
+	}
+
+	newGraphFactory := func(g graph.Graph) *runtime.Factory {
+		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
+			resolver := symbol.CreateResolver(dist.Channel)
+			module, err := arc.CompileGraph(ctx, g, arc.WithResolver(resolver))
+			if err != nil {
+				return svcarc.Arc{}, err
+			}
+			return svcarc.Arc{Key: key, Name: "test-arc", Graph: g, Module: module}, nil
+		})
+	}
+
+	newTextFactory := func(prof arc.Text) *runtime.Factory {
+		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
+			resolver := symbol.CreateResolver(dist.Channel)
+			module, err := arc.CompileText(ctx, prof, arc.WithResolver(resolver))
+			if err != nil {
+				return svcarc.Arc{}, err
+			}
+			return svcarc.Arc{Key: uuid.New(), Name: "test-arc", Text: prof, Module: module}, nil
+		})
 	}
 
 	newTask := func(factory *runtime.Factory) driver.Task {
@@ -107,6 +128,36 @@ var _ = Describe("Task", Ordered, func() {
 	simpleGraph := func(chKey channel.Key) graph.Graph {
 		return graph.Graph{
 			Nodes: []graph.Node{{Key: "on", Type: "on", Config: map[string]any{"channel": chKey}}},
+		}
+	}
+
+	createVirtualCh := func(prefix string, dataType telem.DataType) *channel.Channel {
+		ch := &channel.Channel{
+			Name:     prefix + "_" + uuid.NewString()[:8],
+			Virtual:  true,
+			DataType: dataType,
+		}
+		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		return ch
+	}
+
+	openTestStreamer := func(keys channel.Keys, bufferSize int) (
+		responses <-chan framer.StreamerResponse,
+		close func(),
+	) {
+		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			Keys:        keys,
+			SendOpenAck: config.True(),
+		}))
+		requests, res := confluence.Attach(streamer, bufferSize)
+		sCtx, cancel := signal.Isolated()
+		closer := signal.NewHardShutdown(sCtx, cancel)
+		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+		Eventually(res.Outlet()).Should(Receive())
+		return res.Outlet(), func() {
+			requests.Close()
+			confluence.Drain(res)
+			Expect(closer.Close()).To(Succeed())
 		}
 	}
 
@@ -133,7 +184,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create Task for arc type", func() {
 			ch := &channel.Channel{Name: "factory_test_ch", Virtual: true, DataType: telem.Float32T}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
-			t := newTask(newFactory(simpleGraph(ch.Key())))
+			t := newTask(newGraphFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
 
@@ -237,7 +288,7 @@ var _ = Describe("Task", Ordered, func() {
 				Config: string(MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))),
 			}
 			t, handled := MustSucceed2(
-				newFactory(simpleGraph(ch.Key())).
+				newGraphFactory(simpleGraph(ch.Key())).
 					ConfigureTask(newContext(), svcTask),
 			)
 			Expect(handled).To(BeTrue())
@@ -268,7 +319,7 @@ var _ = Describe("Task", Ordered, func() {
 					AutoStart: true,
 				}))),
 			}
-			t, handled := MustSucceed2(newFactory(
+			t, handled := MustSucceed2(newGraphFactory(
 				simpleGraph(ch.Key())).
 				ConfigureTask(newContext(), svcTask),
 			)
@@ -295,7 +346,7 @@ var _ = Describe("Task", Ordered, func() {
 				DataType: telem.Float32T,
 			}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
-			arcTask = newTask(newFactory(simpleGraph(ch.Key())))
+			arcTask = newTask(newGraphFactory(simpleGraph(ch.Key())))
 		})
 
 		AfterEach(func() {
@@ -339,50 +390,6 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
-	Describe("Pipeline Creation", func() {
-		It("Should create stream pipeline for read channels", func() {
-			ch := &channel.Channel{
-				Name:     "stream_test_ch_" + uuid.NewString()[:8],
-				Virtual:  true,
-				DataType: telem.Float32T,
-			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
-			t := newTask(newFactory(simpleGraph(ch.Key())))
-			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			Expect(t.Stop(false)).To(Succeed())
-		})
-
-		It("Should create write pipeline for write channels", func() {
-			indexCh := &channel.Channel{
-				Name:     "write_idx_" + uuid.NewString()[:8],
-				IsIndex:  true,
-				DataType: telem.TimeStampT,
-			}
-			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
-			dataCh := &channel.Channel{
-				Name:       "write_data_" + uuid.NewString()[:8],
-				LocalIndex: indexCh.LocalKey,
-				DataType:   telem.Float32T,
-			}
-			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
-			writeGraph := graph.Graph{
-				Nodes: []graph.Node{
-					{Key: "const", Type: "constant", Config: map[string]any{"value": 42.0}},
-					{Key: "sink", Type: "write", Config: map[string]any{"channel": dataCh.Key()}},
-				},
-				Edges: []graph.Edge{
-					{
-						Source: graph.Handle{Node: "const", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					},
-				},
-			}
-			t := newTask(newFactory(writeGraph))
-			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
-			Expect(t.Stop(false)).To(Succeed())
-		})
-	})
-
 	Describe("ConfigureTask Error Paths", func() {
 		It("Should return error when graph has unknown node type", func() {
 			badNodeGraph := graph.Graph{
@@ -395,7 +402,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   runtime.TaskType,
 				Config: string(cfgJSON),
 			}
-			_, ok, err := newFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)
+			_, ok, err := newGraphFactory(badNodeGraph).ConfigureTask(newContext(), svcTask)
 			Expect(ok).To(BeTrue())
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
 		})
@@ -448,7 +455,7 @@ var _ = Describe("Task", Ordered, func() {
 				},
 			}
 
-			t := newTask(newFactory(alarmGraph))
+			t := newTask(newGraphFactory(alarmGraph))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
 
@@ -468,6 +475,179 @@ var _ = Describe("Task", Ordered, func() {
 					WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
+		})
+	})
+
+	Describe("Interval Timing", func() {
+		It("Should fire intervals without any streaming data", func() {
+			indexCh := &channel.Channel{
+				Name:     "interval_idx_" + uuid.NewString()[:8],
+				IsIndex:  true,
+				DataType: telem.TimeStampT,
+			}
+			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			dataCh := &channel.Channel{
+				Name:       "interval_data_" + uuid.NewString()[:8],
+				LocalIndex: indexCh.LocalKey,
+				DataType:   telem.Uint8T,
+			}
+			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func output() {
+						%s = 42.0
+					}
+					interval{period=50ms} -> output{}
+				`, dataCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{dataCh.Key()}, 2)
+			defer closeStreamer()
+			time.Sleep(10 * time.Millisecond)
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+			Expect(fr.Frame.Get(dataCh.Key()).Len()).To(BeEquivalentTo(1))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0)).To(Equal(uint8(42)))
+
+			Eventually(responses).Should(Receive(&fr))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0)).To(Equal(uint8(42)))
+
+			Eventually(responses).Should(Receive(&fr))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(dataCh.Key()).Series[0], 0)).To(Equal(uint8(42)))
+		})
+
+		It("Should process both intervals and streaming data", func() {
+			inputCh := createVirtualCh("combined_input", telem.Float32T)
+			outputCh := createVirtualCh("combined_output", telem.Float32T)
+			intervalCh := createVirtualCh("combined_interval", telem.Uint8T)
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func passthrough() {
+						%s = %s
+					}
+					func tick() {
+						%s = 1
+					}
+					%s -> passthrough{}
+					interval{period=50ms} -> tick{}
+				`, outputCh.Name, inputCh.Name, intervalCh.Name, inputCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{
+				outputCh.Key(),
+				intervalCh.Key(),
+			}, 10)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  channel.Keys{inputCh.Key()},
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[float32](99.5)))).To(BeTrue())
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+			Eventually(responses).Should(Receive(&fr))
+			Eventually(responses).Should(Receive(&fr))
+		})
+
+		It("Should fire Wait node without streaming data", func() {
+			outputCh := createVirtualCh("wait_output", telem.Uint8T)
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func output() {
+						%s = 1
+					}
+					wait{duration=50ms} -> output{}
+				`, outputCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{outputCh.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+			Expect(fr.Frame.Get(outputCh.Key()).Len()).To(BeEquivalentTo(1))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(outputCh.Key()).Series[0], 0)).To(Equal(uint8(1)))
+		})
+
+		It("Should handle multiple intervals with different periods", func() {
+			output1Ch := createVirtualCh("multi_interval_1", telem.Uint8T)
+			output2Ch := createVirtualCh("multi_interval_2", telem.Uint8T)
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func tick1() {
+						%s = 1
+					}
+					func tick2() {
+						%s = 2
+					}
+					interval{period=60ms} -> tick1{}
+					interval{period=90ms} -> tick2{}
+				`, output1Ch.Name, output2Ch.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{
+				output1Ch.Key(),
+				output2Ch.Key(),
+			}, 10)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			var (
+				fr     framer.StreamerResponse
+				count1 int
+				count2 int
+			)
+			for count1 < 3 || count2 < 2 {
+				Eventually(responses).Should(Receive(&fr))
+				if fr.Frame.Get(output1Ch.Key()).Len() > 0 {
+					Expect(telem.ValueAt[uint8](fr.Frame.Get(output1Ch.Key()).Series[0], 0)).To(Equal(uint8(1)))
+					count1++
+				}
+				if fr.Frame.Get(output2Ch.Key()).Len() > 0 {
+					Expect(telem.ValueAt[uint8](fr.Frame.Get(output2Ch.Key()).Series[0], 0)).To(Equal(uint8(2)))
+					count2++
+				}
+			}
+		})
+
+		It("Should stop cleanly when only intervals exist", func() {
+			outputCh := createVirtualCh("clean_stop", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func tick() {
+						%s = 1
+					}
+					interval{period=10ms} -> tick{}
+				`, outputCh.Name),
+			}
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			time.Sleep(50 * time.Millisecond)
+			Expect(t.Stop(false)).To(Succeed())
 		})
 	})
 })
