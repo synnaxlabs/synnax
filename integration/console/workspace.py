@@ -130,7 +130,11 @@ class WorkspaceClient:
         Returns:
             Locator for the workspace item
         """
-        return self.layout.page.locator("div[id^='workspace:']").filter(has_text=name).first
+        return (
+            self.layout.page.locator("div[id^='workspace:']")
+            .filter(has_text=name)
+            .first
+        )
 
     def exists(self, name: str) -> bool:
         """Check if a workspace exists in the resources toolbar.
@@ -148,7 +152,11 @@ class WorkspaceClient:
             )
         except PlaywrightTimeoutError:
             return False
-        count = self.layout.page.locator("div[id^='workspace:']").filter(has_text=name).count()
+        count = (
+            self.layout.page.locator("div[id^='workspace:']")
+            .filter(has_text=name)
+            .count()
+        )
         return count > 0
 
     def wait_for_workspace_removed(self, name: str) -> None:
@@ -429,7 +437,9 @@ class WorkspaceClient:
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
 
-        snapshot_item = self.layout.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item = self.layout.page.get_by_text(
+            f"Snapshot to {range_name}", exact=True
+        )
         snapshot_item.wait_for(state="visible", timeout=5000)
         snapshot_item.click(timeout=5000)
         self.layout.close_nav_drawer()
@@ -458,7 +468,9 @@ class WorkspaceClient:
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
-        snapshot_item = self.layout.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item = self.layout.page.get_by_text(
+            f"Snapshot to {range_name}", exact=True
+        )
         snapshot_item.wait_for(state="visible", timeout=5000)
         snapshot_item.click(timeout=5000)
         self.layout.close_nav_drawer()
@@ -542,12 +554,16 @@ class WorkspaceClient:
                 .first
             )
             selector.click(timeout=5000)
-            self.layout.page.get_by_role("button", name="New", exact=True).click(timeout=5000)
+            self.layout.page.get_by_role("button", name="New", exact=True).click(
+                timeout=5000
+            )
 
         name_input = self.layout.page.locator("input[placeholder='Workspace Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
-        self.layout.page.get_by_role("button", name="Create", exact=True).click(timeout=5000)
+        self.layout.page.get_by_role("button", name="Create", exact=True).click(
+            timeout=5000
+        )
         name_input.wait_for(state="hidden", timeout=5000)
         self.layout.show_resource_toolbar("workspace")
         self.get_item(name).wait_for(state="visible", timeout=5000)

@@ -346,7 +346,9 @@ class AccessClient(BaseClientWithNotifications):
 
         # Confirm deletion in modal if present
         if self.layout.check_for_modal():
-            self.layout.page.get_by_role("button", name="Delete", exact=True).first.click()
+            self.layout.page.get_by_role(
+                "button", name="Delete", exact=True
+            ).first.click()
             sy.sleep(0.3)
 
         # Check for error notifications

@@ -39,7 +39,9 @@ class NotificationsClient:
 
         while time.time() - start_time < timeout:
             notifications = []
-            notification_elements = self.layout.page.locator(".pluto-notification").all()
+            notification_elements = self.layout.page.locator(
+                ".pluto-notification"
+            ).all()
 
             if len(notification_elements) > 0:
                 for notification in notification_elements:
@@ -97,7 +99,9 @@ class NotificationsClient:
             True if notification was closed, False if not found
         """
         try:
-            notification_elements = self.layout.page.locator(".pluto-notification").all()
+            notification_elements = self.layout.page.locator(
+                ".pluto-notification"
+            ).all()
             if notification_index >= len(notification_elements):
                 return False
 
@@ -124,7 +128,9 @@ class NotificationsClient:
         max_attempts = 10
 
         for _ in range(max_attempts):
-            notification_elements = self.layout.page.locator(".pluto-notification").all()
+            notification_elements = self.layout.page.locator(
+                ".pluto-notification"
+            ).all()
             if len(notification_elements) == 0:
                 break
 
@@ -144,7 +150,9 @@ class NotificationsClient:
         Returns:
             True if notification was found and close was triggered, False otherwise.
         """
-        notification = self.layout.page.locator(".pluto-notification:has-text('Connected to')")
+        notification = self.layout.page.locator(
+            ".pluto-notification:has-text('Connected to')"
+        )
         if notification.count() == 0:
             return False
 
@@ -164,7 +172,9 @@ class NotificationsClient:
         Returns:
             True if notification was found, False if timeout.
         """
-        notification = self.layout.page.locator(f".pluto-notification:has-text('{text}')")
+        notification = self.layout.page.locator(
+            f".pluto-notification:has-text('{text}')"
+        )
         try:
             notification.wait_for(state="visible", timeout=5000)
             return True

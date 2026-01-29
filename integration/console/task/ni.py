@@ -130,7 +130,9 @@ class NITask(ConsolePage):
             raise RuntimeError("Blocking modal is still open")
 
         # Create channel using provided class
-        channel = channel_class(console=self.console, name=name, device=device, **kwargs)
+        channel = channel_class(
+            console=self.console, name=name, device=device, **kwargs
+        )
 
         self.channels.append(channel)
         self.channels_by_name.append(name)

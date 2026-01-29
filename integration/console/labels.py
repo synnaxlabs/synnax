@@ -42,7 +42,9 @@ class LabelClient(BaseClient):
         add_button = self.layout.page.locator(".console-label__add-btn")
         add_button.click()
 
-        create_form = self.layout.page.locator(f"{_LABEL_ITEM_SELECTOR}.console--create").first
+        create_form = self.layout.page.locator(
+            f"{_LABEL_ITEM_SELECTOR}.console--create"
+        ).first
 
         if color is not None:
             color_swatch = create_form.locator(".pluto-color-swatch").first
@@ -239,7 +241,9 @@ class LabelClient(BaseClient):
         return None
 
     def _find_label_items(self) -> list[Locator]:
-        return self.layout.page.locator(f"{_LABEL_ITEM_SELECTOR}:not(.console--create)").all()
+        return self.layout.page.locator(
+            f"{_LABEL_ITEM_SELECTOR}:not(.console--create)"
+        ).all()
 
     def _enumerate_label_names(self, items: list[Locator]) -> list[str]:
         """Extract label names from a list of label item locators.

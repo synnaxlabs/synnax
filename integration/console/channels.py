@@ -324,7 +324,9 @@ class ChannelClient(BaseClientWithNotifications):
 
         save_btn = self.layout.page.locator("button").filter(has_text="Save").first
         if save_btn.count() == 0:
-            save_btn = self.layout.page.locator("button").filter(has_text="Create").first
+            save_btn = (
+                self.layout.page.locator("button").filter(has_text="Create").first
+            )
         save_btn.click()
 
         try:
@@ -392,7 +394,9 @@ class ChannelClient(BaseClientWithNotifications):
         """
         self._right_click_channel(name)
 
-        set_alias_option = self.layout.page.get_by_text(re.compile(r"Set alias under")).first
+        set_alias_option = self.layout.page.get_by_text(
+            re.compile(r"Set alias under")
+        ).first
         set_alias_option.wait_for(state="visible", timeout=5000)
         set_alias_option.click(timeout=1000)
 
@@ -479,7 +483,9 @@ class ChannelClient(BaseClientWithNotifications):
         group_selection_item.wait_for(state="visible", timeout=2000)
         group_selection_item.click()
 
-        editable_input = self.layout.page.locator("input.pluto-text__input--editable").first
+        editable_input = self.layout.page.locator(
+            "input.pluto-text__input--editable"
+        ).first
         try:
             editable_input.wait_for(state="visible", timeout=500)
             editable_input.fill(group_name)

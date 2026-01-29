@@ -59,9 +59,7 @@ class AngularVelocity(Counter):
             layout.select_from_dropdown(units)
             self.form_values["Scaled Units"] = units
         else:
-            self.form_values["Scaled Units"] = layout.get_dropdown_value(
-                "Scaled Units"
-            )
+            self.form_values["Scaled Units"] = layout.get_dropdown_value("Scaled Units")
 
         # Pulses per Revolution
         if pulses_per_rev is not None:

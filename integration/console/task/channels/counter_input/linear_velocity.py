@@ -59,9 +59,7 @@ class LinearVelocity(Counter):
             layout.select_from_dropdown(units)
             self.form_values["Scaled Units"] = units
         else:
-            self.form_values["Scaled Units"] = layout.get_dropdown_value(
-                "Scaled Units"
-            )
+            self.form_values["Scaled Units"] = layout.get_dropdown_value("Scaled Units")
 
         # Distance per Pulse
         if dist_per_pulse is not None:

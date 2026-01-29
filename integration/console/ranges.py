@@ -70,22 +70,32 @@ class RangesClient(BaseClientWithNotifications):
     def open_explorer(self) -> None:
         """Open the Range Explorer page (shows all ranges)."""
         self.layout.command_palette("Open Range Explorer")
-        self.layout.page.get_by_text("All Ranges").wait_for(state="visible", timeout=5000)
+        self.layout.page.get_by_text("All Ranges").wait_for(
+            state="visible", timeout=5000
+        )
 
     def get_toolbar_item(self, name: str) -> Locator:
         """Get a range item locator from the toolbar by name."""
-        return self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name).first
+        return (
+            self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR)
+            .filter(has_text=name)
+            .first
+        )
 
     def get_explorer_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
         return (
-            self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name).first
+            self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR)
+            .filter(has_text=name)
+            .first
         )
 
     def exists_in_toolbar(self, name: str) -> bool:
         """Check if a range exists in the toolbar (is favorited)."""
         self.show_toolbar()
-        items = self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(
+            has_text=name
+        )
         try:
             items.first.wait_for(state="visible", timeout=5000)
             return True
@@ -94,7 +104,9 @@ class RangesClient(BaseClientWithNotifications):
 
     def exists_in_explorer(self, name: str) -> bool:
         """Check if a range exists in the explorer."""
-        items = self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(
+            has_text=name
+        )
         try:
             items.first.wait_for(state="visible", timeout=5000)
             return True
@@ -104,12 +116,16 @@ class RangesClient(BaseClientWithNotifications):
     def wait_for_removed_from_toolbar(self, name: str) -> None:
         """Wait for a range to be removed from the toolbar."""
         self.show_toolbar()
-        items = self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(
+            has_text=name
+        )
         items.first.wait_for(state="hidden", timeout=5000)
 
     def wait_for_removed_from_explorer(self, name: str) -> None:
         """Wait for a range to be removed from the explorer."""
-        items = self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(
+            has_text=name
+        )
         items.first.wait_for(state="hidden", timeout=5000)
 
     def create(
@@ -156,11 +172,13 @@ class RangesClient(BaseClientWithNotifications):
         if parent is not None:
             parent_button = modal.locator("button").filter(has_text="Select a range")
             parent_button.click()
-            search_input = self.layout.page.locator("input[placeholder='Search ranges...']")
-            search_input.fill(parent)
-            self.layout.page.locator(".pluto-range__list-item").filter(has_text=parent).click(
-                timeout=5000
+            search_input = self.layout.page.locator(
+                "input[placeholder='Search ranges...']"
             )
+            search_input.fill(parent)
+            self.layout.page.locator(".pluto-range__list-item").filter(
+                has_text=parent
+            ).click(timeout=5000)
 
         if labels is not None:
             label_button = self.layout.page.get_by_text("Select labels", exact=True)
@@ -287,7 +305,9 @@ class RangesClient(BaseClientWithNotifications):
         Args:
             parent_name: The name of the parent range to navigate to.
         """
-        parent_button = self.layout.page.get_by_role("button").filter(has_text=parent_name)
+        parent_button = self.layout.page.get_by_role("button").filter(
+            has_text=parent_name
+        )
         parent_button.click(timeout=5000)
 
     def wait_for_overview(self, name: str, timeout: int = 5000) -> None:
@@ -454,10 +474,14 @@ class RangesClient(BaseClientWithNotifications):
         add_button = labels_row.locator("button").last
         add_button.wait_for(state="visible", timeout=2000)
         add_button.click()
-        self.layout.page.locator(".pluto-list__item:not(.pluto--hidden)").first.wait_for(
-            state="visible", timeout=2000
+        self.layout.page.locator(
+            ".pluto-list__item:not(.pluto--hidden)"
+        ).first.wait_for(state="visible", timeout=2000)
+        item = (
+            self.layout.page.locator(".pluto-list__item")
+            .filter(has_text=label_name)
+            .first
         )
-        item = self.layout.page.locator(".pluto-list__item").filter(has_text=label_name).first
         try:
             item.wait_for(state="visible", timeout=5000)
             item.click(timeout=2000)
@@ -481,7 +505,11 @@ class RangesClient(BaseClientWithNotifications):
         labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
         add_button = labels_row.locator("button").last
         add_button.click()
-        item = self.layout.page.locator(".pluto-list__item").filter(has_text=label_name).first
+        item = (
+            self.layout.page.locator(".pluto-list__item")
+            .filter(has_text=label_name)
+            .first
+        )
         item.click(timeout=2000)
         self.layout.page.keyboard.press("Escape")
         item.wait_for(state="hidden", timeout=2000)
@@ -779,7 +807,9 @@ class RangesClient(BaseClientWithNotifications):
         Returns:
             Locator for the snapshot item.
         """
-        return self.layout.page.locator(".console-snapshots__list-item").filter(has_text=name)
+        return self.layout.page.locator(".console-snapshots__list-item").filter(
+            has_text=name
+        )
 
     def snapshot_exists_in_overview(self, name: str, timeout: int = 5000) -> bool:
         """Check if a snapshot exists in the Snapshots section of the overview.
