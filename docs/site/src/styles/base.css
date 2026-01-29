@@ -153,11 +153,13 @@ summary {
 table {
     table-layout: auto;
     width: calc(100% - 4px);
+    max-width: 100%;
     border-spacing: 0;
     background: transparent;
     border-collapse: collapse;
-    overflow-x: auto;
     border-style: hidden;
+    display: block;
+    overflow-x: auto;
 }
 
 table > :not(caption) > * {

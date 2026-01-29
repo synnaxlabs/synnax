@@ -14,7 +14,9 @@ import { type CSSProperties, type ReactElement, useEffect, useState } from "reac
 
 import { GUIDES_PAGES, REFERENCE_PAGES } from "@/pages/_nav";
 
-const isSSR = typeof window === "undefined";
+interface InternalTreeProps {
+  currentPage: string;
+}
 
 // Icon map for section headers - stored here to avoid SSR serialization issues
 const SECTION_ICONS: Record<string, ReactElement> = {
@@ -61,9 +63,6 @@ const useCurrentPage = (initialPage?: string): string => {
   return currentPage;
 };
 
-interface ReferenceTreeProps {
-  currentPage: string;
-}
 
 const Item = ({ translate: _, ...props }: Tree.ItemRenderProps<string>) => {
   const { itemKey, index } = props;
@@ -132,7 +131,7 @@ const REFERENCE_SECTION_KEYS = REFERENCE_PAGES.filter((p) => p.children != null)
   (p) => p.key,
 );
 
-const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
+const Reference = ({ currentPage }: InternalTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length <= 1) parts = REFERENCE_PAGES.map((p) => p.key);
   if (currentPage === "/guides/") currentPage = "/reference/";
@@ -141,7 +140,7 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   const treeProps = Tree.use({
     nodes: REFERENCE_PAGES,
     initialExpanded: [...parts, ...REFERENCE_SECTION_KEYS],
-    onExpand: ({ current, action, clicked }) => {
+    onExpand: ({ action, clicked }) => {
       if (action === "contract" && REFERENCE_SECTION_KEYS.includes(clicked))
         treeProps.expand(clicked);
     },
@@ -164,7 +163,7 @@ const GUIDES_SECTION_KEYS = GUIDES_PAGES.filter((p) => p.children != null).map(
   (p) => p.key,
 );
 
-const Guides = ({ currentPage }: TOCProps): ReactElement => {
+const Guides = ({ currentPage }: InternalTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length <= 1) parts = GUIDES_PAGES.map((p) => p.key);
   if (currentPage === "/reference/") currentPage = "/guides/";
@@ -174,7 +173,7 @@ const Guides = ({ currentPage }: TOCProps): ReactElement => {
     nodes: GUIDES_PAGES,
     initialExpanded: [...parts, ...GUIDES_SECTION_KEYS],
     sort: (a, b) => a.key.localeCompare(b.key),
-    onExpand: ({ current, action, clicked }) => {
+    onExpand: ({ action, clicked }) => {
       if (action === "contract" && GUIDES_SECTION_KEYS.includes(clicked))
         treeProps.expand(clicked);
     },

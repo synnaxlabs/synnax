@@ -11,15 +11,27 @@ nextURL: "/reference/console/tables"
 
 import { Divider, Note, Icon, Flex } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
-import { Table } from "@/components";
+import { Table, Diagram } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Diagram.Diagram style="height: 400px" preview>
+  <Image
+    client:only="react"
+    id="console/schematics/example"
+    style={{
+      height: "450px",
+      width: "fit-content",
+      transform: "translate(-23%, -9%)",
+      borderRadius: "1rem",
+      border: "1px solid var(--pluto-gray-l6)",
+    }}
+  />
+</Diagram.Diagram>
+
 A schematic is used to see a diagram of your physical or simulated system. It displays
 live sensor data and can be used to exercise manual control by changing the values of
-channels tied to actuators. We've added a simple example of a schematic below:
-
-<Image client:only="react" id="console/schematics/example" />
+channels tied to actuators.
 
 [Download the example schematic](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/tpc/schematic.json)
 to try it out yourself.

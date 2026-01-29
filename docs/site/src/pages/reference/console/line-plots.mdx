@@ -10,16 +10,27 @@ nextURL: "/reference/console/logs"
 
 import { Divider, Icon, Note } from "@synnaxlabs/pluto";
 import { Image, Video } from "@/components/media/Media";
-import { Table } from "@/components";
+import { Table, Diagram } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
+<Diagram.Diagram style="height: 400px" preview>
+  <Image
+    client:only="react"
+    id="console/line-plots/example"
+    style={{
+      height: "500px",
+      width: "fit-content",
+      transform: "translate(-6%, -9%)",
+      borderRadius: "1.5rem",
+      border: "1px solid var(--pluto-gray-l6)",
+    }}
+  />
+</Diagram.Diagram>
+
 Line plots are the main visualization tool in the Synnax Console. Line plots can be used
 to plot real-time data or historical data. They can plot one or several channels along
-the y-axes, and the x-axis can be time or another channel. An example line plot is shown
-below:
-
-<Image client:only="react" id="console/line-plots/example" />
+the y-axes, and the x-axis can be time or another channel.
 
 Click the visualize <Icon.Visualize /> button in the bottom-left corner to open the
 Visualization Toolbar.
