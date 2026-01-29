@@ -68,6 +68,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "cross-env": "^10.1.0",
     "eslint": "catalog:",
     "eslint-config-synnaxlabs": "workspace:^",

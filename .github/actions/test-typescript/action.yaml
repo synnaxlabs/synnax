@@ -3,7 +3,7 @@ description: Common steps for testing TypeScript packages
 
 inputs:
   package:
-    description: The package name (e.g., x, pluto, drift, console, alamos, client, freighter)
+    description: The package name (e.g., x, pluto, drift)
     required: true
   test:
     description: Whether to run tests (with coverage)
@@ -65,7 +65,7 @@ runs:
     - name: Test
       if: inputs.test == 'true'
       shell: bash
-      run: pnpm test:${{ inputs.package }} --coverage --coverage.reporter=lcov ${{ inputs.test_args }}
+      run: pnpm test:${{ inputs.package }} -- --coverage ${{inputs.test_args }}
 
     - name: Upload coverage
       if: inputs.test == 'true'
