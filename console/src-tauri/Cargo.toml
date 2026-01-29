@@ -1,11 +1,6 @@
 [package]
-name = "app"
+name = "synnax-console"
 version = "0.0.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
-default-run = "app"
 edition = "2021"
 rust-version = "1.91"
 
@@ -28,27 +23,27 @@ objc2-foundation = "0.3.2"
 rand = "0.9.2"
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
-tauri-plugin-single-instance = { version = "2.3.6", features = ["deep-link"] }
+tauri-plugin-single-instance = { version = "2.3.7", features = ["deep-link"] }
 
 [dependencies]
 device_query = "2.1.0"
 serde = "1.0.228"
-serde_json = "1.0.145"
+serde_json = "1.0.149"
 tauri = { version = "2.9.5", features = ["devtools"] }
-tauri-plugin-store = "2.4.1"
-tauri-plugin-deep-link = "2.4.5"
-tauri-plugin-fs = "2.4.4"
-tauri-plugin-shell = "2.3.3"
+tauri-plugin-store = "2.4.2"
+tauri-plugin-deep-link = "2.4.6"
+tauri-plugin-fs = "2.4.5"
+tauri-plugin-shell = "2.3.4"
 tauri-plugin-updater = "2.9.0"
-tauri-plugin-dialog = "2.4.2"
+tauri-plugin-dialog = "2.6.0"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-prevent-default = "4.0.3"
 window-shadows = "0.2.2"
 
 [features]
-# by default Tauri runs in production mode
-# when `tauri dev` runs it is executed with `cargo run --no-default-features` if `devPath` is an URL
+# by default Tauri runs in production mode when `tauri dev` runs it is executed with
+# `cargo run --no-default-features` if `devPath` is an URL
 default = ["custom-protocol"]
-# this feature is used for production builds where `devPath` points to the filesystem
-# DO NOT remove this
+# this feature is used for production builds where `devPath` points to the filesystem DO
+# NOT remove this
 custom-protocol = ["tauri/custom-protocol"]
