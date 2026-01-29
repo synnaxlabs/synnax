@@ -144,12 +144,10 @@ class Series(Payload):
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
         """
         if not self.data_type.has_np:
-            raise ValueError(
-                f"""
+            raise ValueError(f"""
                 [Series] - {self.data_type} does not have a numpy equivalent, so it can't
                 be interpreted as a numpy array.
-                """
-            )
+                """)
 
         arr = np.frombuffer(self.data, dtype=self.data_type.np)
         if dtype is not None and dtype != arr.dtype:
@@ -301,12 +299,10 @@ class MultiSeries:
             first_dt = series[0].data_type
             same_dt = all(s.data_type == first_dt for s in series)
             if not same_dt:
-                raise ValueError(
-                    f"""
+                raise ValueError(f"""
                     [MultiSeries] - All series must have the same data type. Received
                     {first_dt} and {set(s.data_type for s in series)}.
-                    """
-                )
+                    """)
 
     def __array__(
         self, dtype: np.dtype | None = None, copy: bool | None = None
