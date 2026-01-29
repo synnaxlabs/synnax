@@ -18,7 +18,7 @@ import { MonacoLanguageClient } from "monaco-languageclient";
 import { type Message, type MessageReader, type MessageWriter } from "vscode-jsonrpc";
 import { CloseAction, ErrorAction } from "vscode-languageclient/browser";
 
-import arcGrammarRaw from "@/code/arc/arc.tmLanguage.json?raw";
+import { grammarRaw as arcGrammarRaw } from "@synnaxlabs/arc";
 import arcLanguageConfigurationRaw from "@/code/arc/language-configuration.json?raw";
 import { type Extension } from "@/code/init/initialize";
 

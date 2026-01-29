@@ -9,6 +9,8 @@
 
 // TextMate grammar definition for Arc language syntax highlighting
 import arcGrammar from "../../../go/lsp/extensions/vscode/syntaxes/arc.tmLanguage.json" with { type: "json" };
+// Raw JSON string for Monaco/VSCode extension registration
+import arcGrammarRaw from "../../../go/lsp/extensions/vscode/syntaxes/arc.tmLanguage.json?raw";
 
 /**
  * TextMate grammar for the Arc language.
@@ -45,5 +47,18 @@ export const grammar = {
   name: "arc",
   scopeName: "source.arc",
 };
+
+/**
+ * Raw JSON string of the Arc grammar.
+ * Use for Monaco/VSCode extension registration that requires string input.
+ *
+ * @example
+ * ```typescript
+ * import { grammarRaw } from '@synnaxlabs/arc';
+ *
+ * const dataUrl = `data:application/json;base64,${btoa(grammarRaw)}`;
+ * ```
+ */
+export const grammarRaw: string = arcGrammarRaw;
 
 export default grammar;

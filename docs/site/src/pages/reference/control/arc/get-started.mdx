@@ -43,24 +43,52 @@ func scale_reading(value f64) f64 {
     return value * 2.0
 }
 
+func output_reading() {
+    count f64 $= 10
+    count += 1
+    tank_pressure = count
+}
+
 tank_pressure -> scale_reading{} -> pressure_scaled
+
+interval{period=200ms} -> output_reading{}
 ```
 
-This program does three things:
+This program has two parts that work together:
 
-1. **Declares a function** called `scale_reading` that takes a number (`f64` means
-   floating-point) and returns that number multiplied by 2
-2. **Reads from a channel** called `tank_pressure`
-3. **Pipes the value** through `scale_reading` and writes the result to
-   `pressure_scaled`
+1. **A data generator** — Every 200 milliseconds, `output_reading` increments a counter
+   (11, 12, 13, ...) and writes the value to `tank_pressure`
+2. **A processing pipeline** — Whenever `tank_pressure` updates, Arc automatically runs
+   `scale_reading` (which doubles the value) and writes the result to `pressure_scaled`
 
-The `->` arrow creates a **flow**. Whenever `tank_pressure` receives new data, Arc
-automatically runs `scale_reading` and updates `pressure_scaled`.
+The result: `pressure_scaled` will show 22, 24, 26, 28, ... updating five times per
+second. This demonstrates Arc's reactive model—you declare how data flows, and Arc
+handles the scheduling.
 
-<Note.Note variant="info">
-  Replace `tank_pressure` and `pressure_scaled` with actual channel names from your
-  Synnax setup. The channels must already exist.
-</Note.Note>
+You'll likely see red squiggly lines under `tank_pressure` and `pressure_scaled`. This
+indicates the channels don't exist in your cluster yet. To run this program, you'll need
+to create them first.
+
+### Creating the Channels
+
+Open the command palette (`Ctrl/Cmd + Shift + P`) and search for "Create Channel".
+Create two [virtual channels](/reference/concepts/channels#virtual-channels):
+
+| Name              | Virtual | Data Type |
+| ----------------- | ------- | --------- |
+| `tank_pressure`   | Yes     | `float64` |
+| `pressure_scaled` | Yes     | `float64` |
+
+`float64` is a 64-bit floating-point number—the
+[channel data type](/reference/concepts/channels#data-type) that corresponds to Arc's
+[`f64` type](/reference/control/arc/reference/types#floating-point-types). Use `float64`
+for channels that store decimal values like sensor readings.
+
+Virtual channels don't persist data to disk, making them ideal for testing automations.
+For more details on channel types and creation options, see
+[Console Channels](/reference/console/channels).
+
+Once created, the red squiggles will disappear and your program is ready to deploy.
 
 <Divider.Divider x />
 
@@ -68,7 +96,7 @@ automatically runs `scale_reading` and updates `pressure_scaled`.
 
 Let's break down the key parts:
 
-### Function Declaration
+### Function with Input and Output
 
 ```arc
 func scale_reading(value f64) f64 {
@@ -82,16 +110,54 @@ func scale_reading(value f64) f64 {
 - The second `f64` after the parentheses is the return type
 - `return value * 2.0` sends the computed result back
 
-### Flow Statement
+### Stateful Variables
+
+```arc
+func output_reading() {
+    count f64 $= 10
+    count += 1
+    tank_pressure = count
+}
+```
+
+The `$=` operator creates a **stateful variable**—a value that persists across
+invocations. Regular variables (`:=`) reset every time the function runs, but stateful
+variables remember their value.
+
+Here, `count` starts at 10 the first time `output_reading` runs. Each subsequent call
+increments it: 11, 12, 13, and so on. The function then writes this value to
+`tank_pressure`.
+
+For more on stateful variables, see
+[Stateful Variables](/reference/control/arc/concepts/stateful-variables).
+
+### Flow Statements
 
 ```arc
 tank_pressure -> scale_reading{} -> pressure_scaled
 ```
 
-- `tank_pressure` is the source channel (input)
-- `->` creates a continuous flow that runs every time new data arrives
-- `scale_reading{}` instantiates the function (the `{}` is required even with no config)
-- `pressure_scaled` is the destination channel (output)
+The `->` arrow creates a **flow**—a reactive connection that runs every time new data
+arrives:
+
+- `tank_pressure` is the source channel
+- `scale_reading{}` processes each value (the `{}` instantiates the function)
+- `pressure_scaled` receives the result
+
+Whenever something writes to `tank_pressure`, Arc automatically runs `scale_reading` and
+updates `pressure_scaled`.
+
+### Interval Timer
+
+```arc
+interval{period=200ms} -> output_reading{}
+```
+
+`interval` is a built-in that fires on a schedule. Here it triggers every 200
+milliseconds, which runs `output_reading` five times per second.
+
+This pattern—an interval driving a function—is common for control loops, periodic
+sampling, and generating test data.
 
 <Divider.Divider x />
 
@@ -115,27 +181,43 @@ You can stop execution at any time with the **Pause** button.
 
 ## A Threshold Alarm
 
-Here's a more practical example that triggers a notification when temperature exceeds a
-limit:
+Here's a more practical example that triggers a notification when pressure exceeds a
+limit. This builds on our previous example by adding alarm logic:
 
 ```arc
-func check_temp{limit f64}(reading f64) u8 {
+func output_reading() {
+    count f64 $= 10
+    count += 1
+    tank_pressure = count
+}
+
+func check_pressure{limit f64}(reading f64) u8 {
     return reading > limit
 }
 
-tank_temp -> check_temp{limit=150.0} -> set_status{
-    statusKey="temp_warning",
+tank_pressure -> check_pressure{limit=15.0} => set_status{
+    status_key="pressure_warning",
+    name="Tank Pressure Alarm",
     variant="warning",
-    message="Tank temperature exceeded 150 degrees"
+    message="Tank pressure exceeded 15"
 }
+
+interval{period=200ms} -> output_reading{}
 ```
+
+This program reuses `tank_pressure` from before, but now checks if the value exceeds 15.
+Since our counter starts at 10 and increments each cycle, you'll see the warning trigger
+after about one second (when count reaches 16).
 
 New concepts in this example:
 
 - **Config parameter** (`{limit f64}`): A constant set when the function is
-  instantiated. Here, `limit=150.0` sets the threshold
+  instantiated. Here, `limit=15.0` sets the threshold
 - **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
   returns 1 (true) or 0 (false)
+- **One-shot edge** (`=>`): Unlike `->` which runs every cycle, `=>` fires once when the
+  condition becomes true. This prevents the alarm from triggering repeatedly while
+  pressure stays above the limit
 - **Built-in function** (`set_status`): Displays a notification in the Console toolbar
   when the input is truthy (non-zero)
 

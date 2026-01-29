@@ -254,12 +254,18 @@
         },
         {
           "name": "meta.stage.invocation.arc",
-          "match": "\\b(\\w+)\\s*\\{[^}]*\\}",
-          "captures": {
+          "begin": "\\b(?!(?:i8|i16|i32|i64|u8|u16|u32|u64|f32|f64|str|bool|series|chan|if|else|return|func|sequence|stage)\\b)(\\w+)\\s*\\{",
+          "beginCaptures": {
             "1": {
               "name": "entity.name.function.stage-invocation.arc"
             }
-          }
+          },
+          "end": "\\}",
+          "patterns": [
+            {
+              "include": "$self"
+            }
+          ]
         },
         {
           "name": "meta.stdlib.stage.arc",

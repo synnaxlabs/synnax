@@ -24,7 +24,7 @@ picture of the true value.
 The simplest approach tracks a running average using stateful variables:
 
 ```arc
-func running_avg() (value f64) f64 {
+func running_avg(value f64) f64 {
     total $= 0.0
     count $= 0
     total = total + value

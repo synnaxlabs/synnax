@@ -107,6 +107,60 @@ This reactive model is particularly useful for:
 
 <Divider.Divider x />
 
+## Sequences
+
+Most Arc programs are **sequences**: multi-step procedures that progress through stages
+based on conditions. Pressurization tests, startup routines, calibration procedures all
+follow this pattern.
+
+```arc
+sequence main {
+    stage pressurize {
+        1 -> valve_cmd,
+        tank_pressure > 500 => next,
+        abort_btn => abort
+    }
+
+    stage hold {
+        1 -> valve_cmd,
+        wait{duration=30s} => next
+    }
+
+    stage vent {
+        0 -> valve_cmd,
+        tank_pressure < 50 => complete
+    }
+
+    stage complete {
+        0 -> valve_cmd
+    }
+}
+
+sequence abort {
+    stage safed {
+        0 -> valve_cmd
+    }
+}
+
+start_btn => main
+```
+
+Everything in a stage runs at the same time. In `pressurize`, Arc simultaneously keeps
+the valve open, monitors for target pressure, and watches for an abort. You don't write
+loops or manage threads. You list what should happen, and Arc handles concurrency.
+
+This matches how test procedures actually work. When pressurizing a tank, you hold a
+valve open _while_ monitoring pressure _while_ watching for abort conditions. Arc
+captures that parallelism directly.
+
+Line order matters when multiple transitions could fire at once. Put safety conditions
+first so they take priority.
+
+For the full guide, see
+[Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages).
+
+<Divider.Divider x />
+
 ## Before You Start
 
 Arc builds on Synnax concepts you likely already know:
