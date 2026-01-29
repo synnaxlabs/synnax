@@ -118,7 +118,7 @@ func Open(
 		nodes[irNode.Key] = n
 	}
 
-	sched := scheduler.New(cfg.Module.IR, nodes)
+	sched := scheduler.New(cfg.Module.IR, nodes, 0)
 	return &Calculator{
 		cfg:       cfg,
 		scheduler: sched,

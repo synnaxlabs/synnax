@@ -79,6 +79,8 @@ type Scheduler struct {
 	currStageIdx int
 	// currSeqIdx is the index of the currently executing sequence, or -1 if global.
 	currSeqIdx int
+	// tolerance is the timing tolerance for interval/wait comparisons.
+	tolerance telem.TimeSpan
 }
 
 // ErrorHandler receives errors from node execution.
@@ -97,7 +99,7 @@ func (f ErrorHandlerFunc) HandleError(nodeKey string, err error) { f(nodeKey, er
 // New creates a scheduler from an IR program and node instances.
 // The scheduler organizes nodes into strata for topological execution and
 // builds the change propagation graph from the IR edges.
-func New(prog ir.IR, nodes map[string]rnode.Node) *Scheduler {
+func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
 		nodes:               make(map[string]node, len(prog.Nodes)),
 		globalStrata:        prog.Strata,
@@ -107,6 +109,7 @@ func New(prog ir.IR, nodes map[string]rnode.Node) *Scheduler {
 		globalFiredOneShots: make(set.Set[ir.Edge]),
 		currSeqIdx:          -1,
 		currStageIdx:        -1,
+		tolerance:           tolerance,
 	}
 
 	for _, n := range prog.Nodes {
@@ -210,6 +213,7 @@ func (s *Scheduler) reportError(err error) {
 func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan) {
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed
+	s.nodeCtx.Tolerance = s.tolerance
 	s.currSeqIdx = -1
 	s.currStageIdx = -1
 	s.execStrata(s.globalStrata)

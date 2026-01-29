@@ -14,10 +14,8 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"slices"
 	stdtime "time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/runtime/constant"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/op"
@@ -27,9 +25,8 @@ import (
 	"github.com/synnaxlabs/arc/runtime/stage"
 	"github.com/synnaxlabs/arc/runtime/state"
 	arctelem "github.com/synnaxlabs/arc/runtime/telem"
-	"github.com/synnaxlabs/arc/runtime/time"
+	arctime "github.com/synnaxlabs/arc/runtime/time"
 	"github.com/synnaxlabs/arc/runtime/wasm"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -92,7 +89,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 		return err
 	}
 	drt.state = state.New(stateCfg.State)
-	timeFactory := time.NewFactory()
+	timeFactory := arctime.NewFactory()
 	f := node.MultiFactory{
 		arctelem.NewTelemFactory(),
 		selector.NewFactory(),
@@ -139,7 +136,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 		nodes[irNode.Key] = n
 	}
 
-	drt.scheduler = scheduler.New(t.prog.Module.IR, nodes)
+	tolerance := arctime.CalculateTolerance(timeFactory.BaseInterval)
+	drt.scheduler = scheduler.New(t.prog.Module.IR, nodes, tolerance)
 
 	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(nodeKey string, err error) {
 		t.factoryCfg.L.Warn("runtime error in arc node",
@@ -155,8 +153,8 @@ func (t *taskImpl) start(ctx context.Context) error {
 	pipeline := plumber.New()
 
 	var runtime confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = &drt
-	if hasIntervals := timeFactory.TimingBase != telem.TimeSpan(math.MaxInt64); hasIntervals {
-		runtime = &tickerRuntime{dataRuntime: drt, interval: timeFactory.TimingBase}
+	if hasIntervals := timeFactory.BaseInterval != telem.TimeSpan(math.MaxInt64); hasIntervals {
+		runtime = &tickerRuntime{dataRuntime: drt, interval: timeFactory.BaseInterval}
 	}
 	plumber.SetSegment(pipeline, runtimeAddr, runtime)
 
@@ -184,7 +182,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	if len(stateCfg.Writes) > 0 {
-		writer, err := t.factoryCfg.Framer.NewStreamWriter(
+		wrt, err := t.factoryCfg.Framer.NewStreamWriter(
 			ctx,
 			framer.WriterConfig{
 				ControlSubject: control.Subject{Name: t.prog.Name},
@@ -196,9 +194,9 @@ func (t *taskImpl) start(ctx context.Context) error {
 			t.setStatus(status.VariantError, false, err.Error())
 			return err
 		}
-		plumber.SetSegment(pipeline, writerAddr, writer)
+		plumber.SetSegment(pipeline, writerAddr, wrt)
 		plumber.MustConnect[framer.WriterRequest](pipeline, runtimeAddr, writerAddr, 10)
-		writer.OutTo(confluence.NewStream[framer.WriterResponse]())
+		wrt.OutTo(confluence.NewStream[framer.WriterResponse]())
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
 	t.closer = append(
@@ -296,9 +294,6 @@ func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	if d.Out != nil {
 		o.AttachClosables(d.Out)
 	}
-	if d.In == nil {
-		return
-	}
 	signal.GoRange(sCtx, d.In.Outlet(), d.next, o.Signal...)
 }
 
@@ -329,34 +324,9 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 			}
-			fmt.Println(telem.TimeSpan(r.startTime - telem.Now()))
 			if err := r.next(ctx, res); err != nil {
 				return err
 			}
 		}
 	}, o.Signal...)
-}
-
-func retrieveChannels(
-	ctx context.Context,
-	channelSvc *channel.Service,
-	keys []channel.Key,
-) ([]channel.Channel, error) {
-	channels := make([]channel.Channel, 0, len(keys))
-	if err := channelSvc.NewRetrieve().
-		WhereKeys(keys...).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	indexes := lo.FilterMap(channels, func(item channel.Channel, index int) (channel.Key, bool) {
-		return item.Index(), !item.Virtual
-	})
-	indexChannels := make([]channel.Channel, 0, len(indexes))
-	if err := channelSvc.NewRetrieve().
-		WhereKeys(indexes...).
-		Entries(&indexChannels).Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	return slices.Concat(channels, indexChannels), nil
 }
