@@ -183,7 +183,9 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic = self.console.workspace.open_schematic(self.main_schematic_name)
 
-        assert schematic.is_pane_visible, "Schematic pane should be visible"
+        assert (
+            schematic.is_pane_visible
+        ), f"Schematic '{self.main_schematic_name}' pane not visible after opening from resources toolbar"
 
         # Assert the link we used to open is the same link we get.
         opened_link = schematic.copy_link()
@@ -202,7 +204,9 @@ class SchematicLifecycle(ConsoleCase):
             self.main_schematic_name
         )
 
-        assert schematic.is_pane_visible, "Schematic pane should be visible"
+        assert (
+            schematic.is_pane_visible
+        ), f"Schematic '{self.main_schematic_name}' pane not visible after dragging to mosaic"
 
         opened_link = schematic.copy_link()
         assert (
@@ -218,7 +222,9 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic = Schematic.open_from_search(self.console, self.main_schematic_name)
 
-        assert schematic.is_pane_visible, "Schematic pane should be visible"
+        assert (
+            schematic.is_pane_visible
+        ), f"Schematic '{self.main_schematic_name}' pane not visible after opening from search"
 
         opened_link = schematic.copy_link()
         assert (

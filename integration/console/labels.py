@@ -111,11 +111,7 @@ class LabelClient:
 
         name_input = label_item.locator("input[placeholder='Label Name']").first
 
-        name_input.click()
-        self.console.select_all()
-
-        self.page.keyboard.type(new_name)
-
+        name_input.fill(new_name)
         name_input.press("Enter")
 
         self.page.wait_for_load_state("networkidle", timeout=5000)
