@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "telem",
     srcs = [
@@ -16,7 +19,7 @@ cc_library(
         "//x/go/control:control_grpc",
         "//x/go/telem:telem_grpc",
         "@nlohmann_json//:json",
-        "@protobuf//:protobuf",
+        "@protobuf",
     ],
 )
 

@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "channel",
     srcs = [
@@ -8,9 +11,9 @@ cc_library(
     deps = [
         "//client/cpp/errors",
         "//client/cpp/ontology",
+        "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/fgrpc",
-        "//core/pkg/api/grpc/v1:api_grpc",
         "//x/cpp/telem",
         "@grpc//:grpc++",
     ],

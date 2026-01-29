@@ -1,6 +1,9 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 genrule(
     name = "build_mbedtls",
     srcs = glob(["mbedtls/**"]),
+    local = True,
     outs = [
         # everest headers
         "include/everest/Hacl_Curve25519.h",

@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "xenv",
     hdrs = [
@@ -6,7 +9,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/caseconv",
-        "@glog//:glog",
+        "@glog",
     ],
 )
 

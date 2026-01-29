@@ -1,13 +1,13 @@
-load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
     name = "ir_proto",
     srcs = ["ir.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/go/types:types_proto",
         "//arc/go/symbol:symbol_proto",
+        "//arc/go/types:types_proto",
     ],
 )
 
@@ -17,7 +17,7 @@ cpp_grpc_library(
     protos = [":ir_proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/go/types:types_grpc",
         "//arc/go/symbol:symbol_grpc",
+        "//arc/go/types:types_grpc",
     ],
 )

@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 genrule(
     name = "build_wasmtime",
     srcs = glob(["wasmtime/**"]),
@@ -419,9 +422,6 @@ cc_library(
         "//conditions:default": ["lib/libwasmtime.a"],
     }),
     hdrs = [":build_wasmtime"],
-    includes = ["include"],
-    strip_include_prefix = "include",
-    visibility = ["//visibility:public"],
     # On Windows, disable warning C4201 (nameless struct/union) which is used by wasmtime headers
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
@@ -435,6 +435,7 @@ cc_library(
         ],
         "//conditions:default": [],
     }),
+    includes = ["include"],
     linkopts = select({
         "@platforms//os:windows": [
             "ws2_32.lib",
@@ -458,6 +459,8 @@ cc_library(
             "-lrt",
         ],
     }),
+    strip_include_prefix = "include",
+    visibility = ["//visibility:public"],
 )
 
 cc_binary(

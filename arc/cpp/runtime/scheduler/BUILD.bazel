@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "scheduler",
     hdrs = [
@@ -9,7 +12,7 @@ cc_library(
         "//arc/cpp/runtime/state",
         "//arc/cpp/runtime/time",
         "//x/cpp/xerrors",
-        "@glog//:glog",
+        "@glog",
     ],
 )
 

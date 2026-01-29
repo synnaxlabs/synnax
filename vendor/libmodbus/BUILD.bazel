@@ -5,6 +5,8 @@
 # Uses manual config generation instead of autotools for hermetic Bazel builds.
 ###############################################################################
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 # Windows config.h - minimal defines for Windows platform
 genrule(
     name = "generate_config_h",
@@ -240,21 +242,21 @@ cc_library(
     name = "libmodbus",
     srcs = select({
         "@platforms//os:windows": [
-            ":prepare_static_sources",
             ":generate_config_h",
+            ":prepare_static_sources",
         ],
         "@platforms//os:linux": [
-            ":prepare_static_sources",
             ":generate_linux_config_h",
+            ":prepare_static_sources",
         ],
         "@platforms//os:macos": [
-            ":prepare_static_sources",
             ":generate_macos_config_h",
+            ":prepare_static_sources",
         ],
     }),
     hdrs = [
-        ":prepare_static_sources",
         ":generate_version_h",
+        ":prepare_static_sources",
     ],
     copts = select({
         "@platforms//os:windows": [

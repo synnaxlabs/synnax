@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "device",
     hdrs = ["device.h"],
@@ -7,7 +10,7 @@ cc_library(
         "//vendor/libmodbus",
         "//x/cpp/xerrors",
         "//x/cpp/xjson",
-        "@glog//:glog",
+        "@glog",
     ],
 )
 

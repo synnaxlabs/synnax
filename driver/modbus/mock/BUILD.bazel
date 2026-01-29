@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "mock",
     hdrs = ["slave.h"],
@@ -7,7 +10,7 @@ cc_library(
         "//vendor/libmodbus",
         "//x/cpp/telem",
         "//x/cpp/xerrors",
-        "@glog//:glog",
+        "@glog",
     ],
 )
 

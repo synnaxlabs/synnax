@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 config_setting(
     name = "nilinuxrt",
     values = {
@@ -7,12 +9,12 @@ config_setting(
 
 cc_library(
     name = "daemon",
-    hdrs = ["daemon.h"],
     srcs = select({
         ":nilinuxrt": ["daemon_nilinuxrt.cpp"],
         "@platforms//os:linux": ["daemon_linux.cpp"],
         "//conditions:default": ["daemon_noop.cpp"],
     }),
+    hdrs = ["daemon.h"],
     linkopts = select({
         ":nilinuxrt": [],
         "@platforms//os:linux": [
@@ -25,6 +27,6 @@ cc_library(
         "//x/cpp/xerrors",
         "//x/cpp/xos",
         "//x/cpp/xthread",
-        "@glog//:glog",
+        "@glog",
     ],
 )

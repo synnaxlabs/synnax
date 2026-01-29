@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "opc",
     srcs = [
@@ -21,9 +24,9 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//driver/opc/connection",
+        "//driver/opc/device",
         "//driver/opc/telem",
         "//driver/opc/types",
-        "//driver/opc/device",
         "//driver/pipeline",
         "//driver/task",
         "//driver/task/common",

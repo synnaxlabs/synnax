@@ -7,6 +7,9 @@
 # Source License, use of this software will be governed by the Apache License,
 # Version 2.0, included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 config_setting(
     name = "nilinuxrt",
     values = {"define": "platform=nilinuxrt"},
@@ -14,17 +17,31 @@ config_setting(
 
 cc_library(
     name = "loop",
-    hdrs = ["loop.h"],
     srcs = select({
         "@platforms//os:linux": ["loop_linux.cpp"],
         "@platforms//os:macos": ["loop_darwin.cpp"],
         "@platforms//os:windows": ["loop_windows.cpp"],
         "//conditions:default": ["loop_polling.cpp"],
     }),
+    hdrs = ["loop.h"],
+    copts = select({
+        "@platforms//os:windows": [
+            "/D_WIN32_WINNT=0x0601",
+            "/DWIN32_LEAN_AND_MEAN",
+            "/DNOMINMAX",
+        ],
+        "//conditions:default": [],
+    }),
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "@platforms//os:linux": ["-lpthread"],
+        "@platforms//os:windows": [],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/breaker",
         "//x/cpp/loop",
@@ -35,20 +52,6 @@ cc_library(
         "//x/cpp/xlog",
         "@glog",
     ],
-    linkopts = select({
-        "@platforms//os:linux": ["-lpthread"],
-        "@platforms//os:windows": [],
-        "//conditions:default": [],
-    }),
-    copts = select({
-        "@platforms//os:windows": [
-            "/D_WIN32_WINNT=0x0601",
-            "/DWIN32_LEAN_AND_MEAN",
-            "/DNOMINMAX",
-        ],
-        "//conditions:default": [],
-    }),
-    visibility = ["//visibility:public"],
 )
 
 cc_test(

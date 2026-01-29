@@ -1,3 +1,5 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "hardware",
     srcs = [
@@ -9,6 +11,6 @@ cc_library(
     deps = [
         "//driver/ni/daqmx",
         "//driver/task/common",
-        "@glog//:glog",
+        "@glog",
     ],
 )

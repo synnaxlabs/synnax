@@ -12,8 +12,8 @@ cc_library(
         "//core/pkg/api/grpc/v1:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/status",
-        "//x/cpp/xjson",
         "//x/cpp/xerrors",
+        "//x/cpp/xjson",
     ],
 )
 

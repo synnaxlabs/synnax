@@ -1,13 +1,13 @@
-load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
     name = "graph_proto",
     srcs = ["graph.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/go/types:types_proto",
         "//arc/go/ir:ir_proto",
+        "//arc/go/types:types_proto",
         "//x/go/spatial:spatial_proto",
         "@protobuf//:struct_proto",
     ],
@@ -19,8 +19,8 @@ cpp_grpc_library(
     protos = [":graph_proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//arc/go/types:types_grpc",
         "//arc/go/ir:ir_grpc",
-        "//x/go/spatial:spatial_grpc"
+        "//arc/go/types:types_grpc",
+        "//x/go/spatial:spatial_grpc",
     ],
 )

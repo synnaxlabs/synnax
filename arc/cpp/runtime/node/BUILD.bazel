@@ -1,8 +1,10 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
 cc_library(
     name = "node",
     hdrs = [
-        "node.h",
         "factory.h",
+        "node.h",
     ],
     visibility = ["//arc/cpp/runtime:__subpackages__"],
     deps = [

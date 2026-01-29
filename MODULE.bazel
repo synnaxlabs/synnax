@@ -2,11 +2,11 @@ module(
     name = "synnax",
 )
 
-bazel_dep(name = "protobuf", version = "33.1")
+bazel_dep(name = "protobuf", version = "33.4")
 bazel_dep(name = "rules_proto", version = "7.1.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "gflags", version = "2.2.2.bcr.1")
-bazel_dep(name = "glog", version = "0.7.1")
+bazel_dep(name = "glog", version = "0.7.1.bcr.1")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.1")

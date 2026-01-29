@@ -6,6 +6,9 @@ common --enable_bzlmod=true --enable_workspace=false --noincompatible_disallow_c
 # Enable platform-specific configs
 build --enable_platform_specific_config
 
+# Pass PATH to genrules for tools like cmake
+build --action_env=PATH
+
 # These hide symbols from the linker in order to prevent symbols collisions with
 # libraries we load dynamically at runtime (LabJack is the primary source of this issue,
 # as it relies an incompatible, legacy GRPC version).
