@@ -174,7 +174,7 @@ func (c *Calculator) Next(
 	)
 	for {
 		c.scheduler.Next(ctx, telem.Since(c.start))
-		ofr, currChanged = c.state.FlushWrites(ofr)
+		ofr, currChanged = c.state.Flush(ofr)
 		if !currChanged {
 			break
 		}

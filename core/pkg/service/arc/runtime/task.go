@@ -167,10 +167,6 @@ func (t *taskImpl) start(ctx context.Context) error {
 		t.setRuntimeError(nodeKey, err)
 	}))
 
-	if wasmMod != nil {
-		drt.scheduler.SetCycleCallback(wasmMod)
-	}
-
 	drt.startTime = telem.Now()
 
 	pipeline := plumber.New()
@@ -293,7 +289,8 @@ func (d *dataRuntime) next(
 ) error {
 	d.state.Ingest(res.Frame.ToStorage())
 	d.scheduler.Next(ctx, telem.Since(d.startTime))
-	if fr, changed := d.state.FlushWrites(telem.Frame[uint32]{}); changed && d.Out != nil {
+	d.state.ClearReads()
+	if fr, changed := d.state.Flush(telem.Frame[uint32]{}); changed && d.Out != nil {
 		req := framer.WriterRequest{
 			Frame:   frame.NewFromStorage(fr),
 			Command: writer.CommandWrite,

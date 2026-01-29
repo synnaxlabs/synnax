@@ -57,8 +57,6 @@ type Scheduler struct {
 	nodeCtx rnode.Context
 	// errorHandler receives errors from node execution.
 	errorHandler ErrorHandler
-	// cycleCallback is called at the end of each Next() cycle for cleanup.
-	cycleCallback CycleCallback
 	// transitions maps entry node keys to their target (seqIdx, stageIdx).
 	transitions map[string]transitionTarget
 	// changed tracks which nodes need execution in the current strata pass.
@@ -95,13 +93,6 @@ type ErrorHandlerFunc func(nodeKey string, err error)
 
 // HandleError implements ErrorHandler by calling the function.
 func (f ErrorHandlerFunc) HandleError(nodeKey string, err error) { f(nodeKey, err) }
-
-// CycleCallback is called at the end of each scheduler cycle.
-// Used for cleanup operations like clearing temporary series handles.
-type CycleCallback interface {
-	// OnCycleEnd is called after all nodes have executed in a cycle.
-	OnCycleEnd()
-}
 
 // New creates a scheduler from an IR program and node instances.
 // The scheduler organizes nodes into strata for topological execution and
@@ -164,12 +155,6 @@ func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 	s.errorHandler = handler
 }
 
-// SetCycleCallback sets a callback to be invoked at the end of each scheduler cycle.
-// Used for cleanup operations like clearing temporary series handles.
-func (s *Scheduler) SetCycleCallback(cb CycleCallback) {
-	s.cycleCallback = cb
-}
-
 // MarkNodeChanged marks a node as changed, scheduling it for execution in the next cycle.
 // This is used externally to trigger execution based on external events or inputs.
 func (s *Scheduler) MarkNodeChanged(nodeKey string) {
@@ -230,10 +215,6 @@ func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan) {
 	s.execStrata(s.globalStrata)
 	s.execStages()
 	clear(s.changed)
-	// Call cleanup callback if set (e.g., to clear temporary series handles)
-	if s.cycleCallback != nil {
-		s.cycleCallback.OnCycleEnd()
-	}
 }
 
 // execStrata executes nodes in a stage strata, propagating changes between layers.
