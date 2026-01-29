@@ -99,7 +99,7 @@ channel, providing acknowledgment that the command was executed.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -175,9 +175,9 @@ with task.run():
             print(f"State: {frame['current_state']}")
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -198,12 +198,12 @@ task.config.channels[0].max_val = 0.01
 client.tasks.configure(task)
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -287,9 +287,9 @@ await writer.close();
 await streamer.close();
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -317,7 +317,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

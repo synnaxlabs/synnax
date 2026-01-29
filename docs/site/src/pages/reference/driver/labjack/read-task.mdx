@@ -123,7 +123,7 @@ Reads digital state (0 or 1) from a specified digital I/O line.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -202,8 +202,8 @@ with task.run():
             print(frame)
 ```
 
-</Details.Example>
-<Details.Example>
+</Details.Details>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -230,12 +230,12 @@ task.config.channels[2].port = "DIO5"
 client.tasks.configure(task)
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -326,9 +326,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -362,7 +362,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

@@ -1,11 +1,17 @@
 ---
 import { Icon } from "@synnaxlabs/pluto";
+
+interface Props {
+    open?: boolean;
+}
+
+const { open = false } = Astro.props;
 ---
 
-<details>
+<details open={open}>
     <summary>
         <slot name="summary" />
-        <Icon.Caret.Left className="indicator" />
+        <Icon.Caret.Right className="indicator" />
     </summary>
     <div class="content">
         <slot />
@@ -27,7 +33,7 @@ import { Icon } from "@synnaxlabs/pluto";
         }
 
         &[open] {
-            max-height: 1200px;
+            max-height: 4000px;
             summary {
                 border-bottom: var(--pluto-border);
                 & .indicator {
@@ -64,6 +70,11 @@ import { Icon } from "@synnaxlabs/pluto";
             h5,
             h6 {
                 margin: 0 !important;
+                color: var(--pluto-gray-l10-90);
+                display: inline-block;
+                & svg {
+                    margin-right: 1rem;
+                }
             }
 
             display: flex;
@@ -80,7 +91,7 @@ import { Icon } from "@synnaxlabs/pluto";
             }
 
             width: 100%;
-            background: var(--pluto-gray-l2);
+            background: var(--pluto-gray-l2-70);
             padding: 1.666rem 2rem;
             &:hover {
                 transition: background-color 0.2s;

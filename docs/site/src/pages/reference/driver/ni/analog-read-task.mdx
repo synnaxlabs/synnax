@@ -36,6 +36,7 @@ For task lifecycle management, see the
 
 ## Channel Types Reference
 
+<Details.Group>
 <Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Acceleration /> Accelerometer ([`ai_accel`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchan.html))</Text.Text>
 
@@ -273,7 +274,7 @@ For task lifecycle management, see the
 </Details.ChannelType>
 
 <Details.ChannelType>
-<Text.Text slot="summary" level="p"><Icon.Units.Strain /> Strain Gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html))</Text.Text>
+<Text.Text slot="summary"><Icon.Units.Strain /> Strain Gauge ([`ai_strain_gauge`](https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html))</Text.Text>
 
 | Parameter                 | Type   | Required | Default       | Description                                                                                                                      |
 | ------------------------- | ------ | -------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------- |
@@ -413,6 +414,7 @@ For task lifecycle management, see the
 | `custom_scale`    | object | No       | -             | Custom scaling                                                              |
 
 </Details.ChannelType>
+</Details.Group>
 
 <Divider.Divider x />
 
@@ -421,8 +423,8 @@ For task lifecycle management, see the
 - **Sample rates** -> All channels in a task sample at the same rate. Create separate
   tasks for different rates.
 - **One task per module** -> Only one running task can claim a module at a time.
-- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to the
-  sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
+- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to
+  the sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
   performance.
 
 <Divider.Divider x />
@@ -438,7 +440,7 @@ For task lifecycle management, see the
   </Fragment>
   <Fragment slot="python">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -522,9 +524,9 @@ with task.run():
 
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -554,12 +556,12 @@ task.config.channels[2].thermocouple_type = "K"
 client.tasks.configure(task)
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -659,9 +661,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -698,7 +700,7 @@ await client.tasks.create({
 });
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>

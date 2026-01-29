@@ -119,7 +119,7 @@ executing, but the configuration will remain saved.
   </Fragment>
   <Fragment slot="python">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
 
 ```python
@@ -148,9 +148,9 @@ task.start()
 # task.stop()
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
 
 ```python
@@ -182,9 +182,9 @@ analog_read_tasks = [t for t in all_tasks if t.type == "ni_analog_read"]
 
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
 
 ```python
@@ -214,9 +214,9 @@ client.tasks.configure(copied_task)
 
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
 
 ```python
@@ -234,12 +234,12 @@ task.stop()
 client.tasks.delete(task.key)
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Play /> Running a task</Text.Text>
 
 ```typescript
@@ -274,9 +274,9 @@ await task.start();
 // await task.stop();
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Details /> List all tasks and retrieve by name</Text.Text>
 
 ```typescript
@@ -308,9 +308,9 @@ const analogReadTasks = allTasks.filter((t) => t.type === "ni_analog_read");
 //   opc_read, opc_write,
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Copy and edit a task</Text.Text>
 
 ```typescript
@@ -341,9 +341,9 @@ await client.tasks.create({
 });
 ```
 
-</Details.Example>
+</Details.Details>
 
-<Details.Example>
+<Details.Details>
 <Text.Text slot="summary" level="p"><Icon.Close /> Stop and delete task</Text.Text>
 
 ```typescript
@@ -361,7 +361,7 @@ await task.stop();
 await client.tasks.delete(task.key);
 ```
 
-</Details.Example>
+</Details.Details>
 
   </Fragment>
 </Client.Tabs>
