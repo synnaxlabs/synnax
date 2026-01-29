@@ -13,7 +13,7 @@ inputs:
     description: The codecov flag for this package
     required: false
     default: ""
-  coverage_directory:
+  directory:
     description: The directory containing coverage files
     required: false
     default: ""
@@ -33,6 +33,9 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
     - name: Set up pnpm
       uses: pnpm/action-setup@v4
 
@@ -77,4 +80,4 @@ runs:
       with:
         fail_ci_if_error: true
         flags: ${{ inputs.coverage_flag }}
-        directory: ${{ inputs.coverage_directory }}
+        directory: ${{ inputs.directory }}

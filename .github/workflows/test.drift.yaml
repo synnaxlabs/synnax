@@ -6,6 +6,7 @@ on:
       - .github/actions/test-typescript/**
       - .github/workflows/test.drift.yaml
       - alamos/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -23,6 +24,7 @@ on:
       - .github/actions/test-typescript/**
       - .github/workflows/test.drift.yaml
       - alamos/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -57,13 +59,10 @@ jobs:
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
           package: drift
           coverage_flag: drift
-          coverage_directory: drift
+          directory: drift
           lint: ${{ matrix.lint }}

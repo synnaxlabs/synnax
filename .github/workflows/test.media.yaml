@@ -5,6 +5,7 @@ on:
     paths:
       - .github/actions/test-typescript/**
       - .github/workflows/test.media.yaml
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -20,6 +21,7 @@ on:
     paths:
       - .github/actions/test-typescript/**
       - .github/workflows/test.media.yaml
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -38,9 +40,6 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
       - name: Lint TypeScript
         uses: ./.github/actions/test-typescript
         with:

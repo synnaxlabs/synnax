@@ -5,6 +5,7 @@ on:
     paths:
       - .github/actions/test-typescript/**
       - .github/workflows/test.x.ts.yaml
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -21,6 +22,7 @@ on:
     paths:
       - .github/actions/test-typescript/**
       - .github/workflows/test.x.ts.yaml
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -55,14 +57,11 @@ jobs:
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
           package: x
           coverage_flag: x-ts
-          coverage_directory: x/ts
+          directory: x/ts
           lint: ${{ matrix.lint }}
           knip: ${{ matrix.lint }}

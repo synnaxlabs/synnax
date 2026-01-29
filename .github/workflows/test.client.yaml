@@ -17,6 +17,7 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -60,6 +61,7 @@ on:
       - client/cpp/**
       - client/py/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -137,8 +139,10 @@ jobs:
               - uv.toml
             ts:
               - *shared
+              - .github/actions/test-typescript/**
               - alamos/ts/**
               - client/ts/**
+              - codecov.yaml
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
@@ -293,12 +297,9 @@ jobs:
         ports:
           - 9090:9090
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
           package: client
           coverage_flag: client-ts
-          coverage_directory: client/ts
+          directory: client/ts

@@ -8,6 +8,7 @@ on:
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -36,6 +37,7 @@ on:
       - alamos/go/**
       - alamos/py/**
       - alamos/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -91,7 +93,9 @@ jobs:
               - uv.toml
             ts:
               - *server
+              - .github/actions/test-typescript/**
               - alamos/ts/**
+              - codecov.yaml
               - configs/eslint/**
               - configs/ts/**
               - configs/vite/**
@@ -150,7 +154,7 @@ jobs:
         ports:
           - 8080:8080
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v6
 
       - name: Install uv
@@ -176,11 +180,6 @@ jobs:
       - name: Test
         run: uv run pytest
         working-directory: freighter/py
-        with:
-          directory: freighter/py
-          coverage: true
-          coverage_module: freighter
-          coverage_flag: freighter-py
 
   ts:
     name: Test - TypeScript
@@ -200,12 +199,9 @@ jobs:
         ports:
           - 8080:8080
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
           package: freighter
           coverage_flag: freighter-ts
-          coverage_directory: freighter/ts
+          directory: freighter/ts

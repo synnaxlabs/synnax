@@ -7,6 +7,7 @@ on:
       - .github/workflows/test.console.yaml
       - alamos/ts/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -29,6 +30,7 @@ on:
       - .github/workflows/test.console.yaml
       - alamos/ts/**
       - client/ts/**
+      - codecov.yaml
       - configs/eslint/**
       - configs/ts/**
       - configs/vite/**
@@ -68,13 +70,10 @@ jobs:
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
           package: console
           coverage_flag: console
-          coverage_directory: console
+          directory: console
           lint: ${{ matrix.lint }}
