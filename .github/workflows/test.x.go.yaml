@@ -4,10 +4,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/test.go.yaml
-      - .github/workflows/test.x.go.yaml
       - .golangci.yaml
       - alamos/go/**
-      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh

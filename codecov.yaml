@@ -1,12 +1,3 @@
-coverage:
-  status:
-    project: off
-    patch:
-      min_80:
-        target: 80%
-      no_decrease:
-        target: auto
-
 fixes:
   - "github.com/synnaxlabs/alamos/::/alamos/go/"
   - "github.com/synnaxlabs/arc/::/arc/go/"
@@ -17,6 +8,11 @@ fixes:
 flag_management:
   default_rules:
     carryforward: true
+    statuses:
+      - type: project
+      - type: patch
+        target: 80%
+      - type: patch
 
 ignore:
   - "**/*.pb.go"
