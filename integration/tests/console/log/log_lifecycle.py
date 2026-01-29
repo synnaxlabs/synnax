@@ -247,6 +247,7 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_rename_log(self) -> None:
         """Test renaming a log via context menu in the workspace resources toolbar."""
         self.log("Testing rename log via context menu")
+        self.console.close_nav_drawer()
 
         suffix = get_random_name()
         log = Log(self.console, f"Rename Test {suffix}")

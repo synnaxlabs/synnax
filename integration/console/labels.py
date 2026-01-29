@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import time
 from re import search as re_search
 from typing import TYPE_CHECKING
 
@@ -111,11 +112,7 @@ class LabelClient:
 
         name_input = label_item.locator("input[placeholder='Label Name']").first
 
-        name_input.click()
-        self.console.select_all()
-
-        self.page.keyboard.type(new_name)
-
+        name_input.fill(new_name)
         name_input.press("Enter")
 
         self.page.wait_for_load_state("networkidle", timeout=5000)
@@ -238,16 +235,19 @@ class LabelClient:
         modal.wait_for(state="hidden", timeout=5000)
 
     def _find_label_item(self, name: str) -> Locator | None:
-        for item in self._find_label_items():
-            if not item.is_visible():
-                continue
-            name_input = item.locator("input[placeholder='Label Name']").first
-            if name_input.count() == 0:
-                continue
-            if name_input.input_value() != name:
-                continue
-            element_id = item.get_attribute("id")
-            return self.page.locator(f"[id='{element_id}']")
+        for attempt in range(5):
+            for item in self._find_label_items():
+                if not item.is_visible():
+                    continue
+                name_input = item.locator("input[placeholder='Label Name']").first
+                if name_input.count() == 0:
+                    continue
+                if name_input.input_value().strip() != name.strip():
+                    continue
+                element_id = item.get_attribute("id")
+                return self.page.locator(f"[id='{element_id}']")
+            if attempt < 2:
+                time.sleep(0.2)
         return None
 
     def _find_label_items(self) -> list[Locator]:

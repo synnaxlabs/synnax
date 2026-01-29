@@ -10,11 +10,32 @@
 import synnax as sy
 
 from console.case import ConsoleCase
-from console.schematic import Button, Value
+from console.schematic import Button, Symbol, Value
 from console.schematic.schematic import PropertyDict, Schematic
 
 CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"
+
+
+def assert_properties(
+    schematic: Schematic, control_authority: int = 1, show_control_legend: bool = True
+) -> None:
+    """Assert the schematic properties match expected values."""
+    actual_authority, actual_legend = schematic.get_properties()
+    assert (
+        actual_authority == control_authority
+    ), f"Control Authority mismatch! Actual: {actual_authority}, Expected: {control_authority}"
+    assert (
+        actual_legend == show_control_legend
+    ), f"Show Control Legend mismatch! Actual: {actual_legend}, Expected: {show_control_legend}"
+
+
+def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:
+    """Assert the symbol properties match expected values."""
+    actual_props = symbol.get_properties()
+    assert (
+        actual_props == expected_props
+    ), f"Props mismatch!\nActual: {actual_props}\nExpected: {expected_props}"
 
 
 class EditProps(ConsoleCase):
@@ -48,32 +69,43 @@ class EditProps(ConsoleCase):
         self.log("Test 0: Schematic Properties")
 
         self.log("0.1 Change Properties")
-        schematic.assert_properties()
+        assert_properties(schematic)
+
         schematic.set_properties(control_authority=7)
-        schematic.assert_properties(control_authority=7, show_control_legend=True)
+        assert_properties(schematic, control_authority=7, show_control_legend=True)
 
         schematic.set_properties(show_control_legend=False)
-        schematic.assert_properties(control_authority=7, show_control_legend=False)
+        assert_properties(schematic, control_authority=7, show_control_legend=False)
 
         schematic.set_properties(control_authority=128, show_control_legend=True)
-        schematic.assert_properties(control_authority=128, show_control_legend=True)
+        assert_properties(schematic, control_authority=128, show_control_legend=True)
 
         self.log("0.2 Acquire Control")
         button = schematic.create_symbol(
             Button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
         schematic.acquire_control()
-        schematic.assert_control_status(True)
-        schematic.assert_control_legend_visible(True)
+        assert (
+            schematic.get_control_status() is True
+        ), "Control status mismatch! Expected: True"
+        assert (
+            schematic.control_legend_visible is True
+        ), "Control legend should be visible"
 
         self.log("0.3 Hide Legend")
         schematic.release_control()
-        schematic.assert_control_status(False)
+        assert (
+            schematic.get_control_status() is False
+        ), "Control status mismatch! Expected: False"
         schematic.enable_edit()
-        schematic.assert_edit_status(True)
+        assert (
+            schematic.get_edit_status() is True
+        ), "Edit status mismatch! Expected: True"
         schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        schematic.assert_control_legend_visible(False)
+        assert (
+            schematic.control_legend_visible is False
+        ), "Control legend should not be visible"
 
         # Clean up schematic
         schematic.release_control()
@@ -95,7 +127,7 @@ class EditProps(ConsoleCase):
             "stale_color": "#C29D0A",  # pluto-warning-m1
             "stale_timeout": 5,
         }
-        schematic.assert_symbol_properties(value, default_props)
+        assert_symbol_properties(value, default_props)
 
         self.log("1.2 Edited")
         expected_edited_props: PropertyDict = {
@@ -114,7 +146,7 @@ class EditProps(ConsoleCase):
             stale_color="#FF0000",
             stale_timeout=10,
         )
-        schematic.assert_symbol_properties(value, expected_edited_props)
+        assert_symbol_properties(value, expected_edited_props)
         value.delete()
 
         self.log("1.3 Non-Default")
@@ -137,7 +169,7 @@ class EditProps(ConsoleCase):
                 stale_timeout=15,
             )
         )
-        schematic.assert_symbol_properties(non_default_value, non_default_props)
+        assert_symbol_properties(non_default_value, non_default_props)
         non_default_value.delete()
 
     def test_button_props(self, schematic: Schematic) -> None:
@@ -154,7 +186,7 @@ class EditProps(ConsoleCase):
             "show_control_chip": True,
             "mode": "Fire",
         }
-        schematic.assert_symbol_properties(button, expected_default_props)
+        assert_symbol_properties(button, expected_default_props)
 
         self.log("2.2 Edited")
         button.set_properties(
@@ -169,7 +201,7 @@ class EditProps(ConsoleCase):
             "show_control_chip": False,
             "mode": "Momentary",
         }
-        schematic.assert_symbol_properties(button, expected_edited_props)
+        assert_symbol_properties(button, expected_edited_props)
         button.delete()
 
         self.log("2.3 Non-Default")
@@ -188,5 +220,5 @@ class EditProps(ConsoleCase):
                 mode="Pulse",
             )
         )
-        schematic.assert_symbol_properties(non_default_button, non_default_props)
+        assert_symbol_properties(non_default_button, non_default_props)
         non_default_button.delete()

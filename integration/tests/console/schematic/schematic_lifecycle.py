@@ -7,12 +7,42 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import uuid
+from typing import Any
+
 import synnax as sy
 
 from console.case import ConsoleCase
-from console.schematic import Button
+from console.schematic import SCHEMATIC_VERSION, Button
 from console.schematic.schematic import Schematic
 from framework.utils import assert_link_format, get_random_name
+
+
+def assert_exported_json(exported: dict[str, Any]) -> None:
+    """Assert that the exported JSON has a valid structure.
+
+    Validates:
+    - Root 'key' is a valid UUID format
+    - Version matches SCHEMATIC_VERSION
+    - Required keys exist: nodes, edges, props, viewport
+    """
+    assert "key" in exported, "Exported JSON should contain 'key'"
+    try:
+        uuid.UUID(exported["key"])
+    except ValueError:
+        raise AssertionError(
+            f"Schematic key should be a valid UUID, got '{exported['key']}'"
+        )
+
+    assert "version" in exported, "Exported JSON should contain 'version'"
+    assert exported["version"] == SCHEMATIC_VERSION, (
+        f"Schematic version should be '{SCHEMATIC_VERSION}', "
+        f"got '{exported['version']}'"
+    )
+
+    required_keys = ["nodes", "edges", "props", "viewport"]
+    for key in required_keys:
+        assert key in exported, f"Exported JSON should contain '{key}'"
 
 
 class SchematicLifecycle(ConsoleCase):
@@ -110,16 +140,26 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing view writers in control")
 
         schematic.acquire_control()
-        schematic.assert_control_status(True)
+        assert (
+            schematic.get_control_status() is True
+        ), "Control status mismatch! Expected: True"
 
         schematic.set_properties(show_control_legend=True)
-        schematic.assert_control_legend_visible(True)
+        assert (
+            schematic.control_legend_visible is True
+        ), "Control legend should be visible"
 
         entries = schematic.get_control_legend_entries()
         assert len(entries) > 0, "Control legend should have at least one entry"
+        assert schematic.page_name in entries, (
+            f"Expected writer '{schematic.page_name}' in control legend!\n"
+            f"Actual entries: {entries}"
+        )
 
         schematic.release_control()
-        schematic.assert_control_status(False)
+        assert (
+            schematic.get_control_status() is False
+        ), "Control status mismatch! Expected: False"
 
     def test_copy_link(self, schematic: Schematic) -> None:
         """Test copying a link to the schematic via toolbar button."""
@@ -134,7 +174,7 @@ class SchematicLifecycle(ConsoleCase):
         self.log("Testing export schematic as JSON")
 
         exported = schematic.export_json()
-        schematic.assert_exported_json(exported)
+        assert_exported_json(exported)
 
     def test_open_schematic_from_resources(self) -> None:
         """Test opening a schematic by double-clicking it in the workspace resources toolbar."""
@@ -143,7 +183,9 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic = self.console.workspace.open_schematic(self.main_schematic_name)
 
-        assert schematic.is_pane_visible, "Schematic pane should be visible"
+        assert (
+            schematic.is_pane_visible
+        ), f"Schematic '{self.main_schematic_name}' pane not visible after opening from resources toolbar"
 
         # Assert the link we used to open is the same link we get.
         opened_link = schematic.copy_link()
@@ -162,7 +204,9 @@ class SchematicLifecycle(ConsoleCase):
             self.main_schematic_name
         )
 
-        assert schematic.is_pane_visible, "Schematic pane should be visible"
+        assert (
+            schematic.is_pane_visible
+        ), f"Schematic '{self.main_schematic_name}' pane not visible after dragging to mosaic"
 
         opened_link = schematic.copy_link()
         assert (
@@ -178,7 +222,9 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic = Schematic.open_from_search(self.console, self.main_schematic_name)
 
-        assert schematic.is_pane_visible, "Schematic pane should be visible"
+        assert (
+            schematic.is_pane_visible
+        ), f"Schematic '{self.main_schematic_name}' pane not visible after opening from search"
 
         opened_link = schematic.copy_link()
         assert (
@@ -197,7 +243,7 @@ class SchematicLifecycle(ConsoleCase):
 
         self.log("Testing export schematic via context menu")
         exported = self.console.workspace.export_page(self.ctx_schematic_name)
-        Schematic.assert_exported_json(exported)
+        assert_exported_json(exported)
 
         self.log("Testing rename schematic via context menu")
         new_name = f"Renamed Schematic {self.suffix}"

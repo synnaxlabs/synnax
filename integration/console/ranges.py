@@ -448,17 +448,16 @@ class RangesClient:
             state="visible", timeout=2000
         )
         item = self.page.locator(".pluto-list__item").filter(has_text=label_name).first
-        item.wait_for(state="visible", timeout=3000)
         try:
+            item.wait_for(state="visible", timeout=5000)
             item.click(timeout=2000)
         except Exception as e:
-            if "Timeout" in type(e).__name__:
-                all_items = self.page.locator(".pluto-list__item").all()
-                available_labels = [
-                    lbl.text_content() for lbl in all_items if lbl.is_visible()
-                ]
+            all_items = self.page.locator(".pluto-list__item").all()
+            available_labels = [
+                lbl.text_content() for lbl in all_items if lbl.is_visible()
+            ]
             raise RuntimeError(
-                f"Error clicking label '{label_name}' in overview dropdown: {e}"
+                f"Label '{label_name}' not found in dropdown. Available: {available_labels}"
             ) from e
         self.page.keyboard.press("Escape")
         item.wait_for(state="hidden", timeout=2000)
