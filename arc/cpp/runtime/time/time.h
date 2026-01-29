@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <limits>
 #include <memory>
 #include <numeric>
 
@@ -22,12 +21,16 @@
 
 namespace arc::runtime::time {
 
+/// @brief Sentinel value indicating base_interval hasn't been set yet.
+/// Using TimeSpan::max() ensures any real interval will be smaller and will replace it.
+inline const telem::TimeSpan UNSET_BASE_INTERVAL = telem::TimeSpan::max();
+
 /// @brief Calculates the tolerance for timing comparisons based on execution mode.
 inline telem::TimeSpan calculate_tolerance(
     const loop::ExecutionMode mode,
     const telem::TimeSpan base_interval
 ) {
-    if (base_interval == telem::TimeSpan::max()) return 5 * telem::MILLISECOND;
+    if (base_interval == UNSET_BASE_INTERVAL) return 5 * telem::MILLISECOND;
     const auto half = base_interval / 2;
     switch (mode) {
         case loop::ExecutionMode::RT_EVENT:
@@ -129,7 +132,7 @@ public:
 
 class Factory : public node::Factory {
 public:
-    telem::TimeSpan timing_base = telem::TimeSpan(std::numeric_limits<int64_t>::max());
+    telem::TimeSpan base_interval = UNSET_BASE_INTERVAL;
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
@@ -139,7 +142,7 @@ public:
     create(node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
             IntervalConfig node_cfg(cfg.node.config);
-            this->update_timing_base(node_cfg.interval);
+            this->update_base_interval(node_cfg.interval);
             return {
                 std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
                 xerrors::NIL
@@ -147,7 +150,7 @@ public:
         }
         if (cfg.node.type == "wait") {
             WaitConfig node_cfg(cfg.node.config);
-            this->update_timing_base(node_cfg.duration);
+            this->update_base_interval(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
                 xerrors::NIL
@@ -157,12 +160,12 @@ public:
     }
 
 private:
-    void update_timing_base(const telem::TimeSpan span) {
-        if (this->timing_base.nanoseconds() == std::numeric_limits<int64_t>::max())
-            this->timing_base = span;
+    void update_base_interval(const telem::TimeSpan span) {
+        if (this->base_interval == UNSET_BASE_INTERVAL)
+            this->base_interval = span;
         else
-            this->timing_base = telem::TimeSpan(
-                std::gcd(this->timing_base.nanoseconds(), span.nanoseconds())
+            this->base_interval = telem::TimeSpan(
+                std::gcd(this->base_interval.nanoseconds(), span.nanoseconds())
             );
     }
 };

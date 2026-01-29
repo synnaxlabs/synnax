@@ -14,7 +14,6 @@ package time
 
 import (
 	"context"
-	"math"
 	"reflect"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -38,6 +37,10 @@ const (
 // MinTolerance is the minimum tolerance for timing comparisons,
 // handling OS scheduling jitter even when BaseInterval is very small.
 const MinTolerance = 5 * telem.Millisecond
+
+// unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
+// Using TimeSpanMax ensures any real interval will be smaller and will replace it.
+const unsetBaseInterval = telem.TimeSpanMax
 
 var (
 	intervalSymbol = symbol.Symbol{
@@ -139,12 +142,12 @@ type Factory struct {
 
 // NewFactory creates a new time Factory.
 func NewFactory() *Factory {
-	return &Factory{BaseInterval: telem.TimeSpan(math.MaxInt64)}
+	return &Factory{BaseInterval: unsetBaseInterval}
 }
 
 // CalculateTolerance returns the timing tolerance for the given base interval.
 func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
-	if baseInterval == telem.TimeSpan(math.MaxInt64) {
+	if baseInterval == unsetBaseInterval {
 		return MinTolerance
 	}
 	halfInterval := baseInterval / 2
@@ -198,7 +201,7 @@ func (f *Factory) Create(_ context.Context, cfg node.Config) (node.Node, error) 
 
 // updateBaseInterval updates the base interval to be the GCD of all timer periods.
 func (f *Factory) updateBaseInterval(span telem.TimeSpan) {
-	if f.BaseInterval == telem.TimeSpan(math.MaxInt64) {
+	if f.BaseInterval == unsetBaseInterval {
 		f.BaseInterval = span
 	} else {
 		f.BaseInterval = telem.TimeSpan(gcd(int64(f.BaseInterval), int64(span)))

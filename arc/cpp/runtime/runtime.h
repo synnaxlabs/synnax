@@ -224,10 +224,10 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         if (err) return {nullptr, err};
         nodes[mod_node.key] = std::move(node);
     }
-    const auto loop_cfg = cfg.loop.apply_defaults(time_factory->timing_base);
+    const auto loop_cfg = cfg.loop.apply_defaults(time_factory->base_interval);
     const auto tolerance = time::calculate_tolerance(
         loop_cfg.mode,
-        time_factory->timing_base
+        time_factory->base_interval
     );
     auto sched = std::make_unique<scheduler::Scheduler>(
         cfg.mod,

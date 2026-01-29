@@ -95,7 +95,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -121,7 +121,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -157,7 +157,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			intervalNode := s.Node("interval_1")
 			*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 			*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -249,7 +249,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -274,7 +274,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -310,7 +310,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -355,7 +355,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n, _ := factory.Create(ctx, cfg)
+			n := MustSucceed(factory.Create(ctx, cfg))
 			waitNode := s.Node("wait_1")
 			*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 			*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -536,7 +536,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n, _ := factory.Create(ctx, cfg)
+				n := MustSucceed(factory.Create(ctx, cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -573,7 +573,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n, _ := factory.Create(ctx, cfg)
+				n := MustSucceed(factory.Create(ctx, cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -610,7 +610,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n, _ := factory.Create(ctx, cfg)
+				n := MustSucceed(factory.Create(ctx, cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -647,7 +647,7 @@ var _ = Describe("Time", func() {
 					},
 					State: s.Node("interval_1"),
 				}
-				n, _ := factory.Create(ctx, cfg)
+				n := MustSucceed(factory.Create(ctx, cfg))
 				intervalNode := s.Node("interval_1")
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
@@ -709,7 +709,7 @@ var _ = Describe("Time", func() {
 					},
 					State: waitState.Node("wait_1"),
 				}
-				n, _ := waitFactory.Create(ctx, cfg)
+				n := MustSucceed(waitFactory.Create(ctx, cfg))
 				waitNode := waitState.Node("wait_1")
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()

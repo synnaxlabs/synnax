@@ -108,18 +108,18 @@ TEST(TimeFactoryTest, CreatesWaitNode) {
     ASSERT_NE(node, nullptr);
 }
 
-/// @brief Test that timing_base is set to the first interval when uninitialized.
-TEST(TimeFactoryTest, TimingBaseSetToFirstInterval) {
+/// @brief Test that base_interval is set to the first interval when uninitialized.
+TEST(TimeFactoryTest, BaseIntervalSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * telem::MILLISECOND).nanoseconds());
     time::Factory factory;
     ASSERT_NIL_P(
         factory.create(node::Config(setup.ir, setup.ir.nodes[0], setup.make_node()))
     );
-    EXPECT_EQ(factory.timing_base, 500 * telem::MILLISECOND);
+    EXPECT_EQ(factory.base_interval, 500 * telem::MILLISECOND);
 }
 
-/// @brief Test that timing_base computes GCD across multiple intervals.
-TEST(TimeFactoryTest, TimingBaseComputesGCDAcrossNodes) {
+/// @brief Test that base_interval computes GCD across multiple intervals.
+TEST(TimeFactoryTest, BaseIntervalComputesGCDAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * telem::MILLISECOND).nanoseconds());
 
@@ -130,7 +130,7 @@ TEST(TimeFactoryTest, TimingBaseComputesGCDAcrossNodes) {
     ASSERT_NIL_P(
         factory.create(node::Config(setup2.ir, setup2.ir.nodes[0], setup2.make_node()))
     );
-    EXPECT_EQ(factory.timing_base, 200 * telem::MILLISECOND);
+    EXPECT_EQ(factory.base_interval, 200 * telem::MILLISECOND);
 }
 
 /// @brief Test that Interval does not fire again before next interval elapses.

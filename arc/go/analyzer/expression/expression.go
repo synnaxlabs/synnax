@@ -23,6 +23,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	basetypes "github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 func isBool(t basetypes.Type) bool            { return t.IsBool() }
@@ -459,7 +461,11 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		}
 		if resolved.Kind == symbol.KindChannel || resolved.Type.Kind == basetypes.KindChan {
 			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr == nil && fn != nil {
+			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
+				return
+			}
+			if fn != nil {
 				fn.Channels.Read[uint32(resolved.ID)] = resolved.Name
 			}
 		}
