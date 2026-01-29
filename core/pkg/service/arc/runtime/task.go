@@ -62,7 +62,6 @@ type taskImpl struct {
 	task       task.Task
 	cfg        TaskConfig
 	prog       arc.Arc
-	stateCfg   ExtendedStateConfig
 
 	closer io.Closer
 }
