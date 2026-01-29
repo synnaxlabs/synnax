@@ -21,7 +21,6 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - pyproject.toml
-      - scripts/check_gofmt.sh
       - uv.lock
       - uv.toml
       - turbo.json
@@ -50,7 +49,6 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - pyproject.toml
-      - scripts/check_gofmt.sh
       - uv.lock
       - uv.toml
       - turbo.json
@@ -84,9 +82,6 @@ jobs:
               - go.work
               - go.work.sum
               - x/go/**
-            integration:
-              - *server
-              - scripts/check_gofmt.sh
             py:
               - *server
               - alamos/py/**
@@ -138,31 +133,6 @@ jobs:
           tags: ghcr.io/synnaxlabs/freighter-go-integration:latest
           cache-from: type=gha,scope=synnax-docker-cache
           cache-to: type=inline
-
-  integration:
-    name: Test - Integration
-    needs: changes
-    runs-on: ubuntu-latest
-    if: needs.changes.outputs.integration == 'true'
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version-file: go.work
-          cache-dependency-path: |
-            go.work.sum
-            **/go.sum
-
-      - name: Check Formatting
-        run: scripts/check_gofmt.sh freighter/integration
-
-      - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          working-directory: freighter/integration
 
   py:
     name: Test - Python
