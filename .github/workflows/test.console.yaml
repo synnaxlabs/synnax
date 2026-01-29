@@ -70,6 +70,9 @@ jobs:
               'windows-latest' }}
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:

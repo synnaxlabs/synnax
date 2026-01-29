@@ -40,6 +40,9 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Lint TypeScript
         uses: ./.github/actions/test-typescript
         with:

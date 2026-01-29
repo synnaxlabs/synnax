@@ -297,6 +297,9 @@ jobs:
         ports:
           - 9090:9090
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Test TypeScript
         uses: ./.github/actions/test-typescript
         with:
