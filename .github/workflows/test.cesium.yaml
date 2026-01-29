@@ -3,10 +3,12 @@ name: Test - Cesium
 on:
   pull_request:
     paths:
+      - .github/workflows/test.cesium.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
       - cesium/**
+      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh

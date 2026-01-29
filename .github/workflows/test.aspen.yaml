@@ -3,10 +3,12 @@ name: Test - Aspen
 on:
   pull_request:
     paths:
+      - .github/workflows/test.aspen.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
       - aspen/**
+      - codecov.yaml
       - freighter/go/**
       - go.work
       - go.work.sum
