@@ -50,6 +50,7 @@ nav {
     align-self: flex-start;
     position: sticky;
     top: 14.5rem;
+    height: calc(100vh - 14.5rem);
     background: var(--pluto-gray-l2-20);
     border-right: var(--pluto-border);
 

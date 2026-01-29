@@ -50,7 +50,9 @@
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
     "prettier": "catalog:",
-    "remove-markdown": "^0.6.2",
+    "remark": "^15.0.1",
+    "remark-gfm": "^4.0.1",
+    "strip-markdown": "^6.0.0",
     "typescript": "catalog:"
   }
 }
