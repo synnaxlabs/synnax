@@ -63,5 +63,6 @@ jobs:
         with:
           package: x
           coverage_flag: x-ts
+          coverage_directory: x/ts
           lint: ${{ matrix.lint }}
           knip: ${{ matrix.lint }}

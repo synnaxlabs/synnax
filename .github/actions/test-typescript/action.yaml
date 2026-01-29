@@ -13,12 +13,16 @@ inputs:
     description: The codecov flag for this package
     required: false
     default: ""
+  coverage_directory:
+    description: The directory containing coverage files
+    required: false
+    default: ""
   lint:
-    description: Whether to run linting checks (types, circular deps, eslint)
+    description: Whether to run linting checks (types, circular deps, ESLint)
     required: false
     default: "true"
   knip:
-    description: Whether to check for unused code with knip
+    description: Whether to check for unused code with Knip
     required: false
     default: "false"
   test_args:
@@ -73,3 +77,4 @@ runs:
       with:
         fail_ci_if_error: true
         flags: ${{ inputs.coverage_flag }}
+        directory: ${{ inputs.coverage_directory }}

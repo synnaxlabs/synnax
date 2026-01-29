@@ -65,4 +65,5 @@ jobs:
         with:
           package: drift
           coverage_flag: drift
+          coverage_directory: drift
           lint: ${{ matrix.lint }}

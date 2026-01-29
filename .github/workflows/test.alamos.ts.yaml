@@ -63,4 +63,5 @@ jobs:
         with:
           package: alamos
           coverage_flag: alamos-ts
+          coverage_directory: alamos/ts
           lint: ${{ matrix.lint }}

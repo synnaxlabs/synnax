@@ -120,4 +120,5 @@ jobs:
         with:
           package: pluto
           coverage_flag: pluto
-          test_args: "-- --no-file-parallelism"
+          coverage_directory: pluto
+          test_args: --no-file-parallelism

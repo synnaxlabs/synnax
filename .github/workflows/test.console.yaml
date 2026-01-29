@@ -76,4 +76,5 @@ jobs:
         with:
           package: console
           coverage_flag: console
+          coverage_directory: console
           lint: ${{ matrix.lint }}

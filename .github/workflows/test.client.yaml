@@ -301,3 +301,4 @@ jobs:
         with:
           package: client
           coverage_flag: client-ts
+          coverage_directory: client/ts
