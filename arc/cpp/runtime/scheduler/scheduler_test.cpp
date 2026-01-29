@@ -30,17 +30,14 @@
 namespace arc::runtime::scheduler {
 /// @brief Configurable mock node for testing scheduler behavior.
 struct MockNode final : public node::Node {
-    // ─── Tracking State ───────────────────────────────────────────────────────
     int next_called = 0;
     int reset_called = 0;
     std::vector<telem::TimeSpan> elapsed_values;
 
-    // ─── Configurable Behavior ────────────────────────────────────────────────
     std::unordered_map<std::string, bool> param_truthy;
     std::function<void(node::Context &)> on_next;
     xerrors::Error next_error = xerrors::NIL;
 
-    // ─── Interface Implementation ─────────────────────────────────────────────
     xerrors::Error next(node::Context &ctx) override {
         next_called++;
         elapsed_values.push_back(ctx.elapsed);
@@ -54,8 +51,6 @@ struct MockNode final : public node::Node {
         const auto it = param_truthy.find(param);
         return it != param_truthy.end() && it->second;
     }
-
-    // ─── Test Helpers ─────────────────────────────────────────────────────────
 
     /// @brief Configure node to mark a parameter as changed when next() is called.
     void mark_on_next(const std::string &param) {
@@ -1505,17 +1500,10 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
 
     // First tick at t=0 - interval hasn't fired yet
     scheduler->next(telem::TimeSpan(0));
-
-    // Wait, actually at t=0 the interval WILL fire because last_fired starts at -period
-    // So we need to check that the one-shot fires on first tick
-    // and doesn't fire on subsequent ticks within the period
-
     // Tick at t=500ms (before first period completes after initial fire)
     scheduler->next(telem::MILLISECOND * 500);
-
     // Target should have been called once from t=0 fire
     EXPECT_EQ(target_ptr->next_called, 1);
-
     // Tick at t=1s - Interval fires again but one-shot already fired
     scheduler->next(telem::SECOND);
     EXPECT_EQ(target_ptr->next_called, 1);

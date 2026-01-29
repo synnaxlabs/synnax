@@ -253,7 +253,6 @@ TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
     const time::IntervalConfig cfg(setup.ir.nodes[0].config);
     time::Interval node(cfg, setup.make_node());
 
-    // Before any next() call, output should be falsy (empty series)
     EXPECT_FALSE(node.is_output_truthy("output"));
 }
 
@@ -266,7 +265,6 @@ TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
     auto ctx = make_context(telem::SECOND);
     node.next(ctx);
 
-    // Unknown parameter should return false
     EXPECT_FALSE(node.is_output_truthy("nonexistent"));
 }
 
