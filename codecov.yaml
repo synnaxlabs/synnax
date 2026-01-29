@@ -1,0 +1,27 @@
+coverage:
+  status:
+    patch:
+      default:
+        target: 80%
+
+fixes:
+  - "github.com/synnaxlabs/alamos/::/alamos/go/"
+  - "github.com/synnaxlabs/arc/::/arc/go/"
+  - "github.com/synnaxlabs/freighter/::/freighter/go/"
+  - "github.com/synnaxlabs/synnax/::/core/"
+  - "github.com/synnaxlabs/x/::/x/go/"
+
+flag_management:
+  default_rules:
+    carryforward: true
+
+ignore:
+  - "**/*.pb.go"
+  - "**/*_generated.go"
+  - "**/*_string.go"
+  - "arc/go/parser/arc_lexer.go"
+  - "arc/go/parser/arc_parser.go"
+  - "arc/go/parser/arcparser_base_listener.go"
+  - "arc/go/parser/arcparser_base_visitor.go"
+  - "arc/go/parser/arcparser_listener.go"
+  - "arc/go/parser/arcparser_visitor.go"
