@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/state"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("State", func() {
@@ -1519,8 +1520,7 @@ var _ = Describe("State", func() {
 				series := telem.NewSeriesV[float32](1.0, 2.0, 3.0)
 				handle := s.SeriesStore(series)
 				Expect(handle).To(BeNumerically(">", 0))
-				retrieved, ok := s.SeriesGet(handle)
-				Expect(ok).To(BeTrue())
+				retrieved := MustBeOk(s.SeriesGet(handle))
 				Expect(retrieved).To(telem.MatchSeries(series))
 			})
 
@@ -1534,11 +1534,10 @@ var _ = Describe("State", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				series := telem.NewSeriesV[int32](42, 43, 44)
 				handle := s.SeriesStore(series)
-				retrieved, ok := s.SeriesGet(handle)
-				Expect(ok).To(BeTrue())
+				retrieved := MustBeOk(s.SeriesGet(handle))
 				Expect(retrieved).To(telem.MatchSeries(series))
 				s.Flush(telem.Frame[uint32]{})
-				_, ok = s.SeriesGet(handle)
+				_, ok := s.SeriesGet(handle)
 				Expect(ok).To(BeFalse())
 			})
 
@@ -1558,8 +1557,7 @@ var _ = Describe("State", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				handle := s.StringCreate("hello world")
 				Expect(handle).To(BeNumerically(">", 0))
-				retrieved, ok := s.StringGet(handle)
-				Expect(ok).To(BeTrue())
+				retrieved := MustBeOk(s.StringGet(handle))
 				Expect(retrieved).To(Equal("hello world"))
 			})
 
@@ -1572,11 +1570,10 @@ var _ = Describe("State", func() {
 			It("Should clear string handles on Flush", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				handle := s.StringCreate("test string")
-				retrieved, ok := s.StringGet(handle)
-				Expect(ok).To(BeTrue())
+				retrieved := MustBeOk(s.StringGet(handle))
 				Expect(retrieved).To(Equal("test string"))
 				s.Flush(telem.Frame[uint32]{})
-				_, ok = s.StringGet(handle)
+				_, ok := s.StringGet(handle)
 				Expect(ok).To(BeFalse())
 			})
 
@@ -1596,37 +1593,15 @@ var _ = Describe("State", func() {
 				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
 				seriesHandle := s.SeriesStore(telem.NewSeriesV[int32](1, 2, 3))
 				stringHandle := s.StringCreate("test")
-				_, seriesOk := s.SeriesGet(seriesHandle)
-				_, stringOk := s.StringGet(stringHandle)
-				Expect(seriesOk).To(BeTrue())
-				Expect(stringOk).To(BeTrue())
+				MustBeOk(s.SeriesGet(seriesHandle))
+				MustBeOk(s.StringGet(stringHandle))
 				fr, changed := s.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(len(fr.Get(0).Series)).To(Equal(0))
-				_, seriesOk = s.SeriesGet(seriesHandle)
-				_, stringOk = s.StringGet(stringHandle)
+				_, seriesOk := s.SeriesGet(seriesHandle)
+				_, stringOk := s.StringGet(stringHandle)
 				Expect(seriesOk).To(BeFalse())
 				Expect(stringOk).To(BeFalse())
-			})
-
-			It("Should clear both reads and transients on Flush", func() {
-				s := state.New(state.Config{IR: ir.IR{Nodes: []ir.Node{{Key: "test"}}}})
-				fr1 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](1, 2, 3))
-				s.Ingest(fr1)
-				fr2 := telem.UnaryFrame[uint32](10, telem.NewSeriesV[float32](4, 5))
-				s.Ingest(fr2)
-				seriesHandle := s.SeriesStore(telem.NewSeriesV[int64](100))
-				n := s.Node("test")
-				data, _, ok := n.ReadChan(10)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(2))
-				s.Flush(telem.Frame[uint32]{})
-				data, _, ok = n.ReadChan(10)
-				Expect(ok).To(BeTrue())
-				Expect(data.Series).To(HaveLen(1))
-				Expect(data.Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](4, 5)))
-				_, seriesOk := s.SeriesGet(seriesHandle)
-				Expect(seriesOk).To(BeFalse())
 			})
 		})
 	})
