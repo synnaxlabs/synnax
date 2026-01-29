@@ -37,9 +37,24 @@
 
 /* Tree component */
 .pluto-tree {
-    max-height: calc(100vh - 20rem);
+    max-height: calc(100vh - 15rem);
     overflow-y: auto;
     overflow-x: hidden;
+    padding-top: 5rem;
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 5rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0,
+        black 5rem,
+        black calc(100% - 5rem),
+        transparent 100%
+    );
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
