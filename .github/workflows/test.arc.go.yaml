@@ -3,12 +3,10 @@ name: Test - Arc (Go)
 on:
   pull_request:
     paths:
-      - .github/workflows/test.arc.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
       - arc/go/**
-      - codecov.yaml
       - freighter/go/**
       - go.work
       - go.work.sum

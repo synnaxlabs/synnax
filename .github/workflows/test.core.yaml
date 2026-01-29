@@ -3,14 +3,12 @@ name: Test - Core
 on:
   pull_request:
     paths:
-      - .github/workflows/test.core.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
       - arc/go/**
       - aspen/**
       - cesium/**
-      - codecov.yaml
       - core/**
       - freighter/go/**
       - go.work

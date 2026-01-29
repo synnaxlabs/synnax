@@ -3,11 +3,9 @@ name: Test - Alamos (Go)
 on:
   pull_request:
     paths:
-      - .github/workflows/test.alamos.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
-      - codecov.yaml
       - go.work
       - go.work.sum
       - scripts/check_gofmt.sh

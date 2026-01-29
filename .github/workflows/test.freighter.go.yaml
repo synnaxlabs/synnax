@@ -3,11 +3,9 @@ name: Test - Freighter (Go)
 on:
   pull_request:
     paths:
-      - .github/workflows/test.freighter.go.yaml
       - .github/workflows/test.go.yaml
       - .golangci.yaml
       - alamos/go/**
-      - codecov.yaml
       - freighter/go/**
       - go.work
       - go.work.sum
