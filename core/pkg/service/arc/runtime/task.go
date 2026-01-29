@@ -177,7 +177,10 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 	plumber.SetSegment(pipeline, runtimeAddr, runtime)
 
-	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
+	var (
+		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
+		streamerCloseSignal io.Closer
+	)
 	if len(stateCfg.Reads) > 0 {
 		streamer, err := t.factoryCfg.Framer.NewStreamer(
 			ctx,
@@ -190,6 +193,11 @@ func (t *taskImpl) start(ctx context.Context) error {
 		plumber.SetSegment(pipeline, streamerAddr, streamer)
 		plumber.MustConnect[framer.StreamerResponse](pipeline, streamerAddr, runtimeAddr, 10)
 		streamer.InFrom(streamerRequests)
+		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
+	} else {
+		streamerResponses := confluence.NewStream[framer.StreamerResponse]()
+		runtime.InFrom(streamerResponses)
+		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
 	}
 
 	if len(stateCfg.Writes) > 0 {
@@ -213,7 +221,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	t.closer = append(
 		closers,
 		signal.NewGracefulShutdown(sCtx, cancel),
-		xio.NoFailCloserFunc(streamerRequests.Close),
+		streamerCloseSignal,
 	)
 	pipeline.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
 	t.setStatus(status.VariantSuccess, true, "Task started successfully")
@@ -326,18 +334,14 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			ticker = stdtime.NewTicker(r.interval.Duration())
 			res    framer.StreamerResponse
 			ok     bool
-			inletC <-chan framer.StreamerResponse
 		)
-		if r.In != nil {
-			inletC = r.In.Outlet()
-		}
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-ticker.C:
-			case res, ok = <-inletC:
+			case res, ok = <-r.In.Outlet():
 				if !ok {
 					return nil
 				}
