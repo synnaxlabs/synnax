@@ -78,21 +78,21 @@ Unlike traditional programming where you write loops to poll sensors, Arc is
 **reactive**. You declare what should happen when data changes, and Arc handles the
 rest.
 
-Instead of:
+Instead of a traditional, Python-based approach:
 
 ```python
-# Traditional approach
-while True:
-    pressure = read_sensor("tank_pressure")
-    scaled = pressure * 2.0
-    write_channel("pressure_display", scaled)
-    sleep(0.1)
+with synnax.open_streamer(["tank_pressure"]) as streamer:
+  with synnax.open_writer(["pressure_display"]) as writer:
+    while True:
+        frame = streamer.read()
+        pressure = frame.channels["tank_pressure"]
+        scaled = pressure * 2.0
+        writer.write({"pressure_display": scaled})
 ```
 
 You write:
 
 ```arc
-// Arc approach
 tank_pressure * 2.0 -> pressure_display
 ```
 
@@ -111,15 +111,13 @@ This reactive model is particularly useful for:
 
 Arc builds on Synnax concepts you likely already know:
 
-- **Channels**: Arc reads from and writes to Synnax channels
-- **Drivers**: Arc automations run on a driver process
-- **Schematics**: Buttons in schematics can trigger Arc sequences
+- [Channels](/reference/concepts/channels) -> Arc reads from and writes to Synnax
+  channels.
+- [Drivers](/reference/driver/get-started) -> Arc automations run on a driver process.
+- [Schematics](/reference/console/schematics) -> Buttons in schematics can trigger Arc
+  sequences.
 
-If you're not familiar with these, see:
-
-- [Channels](/reference/concepts/channels) for creating and naming channels
-- [Drivers](/reference/driver/get-started) for setting up hardware connections
-- [Schematics](/reference/console/schematics) for building control interfaces
+If you're unfamiliar with these concepts, revisit the above pages before continuing.
 
 <Divider.Divider x />
 
