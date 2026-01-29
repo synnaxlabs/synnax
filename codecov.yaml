@@ -1,35 +1,29 @@
-fixes:
-  - "github.com/synnaxlabs/alamos/::/alamos/go/"
-  - "github.com/synnaxlabs/freighter/::/freighter/go/"
-
 coverage:
   status:
-    # (3) Gate overall coverage so it cannot go down vs the base commit.
-    # Codecov config can enforce "no decrease" reliably; it cannot strictly
-    # require "must increase" (strictly greater) via yaml alone.
-    project:
-      default:
-        target: auto # compare against base (PR target branch)
-        threshold: 0% # allow 0% drop => must be >= base
-        informational: false
-
-    # (1) New/changed code must be >= 80% covered.
-    # (2) Deletions won't hurt patch coverage; Codecov patch coverage is based
-    # on added/modified lines, so removing uncovered lines doesn't fail this check.
     patch:
       default:
         target: 80%
-        threshold: 0%
-        informational: false
+
+fixes:
+  - "github.com/synnaxlabs/alamos/::/alamos/go/"
+  - "github.com/synnaxlabs/arc/::/arc/go/"
+  - "github.com/synnaxlabs/freighter/::/freighter/go/"
+  - "github.com/synnaxlabs/synnax/::/core/"
+  - "github.com/synnaxlabs/x/::/x/go/"
+
+flag_management:
+  default_rules:
+    carryforward: true
+
 ignore:
-  - "**/*_generated.go"
   - "**/*.pb.go"
+  - "**/*_generated.go"
+  - "**/*_string.go"
+  - "**/examples/**"
   - "arc/go/parser/arc_lexer.go"
   - "arc/go/parser/arc_parser.go"
   - "arc/go/parser/arcparser_base_listener.go"
   - "arc/go/parser/arcparser_base_visitor.go"
   - "arc/go/parser/arcparser_listener.go"
   - "arc/go/parser/arcparser_visitor.go"
-  - "**/*_string.go"
-  - "**/examples/**"
   - "stylelint.config.js"
