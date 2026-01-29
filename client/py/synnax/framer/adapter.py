@@ -196,42 +196,34 @@ class WriteFrameAdapter:
     ) -> Frame:
         if isinstance(channels_or_data, (ChannelName, ChannelKey, ChannelPayload)):
             if series is None:
-                raise ValidationError(
-                    f"""
+                raise ValidationError(f"""
                 Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
                 but no data.
-                """
-                )
+                """)
             if isinstance(series, list) and len(series) > 1:
                 first = series[0]
                 if not isinstance(first, (float, int)):
-                    raise ValidationError(
-                        f"""
+                    raise ValidationError(f"""
                     Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
                     but multiple series.
-                    """
-                    )
+                    """)
 
             pld = self.__adapt_ch(channels_or_data)
             return Frame([pld.key], [series])
 
         if isinstance(channels_or_data, list):
             if series is None:
-                raise ValidationError(
-                    f"""
+                raise ValidationError(f"""
                 Received {len(channels_or_data)} channels but no series.
-                """
-                )
+                """)
             channels = list()
             o_series = list()
             for i, ch in enumerate(channels_or_data):
                 pld = self.__adapt_ch(ch)
                 if i >= len(series):
-                    raise ValidationError(
-                        f"""
+                    raise ValidationError(f"""
                     Received {len(channels_or_data)} channels but only {len(series)} series.
-                    """
-                    )
+                    """)
                 channels.append(pld.key)
                 o_series.append(series[i])
 

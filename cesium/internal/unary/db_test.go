@@ -68,9 +68,9 @@ var _ = Describe("DB Metadata Operations", func() {
 			})
 
 			AfterEach(func() {
-				Expect(cleanUp()).To(Succeed())
 				Expect(indexDB.Close()).To(Succeed())
 				Expect(dataDB.Close()).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("SetChannelKeyInMeta", func() {
