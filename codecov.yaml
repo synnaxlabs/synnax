@@ -5,81 +5,13 @@ fixes:
   - "github.com/synnaxlabs/synnax/::/core/"
   - "github.com/synnaxlabs/x/::/x/go/"
 
-flags:
-  alamos-go:
-    paths:
-      - "alamos/go/**"
-  alamos-py:
-    paths:
-      - "alamos/py/alamos/**"
-  alamos-ts:
-    paths:
-      - "alamos/ts/src/**"
-  arc-cpp:
-    paths:
-      - "arc/cpp/**"
-  arc-go:
-    paths:
-      - "arc/go/**"
-  aspen:
-    paths:
-      - "aspen/**"
-  cesium:
-    paths:
-      - "cesium/**"
-  client-cpp:
-    paths:
-      - "client/cpp/**"
-  client-py:
-    paths:
-      - "client/py/synnax/**"
-  client-ts:
-    paths:
-      - "client/ts/src/**"
-  console:
-    paths:
-      - "console/src/**"
-  core:
-    paths:
-      - "synnax/**"
-  drift:
-    paths:
-      - "drift/src/**"
-  driver:
-    paths:
-      - "driver/**"
-  freighter-cpp:
-    paths:
-      - "freighter/cpp/**"
-  freighter-go:
-    paths:
-      - "freighter/go/**"
-  freighter-integration:
-    paths:
-      - "freighter/integration/**"
-  freighter-py:
-    paths:
-      - "freighter/py/freighter/**"
-  freighter-ts:
-    paths:
-      - "freighter/ts/src/**"
-  pluto:
-    paths:
-      - "pluto/src/**"
-  x-cpp:
-    paths:
-      - "x/cpp/**"
-  x-go:
-    paths:
-      - "x/go/**"
-  x-ts:
-    paths:
-      - "x/ts/src/**"
-
 flag_management:
   default_rules:
     carryforward: true
     statuses:
+      - type: project
+        target: auto
+        threshold: 1%
       - type: patch
         target: 80%
       - type: patch
