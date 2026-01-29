@@ -65,9 +65,7 @@ class TestTimeStamp:
     def test_construction(self, crude: sy.CrudeTimeStamp, expected: sy.TimeStamp):
         """Should initialize a timestamp from a variety of types"""
         delta = sy.TimeSpan(sy.TimeStamp(crude) - sy.TimeStamp(expected))
-        assert (
-            sy.TimeStamp(crude) == expected
-        ), f"""
+        assert sy.TimeStamp(crude) == expected, f"""
         Expected: {sy.TimeStamp(expected)}
         Got: {sy.TimeStamp(crude)}
         Delta: {delta}

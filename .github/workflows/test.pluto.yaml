@@ -13,7 +13,6 @@ on:
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/go/**
       - freighter/ts/**
       - go.work
@@ -41,7 +40,6 @@ on:
       - configs/ts/**
       - configs/vite/**
       - core/**
-      - Earthfile
       - freighter/go/**
       - freighter/ts/**
       - go.work

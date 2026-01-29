@@ -23,7 +23,6 @@ on:
       - core/**
       - drift/**
       - driver/**
-      - Earthfile
       - freighter/cpp/**
       - freighter/go/**
       - freighter/ts/**
@@ -94,7 +93,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v6
 
-      - name: Get Version
+      - name: Get version
         id: version
         working-directory: core
         run: |

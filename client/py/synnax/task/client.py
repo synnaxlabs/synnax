@@ -245,11 +245,9 @@ class Task:
                     if status.details.cmd is not None and status.details.cmd == key:
                         return status
                 except ValidationError as e:
-                    raise UnexpectedError(
-                        f"""
+                    raise UnexpectedError(f"""
                     Received invalid task state from driver.
-                    """
-                    ) from e
+                    """) from e
 
 
 class TaskProtocol(Protocol):
