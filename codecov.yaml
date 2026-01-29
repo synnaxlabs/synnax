@@ -4,12 +4,12 @@ coverage:
       default:
         target: 80%
 
-# fixes:
-#   - "github.com/synnaxlabs/alamos/::/alamos/go/"
-#   - "github.com/synnaxlabs/arc/::/arc/go/"
-#   - "github.com/synnaxlabs/freighter/::/freighter/go/"
-#   - "github.com/synnaxlabs/synnax/::/core/"
-#   - "github.com/synnaxlabs/x/::/x/go/"
+fixes:
+  - "github.com/synnaxlabs/alamos/::/alamos/go/"
+  - "github.com/synnaxlabs/arc/::/arc/go/"
+  - "github.com/synnaxlabs/freighter/::/freighter/go/"
+  - "github.com/synnaxlabs/synnax/::/core/"
+  - "github.com/synnaxlabs/x/::/x/go/"
 
 flag_management:
   default_rules:
