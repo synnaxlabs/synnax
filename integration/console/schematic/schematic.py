@@ -13,6 +13,7 @@ import json
 from typing import TYPE_CHECKING, Any, Literal
 
 import synnax as sy
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
@@ -135,10 +136,8 @@ class Schematic(ConsolePage):
         try:
             link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
             return link
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return ""
-            raise RuntimeError(f"Error copying schematic link: {e}") from e
+        except PlaywrightTimeoutError:
+            return ""
 
     def export_json(self) -> dict[str, Any]:
         """Export the schematic as a JSON file via the toolbar export button.
@@ -505,13 +504,8 @@ class Schematic(ConsolePage):
 
         try:
             show_control_legend = self.console.get_toggle("Show Control State Legend")
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                show_control_legend = True
-            else:
-                raise RuntimeError(
-                    f"Error getting show control legend toggle: {e}"
-                ) from e
+        except PlaywrightTimeoutError:
+            show_control_legend = True
 
         return (control_authority, show_control_legend)
 

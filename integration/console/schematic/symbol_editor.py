@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 if TYPE_CHECKING:
     from console.console import Console
@@ -46,13 +47,8 @@ class SymbolEditor:
         """
         try:
             self.drop_zone.wait_for(state="visible", timeout=1000)
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                self.wait_for_form_visible(timeout=timeout)
-            else:
-                raise RuntimeError(
-                    f"Error waiting for symbol editor to open: {e}"
-                ) from e
+        except PlaywrightTimeoutError:
+            self.wait_for_form_visible(timeout=timeout)
 
     def wait_for_form_visible(self, timeout: int = 5000) -> None:
         """Wait for the form fields to appear (after SVG upload)."""

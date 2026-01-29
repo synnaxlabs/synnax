@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from synnax.channel.payload import (
     ChannelKey,
     ChannelName,
@@ -317,7 +318,7 @@ class ChannelClient:
         try:
             name_input.wait_for(state="hidden", timeout=1000)
             return None
-        except Exception:
+        except PlaywrightTimeoutError:
             modal = self.page.locator(
                 "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
             )
@@ -512,10 +513,8 @@ class ChannelClient:
         try:
             self.page.wait_for_selector(selector, state="visible", timeout=500)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError(f"Error checking if channel '{name}' exists: {e}") from e
+        except PlaywrightTimeoutError:
+            return False
         finally:
             self.hide_channels()
 
@@ -557,13 +556,13 @@ class ChannelClient:
                     self.page.wait_for_selector(
                         selector, state="visible", timeout=timeout_ms
                     )
-                except Exception:
+                except PlaywrightTimeoutError:
                     self.hide_channels()
                     return False
 
             self.hide_channels()
             return True
-        except Exception:
+        except PlaywrightTimeoutError:
             self.hide_channels()
             return False
 

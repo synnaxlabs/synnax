@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from synnax.channel.payload import ChannelName
 
 from .console import Console
@@ -136,10 +137,8 @@ class Log(ConsolePage):
         try:
             live_button.wait_for(state="visible", timeout=timeout_ms)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError from e
+        except PlaywrightTimeoutError:
+            return False
 
     def wait_until_waiting_for_data(self, timeout_ms: int = 5000) -> bool:
         """Wait until the log shows 'No data received yet' message.
@@ -159,10 +158,8 @@ class Log(ConsolePage):
         try:
             waiting_message.wait_for(state="visible", timeout=timeout_ms)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError from e
+        except PlaywrightTimeoutError:
+            return False
 
     def is_scrolling_paused(self) -> bool:
         """Check if log scrolling is paused."""

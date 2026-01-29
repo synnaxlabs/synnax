@@ -9,7 +9,12 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import FrameLocator, Locator, Page
+from playwright.sync_api import (
+    FrameLocator,
+    Locator,
+    Page,
+)
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 if TYPE_CHECKING:
     from .console import Console
@@ -56,7 +61,7 @@ class DocsClient:
                 state="visible", timeout=timeout
             )
             return True
-        except Exception:
+        except PlaywrightTimeoutError:
             return False
 
     def wait_for_iframe_loaded(self, timeout: int = 15000) -> None:
@@ -65,7 +70,7 @@ class DocsClient:
         if loader.count() > 0:
             try:
                 loader.wait_for(state="hidden", timeout=timeout)
-            except Exception:
+            except PlaywrightTimeoutError:
                 pass
 
     def _wait_for_docs_tab(self) -> None:

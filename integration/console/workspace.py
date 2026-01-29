@@ -12,6 +12,7 @@ import random
 from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
@@ -60,7 +61,7 @@ class WorkspaceClient:
             self.page.locator("div[id^='workspace:']").first.wait_for(
                 state="visible", timeout=2000
             )
-        except Exception:
+        except PlaywrightTimeoutError:
             return False
         count = self.page.locator("div[id^='workspace:']").filter(has_text=name).count()
         return count > 0
@@ -114,7 +115,7 @@ class WorkspaceClient:
         try:
             self.get_page(name).wait_for(state="visible", timeout=timeout)
             return True
-        except Exception:
+        except PlaywrightTimeoutError:
             return False
 
     def wait_for_page_removed(self, name: str, timeout: int = 5000) -> None:

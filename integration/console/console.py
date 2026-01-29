@@ -15,6 +15,7 @@ from typing import Literal
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
@@ -103,7 +104,7 @@ class Console:
                 self.page.locator(
                     ".console-palette__list .pluto-list__item"
                 ).first.wait_for(state="attached", timeout=10000)
-            except Exception:
+            except PlaywrightTimeoutError:
                 no_commands = self.page.get_by_text("No commands found").is_visible()
                 if no_commands and attempt < retries - 1:
                     self.page.keyboard.press("Escape")
@@ -136,7 +137,7 @@ class Console:
             )
             try:
                 target_result.wait_for(state="visible", timeout=5000)
-            except Exception:
+            except PlaywrightTimeoutError:
                 input_value = palette_input.input_value()
                 list_items = self.page.locator(
                     ".console-palette__list .pluto-list__virtualizer > div"
@@ -145,7 +146,7 @@ class Console:
                 for item in list_items:
                     try:
                         options.append(item.inner_text(timeout=1000))
-                    except Exception:
+                    except PlaywrightTimeoutError:
                         options.append("<failed to get text>")
                 raise RuntimeError(
                     f"Command palette: Could not find '{command}'. "
@@ -173,7 +174,7 @@ class Console:
                 self.page.locator(
                     ".console-palette__list .pluto-list__item"
                 ).first.wait_for(state="attached", timeout=10000)
-            except Exception:
+            except PlaywrightTimeoutError:
                 no_results = self.page.get_by_text("No results found").is_visible()
                 if no_results and attempt < retries - 1:
                     self.page.keyboard.press("Escape")
@@ -206,7 +207,7 @@ class Console:
             )
             try:
                 target_result.wait_for(state="visible", timeout=5000)
-            except Exception:
+            except PlaywrightTimeoutError:
                 input_value = palette_input.input_value()
                 list_items = self.page.locator(
                     ".console-palette__list .pluto-list__virtualizer > div"
@@ -215,7 +216,7 @@ class Console:
                 for item in list_items:
                     try:
                         options.append(item.inner_text(timeout=1000))
-                    except Exception:
+                    except PlaywrightTimeoutError:
                         options.append("<failed to get text>")
                 raise RuntimeError(
                     f"Search palette: Could not find '{query}'. "
@@ -304,7 +305,7 @@ class Console:
                 self.page.locator(
                     ".console-nav__drawer.pluto--visible.pluto--expanded:not(.pluto--location-bottom)"
                 ).wait_for(state="hidden", timeout=2000)
-            except Exception:
+            except PlaywrightTimeoutError:
                 # Retry
                 active_nav_btn.click()
                 sy.sleep(0.2)
@@ -635,7 +636,7 @@ class Console:
         for tab in self.page.locator(".pluto-tabs-selector__btn").all():
             try:
                 name = tab.inner_text(timeout=1000).strip()
-            except TimeoutError:
+            except PlaywrightTimeoutError:
                 continue  # Tab became stale, skip it
             if name not in except_tabs:
                 return tab

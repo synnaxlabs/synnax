@@ -89,7 +89,9 @@ class ConsoleCase(TestCase):
         self.console = Console(self.page, self.client)
 
         # Initialized signal (Not "Get Started" page)
-        self.page.wait_for_selector(".console-palette button", state="visible", timeout=10000)
+        self.page.wait_for_selector(
+            ".console-palette button", state="visible", timeout=10000
+        )
 
         # Default workspace for all tests
         self.console.workspace.ensure_selected("TestSpace")

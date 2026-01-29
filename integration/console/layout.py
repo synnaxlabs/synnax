@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import synnax as sy
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 if TYPE_CHECKING:
     from .console import Console
@@ -115,7 +116,7 @@ class LayoutClient:
         editable_text = tab.locator("p[contenteditable='true']").first
         try:
             editable_text.wait_for(state="visible", timeout=2000)
-        except Exception:
+        except PlaywrightTimeoutError:
             # Fallback to more general selector
             editable_text = tab.locator(
                 ".pluto-text--editable[contenteditable='true']"
@@ -180,7 +181,7 @@ class LayoutClient:
 
         try:
             bottom_drawer.wait_for(state="hidden", timeout=2000)
-        except Exception:
+        except PlaywrightTimeoutError:
             self.console.close_nav_drawer()
             self.page.locator(".pluto-tabs-selector__btn").first.click()
             self.page.keyboard.press("V")

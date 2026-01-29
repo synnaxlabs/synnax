@@ -15,6 +15,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from playwright.sync_api import Locator, Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
@@ -119,10 +120,8 @@ class SymbolToolbar:
             group_btn = self.group_list.locator(".pluto-btn").filter(has_text=name)
             group_btn.wait_for(state="visible", timeout=3000)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError(f"Error checking if group '{name}' exists: {e}") from e
+        except PlaywrightTimeoutError:
+            return False
 
     def wait_for_group_hidden(self, name: str) -> None:
         """Wait for a symbol group to be hidden/removed."""
@@ -156,10 +155,8 @@ class SymbolToolbar:
             symbol = self.get_symbol(name)
             symbol.wait_for(state="visible", timeout=3000)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError(f"Error checking if symbol '{name}' exists: {e}") from e
+        except PlaywrightTimeoutError:
+            return False
 
     def wait_for_symbol_hidden(self, name: str) -> None:
         """Wait for a symbol to be hidden/removed."""

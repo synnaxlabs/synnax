@@ -11,7 +11,8 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import synnax as sy
-from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 if TYPE_CHECKING:
     from .console import Console
@@ -118,7 +119,7 @@ class NotificationsClient:
                 return True
             return False
 
-        except Exception:
+        except PlaywrightTimeoutError:
             return False
 
     def close_all(self) -> int:

@@ -9,7 +9,14 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import (
+    Locator,
+    Page,
+)
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    expect,
+)
 
 from framework.utils import get_results_path, rgb_to_hex
 
@@ -78,7 +85,7 @@ class RangesClient:
         try:
             items.first.wait_for(state="visible", timeout=5000)
             return True
-        except Exception:
+        except PlaywrightTimeoutError:
             return False
 
     def exists_in_explorer(self, name: str) -> bool:
@@ -87,7 +94,7 @@ class RangesClient:
         try:
             items.first.wait_for(state="visible", timeout=5000)
             return True
-        except Exception:
+        except PlaywrightTimeoutError:
             return False
 
     def wait_for_removed_from_toolbar(self, name: str) -> None:
@@ -163,15 +170,14 @@ class RangesClient:
                 try:
                     label_item.wait_for(state="visible", timeout=3000)
                     label_item.click(timeout=2000)
-                except Exception as e:
-                    if "Timeout" in type(e).__name__:
-                        all_labels = self.page.locator(".pluto-list__item").all()
-                        available_labels = [
-                            lbl.text_content() for lbl in all_labels if lbl.is_visible()
-                        ]
+                except PlaywrightTimeoutError:
+                    all_labels = self.page.locator(".pluto-list__item").all()
+                    available_labels = [
+                        lbl.text_content() for lbl in all_labels if lbl.is_visible()
+                    ]
                     raise RuntimeError(
-                        f"Error selecting label '{label_name}'. Available labels: {available_labels}. Original error: {e}"
-                    ) from e
+                        f"Error selecting label '{label_name}'. Available labels: {available_labels}."
+                    )
             self.page.keyboard.press("Escape")
 
         if persisted:
@@ -693,12 +699,8 @@ class RangesClient:
         try:
             label.wait_for(state="visible", timeout=2000)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError(
-                f"Error checking label '{label_name}' in toolbar for range '{range_name}': {e}"
-            ) from e
+        except PlaywrightTimeoutError:
+            return False
 
     def wait_for_label_removed_from_toolbar(
         self, range_name: str, label_name: str, timeout_ms: int = 5000
@@ -718,12 +720,8 @@ class RangesClient:
         try:
             label.wait_for(state="hidden", timeout=timeout_ms)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError(
-                f"Error waiting for label '{label_name}' removal from range '{range_name}': {e}"
-            ) from e
+        except PlaywrightTimeoutError:
+            return False
 
     def get_label_color_in_toolbar(
         self, range_name: str, label_name: str
@@ -754,13 +752,8 @@ class RangesClient:
         range_item = self.get_toolbar_item(range_name)
         try:
             range_item.wait_for(state="visible", timeout=2000)
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return []
-            else:
-                raise RuntimeError(
-                    f"Error accessing range '{range_name}' in toolbar: {e}"
-                ) from e
+        except PlaywrightTimeoutError:
+            return []
 
         label_tags = range_item.locator(".pluto-tag")
         label_count = label_tags.count()
@@ -797,12 +790,8 @@ class RangesClient:
         try:
             self.get_snapshot_item(name).wait_for(state="visible", timeout=timeout)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise RuntimeError(
-                f"Error checking snapshot '{name}' in overview: {e}"
-            ) from e
+        except PlaywrightTimeoutError:
+            return False
 
     def open_snapshot_from_overview(self, name: str) -> None:
         """Open a snapshot from the Snapshots section in the range overview.
