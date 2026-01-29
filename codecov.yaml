@@ -10,6 +10,7 @@ flag_management:
     carryforward: true
     statuses:
       - type: project
+        threshold: 0.5%
       - type: patch
         target: 80%
       - type: patch
