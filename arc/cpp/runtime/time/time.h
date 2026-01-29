@@ -16,10 +16,29 @@
 #include "x/cpp/xerrors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
+#include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
 
 namespace arc::runtime::time {
+
+/// @brief Calculates the tolerance for timing comparisons based on execution mode.
+inline telem::TimeSpan calculate_tolerance(
+    const loop::ExecutionMode mode,
+    const telem::TimeSpan base_interval
+) {
+    if (base_interval == telem::TimeSpan::max()) return 5 * telem::MILLISECOND;
+    const auto half = base_interval / 2;
+    switch (mode) {
+        case loop::ExecutionMode::RT_EVENT:
+        case loop::ExecutionMode::BUSY_WAIT:
+            return std::min(half, 100 * telem::MICROSECOND);
+        case loop::ExecutionMode::HIGH_RATE:
+            return std::min(half, telem::MILLISECOND);
+        default:
+            return std::min(half, 5 * telem::MILLISECOND);
+    }
+}
 
 struct IntervalConfig {
     telem::TimeSpan interval;
@@ -40,9 +59,9 @@ public:
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
     xerrors::Error next(node::Context &ctx) override {
-        if (ctx.elapsed - this->last_fired < this->cfg.interval) return xerrors::NIL;
+        if (ctx.elapsed - this->last_fired < this->cfg.interval - ctx.tolerance)
+            return xerrors::NIL;
         this->last_fired = ctx.elapsed;
-        // IMPORTANT: Set output BEFORE calling mark_changed, so is_output_truthy works
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -84,7 +103,8 @@ public:
     xerrors::Error next(node::Context &ctx) override {
         if (this->fired) return xerrors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;
+        if (ctx.elapsed - start_time < cfg.duration - ctx.tolerance)
+            return xerrors::NIL;
         this->fired = true;
         const auto &o = state.output(0);
         const auto &o_time = state.output_time(0);
