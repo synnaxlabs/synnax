@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "client/cpp/ontology/id.h"
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 /// @brief it should construct an synnax::ontology::ID with type and key.
 TEST(OntologyID, testConstruction) {
@@ -43,19 +43,19 @@ TEST(OntologyID, testParseValidIDWithUUID) {
 TEST(OntologyID, testParseMalformed) {
     auto [id, err] = synnax::ontology::ID::parse("malformed");
     EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
+    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
 }
 
 /// @brief it should fail to parse an synnax::ontology::ID with only a colon.
 TEST(OntologyID, testParseOnlyColon) {
     auto [id, err] = synnax::ontology::ID::parse(":");
     EXPECT_TRUE(err);
-    EXPECT_TRUE(err.matches(xerrors::VALIDATION));
+    EXPECT_TRUE(err.matches(x::errors::VALIDATION));
 }
 
 /// @brief it should fail to parse an synnax::ontology::ID with empty type.
 TEST(OntologyID, testParseEmptyType) {
-    ASSERT_OCCURRED_AS_P(synnax::ontology::ID::parse(":42"), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(synnax::ontology::ID::parse(":42"), x::errors::VALIDATION);
 }
 
 /// @brief it should support round-trip string conversion: parse(id.string()) == id.
@@ -107,7 +107,7 @@ TEST(OntologyID, testParseIDs) {
 /// @brief it should fail to parse a vector with an invalid synnax::ontology::ID.
 TEST(OntologyID, testParseIDsWithInvalid) {
     const std::vector<std::string> strs = {"channel:42", "malformed", "user:admin"};
-    ASSERT_OCCURRED_AS_P(synnax::ontology::parse_ids(strs), xerrors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(synnax::ontology::parse_ids(strs), x::errors::VALIDATION);
 }
 
 /// @brief it should convert a vector of IDs to strings.

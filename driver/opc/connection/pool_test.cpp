@@ -11,7 +11,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/opc/connection/connection.h"
 #include "driver/opc/mock/server.h"
@@ -36,12 +36,12 @@ protected:
 
     mock::ServerConfig server_cfg_;
     std::unique_ptr<mock::Server> server_;
-    opc::connection::Config conn_cfg_;
+    driver::opc::connection::Config conn_cfg_;
 };
 
 /// @brief it should acquire a new connection from empty pool.
 TEST_F(ConnectionPoolTest, AcquireNewConnection) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     ASSERT_NE(connection.get(), nullptr);
@@ -52,7 +52,7 @@ TEST_F(ConnectionPoolTest, AcquireNewConnection) {
 
 /// @brief it should reuse released connection from pool.
 TEST_F(ConnectionPoolTest, ReuseConnection) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     { auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
 
@@ -66,7 +66,7 @@ TEST_F(ConnectionPoolTest, ReuseConnection) {
 
 /// @brief it should create multiple simultaneous connections.
 TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -85,10 +85,10 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
     server2.start();
     ASSERT_TRUE(server2.wait_until_ready());
 
-    opc::connection::Config cfg2 = conn_cfg_;
+    driver::opc::connection::Config cfg2 = conn_cfg_;
     cfg2.endpoint = "opc.tcp://localhost:4846";
 
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto conn2 = ASSERT_NIL_P(pool.acquire(cfg2, "[test] "));
@@ -101,24 +101,24 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
 
 /// @brief it should properly transfer ownership with move semantics.
 TEST_F(ConnectionPoolTest, MoveSemantics) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     auto *original_ptr = conn1.get();
 
-    opc::connection::Pool::Connection conn2 = std::move(conn1);
+    driver::opc::connection::Pool::Connection conn2 = std::move(conn1);
     EXPECT_EQ(conn2.get(), original_ptr);
     EXPECT_FALSE(conn1);
 
-    opc::connection::Pool::Connection conn3(std::move(conn2));
+    driver::opc::connection::Pool::Connection conn3(std::move(conn2));
     EXPECT_EQ(conn3.get(), original_ptr);
     EXPECT_FALSE(conn2);
 }
 
 /// @brief it should handle concurrent access from multiple threads safely.
 TEST_F(ConnectionPoolTest, ThreadSafety) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
     const int num_threads = 10;
     const int acquisitions_per_thread = 5;
 
@@ -146,12 +146,12 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
 
 /// @brief it should replace invalidated connections with new ones.
 TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto client_ptr = conn1.shared();
 
-    { opc::connection::Pool::Connection temp = std::move(conn1); }
+    { driver::opc::connection::Pool::Connection temp = std::move(conn1); }
 
     UA_Client_disconnect(client_ptr.get());
 
@@ -163,11 +163,11 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
 
 /// @brief it should create separate connections for different credentials.
 TEST_F(ConnectionPoolTest, DifferentCredentials) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    opc::connection::Config cfg_with_user = conn_cfg_;
+    driver::opc::connection::Config cfg_with_user = conn_cfg_;
     cfg_with_user.security_mode = "Sign";
     cfg_with_user.security_policy = "Basic256";
 
@@ -184,8 +184,8 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 
 /// @brief it should return error when connecting to unavailable server.
 TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
-    opc::connection::Pool pool;
-    opc::connection::Config bad_cfg = conn_cfg_;
+    driver::opc::connection::Pool pool;
+    driver::opc::connection::Config bad_cfg = conn_cfg_;
     bad_cfg.endpoint = "opc.tcp://localhost:9999";
 
     auto [connection, err] = pool.acquire(bad_cfg, "[test] ");
@@ -195,11 +195,11 @@ TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
 
 /// @brief it should automatically reconnect when stale connection is detected.
 TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
+    conn1 = driver::opc::connection::Pool::Connection(nullptr, nullptr, "");
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 
     server_->stop();
@@ -214,11 +214,11 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
 
 /// @brief it should create new connection after server restart.
 TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
-    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
+    conn1 = driver::opc::connection::Pool::Connection(nullptr, nullptr, "");
 
     server_->stop();
     server_.reset();
@@ -233,12 +233,12 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
 /// @brief Tests that when run_iterate fails on a cached connection, the pool
 /// discards it and creates a new connection.
 TEST_F(ConnectionPoolTest, RunIterateFailureFallsThrough) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     // Create and release a connection
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto client1_ptr = conn1.shared();
-    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
+    conn1 = driver::opc::connection::Pool::Connection(nullptr, nullptr, "");
 
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 
@@ -256,12 +256,12 @@ TEST_F(ConnectionPoolTest, RunIterateFailureFallsThrough) {
 
 /// @brief Tests that when all cached connections fail, a new connection is created.
 TEST_F(ConnectionPoolTest, AllCachedFailCreateNew) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     // Create and release a connection
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto client1_ptr = conn1.shared();
-    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
+    conn1 = driver::opc::connection::Pool::Connection(nullptr, nullptr, "");
 
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
 
@@ -279,7 +279,7 @@ TEST_F(ConnectionPoolTest, AllCachedFailCreateNew) {
 /// @brief Tests that when the server stops, acquire returns an error and
 /// cleans up the broken connection from the pool.
 TEST_F(ConnectionPoolTest, ServerStopsDuringAcquire) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     // Create and release connection
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -303,7 +303,7 @@ TEST_F(ConnectionPoolTest, ServerStopsDuringAcquire) {
 /// @brief Tests that after a server restart, the pool can recover and
 /// provide working connections.
 TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     // Create and hold connection
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -317,7 +317,7 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
     ASSERT_TRUE(server_->wait_until_ready());
 
     // Release the now-broken connection
-    conn1 = opc::connection::Pool::Connection(nullptr, nullptr, "");
+    conn1 = driver::opc::connection::Pool::Connection(nullptr, nullptr, "");
 
     // Should be able to acquire new working connection
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -332,7 +332,7 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
 /// @brief Tests that connection errors are properly propagated with the
 /// correct error type.
 TEST_F(ConnectionPoolTest, ErrorStatusPropagation) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     // Create and release connection
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -352,7 +352,7 @@ TEST_F(ConnectionPoolTest, ErrorStatusPropagation) {
 
 /// @brief Tests that multiple threads can recover after server restart.
 TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
-    opc::connection::Pool pool;
+    driver::opc::connection::Pool pool;
 
     // Create initial connections
     {

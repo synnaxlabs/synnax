@@ -1,0 +1,23 @@
+cc_library(
+    name = "grpc",
+    srcs = [],
+    hdrs = ["grpc.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//freighter/cpp:freighter",
+        "//x/cpp/fs",
+        "@glog",
+        "@grpc//:grpc++",
+    ],
+)
+
+cc_test(
+    name = "grpc_test",
+    srcs = ["grpc_test.cpp"],
+    deps = [
+        "//freighter/cpp/grpc/mock:server",
+        "//freighter/cpp/grpc/mock:service_grpc",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

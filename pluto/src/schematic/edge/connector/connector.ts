@@ -115,7 +115,7 @@ export const prepareNode = ({
 };
 
 export const segmentZ = z.object({
-  direction: direction.direction,
+  direction: direction.directionZ,
   length: z.number(),
 });
 

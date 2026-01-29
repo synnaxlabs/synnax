@@ -15,18 +15,18 @@
 #include <unordered_map>
 #include <vector>
 
+#include "x/cpp/errors/errors.h"
+#include "x/cpp/mem/local_shared.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/xerrors/errors.h"
-#include "x/cpp/xmemory/local_shared.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::runtime::state {
-using Series = xmemory::local_shared<telem::Series>;
+using Series = x::mem::local_shared<x::telem::Series>;
 
 /// Generates a unique key for stateful variables from function ID and variable ID.
 inline uint64_t state_key(const uint32_t func_id, const uint32_t var_id) {
@@ -40,7 +40,7 @@ struct Value {
 
 struct ChannelDigest {
     types::ChannelKey key;
-    telem::DataType data_type;
+    x::telem::DataType data_type;
     types::ChannelKey index;
 };
 
@@ -64,7 +64,7 @@ class Node {
         size_t source;
         Series data;
         Series time;
-        telem::TimeStamp last_timestamp{0};
+        x::telem::TimeStamp last_timestamp{0};
         bool consumed{true};
     };
 
@@ -112,7 +112,7 @@ public:
 
     /// Reads buffered data and time series from a channel. Returns (data, index_data,
     /// ok). If the channel has an associated index, both data and time are returned.
-    std::tuple<telem::MultiSeries, telem::MultiSeries, bool>
+    std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_chan(types::ChannelKey key) const;
 
     /// Writes data and time series to a channel buffer.
@@ -123,7 +123,7 @@ public:
 
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.
-    [[nodiscard]] static bool is_series_truthy(const telem::Series &series) {
+    [[nodiscard]] static bool is_series_truthy(const x::telem::Series &series) {
         if (series.size() == 0) return false;
         const auto last_value = series.at(-1);
         return std::visit(
@@ -141,7 +141,7 @@ public:
     /// @brief Resets accumulated input state for runtime restart.
     void reset() {
         for (auto &entry: this->accumulated) {
-            entry.last_timestamp = telem::TimeStamp(0);
+            entry.last_timestamp = x::telem::TimeStamp(0);
             entry.consumed = true;
         }
     }
@@ -161,7 +161,7 @@ class State {
     uint32_t string_handle_counter = 1;
 
     /// @brief Transient series handles - cleared each execution cycle.
-    std::unordered_map<uint32_t, telem::Series> series_handles;
+    std::unordered_map<uint32_t, x::telem::Series> series_handles;
     uint32_t series_handle_counter = 1;
 
     /// @brief Persistent stateful variable storage - keyed by state_key(func_id,
@@ -177,20 +177,20 @@ class State {
     std::unordered_map<uint64_t, float> var_f32;
     std::unordered_map<uint64_t, double> var_f64;
     std::unordered_map<uint64_t, std::string> var_string;
-    std::unordered_map<uint64_t, telem::Series> var_series;
+    std::unordered_map<uint64_t, x::telem::Series> var_series;
 
     /// @brief Callback for reporting warnings (e.g., data drops).
     errors::Handler error_handler;
 
 public:
     void write_channel(types::ChannelKey key, const Series &data, const Series &time);
-    std::pair<telem::MultiSeries, bool> read_channel(types::ChannelKey key);
+    std::pair<x::telem::MultiSeries, bool> read_channel(types::ChannelKey key);
     explicit State(
         const Config &cfg,
         errors::Handler error_handler = errors::noop_handler
     );
-    std::pair<Node, xerrors::Error> node(const std::string &key);
-    void ingest(const telem::Frame &frame);
+    std::pair<Node, x::errors::Error> node(const std::string &key);
+    void ingest(const x::telem::Frame &frame);
     std::vector<std::pair<types::ChannelKey, Series>> flush();
 
     /// @brief Clears all persistent state, resetting the runtime to initial conditions.
@@ -209,11 +209,11 @@ public:
     bool string_exists(uint32_t handle) const;
 
     /// @brief Gets a series by handle. Returns nullptr if not found.
-    telem::Series *series_get(uint32_t handle);
-    const telem::Series *series_get(uint32_t handle) const;
+    x::telem::Series *series_get(uint32_t handle);
+    const x::telem::Series *series_get(uint32_t handle) const;
 
     /// @brief Stores a series and returns its handle.
-    uint32_t series_store(telem::Series series);
+    uint32_t series_store(x::telem::Series series);
 
 #define DECLARE_VAR_OPS(suffix, cpptype)                                               \
     cpptype var_load_##suffix(uint32_t func_id, uint32_t var_id, cpptype init_value);  \

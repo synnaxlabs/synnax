@@ -1,0 +1,63 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/color"
+
+@ts output  "x/ts/src/label"
+@py output  "client/py/synnax/label"
+@go output  "x/go/label"
+@cpp output "x/cpp/label"
+@pb
+
+Key = uuid {
+    @doc value "is a unique identifier for a label, represented as a UUID."
+}
+
+Label struct {
+    key   Key         {
+        @doc value "is the unique identifier for this label."
+        @key
+    }
+    name  string      {
+        @doc value           "is a human-readable name for the label."
+        @validate min_length 1
+    }
+    color color.Color {
+        @doc value "is the display color for visual identification of the label."
+    }
+
+    @doc value """
+        is a tagging and categorization entity with a name and associated color.
+        Labels can be attached to resources like ranges for organization and
+        filtering.
+    """
+}
+
+New struct extends Label {
+    key Key? {
+        @doc value """
+            is an optional key for the label. If not provided, one will be
+            automatically assigned.
+        """
+    }
+
+    @doc value    "contains parameters for creating a new label."
+    @py omit
+    @ts use_input
+    @go omit
+    @pb omit
+}
+
+GoSVCLabel = Label {
+    @doc value "is a server-side label type alias for Go services."
+    @go output "core/pkg/service/label"
+    @go name   "Label"
+    @ts omit
+    @py omit
+}

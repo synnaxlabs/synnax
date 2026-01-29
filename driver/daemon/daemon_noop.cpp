@@ -9,40 +9,40 @@
 
 /// @brief noop implementation of daemon functions that do nothing on macOS and Windows.
 
-#include "x/cpp/xos/xos.h"
+#include "x/cpp/os/os.h"
 
 #include "driver/daemon/daemon.h"
 
-namespace daemond {
+namespace driver::daemon {
 void run(const Config &config, const int argc, char *argv[]) {
     config.callback(argc, argv);
 }
 
-const auto NOT_SUPPORTED = xerrors::Error(
-    xerrors::NOT_SUPPORTED,
-    "running the driver as a daemon is not supported on " + xos::get() +
+const auto NOT_SUPPORTED = x::errors::Error(
+    x::errors::NOT_SUPPORTED,
+    "running the driver as a daemon is not supported on " + x::os::get() +
         ". Use the -s flag to start in standalone mode"
 );
 
-xerrors::Error install_service() {
+x::errors::Error install_service() {
     return NOT_SUPPORTED;
 }
-xerrors::Error uninstall_service() {
+x::errors::Error uninstall_service() {
     return NOT_SUPPORTED;
 }
-xerrors::Error start_service() {
+x::errors::Error start_service() {
     return NOT_SUPPORTED;
 }
-xerrors::Error stop_service() {
+x::errors::Error stop_service() {
     return NOT_SUPPORTED;
 }
-xerrors::Error restart_service() {
+x::errors::Error restart_service() {
     return NOT_SUPPORTED;
 }
-xerrors::Error view_logs() {
+x::errors::Error view_logs() {
     return NOT_SUPPORTED;
 }
-xerrors::Error status() {
+x::errors::Error status() {
     return NOT_SUPPORTED;
 }
 }

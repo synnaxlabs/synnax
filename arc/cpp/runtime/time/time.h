@@ -13,34 +13,36 @@
 #include <memory>
 #include <numeric>
 
-#include "x/cpp/xerrors/errors.h"
+#include "x/cpp/errors/errors.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/node/node.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::runtime::time {
 
 struct IntervalConfig {
-    telem::TimeSpan interval;
+    x::telem::TimeSpan interval;
 
-    explicit IntervalConfig(const ir::Params &params) {
-        const auto interval_ns = params["period"].get<std::int64_t>();
-        this->interval = telem::TimeSpan(interval_ns);
+    explicit IntervalConfig(const types::Params &params) {
+        const auto param = types::find_param(params, "period");
+        const auto interval_ns = param ? param->get().value.get<std::int64_t>() : 0;
+        this->interval = x::telem::TimeSpan(interval_ns);
     }
 };
 
 class Interval : public node::Node {
     state::Node state;
     IntervalConfig cfg;
-    telem::TimeSpan last_fired;
+    x::telem::TimeSpan last_fired;
 
 public:
     explicit Interval(const IntervalConfig &cfg, state::Node &&state):
         state(std::move(state)), cfg(cfg), last_fired(-1 * this->cfg.interval) {}
 
-    xerrors::Error next(node::Context &ctx) override {
-        if (ctx.elapsed - this->last_fired < this->cfg.interval) return xerrors::NIL;
+    x::errors::Error next(node::Context &ctx) override {
+        if (ctx.elapsed - this->last_fired < this->cfg.interval) return x::errors::NIL;
         this->last_fired = ctx.elapsed;
         ctx.mark_changed(ir::default_output_param);
         const auto &o = this->state.output(0);
@@ -49,7 +51,7 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     void reset() override { last_fired = -1 * cfg.interval; }
@@ -60,11 +62,12 @@ public:
 };
 
 struct WaitConfig {
-    telem::TimeSpan duration;
+    x::telem::TimeSpan duration;
 
-    explicit WaitConfig(const ir::Params &params) {
-        const auto duration_ns = params["duration"].get<std::int64_t>();
-        this->duration = telem::TimeSpan(duration_ns);
+    explicit WaitConfig(const types::Params &params) {
+        const auto param = types::find_param(params, "duration");
+        const auto duration_ns = param ? param->get().value.get<std::int64_t>() : 0;
+        this->duration = x::telem::TimeSpan(duration_ns);
     }
 };
 
@@ -73,17 +76,17 @@ struct WaitConfig {
 class Wait : public node::Node {
     state::Node state;
     WaitConfig cfg;
-    telem::TimeSpan start_time = telem::TimeSpan(-1);
+    x::telem::TimeSpan start_time = x::telem::TimeSpan(-1);
     bool fired = false;
 
 public:
     explicit Wait(const WaitConfig &cfg, state::Node &&state):
         state(std::move(state)), cfg(cfg) {}
 
-    xerrors::Error next(node::Context &ctx) override {
-        if (this->fired) return xerrors::NIL;
+    x::errors::Error next(node::Context &ctx) override {
+        if (this->fired) return x::errors::NIL;
         if (this->start_time.nanoseconds() < 0) this->start_time = ctx.elapsed;
-        if (ctx.elapsed - start_time < cfg.duration) return xerrors::NIL;
+        if (ctx.elapsed - start_time < cfg.duration) return x::errors::NIL;
         this->fired = true;
         const auto &o = state.output(0);
         const auto &o_time = state.output_time(0);
@@ -92,12 +95,12 @@ public:
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
         ctx.mark_changed(ir::default_output_param);
-        return xerrors::NIL;
+        return x::errors::NIL;
     }
 
     /// Reset the timer. Called when a stage containing this node is entered.
     void reset() override {
-        start_time = telem::TimeSpan(-1);
+        start_time = x::telem::TimeSpan(-1);
         fired = false;
     }
 
@@ -108,20 +111,22 @@ public:
 
 class Factory : public node::Factory {
 public:
-    telem::TimeSpan timing_base = telem::TimeSpan(std::numeric_limits<int64_t>::max());
+    x::telem::TimeSpan timing_base = x::telem::TimeSpan(
+        std::numeric_limits<int64_t>::max()
+    );
 
     bool handles(const std::string &node_type) const override {
         return node_type == "interval" || node_type == "wait";
     }
 
-    std::pair<std::unique_ptr<node::Node>, xerrors::Error>
+    std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
             IntervalConfig node_cfg(cfg.node.config);
             this->update_timing_base(node_cfg.interval);
             return {
                 std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
-                xerrors::NIL
+                x::errors::NIL
             };
         }
         if (cfg.node.type == "wait") {
@@ -129,18 +134,18 @@ public:
             this->update_timing_base(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
-                xerrors::NIL
+                x::errors::NIL
             };
         }
-        return {nullptr, xerrors::NOT_FOUND};
+        return {nullptr, x::errors::NOT_FOUND};
     }
 
 private:
-    void update_timing_base(const telem::TimeSpan span) {
+    void update_timing_base(const x::telem::TimeSpan span) {
         if (this->timing_base.nanoseconds() == std::numeric_limits<int64_t>::max())
             this->timing_base = span;
         else
-            this->timing_base = telem::TimeSpan(
+            this->timing_base = x::telem::TimeSpan(
                 std::gcd(this->timing_base.nanoseconds(), span.nanoseconds())
             );
     }

@@ -1,9 +1,15 @@
 cc_library(
     name = "spatial",
-    hdrs = ["spatial.h"],
+    hdrs = [
+        "json.gen.h",
+        "proto.gen.h",
+        "spatial.h",
+        "types.gen.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
-        "//x/cpp/xjson",
+        "//x/cpp/pb",
+        "//x/cpp/json",
         "//x/go/spatial:spatial_grpc",
     ],
 )

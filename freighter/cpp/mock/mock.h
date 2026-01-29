@@ -13,45 +13,38 @@
 
 #include "freighter/cpp/freighter.h"
 
+namespace freighter::mock {
 template<typename RQ, typename RS>
-class MockUnaryClient final : public freighter::UnaryClient<RQ, RS>,
-                              freighter::Finalizer<RQ, RS> {
+class UnaryClient final : public freighter::UnaryClient<RQ, RS>, Finalizer<RQ, RS> {
 public:
     std::vector<RQ> requests{};
     std::vector<RS> responses{};
-    std::vector<xerrors::Error> response_errors{};
+    std::vector<x::errors::Error> response_errors{};
 
-    MockUnaryClient() = default;
+    UnaryClient() = default;
 
-    MockUnaryClient(
+    UnaryClient(
         std::vector<RS> responses,
-        std::vector<xerrors::Error> response_errors
+        std::vector<x::errors::Error> response_errors
     ):
         responses(responses), response_errors(std::move(response_errors)) {}
 
-    MockUnaryClient(RS response, const xerrors::Error &response_error):
+    UnaryClient(RS response, const x::errors::Error &response_error):
         responses({response}), response_errors({response_error}) {}
 
-    void use(std::shared_ptr<freighter::Middleware> middleware) override {
-        mw.use(middleware);
-    }
+    void use(std::shared_ptr<Middleware> middleware) override { mw.use(middleware); }
 
-    std::pair<RS, xerrors::Error>
+    std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
         requests.push_back(request);
         if (responses.empty())
             throw std::runtime_error("mock unary client has no responses left!");
-        const auto ctx = freighter::Context(
-            "mock",
-            url::URL(target),
-            freighter::TransportVariant::STREAM
-        );
+        const auto ctx = Context("mock", x::url::URL(target), TransportVariant::STREAM);
         auto [res, err] = mw.exec(ctx, this, request);
         return {res, err};
     }
 
-    freighter::FinalizerReturn<RS>
-    operator()(freighter::Context outboundContext, RQ &req) override {
+    FinalizerReturn<RS> operator()(Context outboundContext, RQ &req) override {
         auto response_error = response_errors.front();
         response_errors.erase(response_errors.begin());
         auto res = responses.front();
@@ -60,5 +53,6 @@ public:
     }
 
 private:
-    freighter::MiddlewareCollector<RQ, RS> mw;
+    MiddlewareCollector<RQ, RS> mw;
 };
+}

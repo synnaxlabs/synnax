@@ -14,6 +14,7 @@
 // internal
 #include "driver/rack/rack.h"
 
+namespace driver::rack {
 constexpr auto PERSISTED_STATE_FILE_PERMISSIONS = std::filesystem::perms::owner_read |
                                                   std::filesystem::perms::owner_write |
                                                   std::filesystem::perms::group_read |
@@ -25,7 +26,7 @@ constexpr auto PERSISTED_STATE_DIR_PERMISSIONS = std::filesystem::perms::owner_a
                                                  std::filesystem::perms::group_all |
                                                  std::filesystem::perms::others_all;
 
-std::string get_persisted_state_path(xargs::Parser &parser) {
+std::string get_persisted_state_path(x::args::Parser &parser) {
     auto p_path = parser.field<std::string>("--state-file", "");
     if (!p_path.empty()) return p_path;
 #ifdef _WIN32
@@ -42,9 +43,10 @@ std::string get_persisted_state_path(xargs::Parser &parser) {
 #endif
 }
 
-std::pair<std::shared_ptr<kv::KV>, xerrors::Error> open_kv(xargs::Parser &parser) {
-    return kv::JSONFile::open(
-        kv::JSONFileConfig{
+std::pair<std::shared_ptr<x::kv::KV>, x::errors::Error>
+open_kv(x::args::Parser &parser) {
+    return x::kv::JSONFile::open(
+        x::kv::JSONFileConfig{
             .path = get_persisted_state_path(parser),
             .dir_mode = PERSISTED_STATE_DIR_PERMISSIONS,
             .file_mode = PERSISTED_STATE_FILE_PERMISSIONS,
@@ -52,43 +54,44 @@ std::pair<std::shared_ptr<kv::KV>, xerrors::Error> open_kv(xargs::Parser &parser
     );
 }
 
-xerrors::Error rack::Config::load_persisted_state(xargs::Parser &args) {
+x::errors::Error Config::load_persisted_state(x::args::Parser &args) {
     auto [kv, open_err] = open_kv(args);
     if (open_err) return open_err;
 
     // Load the connection config.
     std::string conn = "{}";
     const auto c_err = kv->get("conn_params", conn);
-    if (c_err && !xerrors::NOT_FOUND.matches(c_err)) return c_err;
-    auto conn_parser = xjson::Parser(conn);
+    if (c_err && !x::errors::NOT_FOUND.matches(c_err)) return c_err;
+    auto conn_parser = x::json::Parser(conn);
     this->connection.override(conn_parser);
 
     // Load the cached remote info
-    std::string remote_info = "{}";
-    const auto r_err = kv->get("remote_info", remote_info);
-    if (r_err && !xerrors::NOT_FOUND.matches(r_err)) return r_err;
-    auto remote_parser = xjson::Parser(remote_info);
+    std::string rem_info = "{}";
+    const auto r_err = kv->get("remote_info", rem_info);
+    if (r_err && !x::errors::NOT_FOUND.matches(r_err)) return r_err;
+    auto remote_parser = x::json::Parser(rem_info);
     this->remote_info.override(remote_parser);
 
-    return xerrors::NIL;
+    return x::errors::NIL;
 }
 
-xerrors::Error
-rack::Config::save_conn_params(xargs::Parser &args, const synnax::Config &conn_params) {
+x::errors::Error
+Config::save_conn_params(x::args::Parser &args, const synnax::Config &conn_params) {
     auto [kv, err] = open_kv(args);
     return kv->set("conn_params", conn_params.to_json().dump());
 }
 
-xerrors::Error
-rack::Config::save_remote_info(xargs::Parser &args, const RemoteInfo &remote_info) {
+x::errors::Error
+Config::save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info) {
     auto [kv, err] = open_kv(args);
     return kv->set("remote_info", remote_info.to_json().dump());
 }
 
-xerrors::Error rack::Config::clear_persisted_state(xargs::Parser &args) {
+x::errors::Error Config::clear_persisted_state(x::args::Parser &args) {
     auto [kv, err] = open_kv(args);
     if (err) return err;
     if (const auto d1_err = kv->del("conn_params")) return d1_err;
     if (const auto d2_err = kv->del("remote_info")) return d2_err;
-    return xerrors::NIL;
+    return x::errors::NIL;
+}
 }

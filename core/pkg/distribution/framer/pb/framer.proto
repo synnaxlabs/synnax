@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package synnax.distribution.framer;
+
+import "google/protobuf/empty.proto";
+import "x/go/control/pb/control.proto";
+import "x/go/errors/errors.proto";
+import "x/go/telem/pb/frame.proto";
+import "x/go/telem/pb/telem.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/framer/pb";
+
+service IteratorService {
+  rpc Iterate(stream IteratorRequest) returns (stream IteratorResponse) {}
+}
+
+message IteratorRequest {
+  int32 command = 1;
+  int64 stamp = 2;
+  int64 span = 3;
+  x.telem.pb.TimeRange bounds = 4;
+  repeated uint32 keys = 6;
+  int64 chunk_size = 7;
+  int32 seq_num = 8;
+}
+
+message IteratorResponse {
+  int32 variant = 1;
+  int32 command = 2;
+  x.telem.pb.Frame frame = 3;
+  int32 node_key = 4;
+  bool ack = 5;
+  int32 seq_num = 6;
+  errors.PBPayload error = 7;
+}
+
+service RelayService {
+  rpc Relay(stream RelayRequest) returns (stream RelayResponse);
+}
+
+message RelayRequest {
+  repeated uint32 keys = 1;
+}
+
+message RelayResponse {
+  x.telem.pb.Frame frame = 1;
+  errors.PBPayload error = 2;
+}
+
+service WriterService {
+  rpc Write(stream WriterRequest) returns (stream WriterResponse) {}
+}
+
+message WriterRequest {
+  int32 command = 1;
+  WriterConfig config = 2;
+  x.telem.pb.Frame frame = 3;
+}
+
+message WriterConfig {
+  repeated uint32 keys = 1;
+  int64 start = 2;
+  repeated uint32 authorities = 3;
+  .x.control.pb.Subject control_subject = 4;
+  bool err_on_unauthorized = 5;
+  uint32 mode = 6;
+  bool enable_auto_commit = 7;
+  int64 auto_index_persist_interval = 8;
+}
+
+message WriterResponse {
+  int32 command = 1;
+  int32 seq_num = 2;
+  int32 node_key = 3;
+  int64 end = 4;
+  bool authorized = 5;
+}
+
+service DeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message DeleteRequest {
+  repeated uint32 keys = 1;
+  repeated string names = 2;
+  x.telem.pb.TimeRange bounds = 3;
+}

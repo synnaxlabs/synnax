@@ -25,12 +25,14 @@ from synnax.control import Client as ControlClient
 from synnax.device import Client as DeviceClient
 from synnax.framer import Client
 from synnax.framer.deleter import Deleter
+from synnax.group import Client as GroupClient
 from synnax.ontology import Client as OntologyClient
-from synnax.ontology.group import Client as GroupClient
 from synnax.options import SynnaxOptions
 from synnax.rack import Client as RackClient
 from synnax.ranger import RangeRetriever, RangeWriter
+from synnax.ranger.alias import Client as AliasClient
 from synnax.ranger.client import RangeClient
+from synnax.ranger.kv import Client as KVClient
 from synnax.signals.signals import Registry
 from synnax.status.client import Client as StatusClient
 from synnax.task import Client as TaskClient
@@ -72,6 +74,9 @@ class Synnax(Client):
     tasks: TaskClient
     ontology: OntologyClient
     statuses: StatusClient
+    kv: KVClient
+    aliases: AliasClient
+    groups: GroupClient
     arcs: ArcClient
 
     _transport: Transport
@@ -141,7 +146,7 @@ class Synnax(Client):
             instrumentation=instrumentation,
         )
         groups = GroupClient(self._transport.unary)
-        self.ontology = OntologyClient(client=self._transport.unary, groups=groups)
+        self.ontology = OntologyClient(client=self._transport.unary)
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)
         range_creator = RangeWriter(self._transport.unary, instrumentation)
@@ -172,6 +177,9 @@ class Synnax(Client):
             roles=RoleClient(self._transport.unary, instrumentation),
             policies=PolicyClient(self._transport.unary, instrumentation),
         )
+        self.kv = KVClient(self._transport.unary)
+        self.aliases = AliasClient(self._transport.unary)
+        self.groups = GroupClient(self._transport.unary)
 
     @property
     def hardware(self) -> "Synnax":

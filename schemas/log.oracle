@@ -1,0 +1,54 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/workspace/log"
+@go output "core/pkg/service/workspace/log"
+@pb
+
+Key = uuid {
+    @doc value "is a unique identifier for a log, represented as a UUID."
+}
+
+Log struct {
+    key  Key    {
+        @doc value "is the unique identifier for this log."
+        @key
+    }
+    name string {
+        @doc value "is a human-readable name for the log."
+    }
+    data json   {
+        @doc value        """
+            is the log configuration including message formatting, filtering
+            rules, and display options.
+        """
+        @ts preserve_case
+    }
+
+    @doc value     """
+        is a timestamped event and message logging component. Logs display
+        chronological records of events, system messages, and audit trails with
+        filtering and formatting capabilities.
+    """
+    @ontology type "log"
+}
+
+New struct extends Log {
+    key Key? {
+        @doc value """
+            is an optional key for the log. If not provided, one will be
+            automatically assigned.
+        """
+    }
+
+    @doc value    "contains parameters for creating a new log."
+    @ts use_input
+    @go omit
+    @pb omit
+}

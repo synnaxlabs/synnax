@@ -11,30 +11,32 @@
 
 #include "driver/cmd/cmd.h"
 
-int cmd::sub::login(xargs::Parser &args) {
+int driver::cmd::sub::login(x::args::Parser &args) {
     synnax::Config config;
-    config.host = cli::prompt("Host", "localhost");
-    config.port = cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
-    config.username = cli::prompt("Username");
-    config.password = cli::prompt("Password", std::nullopt, true);
-    if (cli::confirm("Secure", false)) {
-        config.ca_cert_file = cli::prompt("Path to CA certificate file");
-        config.client_cert_file = cli::prompt("Path to client certificate file");
-        config.client_key_file = cli::prompt("Path to client key file");
+    config.host = x::cli::prompt("Host", "localhost");
+    config.port = x::cli::prompt<uint16_t>("Port", static_cast<uint16_t>(9090));
+    config.username = x::cli::prompt("Username");
+    config.password = x::cli::prompt("Password", std::nullopt, true);
+    if (x::cli::confirm("Secure", false)) {
+        config.ca_cert_file = x::cli::prompt("Path to CA certificate file");
+        config.client_cert_file = x::cli::prompt("Path to client certificate file");
+        config.client_key_file = x::cli::prompt("Path to client key file");
     }
 
     LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;
     const synnax::Synnax client(config);
     if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << xlog::RED() << "failed to authenticate: " << err << xlog::RESET();
+        LOG(ERROR) << x::log::RED() << "failed to authenticate: " << err
+                   << x::log::RESET();
         return 1;
     }
-    LOG(INFO) << xlog::GREEN() << "successfully logged in!" << xlog::RESET();
-    if (const auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << xlog::RED() << "failed to save credentials: " << err
-                   << xlog::RESET();
+    LOG(INFO) << x::log::GREEN() << "successfully logged in!" << x::log::RESET();
+    if (const auto err = driver::rack::Config::save_conn_params(args, config)) {
+        LOG(ERROR) << x::log::RED() << "failed to save credentials: " << err
+                   << x::log::RESET();
         return 1;
     }
-    LOG(INFO) << xlog::GREEN() << "credentials saved successfully!" << xlog::RESET();
+    LOG(INFO) << x::log::GREEN() << "credentials saved successfully!"
+              << x::log::RESET();
     return 0;
 }

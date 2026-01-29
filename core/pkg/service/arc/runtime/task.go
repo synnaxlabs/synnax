@@ -93,7 +93,7 @@ func (t *taskImpl) start(ctx context.Context) error {
 	if t.running {
 		return nil
 	}
-	mod := t.prog.Module
+	mod := *t.prog.Module
 	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel, mod)
 	if err != nil {
 		t.setStatus(status.VariantError, false, err.Error())

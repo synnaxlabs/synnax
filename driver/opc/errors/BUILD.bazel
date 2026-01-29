@@ -6,7 +6,7 @@ cc_library(
     deps = [
         "//driver/errors",
         "//vendor/open62541",
-        "//x/cpp/xerrors",
+        "//x/cpp/errors",
     ],
 )
 
@@ -15,7 +15,7 @@ cc_test(
     srcs = ["errors_test.cpp"],
     deps = [
         ":errors",
-        "//x/cpp/xtest",
+        "//x/cpp/test",
         "@googletest//:gtest_main",
     ],
 )

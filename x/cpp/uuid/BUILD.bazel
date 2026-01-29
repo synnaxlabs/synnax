@@ -1,0 +1,21 @@
+cc_library(
+    name = "uuid",
+    srcs = ["uuid.cpp"],
+    hdrs = ["uuid.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "@boost.uuid",
+    ],
+)
+
+cc_test(
+    name = "uuid_test",
+    size = "small",
+    srcs = ["uuid_test.cpp"],
+    deps = [
+        ":uuid",
+        "@googletest//:gtest_main",
+    ],
+)

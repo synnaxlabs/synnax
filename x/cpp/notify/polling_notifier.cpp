@@ -13,7 +13,7 @@
 
 #include "x/cpp/notify/notify.h"
 
-namespace notify {
+namespace x::notify {
 
 class PollingNotifier final : public Notifier {
     std::atomic<bool> signaled{false};

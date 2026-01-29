@@ -1,0 +1,171 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/status"
+
+@ts output  "client/ts/src/task"
+@py output  "client/py/synnax/task"
+@go output  "core/pkg/service/task"
+@cpp output "client/cpp/task"
+@pb
+
+Key uint64 {
+    @doc value    """
+        is a composite identifier for a task. The high 32 bits contain the rack
+        key, and the low 32 bits contain the local task key within that rack.
+    """
+    @ts type      string
+    @ts to_string
+}
+
+StatusDetails struct<Data extends json = json> {
+    task    Key     {
+        @doc value "is the key of the task this status pertains to."
+    }
+    running bool    {
+        @doc value "is true if the task is currently executing."
+    }
+    cmd     string? {
+        @doc value "is the last command executed on this task."
+    }
+    data    Data??  {
+        @doc value "contains task-specific status data."
+    }
+
+    @doc value         "contains task-specific status details including execution state."
+    @ts concrete_types
+}
+
+Status<Data extends json = json> = status.Status<StatusDetails<Data>> {
+    @doc value """
+        is task-specific status information including execution state and task-specific data.
+    """
+}
+
+NewStatusDetails struct<Data extends json = json> {
+    task    Key?    {
+        @doc value "is an optional task key."
+    }
+    running bool    {
+        @doc value "indicates whether the task is running."
+    }
+    cmd     string? {
+        @doc value "is the command being executed."
+    }
+    data    Data    {
+        @doc value "contains task-specific status data."
+    }
+
+    @doc value "contains details for creating a new task status."
+    @go omit
+    @pb omit
+    @py omit
+    @cpp omit
+}
+
+NewStatus<Data extends json = json> = status.New<NewStatusDetails<Data>> {
+    @doc value "contains parameters for creating a new task status."
+    @go omit
+    @pb omit
+    @py omit
+    @cpp omit
+}
+
+Task struct<
+    Type extends string = string,
+    Config extends json = json,
+    StatusData extends json = json
+> {
+    key      Key                  {
+        @doc value "is the composite identifier for this task."
+        @key
+    }
+    name     string               {
+        @doc value "is a human-readable name for the task."
+    }
+    type     Type                 {
+        @doc value """
+            is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+            Determines which hardware integration handles the task.
+        """
+    }
+    config   Config               {
+        @doc value """
+            is task-specific configuration stored as JSON. Structure varies by
+            task type.
+        """
+    }
+    internal bool?                {
+        @doc value "is true if this is an internal system task."
+    }
+    snapshot bool?                {
+        @doc value "indicates whether to persist this task's configuration."
+    }
+    status   Status<StatusData>?? {
+        @doc value "is the current execution status of the task."
+    }
+
+    @doc value     """
+        is an executable unit of work in the Driver system. Tasks represent
+        specific hardware operations such as reading sensor data, writing
+        control signals, or scanning for devices.
+    """
+    @ts {
+        name "Payload"
+        concrete_types
+    }
+    @ontology type "task"
+    @py name       "Payload"
+}
+
+New struct<
+    Type extends string = string,
+    Config extends json = json,
+    StatusData extends json = json
+> extends Task<Type, Config, StatusData> {
+    -internal
+    -snapshot
+    key    Key?                   {
+        @doc value """
+            is an optional key for the task. If not provided, one will be
+            automatically assigned.
+        """
+    }
+    status NewStatus<StatusData>? {
+        @doc value "is an optional initial status for the task."
+    }
+
+    @doc value "contains parameters for creating a new task."
+    @ts {
+        use_input
+        concrete_types
+    }
+    @go omit
+    @pb omit
+    @py omit
+    @cpp omit
+}
+
+Command struct {
+    task Key    {
+        @doc value "is the key of the target task."
+    }
+    type string {
+        @doc value "is the command type (e.g., 'start', 'stop', 'configure')."
+    }
+    key  string {
+        @doc value "is a unique identifier for this command instance."
+    }
+    args json?  {
+        @doc value        "contains optional arguments for the command."
+        @ts preserve_case
+    }
+
+    @doc value "is a command to execute on a task in the Driver system."
+}

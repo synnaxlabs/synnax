@@ -14,11 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -386,8 +386,8 @@ var _ = Describe("Function Analyzer", func() {
 			f := MustSucceed(ctx.Scope.Resolve(ctx, "add"))
 			Expect(f.Channels.Read).To(HaveLen(2))
 			Expect(f.Channels.Write).To(BeEmpty())
-			Expect(f.Channels.Read.Contains(12)).To(BeTrue())
-			Expect(f.Channels.Read.Contains(13)).To(BeTrue())
+			Expect(f.Channels.Read).To(HaveKey(uint32(12)))
+			Expect(f.Channels.Read).To(HaveKey(uint32(13)))
 		})
 	})
 

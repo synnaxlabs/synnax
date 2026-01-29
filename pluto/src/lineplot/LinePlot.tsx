@@ -74,7 +74,7 @@ export const useGridEntry = (meta: grid.Region, component: string): CSSPropertie
   const { key } = meta;
   useEffectCompare(
     () => {
-      location.outer.parse(meta.loc);
+      location.outerZ.parse(meta.loc);
       setGridEntry(meta);
     },
     ([a], [b]) => deep.equal(a, b),

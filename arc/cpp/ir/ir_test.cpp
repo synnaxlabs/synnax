@@ -7,29 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <unordered_set>
+
 #include "gtest/gtest.h"
 
+#include "x/cpp/test/test.h"
+
 #include "arc/cpp/ir/ir.h"
-#include "arc/go/ir/arc/go/ir/ir.pb.h"
 
 /// @brief it should correctly round-trip Handle through protobuf
 TEST(IRTest, testHandleProtobufRoundTrip) {
-    const arc::ir::Handle original("node1", "param1");
-    arc::v1::ir::PBHandle pb;
-    original.to_proto(&pb);
-    const arc::ir::Handle reconstructed(pb);
+    arc::ir::Handle original{.node = "node1", .param = "param1"};
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Handle::from_proto(pb));
     ASSERT_EQ(reconstructed.node, "node1");
     ASSERT_EQ(reconstructed.param, "param1");
 }
 
 /// @brief it should correctly round-trip Edge through protobuf
 TEST(IRTest, testEdgeProtobufRoundTrip) {
-    arc::ir::Handle src("src_node", "output");
-    arc::ir::Handle tgt("tgt_node", "input");
-    arc::ir::Edge original(src, tgt);
-    arc::v1::ir::PBEdge pb;
-    original.to_proto(&pb);
-    arc::ir::Edge reconstructed(pb);
+    arc::ir::Handle src{.node = "src_node", .param = "output"};
+    arc::ir::Handle tgt{.node = "tgt_node", .param = "input"};
+    arc::ir::Edge original{
+        .source = src,
+        .target = tgt,
+        .kind = arc::ir::EdgeKind::Continuous
+    };
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Edge::from_proto(pb));
     ASSERT_EQ(reconstructed.source.node, "src_node");
     ASSERT_EQ(reconstructed.source.param, "output");
     ASSERT_EQ(reconstructed.target.node, "tgt_node");
@@ -38,13 +43,12 @@ TEST(IRTest, testEdgeProtobufRoundTrip) {
 
 /// @brief it should correctly round-trip Channels through protobuf
 TEST(IRTest, testChannelsProtobufRoundTrip) {
-    arc::ir::Channels original;
+    arc::types::Channels original;
     original.read[1] = "channel_a";
     original.read[2] = "channel_b";
     original.write[3] = "channel_c";
-    arc::v1::symbol::PBChannels pb;
-    original.to_proto(&pb);
-    arc::ir::Channels reconstructed(pb);
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::types::Channels::from_proto(pb));
     ASSERT_EQ(reconstructed.read.size(), 2);
     ASSERT_EQ(reconstructed.read[1], "channel_a");
     ASSERT_EQ(reconstructed.read[2], "channel_b");
@@ -54,16 +58,77 @@ TEST(IRTest, testChannelsProtobufRoundTrip) {
 
 /// @brief it should correctly round-trip Param through protobuf
 TEST(IRTest, testParamProtobufRoundTrip) {
-    arc::ir::Param original;
+    arc::types::Param original;
     original.name = "test_param";
-    original.type = arc::types::Type(arc::types::Kind::F64);
-    original.value = 42.5;
-    arc::v1::types::PBParam pb;
-    original.to_proto(&pb);
-    arc::ir::Param reconstructed(pb);
+    original.type = arc::types::Type{.kind = arc::types::Kind::F64};
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::types::Param::from_proto(pb));
     ASSERT_EQ(reconstructed.name, "test_param");
     ASSERT_EQ(reconstructed.type.kind, arc::types::Kind::F64);
-    ASSERT_EQ(reconstructed.get<double>(), 42.5);
+}
+
+/// @brief it should correctly round-trip Node through protobuf
+TEST(IRTest, testNodeProtobufRoundTrip) {
+    arc::ir::Node original;
+    original.key = "test_node";
+    original.type = "add";
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Node::from_proto(pb));
+    ASSERT_EQ(reconstructed.key, "test_node");
+    ASSERT_EQ(reconstructed.type, "add");
+}
+
+/// @brief it should correctly round-trip Function through protobuf
+TEST(IRTest, testFunctionProtobufRoundTrip) {
+    arc::ir::Function original;
+    original.key = "test_func";
+    original.channels.read[1] = "chan1";
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Function::from_proto(pb));
+    ASSERT_EQ(reconstructed.key, "test_func");
+    ASSERT_EQ(reconstructed.channels.read.size(), 1);
+    ASSERT_EQ(reconstructed.channels.read[1], "chan1");
+}
+
+/// @brief it should correctly round-trip Stage through protobuf
+TEST(IRTest, testStageProtobufRoundTrip) {
+    arc::ir::Stage original;
+    original.key = "test_stage";
+    original.nodes = {"node1", "node2"};
+    original.strata = {{"a", "b"}, {"c"}};
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Stage::from_proto(pb));
+    ASSERT_EQ(reconstructed.key, "test_stage");
+    ASSERT_EQ(reconstructed.nodes.size(), 2);
+    ASSERT_EQ(reconstructed.nodes[0], "node1");
+    ASSERT_EQ(reconstructed.nodes[1], "node2");
+    ASSERT_EQ(reconstructed.strata.size(), 2);
+    ASSERT_EQ(reconstructed.strata[0].size(), 2);
+    ASSERT_EQ(reconstructed.strata[0][0], "a");
+    ASSERT_EQ(reconstructed.strata[0][1], "b");
+    ASSERT_EQ(reconstructed.strata[1].size(), 1);
+    ASSERT_EQ(reconstructed.strata[1][0], "c");
+}
+
+/// @brief it should correctly round-trip Sequence through protobuf
+TEST(IRTest, testSequenceProtobufRoundTrip) {
+    arc::ir::Stage s1;
+    s1.key = "stage1";
+    s1.nodes = {"n1"};
+    arc::ir::Stage s2;
+    s2.key = "stage2";
+    s2.nodes = {"n2", "n3"};
+
+    arc::ir::Sequence original;
+    original.key = "test_seq";
+    original.stages = {s1, s2};
+
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::ir::Sequence::from_proto(pb));
+    ASSERT_EQ(reconstructed.key, "test_seq");
+    ASSERT_EQ(reconstructed.stages.size(), 2);
+    ASSERT_EQ(reconstructed.stages[0].key, "stage1");
+    ASSERT_EQ(reconstructed.stages[1].key, "stage2");
 }
 
 /// @brief it should correctly round-trip IR through protobuf
@@ -80,280 +145,91 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     node.type = "add";
     original.nodes.push_back(node);
 
-    arc::ir::Edge edge(arc::ir::Handle("node1", "out"), arc::ir::Handle("node2", "in"));
+    arc::ir::Edge edge{
+        .source = {.node = "node1", .param = "out"},
+        .target = {.node = "node2", .param = "in"},
+        .kind = arc::ir::EdgeKind::Continuous
+    };
     original.edges.push_back(edge);
 
-    arc::v1::ir::PBIR pb;
-    original.to_proto(&pb);
+    original.strata = {{"a"}, {"b", "c"}};
 
-    arc::ir::IR reconstructed(pb);
-
+    auto pb = original.to_proto();
+    auto reconstructed = ASSERT_NIL_P(arc::ir::IR::from_proto(pb));
     ASSERT_EQ(reconstructed.functions.size(), 1);
     ASSERT_EQ(reconstructed.functions[0].key, "test_func");
     ASSERT_EQ(reconstructed.nodes.size(), 1);
     ASSERT_EQ(reconstructed.nodes[0].key, "test_node");
     ASSERT_EQ(reconstructed.edges.size(), 1);
     ASSERT_EQ(reconstructed.edges[0].source.node, "node1");
+    ASSERT_EQ(reconstructed.strata.size(), 2);
+    ASSERT_EQ(reconstructed.strata[0][0], "a");
+    ASSERT_EQ(reconstructed.strata[1][0], "b");
+    ASSERT_EQ(reconstructed.strata[1][1], "c");
 }
 
-/// @brief Stage::to_string should format stage with nodes
-TEST(StageTest, ToStringFormatsStageWithNodes) {
-    arc::ir::Stage stage;
-    stage.key = "pressurization";
-    stage.nodes = {"timer_1", "controller_1"};
-    EXPECT_EQ(stage.to_string(), "pressurization: [timer_1, controller_1]");
+/// @brief it should correctly hash Handle for use in unordered containers
+TEST(IRTest, testHandleHash) {
+    arc::ir::Handle h1{.node = "node1", .param = "param1"};
+    arc::ir::Handle h2{.node = "node1", .param = "param1"};
+    arc::ir::Handle h3{.node = "node2", .param = "param1"};
+
+    std::hash<arc::ir::Handle> hasher;
+    ASSERT_EQ(hasher(h1), hasher(h2));
+    ASSERT_NE(hasher(h1), hasher(h3));
 }
 
-/// @brief Stage::to_string should format stage with empty nodes
-TEST(StageTest, ToStringFormatsEmptyNodes) {
-    arc::ir::Stage stage;
-    stage.key = "terminal";
-    EXPECT_EQ(stage.to_string(), "terminal: []");
+/// @brief it should correctly hash Edge for use in unordered containers
+TEST(IRTest, testEdgeHash) {
+    arc::ir::Edge e1{
+        .source = {.node = "n1", .param = "out"},
+        .target = {.node = "n2", .param = "in"},
+        .kind = arc::ir::EdgeKind::Continuous
+    };
+    arc::ir::Edge e2{
+        .source = {.node = "n1", .param = "out"},
+        .target = {.node = "n2", .param = "in"},
+        .kind = arc::ir::EdgeKind::Continuous
+    };
+    arc::ir::Edge e3{
+        .source = {.node = "n1", .param = "out"},
+        .target = {.node = "n3", .param = "in"},
+        .kind = arc::ir::EdgeKind::Continuous
+    };
+
+    std::hash<arc::ir::Edge> hasher;
+    ASSERT_EQ(hasher(e1), hasher(e2));
+    ASSERT_NE(hasher(e1), hasher(e3));
 }
 
-/// @brief Stage::to_string should include strata when present
-TEST(StageTest, ToStringIncludesStrata) {
-    arc::ir::Stage stage;
-    stage.key = "main";
-    stage.nodes = {"a", "b"};
-    stage.strata = arc::ir::Strata({{"a"}, {"b"}});
-    const auto str = stage.to_string();
-    EXPECT_NE(str.find("main: [a, b]"), std::string::npos);
-    EXPECT_NE(str.find("[0]: a"), std::string::npos);
-    EXPECT_NE(str.find("[1]: b"), std::string::npos);
+/// @brief it should use Handle in unordered_set
+TEST(IRTest, testHandleInUnorderedSet) {
+    std::unordered_set<arc::ir::Handle> handles;
+    handles.insert({.node = "n1", .param = "p1"});
+    handles.insert({.node = "n1", .param = "p1"}); // duplicate
+    handles.insert({.node = "n2", .param = "p2"});
+
+    ASSERT_EQ(handles.size(), 2);
 }
 
-/// @brief Sequence::to_string should format with tree structure
-TEST(SequenceTest, ToStringFormatsTreeStructure) {
-    arc::ir::Sequence seq;
-    seq.key = "main";
-    arc::ir::Stage s1, s2;
-    s1.key = "precheck";
-    s1.nodes = {"check_1"};
-    s2.key = "complete";
-    seq.stages = {s1, s2};
-    const auto str = seq.to_string();
-    EXPECT_EQ(str.substr(0, 5), "main\n");
-    EXPECT_NE(str.find("precheck:"), std::string::npos);
-    EXPECT_NE(str.find("complete:"), std::string::npos);
-}
-
-/// @brief Sequence::to_string should use correct tree prefixes
-TEST(SequenceTest, ToStringUsesCorrectTreePrefixes) {
-    arc::ir::Sequence seq;
-    seq.key = "seq";
-    arc::ir::Stage s1, s2;
-    s1.key = "first";
-    s2.key = "last";
-    seq.stages = {s1, s2};
-    const auto str = seq.to_string();
-    // First stage uses ├──, last stage uses └──
-    EXPECT_NE(str.find("├── first"), std::string::npos);
-    EXPECT_NE(str.find("└── last"), std::string::npos);
-}
-
-/// @brief it should access params by name using operator[]
-TEST(ParamsTest, testOperatorBracketByName) {
-    arc::ir::Params params;
-    arc::ir::Param p1;
-    p1.name = "alpha";
-    p1.value = static_cast<int32_t>(42);
-    arc::ir::Param p2;
-    p2.name = "beta";
-    p2.value = 3.14;
-    params.params.push_back(p1);
-    params.params.push_back(p2);
-
-    ASSERT_EQ(params["alpha"].get<int32_t>(), 42);
-    ASSERT_DOUBLE_EQ(params["beta"].get<double>(), 3.14);
-}
-
-/// @brief it should access params by index using operator[]
-TEST(ParamsTest, testOperatorBracketByIndex) {
-    arc::ir::Params params;
-    arc::ir::Param p1;
-    p1.name = "first";
-    p1.value = static_cast<int32_t>(100);
-    arc::ir::Param p2;
-    p2.name = "second";
-    p2.value = static_cast<int32_t>(200);
-    params.params.push_back(p1);
-    params.params.push_back(p2);
-
-    ASSERT_EQ(params[0].name, "first");
-    ASSERT_EQ(params[0].get<int32_t>(), 100);
-    ASSERT_EQ(params[1].name, "second");
-    ASSERT_EQ(params[1].get<int32_t>(), 200);
-}
-
-/// @brief it should access nodes by key using node()
-TEST(IRTest, testNodeAccess) {
-    arc::ir::IR ir;
-    arc::ir::Node n1;
-    n1.key = "node_a";
-    n1.type = "add";
-    arc::ir::Node n2;
-    n2.key = "node_b";
-    n2.type = "multiply";
-    ir.nodes.push_back(n1);
-    ir.nodes.push_back(n2);
-
-    ASSERT_EQ(ir.node("node_a").type, "add");
-    ASSERT_EQ(ir.node("node_b").type, "multiply");
-}
-
-/// @brief it should access functions by key using function()
-TEST(IRTest, testFunctionAccess) {
-    arc::ir::IR ir;
-    arc::ir::Function f1;
-    f1.key = "func_x";
-    arc::ir::Function f2;
-    f2.key = "func_y";
-    ir.functions.push_back(f1);
-    ir.functions.push_back(f2);
-
-    ASSERT_EQ(ir.function("func_x").key, "func_x");
-    ASSERT_EQ(ir.function("func_y").key, "func_y");
-}
-
-/// @brief it should access sequences by key using sequence()
-TEST(IRTest, testSequenceAccess) {
-    arc::ir::IR ir;
-    arc::ir::Sequence s1;
-    s1.key = "seq_1";
-    arc::ir::Sequence s2;
-    s2.key = "seq_2";
-    ir.sequences.push_back(s1);
-    ir.sequences.push_back(s2);
-
-    ASSERT_EQ(ir.sequence("seq_1").key, "seq_1");
-    ASSERT_EQ(ir.sequence("seq_2").key, "seq_2");
-}
-
-/// @brief it should find edges by target handle using edge_to()
-TEST(IRTest, testEdgeTo) {
-    arc::ir::IR ir;
-    arc::ir::Handle src1("node_a", "output");
-    arc::ir::Handle tgt1("node_b", "input");
-    arc::ir::Handle src2("node_c", "out");
-    arc::ir::Handle tgt2("node_d", "in");
-    ir.edges.emplace_back(src1, tgt1);
-    ir.edges.emplace_back(src2, tgt2);
-
-    auto edge1 = ir.edge_to(tgt1);
-    ASSERT_TRUE(edge1.has_value());
-    ASSERT_EQ(edge1->source.node, "node_a");
-    ASSERT_EQ(edge1->source.param, "output");
-
-    auto edge2 = ir.edge_to(tgt2);
-    ASSERT_TRUE(edge2.has_value());
-    ASSERT_EQ(edge2->source.node, "node_c");
-
-    // Non-existent target should return nullopt
-    arc::ir::Handle missing("missing", "input");
-    auto no_edge = ir.edge_to(missing);
-    ASSERT_FALSE(no_edge.has_value());
-}
-
-/// @brief it should return edges grouped by output param using edges_from()
-TEST(IRTest, testEdgesFrom) {
-    arc::ir::IR ir;
-    // Two edges from node_a.output to different targets
-    ir.edges.emplace_back(
-        arc::ir::Handle("node_a", "output"),
-        arc::ir::Handle("node_b", "in1")
+/// @brief it should use Edge in unordered_set
+TEST(IRTest, testEdgeInUnorderedSet) {
+    std::unordered_set<arc::ir::Edge> edges;
+    edges.insert(
+        {.source = {.node = "n1", .param = "out"},
+         .target = {.node = "n2", .param = "in"},
+         .kind = arc::ir::EdgeKind::Continuous}
     );
-    ir.edges.emplace_back(
-        arc::ir::Handle("node_a", "output"),
-        arc::ir::Handle("node_c", "in2")
-    );
-    // One edge from node_a.other to another target
-    ir.edges.emplace_back(
-        arc::ir::Handle("node_a", "other"),
-        arc::ir::Handle("node_d", "in3")
-    );
-    // Edge from different node
-    ir.edges.emplace_back(
-        arc::ir::Handle("node_x", "out"),
-        arc::ir::Handle("node_y", "in")
+    edges.insert(
+        {.source = {.node = "n1", .param = "out"},
+         .target = {.node = "n2", .param = "in"},
+         .kind = arc::ir::EdgeKind::Continuous}
+    ); // duplicate
+    edges.insert(
+        {.source = {.node = "n3", .param = "out"},
+         .target = {.node = "n4", .param = "in"},
+         .kind = arc::ir::EdgeKind::OneShot}
     );
 
-    auto edges = ir.edges_from("node_a");
-    ASSERT_EQ(edges.size(), 2); // Two params: "output" and "other"
-    ASSERT_EQ(edges["output"].size(), 2); // Two edges from "output"
-    ASSERT_EQ(edges["other"].size(), 1); // One edge from "other"
-
-    // Non-existent node should return empty map
-    auto no_edges = ir.edges_from("nonexistent");
-    ASSERT_TRUE(no_edges.empty());
-}
-
-/// @brief it should return all edges into a node using edges_into()
-TEST(IRTest, testEdgesInto) {
-    arc::ir::IR ir;
-    ir.edges.emplace_back(
-        arc::ir::Handle("node_a", "out"),
-        arc::ir::Handle("node_target", "in1")
-    );
-    ir.edges.emplace_back(
-        arc::ir::Handle("node_b", "out"),
-        arc::ir::Handle("node_target", "in2")
-    );
-    ir.edges.emplace_back(
-        arc::ir::Handle("node_c", "out"),
-        arc::ir::Handle("node_other", "in")
-    );
-
-    const auto edges = ir.edges_into("node_target");
     ASSERT_EQ(edges.size(), 2);
-
-    const auto no_edges = ir.edges_into("nonexistent");
-    ASSERT_TRUE(no_edges.empty());
-}
-
-/// @brief it should access stages by key using operator[]
-TEST(SequenceTest, testOperatorBracket) {
-    arc::ir::Sequence seq;
-    seq.key = "my_sequence";
-    arc::ir::Stage s1;
-    s1.key = "stage_init";
-    s1.nodes = {"node1", "node2"};
-    arc::ir::Stage s2;
-    s2.key = "stage_run";
-    s2.nodes = {"node3"};
-    seq.stages.push_back(s1);
-    seq.stages.push_back(s2);
-
-    ASSERT_EQ(seq["stage_init"].nodes.size(), 2);
-    ASSERT_EQ(seq["stage_run"].nodes.size(), 1);
-}
-
-/// @brief it should return next stage using next()
-TEST(SequenceTest, testNext) {
-    arc::ir::Sequence seq;
-    arc::ir::Stage s1;
-    s1.key = "first";
-    arc::ir::Stage s2;
-    s2.key = "second";
-    arc::ir::Stage s3;
-    s3.key = "third";
-    seq.stages.push_back(s1);
-    seq.stages.push_back(s2);
-    seq.stages.push_back(s3);
-
-    auto next1 = seq.next("first");
-    ASSERT_TRUE(next1.has_value());
-    ASSERT_EQ(next1->key, "second");
-
-    auto next2 = seq.next("second");
-    ASSERT_TRUE(next2.has_value());
-    ASSERT_EQ(next2->key, "third");
-
-    // Last stage should return nullopt
-    auto next3 = seq.next("third");
-    ASSERT_FALSE(next3.has_value());
-
-    // Non-existent stage should return nullopt
-    auto no_next = seq.next("nonexistent");
-    ASSERT_FALSE(no_next.has_value());
 }

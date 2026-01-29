@@ -24,8 +24,8 @@ export const VERSION = "0.0.0";
 export const labelZ = z.looseObject({
   label: z.string().optional(),
   level: Text.levelZ.optional(),
-  orientation: location.location.optional(),
-  direction: direction.direction.optional(),
+  orientation: location.locationZ.optional(),
+  direction: direction.directionZ.optional(),
   maxInlineSize: z.number().optional(),
   align: Flex.alignmentZ.optional(),
 });
@@ -84,7 +84,7 @@ export const ZERO_STATE: State = {
 };
 
 export const copyBufferZ = z.object({
-  pos: xy.xy,
+  pos: xy.xyZ,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(Diagram.edgeZ),
   props: z.record(z.string(), nodePropsZ),

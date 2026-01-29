@@ -9,9 +9,6 @@
 
 package telem
 
-// Rate represents a rate in Hz.
-type Rate float64
-
 // Period returns a TimeSpan representing the period of the Rate.
 func (r Rate) Period() TimeSpan { return TimeSpan(float64(Second) / float64(r)) }
 

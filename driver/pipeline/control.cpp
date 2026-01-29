@@ -14,12 +14,12 @@
 #include "driver/errors/errors.h"
 #include "driver/pipeline/control.h"
 
-namespace pipeline {
+namespace driver::pipeline {
 Control::Control(
     std::shared_ptr<synnax::Synnax> client,
-    synnax::StreamerConfig streamer_config,
-    std::shared_ptr<pipeline::Sink> sink,
-    const breaker::Config &breaker_config,
+    synnax::framer::StreamerConfig streamer_config,
+    std::shared_ptr<driver::pipeline::Sink> sink,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Control(
@@ -32,9 +32,9 @@ Control::Control(
 
 Control::Control(
     std::shared_ptr<StreamerFactory> streamer_factory,
-    synnax::StreamerConfig streamer_config,
+    synnax::framer::StreamerConfig streamer_config,
     std::shared_ptr<Sink> sink,
-    const breaker::Config &breaker_config,
+    const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Base(breaker_config, std::move(thread_name)),
@@ -44,7 +44,7 @@ Control::Control(
 
 bool Control::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
-    const bool was_running = pipeline::Base::stop();
+    const bool was_running = driver::pipeline::Base::stop();
     return was_running;
 }
 
@@ -52,13 +52,13 @@ void Control::run() {
     auto [s, open_err] = this->factory->open_streamer(this->config);
     this->streamer = std::move(s);
     if (open_err) {
-        if (open_err.matches(freighter::UNREACHABLE) &&
+        if (open_err.matches(freighter::ERR_UNREACHABLE) &&
             breaker.wait(open_err.message()))
             return this->run();
         return this->sink->stopped_with_err(open_err);
     }
 
-    xerrors::Error sink_err = xerrors::NIL;
+    x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
@@ -71,21 +71,22 @@ void Control::run() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (close_err.matches(freighter::UNREACHABLE) && breaker.wait()) return this->run();
+    if (close_err.matches(freighter::ERR_UNREACHABLE) && breaker.wait())
+        return this->run();
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)
         this->sink->stopped_with_err(close_err);
 }
 
-SynnaxStreamer::SynnaxStreamer(synnax::Streamer internal):
+SynnaxStreamer::SynnaxStreamer(synnax::framer::Streamer internal):
     internal(std::move(internal)) {}
 
-std::pair<telem::Frame, xerrors::Error> SynnaxStreamer::read() {
+std::pair<x::telem::Frame, x::errors::Error> SynnaxStreamer::read() {
     return this->internal.read();
 }
 
-xerrors::Error SynnaxStreamer::close() {
+x::errors::Error SynnaxStreamer::close() {
     return this->internal.close();
 }
 
@@ -98,10 +99,10 @@ SynnaxStreamerFactory::SynnaxStreamerFactory(
 ):
     client(std::move(client)) {}
 
-std::pair<std::unique_ptr<pipeline::Streamer>, xerrors::Error>
-SynnaxStreamerFactory::open_streamer(synnax::StreamerConfig config) {
+std::pair<std::unique_ptr<driver::pipeline::Streamer>, x::errors::Error>
+SynnaxStreamerFactory::open_streamer(synnax::framer::StreamerConfig config) {
     auto [ss, err] = client->telem.open_streamer(config);
     if (err) return {nullptr, err};
-    return {std::make_unique<SynnaxStreamer>(std::move(ss)), xerrors::NIL};
+    return {std::make_unique<SynnaxStreamer>(std::move(ss)), x::errors::NIL};
 }
 }

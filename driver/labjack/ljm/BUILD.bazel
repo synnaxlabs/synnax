@@ -9,7 +9,7 @@ cc_library(
         "//driver/errors",
         "//driver/labjack:labjack_errors",
         "//driver/labjack/ljm:ljm_official",
-        "//x/cpp/xlib",
+        "//x/cpp/lib",
     ],
 )
 

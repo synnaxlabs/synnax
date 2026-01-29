@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, type label } from "@synnaxlabs/client";
+import { color } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -113,7 +114,7 @@ describe("retrieve", () => {
       it("should correctly update the resource when the listener changes", async () => {
         const ch = await client.labels.create({
           name: "Test Label",
-          color: "#000000",
+          color: color.construct("#000000"),
         });
         const { useRetrieve } = Flux.createRetrieve<
           { key: label.Key },

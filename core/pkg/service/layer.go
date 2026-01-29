@@ -28,6 +28,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -106,6 +108,10 @@ type Layer struct {
 	Auth auth.Authenticator
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
+	// Alias is for working with channel aliases on ranges.
+	Alias *alias.Service
+	// KV is for working with key-value pairs on ranges.
+	KV *kv.Service
 	// Workspace is for working with Workspaces.
 	Workspace *workspace.Service
 	// Schematic is for working with schematic visualizations.
@@ -196,6 +202,20 @@ func Open(ctx context.Context, cfgs ...Config) (*Layer, error) {
 		Signals:  cfg.Distribution.Signals,
 		Label:    l.Label,
 	}); !ok(err, l.Ranger) {
+		return nil, err
+	}
+	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Signals:         cfg.Distribution.Signals,
+		ParentRetriever: l.Ranger,
+	}); !ok(err, l.Alias) {
+		return nil, err
+	}
+	if l.KV, err = kv.OpenService(ctx, kv.ServiceConfig{
+		DB:      cfg.Distribution.DB,
+		Signals: cfg.Distribution.Signals,
+	}); !ok(err, l.KV) {
 		return nil, err
 	}
 	if l.Workspace, err = workspace.OpenService(ctx, workspace.ServiceConfig{

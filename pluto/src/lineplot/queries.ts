@@ -24,7 +24,7 @@ const RESOURCE_NAME = "line plot";
 
 export interface FluxStore extends Flux.UnaryStore<lineplot.Key, lineplot.LinePlot> {}
 
-export type UseDeleteArgs = lineplot.Params;
+export type UseDeleteArgs = lineplot.Key | lineplot.Key[];
 
 interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;

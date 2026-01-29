@@ -81,7 +81,7 @@ const MetaDataListItem = ({
   ...rest
 }: MetaDataListItemProps) => {
   const { itemKey } = rest;
-  const initialValues = List.useItem<string, ranger.KVPair>(itemKey);
+  const initialValues = List.useItem<string, ranger.kv.Pair>(itemKey);
   const inputRef = useRef<HTMLInputElement>(null);
   const { update: handleDelete } = Ranger.useDeleteKV();
   const { form, save } = Ranger.useKVPairForm({

@@ -15,7 +15,7 @@ import { status } from "@/status/aether";
 import { render } from "@/vis/render";
 
 export const diagramStateZ = z.object({
-  position: xy.xy,
+  position: xy.xyZ,
   zoom: z.number(),
   region: box.box,
   clearOverScan: xy.crudeZ.default(5),

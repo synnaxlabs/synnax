@@ -28,7 +28,7 @@
 
 #include "x/cpp/notify/notify.h"
 
-namespace notify {
+namespace x::notify {
 
 class PipeNotifier final : public Notifier {
     int read_fd = -1;
@@ -64,11 +64,11 @@ public:
         [[maybe_unused]] auto _ = write(this->write_fd, &byte, 1);
     }
 
-    bool wait(const telem::TimeSpan timeout) override {
+    bool wait(const x::telem::TimeSpan timeout) override {
         if (this->drain()) return true;
 
         pollfd pfd = {this->read_fd, POLLIN, 0};
-        const int timeout_ms = (timeout == telem::TimeSpan::max())
+        const int timeout_ms = (timeout == x::telem::TimeSpan::max())
                                  ? -1
                                  : static_cast<int>(timeout.milliseconds());
 

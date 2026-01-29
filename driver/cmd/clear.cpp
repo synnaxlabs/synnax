@@ -9,8 +9,8 @@
 
 #include "driver/cmd/cmd.h"
 
-int cmd::sub::clear(xargs::Parser &args) {
-    if (const auto err = rack::Config::clear_persisted_state(args); err) {
+int driver::cmd::sub::clear(x::args::Parser &args) {
+    if (const auto err = driver::rack::Config::clear_persisted_state(args); err) {
         LOG(ERROR) << "failed to clear persisted state: " << err;
         return 1;
     }

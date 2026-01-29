@@ -9,15 +9,51 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+# Check if clang-format is installed
+if ! command -v clang-format &> /dev/null; then
+    echo "Error: clang-format is not installed."
+    exit 1
+fi
+
 echo "Clang format version"
 clang-format --version
 
 # Check for correct usage
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 <path>"
+if [ "$#" -lt 1 ]; then
+    echo "Usage: $0 <path>              # Format all C++ files in directory"
+    echo "       $0 --files file1 ...   # Format specific files"
     exit 1
 fi
 
+# Mode: --files for explicit file list, otherwise directory mode
+if [ "$1" = "--files" ]; then
+    # File list mode: format the provided files directly
+    shift
+    if [ "$#" -eq 0 ]; then
+        echo "No files provided."
+        exit 0
+    fi
+
+    formatted_count=0
+    for file in "$@"; do
+        if [ ! -f "$file" ]; then
+            echo "Warning: File '$file' does not exist, skipping..."
+            continue
+        fi
+        echo "Formatting $file..."
+        clang-format -i "$file"
+        if [ $? -eq 0 ]; then
+            formatted_count=$((formatted_count + 1))
+        else
+            echo "Warning: Failed to format $file"
+        fi
+    done
+
+    echo "Completed! Formatted $formatted_count files."
+    exit 0
+fi
+
+# Directory mode: original behavior
 path="$1"
 
 # Check if the provided path exists and is a directory
@@ -33,12 +69,6 @@ files=$(git -C "$path" ls-files -- "*.cpp" "*.hpp" "*.h" "*.cc" | grep -v "vendo
 if [ -z "$files" ]; then
     echo "No C++ files found in $path."
     exit 0
-fi
-
-# Check if clang-format is installed
-if ! command -v clang-format &> /dev/null; then
-    echo "Error: clang-format is not installed."
-    exit 1
 fi
 
 # Use the root .clang-format-ignore file

@@ -12,6 +12,7 @@ bazel_dep(name = "rules_proto_grpc_cpp", version = "5.8.0")
 bazel_dep(name = "nlohmann_json", version = "3.12.0.bcr.1")
 bazel_dep(name = "grpc", version = "1.76.0.bcr.1")
 bazel_dep(name = "lua", version = "5.4.6")
+bazel_dep(name = "boost.uuid", version = "1.87.0")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 

@@ -17,7 +17,7 @@
 #include "driver/task/common/sample_clock.h"
 #include "driver/task/task.h"
 
-namespace ni {
+namespace driver::ni {
 const std::string MAKE = "NI";
 const std::string INTEGRATION_NAME = "ni";
 const std::string SCAN_TASK_TYPE = "ni_scanner";
@@ -37,13 +37,13 @@ const std::vector REQUIRES_RESTART_ERRORS = {
     daqmx::ROUTING_ERROR
 };
 
-inline xerrors::Error translate_error(const xerrors::Error &err) {
+inline x::errors::Error translate_error(const x::errors::Error &err) {
     if (!err) return err;
     LOG(WARNING) << "[ni] task encountered error: " << err;
     if (err.matches(UNREACHABLE_ERRORS)) return daqmx::TEMPORARILY_UNREACHABLE;
     if (err.matches(REQUIRES_RESTART_ERRORS)) return daqmx::REQUIRES_RESTART;
     if (err.matches(daqmx::APPLICATION_TOO_SLOW))
-        return {xerrors::Error(
+        return {x::errors::Error(
             driver::CRITICAL_HARDWARE_ERROR,
             "the network cannot keep up with the stream rate specified. try making "
             "the "
@@ -60,7 +60,7 @@ class Factory final : public task::Factory {
     /// @brief the system configuration library used to get information
     /// about devices.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
-    common::TimingConfig timing_cfg;
+    task::common::TimingConfig timing_cfg;
 
     /// @brief checks whether the factory is healthy and capable of creating tasks.
     bool check_health() const;
@@ -70,39 +70,41 @@ class Factory final : public task::Factory {
     /// task state and return false.
     [[nodiscard]] bool check_health(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) const;
 
 public:
     Factory(
         const std::shared_ptr<daqmx::SugaredAPI> &dmx,
         const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-        common::TimingConfig timing_cfg
+        task::common::TimingConfig timing_cfg
     );
 
     /// @brief creates a new NI factory, loading the DAQmx and system configuration
     /// libraries.
     static std::unique_ptr<Factory>
-    create(common::TimingConfig timing_cfg = common::TimingConfig{});
+    create(task::common::TimingConfig timing_cfg = task::common::TimingConfig{});
 
     /// @brief implements task::Factory to process task configuration requests.
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Task &task
+        const synnax::task::Task &task
     ) override;
 
     /// @brief implements task::Factory to configure initial tasks such as the
     /// device scanner.
-    std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task>>>
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>>
     configure_initial_tasks(
         const std::shared_ptr<task::Context> &ctx,
-        const synnax::Rack &rack
+        const synnax::rack::Rack &rack
     ) override;
 
     template<typename HardwareT, typename ConfigT, typename SourceSinkT, typename TaskT>
-    std::pair<common::ConfigureResult, xerrors::Error>
-    configure(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task) {
-        common::ConfigureResult result;
+    std::pair<task::common::ConfigureResult, x::errors::Error> configure(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    ) {
+        task::common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
         TaskHandle handle;
@@ -125,16 +127,18 @@ public:
         result.task = std::make_unique<TaskT>(
             task,
             ctx,
-            breaker::default_config(task.name),
+            x::breaker::default_config(task.name),
             std::make_unique<SourceSinkT>(std::move(cfg), std::move(hw))
         );
         result.auto_start = cfg.auto_start;
-        return {std::move(result), xerrors::NIL};
+        return {std::move(result), x::errors::NIL};
     }
 
     std::string name() override { return INTEGRATION_NAME; }
 
-    std::pair<common::ConfigureResult, xerrors::Error>
-    configure_scan(const std::shared_ptr<task::Context> &ctx, const synnax::Task &task);
+    std::pair<task::common::ConfigureResult, x::errors::Error> configure_scan(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::task::Task &task
+    );
 };
 }

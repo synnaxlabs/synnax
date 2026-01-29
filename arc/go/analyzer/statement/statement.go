@@ -17,11 +17,11 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
-	"github.com/synnaxlabs/arc/diagnostics"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -345,7 +345,7 @@ func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], ch
 		return
 	}
 	if fn != nil {
-		fn.Channels.Write.Add(uint32(channelSym.ID))
+		fn.Channels.Write[uint32(channelSym.ID)] = channelSym.Name
 	}
 
 	// Track this as a channel write in the function

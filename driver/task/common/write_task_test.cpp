@@ -9,33 +9,34 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/xtest/xtest.h"
+#include "x/cpp/test/test.h"
 
 #include "driver/pipeline/mock/pipeline.h"
 #include "driver/task/common/write_task.h"
 
-class MockSink final : public common::Sink, public pipeline::mock::Sink {
+class MockSink final : public driver::task::common::Sink,
+                       public driver::pipeline::mock::Sink {
 public:
     MockSink(
-        const telem::Rate state_rate,
-        const std::set<synnax::ChannelKey> &state_indexes,
-        const std::vector<synnax::Channel> &state_channels,
-        const std::vector<synnax::ChannelKey> &cmd_channels,
+        const x::telem::Rate state_rate,
+        const std::set<synnax::channel::Key> &state_indexes,
+        const std::vector<synnax::channel::Channel> &state_channels,
+        const std::vector<synnax::channel::Key> &cmd_channels,
         const bool data_saving,
-        const std::shared_ptr<std::vector<telem::Frame>> &writes,
-        const std::shared_ptr<std::vector<xerrors::Error>> &errors
+        const std::shared_ptr<std::vector<x::telem::Frame>> &writes,
+        const std::shared_ptr<std::vector<x::errors::Error>> &errors
     ):
-        common::Sink(
+        driver::task::common::Sink(
             state_rate,
             state_indexes,
             state_channels,
             cmd_channels,
             data_saving
         ),
-        pipeline::mock::Sink(writes, errors) {}
+        driver::pipeline::mock::Sink(writes, errors) {}
 
-    xerrors::Error write(telem::Frame &frame) override {
-        auto err = pipeline::mock::Sink::write(frame);
+    x::errors::Error write(x::telem::Frame &frame) override {
+        auto err = driver::pipeline::mock::Sink::write(frame);
         this->set_state(frame);
         return err;
     }
@@ -43,66 +44,67 @@ public:
 
 /// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
-    const auto cmd_reads = std::make_shared<std::vector<telem::Frame>>();
-    const auto s = telem::Series(static_cast<uint8_t>(1), telem::UINT8_T);
-    cmd_reads->emplace_back(telem::Frame(1, s.deep_copy()));
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
-        std::vector<synnax::ChannelKey>{1},
+    auto
+        mock_writer_factory = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
+    cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
+    auto mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
-    synnax::Channel cmd_channel;
+    synnax::channel::Channel cmd_channel;
     cmd_channel.key = 1;
-    cmd_channel.data_type = telem::UINT8_T;
+    cmd_channel.data_type = x::telem::UINT8_T;
     cmd_channel.is_virtual = true;
 
-    synnax::Channel state_index;
+    synnax::channel::Channel state_index;
     state_index.key = 2;
-    state_index.data_type = telem::TIMESTAMP_T;
+    state_index.data_type = x::telem::TIMESTAMP_T;
     state_index.index = 2;
 
-    synnax::Channel state;
+    synnax::channel::Channel state;
     state.key = 3;
-    state.data_type = telem::UINT8_T;
+    state.data_type = x::telem::UINT8_T;
     state.index = 2;
 
-    auto writes = std::make_shared<std::vector<telem::Frame>>();
-    auto errors = std::make_shared<std::vector<xerrors::Error>>();
+    auto writes = std::make_shared<std::vector<x::telem::Frame>>();
+    auto errors = std::make_shared<std::vector<x::errors::Error>>();
 
     auto sink = std::make_unique<MockSink>(
-        telem::HERTZ * 10,
-        std::set<synnax::ChannelKey>{2},
+        x::telem::HERTZ * 10,
+        std::set<synnax::channel::Key>{2},
         std::vector{state},
-        std::vector<synnax::ChannelKey>{1},
+        std::vector<synnax::channel::Key>{1},
         false,
         writes,
         errors
     );
 
-    synnax::Task task;
+    synnax::task::Task task;
     task.key = 12345;
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 
-    common::WriteTask write_task(
+    driver::task::common::WriteTask write_task(
         task,
         ctx,
-        breaker::default_config("cat"),
+        x::breaker::default_config("cat"),
         std::move(sink),
         mock_writer_factory,
         mock_streamer_factory
     );
 
-    auto start_ts = telem::TimeStamp::now();
+    auto start_ts = x::telem::TimeStamp::now();
 
     std::string cmd_key = "cmd";
     ASSERT_TRUE(write_task.start(cmd_key));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 1);
     auto start_state = ctx->statuses[0];
-    EXPECT_EQ(start_state.key, task.status_key());
+    EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
-    EXPECT_EQ(start_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(mock_writer_factory->writer_opens, 1);
@@ -125,10 +127,10 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
     ASSERT_EVENTUALLY_EQ(ctx->statuses.size(), 2);
     auto stop_state = ctx->statuses[1];
-    EXPECT_EQ(stop_state.key, task.status_key());
+    EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, status::variant::SUCCESS);
+    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
 
     auto write_fr = std::move(writes->at(0));
@@ -148,5 +150,5 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     ASSERT_EQ(state_fr.contains(2), true);
     ASSERT_EQ(state_fr.contains(3), true);
     ASSERT_EQ(state_fr.at<uint8_t>(3, 0), 1);
-    ASSERT_GE(state_fr.at<telem::TimeStamp>(2, 0), start_ts);
+    ASSERT_GE(state_fr.at<x::telem::TimeStamp>(2, 0), start_ts);
 }
