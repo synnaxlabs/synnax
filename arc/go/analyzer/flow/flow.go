@@ -218,8 +218,18 @@ func analyzeIdentifier(
 		return
 	}
 
-	// When used as a sink (last node in chain) with a previous expression,
-	// add type constraint between the expression and channel value type
+	if prevNode != nil && prevNode.Function() != nil {
+		validTarget := sym.Kind == symbol.KindChannel || sym.Kind == symbol.KindStage || sym.Kind == symbol.KindSequence
+		if !validTarget {
+			d := diagnostics.Errorf(ctx.AST, "%s is not a channel", name)
+			if sym.Kind == symbol.KindFunction {
+				d = d.WithNote("use " + name + "{} to instantiate the function")
+			}
+			ctx.Diagnostics.Add(d)
+			return
+		}
+	}
+
 	if isLastNode && prevNode != nil && sym.Kind == symbol.KindChannel {
 		if prevExpr := prevNode.Expression(); prevExpr != nil {
 			exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr))

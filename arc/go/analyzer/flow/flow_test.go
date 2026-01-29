@@ -108,6 +108,33 @@ var resolver = symbol.MapResolver{
 }
 
 var _ = Describe("Flow Statements", func() {
+	Describe("Interval Trigger Flows", func() {
+		It("Should detect when function is used without config braces in flow statement", func() {
+			intervalResolver := symbol.MapResolver{
+				"interval": symbol.Symbol{
+					Name: "interval",
+					Kind: symbol.KindFunction,
+					Type: types.Function(types.FunctionProperties{
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+					}),
+				},
+			}
+			ast := MustSucceed(parser.Parse(`
+func sim_daq() {
+}
+
+interval{period=50ms} -> sim_daq
+			`))
+			ctx := context.CreateRoot(bCtx, ast, intervalResolver)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("sim_daq is not a channel"))
+			Expect((*ctx.Diagnostics)[0].Notes).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Notes[0].Message).To(Equal("use sim_daq{} to instantiate the function"))
+		})
+	})
+
 	Describe("Channel to func Flows", func() {
 		Context("function to function connections", func() {
 			It("Should detect when func with no output connects to func expecting input", func() {
