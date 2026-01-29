@@ -7,10 +7,9 @@ next: "Control Authority"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Image, Video } from "@/components/Media";
+import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Diagram from "@/components/Diagram.astro";
-import Table from "@/components/Table.astro";
+import { Diagram, Table } from "@/components";
 export const components = mdxOverrides;
 
 Control sequences are the primary means for automating hardware operations in your
@@ -69,17 +68,17 @@ ability to move and change hardware without changing the control sequence algori
 To illustrate how control sequences fit into a larger system, here's an example Synnax
 deployment that communicates with National Instruments devices:
 
-<Diagram>
+<Diagram.Diagram>
   <Image
     client:only="react"
     id="control/sequence-structure-v2"
     themed={false}
     extension="svg"
   />
-</Diagram>
+</Diagram.Diagram>
 
 {/* prettier-ignore */}
-<Table>
+<table>
   <thead>
     <tr>
       <th style={{width: "160px"}}>Component</th>
@@ -120,4 +119,4 @@ deployment that communicates with National Instruments devices:
         Digital Write Task.</td>
     </tr>
   </tbody>
-</Table>
+</table>

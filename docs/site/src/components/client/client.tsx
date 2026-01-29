@@ -34,4 +34,5 @@ export const setInURL = (client: Client) => {
   const url = new URL(window.location.href);
   url.searchParams.set("client", client);
   window.history.pushState({}, "", url.toString());
+  window.dispatchEvent(new CustomEvent("urlchange"));
 };

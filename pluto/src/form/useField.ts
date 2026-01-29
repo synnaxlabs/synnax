@@ -93,6 +93,7 @@ export const useField = (<I, O = I>(
       () => get<I>(path, { optional, defaultValue }),
       [path, get, optional, defaultValue],
     ),
+    () => null,
   );
   if (state == null) {
     if (!optional) throw new Error(`Field state is null: ${path}`);
@@ -148,6 +149,7 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   return useSyncExternalStore(
     bind,
     useCallback(() => get<O>(path, opts), [path, get, opts]),
+    () => null,
   );
 }) as UseFieldState;
 

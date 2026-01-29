@@ -2,14 +2,14 @@
 title: "Version 0.42 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image, Video } from "@/components/Media";
+import { Image, Video } from "@/components/media/Media";
+import { Releases } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/pluto";
 
 export const components = mdxOverrides;
 
-<Release
+<Releases.Release
     version="0.42.0"
     date="May 13, 2025"
     title="Performance & Client Library Improvements"
@@ -139,4 +139,4 @@ draw calls.
 - Fixed an issue where control status transfers would not display correctly on the
   Schematic.
 
-</Release>
+</Releases.Release>

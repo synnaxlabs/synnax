@@ -102,18 +102,18 @@ firing every cycle while the condition is true.
 
 Arc guarantees **deterministic, glitch-free execution** through stratification:
 
-**Snapshot consistency**: All nodes in an execution cycle see the same values. If a
+**Snapshot consistency** -> All nodes in an execution cycle see the same values. If a
 channel updates while the graph is executing, every node sees the same snapshot.
 
-**Deterministic order**: Nodes execute in a guaranteed order based on their
+**Deterministic order** -> Nodes execute in a guaranteed order based on their
 dependencies. The compiler organizes nodes into "strata" (layers), where each stratum
 only executes after all nodes in the previous stratum have completed.
 
 This is critical for:
 
-- **Safety certification**: Predictable, repeatable behavior
-- **Debugging**: You know exactly what values each node saw
-- **Multi-branch logic**: All branches see consistent data
+- **Safety certification** -> Predictable, repeatable behavior
+- **Debugging** -> You know exactly what values each node saw
+- **Multi-branch logic** -> All branches see consistent data
 
 <Divider.Divider x />
 

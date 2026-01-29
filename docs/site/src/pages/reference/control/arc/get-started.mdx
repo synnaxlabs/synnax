@@ -9,7 +9,7 @@ nextURL: "/reference/control/arc/concepts/sequences-and-stages"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
+import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -134,7 +134,7 @@ New concepts in this example:
 
 - **Config parameter** (`{limit f64}`): A constant set when the function is
   instantiated. Here, `limit=150.0` sets the threshold
-- **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
+- **Return type `u8`** -> An unsigned 8-bit integer. The comparison `reading > limit`
   returns 1 (true) or 0 (false)
 - **Built-in function** (`set_status`): Displays a notification in the Console toolbar
   when the input is truthy (non-zero)
@@ -153,10 +153,10 @@ how to build test procedures, startup routines, and state machines.
 
 Or explore other topics:
 
-- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)**:
+- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)** ->
   Understand how Arc schedules computations and the difference between continuous (`->`)
   and one-shot (`=>`) edges
-- **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
+- **[Channels and Series](/reference/control/arc/concepts/channels-and-series)** -> Work
   with telemetry data and array operations
-- **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)**: Persist
+- **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)** -> Persist
   values across executions for counters and rate-of-change detection

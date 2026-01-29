@@ -2,20 +2,19 @@
 title: "Version 0.33 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/Media";
-import Diagram from "@/components/Diagram.astro";
+import { Image } from "@/components/media/Media";
+import { Diagram, Releases } from "@/components";
 import LabJack from "@/pages/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-<Release
+<Releases.Release
     version="0.33.0"
     date="Nov 5, 2024"
     title="Log Component"
 >
 
-<Diagram style="height: 300px" preview>
+<Diagram.Diagram style="height: 300px" preview>
   <Image
     client:only="react"
     id="console/logs/thumbnail"
@@ -29,7 +28,7 @@ export const components = mdxOverrides;
       boxShadow: "-1rem -1rem 1rem 3px var(--pluto-gray-l1-10)",
     }}
   />
-</Diagram>
+</Diagram.Diagram>
 
 We've added a new [log component](/reference/console/logs) to the Synnax
 [Console](/reference/console/get-started) that allows you to view channel data in a log
@@ -41,4 +40,4 @@ automated hardware control processes.
 
 This release does **not** introduce any breaking changes.
 
-</Release>
+</Releases.Release>

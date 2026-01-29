@@ -1,41 +1,50 @@
 ---
 import Root from "@/layouts/Root.astro";
 import { Flex, Icon, Text } from "@synnaxlabs/pluto";
-import ReleaseList from "@/components/releases/ReleaseList.astro";
+import { Releases as ReleasesComponents } from "@/components";
 const { headings } = Astro.props;
 ---
 
 <Root frontmatter={{ title: "Releases" }}>
-    <Flex.Box direction="y" className="releases" el="article" grow>
-        <Flex.Box direction="x" className="header" justify="between" align="center">
-            <Flex.Box direction="y" justify="center" gap="large">
-                <Text.Text level="h1">Releases</Text.Text>
-                <Flex.Box direction="y" gap="small">
-                    <Text.Text color={8}>
-                        Latest updates and improvements to Synnax.
-                    </Text.Text>
-                    <Flex.Box direction="x" align="center" wrap>
-                        <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
-                            Follow us on LinkedIn
+    <section>
+        <Flex.Box direction="y" className="releases" el="article" grow>
+            <Flex.Box direction="x" className="header" justify="between" align="center">
+                <Flex.Box direction="y" justify="center" gap="large">
+                    <Text.Text level="h1">Releases</Text.Text>
+                    <Flex.Box direction="y" gap="small">
+                        <Text.Text color={8}>
+                            Latest updates and improvements to Synnax.
                         </Text.Text>
-                        <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
-                        <Text.Text href="https://github.com/synnaxlabs/synnax/releases"
-                            >View releases on GitHub</Text.Text
-                        >
+                        <Flex.Box direction="x" align="center" wrap>
+                            <Text.Text href="https://www.linkedin.com/company/synnaxlabs/">
+                                Follow us on LinkedIn
+                            </Text.Text>
+                            <Icon.Circle style={{ color: "var(--pluto-gray-l6)" }} />
+                            <Text.Text href="https://github.com/synnaxlabs/synnax/releases"
+                                >View releases on GitHub</Text.Text
+                            >
+                        </Flex.Box>
                     </Flex.Box>
                 </Flex.Box>
+                <Text.Text level="h1" className="latest version full" transition:persist />
             </Flex.Box>
-            <Text.Text level="h1" className="latest version full" transition:persist />
+            <slot />
         </Flex.Box>
-        <slot />
-    </Flex.Box>
-    <ReleaseList headings={headings} url={Astro.url} />
+        <ReleasesComponents.List headings={headings} url={Astro.url} />
+    </section>
 </Root>
 
 <style is:global>
+    main > section:has(.releases) {
+        max-width: 1400px;
+    }
+
     .releases {
-        margin: 0 auto;
-        padding-right: 7rem;
+        flex-basis: 840px;
+        flex-shrink: 1;
+        flex-grow: 1;
+        min-width: 0;
+        padding: 5rem 8rem;
         & .release-wrapper {
             position: relative;
         }
@@ -50,8 +59,10 @@ const { headings } = Astro.props;
             width: 100%;
             min-height: 260px;
             height: 35vh;
-            padding-left: 12rem;
-            padding-right: 12rem;
+            margin: 0 -8rem;
+            padding-left: 8rem;
+            padding-right: 8rem;
+            width: calc(100% + 16rem);
             background-size: 2rem 2rem;
             background-image: radial-gradient(
                 var(--pluto-gray-l4) 0.5px,
@@ -62,7 +73,7 @@ const { headings } = Astro.props;
 
             & .latest {
                 position: absolute;
-                right: 12rem;
+                right: 8rem;
                 z-index: -1;
                 font-size: 34rem;
                 font-weight: 700;

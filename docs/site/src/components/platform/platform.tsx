@@ -37,4 +37,5 @@ export const setInURL = (platform: Platform) => {
   const url = new URL(window.location.href);
   url.searchParams.set("platform", platform);
   window.history.pushState({}, "", url.toString());
+  window.dispatchEvent(new CustomEvent("urlchange"));
 };

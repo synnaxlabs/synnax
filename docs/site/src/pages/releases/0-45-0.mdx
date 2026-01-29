@@ -2,23 +2,22 @@
 title: "Version 0.45 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image, Video } from "@/components/Media";
+import { Image, Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import Diagram from "@/components/Diagram.astro";
+import { Diagram, Releases } from "@/components";
 import { Divider, Flex } from "@synnaxlabs/pluto";
 
 export const components = mdxOverrides;
 
-<Release
+<Releases.Release
     version="0.45.0"
     date="Aug 31, 2025"
     title="Custom Schematic Symbols"
 >
 
-<Diagram style="height: 400px; padding: 7rem;" preview>
+<Diagram.Diagram style="height: 400px; padding: 7rem;" preview>
   <Image client:only="react" id="releases/0-45-0/thumbnail" themed={false} />
-</Diagram>
+</Diagram.Diagram>
 
 Synnax v0.45 adds the ability to create, edit, and import custom symbols for schematics.
 
@@ -83,4 +82,4 @@ the value form.
 - Fixed a minor issue where series in encoded frames would be sorted incorrectly,
   causing rare decoding issues in JSON series.
 
-</Release>
+</Releases.Release>

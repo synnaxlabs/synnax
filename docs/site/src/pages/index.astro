@@ -5,6 +5,7 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
 ---
 
 <Root frontmatter={{ title: "Docs Home" }}>
+    <section>
     <Flex.Box className="hero-parent" direction="y" align="center">
         <Flex.Box className="hero" direction="x" gap={10}>
             <Flex.Box direction="y" grow gap={6}>
@@ -90,6 +91,7 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
             </Flex.Box>
         </Flex.Box>
     </Flex.Box>
+    </section>
 
     <style is:global>
         section {
@@ -97,6 +99,7 @@ import { Flex, Text, Icon } from "@synnaxlabs/pluto";
             --root-border-radius: 1rem;
             border-left: var(--pluto-border);
             border-right: var(--pluto-border);
+            max-width: 1340px;
         }
         .title {
             font-size: 9rem !important;

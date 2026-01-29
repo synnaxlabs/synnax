@@ -9,9 +9,9 @@ nextURL: "/reference/driver/ni/digital-write-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -48,10 +48,10 @@ For task lifecycle management, see the
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate
+- **Sample rates** -> All channels in a task sample at the same rate. Create separate
   tasks for different rates.
-- **One task per module**: Only one running task can claim a module at a time.
-- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+- **One task per module** -> Only one running task can claim a module at a time.
+- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to the
   sample rate. For high-rate tasks, keep the stream rate less than 50 Hz for better
   performance.
 
@@ -68,7 +68,7 @@ For task lifecycle management, see the
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -146,9 +146,9 @@ with task.run():
             print(frame)
 ```
 
-</ExampleDetails>
+</Details.Example>
 
-<ExampleDetails>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -176,12 +176,12 @@ task.config.channels[2].line = 1
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Example>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -271,9 +271,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</ExampleDetails>
+</Details.Example>
 
-<ExampleDetails>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -308,7 +308,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Example>
 
   </Fragment>
 </Client.Tabs>

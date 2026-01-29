@@ -9,10 +9,9 @@ nextURL: "/reference/driver/labjack/write-task"
 ---
 
 import { Divider, Note, Icon, Text } from "@synnaxlabs/pluto";
-import { Video, Image } from "@/components/Media";
+import { Video, Image } from "@/components/media/Media";
 import { Fragment } from "react";
-import ChannelTypeDetails from "@/components/details/ChannelTypeDetails.astro";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -37,7 +36,7 @@ For task lifecycle management, see the
 
 ## Channel Types Reference
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Sine /> Analog Input ([`AI`](https://support.labjack.com/docs/14-0-analog-inputs-t-series-datasheet))</Text.Text>
 
 Reads analog voltage from a specified input terminal. Supports single-ended and
@@ -51,15 +50,15 @@ differential configurations.
 | `neg_chan` | number | No       | `199`   | Negative channel for differential measurements (199 = single-ended/GND) |
 | `pos_chan` | number | No       | `0`     | Positive channel number (e.g., 0 for AIN0)                              |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Units.Temperature /> Thermocouple ([`TC`](https://support.labjack.com/docs/14-1-1-thermocouple-t7-t8-t-series-datasheet))</Text.Text>
 
 Reads temperature from a thermocouple with cold junction compensation (CJC).
 
 <Note.Note variant="warning">
-  **Performance Note**: Thermocouple channels use LabJack's built-in thermocouple
+  **Performance Note** -> Thermocouple channels use LabJack's built-in thermocouple
   features, which [reduce the maximum reliable sample
   rate](https://support.labjack.com/docs/using-a-thermocouple-with-the-t7#UsingaThermocouplewiththeT7-ThermocouplesinStreamMode)
   compared to tasks with only analog or digital inputs.
@@ -79,13 +78,13 @@ Reads temperature from a thermocouple with cold junction compensation (CJC).
 
 **CJC Configuration Examples:**
 
-- **Device temp sensor**: `cjc_source="TEMPERATURE_DEVICE_K"`, `cjc_slope=1.0`,
+- **Device temp sensor** -> `cjc_source="TEMPERATURE_DEVICE_K"`, `cjc_slope=1.0`,
   `cjc_offset=0.0`
-- **LM34 sensor**: `cjc_source="AIN1"`, `cjc_slope=55.56`, `cjc_offset=255.37`
+- **LM34 sensor** -> `cjc_source="AIN1"`, `cjc_slope=55.56`, `cjc_offset=255.37`
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
-<ChannelTypeDetails>
+<Details.ChannelType>
 <Text.Text slot="summary" level="p"><Icon.Wave.Square /> Digital Input ([`DI`](https://support.labjack.com/docs/13-0-digital-i-o-t-series-datasheet))</Text.Text>
 
 Reads digital state (0 or 1) from a specified digital I/O line.
@@ -95,19 +94,19 @@ Reads digital state (0 or 1) from a specified digital I/O line.
 | `channel` | number | Yes      | -       | Synnax channel key                   |
 | `port`    | string | Yes      | -       | Port location (e.g., `DIO4`, `FIO5`) |
 
-</ChannelTypeDetails>
+</Details.ChannelType>
 
 <Divider.Divider x />
 
 ## Important Rules
 
-- **Sample rates**: All channels in a task sample at the same rate. Create separate
+- **Sample rates** -> All channels in a task sample at the same rate. Create separate
   tasks for different rates.
-- **Thermocouple performance**: Tasks with thermocouple channels have reduced maximum
+- **Thermocouple performance** -> Tasks with thermocouple channels have reduced maximum
   sample rates due to LJM thermocouple processing.
-- **One running task per channel**: A channel can only receive live data from one task
+- **One running task per channel** -> A channel can only receive live data from one task
   at a time.
-- **Stream rate optimization**: For low-rate tasks (< 50 Hz), set the stream rate to the
+- **Stream rate optimization** -> For low-rate tasks (< 50 Hz), set the stream rate to the
   sample rate. For high-rate tasks, keep stream rate less than 50 Hz for better
   performance.
 
@@ -124,7 +123,7 @@ Reads digital state (0 or 1) from a specified digital I/O line.
   </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```python
@@ -203,8 +202,8 @@ with task.run():
             print(frame)
 ```
 
-</ExampleDetails>
-<ExampleDetails>
+</Details.Example>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```python
@@ -231,12 +230,12 @@ task.config.channels[2].port = "DIO5"
 client.tasks.configure(task)
 ```
 
-</ExampleDetails>
+</Details.Example>
 
   </Fragment>
   <Fragment slot="typescript">
 
-<ExampleDetails>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
 
 ```typescript
@@ -327,9 +326,9 @@ await task.executeCommandSync("stop");
 await streamer.close();
 ```
 
-</ExampleDetails>
+</Details.Example>
 
-<ExampleDetails>
+<Details.Example>
 <Text.Text slot="summary" level="p"><Icon.Edit /> Edit task configuration</Text.Text>
 
 ```typescript
@@ -363,7 +362,7 @@ await client.tasks.create({
 });
 ```
 
-</ExampleDetails>
+</Details.Example>
 
   </Fragment>
 </Client.Tabs>

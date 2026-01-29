@@ -10,9 +10,9 @@ nextURL: "/reference/driver/modbus/read-task"
 ---
 
 import { Divider, Text, Icon, Note } from "@synnaxlabs/pluto";
-import { Video } from "@/components/Media";
+import { Video } from "@/components/media/Media";
 import { Fragment } from "react";
-import ExampleDetails from "@/components/details/ExampleDetails.astro";
+import { Details } from "@/components";
 import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -57,7 +57,7 @@ following:
 </Fragment>
   <Fragment slot="python">
 
-<ExampleDetails open>
+<Details.Example open>
 <Text.Text slot="summary" level="p"><Icon.Connect /> Connect to Modbus Server</Text.Text>
 
 ```python
@@ -93,9 +93,9 @@ device = client.devices.retrieve(name="My Modbus Server")
 print(f"Connected to Modbus server: {device.name}")
 ```
 
-</ExampleDetails>
+</Details.Example>
 
-<ExampleDetails open>
+<Details.Example open>
 <Text.Text slot="summary" level="p"><Icon.Close /> Disconnect server</Text.Text>
 
 ```python
@@ -118,7 +118,7 @@ else:
     print("Server not found")
 ```
 
-</ExampleDetails>
+</Details.Example>
 
   </Fragment>
 </Client.Tabs>

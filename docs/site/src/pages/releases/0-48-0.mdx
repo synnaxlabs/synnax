@@ -2,15 +2,14 @@
 title: "Version 0.48 Release Notes"
 ---
 
-import Release from "@/components/releases/Release.astro";
-import { Image } from "@/components/Media";
+import { Image } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/pluto";
-import Diagram from "@/components/Diagram.astro";
+import { Diagram, Releases } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-<Release
+<Releases.Release
     version="0.48.0"
     date="Nov 12, 2025"
     title="Login Page, Status Toolbar, NI Counter Read Tasks, and Improved Measure Tool"
@@ -32,7 +31,7 @@ username and password to log in.
 
 ### Status Toolbar
 
-<Diagram preview style="height: 425px; padding: 0rem 9rem">
+<Diagram.Diagram preview style="height: 425px; padding: 0rem 9rem">
   <Image
     client:only="react"
     id="releases/0-48-0/status-toolbar"
@@ -46,7 +45,7 @@ username and password to log in.
     }}
     themed={false}
   />
-</Diagram>
+</Diagram.Diagram>
 
 We've added a new toolbar that allows you to favorite important statuses for quick
 viewing. This toolbar also has buttons to create a status and open the Status Explorer.
@@ -89,4 +88,4 @@ line plot.
 - Fixed an issue where the docker image would not correctly grant permissions to the
   embedded driver.
 
-</Release>
+</Releases.Release>

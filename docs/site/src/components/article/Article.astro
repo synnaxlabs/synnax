@@ -1,6 +1,6 @@
 ---
 import { Breadcrumb } from "@/components/article/Breadcrumb";
-import NextPrev from "@/components/NextPrev.astro";
+import NextPrev from "@/components/article/NextPrev.astro";
 import { Text } from "@synnaxlabs/pluto";
 const {
     title,
@@ -38,24 +38,23 @@ const {
         }
 
         & .pluto-breadcrumb {
-            & .pluto-text-link {
-                color: var(--pluto-gray-l8) !important;
-                font-weight: 375 !important;
+            & a.pluto-text {
+                color: var(--pluto-gray-l8);
+                font-weight: 375;
+                font-size: var(--pluto-p-size);
                 &:last-child {
-                    color: var(--pluto-gray-l10) !important;
-                    font-weight: 450 !important;
+                    color: var(--pluto-gray-l10);
+                    font-weight: 450;
                 }
                 &:hover {
-                    color: var(--pluto-gray-l10) !important;
-                }
-                &:hover {
-                    text-decoration: none !important;
+                    color: var(--pluto-gray-l10);
+                    text-decoration: none;
                 }
             }
         }
 
         & .pluto-icon--caret-right {
-            transform: translateY(0px) !important;
+            transform: translateY(0px);
             width: 2rem;
             height: 2rem;
             color: var(--pluto-gray-l6);
@@ -86,6 +85,8 @@ const {
         .article-description {
             color: var(--pluto-gray-l9);
             font-weight: 350;
+            margin-top: 2rem;
+            margin-bottom: 6rem;
         }
 
         .pluto-tabs-selector {
@@ -95,7 +96,7 @@ const {
         & video,
         img:not(.diagram img) {
             width: 100%;
-            border-radius: 1rem !important;
+            border-radius: 1rem;
             border: var(--pluto-border);
             box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
 
@@ -110,7 +111,7 @@ const {
         }
 
         .pluto-tabs-selector {
-            --pluto-height-medium: 6.5rem !important;
+            --pluto-height-medium: 6.5rem;
 
             .pluto-btn.pluto--height-medium {
                 padding: 0 2rem;
@@ -128,11 +129,12 @@ const {
 
         .pluto-note {
             display: block;
-            padding: var(--note-padding-block, 2rem) var(--note-padding-inline, 3rem) !important;
+            margin: 4rem 0;
+            padding: var(--note-padding-block, 0.5rem) var(--note-padding-inline, 3rem);
             & > * {
                 font-size: var(--pluto-small-size);
                 font-family: var(--pluto-font-family);
-                font-weight: 450 !important;
+                font-weight: 450;
                 line-height: calc(var(--pluto-small-line-height) * 1.2);
             }
         }
@@ -140,6 +142,11 @@ const {
         .pluto-note.compact {
             --note-padding-block: 0.5rem;
             --note-padding-inline: 1.5rem;
+        }
+
+        table {
+            width: 100%;
+            display: table;
         }
 
         figure {

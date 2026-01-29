@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "tsc --noEmit && astro build",
-    "check-types": "tsc --noEmit",
+    "build": "astro check && astro build",
+    "check-types": "astro check",
     "preview": "astro preview",
     "astro": "astro",
     "algolia": "node src/util/algoliasearch.ts",
@@ -32,10 +32,12 @@
     "posthog-js": "^1.306.1",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-icons": "catalog:",
     "shiki": "^1.29.2",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.6",
     "@synnaxlabs/tsconfig": "workspace:^",
     "@types/html-escaper": "^3.0.4",
     "@types/offscreencanvas": "catalog:",

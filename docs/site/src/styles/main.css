@@ -1,0 +1,19 @@
+/*
+ * Main CSS Entry Point - Experiment with CSS Layers
+ *
+ * Approach: Declare layer order first, then import everything into layers.
+ * The layer declaration MUST come before any @import statements.
+ */
+
+/* Declare layer order - later layers win */
+@layer pluto, base, overrides;
+
+/* Import Pluto CSS into its layer */
+@import "@synnaxlabs/pluto/dist/pluto.css" layer(pluto);
+@import "@synnaxlabs/pluto/dist/theme.css" layer(pluto);
+@import "@synnaxlabs/media/dist/media.css" layer(pluto);
+
+/* Import our CSS into higher priority layers */
+@import "./base.css" layer(base);
+@import "./pluto.css" layer(overrides);
+@import "./layout.css" layer(overrides);

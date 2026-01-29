@@ -9,9 +9,7 @@ prevURL: "/reference/core/requirements"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
-import { Table } from "@/components/Table";
-import { Tabs } from "@/components/Tabs";
+import { Deploy, Table, Tabs } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -34,7 +32,8 @@ synnax start -l localhost:9090 -im
 
 ### Flags
 
-<Table
+<Table.Data
+  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code", width: 150 },
     { key: "default", name: "Default", type: "code" },
@@ -225,7 +224,8 @@ synnax start -l localhost:9090 -im
 The following environment variables can be used in place of the corresponding flags.
 Command line flags will take precedence over environment variables.
 
-<Table
+<Table.Data
+  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code" },
     { key: "env", name: "Environment Variable", type: "code" },
@@ -403,7 +403,7 @@ synnax version
 
 You'll see output similar to the following:
 
-<SynnaxVersionOutput />
+<Deploy.VersionOutput />
 
 ### Flags
 
@@ -450,7 +450,8 @@ synnax service install --auto-start=false --insecure
 
 #### Flags
 
-<Table
+<Table.Data
+  client:only="react"
   columns={[
     { key: "option", name: "Flag", type: "code", width: 180 },
     { key: "default", name: "Default", type: "code" },

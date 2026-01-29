@@ -9,12 +9,9 @@ nextURL: "/reference/driver/timing"
 next: "Timing"
 ---
 
-import { Tabs } from "@/components/driver/Tabs";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Divider } from "@synnaxlabs/pluto";
-import { Table } from "@/components/Table";
-import StepText from "@/components/StepText.astro";
-import DownloadURL from "@/components/driver/DownloadURL.astro";
+import { Table, Text, Driver } from "@/components";
 export const components = mdxOverrides;
 
 The Synnax Driver can also be installed as a separate binary, making it possible to
@@ -23,12 +20,12 @@ deployment.
 
 <Divider.Divider x />
 
-## <StepText step="1" level="h2">Installation</StepText>
+## <Text.Step step="1" level="h2">Installation</Text.Step>
 
 To get started, you'll need to install the Synnax Driver. Choose your operating system
 below to see the installation instructions:
 
-<Tabs exclude={["docker"]} client:only="react">
+<Driver.Tabs exclude={["docker"]} client:only="react">
 <Fragment slot="ni-linux-rt">
 
 ### Prerequisites
@@ -67,7 +64,7 @@ running on the same network. Make sure you have a
 Installing the Driver is as simple as opening an SSH connection to the cRIO and running
 the following command:
 
-<DownloadURL os="ni-linux-rt" />
+<Driver.DownloadURL os="ni-linux-rt" />
 
 This will download, install, and start the Driver. Once the Driver is installed, we'll
 need to configure it to connect to your Core.
@@ -80,7 +77,7 @@ need to configure it to connect to your Core.
 To install the Synnax Driver on a Linux distribution, run the following command to
 download the latest binary:
 
-<DownloadURL os="linux" />
+<Driver.DownloadURL os="linux" />
 
 We recommend you move the binary into a directory that is in your `PATH`. Most of our
 users use `/usr/local/bin`:
@@ -130,7 +127,7 @@ synnax-driver --version
 
 Download the latest Synnax Driver executable for Windows:
 
-<DownloadURL os="windows" />
+<Driver.DownloadURL os="windows" />
 
 After downloading, move the `synnax-driver.exe` file to a location on your system, such
 as `C:\Program Files\Synnax\`.
@@ -159,7 +156,7 @@ synnax-driver --version
 To install the Synnax Driver on macOS, run the following command to download the latest
 binary:
 
-<DownloadURL os="macos" />
+<Driver.DownloadURL os="macos" />
 
 We recommend you move the binary into a directory that is in your `PATH`. Most of our
 users use `/usr/local/bin`:
@@ -197,11 +194,11 @@ synnax-driver --version
 ```
 
 </Fragment>
-</Tabs>
+</Driver.Tabs>
 
 <Divider.Divider x />
 
-## <StepText step="2" level="h2">Connect to the Synnax Core</StepText>
+## <Text.Step step="2" level="h2">Connect to the Synnax Core</Text.Step>
 
 To connect to a Core, you'll need to know the Core's IP address, port, username, and
 password. Then run the `synnax-driver login` command:
@@ -227,7 +224,7 @@ I20250318 04:57:06.793918 25261 login.cpp:59] credentials saved successfully
 
 <Divider.Divider x />
 
-## <StepText step="3" level="h2">Check the Driver Status</StepText>
+## <Text.Step step="3" level="h2">Check the Driver Status</Text.Step>
 
 As a final step, you can check the Driver's status by running the `synnax-driver status`
 command:

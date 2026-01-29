@@ -60,10 +60,10 @@ start_btn => main
 
 This sequence:
 
-1. **Starts in `idle`**: Valve is closed (0), waiting for the operator to press start
-2. **Moves to `pressurize`**: Opens the valve (1), waits for pressure to reach 500
-3. **Moves to `hold`**: Keeps valve open for 30 seconds
-4. **Ends in `complete`**: Closes the valve
+1. **Starts in `idle`** -> Valve is closed (0), waiting for the operator to press start
+2. **Moves to `pressurize`** -> Opens the valve (1), waits for pressure to reach 500
+3. **Moves to `hold`** -> Keeps valve open for 30 seconds
+4. **Ends in `complete`** -> Closes the valve
 
 The `start_btn => main` at the bottom is the **entry point**. When `start_btn` receives
 a truthy value (non-zero), the sequence starts.
