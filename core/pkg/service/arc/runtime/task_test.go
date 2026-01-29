@@ -650,4 +650,100 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Stop(false)).To(Succeed())
 		})
 	})
+
+	Describe("Runtime Error Handling", func() {
+		It("Should report WASM division by zero via status service", func() {
+			inputCh := createVirtualCh("div_zero_input", telem.Float64T)
+			outputCh := createVirtualCh("div_zero_output", telem.Float64T)
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func divide_test() {
+						%s = 10.0 / %s
+					}
+					%s -> divide_test{}
+				`, outputCh.Name, inputCh.Name, inputCh.Name),
+			}
+
+			cfgJSON := MustSucceed(json.Marshal(runtime.TaskConfig{ArcKey: uuid.New()}))
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 100),
+				Name:   "test-div-zero",
+				Type:   runtime.TaskType,
+				Config: string(cfgJSON),
+			}
+			t := MustBeOk(MustSucceed2(newTextFactory(prog).ConfigureTask(newContext(), svcTask)))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() {
+				Expect(t.Stop(false)).To(Succeed())
+			}()
+
+			time.Sleep(20 * time.Millisecond)
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{inputCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[float64](0)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					WhereKeys(task.OntologyID(svcTask.Key).String()).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
+				g.Expect(stat.Message).To(ContainSubstring("Runtime error in"))
+				g.Expect(stat.Message).To(ContainSubstring("divide_test"))
+				g.Expect(stat.Details.Running).To(BeTrue())
+			}).Should(Succeed())
+		})
+
+		It("Should continue execution after runtime error", func() {
+			inputCh := createVirtualCh("recover_input", telem.Float64T)
+			outputCh := createVirtualCh("recover_output", telem.Float64T)
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					func divide_recover() {
+						%s = 10.0 / %s
+					}
+					%s -> divide_recover{}
+				`, outputCh.Name, inputCh.Name, inputCh.Name),
+			}
+
+			responses, closeStreamer := openTestStreamer(channel.Keys{outputCh.Key()}, 5)
+			defer closeStreamer()
+
+			t := newTask(newTextFactory(prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{inputCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[float64](0)))).To(BeTrue())
+			time.Sleep(20 * time.Millisecond)
+			// Second write should produce valid result (10.0/2.0 = 5.0)
+			Expect(w.Write(frame.NewUnary(inputCh.Key(), telem.NewSeriesV[float64](2)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			// Receive frames until we get the valid output (5.0)
+			var foundValid bool
+			for i := 0; i < 5 && !foundValid; i++ {
+				var fr framer.StreamerResponse
+				Eventually(responses).Should(Receive(&fr))
+				if fr.Frame.Get(outputCh.Key()).Len() > 0 {
+					val := telem.ValueAt[float64](fr.Frame.Get(outputCh.Key()).Series[0], 0)
+					if val == 5.0 {
+						foundValid = true
+					}
+				}
+			}
+			Expect(foundValid).To(BeTrue(), "Expected to receive valid output (5.0) after error")
+		})
+	})
 })

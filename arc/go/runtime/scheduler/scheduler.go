@@ -90,6 +90,12 @@ type ErrorHandler interface {
 	HandleError(nodeKey string, err error)
 }
 
+// ErrorHandlerFunc is an adapter to allow ordinary functions to be used as ErrorHandlers.
+type ErrorHandlerFunc func(nodeKey string, err error)
+
+// HandleError implements ErrorHandler by calling the function.
+func (f ErrorHandlerFunc) HandleError(nodeKey string, err error) { f(nodeKey, err) }
+
 // CycleCallback is called at the end of each scheduler cycle.
 // Used for cleanup operations like clearing temporary series handles.
 type CycleCallback interface {

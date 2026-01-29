@@ -11,6 +11,7 @@ package runtime
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"math"
 	"slices"
@@ -120,9 +121,11 @@ func (t *taskImpl) start(ctx context.Context) error {
 		arcstatus.NewFactory(t.factoryCfg.Status),
 	}
 	var closers xio.MultiCloser
+	var wasmMod *wasm.Module
 
 	if len(t.prog.Module.WASM) > 0 {
-		wasmMod, err := wasm.OpenModule(ctx, wasm.ModuleConfig{
+		var err error
+		wasmMod, err = wasm.OpenModule(ctx, wasm.ModuleConfig{
 			Module: t.prog.Module,
 			State:  drt.state,
 		})
@@ -154,6 +157,20 @@ func (t *taskImpl) start(ctx context.Context) error {
 	}
 
 	drt.scheduler = scheduler.New(t.prog.Module.IR, nodes)
+
+	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(nodeKey string, err error) {
+		t.factoryCfg.L.Warn("runtime error in arc node",
+			zap.String("node", nodeKey),
+			zap.Uint64("task", uint64(t.task.Key)),
+			zap.Error(err),
+		)
+		t.setRuntimeError(nodeKey, err)
+	}))
+
+	if wasmMod != nil {
+		drt.scheduler.SetCycleCallback(wasmMod)
+	}
+
 	drt.startTime = telem.Now()
 
 	pipeline := plumber.New()
@@ -245,6 +262,24 @@ func (t *taskImpl) setStatus(variant status.Variant, running bool, message strin
 	}
 }
 
+func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
+	nodeType := nodeKey
+	if n, ok := t.prog.Module.Nodes.Find(nodeKey); ok {
+		nodeType = n.Type
+	}
+	stat := task.Status{
+		Key:         task.OntologyID(t.task.Key).String(),
+		Variant:     status.VariantWarning,
+		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
+		Description: err.Error(),
+		Time:        telem.Now(),
+		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
+	}
+	if setErr := t.ctx.SetStatus(stat); setErr != nil {
+		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
+	}
+}
+
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
 	startTime telem.TimeStamp
@@ -270,6 +305,9 @@ func (d *dataRuntime) next(
 
 func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
+	if d.Out != nil {
+		o.AttachClosables(d.Out)
+	}
 	if d.In == nil {
 		return
 	}
@@ -283,7 +321,9 @@ type tickerRuntime struct {
 
 func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
-	o.AttachClosables(r.Out)
+	if r.Out != nil {
+		o.AttachClosables(r.Out)
+	}
 	sCtx.Go(func(ctx context.Context) error {
 		var (
 			ticker = stdtime.NewTicker(r.interval.Duration())
