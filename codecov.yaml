@@ -31,3 +31,5 @@ ignore:
   - "arc/go/parser/arcparser_listener.go"
   - "arc/go/parser/arcparser_visitor.go"
   - "**/*_string.go"
+  - "**/examples/**"
+  - "stylelint.config.js"
