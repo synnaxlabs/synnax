@@ -21,11 +21,32 @@ from typing import Any
 # Centralized results directory for all test artifacts (screenshots, CSVs, etc.)
 RESULTS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "results")
 
+# Assets directory for test fixtures (SVGs, JSONs, etc.)
+ASSETS_DIR = os.path.join(os.path.dirname(__file__), "..", "tests", "assets")
+
 
 def get_results_path(filename: str) -> str:
     """Get the full path for a results file, ensuring the directory exists."""
     os.makedirs(RESULTS_DIR, exist_ok=True)
     return os.path.join(RESULTS_DIR, filename)
+
+
+def get_test_assets_path(filename: str) -> str:
+    """Get the full path for a test asset file.
+
+    Args:
+        filename: Name of the asset file (e.g., "test_valve.svg")
+
+    Returns:
+        Full path to the asset file.
+
+    Raises:
+        FileNotFoundError: If the asset file doesn't exist.
+    """
+    path = os.path.join(ASSETS_DIR, filename)
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Test asset not found: {path}")
+    return path
 
 
 # SY-2920: Websocket Error handling improvements

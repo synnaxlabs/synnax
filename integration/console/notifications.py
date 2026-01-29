@@ -162,3 +162,22 @@ class NotificationsClient:
             notification.wait_for(state="hidden", timeout=2000)
             return True
         return False
+
+    def wait_for(self, text: str) -> bool:
+        """Wait for a notification containing specific text to appear.
+
+        Args:
+            text: Text to search for in the notification.
+            timeout: Maximum time to wait in milliseconds.
+
+        Returns:
+            True if notification was found, False if timeout.
+        """
+        notification = self.page.locator(f".pluto-notification:has-text('{text}')")
+        try:
+            notification.wait_for(state="visible", timeout=5000)
+            return True
+        except Exception as e:
+            if "Timeout" in type(e).__name__:
+                return False
+            raise

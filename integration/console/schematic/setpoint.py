@@ -15,6 +15,8 @@ from .symbol import Symbol
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
 
+    _symbol_group = "General"
+
     def __init__(self, *, label: str, channel_name: str, symbol_type: str = "Setpoint"):
         """Initialize a setpoint symbol with configuration.
 

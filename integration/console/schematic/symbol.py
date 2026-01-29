@@ -8,12 +8,13 @@
 #  included in the file licenses/APL.txt.
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import synnax as sy
 from playwright.sync_api import FloatRect, Locator, Page
 
-from ..console import Console
+if TYPE_CHECKING:
+    from ..console import Console
 
 """ Symbol Box helpers """
 
@@ -52,12 +53,13 @@ class Symbol(ABC):
     """Base class for all schematic symbols"""
 
     page: Page
-    console: Console
+    console: "Console"
     locator: Locator
     symbol_id: str | None
     label: str
     rotatable: bool
     _symbol_type: str
+    _symbol_group: str | None = None
 
     def __init__(self, label: str, symbol_type: str, rotatable: bool = False):
         """Initialize a symbol with configuration parameters.
@@ -78,54 +80,25 @@ class Symbol(ABC):
         self.rotatable = rotatable
         self.symbol_id = None
 
-    def create(self, page: Page, console: Console) -> None:
+    def create(self, page: Page, console: "Console") -> None:
         """Attach this symbol to a schematic (called by Schematic.create_symbol).
 
-        This method adds the symbol to the schematic UI and configures it.
+        This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
         Args:
             page: Playwright Page instance
             console: Console instance for UI interactions
         """
+        from .symbol_toolbar import SymbolToolbar
+
         self.page = page
         self.console = console
 
-        # Add symbol to schematic
-        self.symbol_id = self._add_symbol_to_schematic(self._symbol_type)
+        toolbar = SymbolToolbar(self.page, self.console)
+        self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
         self.locator = self.page.get_by_test_id(self.symbol_id)
         self.set_label(self.label)
-
-        # Apply properties
         self._apply_properties()
-
-    def _add_symbol_to_schematic(self, symbol_type: str) -> str:
-        """Add a symbol to the schematic and return its ID.
-
-        Args:
-            symbol_type: The type of symbol to add (e.g., "Valve", "Button", "Three Way")
-
-        Returns:
-            The symbol ID of the newly created symbol
-        """
-        if self.page is None or self.console is None:
-            raise RuntimeError("Symbol not attached to schematic")
-
-        self.console.notifications.close_all()
-        self.console.click("Symbols")
-        initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
-
-        search_input = self.page.locator(
-            "div:has-text('Search Symbols') input[role='textbox']"
-        ).first
-        search_input.fill(symbol_type)
-        self.console.click(symbol_type)
-
-        self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
-        )
-
-        all_symbols = self.page.locator("[data-testid^='rf__node-']").all()
-        return all_symbols[-1].get_attribute("data-testid") or "unknown"
 
     @abstractmethod
     def _apply_properties(self) -> None:
@@ -140,6 +113,19 @@ class Symbol(ABC):
         edit_off_icon = self.page.get_by_label("pluto-icon--edit-off")
         if edit_off_icon.count() > 0:
             edit_off_icon.click()
+
+    def _enable_edit_mode(self) -> None:
+        self.console.notifications.close_all()
+        enable_editing_link = self.page.get_by_text("enable editing", exact=False)
+        if enable_editing_link.count() > 0:
+            enable_editing_link.click()
+            self.page.get_by_label("pluto-icon--edit-off").wait_for(
+                state="visible", timeout=2000
+            )
+            return
+        edit_icon = self.page.get_by_label("pluto-icon--edit")
+        if edit_icon.count() > 0:
+            edit_icon.click()
 
     def click(self, sleep: int = 100) -> None:
         """Click the symbol to select it.
