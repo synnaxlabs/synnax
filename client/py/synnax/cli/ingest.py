@@ -164,10 +164,8 @@ def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
 
 
 def cannot_cast_error(ctx: Context, actual: Any, ch: Channel) -> None:
-    ctx.console.error(
-        f"""Unable to cast column data type {actual}
-for {ch.name} to channel data type {ch.data_type.np}"""
-    )
+    ctx.console.error(f"""Unable to cast column data type {actual}
+for {ch.name} to channel data type {ch.data_type.np}""")
 
 
 def validate_data_types(ctx: Context, cli: IngestionCLI) -> str | None:
