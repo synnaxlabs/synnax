@@ -76,48 +76,26 @@ class SimplePressValves(SimDaqTestCase, ConsoleCase):
         for _ in range(2):
             self.log(f"Target pressure: {target_Pressure}")
             press_valve.press()
-            self.assert_states(press_state=1, vent_state=0)
-            pressure_reached = False
-            while self.should_continue:
-                pressure_value = self.get_value(PRESSURE)
-                if pressure_value is not None and pressure_value > target_Pressure:
-                    pressure_reached = True
-                    break
-            if not pressure_reached:
-                self.fail("Exiting on timeout.")
-                return
+            self.wait_for_eq("press_vlv_state", 1)
+            self.wait_for_eq("vent_vlv_state", 0)
+            self.wait_for_ge(PRESSURE, target_Pressure)
 
             # Configure next cycle
             self.log("Closing press valve")
             press_valve.press()
-            self.assert_states(press_state=0, vent_state=0)
+            self.wait_for_eq("press_vlv_state", 0)
+            self.wait_for_eq("vent_vlv_state", 0)
             target_Pressure += 20
 
         # Safe the system
         self.log("Venting the system")
         vent_valve.press()
-        self.assert_states(press_state=0, vent_state=1)
-        while self.should_continue:
-            pressure_value = self.get_value(PRESSURE)
-            if pressure_value is not None and pressure_value < 5:
-                self.log("Closing vent valve")
-                vent_valve.press()
-                self.assert_states(press_state=0, vent_state=0)
-                end_test_cmd.press()
-                self.console.screenshot("console_press_control_passed")
-                return
-
-        self.console.screenshot("console_press_control_failed")
-        self.fail("Exited without venting")
-
-    def assert_states(self, press_state: int, vent_state: int) -> None:
-        """Wait for valve states to match expected values."""
-        while self.should_continue:
-            press_vlv_state = self.get_value("press_vlv_state")
-            vent_vlv_state = self.get_value("vent_vlv_state")
-            if press_vlv_state == press_state and vent_vlv_state == vent_state:
-                return
-        self.fail(
-            f"Valve state mismatch: press={press_vlv_state} (expected {press_state}), "
-            f"vent={vent_vlv_state} (expected {vent_state})"
-        )
+        self.wait_for_eq("press_vlv_state", 0)
+        self.wait_for_eq("vent_vlv_state", 1)
+        self.wait_for_le(PRESSURE, 5)
+        self.log("Closing vent valve")
+        vent_valve.press()
+        self.wait_for_eq("press_vlv_state", 0)
+        self.wait_for_eq("vent_vlv_state", 0)
+        end_test_cmd.press()
+        self.console.screenshot("console_press_control_passed")

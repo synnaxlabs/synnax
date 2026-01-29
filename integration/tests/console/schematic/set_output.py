@@ -15,31 +15,6 @@ from console.schematic.schematic import Schematic
 from framework.utils import get_random_name
 
 
-def assert_setpoint(
-    schematic: Schematic,
-    channel_name: str,
-    expected_value: float,
-    poll_interval: float = 0.1,
-) -> None:
-    """Assert that the setpoint value in the Core matches expected.
-
-    Retries until the value matches or timeout is reached.
-    """
-    elapsed = 0.0
-    while elapsed < 3.0:
-        actual_value = schematic.get_value(channel_name)
-        if actual_value == expected_value:
-            return
-        sy.sleep(poll_interval)
-        elapsed += poll_interval
-
-    actual_value = schematic.get_value(channel_name)
-    assert actual_value == expected_value, (
-        f"Setpoint value mismatch after 3.0s!\n"
-        f"Actual: {actual_value}\nExpected: {expected_value}"
-    )
-
-
 class SetOutput(ConsoleCase):
     """
     Add a value component and edit its properties
@@ -84,11 +59,11 @@ class SetOutput(ConsoleCase):
         set_p_value = 47.23
         setpoint_symbol.set_value(set_p_value)
         self.log(f"Verifying setpoint value: {set_p_value}")
-        assert_setpoint(schematic, CHANNEL_NAME, set_p_value)
+        self.wait_for_eq(CHANNEL_NAME, set_p_value)
 
         set_p_value = 1.0101
         setpoint_symbol.set_value(set_p_value)
         self.log(f"Verifying setpoint value: {set_p_value}")
-        assert_setpoint(schematic, CHANNEL_NAME, set_p_value)
+        self.wait_for_eq(CHANNEL_NAME, set_p_value)
 
         schematic.screenshot()
