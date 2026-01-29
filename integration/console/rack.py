@@ -9,10 +9,10 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator
 
 if TYPE_CHECKING:
-    from .console import Console
+    from .layout import LayoutClient
 
 
 class RackClient:
@@ -20,24 +20,23 @@ class RackClient:
 
     ITEM_PREFIX = "rack:"
 
-    def __init__(self, page: Page, console: "Console"):
-        self.page = page
-        self.console = console
+    def __init__(self, layout: "LayoutClient"):
+        self.layout = layout
 
     def _show_devices_panel(self) -> None:
         """Show the devices panel in the navigation drawer."""
-        rack_elements = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
+        rack_elements = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
         if rack_elements.count() > 0 and rack_elements.first.is_visible():
             return
-        self.page.keyboard.press("d")
-        self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
+        self.layout.page.keyboard.press("d")
+        self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
             state="visible", timeout=5000
         )
 
     def find_item(self, name: str) -> Locator | None:
         """Find a rack item in the devices panel by name."""
         self._show_devices_panel()
-        items = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+        items = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
             has_text=name
         )
         if items.count() == 0:
@@ -63,7 +62,7 @@ class RackClient:
             timeout: Maximum time in milliseconds to wait
         """
         self._show_devices_panel()
-        rack_item = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+        rack_item = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
             has_text=name
         )
         rack_item.first.wait_for(state="hidden", timeout=timeout)
@@ -75,7 +74,7 @@ class RackClient:
         status_icon = rack_item.locator("svg.pluto-rack__heartbeat")
         status_icon.wait_for(state="visible", timeout=2000)
         status_icon.hover()
-        tooltip = self.page.locator(".pluto-tooltip")
+        tooltip = self.layout.page.locator(".pluto-tooltip")
         tooltip.wait_for(state="visible", timeout=3000)
         message = tooltip.inner_text().strip()
         class_attr = status_icon.get_attribute("class") or ""
@@ -83,7 +82,7 @@ class RackClient:
             variant = "success"
         else:
             variant = "disabled"
-        self.page.mouse.move(0, 0)
+        self.layout.page.mouse.move(0, 0)
         return {"variant": variant, "message": message}
 
     def rename(self, *, old_name: str, new_name: str) -> None:
@@ -91,10 +90,10 @@ class RackClient:
         self._show_devices_panel()
         rack_item = self.get_item(old_name)
         rack_item.click(button="right")
-        self.page.get_by_text("Rename", exact=True).click(timeout=2000)
-        self.console.select_all_and_type(new_name)
-        self.console.ENTER
-        new_item = self.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
+        self.layout.page.get_by_text("Rename", exact=True).click(timeout=2000)
+        self.layout.select_all_and_type(new_name)
+        self.layout.press_enter()
+        new_item = self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").filter(
             has_text=new_name
         )
         new_item.first.wait_for(state="visible", timeout=5000)
@@ -105,8 +104,8 @@ class RackClient:
         self._show_devices_panel()
         rack_item = self.get_item(name)
         rack_item.click(button="right")
-        self.page.get_by_text("Delete", exact=True).click(timeout=2000)
-        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        self.layout.page.get_by_text("Delete", exact=True).click(timeout=2000)
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=3000)
         delete_btn.click()
         self.wait_for_rack_removed(name)
@@ -118,5 +117,5 @@ class RackClient:
         element_id = rack_item.get_attribute("id")
         rack_key = element_id.split(":")[1] if element_id else ""
         rack_item.click(button="right")
-        self.page.get_by_text("Copy properties", exact=True).click(timeout=2000)
+        self.layout.page.get_by_text("Copy properties", exact=True).click(timeout=2000)
         return rack_key

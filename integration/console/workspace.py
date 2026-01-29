@@ -9,32 +9,117 @@
 
 import json
 import random
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
-from playwright.sync_api import Locator, Page
+import synnax as sy
+from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from framework.utils import get_results_path
 
 if TYPE_CHECKING:
     from .console import Console
+    from .layout import LayoutClient
     from .log import Log
     from .plot import Plot
     from .schematic import Schematic
 
 
+PageType = Literal[
+    "Control Sequence",
+    "Line Plot",
+    "Schematic",
+    "Log",
+    "Table",
+    "NI Analog Read Task",
+    "NI Analog Write Task",
+    "NI Counter Read Task",
+    "NI Digital Read Task",
+    "NI Digital Write Task",
+    "LabJack Read Task",
+    "LabJack Write Task",
+    "OPC UA Read Task",
+    "OPC UA Write Task",
+]
+
+
 class WorkspaceClient:
     """Workspace management for Console UI automation."""
 
-    def __init__(self, page: Page, console: "Console"):
-        """Initialize the workspace client.
-
-        Args:
-            page: Playwright Page instance
-            console: Console instance for UI interactions
-        """
-        self.page = page
+    def __init__(self, layout: "LayoutClient", console: "Console"):
+        self.layout = layout
         self.console = console
+
+    def create_page(
+        self, page_type: PageType, page_name: str | None = None
+    ) -> tuple[Locator, str]:
+        """Create a new page via New Page (+) button or command palette (randomly chosen)."""
+        self.layout.close_nav_drawer()
+        if random.random() < 0:
+            return self._create_page_by_new_page_button(page_type, page_name)
+        return self._create_page_by_command_palette(page_type, page_name)
+
+    def _create_page_by_new_page_button(
+        self, page_type: PageType, page_name: str | None = None
+    ) -> tuple[Locator, str]:
+        """Create a new page via the New Page (+) button."""
+        self.layout.close_nav_drawer()
+        add_btn = self.layout.page.locator(
+            ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
+        ).first
+        add_btn.wait_for(state="visible", timeout=5000)
+        add_btn.click(force=True)
+
+        self.layout.page.locator(".console-layout-selector__frame").wait_for(
+            state="visible", timeout=15000
+        )
+        self.layout.page.get_by_role("button", name=page_type).first.click()
+
+        return self._handle_new_page(page_type, page_name)
+
+    def _create_page_by_command_palette(
+        self, page_type: PageType, page_name: str | None = None
+    ) -> tuple[Locator, str]:
+        """Create a new page via command palette."""
+        self.layout.close_nav_drawer()
+
+        vowels = ["A", "E", "I", "O", "U"]
+        article = (
+            "an"
+            if page_type[0].upper() in vowels or page_type.startswith("NI")
+            else "a"
+        )
+        self.layout.command_palette(f"Create {article} {page_type}")
+        return self._handle_new_page(page_type, page_name)
+
+    def _handle_new_page(
+        self, page_type: PageType, page_name: str | None = None
+    ) -> tuple[Locator, str]:
+        """Handle the new page creation after clicking create button."""
+        sy.sleep(0.2)
+        modal_was_open = self.layout.is_modal_open()
+        tab_name: str = page_type
+
+        if modal_was_open:
+            tab_name = page_name if page_name is not None else page_type
+            name_input = self.layout.page.get_by_role("textbox", name="Name")
+            name_input.fill(tab_name)
+            name_input.press("ControlOrMeta+Enter")
+
+        page_tab = self.layout.get_tab(tab_name)
+        page_tab.wait_for(state="visible", timeout=15000)
+        page_id = page_tab.inner_text().strip()
+
+        if page_name is not None and not modal_was_open:
+            self.layout.rename_tab(old_name=tab_name, new_name=page_name)
+            page_id = page_name
+            page_tab = self.layout.get_tab(page_name)
+
+        return page_tab, page_id
+
+    def close_page(self, page_name: str) -> None:
+        """Close a page by name. Ignores unsaved changes."""
+        self.layout.close_tab(page_name)
 
     def get_item(self, name: str) -> Locator:
         """Get a workspace item locator from the resources toolbar.
@@ -45,7 +130,7 @@ class WorkspaceClient:
         Returns:
             Locator for the workspace item
         """
-        return self.page.locator("div[id^='workspace:']").filter(has_text=name).first
+        return self.layout.page.locator("div[id^='workspace:']").filter(has_text=name).first
 
     def exists(self, name: str) -> bool:
         """Check if a workspace exists in the resources toolbar.
@@ -56,14 +141,14 @@ class WorkspaceClient:
         Returns:
             True if workspace exists, False otherwise
         """
-        self.console.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("workspace")
         try:
-            self.page.locator("div[id^='workspace:']").first.wait_for(
+            self.layout.page.locator("div[id^='workspace:']").first.wait_for(
                 state="visible", timeout=2000
             )
         except PlaywrightTimeoutError:
             return False
-        count = self.page.locator("div[id^='workspace:']").filter(has_text=name).count()
+        count = self.layout.page.locator("div[id^='workspace:']").filter(has_text=name).count()
         return count > 0
 
     def wait_for_workspace_removed(self, name: str) -> None:
@@ -73,16 +158,16 @@ class WorkspaceClient:
             name: Name of the workspace to wait for removal
             timeout: Maximum time in milliseconds to wait
         """
-        self.console.show_resource_toolbar("workspace")
-        workspace_item = self.page.locator("div[id^='workspace:']").filter(
+        self.layout.show_resource_toolbar("workspace")
+        workspace_item = self.layout.page.locator("div[id^='workspace:']").filter(
             has_text=name
         )
         workspace_item.first.wait_for(state="hidden", timeout=5000)
 
     def expand_active(self) -> None:
         """Expand the active workspace in the resources toolbar to show its contents."""
-        self.console.show_resource_toolbar("workspace")
-        workspace_item = self.page.locator("div[id^='workspace:']").first
+        self.layout.show_resource_toolbar("workspace")
+        workspace_item = self.layout.page.locator("div[id^='workspace:']").first
         workspace_item.wait_for(state="visible", timeout=10000)
         caret = workspace_item.locator(".pluto--location-bottom")
         if caret.count() > 0:
@@ -99,7 +184,7 @@ class WorkspaceClient:
         Returns:
             Locator for the page item
         """
-        return self.page.locator(".pluto-tree__item").filter(has_text=name).first
+        return self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
 
     def page_exists(self, name: str, timeout: int = 2000) -> bool:
         """Check if a page (schematic, line plot, etc.) exists in the workspace.
@@ -138,7 +223,7 @@ class WorkspaceClient:
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
         page_item.dblclick()
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def drag_page_to_mosaic(self, name: str) -> None:
         """Drag a page from the workspace resources toolbar onto the mosaic.
@@ -149,9 +234,9 @@ class WorkspaceClient:
         self.expand_active()
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
-        mosaic = self.page.locator(".console-mosaic").first
+        mosaic = self.layout.page.locator(".console-mosaic").first
         page_item.drag_to(mosaic)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def rename_page(self, old_name: str, new_name: str) -> None:
         """Rename a page via context menu in the workspace resources toolbar.
@@ -164,12 +249,12 @@ class WorkspaceClient:
         page_item = self.get_page(old_name)
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
-        self.page.get_by_text("Rename", exact=True).click(timeout=5000)
-        self.console.select_all_and_type(new_name)
-        self.console.page.keyboard.press("Enter")
+        self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        self.layout.select_all_and_type(new_name)
+        self.layout.page.keyboard.press("Enter")
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
         self.wait_for_page_removed(old_name)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def delete_page(self, name: str) -> None:
         """Delete a page via context menu in the workspace resources toolbar.
@@ -181,12 +266,12 @@ class WorkspaceClient:
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
-        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
         self.wait_for_page_removed(name)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def delete_group(self, name: str) -> None:
         """Delete a group via context menu.
@@ -202,7 +287,7 @@ class WorkspaceClient:
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
-        menu = self.page.locator(".pluto-menu-context")
+        menu = self.layout.page.locator(".pluto-menu-context")
         menu.wait_for(state="visible", timeout=2000)
         delete_item = menu.get_by_text("Delete", exact=True)
         ungroup_item = menu.get_by_text("Ungroup", exact=True)
@@ -210,7 +295,7 @@ class WorkspaceClient:
             delete_item.click(timeout=5000)
         else:
             ungroup_item.click(timeout=5000)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def delete_pages(self, names: list[str]) -> None:
         """Delete multiple pages via multi-select and context menu.
@@ -235,13 +320,13 @@ class WorkspaceClient:
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
-        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
         for name in names:
             self.wait_for_page_removed(name)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def copy_page_link(self, name: str) -> str:
         """Copy link to a page via context menu.
@@ -256,12 +341,12 @@ class WorkspaceClient:
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
-        menu = self.page.locator(".pluto-menu-context")
+        menu = self.layout.page.locator(".pluto-menu-context")
         menu.wait_for(state="visible", timeout=2000)
         menu.get_by_text("Copy link", exact=True).click(timeout=5000)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
-        link: str = str(self.page.evaluate("navigator.clipboard.readText()"))
+        link: str = str(self.layout.page.evaluate("navigator.clipboard.readText()"))
 
         return link
 
@@ -286,14 +371,13 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        # For single item, reuse first_item; otherwise get the last item
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
-        self.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
-        self.console.select_all_and_type(group_name)
-        self.console.page.keyboard.press("Enter")
-        self.console.close_nav_drawer()
+        self.layout.page.get_by_text("Group Selection", exact=True).click(timeout=5000)
+        self.layout.select_all_and_type(group_name)
+        self.layout.page.keyboard.press("Enter")
+        self.layout.close_nav_drawer()
 
     def export_page(self, name: str) -> dict[str, Any]:
         """Export a page via context menu.
@@ -311,7 +395,7 @@ class WorkspaceClient:
         try:
             page_item.wait_for(state="visible", timeout=5000)
         except Exception as e:
-            all_items = self.page.locator(".pluto-tree__item").all()
+            all_items = self.layout.page.locator(".pluto-tree__item").all()
             item_texts = [
                 item.text_content() for item in all_items if item.is_visible()
             ]
@@ -319,15 +403,15 @@ class WorkspaceClient:
                 f"Page '{name}' not found. Available items: {item_texts}"
             ) from e
         page_item.click(button="right")
-        self.page.evaluate("delete window.showSaveFilePicker")
+        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
-        with self.page.expect_download(timeout=5000) as download_info:
-            self.page.get_by_text("Export", exact=True).first.click(timeout=5000)
+        with self.layout.page.expect_download(timeout=5000) as download_info:
+            self.layout.page.get_by_text("Export", exact=True).first.click(timeout=5000)
 
         download = download_info.value
         save_path = get_results_path(f"{name}_export.json")
         download.save_as(save_path)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
         with open(save_path, "r") as f:
             result: dict[str, Any] = json.load(f)
@@ -345,10 +429,10 @@ class WorkspaceClient:
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
 
-        snapshot_item = self.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item = self.layout.page.get_by_text(f"Snapshot to {range_name}", exact=True)
         snapshot_item.wait_for(state="visible", timeout=5000)
         snapshot_item.click(timeout=5000)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def snapshot_pages_to_active_range(self, names: list[str], range_name: str) -> None:
         """Snapshot multiple pages to the active range via context menu.
@@ -371,14 +455,13 @@ class WorkspaceClient:
             page_item.wait_for(state="visible", timeout=5000)
             page_item.click(modifiers=["ControlOrMeta"])
 
-        # For single item, reuse first_item; otherwise get the last item
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
-        snapshot_item = self.page.get_by_text(f"Snapshot to {range_name}", exact=True)
+        snapshot_item = self.layout.page.get_by_text(f"Snapshot to {range_name}", exact=True)
         snapshot_item.wait_for(state="visible", timeout=5000)
         snapshot_item.click(timeout=5000)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def copy_page(self, name: str, new_name: str) -> None:
         """Make a copy of a page via context menu.
@@ -392,15 +475,14 @@ class WorkspaceClient:
         page_item.wait_for(state="visible", timeout=5000)
         page_item.click(button="right")
 
-        copy_item = self.page.get_by_text("Copy", exact=True)
+        copy_item = self.layout.page.get_by_text("Copy", exact=True)
         copy_item.wait_for(state="visible", timeout=5000)
         copy_item.click(timeout=5000)
 
-        # After clicking Copy, a rename dialog appears
-        self.console.select_all_and_type(new_name)
-        self.console.page.keyboard.press("Enter")
+        self.layout.select_all_and_type(new_name)
+        self.layout.page.keyboard.press("Enter")
         self.get_page(new_name).wait_for(state="visible", timeout=5000)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def copy_pages(self, names: list[str]) -> None:
         """Copy multiple pages via context menu.
@@ -428,17 +510,15 @@ class WorkspaceClient:
         last_item = first_item if len(names) == 1 else self.get_page(names[-1])
         last_item.click(button="right")
 
-        copy_item = self.page.get_by_text("Copy", exact=True)
+        copy_item = self.layout.page.get_by_text("Copy", exact=True)
         copy_item.wait_for(state="visible", timeout=5000)
         copy_item.click(timeout=5000)
 
-        # When copying multiple, each gets renamed automatically with " (copy)" suffix
-        # Wait for the copies to appear
         for name in names:
             copy_name = f"{name} (copy)"
             self.get_page(copy_name).wait_for(state="visible", timeout=5000)
 
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def create(self, name: str) -> bool:
         """Create a workspace via command palette.
@@ -453,25 +533,25 @@ class WorkspaceClient:
             return False
 
         if random.choice([True, False]):
-            self.console.command_palette("Create a Workspace")
+            self.layout.command_palette("Create a Workspace")
         else:
-            self.console.close_nav_drawer()
+            self.layout.close_nav_drawer()
             selector = (
-                self.page.locator("button.pluto-dialog__trigger")
-                .filter(has=self.page.locator(".pluto-icon--workspace"))
+                self.layout.page.locator("button.pluto-dialog__trigger")
+                .filter(has=self.layout.page.locator(".pluto-icon--workspace"))
                 .first
             )
             selector.click(timeout=5000)
-            self.page.get_by_role("button", name="New", exact=True).click(timeout=5000)
+            self.layout.page.get_by_role("button", name="New", exact=True).click(timeout=5000)
 
-        name_input = self.page.locator("input[placeholder='Workspace Name']")
+        name_input = self.layout.page.locator("input[placeholder='Workspace Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
-        self.page.get_by_role("button", name="Create", exact=True).click(timeout=5000)
+        self.layout.page.get_by_role("button", name="Create", exact=True).click(timeout=5000)
         name_input.wait_for(state="hidden", timeout=5000)
-        self.console.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("workspace")
         self.get_item(name).wait_for(state="visible", timeout=5000)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
         return True
 
     def select(self, name: str) -> None:
@@ -481,18 +561,18 @@ class WorkspaceClient:
             name: Name of the workspace to select
         """
         selector = (
-            self.page.locator("button.pluto-dialog__trigger")
-            .filter(has=self.page.locator(".pluto-icon--workspace"))
+            self.layout.page.locator("button.pluto-dialog__trigger")
+            .filter(has=self.layout.page.locator(".pluto-icon--workspace"))
             .first
         )
         if name in selector.inner_text():
             return
-        self.console.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("workspace")
         self.get_item(name).dblclick(timeout=5000)
-        self.page.get_by_role("button").filter(has_text=name).wait_for(
+        self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
             state="visible", timeout=5000
         )
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename a workspace via context menu.
@@ -501,14 +581,14 @@ class WorkspaceClient:
             old_name: Current name of the workspace
             new_name: New name for the workspace
         """
-        self.console.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("workspace")
         workspace = self.get_item(old_name)
         workspace.wait_for(state="visible", timeout=5000)
         workspace.click(button="right")
-        self.page.get_by_text("Rename", exact=True).click(timeout=5000)
-        self.console.select_all_and_type(new_name)
-        self.console.page.keyboard.press("Enter")
-        self.console.close_nav_drawer()
+        self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        self.layout.select_all_and_type(new_name)
+        self.layout.page.keyboard.press("Enter")
+        self.layout.close_nav_drawer()
 
     def delete(self, name: str) -> None:
         """Delete a workspace via context menu.
@@ -516,19 +596,19 @@ class WorkspaceClient:
         Args:
             name: Name of the workspace to delete
         """
-        self.console.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("workspace")
 
         workspace = self.get_item(name)
         workspace.wait_for(state="visible", timeout=5000)
         workspace.click(button="right", timeout=5000)
 
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
 
-        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
         self.wait_for_workspace_removed(name)
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def ensure_selected(self, name: str) -> None:
         """Create a workspace if it doesn't exist and select it.
@@ -536,8 +616,8 @@ class WorkspaceClient:
         Args:
             name: Name of the workspace to ensure is selected
         """
-        selector = self.page.locator("button.pluto-dialog__trigger").filter(
-            has=self.page.locator(".pluto-icon--workspace")
+        selector = self.layout.page.locator("button.pluto-dialog__trigger").filter(
+            has=self.layout.page.locator(".pluto-icon--workspace")
         )
         if name in selector.inner_text(timeout=1000):
             return

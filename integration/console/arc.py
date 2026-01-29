@@ -9,10 +9,11 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import Locator, Page
+from playwright.sync_api import Locator
 
 if TYPE_CHECKING:
-    from .console import Console
+    from .layout import LayoutClient
+    from .notifications import NotificationsClient
 
 
 class ArcClient:
@@ -22,146 +23,202 @@ class ArcClient:
     CONTROLS_CLASS = ".console-arc-editor__controls"
     LIST_ITEM_CLASS = ".pluto-list__item"
 
-    def __init__(self, page: Page, console: "Console"):
-        self.page = page
-        self.console = console
+    def __init__(self, layout: "LayoutClient", notifications: "NotificationsClient"):
+        self.layout = layout
+        self.notifications = notifications
 
     def _show_arc_panel(self) -> None:
-        """Show the arc panel in the navigation drawer."""
-        self.console.ESCAPE
-        toolbar = self.page.locator(self.TOOLBAR_CLASS)
+        """Show the Arc panel in the navigation drawer.
+
+        Closes any open modal/dropdown first, then clicks the Arc button
+        in the sidebar if the toolbar is not already visible.
+        """
+        self.layout.press_escape()
+        toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
         if toolbar.count() > 0 and toolbar.is_visible():
             return
-        arc_btn = self.page.locator("button:has(.pluto-icon--arc)")
+        arc_btn = self.layout.page.locator("button:has(.pluto-icon--arc)")
         arc_btn.click()
         toolbar.wait_for(state="visible", timeout=5000)
 
     def _get_controls(self) -> Locator:
-        """Get the Arc editor controls locator."""
-        controls = self.page.locator(self.CONTROLS_CLASS)
+        """Get the Arc editor controls locator.
+
+        Returns:
+            Locator for the Arc editor controls section.
+        """
+        controls = self.layout.page.locator(self.CONTROLS_CLASS)
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
     def create(self, name: str, source: str, mode: str = "Text") -> None:
-        """Create a new Arc via Console UI."""
+        """Create a new Arc automation via Console UI.
+
+        Args:
+            name: The name for the new Arc automation.
+            source: The source code/content for the Arc.
+            mode: The Arc mode, either "Text" or "Diagram". Defaults to "Text".
+        """
         self._show_arc_panel()
 
-        add_btn = self.page.locator(f"{self.TOOLBAR_CLASS} button").first
+        add_btn = self.layout.page.locator(f"{self.TOOLBAR_CLASS} button").first
         add_btn.click()
 
-        name_input = self.page.locator("input[placeholder='Automation Name']")
+        name_input = self.layout.page.locator("input[placeholder='Automation Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
 
-        mode_btn = self.page.locator(
+        mode_btn = self.layout.page.locator(
             f".console-arc-create-modal__mode-select-button:has-text('{mode}')"
         )
         mode_btn.wait_for(state="visible", timeout=5000)
         mode_btn.click()
 
-        create_btn = self.page.get_by_role("button", name="Create", exact=True)
+        create_btn = self.layout.page.get_by_role("button", name="Create", exact=True)
         create_btn.wait_for(state="visible", timeout=5000)
         create_btn.click()
         name_input.wait_for(state="hidden", timeout=10000)
 
         if mode == "Text":
-            editor = self.page.locator("[data-mode-id='arc']")
+            editor = self.layout.page.locator("[data-mode-id='arc']")
             editor.wait_for(state="visible", timeout=10000)
             editor.click()
             editor.locator(".cursor").wait_for(state="visible", timeout=5000)
             editor.locator(".monaco-editor.focused").wait_for(
                 state="visible", timeout=5000
             )
-            self.page.keyboard.press("ControlOrMeta+a")
-            self.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
-            self.page.keyboard.press("ControlOrMeta+v")
+            self.layout.page.keyboard.press("ControlOrMeta+a")
+            self.layout.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
+            self.layout.page.keyboard.press("ControlOrMeta+v")
 
     def find_item(self, name: str) -> Locator | None:
-        """Find an Arc item in the panel by name."""
+        """Find an Arc item in the panel by name.
+
+        Args:
+            name: The name of the Arc to find.
+
+        Returns:
+            Locator for the Arc item, or None if not found.
+        """
         self._show_arc_panel()
-        toolbar = self.page.locator(self.TOOLBAR_CLASS)
+        toolbar = self.layout.page.locator(self.TOOLBAR_CLASS)
         items = toolbar.locator(self.LIST_ITEM_CLASS).filter(has_text=name)
         if items.count() == 0:
             return None
         return items.first
 
     def get_item(self, name: str) -> Locator:
-        """Get an Arc item locator from the panel."""
+        """Get an Arc item locator from the panel.
+
+        Args:
+            name: The name of the Arc to get.
+
+        Returns:
+            Locator for the Arc item.
+
+        Raises:
+            ValueError: If the Arc is not found in the panel.
+        """
         item = self.find_item(name)
         if item is None:
             raise ValueError(f"Arc '{name}' not found in panel")
         return item
 
     def open(self, name: str) -> None:
-        """Open an Arc by double-clicking its item in the panel."""
+        """Open an Arc by double-clicking its item in the panel.
+
+        Args:
+            name: The name of the Arc to open.
+        """
         self._show_arc_panel()
         item = self.get_item(name)
         item.dblclick()
-        self.page.locator("[data-mode-id='arc']").wait_for(
+        self.layout.page.locator("[data-mode-id='arc']").wait_for(
             state="visible", timeout=5000
         )
 
     def select_rack(self, rack_name: str) -> None:
-        """Select a rack from the rack dropdown in the Arc editor controls."""
+        """Select a rack from the rack dropdown in the Arc editor controls.
+
+        Args:
+            rack_name: The name of the rack to select.
+        """
         controls = self._get_controls()
         rack_dropdown = controls.locator("button").first
         rack_dropdown.wait_for(state="visible", timeout=5000)
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         rack_dropdown.click()
-        self.console.select_from_dropdown(rack_name, placeholder="Search")
+        self.layout.select_from_dropdown(rack_name, placeholder="Search")
 
     def configure(self) -> None:
-        """Click the Configure button in the Arc editor controls."""
+        """Click the Configure button in the Arc editor controls.
+
+        Waits for the "Task configured successfully" message to appear.
+        """
         controls = self._get_controls()
         configure_btn = controls.locator("button:has-text('Configure')")
         configure_btn.wait_for(state="visible", timeout=5000)
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         configure_btn.click()
         controls.locator("text=Task configured successfully").wait_for(
             state="visible", timeout=15000
         )
 
     def start(self) -> None:
-        """Click the Play button to start the Arc."""
+        """Click the Play button to start the Arc.
+
+        Waits for the "Task started successfully" message to appear.
+        """
         controls = self._get_controls()
         play_btn = controls.locator("button:has(.pluto-icon--play)")
         play_btn.wait_for(state="visible", timeout=5000)
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         play_btn.click()
         controls.locator("text=Task started successfully").wait_for(
             state="visible", timeout=15000
         )
 
     def stop(self) -> None:
-        """Click the Pause button to stop the Arc."""
+        """Click the Pause button to stop the Arc.
+
+        Waits for the "Task stopped successfully" message to appear.
+        """
         self._show_arc_panel()
         controls = self._get_controls()
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         pause_btn.wait_for(state="visible", timeout=5000)
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         pause_btn.click()
         controls.locator("text=Task stopped successfully").wait_for(
             state="visible", timeout=15000
         )
 
     def is_running(self) -> bool:
-        """Check if the Arc is currently running by looking for the pause button."""
+        """Check if the Arc is currently running by looking for the pause button.
+
+        Returns:
+            True if the Arc is running (pause button visible), False otherwise.
+        """
         self._show_arc_panel()
-        controls = self.page.locator(self.CONTROLS_CLASS)
+        controls = self.layout.page.locator(self.CONTROLS_CLASS)
         if controls.count() == 0:
             return False
         pause_btn = controls.locator("button:has(.pluto-icon--pause)")
         return pause_btn.count() > 0 and pause_btn.is_visible()
 
     def delete(self, name: str) -> None:
-        """Delete an Arc via context menu."""
+        """Delete an Arc via context menu.
+
+        Args:
+            name: The name of the Arc to delete.
+        """
         self._show_arc_panel()
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        context_delete = self.page.get_by_text("Delete", exact=True)
+        context_delete = self.layout.page.get_by_text("Delete", exact=True)
         context_delete.wait_for(state="visible", timeout=3000)
         context_delete.click()
-        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=3000)
         delete_btn.click()

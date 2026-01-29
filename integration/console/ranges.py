@@ -9,19 +9,16 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import (
-    Locator,
-    Page,
-)
+from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from playwright.sync_api import (
-    expect,
-)
+from playwright.sync_api import expect
 
 from framework.utils import get_results_path, rgb_to_hex
 
 if TYPE_CHECKING:
     from .console import Console
+    from .layout import LayoutClient
+    from .notifications import NotificationsClient
 
 
 class RangesClient:
@@ -36,8 +33,14 @@ class RangesClient:
     CREATE_MODAL_SELECTOR = ".console-range-create-layout"
     NAME_INPUT_PLACEHOLDER = "Range Name"
 
-    def __init__(self, page: Page, console: "Console"):
-        self.page = page
+    def __init__(
+        self,
+        layout: "LayoutClient",
+        notifications: "NotificationsClient",
+        console: "Console",
+    ):
+        self.layout = layout
+        self.notifications = notifications
         self.console = console
 
     def open_from_search(self, name: str) -> None:
@@ -46,42 +49,42 @@ class RangesClient:
         Args:
             name: Name of the range to search for and open.
         """
-        self.console.search_palette(name)
-        name_input = self.page.locator("input[placeholder='Name']").first
+        self.layout.search_palette(name)
+        name_input = self.layout.page.locator("input[placeholder='Name']").first
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
     def show_toolbar(self) -> None:
         """Show the ranges toolbar in the left sidebar (favorites only)."""
-        toolbar_header = self.page.get_by_text("Ranges", exact=True).first
+        toolbar_header = self.layout.page.get_by_text("Ranges", exact=True).first
         if toolbar_header.is_visible():
             return
-        self.page.keyboard.press("r")
+        self.layout.page.keyboard.press("r")
         toolbar_header.wait_for(state="visible")
 
     def hide_toolbar(self) -> None:
         """Hide the ranges toolbar."""
-        self.console.close_nav_drawer()
+        self.layout.close_nav_drawer()
 
     def open_explorer(self) -> None:
         """Open the Range Explorer page (shows all ranges)."""
-        self.console.command_palette("Open Range Explorer")
-        self.page.get_by_text("All Ranges").wait_for(state="visible", timeout=5000)
+        self.layout.command_palette("Open Range Explorer")
+        self.layout.page.get_by_text("All Ranges").wait_for(state="visible", timeout=5000)
 
     def get_toolbar_item(self, name: str) -> Locator:
         """Get a range item locator from the toolbar by name."""
-        return self.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name).first
+        return self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name).first
 
     def get_explorer_item(self, name: str) -> Locator:
         """Get a range item locator from the explorer by name."""
         return (
-            self.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name).first
+            self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name).first
         )
 
     def exists_in_toolbar(self, name: str) -> bool:
         """Check if a range exists in the toolbar (is favorited)."""
         self.show_toolbar()
-        items = self.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
         try:
             items.first.wait_for(state="visible", timeout=5000)
             return True
@@ -90,7 +93,7 @@ class RangesClient:
 
     def exists_in_explorer(self, name: str) -> bool:
         """Check if a range exists in the explorer."""
-        items = self.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
         try:
             items.first.wait_for(state="visible", timeout=5000)
             return True
@@ -100,12 +103,12 @@ class RangesClient:
     def wait_for_removed_from_toolbar(self, name: str) -> None:
         """Wait for a range to be removed from the toolbar."""
         self.show_toolbar()
-        items = self.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.TOOLBAR_ITEM_SELECTOR).filter(has_text=name)
         items.first.wait_for(state="hidden", timeout=5000)
 
     def wait_for_removed_from_explorer(self, name: str) -> None:
         """Wait for a range to be removed from the explorer."""
-        items = self.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
+        items = self.layout.page.locator(self.EXPLORER_ITEM_SELECTOR).filter(has_text=name)
         items.first.wait_for(state="hidden", timeout=5000)
 
     def create(
@@ -126,12 +129,12 @@ class RangesClient:
             labels: Optional list of label names to add.
             stage: Optional stage to set ("To Do", "In Progress", "Completed").
         """
-        self.console.command_palette("Create a Range")
+        self.layout.command_palette("Create a Range")
 
-        modal = self.page.locator(self.CREATE_MODAL_SELECTOR)
+        modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
-        name_input = self.page.locator(
+        name_input = self.layout.page.locator(
             f"input[placeholder='{self.NAME_INPUT_PLACEHOLDER}']"
         )
         name_input.fill(name)
@@ -145,25 +148,25 @@ class RangesClient:
                 .first
             )
             stage_button.click()
-            self.page.locator(".pluto-list__item").filter(has_text=stage).click(
+            self.layout.page.locator(".pluto-list__item").filter(has_text=stage).click(
                 timeout=2000
             )
 
         if parent is not None:
             parent_button = modal.locator("button").filter(has_text="Select a range")
             parent_button.click()
-            search_input = self.page.locator("input[placeholder='Search ranges...']")
+            search_input = self.layout.page.locator("input[placeholder='Search ranges...']")
             search_input.fill(parent)
-            self.page.locator(".pluto-range__list-item").filter(has_text=parent).click(
+            self.layout.page.locator(".pluto-range__list-item").filter(has_text=parent).click(
                 timeout=5000
             )
 
         if labels is not None:
-            label_button = self.page.get_by_text("Select labels", exact=True)
+            label_button = self.layout.page.get_by_text("Select labels", exact=True)
             label_button.click(timeout=5000)
             for label_name in labels:
                 label_item = (
-                    self.page.locator(".pluto-list__item")
+                    self.layout.page.locator(".pluto-list__item")
                     .filter(has_text=label_name)
                     .first
                 )
@@ -171,19 +174,19 @@ class RangesClient:
                     label_item.wait_for(state="visible", timeout=3000)
                     label_item.click(timeout=2000)
                 except PlaywrightTimeoutError:
-                    all_labels = self.page.locator(".pluto-list__item").all()
+                    all_labels = self.layout.page.locator(".pluto-list__item").all()
                     available_labels = [
                         lbl.text_content() for lbl in all_labels if lbl.is_visible()
                     ]
                     raise RuntimeError(
                         f"Error selecting label '{label_name}'. Available labels: {available_labels}."
                     )
-            self.page.keyboard.press("Escape")
+            self.layout.page.keyboard.press("Escape")
 
         if persisted:
-            save_button = self.page.get_by_role("button", name="Save to Synnax")
+            save_button = self.layout.page.get_by_role("button", name="Save to Synnax")
         else:
-            save_button = self.page.get_by_role("button", name="Save Locally")
+            save_button = self.layout.page.get_by_role("button", name="Save Locally")
 
         save_button.click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
@@ -200,24 +203,24 @@ class RangesClient:
         item = self.get_explorer_item(old_name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        self.page.get_by_text("Rename", exact=True).click(timeout=5000)
-        name_input = self.page.locator("input[placeholder='Name']")
+        self.layout.page.get_by_text("Rename", exact=True).click(timeout=5000)
+        name_input = self.layout.page.locator("input[placeholder='Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(new_name)
-        save_btn = self.page.get_by_role("button", name="Save", exact=True)
+        save_btn = self.layout.page.get_by_role("button", name="Save", exact=True)
         save_btn.click(timeout=5000)
         # adding an a manual wait because range renaming does not yet have an optimistic
         # update
-        self.page.wait_for_timeout(400)
+        self.layout.page.wait_for_timeout(400)
 
     def delete_from_explorer(self, name: str) -> None:
         """Delete a range via context menu in the explorer."""
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        self.page.get_by_text("Delete", exact=True).click(timeout=5000)
+        self.layout.page.get_by_text("Delete", exact=True).click(timeout=5000)
 
-        delete_btn = self.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
         delete_btn.wait_for(state="hidden", timeout=5000)
@@ -225,15 +228,15 @@ class RangesClient:
 
     def favorite_from_explorer(self, name: str) -> None:
         """Add a range to favorites via context menu in the explorer."""
-        self.console.layout.hide_visualization_toolbar()
+        self.layout.hide_visualization_toolbar()
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        add_btn = self.page.get_by_text("Add to favorites", exact=True)
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
+        add_btn = self.layout.page.get_by_text("Add to favorites", exact=True)
+        remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
-            self.page.keyboard.press("Escape")
+            self.layout.page.keyboard.press("Escape")
             return
         add_btn.click(timeout=5000)
         add_btn.wait_for(state="hidden", timeout=2000)
@@ -244,7 +247,7 @@ class RangesClient:
         item = self.get_toolbar_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
+        remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         remove_btn.wait_for(state="visible", timeout=5000)
         remove_btn.click()
         self.wait_for_removed_from_toolbar(name)
@@ -257,7 +260,7 @@ class RangesClient:
         """
         self.open_from_search(name)
 
-        favorite_btn = self.page.locator("button.console-favorite-button")
+        favorite_btn = self.layout.page.locator("button.console-favorite-button")
         favorite_btn.wait_for(state="visible", timeout=5000)
 
         button_class = favorite_btn.get_attribute("class") or ""
@@ -265,11 +268,11 @@ class RangesClient:
 
         if not is_favorited:
             favorite_btn.click(force=True)
-            self.page.locator(
+            self.layout.page.locator(
                 "button.console-favorite-button.console--favorite"
             ).wait_for(state="visible", timeout=2000)
 
-        self.console.close_page(name)
+        self.layout.close_tab(name)
 
     def open_overview_from_explorer(self, name: str) -> None:
         """Open the range overview/details page from explorer."""
@@ -283,7 +286,7 @@ class RangesClient:
         Args:
             parent_name: The name of the parent range to navigate to.
         """
-        parent_button = self.page.get_by_role("button").filter(has_text=parent_name)
+        parent_button = self.layout.page.get_by_role("button").filter(has_text=parent_name)
         parent_button.click(timeout=5000)
 
     def wait_for_overview(self, name: str, timeout: int = 5000) -> None:
@@ -293,7 +296,7 @@ class RangesClient:
             name: The name of the range to wait for.
             timeout: Maximum time to wait in milliseconds.
         """
-        name_input = self.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']").first
         name_input.wait_for(state="visible", timeout=timeout)
         expect(name_input).to_have_value(name, timeout=timeout)
 
@@ -306,7 +309,7 @@ class RangesClient:
         Returns:
             True if the overview shows the range name in the header.
         """
-        header = self.page.locator("input[placeholder='Name']").first
+        header = self.layout.page.locator("input[placeholder='Name']").first
         if not header.is_visible():
             return False
         return header.input_value() == name
@@ -352,7 +355,7 @@ class RangesClient:
     ) -> None:
         """Fill a datetime input using the datetime picker modal."""
         field.click()
-        modal = self.page.locator(".pluto-datetime-modal")
+        modal = self.layout.page.locator(".pluto-datetime-modal")
         modal.wait_for(state="visible", timeout=5000)
 
         picker = modal.locator(".pluto-datetime-picker")
@@ -369,10 +372,10 @@ class RangesClient:
         self._select_time_value(time_lists.nth(1), minute)
         self._select_time_value(time_lists.nth(2), second)
 
-        done_btn = self.page.get_by_role("button", name="Done")
+        done_btn = self.layout.page.get_by_role("button", name="Done")
         done_btn.click()
         modal.wait_for(state="hidden", timeout=5000)
-        self.page.wait_for_load_state("networkidle", timeout=5000)
+        self.layout.page.wait_for_load_state("networkidle", timeout=5000)
 
     def set_start_time_in_overview(
         self,
@@ -393,7 +396,7 @@ class RangesClient:
             minute: The minute (0-59).
             second: The second (0-59).
         """
-        time_range = self.page.locator(".console-time-range")
+        time_range = self.layout.page.locator(".console-time-range")
         from_btn = time_range.locator("button").first
         from_btn.wait_for(state="visible", timeout=5000)
         self._fill_datetime_picker(from_btn, year, month, day, hour, minute, second)
@@ -417,7 +420,7 @@ class RangesClient:
             minute: The minute (0-59).
             second: The second (0-59).
         """
-        time_range = self.page.locator(".console-time-range")
+        time_range = self.layout.page.locator(".console-time-range")
         to_btn = time_range.locator("button").nth(1)
         to_btn.wait_for(state="visible", timeout=5000)
         self._fill_datetime_picker(to_btn, year, month, day, hour, minute, second)
@@ -429,14 +432,14 @@ class RangesClient:
             stage: The stage to set ("To Do", "In Progress", "Completed").
         """
         stage_button = (
-            self.page.locator("button")
+            self.layout.page.locator("button")
             .filter(has_text="To Do")
-            .or_(self.page.locator("button").filter(has_text="In Progress"))
-            .or_(self.page.locator("button").filter(has_text="Completed"))
+            .or_(self.layout.page.locator("button").filter(has_text="In Progress"))
+            .or_(self.layout.page.locator("button").filter(has_text="Completed"))
             .first
         )
         stage_button.click()
-        dropdown = self.page.locator(".pluto-list__item").filter(has_text=stage)
+        dropdown = self.layout.page.locator(".pluto-list__item").filter(has_text=stage)
         dropdown.click(timeout=2000)
         dropdown.wait_for(state="hidden", timeout=2000)
 
@@ -446,26 +449,26 @@ class RangesClient:
         Args:
             label_name: The name of the label to add.
         """
-        labels_row = self.page.get_by_text("Labels", exact=True).locator("..")
+        labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
         add_button = labels_row.locator("button").last
         add_button.wait_for(state="visible", timeout=2000)
         add_button.click()
-        self.page.locator(".pluto-list__item:not(.pluto--hidden)").first.wait_for(
+        self.layout.page.locator(".pluto-list__item:not(.pluto--hidden)").first.wait_for(
             state="visible", timeout=2000
         )
-        item = self.page.locator(".pluto-list__item").filter(has_text=label_name).first
+        item = self.layout.page.locator(".pluto-list__item").filter(has_text=label_name).first
         try:
             item.wait_for(state="visible", timeout=5000)
             item.click(timeout=2000)
         except Exception as e:
-            all_items = self.page.locator(".pluto-list__item").all()
+            all_items = self.layout.page.locator(".pluto-list__item").all()
             available_labels = [
                 lbl.text_content() for lbl in all_items if lbl.is_visible()
             ]
             raise RuntimeError(
                 f"Label '{label_name}' not found in dropdown. Available: {available_labels}"
             ) from e
-        self.page.keyboard.press("Escape")
+        self.layout.page.keyboard.press("Escape")
         item.wait_for(state="hidden", timeout=2000)
 
     def remove_label_in_overview(self, label_name: str) -> None:
@@ -474,12 +477,12 @@ class RangesClient:
         Args:
             label_name: The name of the label to remove.
         """
-        labels_row = self.page.get_by_text("Labels", exact=True).locator("..")
+        labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
         add_button = labels_row.locator("button").last
         add_button.click()
-        item = self.page.locator(".pluto-list__item").filter(has_text=label_name).first
+        item = self.layout.page.locator(".pluto-list__item").filter(has_text=label_name).first
         item.click(timeout=2000)
-        self.page.keyboard.press("Escape")
+        self.layout.page.keyboard.press("Escape")
         item.wait_for(state="hidden", timeout=2000)
 
     def get_labels_in_overview(self) -> list[str]:
@@ -488,7 +491,7 @@ class RangesClient:
         Returns:
             A list of label names.
         """
-        labels_row = self.page.get_by_text("Labels", exact=True).locator("..")
+        labels_row = self.layout.page.get_by_text("Labels", exact=True).locator("..")
         label_chips = labels_row.locator(".pluto-tag")
         labels = []
         for i in range(label_chips.count()):
@@ -503,41 +506,41 @@ class RangesClient:
         Args:
             new_name: The new name for the range.
         """
-        name_input = self.page.locator("input[placeholder='Name']").first
+        name_input = self.layout.page.locator("input[placeholder='Name']").first
         name_input.wait_for(state="visible", timeout=5000)
         name_input.click()
         name_input.fill(new_name)
         name_input.blur()
-        self.page.wait_for_load_state("networkidle", timeout=5000)
+        self.layout.page.wait_for_load_state("networkidle", timeout=5000)
 
     def copy_python_code_from_overview(self) -> None:
         """Click the Python code copy button in the range overview."""
-        python_btn = self.page.locator("button:has(svg.pluto-icon--python)")
+        python_btn = self.layout.page.locator("button:has(svg.pluto-icon--python)")
         python_btn.click(timeout=5000)
 
     def copy_typescript_code_from_overview(self) -> None:
         """Click the TypeScript code copy button in the range overview."""
-        ts_btn = self.page.locator("button:has(svg.pluto-icon--typescript)")
+        ts_btn = self.layout.page.locator("button:has(svg.pluto-icon--typescript)")
         ts_btn.click(timeout=5000)
 
     def copy_link_from_overview(self) -> None:
         """Click the copy link button in the range overview."""
-        link_btn = self.page.locator("button:has(svg.pluto-icon--link)")
+        link_btn = self.layout.page.locator("button:has(svg.pluto-icon--link)")
         link_btn.click(timeout=5000)
 
     def open_csv_download_modal(self) -> None:
         """Click the CSV download button in the range overview and wait for modal."""
-        csv_btn = self.page.locator("button:has(svg.pluto-icon--csv)")
+        csv_btn = self.layout.page.locator("button:has(svg.pluto-icon--csv)")
         csv_btn.click(timeout=5000)
-        self.page.get_by_text("Download data for").wait_for(
+        self.layout.page.get_by_text("Download data for").wait_for(
             state="visible", timeout=5000
         )
 
     def close_csv_download_modal(self) -> None:
         """Close the CSV download modal."""
-        close_btn = self.page.locator("button:has(svg.pluto-icon--close)").first
+        close_btn = self.layout.page.locator("button:has(svg.pluto-icon--close)").first
         close_btn.click(timeout=2000)
-        self.page.get_by_text("Download data for").wait_for(
+        self.layout.page.get_by_text("Download data for").wait_for(
             state="hidden", timeout=5000
         )
 
@@ -551,20 +554,20 @@ class RangesClient:
         Returns:
             The CSV file contents as a string.
         """
-        self.console.notifications.close_all()
+        self.notifications.close_all()
         self.open_csv_download_modal()
 
-        channels_dropdown = self.page.get_by_text("Select channels to download")
+        channels_dropdown = self.layout.page.get_by_text("Select channels to download")
         channels_dropdown.click(timeout=5000)
-        search_input = self.page.locator("input[placeholder*='Search']")
+        search_input = self.layout.page.locator("input[placeholder*='Search']")
         search_input.fill(channel)
-        self.console.select_from_dropdown(channel)
-        self.console.ESCAPE
+        self.layout.select_from_dropdown(channel)
+        self.layout.press_escape()
 
-        download_button = self.page.get_by_role("button", name="Download").last
-        self.page.evaluate("delete window.showSaveFilePicker")
+        download_button = self.layout.page.get_by_role("button", name="Download").last
+        self.layout.page.evaluate("delete window.showSaveFilePicker")
 
-        with self.page.expect_download() as download_info:
+        with self.layout.page.expect_download() as download_info:
             download_button.click()
 
         download = download_info.value
@@ -576,7 +579,7 @@ class RangesClient:
     def _get_child_ranges_section(self) -> Locator:
         """Get the Child Ranges section in the overview."""
         return (
-            self.page.get_by_text("Child Ranges", exact=True)
+            self.layout.page.get_by_text("Child Ranges", exact=True)
             .locator("..")
             .locator("..")
         )
@@ -608,7 +611,7 @@ class RangesClient:
         section = self._get_child_ranges_section()
         add_btn = section.locator("button:has(svg.pluto-icon--add)")
         add_btn.click(timeout=5000)
-        modal = self.page.locator(self.CREATE_MODAL_SELECTOR)
+        modal = self.layout.page.locator(self.CREATE_MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
     def set_child_range_stage(self, name: str, stage: str) -> None:
@@ -622,21 +625,21 @@ class RangesClient:
         item.wait_for(state="visible", timeout=5000)
         stage_button = (
             item.locator("button")
-            .filter(has=self.page.locator("svg.pluto-icon--to-do"))
+            .filter(has=self.layout.page.locator("svg.pluto-icon--to-do"))
             .or_(
                 item.locator("button").filter(
-                    has=self.page.locator("svg.pluto-icon--in-progress")
+                    has=self.layout.page.locator("svg.pluto-icon--in-progress")
                 )
             )
             .or_(
                 item.locator("button").filter(
-                    has=self.page.locator("svg.pluto-icon--completed")
+                    has=self.layout.page.locator("svg.pluto-icon--completed")
                 )
             )
             .first
         )
         stage_button.click()
-        dropdown = self.page.locator(".pluto-list__item").filter(has_text=stage)
+        dropdown = self.layout.page.locator(".pluto-list__item").filter(has_text=stage)
         dropdown.click(timeout=2000)
         dropdown.wait_for(state="hidden", timeout=2000)
 
@@ -649,8 +652,8 @@ class RangesClient:
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        add_btn = self.page.get_by_text("Add to favorites", exact=True)
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
+        add_btn = self.layout.page.get_by_text("Add to favorites", exact=True)
+        remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         add_btn.or_(remove_btn).wait_for(state="visible", timeout=2000)
         if remove_btn.is_visible():
             remove_btn.click()
@@ -669,7 +672,7 @@ class RangesClient:
         item = self.get_child_range_item(name)
         item.wait_for(state="visible", timeout=5000)
         item.click(button="right")
-        remove_btn = self.page.get_by_text("Remove from favorites", exact=True)
+        remove_btn = self.layout.page.get_by_text("Remove from favorites", exact=True)
         remove_btn.wait_for(state="visible", timeout=2000)
         remove_btn.click()
         self.wait_for_removed_from_toolbar(name)
@@ -775,7 +778,7 @@ class RangesClient:
         Returns:
             Locator for the snapshot item.
         """
-        return self.page.locator(".console-snapshots__list-item").filter(has_text=name)
+        return self.layout.page.locator(".console-snapshots__list-item").filter(has_text=name)
 
     def snapshot_exists_in_overview(self, name: str, timeout: int = 5000) -> bool:
         """Check if a snapshot exists in the Snapshots section of the overview.
@@ -809,5 +812,5 @@ class RangesClient:
         Returns:
             List of snapshot names.
         """
-        items = self.page.locator(".console-snapshots__list-item")
+        items = self.layout.page.locator(".console-snapshots__list-item")
         return [items.nth(i).inner_text().strip() for i in range(items.count())]

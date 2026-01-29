@@ -9,53 +9,68 @@
 
 from typing import TYPE_CHECKING
 
-from playwright.sync_api import (
-    FrameLocator,
-    Locator,
-    Page,
-)
+from playwright.sync_api import FrameLocator, Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 if TYPE_CHECKING:
-    from .console import Console
+    from .layout import LayoutClient
 
 
 class DocsClient:
     """Documentation client for Console UI automation."""
 
-    def __init__(self, page: Page, console: "Console"):
-        self.page = page
-        self.console = console
+    def __init__(self, layout: "LayoutClient"):
+        self.layout = layout
 
     def open_via_command_palette(self) -> None:
-        self.console.command_palette("Read the documentation")
+        """Open the documentation page via the command palette."""
+        self.layout.command_palette("Read the documentation")
         self._wait_for_docs_tab()
 
     def open_via_question_mark_icon(self) -> None:
-        btn = self.page.locator(".console-docs__open-button")
+        """Open the documentation page by clicking the question mark icon."""
+        btn = self.layout.page.locator(".console-docs__open-button")
         btn.wait_for(state="visible", timeout=5000)
         btn.click()
         self._wait_for_docs_tab()
 
     def close(self) -> None:
-        self.console.layout.close_tab("Documentation")
+        """Close the documentation tab."""
+        self.layout.close_tab("Documentation")
 
     @property
     def is_open(self) -> bool:
-        return self.console.layout.get_tab("Documentation").count() > 0
+        """Check if the documentation tab is currently open."""
+        return self.layout.get_tab("Documentation").count() > 0
 
     def _get_iframe(self) -> Locator:
-        return self.page.locator(".console-docs iframe")
+        """Get the documentation iframe element locator."""
+        return self.layout.page.locator(".console-docs iframe")
 
     def get_frame(self) -> FrameLocator:
-        return self.page.frame_locator(".console-docs iframe")
+        """Get the documentation iframe as a FrameLocator for content interaction."""
+        return self.layout.page.frame_locator(".console-docs iframe")
 
     def get_iframe_url(self) -> str:
+        """Get the current URL loaded in the documentation iframe.
+
+        Returns:
+            The iframe src attribute value, or empty string if not set.
+        """
         iframe = self._get_iframe()
         iframe.wait_for(state="visible", timeout=10000)
         return iframe.get_attribute("src") or ""
 
     def has_text(self, text: str, timeout: int = 10000) -> bool:
+        """Check if the documentation iframe contains specific text.
+
+        Args:
+            text: The text to search for in the iframe content.
+            timeout: Maximum time in milliseconds to wait for the text.
+
+        Returns:
+            True if the text is found and visible, False otherwise.
+        """
         try:
             self.get_frame().get_by_text(text).first.wait_for(
                 state="visible", timeout=timeout
@@ -65,8 +80,15 @@ class DocsClient:
             return False
 
     def wait_for_iframe_loaded(self, timeout: int = 15000) -> None:
+        """Wait for the documentation iframe to be fully loaded.
+
+        Waits for the iframe to be visible and any loading spinner to disappear.
+
+        Args:
+            timeout: Maximum time in milliseconds to wait.
+        """
         self._get_iframe().wait_for(state="visible", timeout=timeout)
-        loader = self.page.locator(".console-docs .pluto--loader")
+        loader = self.layout.page.locator(".console-docs .pluto--loader")
         if loader.count() > 0:
             try:
                 loader.wait_for(state="hidden", timeout=timeout)
@@ -74,6 +96,5 @@ class DocsClient:
                 pass
 
     def _wait_for_docs_tab(self) -> None:
-        self.console.layout.get_tab("Documentation").wait_for(
-            state="visible", timeout=10000
-        )
+        """Wait for the Documentation tab to become visible."""
+        self.layout.get_tab("Documentation").wait_for(state="visible", timeout=10000)
