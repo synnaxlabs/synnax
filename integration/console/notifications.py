@@ -11,7 +11,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 import synnax as sy
-from playwright.sync_api import Page
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
 
 if TYPE_CHECKING:
     from .console import Console
@@ -149,9 +149,8 @@ class NotificationsClient:
         """Close the 'Connected to...' notification if present.
 
         Returns:
-            True if notification was found and closed, False otherwise.
+            True if notification was found and close was triggered, False otherwise.
         """
-
         notification = self.page.locator(".pluto-notification:has-text('Connected to')")
         if notification.count() == 0:
             return False
@@ -159,7 +158,6 @@ class NotificationsClient:
         close_btn = notification.locator(".pluto-notification__silence")
         if close_btn.count() > 0:
             close_btn.click(force=True)
-            notification.wait_for(state="hidden", timeout=2000)
             return True
         return False
 
@@ -177,7 +175,5 @@ class NotificationsClient:
         try:
             notification.wait_for(state="visible", timeout=5000)
             return True
-        except Exception as e:
-            if "Timeout" in type(e).__name__:
-                return False
-            raise
+        except PlaywrightTimeoutError:
+            return False

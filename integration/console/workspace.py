@@ -535,6 +535,12 @@ class WorkspaceClient:
         Args:
             name: Name of the workspace to ensure is selected
         """
+        selector = self.page.locator("button.pluto-dialog__trigger").filter(
+            has=self.page.locator(".pluto-icon--workspace")
+        )
+        if name in selector.inner_text(timeout=1000):
+            return
+
         self.create(name)
         self.select(name)
 
